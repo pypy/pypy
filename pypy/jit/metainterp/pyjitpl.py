@@ -2062,7 +2062,7 @@ class MetaInterp(object):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
         return cell.get_procedure_token()
         
-    def compile_loop(self, original_boxes, live_arg_boxes, start, start_resumedescr):
+    def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
@@ -2072,13 +2072,13 @@ class MetaInterp(object):
             target_token = compile.compile_retrace(self, greenkey, start,
                                                    original_boxes[num_green_args:],
                                                    live_arg_boxes[num_green_args:],
-                                                   start_resumedescr, self.partial_trace,
+                                                   resume_at_jump_descr, self.partial_trace,
                                                    self.resumekey)
         else:
             target_token = compile.compile_loop(self, greenkey, start,
                                                 original_boxes[num_green_args:],
                                                 live_arg_boxes[num_green_args:],
-                                                start_resumedescr)
+                                                resume_at_jump_descr)
             if target_token is not None:
                 assert isinstance(target_token, TargetToken)
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
@@ -2090,7 +2090,7 @@ class MetaInterp(object):
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
-    def compile_trace(self, live_arg_boxes, start_resumedescr):
+    def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         target_jitcell_token = self.get_procedure_token(greenkey)
@@ -2102,7 +2102,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         try:
-            target_token = compile.compile_trace(self, self.resumekey, start_resumedescr)
+            target_token = compile.compile_trace(self, self.resumekey, resume_at_jump_descr)
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_token is not None: # raise if it *worked* correctly
@@ -2111,7 +2111,7 @@ class MetaInterp(object):
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
-                                bridge_arg_boxes, start_resumedescr):
+                                bridge_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         original_inputargs = self.history.inputargs
         greenkey = original_boxes[:num_green_args]
@@ -2121,7 +2121,7 @@ class MetaInterp(object):
         greenkey = original_boxes[:num_green_args]
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
         loop_token = compile.compile_new_loop(self, [], greenkey, start,
-                                              start_resumedescr, False)
+                                              resume_at_jump_descr, False)
         self.history.operations.pop()     # remove the JUMP
         if loop_token is None:
             self.history.inputargs = original_inputargs

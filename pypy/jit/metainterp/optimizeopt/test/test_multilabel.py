@@ -15,7 +15,7 @@ class BaseTestMultiLabel(BaseTest):
 
         part = TreeLoop('part')
         part.inputargs = loop.inputargs
-        part.start_resumedescr = FakeDescrWithSnapshot()
+        part.resume_at_jump_descr = FakeDescrWithSnapshot()
         token = loop.original_jitcell_token
 
         optimized = TreeLoop('optimized')

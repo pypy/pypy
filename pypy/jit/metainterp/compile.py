@@ -105,7 +105,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
-                 start_resumedescr, full_preamble_needed=True):
+                 resume_at_jump_descr, full_preamble_needed=True):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -126,7 +126,7 @@ def compile_loop(metainterp, greenkey, start,
         part = create_empty_loop(metainterp)
         part.inputargs = inputargs[:]
         h_ops = history.operations
-        part.start_resumedescr = start_resumedescr
+        part.resume_at_jump_descr = resume_at_jump_descr
         part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
                           [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                           [ResOperation(rop.JUMP, jumpargs, None, descr=jitcell_token)]
@@ -184,7 +184,7 @@ def compile_loop(metainterp, greenkey, start,
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
-                    start_resumedescr, partial_trace, resumekey):
+                    resume_at_jump_descr, partial_trace, resumekey):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -200,7 +200,7 @@ def compile_retrace(metainterp, greenkey, start,
 
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
-    part.start_resumedescr = start_resumedescr
+    part.resume_at_jump_descr = resume_at_jump_descr
     h_ops = history.operations
 
     part.operations = [partial_trace.operations[-1]] + \
@@ -750,7 +750,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
 
-def compile_trace(metainterp, resumekey, start_resumedescr=None):
+def compile_trace(metainterp, resumekey, resume_at_jump_descr=None):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -766,7 +766,7 @@ def compile_trace(metainterp, resumekey, start_resumedescr=None):
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
-    new_trace.start_resumedescr = start_resumedescr
+    new_trace.resume_at_jump_descr = resume_at_jump_descr
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):

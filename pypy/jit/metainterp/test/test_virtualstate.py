@@ -449,7 +449,7 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        bridge.start_resumedescr = FakeDescrWithSnapshot()
+        bridge.resume_at_jump_descr = FakeDescrWithSnapshot()
         optimize_trace(metainterp_sd, bridge, self.enable_opts)
 
         

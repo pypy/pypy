@@ -765,7 +765,7 @@ class TreeLoop(object):
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
-    start_resumedescr = None
+    resume_at_jump_descr = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")

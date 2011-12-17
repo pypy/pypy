@@ -128,10 +128,10 @@ class UnrollOptimizer(Optimization):
         original_jump_args = targetop.getarglist()
         jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
-        assert self.optimizer.loop.start_resumedescr
-        start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
-        assert isinstance(start_resumedescr, ResumeGuardDescr)
-        start_resumedescr.rd_snapshot = self.fix_snapshot(jump_args, start_resumedescr.rd_snapshot)
+        assert self.optimizer.loop.resume_at_jump_descr
+        resume_at_jump_descr = self.optimizer.loop.resume_at_jump_descr.clone_if_mutable()
+        assert isinstance(resume_at_jump_descr, ResumeGuardDescr)
+        resume_at_jump_descr.rd_snapshot = self.fix_snapshot(jump_args, resume_at_jump_descr.rd_snapshot)
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
@@ -156,7 +156,7 @@ class UnrollOptimizer(Optimization):
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
-        target_token.start_resumedescr = start_resumedescr
+        target_token.resume_at_jump_descr = resume_at_jump_descr
 
         exported_values = {}
         for box in inputargs:
@@ -189,7 +189,7 @@ class UnrollOptimizer(Optimization):
         self.short_boxes = exported_state.short_boxes
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
-        self.start_resumedescr = target_token.start_resumedescr
+        self.resume_at_jump_descr = target_token.resume_at_jump_descr
 
         seen = {}
         for box in self.inputargs:
@@ -345,7 +345,7 @@ class UnrollOptimizer(Optimization):
             if op.is_guard():
                 op = op.clone()
                 op.setfailargs(None)
-                descr = target_token.start_resumedescr.clone_if_mutable()
+                descr = target_token.resume_at_jump_descr.clone_if_mutable()
                 op.setdescr(descr)
                 short[i] = op
 
@@ -364,8 +364,8 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short)):
             short[i] = inliner.inline_op(short[i])
 
-        target_token.start_resumedescr = self.start_resumedescr.clone_if_mutable()            
-        inliner.inline_descr_inplace(target_token.start_resumedescr)
+        target_token.resume_at_jump_descr = self.resume_at_jump_descr.clone_if_mutable()            
+        inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
         # Forget the values to allow them to be freed
         for box in short[0].getarglist():
@@ -403,7 +403,7 @@ class UnrollOptimizer(Optimization):
             if not isinstance(a, Const) and a not in self.short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), emit, guards_needed)
         if op.is_guard():
-            descr = self.start_resumedescr.clone_if_mutable()
+            descr = self.resume_at_jump_descr.clone_if_mutable()
             op.setdescr(descr)
 
         if guards_needed and self.short_boxes.has_producer(op.result):
@@ -502,7 +502,7 @@ class UnrollOptimizer(Optimization):
 
                 for guard in extra_guards:
                     if guard.is_guard():
-                        descr = target.start_resumedescr.clone_if_mutable()
+                        descr = target.resume_at_jump_descr.clone_if_mutable()
                         inliner.inline_descr_inplace(descr)
                         guard.setdescr(descr)
                     self.optimizer.send_extra_operation(guard)
