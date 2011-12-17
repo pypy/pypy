@@ -4,7 +4,6 @@ This file is an almost exact copy of CPython3.3 Lib/bz2.py.
 """
 
 import io
-import threading
 
 from bz2 import BZ2Compressor, BZ2Decompressor
 
@@ -46,6 +45,7 @@ class BZ2File(io.BufferedIOBase):
         """
         # This lock must be recursive, so that BufferedIOBase's
         # readline(), readlines() and writelines() don't deadlock.
+        import threading
         self._lock = threading.RLock()
         self._fp = None
         self._closefp = False
