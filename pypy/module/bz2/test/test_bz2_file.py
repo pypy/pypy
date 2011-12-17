@@ -3,6 +3,7 @@ from __future__ import with_statement
 import py
 from pypy.conftest import gettestobjspace
 from pypy.module.bz2.test.support import CheckAllocation
+from pypy.interpreter.gateway import interp2app
 import os
 import random
 
@@ -24,7 +25,7 @@ def setup_module(mod):
         data = DATA[:100]
         f.write(data, 'wb')
     
-    def decompress(self, data):
+    def decompress(data):
         import popen2
         import bz2
         pop = popen2.Popen3("bunzip2", capturestderr=1)
@@ -51,14 +52,16 @@ class AppTestBZ2File: #(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
-        cls.w_TEXT = space.wrap(TEXT)
-        cls.w_DATA = space.wrap(DATA)
-        cls.w_DATA_CRLF = space.wrap(DATA_CRLF)
+        cls.w_TEXT = space.wrapbytes(TEXT)
+        cls.w_DATA = space.wrapbytes(DATA)
+        cls.w_DATA_CRLF = space.wrapbytes(DATA_CRLF)
         cls.w_temppath = space.wrap(str(py.test.ensuretemp("bz2").join("foo")))
         cls.w_create_temp_file = space.wrap(create_temp_file)
-        cls.w_decompress = space.wrap(decompress)
+        def decompress_w(space, w_data):
+            return space.wrapbytes(decompress(space.bytes_w(w_data)))
+        cls.w_decompress = space.wrap(interp2app(decompress_w))
         cls.w_create_broken_temp_file = space.wrap(create_broken_temp_file)
-        cls.w_random_data = space.wrap(RANDOM_DATA)
+        cls.w_random_data = space.wrapbytes(RANDOM_DATA)
         
     def test_attributes(self):
         from bz2 import BZ2File
@@ -224,13 +227,13 @@ class AppTestBZ2File: #(CheckAllocation):
 
     def test_readline(self):
         from bz2 import BZ2File
-        from cStringIO import StringIO
+        from io import BytesIO
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
         # XXX
         #raises(TypeError, bz2f.readline, None)
-        sio = StringIO(self.TEXT)
+        sio = BytesIO(self.TEXT)
         for line in sio.readlines():
             line_read = bz2f.readline()
             assert line_read == line
@@ -317,33 +320,33 @@ class AppTestBZ2File: #(CheckAllocation):
 
     def test_readlines(self):
         from bz2 import BZ2File
-        from cStringIO import StringIO
+        from io import BytesIO
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
         # XXX
         #raises(TypeError, bz2f.readlines, None)
-        sio = StringIO(self.TEXT)
+        sio = BytesIO(self.TEXT)
         assert bz2f.readlines() == sio.readlines()
         bz2f.close()
 
     def test_iterator(self):
         from bz2 import BZ2File
-        from cStringIO import StringIO
+        from io import BytesIO
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
-        sio = StringIO(self.TEXT)
+        sio = BytesIO(self.TEXT)
         assert list(iter(bz2f)) == sio.readlines()
         bz2f.close()
         
     def test_xreadlines(self):
         from bz2 import BZ2File
-        from cStringIO import StringIO
+        from io import BytesIO
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
-        sio = StringIO(self.TEXT)
+        sio = BytesIO(self.TEXT)
         assert list(bz2f.xreadlines()) == sio.readlines()
         bz2f.close()
 
@@ -351,7 +354,7 @@ class AppTestBZ2File: #(CheckAllocation):
         # readlines()/xreadlines() for files containing no newline
         from bz2 import BZ2File
         
-        DATA = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
+        DATA = b'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
         f = open(self.temppath, "wb")
         f.write(DATA)
         f.close()
@@ -398,11 +401,11 @@ class AppTestBZ2File: #(CheckAllocation):
 
     def test_writelines(self):
         from bz2 import BZ2File
-        from cStringIO import StringIO
+        from io import BytesIO
 
         bz2f = BZ2File(self.temppath, 'w')
         raises(TypeError, bz2f.writelines)
-        sio = StringIO(self.TEXT)
+        sio = BytesIO(self.TEXT)
         bz2f.writelines(sio.readlines())
         bz2f.close()
         f = open(self.temppath, "rb")
@@ -413,8 +416,8 @@ class AppTestBZ2File: #(CheckAllocation):
         from bz2 import BZ2File
 
         bz2f = BZ2File(self.temppath, 'r')
-        raises(IOError, bz2f.write, "abc")
-        raises(IOError, bz2f.writelines, ["abc"])
+        raises(IOError, bz2f.write, b"abc")
+        raises(IOError, bz2f.writelines, [b"abc"])
         bz2f.close()
 
     def test_write_bigger_file(self):
@@ -432,11 +435,11 @@ class AppTestBZ2File: #(CheckAllocation):
 
         with BZ2File(self.temppath, 'w') as f:
             assert not f.closed
-            f.write("abc")
+            f.write(b"abc")
         assert f.closed
         with BZ2File(self.temppath, 'r') as f:
             data = f.read()
-            assert data == "abc"
+            assert data == b"abc"
         assert f.closed
 
         

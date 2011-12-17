@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.streamio import Stream
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -410,7 +410,7 @@ class ReadBZ2Filter(Stream):
         if self.decompressor.running:
             raise OperationError(self.space.w_EOFError,
                                  self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
-        result = self.space.str_w(w_result)
+        result = self.space.bytes_w(w_result)
         self.readlength += len(result)
         if len(self.buffer) != self.pos:
             pos = self.pos
@@ -438,7 +438,7 @@ class ReadBZ2Filter(Stream):
                     self.finished = True
                     return ""
                 raise
-            self.buffer = self.space.str_w(w_read)
+            self.buffer = self.space.bytes_w(w_read)
             self.pos = 0
         if len(self.buffer) - self.pos >= n:
             pos = self.pos
@@ -476,11 +476,11 @@ class WriteBZ2Filter(Stream):
         self.writtenlength = 0
 
     def close(self):
-        self.stream.write(self.space.str_w(self.compressor.flush()))
+        self.stream.write(self.space.bytes_w(self.compressor.flush()))
         self.stream.close()
 
     def write(self, data):
-        self.stream.write(self.space.str_w(self.compressor.compress(data)))
+        self.stream.write(self.space.bytes_w(self.compressor.compress(data)))
         self.writtenlength += len(data)
 
     def tell(self):
@@ -548,7 +548,7 @@ class W_BZ2Compressor(Wrappable):
         datasize = len(data)
 
         if datasize == 0:
-            return self.space.wrap("")
+            return self.space.wrapbytes("")
 
         if not self.running:
             raise OperationError(self.space.w_ValueError,
@@ -576,7 +576,7 @@ class W_BZ2Compressor(Wrappable):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrap(res)
+                return self.space.wrapbytes(res)
 
     def flush(self):
         if not self.running:
@@ -596,7 +596,7 @@ class W_BZ2Compressor(Wrappable):
                     out.prepare_next_chunk()
 
             res = out.make_result_string()
-            return self.space.wrap(res)
+            return self.space.wrapbytes(res)
 
 W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
     __doc__ = W_BZ2Compressor.__doc__,
@@ -650,7 +650,7 @@ class W_BZ2Decompressor(Wrappable):
         unused_data attribute."""
 
         if data == '':
-            return self.space.wrap('')
+            return self.space.wrapbytes('')
         if not self.running:
             raise OperationError(self.space.w_EOFError,
                 self.space.wrap("end of stream was already found"))
@@ -684,13 +684,13 @@ class W_BZ2Decompressor(Wrappable):
                         out.prepare_next_chunk()
 
                 res = out.make_result_string()
-                return self.space.wrap(res)
+                return self.space.wrapbytes(res)
 
 
 W_BZ2Decompressor.typedef = TypeDef("BZ2Decompressor",
     __doc__ = W_BZ2Decompressor.__doc__,
     __new__ = interp2app(descr_decompressor__new__),
-    unused_data = interp_attrproperty("unused_data", W_BZ2Decompressor),
+    unused_data = interp_attrproperty_bytes("unused_data", W_BZ2Decompressor),
     decompress = interp2app(W_BZ2Decompressor.decompress),
 )
 
@@ -738,7 +738,7 @@ def compress(space, data, compresslevel=9):
 
                 res = out.make_result_string()
                 BZ2_bzCompressEnd(bzs)
-                return space.wrap(res)
+                return space.wrapbytes(res)
 
 @unwrap_spec(data='bufferstr')
 def decompress(space, data):
@@ -749,7 +749,7 @@ def decompress(space, data):
 
     in_bufsize = len(data)
     if in_bufsize == 0:
-        return space.wrap("")
+        return space.wrapbytes("")
 
     with lltype.scoped_alloc(bz_stream.TO, zero=True) as bzs:
         with lltype.scoped_alloc(rffi.CCHARP.TO, in_bufsize) as in_buf:
@@ -780,4 +780,4 @@ def decompress(space, data):
 
                 res = out.make_result_string()
                 BZ2_bzDecompressEnd(bzs)
-                return space.wrap(res)
+                return space.wrapbytes(res)
