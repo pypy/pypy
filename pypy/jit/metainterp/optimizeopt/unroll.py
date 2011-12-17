@@ -178,8 +178,6 @@ class UnrollOptimizer(Optimization):
         self.inputargs = targetop.getarglist()
         
         target_token = targetop.getdescr()
-        if not target_token:
-            return
         assert isinstance(target_token, TargetToken)
         exported_state = target_token.exported_state
         if not exported_state:
