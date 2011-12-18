@@ -366,7 +366,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         sign = descr.fielddescr.is_field_signed()
         fullofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
@@ -417,7 +417,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         ofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
