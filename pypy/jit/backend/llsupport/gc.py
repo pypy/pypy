@@ -602,6 +602,9 @@ class WriteBarrierDescr(AbstractDescr):
         funcaddr = llmemory.cast_ptr_to_adr(funcptr)
         return cpu.cast_adr_to_int(funcaddr)    # this may return 0
 
+    def has_write_barrier_from_array(self, cpu):
+        return self.get_write_barrier_from_array_fn(cpu) != 0
+
 
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py

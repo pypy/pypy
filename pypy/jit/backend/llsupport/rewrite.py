@@ -46,8 +46,11 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            elif op.can_malloc() or op.getopnum() == rop.LABEL:
+            elif op.can_malloc():
                 self.emitting_an_operation_that_can_collect()
+            elif op.getopnum() == rop.LABEL:
+                self.emitting_an_operation_that_can_collect()
+                self.known_lengths.clear()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -98,15 +101,16 @@ class GcRewriterAssembler(object):
     def handle_new_array(self, arraydescr, op):
         v_length = op.getarg(0)
         total_size = -1
-        if arraydescr.itemsize == 0:
-            total_size = arraydescr.basesize
-        elif isinstance(v_length, ConstInt):
+        if isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
+            self.known_lengths[op.result] = num_elem
             try:
                 var_size = ovfcheck(arraydescr.itemsize * num_elem)
                 total_size = ovfcheck(arraydescr.basesize + var_size)
             except OverflowError:
                 pass    # total_size is still -1
+        elif arraydescr.itemsize == 0:
+            total_size = arraydescr.basesize
         if total_size >= 0:
             self.gen_malloc_nursery(total_size, op.result)
             self.gen_initialize_tid(op.result, arraydescr.tid)
@@ -282,7 +286,7 @@ class GcRewriterAssembler(object):
 
     def gen_write_barrier_array(self, v_base, v_index, v_value):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
-        if write_barrier_descr.get_write_barrier_from_array_fn(self.cpu) != 0:
+        if write_barrier_descr.has_write_barrier_from_array(self.cpu):
             # If we know statically the length of 'v', and it is not too
             # big, then produce a regular write_barrier.  If it's unknown or
             # too big, produce instead a write_barrier_from_array.
