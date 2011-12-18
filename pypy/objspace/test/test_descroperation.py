@@ -412,7 +412,6 @@ class AppTest_Descroperation:
         assert l == [B, A, B, A]
 
     def test_rich_comparison(self):
-        # Old-style
         class A:
             def __init__(self, a):
                 self.a = a
@@ -421,32 +420,11 @@ class AppTest_Descroperation:
         class B:
             def __init__(self, a):
                 self.a = a
-        # New-style
-        class C(object):
-            def __init__(self, a):
-                self.a = a
-            def __eq__(self, other):
-                return self.a == other.a
-        class D(object):
-            def __init__(self, a):
-                self.a = a
 
         assert A(1) == B(1)
         assert B(1) == A(1)
-        assert A(1) == C(1)
-        assert C(1) == A(1)
-        assert A(1) == D(1)
-        assert D(1) == A(1)
-        assert C(1) == D(1)
-        assert D(1) == C(1)
         assert not(A(1) == B(2))
         assert not(B(1) == A(2))
-        assert not(A(1) == C(2))
-        assert not(C(1) == A(2))
-        assert not(A(1) == D(2))
-        assert not(D(1) == A(2))
-        assert not(C(1) == D(2))
-        assert not(D(1) == C(2))
 
     def test_partial_ordering(self):
         class A(object):
@@ -527,7 +505,6 @@ class AppTest_Descroperation:
         assert (D() >= A()) == 'D:A.ge'
 
     def test_addition(self):
-        # Old-style
         class A:
             def __init__(self, a):
                 self.a = a
@@ -537,25 +514,9 @@ class AppTest_Descroperation:
         class B:
             def __init__(self, a):
                 self.a = a
-        # New-style
-        class C(object):
-            def __init__(self, a):
-                self.a = a
-            def __add__(self, other):
-                return self.a + other.a
-            __radd__ = __add__
-        class D(object):
-            def __init__(self, a):
-                self.a = a
 
         assert A(1) + B(2) == 3
         assert B(1) + A(2) == 3
-        assert A(1) + C(2) == 3
-        assert C(1) + A(2) == 3
-        assert A(1) + D(2) == 3
-        assert D(1) + A(2) == 3
-        assert C(1) + D(2) == 3
-        assert D(1) + C(2) == 3
 
     def test_mod_failure(self):
         try:
