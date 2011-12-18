@@ -292,12 +292,12 @@ def unicode_from_object(space, w_obj):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return w_res
 
-def descr_new_(space, w_unicodetype, w_string=u'', w_encoding=None, w_errors=None):
+def descr_new_(space, w_unicodetype, w_object=u'', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
     #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     from pypy.objspace.std.ropeunicodeobject import W_RopeUnicodeObject
-    w_obj = w_string
+    w_obj = w_object
 
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     # convoluted logic for the case when unicode subclass has a __unicode__

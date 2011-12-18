@@ -283,6 +283,7 @@ class AppTestUnicodeString:
         assert str() == ''
         assert str(None) == 'None'
         assert str(123) == '123'
+        assert str(object=123) == '123'
         assert str([2, 3]) == '[2, 3]'
         class U(str):
             pass
