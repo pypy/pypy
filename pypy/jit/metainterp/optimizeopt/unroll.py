@@ -54,6 +54,7 @@ class UnrollOptimizer(Optimization):
     
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
+        self.boxes_created_this_iteration = None
 
     def fix_snapshot(self, jump_args, snapshot):
         if snapshot is None:
@@ -129,6 +130,12 @@ class UnrollOptimizer(Optimization):
                     return
 
         # Found nothing to jump to, emit a label instead
+        
+        if self.short:
+            # Construct our short preamble
+            assert start_label
+            self.close_bridge(start_label)
+
         self.optimizer.flush()
         KillHugeIntBounds(self.optimizer).apply()
 
@@ -172,7 +179,13 @@ class UnrollOptimizer(Optimization):
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
 
-        short_boxes = ShortBoxes(self.optimizer, inputargs)
+
+        if self.boxes_created_this_iteration is not None:
+            for box in self.inputargs:
+                self.boxes_created_this_iteration[box] = True
+
+        short_boxes = ShortBoxes(self.optimizer, inputargs,
+                                 self.boxes_created_this_iteration)
 
         self.optimizer.clear_newoperations()
         for i in range(len(original_jump_args)):

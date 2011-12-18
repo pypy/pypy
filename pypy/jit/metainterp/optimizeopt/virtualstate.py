@@ -559,12 +559,13 @@ class BoxNotProducable(Exception):
     pass
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes):
+    def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
         self.rename = {}
         self.optimizer = optimizer
+        self.availible_boxes = availible_boxes
 
         if surviving_boxes is not None:
             for box in surviving_boxes:
@@ -634,6 +635,8 @@ class ShortBoxes(object):
         if isinstance(box, Const):
             return
         if box in self.short_boxes_in_production:
+            raise BoxNotProducable
+        if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[box] = True
         
