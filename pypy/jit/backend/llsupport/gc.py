@@ -17,8 +17,7 @@ from pypy.jit.backend.llsupport.symbolic import WORD
 from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import GcCache, get_field_descr
 from pypy.jit.backend.llsupport.descr import get_array_descr
-##from pypy.jit.backend.llsupport.descr import GcPtrFieldDescr
-##from pypy.jit.backend.llsupport.descr import get_call_descr
+from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from pypy.rpython.memory.gctransform import asmgcroot
 
@@ -49,9 +48,11 @@ class GcLLDescription(GcCache):
         ll_func = llhelper(FUNCPTR, func)
         c_ll_func = ConstInt(
             heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func)))
+        descr = get_call_descr(self, ARGS, RESULT)
         setattr(self, '%s'      % funcname, func)
         setattr(self, '%s_fn'   % funcname, ll_func)
         setattr(self, 'c_%s_fn' % funcname, c_ll_func)
+        setattr(self, '%s_descr' % funcname, descr)
         self._generated_functions.append(funcname)
 
     def _freeze_(self):
