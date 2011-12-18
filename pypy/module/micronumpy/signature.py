@@ -140,9 +140,12 @@ class ArraySignature(ConcreteSignature):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         assert isinstance(arr, ConcreteArray)
         if self.iter_no >= len(iterlist):
-            iterlist.append(ArrayIterator(arr.size))
+            iterlist.append(self.allocate_iter(arr))
         if self.array_no >= len(arraylist):
             arraylist.append(arr.storage)
+
+    def allocate_iter(self, arr):
+        return ArrayIterator(arr.size)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
@@ -203,13 +206,8 @@ class ViewSignature(ArraySignature):
         allnumbers.append(no)
         self.iter_no = no
 
-    def _create_iter(self, iterlist, arraylist, arr):
-        from pypy.module.micronumpy.interp_numarray import ConcreteArray
-        assert isinstance(arr, ConcreteArray)
-        if self.iter_no >= len(iterlist):
-            iterlist.append(ViewIterator(arr))
-        if self.array_no >= len(arraylist):
-            arraylist.append(arr.storage)
+    def allocate_iter(self, arr):
+        return ViewIterator(arr)
 
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
