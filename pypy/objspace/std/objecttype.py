@@ -136,8 +136,8 @@ def descr___subclasshook__(space, __args__):
 
 app = gateway.applevel(r'''
 def reduce_1(obj, proto):
-    import copy_reg
-    return copy_reg._reduce_ex(obj, proto)
+    import copyreg
+    return copyreg._reduce_ex(obj, proto)
 
 def reduce_2(obj):
     cls = obj.__class__
@@ -180,8 +180,8 @@ def reduce_2(obj):
     else:
         dictitems = None
 
-    import copy_reg
-    newobj = copy_reg.__newobj__
+    import copyreg
+    newobj = copyreg.__newobj__
 
     args2 = (cls,) + args
     return newobj, args2, state, listitems, dictitems
@@ -195,10 +195,10 @@ def slotnames(cls):
     except KeyError:
         pass
 
-    import copy_reg
-    slotnames = copy_reg._slotnames(cls)
+    import copyreg
+    slotnames = copyreg._slotnames(cls)
     if not isinstance(slotnames, list) and slotnames is not None:
-        raise TypeError("copy_reg._slotnames didn't return a list or None")
+        raise TypeError("copyreg._slotnames didn't return a list or None")
     return slotnames
 ''', filename=__file__)
 

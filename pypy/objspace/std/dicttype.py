@@ -137,7 +137,7 @@ def descr_dictiter__reduce__(w_self, space):
     This is of course not the standard way.
 
     XXX to do: remove this __reduce__ method and do
-    a registration with copy_reg, instead.
+    a registration with copyreg, instead.
     """
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)

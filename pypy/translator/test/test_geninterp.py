@@ -37,8 +37,8 @@ class TestGenRpyTestCase:
 
     snippet_ad = """if 1:
         def import_func():
-            import copy_reg
-            return copy_reg._reconstructor.func_code.co_name
+            import copyreg
+            return copyreg._reconstructor.func_code.co_name
 
         def import_sys_func():
             import sys

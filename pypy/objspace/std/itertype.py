@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 def descr_seqiter__reduce__(w_self, space):
     """
     XXX to do: remove this __reduce__ method and do
-    a registration with copy_reg, instead.
+    a registration with copyreg, instead.
     """
 
     # cpython does not support pickling iterators but stackless python do
@@ -28,7 +28,7 @@ def descr_seqiter__reduce__(w_self, space):
 def descr_reverseseqiter__reduce__(w_self, space):
     """
     XXX to do: remove this __reduce__ method and do
-    a registration with copy_reg, instead.
+    a registration with copyreg, instead.
     """
     from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
     assert isinstance(w_self, W_ReverseSeqIterObject)
