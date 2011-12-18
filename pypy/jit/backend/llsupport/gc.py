@@ -111,6 +111,7 @@ class GcLLDescr_boehm(GcLLDescription):
     fielddescr_tid        = None
     str_type_id           = 0
     unicode_type_id       = 0
+    get_malloc_slowpath_addr = None
 
     @classmethod
     def configure_boehm_once(cls):
@@ -836,6 +837,9 @@ class GcLLDescr_framework(GcLLDescription):
 
     def freeing_block(self, start, stop):
         self.gcrootmap.freeing_block(start, stop)
+
+    def get_malloc_slowpath_addr(self):
+        return self.c_malloc_nursery_fn.value
 
 # ____________________________________________________________
 

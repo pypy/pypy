@@ -91,6 +91,9 @@ class FieldDescr(AbstractDescr):
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
 
+    def is_float_field(self):
+        return self.flag == FLAG_FLOAT
+
     def is_field_signed(self):
         return self.flag == FLAG_SIGNED
 
@@ -163,8 +166,14 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
 
+    def is_array_of_floats(self):
+        return self.flag == FLAG_FLOAT
+
     def is_item_signed(self):
         return self.flag == FLAG_SIGNED
+
+    def is_array_of_structs(self):
+        return self.flag == FLAG_STRUCT
 
     def repr_of_descr(self):
         return '<Array%s %s>' % (self.flag, self.itemsize)
@@ -207,6 +216,12 @@ class InteriorFieldDescr(AbstractDescr):
 
     def sort_key(self):
         return self.fielddescr.sort_key()
+
+    def is_pointer_field(self):
+        return self.fielddescr.is_pointer_field()
+
+    def is_float_field(self):
+        return self.fielddescr.is_float_field()
 
     def repr_of_descr(self):
         return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()

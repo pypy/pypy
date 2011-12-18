@@ -46,7 +46,7 @@ def do_call(cpu, metainterp, argboxes, descr):
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
-    rettype = descr.get_return_type()
+    rettype = descr.get_result_type()
     if rettype == INT or rettype == 'S':       # *S*ingle float
         try:
             result = cpu.bh_call_i(func, descr, args_i, args_r, args_f)

@@ -70,10 +70,6 @@ class Assembler386(object):
         self.cpu = cpu
         self.verbose = False
         self.rtyper = cpu.rtyper
-        self.malloc_func_addr = 0
-        self.malloc_array_func_addr = 0
-        self.malloc_str_func_addr = 0
-        self.malloc_unicode_func_addr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
@@ -108,20 +104,6 @@ class Assembler386(object):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
-        ll_new = gc_ll_descr.get_funcptr_for_new()
-        self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
-            self.malloc_array_func_addr = rffi.cast(lltype.Signed,
-                                                    ll_new_array)
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
-            self.malloc_str_func_addr = rffi.cast(lltype.Signed,
-                                                  ll_new_str)
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
-            self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
-                                                      ll_new_unicode)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(support.memcpy_fn)
         self._build_failure_recovery(False)
         self._build_failure_recovery(True)
@@ -1357,46 +1339,10 @@ class Assembler386(object):
         self.mc.SHR_ri(resloc.value, 7)
         self.mc.AND_ri(resloc.value, 1)
 
-    def genop_new_with_vtable(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        loc_vtable = arglocs[-1]
-        assert isinstance(loc_vtable, ImmedLoc)
-        arglocs = arglocs[:-1]
-        self.call(self.malloc_func_addr, arglocs, eax)
-        self.propagate_memoryerror_if_eax_is_null()
-        self.set_vtable(eax, loc_vtable)
+    # ----------
 
-    def set_vtable(self, loc, loc_vtable):
-        if self.cpu.vtable_offset is not None:
-            assert isinstance(loc, RegLoc)
-            assert isinstance(loc_vtable, ImmedLoc)
-            self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
-
-    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
-        assert isinstance(loc, RegLoc)
-        assert isinstance(loc_num_elem, ImmedLoc)
-        self.mc.MOV(mem(loc, ofs_length), loc_num_elem)
-
-    # XXX genop_new is abused for all varsized mallocs with Boehm, for now
-    # (instead of genop_new_array, genop_newstr, genop_newunicode)
-    def genop_new(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_func_addr, arglocs, eax)
-        self.propagate_memoryerror_if_eax_is_null()
-
-    def genop_new_array(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_array_func_addr, arglocs, eax)
-        self.propagate_memoryerror_if_eax_is_null()
-
-    def genop_newstr(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_str_func_addr, arglocs, eax)
-        self.propagate_memoryerror_if_eax_is_null()
-
-    def genop_newunicode(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_unicode_func_addr, arglocs, eax)
+    def genop_call_malloc_gc(self, op, arglocs, result_loc):
+        self.genop_call(op, arglocs, result_loc)
         self.propagate_memoryerror_if_eax_is_null()
 
     def propagate_memoryerror_if_eax_is_null(self):
@@ -2065,6 +2011,8 @@ class Assembler386(object):
         self._genop_call(op, arglocs, resloc, force_index)
 
     def _genop_call(self, op, arglocs, resloc, force_index):
+        from pypy.jit.backend.llsupport.descr import CallDescr
+
         sizeloc = arglocs[0]
         assert isinstance(sizeloc, ImmedLoc)
         size = sizeloc.value
@@ -2079,13 +2027,16 @@ class Assembler386(object):
         else:
             tmp = eax
 
+        descr = op.getdescr()
+        assert isinstance(descr, CallDescr)
+
         self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
-                        argtypes=op.getdescr().get_arg_types(),
-                        callconv=op.getdescr().get_call_conv())
+                        argtypes=descr.get_arg_types(),
+                        callconv=descr.get_call_conv())
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.type == FLOAT:
             # a float or a long long return
-            if op.getdescr().get_return_type() == 'L':
+            if descr.get_result_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
                 self.mc.MOV_br(resloc.value + 4, edx.value)
                 # XXX should ideally not move the result on the stack,
@@ -2094,7 +2045,7 @@ class Assembler386(object):
                 #     can just be always a stack location
             else:
                 self.mc.FSTPL_b(resloc.value)   # float return
-        elif op.getdescr().get_return_type() == 'S':
+        elif descr.get_result_type() == 'S':
             # singlefloat return
             assert resloc is eax
             if IS_X86_32:
