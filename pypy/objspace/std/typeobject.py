@@ -872,19 +872,14 @@ def isinstance__Type_ANY(space, w_type, w_inst):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.isinstance_w(w_mod, space.w_str):
+    if not space.isinstance_w(w_mod, space.w_unicode):
         mod = None
     else:
         mod = space.str_w(w_mod)
-    if (not w_obj.is_heaptype() or
-        (mod == '__builtin__' or mod == 'exceptions')):
-        kind = 'type'
-    else:
-        kind = 'class'
     if mod is not None and mod !='builtins':
-        return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
+        return space.wrap("<class '%s.%s'>" % (mod, w_obj.name))
     else:
-        return space.wrap("<%s '%s'>" % (kind, w_obj.name))
+        return space.wrap("<class '%s'>" % (w_obj.name))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)
