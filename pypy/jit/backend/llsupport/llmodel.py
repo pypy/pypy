@@ -604,25 +604,26 @@ class AbstractLLCPU(AbstractCPU):
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, BaseIntCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_i(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, GcPtrCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.REF)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_r(func, args_i, args_r, args_f)
 
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, FloatCallDescr)  # or LongLongCallDescr
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_f(func, args_i, args_r, args_f)
 
     def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, VoidCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        # the 'i' return value is ignored (and nonsense anyway)
+        calldescr.call_stub_i(func, args_i, args_r, args_f)

@@ -5,6 +5,7 @@ from pypy.jit.backend.llsupport import symbolic, support
 from pypy.jit.metainterp.history import AbstractDescr, getkind
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter.longlong import is_longlong
 
 
 class GcCache(object):
@@ -24,14 +25,6 @@ class GcCache(object):
     def init_array_descr(self, ARRAY, arraydescr):
         assert isinstance(ARRAY, lltype.GcArray)
 
-
-if lltype.SignedLongLong is lltype.Signed:
-    def is_longlong(TYPE):
-        return False
-else:
-    assert rffi.sizeof(lltype.SignedLongLong) == rffi.sizeof(lltype.Float)
-    def is_longlong(TYPE):
-        return TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong)
 
 # ____________________________________________________________
 # SizeDescrs
@@ -70,6 +63,7 @@ def get_size_descr(gccache, STRUCT):
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
+
 
 # ____________________________________________________________
 # FieldDescrs
@@ -141,9 +135,9 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
         cache[ARRAY_OR_STRUCT] = result
         return result
 
+
 # ____________________________________________________________
 # ArrayDescrs
-
 
 class ArrayDescr(AbstractDescr):
     tid = 0
@@ -181,6 +175,7 @@ def get_array_descr(gccache, ARRAY):
         cache[ARRAY] = arraydescr
         return arraydescr
 
+
 # ____________________________________________________________
 # InteriorFieldDescr
 
@@ -210,17 +205,36 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name):
         cache[(ARRAY, name)] = descr
         return descr
 
+
 # ____________________________________________________________
 # CallDescrs
 
-class BaseCallDescr(AbstractDescr):
-    _clsname = ''
-    loop_token = None
+class CallDescr(AbstractDescr):
     arg_classes = ''     # <-- annotation hack
+    result_type = '\x00'
+    result_flag = '\x00'
     ffi_flags = 1
+    call_stub_i = staticmethod(lambda func, args_i, args_r, args_f:
+                               0)
+    call_stub_r = staticmethod(lambda func, args_i, args_r, args_f:
+                               lltype.nullptr(llmemory.GCREF.TO))
+    call_stub_f = staticmethod(lambda func,args_i,args_r,args_f:
+                               longlong.ZEROF)
 
-    def __init__(self, arg_classes, extrainfo=None, ffi_flags=1):
-        self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
+    def __init__(self, arg_classes, result_type, result_flag, result_size,
+                 extrainfo=None, ffi_flags=1):
+        """
+            'arg_classes' is a string of characters, one per argument:
+                'i', 'r', 'f', 'L', 'S'
+
+            'result_type' is one character from the same list or 'v'
+
+            'result_flag' is a FLAG_xxx value about the result
+        """
+        self.arg_classes = arg_classes
+        self.result_type = result_type
+        self.result_flag = result_flag
+        self.result_size = result_size
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
@@ -229,7 +243,7 @@ class BaseCallDescr(AbstractDescr):
         # it is just ignored anyway.
 
     def __repr__(self):
-        res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
+        res = 'CallDescr(%s)' % (self.arg_classes,)
         extraeffect = getattr(self.extrainfo, 'extraeffect', None)
         if extraeffect is not None:
             res += ' EF=%r' % extraeffect
@@ -257,14 +271,14 @@ class BaseCallDescr(AbstractDescr):
     def get_arg_types(self):
         return self.arg_classes
 
-    def get_return_type(self):
-        return self._return_type
+    def get_result_type(self):
+        return self.result_type
 
-    def get_result_size(self, translate_support_code):
-        raise NotImplementedError
+    def get_result_size(self):
+        return self.result_size
 
     def is_result_signed(self):
-        return False    # unless overridden
+        return self.result_flag == FLAG_SIGNED
 
     def create_call_stub(self, rtyper, RESULT):
         from pypy.rlib.clibffi import FFI_DEFAULT_ABI
@@ -302,18 +316,25 @@ class BaseCallDescr(AbstractDescr):
         seen = {'i': 0, 'r': 0, 'f': 0}
         args = ", ".join([process(c) for c in self.arg_classes])
 
-        if self.get_return_type() == history.INT:
+        result_type = self.get_result_type()
+        if result_type == history.INT:
             result = 'rffi.cast(lltype.Signed, res)'
-        elif self.get_return_type() == history.REF:
+            category = 'i'
+        elif result_type == history.REF:
             result = 'lltype.cast_opaque_ptr(llmemory.GCREF, res)'
-        elif self.get_return_type() == history.FLOAT:
+            category = 'r'
+        elif result_type == history.FLOAT:
             result = 'longlong.getfloatstorage(res)'
-        elif self.get_return_type() == 'L':
+            category = 'f'
+        elif result_type == 'L':
             result = 'rffi.cast(lltype.SignedLongLong, res)'
-        elif self.get_return_type() == history.VOID:
-            result = 'None'
-        elif self.get_return_type() == 'S':
+            category = 'f'
+        elif result_type == history.VOID:
+            result = '0'
+            category = 'i'
+        elif result_type == 'S':
             result = 'longlong.singlefloat2int(res)'
+            category = 'i'
         else:
             assert 0
         source = py.code.Source("""
@@ -327,10 +348,13 @@ class BaseCallDescr(AbstractDescr):
         d = globals().copy()
         d.update(locals())
         exec source.compile() in d
-        self.call_stub = d['call_stub']
+        call_stub = d['call_stub']
+        # store the function into one of three attributes, to preserve
+        # type-correctness of the return value
+        setattr(self, 'call_stub_%s' % category, call_stub)
 
     def verify_types(self, args_i, args_r, args_f, return_type):
-        assert self._return_type in return_type
+        assert self.result_type in return_type
         assert (self.arg_classes.count('i') +
                 self.arg_classes.count('S')) == len(args_i or ())
         assert self.arg_classes.count('r') == len(args_r or ())
@@ -338,151 +362,42 @@ class BaseCallDescr(AbstractDescr):
                 self.arg_classes.count('L')) == len(args_f or ())
 
     def repr_of_descr(self):
-        return '<%s>' % self._clsname
+        return '<CallDescr(%s,%s)>' % (self.arg_classes, self.result_type)
 
 
-class BaseIntCallDescr(BaseCallDescr):
-    # Calls having a return kind of 'int' (including non-gc pointers).
-    _return_type = history.INT
-    call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0)
-
-#...
-
-class DynamicIntCallDescr(BaseIntCallDescr):
-    """
-    calldescr that works for every integer type, by explicitly passing it the
-    size of the result. Used only by get_call_descr_dynamic
-    """
-    _clsname = 'DynamicIntCallDescr'
-
-    def __init__(self, arg_classes, result_size, result_sign, extrainfo, ffi_flags):
-        BaseIntCallDescr.__init__(self, arg_classes, extrainfo, ffi_flags)
-        assert isinstance(result_sign, bool)
-        self._result_size = chr(result_size)
-        self._result_sign = result_sign
-
-    def get_result_size(self, translate_support_code):
-        return ord(self._result_size)
-
-    def is_result_signed(self):
-        return self._result_sign
-
-
-class NonGcPtrCallDescr(BaseIntCallDescr):
-    _clsname = 'NonGcPtrCallDescr'
-    def get_result_size(self, translate_support_code):
-        return symbolic.get_size_of_ptr(translate_support_code)
-
-class GcPtrCallDescr(BaseCallDescr):
-    _clsname = 'GcPtrCallDescr'
-    _return_type = history.REF
-    call_stub = staticmethod(lambda func, args_i, args_r, args_f:
-                             lltype.nullptr(llmemory.GCREF.TO))
-    def get_result_size(self, translate_support_code):
-        return symbolic.get_size_of_ptr(translate_support_code)
-
-class FloatCallDescr(BaseCallDescr):
-    _clsname = 'FloatCallDescr'
-    _return_type = history.FLOAT
-    call_stub = staticmethod(lambda func,args_i,args_r,args_f: longlong.ZEROF)
-    def get_result_size(self, translate_support_code):
-        return symbolic.get_size(lltype.Float, translate_support_code)
-
-class LongLongCallDescr(FloatCallDescr):
-    _clsname = 'LongLongCallDescr'
-    _return_type = 'L'
-
-class VoidCallDescr(BaseCallDescr):
-    _clsname = 'VoidCallDescr'
-    _return_type = history.VOID
-    call_stub = staticmethod(lambda func, args_i, args_r, args_f: None)
-    def get_result_size(self, translate_support_code):
-        return 0
-
-_SingleFloatCallDescr = None   # built lazily
-
-def getCallDescrClass(RESULT):
-    if RESULT is lltype.Void:
-        return VoidCallDescr
-    if RESULT is lltype.Float:
-        return FloatCallDescr
-    if RESULT is lltype.SingleFloat:
-        global _SingleFloatCallDescr
-        if _SingleFloatCallDescr is None:
-            assert rffi.sizeof(rffi.UINT) == rffi.sizeof(RESULT)
-            class SingleFloatCallDescr(getCallDescrClass(rffi.UINT)):
-                _clsname = 'SingleFloatCallDescr'
-                _return_type = 'S'
-            _SingleFloatCallDescr = SingleFloatCallDescr
-        return _SingleFloatCallDescr
-    if is_longlong(RESULT):
-        return LongLongCallDescr
-    return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
-                         NonGcPtrCallDescr, 'Call', 'get_result_size',
-                         Ellipsis,  # <= floatattrname should not be used here
-                         '_is_result_signed')
-getCallDescrClass._annspecialcase_ = 'specialize:memo'
+def map_type_to_argclass(ARG, accept_void=False):
+    kind = getkind(ARG)
+    if   kind == 'int':
+        if ARG is lltype.SingleFloat: return 'S'
+        else:                         return 'i'
+    elif kind == 'ref':               return 'r'
+    elif kind == 'float':
+        if is_longlong(ARG):          return 'L'
+        else:                         return 'f'
+    elif kind == 'void':
+        if accept_void:               return 'v'
+    raise NotImplementedError('ARG = %r' % (ARG,))
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
-    arg_classes = []
-    for ARG in ARGS:
-        kind = getkind(ARG)
-        if   kind == 'int':
-            if ARG is lltype.SingleFloat:
-                arg_classes.append('S')
-            else:
-                arg_classes.append('i')
-        elif kind == 'ref': arg_classes.append('r')
-        elif kind == 'float':
-            if is_longlong(ARG):
-                arg_classes.append('L')
-            else:
-                arg_classes.append('f')
-        else:
-            raise NotImplementedError('ARG = %r' % (ARG,))
+    arg_classes = map(map_type_to_argclass, ARGS)
     arg_classes = ''.join(arg_classes)
-    cls = getCallDescrClass(RESULT)
-    key = (cls, arg_classes, extrainfo)
+    result_type = map_type_to_argclass(RESULT, accept_void=True)
+    result_flag = get_type_flag(RESULT)
+    RESULT_ERASED = RESULT
+    if RESULT is lltype.Void:
+        result_size = 0
+    else:
+        result_size = symbolic.get_size(RESULT, gccache.translate_support_code)
+        if isinstance(RESULT, lltype.Ptr):
+            RESULT_ERASED = llmemory.Address  # avoid too many CallDescrs
+    key = (arg_classes, result_type, result_flag, RESULT_ERASED, extrainfo)
     cache = gccache._cache_call
     try:
-        return cache[key]
+        calldescr = cache[key]
     except KeyError:
-        calldescr = cls(arg_classes, extrainfo)
-        calldescr.create_call_stub(gccache.rtyper, RESULT)
+        calldescr = CallDescr(arg_classes, result_type, result_flag,
+                              result_size, extrainfo)
+        calldescr.create_call_stub(gccache.rtyper, RESULT_ERASED)
         cache[key] = calldescr
-        return calldescr
-
-
-# ____________________________________________________________
-
-def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
-                  nameprefix, methodname, floatattrname, signedattrname,
-                  _cache={}):
-    if isinstance(TYPE, lltype.Ptr):
-        if TYPE.TO._gckind == 'gc':
-            return GcPtrDescr
-        else:
-            return NonGcPtrDescr
-    if TYPE is lltype.SingleFloat:
-        assert rffi.sizeof(rffi.UINT) == rffi.sizeof(TYPE)
-        TYPE = rffi.UINT
-    try:
-        return _cache[nameprefix, TYPE]
-    except KeyError:
-        #
-        class Descr(BaseDescr):
-            _clsname = '%s%sDescr' % (TYPE._name, nameprefix)
-        Descr.__name__ = Descr._clsname
-        #
-        def method(self, translate_support_code):
-            return symbolic.get_size(TYPE, translate_support_code)
-        setattr(Descr, methodname, method)
-        #
-        if TYPE is lltype.Float or is_longlong(TYPE):
-            setattr(Descr, floatattrname, True)
-        elif (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
-              rffi.cast(TYPE, -1) == -1):
-            setattr(Descr, signedattrname, True)
-        #
-        _cache[nameprefix, TYPE] = Descr
-        return Descr
+    assert repr(calldescr.result_size) == repr(result_size)
+    return calldescr
