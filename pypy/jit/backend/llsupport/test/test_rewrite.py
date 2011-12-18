@@ -21,10 +21,11 @@ class RewriteTests(object):
         sdescr.tid = 1234
         #
         T = lltype.GcStruct('T', ('y', lltype.Signed),
-                                 ('z', lltype.Signed),
+                                 ('z', lltype.Ptr(S)),
                                  ('t', lltype.Signed))
         tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
+        tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         #
         A = lltype.GcArray(lltype.Signed)
         adescr = get_array_descr(self.gc_ll_descr, A)
@@ -47,6 +48,7 @@ class RewriteTests(object):
         register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
+        wbdescr = self.gc_ll_descr.write_barrier_descr
         WORD = globals()['WORD']
         #
         strdescr     = self.gc_ll_descr.str_descr
@@ -407,5 +409,17 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 10, descr=unicodelendescr)
             p2 = call_malloc_gc(ConstClass(malloc_unicode), i2)
             p3 = call_malloc_gc(ConstClass(malloc_str), i2)
+            jump()
+        """)
+
+    def test_write_barrier_before_setfield_gc(self):
+        self.check_rewrite("""
+            [p1, p2]
+            setfield_gc(p1, p2, descr=tzdescr)
+            jump()
+        """, """
+            [p1, p2]
+            cond_call_gc_wb(p1, p2, descr=wbdescr)
+            setfield_raw(p1, p2, descr=tzdescr)
             jump()
         """)

@@ -32,8 +32,8 @@ def test_boehm():
     A = lltype.GcArray(lltype.Signed)
     arraydescr = get_array_descr(gc_ll_descr, A)
     p = gc_ll_descr.gc_malloc_array(arraydescr, 10)
-    assert record == [(arraydescr.get_base_size(False) +
-                       10 * arraydescr.get_item_size(False), p)]
+    assert record == [(arraydescr.basesize +
+                       10 * arraydescr.itemsize, p)]
     del record[:]
     # ---------- gc_malloc_str ----------
     p = gc_ll_descr.gc_malloc_str(10)
@@ -246,47 +246,50 @@ class FakeLLOp(object):
     def __init__(self):
         self.record = []
 
+    def _malloc(self, type_id, size):
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
+        x = llmemory.raw_malloc(self.gcheaderbuilder.size_gc_header + size)
+        x += self.gcheaderbuilder.size_gc_header
+        return x, tid
+
     def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
                                   has_finalizer, has_light_finalizer,
                                   contains_weakptr):
         assert not contains_weakptr
         assert not has_finalizer
         assert not has_light_finalizer
-        assert rffi.cast(lltype.Signed, type_id) == 0
-        x = llmemory.raw_malloc(self.gcheaderbuilder.size_gc_header + size)
-        x += self.gcheaderbuilder.size_gc_header
-        p = llmemory.cast_adr_to_ptr(x, RESTYPE)
-        self.record.append(("fixedsize", repr(size), p))
+        p, tid = self._malloc(type_id, size)
+        p = llmemory.cast_adr_to_ptr(p, RESTYPE)
+        self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
-##    def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
-##                                itemsize, offset_to_length):
-##        p = llmemory.raw_malloc(size + itemsize * length)
-##        (p + offset_to_length).signed[0] = length
-##        p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-##        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
-##        self.record.append(("varsize", tid, length,
-##                            repr(size), repr(itemsize),
-##                            repr(offset_to_length), p))
-##        return p
+    def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
+                                itemsize, offset_to_length):
+        p, tid = self._malloc(type_id, size + itemsize * length)
+        (p + offset_to_length).signed[0] = length
+        p = llmemory.cast_adr_to_ptr(p, RESTYPE)
+        self.record.append(("varsize", tid, length,
+                            repr(size), repr(itemsize),
+                            repr(offset_to_length), p))
+        return p
 
-##    def _write_barrier_failing_case(self, adr_struct, adr_newptr):
-##        self.record.append(('barrier', adr_struct, adr_newptr))
+    def _write_barrier_failing_case(self, adr_struct, adr_newptr):
+        self.record.append(('barrier', adr_struct, adr_newptr))
 
-##    def get_write_barrier_failing_case(self, FPTRTYPE):
-##        return llhelper(FPTRTYPE, self._write_barrier_failing_case)
+    def get_write_barrier_failing_case(self, FPTRTYPE):
+        return llhelper(FPTRTYPE, self._write_barrier_failing_case)
 
-##    _have_wb_from_array = False
+    _have_wb_from_array = False
 
-##    def _write_barrier_from_array_failing_case(self, adr_struct, v_index):
-##        self.record.append(('barrier_from_array', adr_struct, v_index))
+    def _write_barrier_from_array_failing_case(self, adr_struct, v_index):
+        self.record.append(('barrier_from_array', adr_struct, v_index))
 
-##    def get_write_barrier_from_array_failing_case(self, FPTRTYPE):
-##        if self._have_wb_from_array:
-##            return llhelper(FPTRTYPE,
-##                            self._write_barrier_from_array_failing_case)
-##        else:
-##            return lltype.nullptr(FPTRTYPE.TO)
+    def get_write_barrier_from_array_failing_case(self, FPTRTYPE):
+        if self._have_wb_from_array:
+            return llhelper(FPTRTYPE,
+                            self._write_barrier_from_array_failing_case)
+        else:
+            return lltype.nullptr(FPTRTYPE.TO)
 
 
 class TestFramework(object):
@@ -345,22 +348,18 @@ class TestFramework(object):
         sizedescr = get_size_descr(self.gc_ll_descr, S)
         p = self.gc_ll_descr.gc_malloc(sizedescr)
         assert lltype.typeOf(p) == llmemory.GCREF
-        assert self.llop1.record == [("fixedsize", repr(sizedescr.size), p)]
-        p1 = lltype.cast_opaque_ptr(lltype.Ptr(S), p)
-        hdr = self.gc_ll_descr.gcheaderbuilder.header_of_object(p1)
-        assert hdr.tid == sizedescr.tid
+        assert self.llop1.record == [("fixedsize", repr(sizedescr.size),
+                                      sizedescr.tid, p)]
 
     def test_gc_malloc_array(self):
         A = lltype.GcArray(lltype.Signed)
         arraydescr = get_array_descr(self.gc_ll_descr, A)
         p = self.gc_ll_descr.gc_malloc_array(arraydescr, 10)
         assert self.llop1.record == [("varsize", arraydescr.tid, 10,
-                                      repr(arraydescr.get_base_size(True)),
-                                      repr(arraydescr.get_item_size(True)),
-                                      repr(arraydescr.get_ofs_length(True)),
+                                      repr(arraydescr.basesize),
+                                      repr(arraydescr.itemsize),
+                                      repr(arraydescr.lendescr.offset),
                                       p)]
-        assert repr(self.gc_ll_descr.args_for_new_array(arraydescr)) == repr(
-            [arraydescr.get_item_size(True), arraydescr.tid])
 
     def test_gc_malloc_str(self):
         p = self.gc_ll_descr.gc_malloc_str(10)
@@ -430,8 +429,7 @@ class TestFramework(object):
         operations = gc_ll_descr.rewrite_assembler(None, operations, [])
         assert len(operations) == 0
 
-    def test_rewrite_assembler_1(self):
-        # check recording of ConstPtrs
+    def test_record_constptrs(self):
         class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
                 assert adr == "some fake address"
@@ -552,8 +550,7 @@ class TestFramework(object):
     def test_rewrite_assembler_5(self):
         S = lltype.GcStruct('S')
         A = lltype.GcArray(lltype.Struct('A', ('x', lltype.Ptr(S))))
-        interiordescr = get_interiorfield_descr(self.gc_ll_descr, A,
-                                                A.OF, 'x')
+        interiordescr = get_interiorfield_descr(self.gc_ll_descr, A, 'x')
         wbdescr = self.gc_ll_descr.write_barrier_descr
         ops = parse("""
         [p1, p2]
@@ -572,19 +569,18 @@ class TestFramework(object):
         equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store(self):
-        S = lltype.GcStruct('S', ('parent', OBJECT),
-                            ('x', lltype.Signed))
-        s_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        sdescr = get_size_descr(self.gc_ll_descr, S)
         xdescr = get_field_descr(self.gc_ll_descr, S, 'x')
         ops = parse("""
         [p1]
-        p0 = new_with_vtable(ConstClass(s_vtable))
+        p0 = new(descr=sdescr)
         setfield_gc(p0, p1, descr=xdescr)
         jump()
         """, namespace=locals())
         expected = parse("""
         [p1]
-        p0 = new_with_vtable(ConstClass(s_vtable))
+        p0 = new(descr=sdescr)
         # no write barrier
         setfield_gc(p0, p1, descr=xdescr)
         jump()
