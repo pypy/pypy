@@ -14,7 +14,7 @@ class Evaluator(object):
 
 
 class RewriteTests(object):
-    def check_rewrite(self, frm_operations, to_operations):
+    def check_rewrite(self, frm_operations, to_operations, **namespace):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
         sdescr = get_size_descr(self.gc_ll_descr, S)
@@ -42,13 +42,6 @@ class RewriteTests(object):
         cdescr.tid = 8111
         clendescr = cdescr.lendescr
         #
-        INTERIOR = lltype.GcArray(('z', lltype.Ptr(S)))
-        interiordescr = get_array_descr(self.gc_ll_descr, INTERIOR)
-        interiordescr.tid = 1291
-        interiorlendescr = interiordescr.lendescr
-        interiorzdescr = get_interiorfield_descr(self.gc_ll_descr,
-                                                 INTERIOR, 'z')
-        #
         E = lltype.GcStruct('Empty')
         edescr = get_size_descr(self.gc_ll_descr, E)
         edescr.tid = 9000
@@ -68,7 +61,7 @@ class RewriteTests(object):
         strlendescr     = strdescr.lendescr
         unicodelendescr = unicodedescr.lendescr
         #
-        namespace = locals().copy()
+        namespace.update(locals())
         #
         for funcname in self.gc_ll_descr._generated_functions:
             namespace[funcname] = getattr(self.gc_ll_descr, '%s_fn' % funcname)
@@ -344,6 +337,29 @@ class TestFramework(RewriteTests):
             jump(i0)
         """)
 
+    def test_rewrite_assembler_nonstandard_array(self):
+        # a non-standard array is a bit hard to get; e.g. GcArray(Float)
+        # is like that on Win32, but not on Linux.  Build one manually...
+        NONSTD = lltype.GcArray(lltype.Float)
+        nonstd_descr = get_array_descr(self.gc_ll_descr, NONSTD)
+        nonstd_descr.tid = 6464
+        nonstd_descr.basesize = 64      # <= hacked
+        nonstd_descr.itemsize = 8
+        nonstd_descr_gcref = 123
+        self.check_rewrite("""
+            [i0]
+            p0 = new_array(i0, descr=nonstd_descr)
+            jump(i0)
+        """, """
+            [i0]
+            p0 = call_malloc_gc(ConstClass(malloc_array_nonstandard), \
+                                64, 8,                                \
+                                %(nonstd_descr.lendescr.offset)d,     \
+                                6464, i0,                             \
+                                descr=malloc_array_nonstandard_descr)
+            jump(i0)
+        """, nonstd_descr=nonstd_descr)
+
     def test_rewrite_assembler_maximal_size_1(self):
         self.gc_ll_descr.max_size_of_young_obj = 100
         self.check_rewrite("""
@@ -534,6 +550,13 @@ class TestFramework(RewriteTests):
         """)
 
     def test_write_barrier_before_setinteriorfield_gc(self):
+        S1 = lltype.GcStruct('S1')
+        INTERIOR = lltype.GcArray(('z', lltype.Ptr(S1)))
+        interiordescr = get_array_descr(self.gc_ll_descr, INTERIOR)
+        interiordescr.tid = 1291
+        interiorlendescr = interiordescr.lendescr
+        interiorzdescr = get_interiorfield_descr(self.gc_ll_descr,
+                                                 INTERIOR, 'z')
         self.check_rewrite("""
             [p1, p2]
             setinteriorfield_gc(p1, 0, p2, descr=interiorzdescr)
@@ -543,7 +566,7 @@ class TestFramework(RewriteTests):
             cond_call_gc_wb(p1, p2, descr=wbdescr)
             setinteriorfield_raw(p1, 0, p2, descr=interiorzdescr)
             jump(p1, p2)
-        """)
+        """, interiorzdescr=interiorzdescr)
 
     def test_initialization_store(self):
         self.check_rewrite("""

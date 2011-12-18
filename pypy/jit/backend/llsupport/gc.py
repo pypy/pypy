@@ -719,19 +719,19 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_array', malloc_array,
                                [lltype.Signed] * 3)
 
-        def malloc_array_nonstandard(arraydescr_gcref, num_elem):
+        def malloc_array_nonstandard(basesize, itemsize, lengthofs, tid,
+                                     num_elem):
             """For the rare case of non-standard arrays, i.e. arrays where
             self.standard_array_{basesize,length_ofs} is wrong.  It can
             occur e.g. with arrays of floats on Win32."""
-            arraydescr = xxxxxxx
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
-                type_id, num_elem, xxx, itemsize, xxx)
+                type_id, num_elem, basesize, itemsize, lengthofs)
         self.generate_function('malloc_array_nonstandard',
                                malloc_array_nonstandard,
-                               [llmemory.GCREF, lltype.Signed])
+                               [lltype.Signed] * 5)
 
         def malloc_str(length):
             return llop1.do_malloc_varsize_clear(

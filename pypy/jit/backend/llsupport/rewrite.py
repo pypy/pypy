@@ -178,9 +178,12 @@ class GcRewriterAssembler(object):
                     v_num_elem]
             calldescr = self.gc_ll_descr.malloc_array_descr
         else:
-            arraydescr_gcref = xxx
+            # rare case, so don't care too much about the number of arguments
             args = [self.gc_ll_descr.c_malloc_array_nonstandard_fn,
-                    ConstPtr(arraydescr_gcref),
+                    ConstInt(arraydescr.basesize),
+                    ConstInt(arraydescr.itemsize),
+                    ConstInt(arraydescr.lendescr.offset),
+                    ConstInt(arraydescr.tid),
                     v_num_elem]
             calldescr = self.gc_ll_descr.malloc_array_nonstandard_descr
         self._gen_call_malloc_gc(args, v_result, calldescr)

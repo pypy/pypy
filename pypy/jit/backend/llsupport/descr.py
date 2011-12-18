@@ -368,7 +368,8 @@ class CallDescr(AbstractDescr):
             result = 'rffi.cast(lltype.Signed, res)'
             category = 'i'
         elif result_type == history.REF:
-            result = 'lltype.cast_opaque_ptr(llmemory.GCREF, res)'
+            assert RESULT == llmemory.GCREF   # should be ensured by the caller
+            result = 'res'
             category = 'r'
         elif result_type == history.FLOAT:
             result = 'longlong.getfloatstorage(res)'
@@ -437,7 +438,11 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         result_size = symbolic.get_size(RESULT, gccache.translate_support_code)
         result_signed = get_type_flag(RESULT) == FLAG_SIGNED
         if isinstance(RESULT, lltype.Ptr):
-            RESULT_ERASED = llmemory.Address  # avoid too many CallDescrs
+            # avoid too many CallDescrs
+            if result_type == 'r':
+                RESULT_ERASED = llmemory.GCREF
+            else:
+                RESULT_ERASED = llmemory.Address
     key = (arg_classes, result_type, result_signed, RESULT_ERASED, extrainfo)
     cache = gccache._cache_call
     try:
