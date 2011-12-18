@@ -329,6 +329,90 @@ def descr_new_(space, w_unicodetype, w_string=u'', w_encoding=None, w_errors=Non
     W_UnicodeObject.__init__(w_newobj, w_value._value)
     return w_newobj
 
+def descr_maketrans(space, w_type, w_x, w_y=None, w_z=None):
+    """str.maketrans(x[, y[, z]]) -> dict (static method)
+
+    Return a translation table usable for str.translate().
+    If there is only one argument, it must be a dictionary mapping Unicode
+    ordinals (integers) or characters to Unicode ordinals, strings or None.
+    Character keys will be then converted to ordinals.
+    If there are two arguments, they must be strings of equal length, and
+    in the resulting dictionary, each character in x will be mapped to the
+    character at the same position in y. If there is a third argument, it
+    must be a string, whose characters will be mapped to None in the result."""
+
+    if space.is_w(w_y, space.w_None):
+        y = None
+    else:
+        y = space.unicode_w(w_y)
+    if space.is_w(w_z, space.w_None):
+        z = None
+    else:
+        z = space.unicode_w(w_z)
+
+    w_new = space.newdict()
+    if y is not None:
+        # x must be a string too, of equal length
+        ylen = len(y)
+        try:
+            x = space.unicode_w(w_x)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "first maketrans argument must "
+                    "be a string if there is a second argument"))
+        if len(x) != ylen:
+            raise OperationError(space.w_ValueError, space.wrap(
+                    "the first two maketrans "
+                    "arguments must have equal length"))
+        # create entries for translating chars in x to those in y
+        for i in range(len(x)):
+            w_key = space.newint(ord(x[i]))
+            w_value = space.newint(ord(y[i]))
+            space.setitem(w_new, w_key, w_value)
+        # create entries for deleting chars in z
+        if z is not None:
+            for i in range(len(z)):
+                w_key = space.newint(ord(z[i]))
+                space.setitem(w_new, w_key, space.w_None)
+    else:
+        # x must be a dict
+        if not space.is_w(space.type(w_x), space.w_dict):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "if you give only one argument "
+                    "to maketrans it must be a dict"))
+        # copy entries into the new dict, converting string keys to int keys
+        w_iter = space.call_method(w_x, "iteritems")
+        while True:
+            try:
+                w_item = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            w_key, w_value = space.unpackiterable(w_item, 2)
+            if space.isinstance_w(w_key, space.w_unicode):
+                # convert string keys to integer keys
+                key = space.unicode_w(w_key)
+                if len(key) != 1:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                            "string keys in translate "
+                            "table must be of length 1"))
+                w_key = space.newint(ord(key[0]))
+            else:
+                # just keep integer keys
+                try:
+                    space.int_w(w_key)
+                except OperationError, e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    raise OperationError(space.w_TypeError, space.wrap(
+                            "keys in translate table must "
+                            "be strings or integers"))
+            space.setitem(w_new, w_key, w_value)
+    return w_new
+
 # ____________________________________________________________
 
 unicode_typedef = StdTypeDef("str",
@@ -337,7 +421,8 @@ unicode_typedef = StdTypeDef("str",
 
 Create a new Unicode object from the given encoded string.
 encoding defaults to the current default string encoding.
-errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.'''
+errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
+    maketrans = gateway.interp2app(descr_maketrans, as_classmethod=True),
     )
 
 unicode_typedef.registermethods(globals())

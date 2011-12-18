@@ -404,6 +404,24 @@ class AppTestUnicodeString:
 
         raises(TypeError, 'hello'.translate)
 
+    def test_maketrans(self):
+        assert 'abababc' == 'abababc'.translate({'b': '<i>'})
+        tbl = str.maketrans({'a': None, 'b': '<i>'})
+        assert '<i><i><i>c' == 'abababc'.translate(tbl)
+        tbl = str.maketrans('abc', 'xyz', 'd')
+        assert 'xyzzy' == 'abdcdcbdddd'.translate(tbl)
+
+        raises(TypeError, str.maketrans)
+        raises(ValueError, str.maketrans, 'abc', 'defg')
+        raises(TypeError, str.maketrans, 2, 'def')
+        raises(TypeError, str.maketrans, 'abc', 2)
+        raises(TypeError, str.maketrans, 'abc', 'def', 2)
+        raises(ValueError, str.maketrans, {'xy': 2})
+        raises(TypeError, str.maketrans, {(1,): 2})
+
+        raises(TypeError, 'hello'.translate)
+        raises(TypeError, 'abababc'.translate, 'abc', 'xyz')
+
     def test_unicode_form_encoded_object(self):
         assert str(b'x', 'utf-8') == 'x'
         assert str(b'x', 'utf-8', 'strict') == 'x'
