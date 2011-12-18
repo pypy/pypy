@@ -10,7 +10,7 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
-    get_call_descr, get_interiorfield_descr,
+    get_call_descr, get_interiorfield_descr, get_dynamic_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
@@ -239,10 +239,10 @@ class AbstractLLCPU(AbstractCPU):
         return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
 
     def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
-        is_pointer, is_float, is_signed):
-        arraydescr = DynamicArrayNoLengthDescr(width)
-        fielddescr = DynamicFieldDescr(offset, fieldsize, is_pointer, is_float, is_signed)
-        return InteriorFieldDescr(arraydescr, fielddescr)
+                                     is_pointer, is_float, is_signed):
+        return get_dynamic_interiorfield_descr(self.gc_ll_descr,
+                                               offset, width, fieldsize,
+                                               is_pointer, is_float, is_signed)
 
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)

@@ -237,6 +237,21 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name):
         cache[(ARRAY, name)] = descr
         return descr
 
+def get_dynamic_interiorfield_descr(gc_ll_descr, offset, width, fieldsize,
+                                    is_pointer, is_float, is_signed):
+    arraydescr = ArrayDescr(0, width, None, FLAG_STRUCT)
+    if is_pointer:
+        assert not is_float
+        flag = FLAG_POINTER
+    elif is_float:
+        flag = FLAG_FLOAT
+    elif is_signed:
+        flag = FLAG_SIGNED
+    else:
+        flag = FLAG_UNSIGNED
+    fielddescr = FieldDescr('dynamic', offset, fieldsize, flag)
+    return InteriorFieldDescr(arraydescr, fielddescr)
+
 
 # ____________________________________________________________
 # CallDescrs
