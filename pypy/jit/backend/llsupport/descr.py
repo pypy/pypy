@@ -88,6 +88,9 @@ class FieldDescr(AbstractDescr):
         self.field_size = field_size
         self.flag = flag
 
+    def is_pointer_field(self):
+        return self.flag == FLAG_POINTER
+
     def is_field_signed(self):
         return self.flag == FLAG_SIGNED
 
@@ -156,6 +159,12 @@ class ArrayDescr(AbstractDescr):
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+
+    def is_array_of_pointers(self):
+        return self.flag == FLAG_POINTER
+
+    def is_item_signed(self):
+        return self.flag == FLAG_SIGNED
 
     def repr_of_descr(self):
         return '<Array%s %s>' % (self.flag, self.itemsize)

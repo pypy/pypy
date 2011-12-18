@@ -8,9 +8,10 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import (get_size_descr,
-     get_field_descr, FieldDescr, get_array_descr,
-     ArrayDescr, get_call_descr, get_interiorfield_descr)
+from pypy.jit.backend.llsupport.descr import (
+    get_size_descr, get_field_descr, get_array_descr,
+    get_call_descr, get_interiorfield_descr,
+    FieldDescr, ArrayDescr, CallDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -235,7 +236,7 @@ class AbstractLLCPU(AbstractCPU):
         return get_array_descr(self.gc_ll_descr, A)
 
     def interiorfielddescrof(self, A, fieldname):
-        return get_interiorfield_descr(self.gc_ll_descr, A, A.OF, fieldname)
+        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
 
     def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
         is_pointer, is_float, is_signed):
@@ -244,14 +245,14 @@ class AbstractLLCPU(AbstractCPU):
         return InteriorFieldDescr(arraydescr, fielddescr)
 
     def unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        return arraydescr.get_base_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        return arraydescr.basesize
     unpack_arraydescr._always_inline_ = True
 
     def unpack_arraydescr_size(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_base_size(self.translate_support_code)
-        size = arraydescr.get_item_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.basesize
+        size = arraydescr.itemsize
         sign = arraydescr.is_item_signed()
         return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
@@ -279,8 +280,8 @@ class AbstractLLCPU(AbstractCPU):
     # ____________________________________________________________
 
     def bh_arraylen_gc(self, arraydescr, array):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
     @specialize.argtype(2)
