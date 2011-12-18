@@ -98,16 +98,10 @@ class AppTest_Descroperation:
             a1 *= b
             assert a1 == "imul"
 
-            if base is object:
-                assert a - b == "B's rsub"
-            else:
-                assert a - b == "sub"
+            assert a - b == "B's rsub"
             assert b - a == "B's sub"
             assert b - b == "B's sub"
-            if base is object:
-                assert a ** b == "B's rpow"
-            else:
-                assert a ** b == "pow"
+            assert a ** b == "B's rpow"
             assert b ** a == "B's pow"
             assert b ** b == "B's pow"
             assert -b == "B's neg"
@@ -128,32 +122,28 @@ class AppTest_Descroperation:
     def test_getslice(self):
         class Sq(object):
             def __getitem__(self, key):
-                start, stop = key
-                return (start, stop)
+                return key.start, key.stop
             def __len__(self):
                 return 100
 
         sq = Sq()
 
         assert sq[1:3] == (1,3)
-        slice_min, slice_max = sq[:]
-        assert slice_min == 0
-        assert slice_max >= 2**31-1
-        assert sq[1:] == (1, slice_max)
-        assert sq[:3] == (0, 3)
-        assert sq[:] == (0, slice_max)
+        assert sq[:] == (None, None)
+        assert sq[1:] == (1, None)
+        assert sq[:3] == (None, 3)
+        assert sq[:] == (None, None)
         # negative indices
-        assert sq[-1:3] == (99, 3)
-        assert sq[1:-3] == (1, 97)
-        assert sq[-1:-3] == (99, 97)
-        # extended slice syntax always uses __getitem__()
-        assert sq[::] == "booh"
+        assert sq[-1:3] == (-1, 3)
+        assert sq[1:-3] == (1, -3)
+        assert sq[-1:-3] == (-1, -3)
+        # extended slice syntax also uses __getitem__()
+        assert sq[::] == (None, None)
 
     def test_setslice(self):
         class Sq(object):
             def __setitem__(self, key, value):
-                start, stop = key
-                ops.append((start, stop, value))
+                ops.append((key.start, key.stop, value))
             def __len__(self):
                 return 100
 
@@ -163,21 +153,18 @@ class AppTest_Descroperation:
         sq[12:] = 'world'
         sq[:-1] = 'spam'
         sq[:] = 'egg'
-        slice_max = ops[-1][1]
-        assert slice_max >= 2**31-1
 
         assert ops == [
-            (95, 3,          'hello'),
-            (12, slice_max, 'world'),
-            (0,  99,         'spam'),
-            (0,  slice_max, 'egg'),
+            (-5,    3,   'hello'),
+            (12,   None, 'world'),
+            (None, -1,   'spam'),
+            (None, None, 'egg'),
             ]
 
     def test_delslice(self):
         class Sq(object):
             def __delitem__(self, key):
-                start, stop = key
-                ops.append((start, stop))
+                ops.append((key.start, key.stop))
             def __len__(self):
                 return 100
 
@@ -187,37 +174,32 @@ class AppTest_Descroperation:
         del sq[-12:]
         del sq[:1]
         del sq[:]
-        slice_max = ops[-1][1]
-        assert slice_max >= 2**31-1
 
         assert ops == [
-            (5,   97),
-            (88,  slice_max),
-            (0,   1),
-            (0,   slice_max),
+            (5,   -3),
+            (-12, None),
+            (None,1),
+            (None,None),
             ]
 
     def test_getslice_nolength(self):
         class Sq(object):
             def __getitem__(self, key):
-                start, stop = key
-                return (start, stop)
+                return key.start, key.stop
 
         sq = Sq()
 
         assert sq[1:3] == (1,3)
-        slice_min, slice_max = sq[:]
-        assert slice_min == 0
-        assert slice_max >= 2**31-1
-        assert sq[1:] == (1, slice_max)
-        assert sq[:3] == (0, 3)
-        assert sq[:] == (0, slice_max)
+        assert sq[:] == (None, None)
+        assert sq[1:] == (1, None)
+        assert sq[:3] == (None, 3)
+        assert sq[:] == (None, None)
         # negative indices, but no __len__
         assert sq[-1:3] == (-1, 3)
         assert sq[1:-3] == (1, -3)
         assert sq[-1:-3] == (-1, -3)
-        # extended slice syntax always uses __getitem__()
-        assert sq[::] == "booh"
+        # extended slice syntax also uses __getitem__()
+        assert sq[::] == (None, None)
 
     def test_ipow(self):
         x = 2
@@ -581,7 +563,7 @@ class AppTest_Descroperation:
     def test_mod_failure(self):
         try:
             [] % 3
-        except TypeError, e:
+        except TypeError as e:
             assert '%' in str(e)
         else:
             assert False, "did not raise"
@@ -620,8 +602,8 @@ class AppTest_Descroperation:
                 if cls is B:
                     return True
                 return False
-        class A:
-            __metaclass__ = Meta
+        A = Meta('A', (), {})  # like "class A(metaclass=Meta)", but
+                               # Python2 cannot parse this
         class B(A):
             pass
         a = A()
@@ -637,11 +619,11 @@ class AppTest_Descroperation:
         assert issubclass(B, B)
         assert issubclass(23, B)
 
-    def test_truth_of_long(self):
+    def test_truth_of_int(self):
         class X(object):
-            def __len__(self): return 1L
+            def __len__(self): return 1
             __bool__ = __len__
-        assert X()
+        raises(TypeError, bool, X())
         del X.__bool__
         assert X()
 
