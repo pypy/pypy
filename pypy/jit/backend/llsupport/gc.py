@@ -4,7 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
-from pypy.rpython.lltypesystem import llgroup, llarena
+from pypy.rpython.lltypesystem import llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -743,6 +743,15 @@ class GcLLDescr_framework(GcLLDescription):
                                malloc_array_nonstandard,
                                [lltype.Signed] * 5)
 
+        str_type_id    = self.str_descr.tid
+        str_basesize   = self.str_descr.basesize
+        str_itemsize   = self.str_descr.itemsize
+        str_ofs_length = self.str_descr.lendescr.offset
+        unicode_type_id    = self.unicode_descr.tid
+        unicode_basesize   = self.unicode_descr.basesize
+        unicode_itemsize   = self.unicode_descr.itemsize
+        unicode_ofs_length = self.unicode_descr.lendescr.offset
+
         def malloc_str(length):
             return llop1.do_malloc_varsize_clear(
                 llmemory.GCREF,
@@ -849,7 +858,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap.freeing_block(start, stop)
 
     def get_malloc_slowpath_addr(self):
-        return self.c_malloc_nursery_fn.value
+        return self.get_malloc_fn_addr('malloc_nursery')
 
 # ____________________________________________________________
 

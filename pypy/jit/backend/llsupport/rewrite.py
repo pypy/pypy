@@ -209,7 +209,8 @@ class GcRewriterAssembler(object):
         If that fails, generate a plain CALL_MALLOC_GC instead.
         """
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
-            return self.gen_malloc_fixedsize(size, v_result)
+            self.gen_malloc_fixedsize(size, v_result)
+            return
         #
         size = self.round_up_for_allocation(size)
         op = None
@@ -237,7 +238,6 @@ class GcRewriterAssembler(object):
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
         self.recent_mallocs[v_result] = None
-        return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:
@@ -316,6 +316,7 @@ class GcRewriterAssembler(object):
 
     def round_up_for_allocation(self, size):
         if self.gc_ll_descr.translate_support_code:
+            from pypy.rpython.lltypesystem import llarena
             return llarena.round_up_for_allocation(
                 size, self.gc_ll_descr.minimal_size_in_nursery)
         else:
