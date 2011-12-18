@@ -450,14 +450,15 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         result_size = 0
         result_signed = False
     else:
-        result_size = symbolic.get_size(RESULT, gccache.translate_support_code)
-        result_signed = get_type_flag(RESULT) == FLAG_SIGNED
         if isinstance(RESULT, lltype.Ptr):
             # avoid too many CallDescrs
             if result_type == 'r':
                 RESULT_ERASED = llmemory.GCREF
             else:
                 RESULT_ERASED = llmemory.Address
+        result_size = symbolic.get_size(RESULT_ERASED,
+                                        gccache.translate_support_code)
+        result_signed = get_type_flag(RESULT) == FLAG_SIGNED
     key = (arg_classes, result_type, result_signed, RESULT_ERASED, extrainfo)
     cache = gccache._cache_call
     try:
