@@ -407,7 +407,7 @@ class UnixConsole(Console):
         self.partial_char += char
         try:
             c = unicode(self.partial_char, self.encoding)
-        except UnicodeError, e:
+        except UnicodeError as e:
             if len(e.args) > 4 and \
                    e.args[4] == 'unexpected end of data':
                 pass
@@ -427,7 +427,7 @@ class UnixConsole(Console):
             while 1: # All hail Unix!
                 try:
                     self.push_char(os.read(self.input_fd, 1))
-                except (IOError, OSError), err:
+                except (IOError, OSError) as err:
                     if err.errno == errno.EINTR:
                         if not self.event_queue.empty():
                             return self.event_queue.get()
