@@ -42,7 +42,7 @@ class AppTestPyexpat:
         import pyexpat
         for encoding_arg in (None, 'utf-8', 'iso-8859-1'):
             for namespace_arg in (None, '{'):
-                print encoding_arg, namespace_arg
+                print(encoding_arg, namespace_arg)
                 p = pyexpat.ParserCreate(encoding_arg, namespace_arg)
                 data = []
                 p.CharacterDataHandler = lambda s: data.append(s)
@@ -83,7 +83,7 @@ class AppTestPyexpat:
 
     def test_encoding_xml(self):
         # use one of the few encodings built-in in expat
-        xml = "<?xml version='1.0' encoding='iso-8859-1'?><s>caf\xe9</s>"
+        xml = b"<?xml version='1.0' encoding='iso-8859-1'?><s>caf\xe9</s>"
         import pyexpat
         p = pyexpat.ParserCreate()
         def gotText(text):
@@ -93,7 +93,7 @@ class AppTestPyexpat:
         p.Parse(xml)
 
     def test_explicit_encoding(self):
-        xml = "<?xml version='1.0'?><s>caf\xe9</s>"
+        xml = b"<?xml version='1.0'?><s>caf\xe9</s>"
         import pyexpat
         p = pyexpat.ParserCreate(encoding='iso-8859-1')
         def gotText(text):
@@ -103,7 +103,7 @@ class AppTestPyexpat:
 
     def test_python_encoding(self):
         # This name is not knonwn by expat
-        xml = "<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
+        xml = b"<?xml version='1.0' encoding='latin1'?><s>caf\xe9</s>"
         import pyexpat
         p = pyexpat.ParserCreate()
         def gotText(text):
@@ -112,7 +112,7 @@ class AppTestPyexpat:
         p.Parse(xml)
 
     def test_decode_error(self):
-        xml = '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
+        xml = b'<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>'
         import pyexpat
         p = pyexpat.ParserCreate()
         def f(*args): pass

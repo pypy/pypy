@@ -606,11 +606,15 @@ getting the advantage of providing document type information to the parser.
 
     # Parse methods
 
-    @unwrap_spec(data=str, isfinal=bool)
-    def Parse(self, space, data, isfinal=False):
+    @unwrap_spec(isfinal=bool)
+    def Parse(self, space, w_data, isfinal=False):
         """Parse(data[, isfinal])
 Parse XML data.  `isfinal' should be true at end of input."""
 
+        if space.isinstance_w(w_data, space.w_bytes):
+            data = space.bytes_w(w_data)
+        else:
+            data = space.str_w(w_data)
         res = XML_Parse(self.itself, data, len(data), isfinal)
         if self._exc_info:
             e = self._exc_info
@@ -779,7 +783,7 @@ def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
 Return a new XML parser object."""
     if space.is_w(w_encoding, space.w_None):
         encoding = None
-    elif space.is_true(space.isinstance(w_encoding, space.w_str)):
+    elif space.is_true(space.isinstance(w_encoding, space.w_unicode)):
         encoding = space.str_w(w_encoding)
     else:
         type_name = space.type(w_encoding).getname(space)
@@ -790,7 +794,7 @@ Return a new XML parser object."""
 
     if space.is_w(w_namespace_separator, space.w_None):
         namespace_separator = 0
-    elif space.is_true(space.isinstance(w_namespace_separator, space.w_str)):
+    elif space.is_true(space.isinstance(w_namespace_separator, space.w_unicode)):
         separator = space.str_w(w_namespace_separator)
         if len(separator) == 0:
             namespace_separator = 0
@@ -839,5 +843,5 @@ Return a new XML parser object."""
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
-    return space.wrapbytes(rffi.charp2str(XML_ErrorString(code)))
+    return space.wrap(rffi.charp2str(XML_ErrorString(code)))
 
