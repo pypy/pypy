@@ -7,7 +7,7 @@ from rpyc.utils.classic import DEFAULT_SERVER_PORT
 try:
     conn = connect("localhost", DEFAULT_SERVER_PORT, SlaveService,
            config=dict(call_by_value_for_builtin_mutable_types=True))
-except socket.error, e:
+except socket.error as e:
     raise ImportError("Error while connecting: " + str(e))
 
 

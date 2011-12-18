@@ -165,7 +165,7 @@ def open(filename, flag='r', mode=0666):
             'c': os.O_RDWR | os.O_CREAT,
             'n': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
             }[flag]
-    except KeyError, e:
+    except KeyError as e:
         raise error("arg 2 to open should be 'r', 'w', 'c', or 'n'")
 
     a_db = getattr(lib, funcs['open'])(filename, openflag, mode)
