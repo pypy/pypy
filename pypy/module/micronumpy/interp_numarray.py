@@ -970,7 +970,7 @@ class W_NDimSlice(ConcreteArray):
         return array
 
     def create_sig(self):
-        return signature.ViewSignature(self.parent.create_sig())
+        return signature.ViewSignature(self.dtype)
 
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:

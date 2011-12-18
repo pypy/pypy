@@ -203,6 +203,14 @@ class ViewSignature(ArraySignature):
         allnumbers.append(no)
         self.iter_no = no
 
+    def _create_iter(self, iterlist, arraylist, arr):
+        from pypy.module.micronumpy.interp_numarray import ConcreteArray
+        assert isinstance(arr, ConcreteArray)
+        if self.iter_no >= len(iterlist):
+            iterlist.append(ViewIterator(arr))
+        if self.array_no >= len(arraylist):
+            arraylist.append(arr.storage)
+
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
         return 'FlatIter(%s)' % self.child.debug_repr()
