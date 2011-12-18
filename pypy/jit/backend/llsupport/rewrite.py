@@ -150,13 +150,14 @@ class GcRewriterAssembler(object):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, Const(size)).
         Note that with the framework GC, this should be called very rarely.
         """
-        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_fixedsize_fn,
-                                  ConstInt(size)], v_result,
+        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_fixedsize')
+        self._gen_call_malloc_gc([ConstInt(addr), ConstInt(size)], v_result,
                                  self.gc_ll_descr.malloc_fixedsize_descr)
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
-        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_array_fn,
+        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_array')
+        self._gen_call_malloc_gc([ConstInt(addr),
                                   ConstInt(arraydescr.basesize),
                                   v_num_elem,
                                   ConstInt(arraydescr.itemsize),
@@ -172,14 +173,17 @@ class GcRewriterAssembler(object):
             and arraydescr.lendescr.offset ==
                 self.gc_ll_descr.standard_array_length_ofs):
             # this is a standard-looking array, common case
-            args = [self.gc_ll_descr.c_malloc_array_fn,
+            addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_array')
+            args = [ConstInt(addr),
                     ConstInt(arraydescr.itemsize),
                     ConstInt(arraydescr.tid),
                     v_num_elem]
             calldescr = self.gc_ll_descr.malloc_array_descr
         else:
             # rare case, so don't care too much about the number of arguments
-            args = [self.gc_ll_descr.c_malloc_array_nonstandard_fn,
+            addr = self.gc_ll_descr.get_malloc_fn_addr(
+                                              'malloc_array_nonstandard')
+            args = [ConstInt(addr),
                     ConstInt(arraydescr.basesize),
                     ConstInt(arraydescr.itemsize),
                     ConstInt(arraydescr.lendescr.offset),
@@ -190,14 +194,14 @@ class GcRewriterAssembler(object):
 
     def gen_malloc_str(self, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_str_fn, ...)."""
-        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_str_fn,
-                                  v_num_elem], v_result,
+        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_str_descr)
 
     def gen_malloc_unicode(self, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_unicode_fn, ...)."""
-        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_unicode_fn,
-                                  v_num_elem], v_result,
+        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        self._gen_call_malloc_gc([ConstInt(addr), v_num_elem], v_result,
                                  self.gc_ll_descr.malloc_unicode_descr)
 
     def gen_malloc_nursery(self, size, v_result):

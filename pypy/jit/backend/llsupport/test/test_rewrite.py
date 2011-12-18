@@ -64,7 +64,7 @@ class RewriteTests(object):
         namespace.update(locals())
         #
         for funcname in self.gc_ll_descr._generated_functions:
-            namespace[funcname] = getattr(self.gc_ll_descr, '%s_fn' % funcname)
+            namespace[funcname] = self.gc_ll_descr.get_malloc_fn(funcname)
             namespace[funcname + '_descr'] = getattr(self.gc_ll_descr,
                                                      '%s_descr' % funcname)
         #

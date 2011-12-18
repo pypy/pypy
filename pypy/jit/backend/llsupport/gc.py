@@ -1,6 +1,6 @@
 import os
 from pypy.rlib import rgc
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
@@ -9,8 +9,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.jit.codewriter import heaptracker
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstPtr
-from pypy.jit.metainterp.history import AbstractDescr
+from pypy.jit.metainterp.history import ConstPtr, AbstractDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD
@@ -45,15 +44,22 @@ class GcLLDescription(GcCache):
         memory.
         """
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-        ll_func = llhelper(FUNCPTR, func)
-        c_ll_func = ConstInt(
-            heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func)))
         descr = get_call_descr(self, ARGS, RESULT)
-        setattr(self, '%s'      % funcname, func)
-        setattr(self, '%s_fn'   % funcname, ll_func)
-        setattr(self, 'c_%s_fn' % funcname, c_ll_func)
-        setattr(self, '%s_descr' % funcname, descr)
+        setattr(self, funcname, func)
+        setattr(self, funcname + '_FUNCPTR', FUNCPTR)
+        setattr(self, funcname + '_descr', descr)
         self._generated_functions.append(funcname)
+
+    @specialize.arg(1)
+    def get_malloc_fn(self, funcname):
+        func = getattr(self, funcname)
+        FUNC = getattr(self, funcname + '_FUNCPTR')
+        return llhelper(FUNC, func)
+
+    @specialize.arg(1)
+    def get_malloc_fn_addr(self, funcname):
+        ll_func = self.get_malloc_fn(funcname)
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func))
 
     def _freeze_(self):
         return True
