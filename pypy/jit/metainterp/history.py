@@ -758,6 +758,9 @@ class TargetToken(AbstractDescr):
 
         self.virtual_state = None
         self.exported_state = None
+
+    def repr_of_descr(self):
+        return 'TargetToken(%d)' % compute_identity_hash(self)
         
 class TreeLoop(object):
     inputargs = None
