@@ -301,7 +301,7 @@ class CallDescr(AbstractDescr):
         elif result_type == 'S':
             result_flag = FLAG_UNSIGNED
         else:
-            raise NotImplementedError("result_type = %r" % (result_type,))
+            raise NotImplementedError("result_type = '%s'" % (result_type,))
         self.result_flag = result_flag
 
     def __repr__(self):
