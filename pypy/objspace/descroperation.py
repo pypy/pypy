@@ -236,14 +236,11 @@ class DescrOperation(object):
         if space.is_w(w_res, space.w_True):
             return True
         w_restype = space.type(w_res)
-        # Note there is no check for bool here because the only possible
-        # instances of bool are w_False and w_True, which are checked above.
-        if (space.is_w(w_restype, space.w_int) or
-            space.is_w(w_restype, space.w_long)):
-            return space.int_w(w_res) != 0
+        if method == '__len__':
+            return space._check_len_result(w_res) != 0
         else:
-            msg = "%s should return bool or integer" % (method,)
-            raise OperationError(space.w_TypeError, space.wrap(msg))
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "__bool__ should return bool"))
 
     def nonzero(space, w_obj):
         if space.is_true(w_obj):

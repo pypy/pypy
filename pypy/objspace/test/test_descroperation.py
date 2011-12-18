@@ -677,5 +677,20 @@ class AppTest_Descroperation:
         l = len(X(X(2)))
         assert l == 2 and type(l) is int
 
+    def test_sane_len(self):
+        # this test just tests our assumptions about __len__
+        # this will start failing if __len__ changes assertions
+        for badval in ['illegal', -1, 1 << 32]:
+            class A:
+                def __len__(self):
+                    return badval
+            try:
+                bool(A())
+            except (Exception) as e_bool:
+                try:
+                    len(A())
+                except (Exception) as e_len:
+                    assert str(e_bool) == str(e_len)
+
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}
