@@ -11,7 +11,7 @@ from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (
     get_size_descr, get_field_descr, get_array_descr,
     get_call_descr, get_interiorfield_descr,
-    FieldDescr, ArrayDescr, CallDescr)
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 

@@ -2448,9 +2448,8 @@ class Assembler386(object):
         else:
             self.mc.JMP(imm(target))
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
-        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
-        size = (size + WORD-1) & ~(WORD-1)     # round up
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+        assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))
@@ -2486,9 +2485,6 @@ class Assembler386(object):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        # on 64-bits, 'tid' is a value that fits in 31 bits
-        assert rx86.fits_in_32bits(tid)
-        self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST

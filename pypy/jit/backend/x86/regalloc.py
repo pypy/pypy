@@ -960,24 +960,10 @@ class RegAlloc(object):
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
-    def fastpath_malloc_fixedsize(self, op, descr):
-        KILLME
-        assert isinstance(descr, SizeDescr)
-        self._do_fastpath_malloc(op, descr.size, descr.tid)
-
-    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
-        KILLME
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
-        basesize = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        size = basesize + itemsize * num_elem
-        self._do_fastpath_malloc(op, size, arraydescr.tid)
-        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
-
-    def _do_fastpath_malloc(self, op, size, tid):
-        KILLME
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+    def consider_call_malloc_nursery(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
         # We need edx as a temporary, but otherwise don't save any more
@@ -986,61 +972,11 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
         self.rm.possibly_free_var(tmp_box)
         #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size, tid,
-            )
-
-    def consider_new(self, op):
-        KILLME
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self.fastpath_malloc_fixedsize(op, op.getdescr())
-        else:
-            args = gc_ll_descr.args_for_new(op.getdescr())
-            arglocs = [imm(x) for x in args]
-            return self._call(op, arglocs)
-
-    def consider_new_with_vtable(self, op):
-        KILLME
-        classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
-        if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self.fastpath_malloc_fixedsize(op, descrsize)
-            self.assembler.set_vtable(eax, imm(classint))
-            # result of fastpath malloc is in eax
-        else:
-            args = self.assembler.cpu.gc_ll_descr.args_for_new(descrsize)
-            arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(op.getarg(0)))
-            return self._call(op, arglocs)
-
-    def consider_newstr(self, op):
-        KILLME
-        loc = self.loc(op.getarg(0))
-        return self._call(op, [loc])
-
-    def consider_newunicode(self, op):
-        KILLME
-        loc = self.loc(op.getarg(0))
-        return self._call(op, [loc])
-
-    def consider_new_array(self, op):
-        KILLME
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        box_num_elem = op.getarg(0)
-        if isinstance(box_num_elem, ConstInt):
-            num_elem = box_num_elem.value
-            if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
-                                                     num_elem):
-                self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                return
-        args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-            op.getdescr())
-        arglocs = [imm(x) for x in args]
-        arglocs.append(self.loc(box_num_elem))
-        self._call(op, arglocs)
+            size)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
