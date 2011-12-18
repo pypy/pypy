@@ -3,7 +3,7 @@ from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.symbolic import WORD
-from pypy.jit.backend.llsupport.descr import BaseSizeDescr, BaseArrayDescr
+from pypy.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
 
 
 class GcRewriterAssembler(object):
@@ -28,7 +28,6 @@ class GcRewriterAssembler(object):
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
-        self.tsc = self.gc_ll_descr.translate_support_code
         self.newops = []
         self.known_lengths = {}
         self.recent_mallocs = {}     # set of variables
@@ -81,53 +80,43 @@ class GcRewriterAssembler(object):
                 self.newops.append(op)
         elif opnum == rop.NEW_ARRAY:
             descr = op.getdescr()
-            assert isinstance(descr, BaseArrayDescr)
-            self.handle_new_array(descr.tid,
-                                  descr.get_base_size(self.tsc),
-                                  descr.get_item_size(self.tsc),
-                                  descr.get_field_arraylen_descr(),
-                                  op)
+            assert isinstance(descr, ArrayDescr)
+            self.handle_new_array(descr, op)
         elif opnum == rop.NEWSTR:
-            self.handle_new_array(self.gc_ll_descr.str_type_id,
-                                  self.gc_ll_descr.str_basesize,
-                                  self.gc_ll_descr.str_itemsize,
-                                  self.gc_ll_descr.field_strlen_descr,
-                                  op)
+            self.handle_new_array(self.gc_ll_descr.str_descr, op)
         elif opnum == rop.NEWUNICODE:
-            self.handle_new_array(self.gc_ll_descr.unicode_type_id,
-                                  self.gc_ll_descr.unicode_basesize,
-                                  self.gc_ll_descr.unicode_itemsize,
-                                  self.gc_ll_descr.field_unicodelen_descr,
-                                  op)
+            self.handle_new_array(self.gc_ll_descr.unicode_descr, op)
         else:
             raise NotImplementedError(op.getopname())
 
     def handle_new_fixedsize(self, descr, op):
-        assert isinstance(descr, BaseSizeDescr)
+        assert isinstance(descr, SizeDescr)
         size = descr.size
         self.gen_malloc_nursery(size, op.result)
         self.gen_initialize_tid(op.result, descr.tid)
 
-    def handle_new_array(self, tid, base_size, item_size, arraylen_descr, op):
+    def handle_new_array(self, arraydescr, op):
         v_length = op.getarg(0)
         total_size = -1
-        if item_size == 0:
-            total_size = base_size
+        if arraydescr.itemsize == 0:
+            total_size = arraydescr.basesize
         elif isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
             try:
-                var_size = ovfcheck(item_size * num_elem)
-                total_size = ovfcheck(base_size + var_size)
+                var_size = ovfcheck(arraydescr.itemsize * num_elem)
+                total_size = ovfcheck(arraydescr.basesize + var_size)
             except OverflowError:
                 pass    # total_size is still -1
         if total_size >= 0:
             self.gen_malloc_nursery(total_size, op.result)
-            self.gen_initialize_tid(op.result, tid)
-            self.gen_initialize_len(op.result, v_length, arraylen_descr)
+            self.gen_initialize_tid(op.result, arraydescr.tid)
+            self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
+        elif self.gc_ll_descr.kind == 'boehm':
+            self.gen_boehm_malloc_array(arraydescr, v_length, op.result)
         else:
             opnum = op.getopnum()
             if opnum == rop.NEW_ARRAY:
-                self.gen_malloc_array(item_size, tid, v_length, op.result)
+                self.gen_malloc_array(arraydescr, v_length, op.result)
             elif opnum == rop.NEWSTR:
                 self.gen_malloc_str(v_length, op.result)
             elif opnum == rop.NEWUNICODE:
@@ -160,17 +149,31 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_fixedsize_fn,
                                   ConstInt(size)], v_result)
 
-    def gen_malloc_array(self, itemsize, tid, v_num_elem, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...)."""
-        if self.gc_ll_descr.has_tid:
+    def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
+        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_array_fn,
+                                  ConstInt(arraydescr.basesize),
+                                  v_num_elem,
+                                  ConstInt(arraydescr.itemsize),
+                                  ConstInt(arraydescr.lendescr.offset)],
+                                 v_result)
+
+    def gen_malloc_array(self, arraydescr, v_num_elem, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) going either
+        to the standard or the nonstandard version of the function."""
+        #
+        if (arraydescr.basesize == self.gc_ll_descr.standard_array_basesize
+            and arraydescr.lendescr.offset ==
+                self.gc_ll_descr.standard_array_length_ofs):
+            # this is a standard-looking array, common case
             args = [self.gc_ll_descr.c_malloc_array_fn,
-                    ConstInt(itemsize),
-                    ConstInt(tid),
+                    ConstInt(arraydescr.itemsize),
+                    ConstInt(arraydescr.tid),
                     v_num_elem]
         else:
-            args = [self.gc_ll_descr.c_malloc_array_fn,
-                    ConstInt(basesize),
-                    ConstInt(itemsize),
+            arraydescr_gcref = xxx
+            args = [self.gc_ll_descr.c_malloc_array_nonstandard_fn,
+                    ConstPtr(arraydescr_gcref),
                     v_num_elem]
         self._gen_call_malloc_gc(args, v_result)
 
@@ -296,7 +299,7 @@ class GcRewriterAssembler(object):
         self.gen_write_barrier(v_base, v_value)
 
     def round_up_for_allocation(self, size):
-        if self.tsc:
+        if self.gc_ll_descr.translate_support_code:
             return llarena.round_up_for_allocation(
                 size, self.gc_ll_descr.minimal_size_in_nursery)
         else:

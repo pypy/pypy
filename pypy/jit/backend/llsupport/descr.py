@@ -23,7 +23,8 @@ class GcCache(object):
         assert isinstance(STRUCT, lltype.GcStruct)
 
     def init_array_descr(self, ARRAY, arraydescr):
-        assert isinstance(ARRAY, lltype.GcArray)
+        assert (isinstance(ARRAY, lltype.GcArray) or
+                isinstance(ARRAY, lltype.GcStruct) and ARRAY._arrayfld)
 
 
 # ____________________________________________________________
@@ -73,6 +74,7 @@ FLAG_FLOAT    = 'F'
 FLAG_UNSIGNED = 'U'
 FLAG_SIGNED   = 'S'
 FLAG_STRUCT   = 'X'
+FLAG_VOID     = 'V'
 
 class FieldDescr(AbstractDescr):
     name = ''
@@ -85,6 +87,9 @@ class FieldDescr(AbstractDescr):
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
+
+    def is_field_signed(self):
+        return self.flag == FLAG_SIGNED
 
     def sort_key(self):
         return self.offset
@@ -156,23 +161,26 @@ class ArrayDescr(AbstractDescr):
         return '<Array%s %s>' % (self.flag, self.itemsize)
 
 
-def get_array_descr(gccache, ARRAY):
+def get_array_descr(gccache, ARRAY_OR_STRUCT):
     cache = gccache._cache_array
     try:
-        return cache[ARRAY]
+        return cache[ARRAY_OR_STRUCT]
     except KeyError:
-        assert isinstance(ARRAY, lltype.Array)
-        if ARRAY._hints.get('nolength', False):
+        tsc = gccache.translate_support_code
+        basesize, itemsize, _ = symbolic.get_array_token(ARRAY_OR_STRUCT, tsc)
+        if isinstance(ARRAY_OR_STRUCT, lltype.Array):
+            ARRAY_INSIDE = ARRAY_OR_STRUCT
+        else:
+            ARRAY_INSIDE = ARRAY_OR_STRUCT._flds[ARRAY_OR_STRUCT._arrayfld]
+        if ARRAY_INSIDE._hints.get('nolength', False):
             lendescr = None
         else:
-            lendescr = get_field_arraylen_descr(gccache, ARRAY)
-        tsc = gccache.translate_support_code
-        basesize, itemsize, _ = symbolic.get_array_token(ARRAY, tsc)
-        flag = get_type_flag(ARRAY.OF)
+            lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
+        flag = get_type_flag(ARRAY_INSIDE.OF)
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
-        if isinstance(ARRAY, lltype.GcArray):
-            gccache.init_array_descr(ARRAY, arraydescr)
-        cache[ARRAY] = arraydescr
+        if ARRAY_OR_STRUCT._gckind == 'gc':
+            gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
+        cache[ARRAY_OR_STRUCT] = arraydescr
         return arraydescr
 
 
@@ -221,7 +229,7 @@ class CallDescr(AbstractDescr):
     call_stub_f = staticmethod(lambda func,args_i,args_r,args_f:
                                longlong.ZEROF)
 
-    def __init__(self, arg_classes, result_type, result_flag, result_size,
+    def __init__(self, arg_classes, result_type, result_signed, result_size,
                  extrainfo=None, ffi_flags=1):
         """
             'arg_classes' is a string of characters, one per argument:
@@ -229,11 +237,10 @@ class CallDescr(AbstractDescr):
 
             'result_type' is one character from the same list or 'v'
 
-            'result_flag' is a FLAG_xxx value about the result
+            'result_signed' is a boolean True/False
         """
         self.arg_classes = arg_classes
         self.result_type = result_type
-        self.result_flag = result_flag
         self.result_size = result_size
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
@@ -241,6 +248,22 @@ class CallDescr(AbstractDescr):
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms
         # it is just ignored anyway.
+        if result_type == 'v':
+            result_flag = FLAG_VOID
+        elif result_type == 'i':
+            if result_signed:
+                result_flag = FLAG_SIGNED
+            else:
+                result_flag = FLAG_UNSIGNED
+        elif result_type == history.REF:
+            result_flag = FLAG_POINTER
+        elif result_type == history.FLOAT or result_type == 'L':
+            result_flag = FLAG_FLOAT
+        elif result_type == 'S':
+            result_flag = FLAG_UNSIGNED
+        else:
+            raise NotImplementedError("result_type = %r" % (result_type,))
+        self.result_flag = result_flag
 
     def __repr__(self):
         res = 'CallDescr(%s)' % (self.arg_classes,)
@@ -382,20 +405,21 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = map(map_type_to_argclass, ARGS)
     arg_classes = ''.join(arg_classes)
     result_type = map_type_to_argclass(RESULT, accept_void=True)
-    result_flag = get_type_flag(RESULT)
     RESULT_ERASED = RESULT
     if RESULT is lltype.Void:
         result_size = 0
+        result_signed = False
     else:
         result_size = symbolic.get_size(RESULT, gccache.translate_support_code)
+        result_signed = get_type_flag(RESULT) == FLAG_SIGNED
         if isinstance(RESULT, lltype.Ptr):
             RESULT_ERASED = llmemory.Address  # avoid too many CallDescrs
-    key = (arg_classes, result_type, result_flag, RESULT_ERASED, extrainfo)
+    key = (arg_classes, result_type, result_signed, RESULT_ERASED, extrainfo)
     cache = gccache._cache_call
     try:
         calldescr = cache[key]
     except KeyError:
-        calldescr = CallDescr(arg_classes, result_type, result_flag,
+        calldescr = CallDescr(arg_classes, result_type, result_signed,
                               result_size, extrainfo)
         calldescr.create_call_stub(gccache.rtyper, RESULT_ERASED)
         cache[key] = calldescr

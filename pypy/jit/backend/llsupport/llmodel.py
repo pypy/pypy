@@ -9,10 +9,8 @@ from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import (get_size_descr,
-     get_field_descr, BaseFieldDescr, DynamicFieldDescr, get_array_descr,
-     BaseArrayDescr, DynamicArrayNoLengthDescr, get_call_descr,
-     BaseIntCallDescr, GcPtrCallDescr, FloatCallDescr, VoidCallDescr,
-     InteriorFieldDescr, get_interiorfield_descr)
+     get_field_descr, FieldDescr, get_array_descr,
+     ArrayDescr, get_call_descr, get_interiorfield_descr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -221,14 +219,14 @@ class AbstractLLCPU(AbstractCPU):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
 
     def unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         return fielddescr.offset
     unpack_fielddescr._always_inline_ = True
 
     def unpack_fielddescr_size(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.translate_support_code)
+        size = fielddescr.field_size
         sign = fielddescr.is_field_signed()
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True

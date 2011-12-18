@@ -214,6 +214,13 @@ def test_get_array_descr_sign():
                                        True:  FLAG_SIGNED  }[signed]
 
 
+def test_get_array_descr_str():
+    c0 = GcCache(False)
+    descr1 = get_array_descr(c0, rstr.STR)
+    assert descr1.itemsize == rffi.sizeof(lltype.Char)
+    assert descr1.flag == FLAG_UNSIGNED
+
+
 def test_get_call_descr_not_translated():
     c0 = GcCache(False)
     descr1 = get_call_descr(c0, [lltype.Char, lltype.Signed], lltype.Char)
