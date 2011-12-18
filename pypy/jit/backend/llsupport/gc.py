@@ -67,6 +67,10 @@ class GcLLDescription(GcCache):
         return None
     def freeing_block(self, start, stop):
         pass
+    def get_nursery_free_addr(self):
+        raise NotImplementedError
+    def get_nursery_top_addr(self):
+        raise NotImplementedError
 
     def gc_malloc(self, sizedescr):
         """Blackhole: do a 'bh_new'.  Also used for 'bh_new_with_vtable',

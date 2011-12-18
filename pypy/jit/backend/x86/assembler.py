@@ -2243,9 +2243,9 @@ class Assembler386(object):
         #
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, BaseFieldDescr)
+            assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             self.mc.MOV(eax, arglocs[1])
             self.mc.MOV_mi((eax.value, ofs), 0)
