@@ -4,6 +4,7 @@ from pypy.objspace.flow.model import Variable
 from pypy.translator.translator import TranslationContext
 from pypy.translator.generator import replace_graph_with_bootstrap
 from pypy.translator.generator import get_variable_names
+from pypy.translator.generator import tweak_generator_body_graph
 
 
 # ____________________________________________________________
@@ -70,66 +71,37 @@ class TestGenerator:
         space = FlowObjSpace()
         graph = space.build_flow(func)
         assert graph.startblock.operations[0].opname == 'generator_mark'
-        replace_graph_with_bootstrap(graph, 'newgraph')
+        class Entry:
+            varnames = ['g_n', 'g_x', 'g_y', 'g_z']
+        replace_graph_with_bootstrap(graph, 'newgraph', Entry)
         if option.view:
             graph.show()
         block = graph.startblock
         ops = block.operations
-        assert ops[0].opname == 'call'      # e = Entry1()
-        assert ops[1].opname == 'setattr'   # e.g_n = n
+        assert ops[0].opname == 'simple_call' # e = Entry1()
+        assert ops[1].opname == 'setattr'     # e.g_n = n
         assert ops[1].args[1].value == 'g_n'
-        assert ops[2].opname == 'setattr'   # e.g_x = x
+        assert ops[2].opname == 'setattr'     # e.g_x = x
         assert ops[2].args[1].value == 'g_x'
-        assert ops[3].opname == 'setattr'   # e.g_y = y
+        assert ops[3].opname == 'setattr'     # e.g_y = y
         assert ops[3].args[1].value == 'g_y'
-        assert ops[4].opname == 'setattr'   # e.g_z = z
+        assert ops[4].opname == 'setattr'     # e.g_z = z
         assert ops[4].args[1].value == 'g_z'
-        assert ops[5].opname == 'call'      # g = GeneratorIterator(e)
+        assert ops[5].opname == 'simple_call' # g = GeneratorIterator(e)
         assert ops[5].args[1] == ops[0].result
         assert len(ops) == 6
         assert len(block.exits) == 1
         assert block.exits[0].target is graph.returnblock
 
-    def test_make_generator_body_graph(self):
+    def test_tweak_generator_body_graph(self):
         def f(n, x, y, z):
             z *= 10
-            yield n
+            yield n + 1
             z -= 10
         #
-        def f__next(generator):
-            n = generator.n_0
-            x = generator.x_0
-            y = generator.y_0
-            z = generator.z_0
-            e = generator.current
-            generator.current = None
-            if isinstance(e, "some class"):
-                xxx
-        #
         space = FlowObjSpace()
-        graph = space.build_flow(func)
-        newgraph = make_generator_body_graph(graph)
-        assert len(newgraph.startblock.inputargs) == 1
-        [v_generator] = newgraph.startblock.inputargs
-        ops = newgraph.startblock.operations
-        assert ops[0].opname == 'getattr'   # n = g.n_0
-        assert ops[0].args[0] == v_generator
-        assert ops[0].args[1].value.startswith('n_')
-        assert ops[1].opname == 'getattr'   # x = g.x_0
-        assert ops[1].args[0] == v_generator
-        assert ops[1].args[1].value.startswith('x_')
-        assert ops[2].opname == 'getattr'   # y = g.y_0
-        assert ops[2].args[0] == v_generator
-        assert ops[2].args[1].value.startswith('y_')
-        assert ops[3].opname == 'getattr'   # z = g.z_0
-        assert ops[3].args[0] == v_generator
-        assert ops[3].args[1].value.startswith('z_')
-        assert ops[4].opname == 'getattr'   # e = g.current
-        assert ops[4].args[0] == v_generator
-        assert ops[4].args[1].value == 'current'
-        assert ops[5].opname == 'setattr'   # g.current = None
-        assert ops[5].args[0] == v_generator
-        assert ops[5].args[1].value == 'current'
-        assert ops[6].opname == 'call'      # isinstance(e, Yield1)
-        assert ops[6].args[0].value == isinstance
-        assert len(ops) == 7
+        graph = space.build_flow(f)
+        tweak_generator_body_graph(graph)
+        if option.view:
+            graph.show()
+        # XXX how to test directly that the graph is correct?  :-(
