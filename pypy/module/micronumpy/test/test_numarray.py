@@ -1121,6 +1121,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([1, 2, 3])
         assert dot(a.flat, a.flat) == 14
 
+    def test_flatiter_varray(self):
+        from numpypy import ones
+        a = ones((2, 2))
+        assert list(((a + a).flat)) == [2, 2, 2, 2]
+
     def test_slice_copy(self):
         from numpypy import zeros
         a = zeros((10, 10))
