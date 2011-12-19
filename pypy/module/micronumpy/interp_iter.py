@@ -22,9 +22,6 @@ class BaseIterator(object):
     def done(self):
         raise NotImplementedError
 
-    def get_offset(self):
-        raise NotImplementedError
-
 class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
@@ -38,9 +35,6 @@ class ArrayIterator(BaseIterator):
 
     def done(self):
         return self.offset >= self.size
-
-    def get_offset(self):
-        return self.offset
 
 class OneDimIterator(BaseIterator):
     def __init__(self, start, step, stop):
@@ -57,9 +51,6 @@ class OneDimIterator(BaseIterator):
 
     def done(self):
         return self.offset == self.size
-
-    def get_offset(self):
-        return self.offset
 
 def view_iter_from_arr(arr):
     return ViewIterator(arr.start, arr.strides, arr.backstrides, arr.shape)
@@ -108,16 +99,6 @@ class ViewIterator(BaseIterator):
     def done(self):
         return self._done
 
-    def get_offset(self):
-        return self.offset
-
 class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
-
-    def done(self):
-        return False
-
-    def get_offset(self):
-        return 0
-
