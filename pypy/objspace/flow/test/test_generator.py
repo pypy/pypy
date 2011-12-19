@@ -12,7 +12,7 @@ class TestGenerator(Base):
                 i += 1
         graph = self.codetest(f)
         ops = self.all_operations(graph)
-        assert ops == {'generator_entry': 1,
+        assert ops == {'generator_mark': 1,
                        'lt': 1, 'is_true': 1,
                        'yield': 2,
                        'inplace_add': 1}

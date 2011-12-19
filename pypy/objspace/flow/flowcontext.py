@@ -249,7 +249,7 @@ class FlowExecutionContext(ExecutionContext):
 
     def build_flow(self):
         if self.is_generator:
-            self.produce_generator_entry()
+            self.produce_generator_mark()
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             frame = self.create_frame()
@@ -316,11 +316,10 @@ class FlowExecutionContext(ExecutionContext):
             del self.recorder
         self.fixeggblocks()
 
-    def produce_generator_entry(self):
+    def produce_generator_mark(self):
         [initialblock] = self.pendingblocks
         initialblock.operations.append(
-            SpaceOperation('generator_entry', list(initialblock.inputargs),
-                           Variable()))
+            SpaceOperation('generator_mark', [], Variable()))
 
     def generate_yield(self, frame, w_result):
         assert self.is_generator

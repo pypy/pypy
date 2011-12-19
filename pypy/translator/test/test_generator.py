@@ -1,6 +1,9 @@
+from pypy.conftest import option
 from pypy.objspace.flow.objspace import FlowObjSpace
+from pypy.objspace.flow.model import Variable
 from pypy.translator.translator import TranslationContext
 from pypy.translator.generator import replace_graph_with_bootstrap
+from pypy.translator.generator import get_variable_names
 
 
 # ____________________________________________________________
@@ -50,6 +53,10 @@ def f_explicit(n):
 def test_explicit():
     assert list(f_gen(10)) == list(f_explicit(10))
 
+def test_get_variable_names():
+    lst = get_variable_names([Variable('a'), Variable('b_'), Variable('a')])
+    assert lst == ['g_a', 'g_b', 'g_a_']
+
 # ____________________________________________________________
 
 
@@ -62,20 +69,22 @@ class TestGenerator:
         #
         space = FlowObjSpace()
         graph = space.build_flow(func)
-        assert graph.startblock.operations[0].opname == 'generator_entry'
+        assert graph.startblock.operations[0].opname == 'generator_mark'
         replace_graph_with_bootstrap(graph, 'newgraph')
+        if option.view:
+            graph.show()
         block = graph.startblock
         ops = block.operations
         assert ops[0].opname == 'call'      # e = Entry1()
-        assert ops[1].opname == 'setattr'   # e.n_0 = n
-        assert ops[1].args[1].value.startswith('n_')
-        assert ops[2].opname == 'setattr'   # e.x_0 = x
-        assert ops[2].args[1].value.startswith('x_')
-        assert ops[3].opname == 'setattr'   # e.y_0 = y
-        assert ops[3].args[1].value.startswith('y_')
-        assert ops[4].opname == 'setattr'   # e.z_0 = z
-        assert ops[4].args[1].value.startswith('z_')
-        assert ops[5].opname == 'call'      # g = Generator(e)
+        assert ops[1].opname == 'setattr'   # e.g_n = n
+        assert ops[1].args[1].value == 'g_n'
+        assert ops[2].opname == 'setattr'   # e.g_x = x
+        assert ops[2].args[1].value == 'g_x'
+        assert ops[3].opname == 'setattr'   # e.g_y = y
+        assert ops[3].args[1].value == 'g_y'
+        assert ops[4].opname == 'setattr'   # e.g_z = z
+        assert ops[4].args[1].value == 'g_z'
+        assert ops[5].opname == 'call'      # g = GeneratorIterator(e)
         assert ops[5].args[1] == ops[0].result
         assert len(ops) == 6
         assert len(block.exits) == 1
