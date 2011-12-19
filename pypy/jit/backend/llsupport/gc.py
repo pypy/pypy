@@ -116,6 +116,7 @@ class GcLLDescription(GcCache):
 class GcLLDescr_boehm(GcLLDescription):
     kind                  = 'boehm'
     moving_gc             = False
+    round_up              = False
     gcrootmap             = None
     write_barrier_descr   = None
     fielddescr_tid        = None
@@ -617,6 +618,7 @@ class WriteBarrierDescr(AbstractDescr):
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
+    round_up = True
 
     def __init__(self, gcdescr, translator, rtyper, llop1=llop,
                  really_not_translated=False):

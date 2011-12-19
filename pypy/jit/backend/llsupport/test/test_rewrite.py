@@ -149,7 +149,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 104, \
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
@@ -397,6 +397,20 @@ class TestFramework(RewriteTests):
                               %(bdescr.basesize + 104)d)
             setfield_gc(p2, 8765, descr=tiddescr)
             setfield_gc(p2, 103, descr=blendescr)
+            jump()
+        """)
+
+    def test_rewrite_assembler_huge_size(self):
+        # "huge" is defined as "larger than 0xffffff bytes, or 16MB"
+        self.check_rewrite("""
+            []
+            p0 = new_array(20000000, descr=bdescr)
+            jump()
+        """, """
+            []
+            p0 = call_malloc_gc(ConstClass(malloc_array), 1, \
+                                %(bdescr.tid)d, 20000000,    \
+                                descr=malloc_array_descr)
             jump()
         """)
 

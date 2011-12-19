@@ -112,7 +112,7 @@ class GcRewriterAssembler(object):
                 pass    # total_size is still -1
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
-        if total_size >= 0:
+        if 0 <= total_size <= 0xffffff:     # up to 16MB, arbitrarily
             self.gen_malloc_nursery(total_size, op.result)
             self.gen_initialize_tid(op.result, arraydescr.tid)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
@@ -209,11 +209,7 @@ class GcRewriterAssembler(object):
         """Try to generate or update a CALL_MALLOC_NURSERY.
         If that fails, generate a plain CALL_MALLOC_GC instead.
         """
-        if size <= (sys.maxint & ~(WORD-1)):
-            size = self.round_up_for_allocation(size)
-        else:
-            size = sys.maxint  #corner case: generate a malloc that always fail
-        #
+        size = self.round_up_for_allocation(size)
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
             self.gen_malloc_fixedsize(size, v_result)
             return
@@ -319,6 +315,8 @@ class GcRewriterAssembler(object):
         self.gen_write_barrier(v_base, v_value)
 
     def round_up_for_allocation(self, size):
+        if not self.gc_ll_descr.round_up:
+            return size
         if self.gc_ll_descr.translate_support_code:
             from pypy.rpython.lltypesystem import llarena
             return llarena.round_up_for_allocation(
