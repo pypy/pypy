@@ -248,7 +248,7 @@ class FlowObjSpace(ObjSpace):
                 return ecls
         return None
 
-    def build_flow(self, func, constargs={}):
+    def build_flow(self, func, constargs={}, tweak_for_generator=True):
         """
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
@@ -291,6 +291,11 @@ class FlowObjSpace(ObjSpace):
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
         checkgraph(graph)
+        #
+        if is_generator and tweak_for_generator:
+            from pypy.translator.generator import tweak_generator_graph
+            tweak_generator_graph(graph)
+        #
         return graph
 
     def fixedview(self, w_tuple, expected_length=None):

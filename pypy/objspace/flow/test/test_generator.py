@@ -10,7 +10,7 @@ class TestGenerator(Base):
                 yield i
                 yield i
                 i += 1
-        graph = self.codetest(f)
+        graph = self.codetest(f, tweak_for_generator=False)
         ops = self.all_operations(graph)
         assert ops == {'generator_mark': 1,
                        'lt': 1, 'is_true': 1,

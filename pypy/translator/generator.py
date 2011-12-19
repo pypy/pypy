@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
 from pypy.translator.simplify import eliminate_empty_blocks
+from pypy.tool.sourcetools import func_with_new_name
 
 
 class AbstractPosition(object):
@@ -10,14 +11,32 @@ class AbstractPosition(object):
     _attrs_ = ()
 
 
-def replace_graph_with_bootstrap(graph, graph_of_body, Entry):
-    #
+def tweak_generator_graph(graph):
+    if not hasattr(graph.func, '_generator_next_method_of_'):
+        # This is the first copy of the graph.  We replace it with
+        # a small bootstrap graph.
+        GeneratorIterator = make_generatoriterator_class(graph)
+        replace_graph_with_bootstrap(GeneratorIterator, graph)
+        # We attach a 'next' method to the GeneratorIterator class
+        # that will invoke the real function, based on a second
+        # copy of the graph.
+        attach_next_method(GeneratorIterator, graph)
+    else:
+        # This is the second copy of the graph.  Tweak it.
+        GeneratorIterator = graph.func._generator_next_method_of_
+        tweak_generator_body_graph(GeneratorIterator.Entry, graph)
+
+
+def make_generatoriterator_class(graph):
     class GeneratorIterator(object):
-        graph = graph_of_body
+        class Entry(AbstractPosition):
+            varnames = get_variable_names(graph.startblock.inputargs)
         def __init__(self, entry):
             self.current = entry
-    GeneratorIterator.Entry = Entry
-    #
+    return GeneratorIterator
+
+def replace_graph_with_bootstrap(GeneratorIterator, graph):
+    Entry = GeneratorIterator.Entry
     newblock = Block(graph.startblock.inputargs)
     v_generator = Variable('generator')
     v_entry = Variable('entry')
@@ -33,7 +52,21 @@ def replace_graph_with_bootstrap(graph, graph_of_body, Entry):
                        v_generator))
     newblock.closeblock(Link([v_generator], graph.returnblock))
     graph.startblock = newblock
-    return GeneratorIterator
+
+def attach_next_method(GeneratorIterator, graph):
+    func = graph.func
+    func = func_with_new_name(func, '%s__next' % (func.func_name,))
+    func._generator_next_method_of_ = GeneratorIterator
+    func._always_inline_ = True
+    #
+    def next(self):
+        entry = self.current
+        self.current = None
+        (next_entry, return_value) = func(entry)
+        self.current = next_entry
+        return return_value
+    GeneratorIterator.next = next
+    return func   # for debugging
 
 def get_variable_names(variables):
     seen = set()
@@ -55,17 +88,14 @@ def _insert_reads(block, varnames):
                            block.inputargs[i]))
     block.inputargs = [v_entry1]
 
-def tweak_generator_body_graph(graph):
+def tweak_generator_body_graph(Entry, graph):
     assert graph.startblock.operations[0].opname == 'generator_mark'
     graph.startblock.operations.pop(0)
     #
-    entryvarnames = get_variable_names(graph.startblock.inputargs)
     insert_empty_startblock(None, graph)
-    _insert_reads(graph.startblock, entryvarnames)
+    _insert_reads(graph.startblock, Entry.varnames)
+    Entry.block = graph.startblock
     #
-    class Entry(AbstractPosition):
-        block = graph.startblock
-        varnames = entryvarnames
     mappings = [Entry]
     #
     for block in list(graph.iterblocks()):
@@ -129,8 +159,3 @@ def tweak_generator_body_graph(graph):
     graph.startblock = regular_entry_block
     checkgraph(graph)
     eliminate_empty_blocks(graph)
-    try:
-        graph.func._always_inline_ = True
-    except AttributeError:
-        pass
-    return Entry
