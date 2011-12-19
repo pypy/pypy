@@ -40,8 +40,8 @@ class GcLLDescription(GcCache):
 
     def generate_function(self, funcname, func, ARGS, RESULT=llmemory.GCREF):
         """Generates a variant of malloc with the given name and the given
-        arguments.  It should raise MemoryError and return NULL if out of
-        memory.
+        arguments.  It should return NULL if out of memory.  If it raises
+        anything, it must be an optional MemoryError.
         """
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         descr = get_call_descr(self, ARGS, RESULT)
@@ -173,10 +173,7 @@ class GcLLDescr_boehm(GcLLDescription):
     def _make_functions(self):
 
         def malloc_fixedsize(size):
-            res = self.malloc_fn_ptr(size)
-            if not res:
-                raise MemoryError
-            return res
+            return self.malloc_fn_ptr(size)
         self.generate_function('malloc_fixedsize', malloc_fixedsize,
                                [lltype.Signed])
 
@@ -184,12 +181,11 @@ class GcLLDescr_boehm(GcLLDescription):
             try:
                 totalsize = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
             except OverflowError:
-                raise MemoryError
+                return lltype.nullptr(llmemory.GCREF.TO)
             res = self.malloc_fn_ptr(totalsize)
-            if not res:
-                raise MemoryError
-            arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-            arrayptr[ofs_length/WORD] = num_elem
+            if res:
+                arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+                arrayptr[ofs_length/WORD] = num_elem
             return res
         self.generate_function('malloc_array', malloc_array,
                                [lltype.Signed] * 4)
