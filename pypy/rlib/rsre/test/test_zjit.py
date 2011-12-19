@@ -70,7 +70,8 @@ class TestJitRSre(support.LLJitMixin):
     def test_simple_match_repeated(self):
         res = self.meta_interp_match(r"abcdef", "abcdef", repeat=10)
         assert res == 6
-        self.check_tree_loop_count(1)
+        self.check_trace_count(1)
+        self.check_jitcell_token_count(1)
 
     def test_match_minrepeat_1(self):
         res = self.meta_interp_match(r".*?abc", "xxxxxxxxxxxxxxabc")

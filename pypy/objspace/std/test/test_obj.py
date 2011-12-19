@@ -253,6 +253,12 @@ class AppTestObject:
         y = 2j
         assert id(x) != id(y)
 
+    def test_object_hash_immutable(self):
+        x = 42
+        y = 40
+        y += 2
+        assert object.__hash__(x) == object.__hash__(y)
+
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

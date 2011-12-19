@@ -375,6 +375,7 @@ class BaseArray(Wrappable):
     def descr_get_dtype(self, space):
         return space.wrap(self.find_dtype())
 
+    @jit.unroll_safe
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
@@ -592,7 +593,8 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
-            concrete.setitem_w(space, item, w_value)
+            dtype = concrete.find_dtype()
+            concrete.setitem(item, dtype.coerce(space, w_value))
             return
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
@@ -623,9 +625,9 @@ class BaseArray(Wrappable):
         a.reshape(shape)
 
         Returns an array containing the same data with a new shape.
-        
+
         Refer to `numpypy.reshape` for full documentation.
-        
+
         See Also
         --------
         numpypy.reshape : equivalent function
@@ -652,6 +654,17 @@ class BaseArray(Wrappable):
             arr = concrete.copy()
             arr.setshape(space, new_shape)
         return arr
+
+    def descr_tolist(self, space):
+        if len(self.shape) == 0:
+            assert isinstance(self, Scalar)
+            return self.value.descr_tolist(space)
+        w_result = space.newlist([])
+        for i in range(self.shape[0]):
+            space.call_method(w_result, "append",
+                space.call_method(self.descr_getitem(space, space.wrap(i)), "tolist")
+            )
+        return w_result
 
     def descr_mean(self, space):
         return space.div(self.descr_sum(space), space.wrap(self.size))
@@ -689,15 +702,24 @@ class BaseArray(Wrappable):
     def getitem(self, item):
         raise NotImplementedError
 
-    def descr_debug_repr(self, space):
-        return space.wrap(self.find_sig().debug_repr())
-
     def find_sig(self, res_shape=None):
         """ find a correct signature for the array
         """
         res_shape = res_shape or self.shape
         return signature.find_sig(self.create_sig(res_shape), self)
 
+    def descr_array_iface(self, space):
+        if not self.shape:
+            raise OperationError(space.w_TypeError,
+                space.wrap("can't get the array data of a 0-d array for now")
+            )
+        concrete = self.get_concrete()
+        storage = concrete.storage
+        addr = rffi.cast(lltype.Signed, storage)
+        w_d = space.newdict()
+        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
+                                                       space.w_False]))
+        return w_d
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -744,6 +766,9 @@ class Scalar(BaseArray):
     def get_concrete_or_scalar(self):
         return self
 
+
+    def get_storage(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("Cannot get array interface on scalars in pypy"))
 
 class VirtualArray(BaseArray):
     """
@@ -936,7 +961,7 @@ class ViewArray(ConcreteArray):
 
     def create_sig(self, res_shape):
         return signature.ViewSignature(self.dtype)
-    
+
 
 class W_NDimSlice(ViewArray):
     def __init__(self, start, strides, backstrides, shape, parent):
@@ -1018,12 +1043,32 @@ class W_NDimArray(ConcreteArray):
         )
         return array
 
+    def descr_len(self, space):
+        if len(self.shape):
+            return space.wrap(self.shape[0])
+        raise OperationError(space.w_TypeError, space.wrap(
+            "len() of unsized object"))
+
+    def setitem(self, item, value):
+        self.invalidated()
+        self.dtype.setitem(self.storage, item, value)
+
+    def start_iter(self, res_shape=None):
+        if self.order == 'C':
+            if res_shape is not None and res_shape != self.shape:
+                return BroadcastIterator(self, res_shape)
+            return ArrayIterator(self.size)
+        raise NotImplementedError  # use ViewIterator simply, test it
+
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
     def create_sig(self, res_shape):
         return self.array_sig(res_shape)
+
+    def get_storage(self, space):
+        return self.storage
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
@@ -1144,7 +1189,7 @@ BaseArray.typedef = TypeDef(
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
-    __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
+    __array_interface__ = GetSetProperty(BaseArray.descr_array_iface),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape,
@@ -1167,6 +1212,7 @@ BaseArray.typedef = TypeDef(
 
     copy = interp2app(BaseArray.descr_copy),
     reshape = interp2app(BaseArray.descr_reshape),
+    tolist = interp2app(BaseArray.descr_tolist),
 )
 
 

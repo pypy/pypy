@@ -42,7 +42,7 @@ class TestException(BaseTestPyPyC):
         i12 = int_sub_ovf(i3, 1)
         guard_no_overflow(descr=...)
         --TICK--
-        jump(..., descr=<Loop0>)
+        jump(..., descr=...)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -89,5 +89,5 @@ class TestException(BaseTestPyPyC):
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)

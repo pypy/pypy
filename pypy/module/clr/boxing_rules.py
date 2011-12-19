@@ -43,11 +43,11 @@ class __extend__(W_StringObject):
     def tocli(self):
         return box(self._value)
 
-from pypy.objspace.fake.objspace import W_Object as W_Object_Fake
-from pypy.rlib.nonconst import NonConstant
+##from pypy.objspace.fake.objspace import W_Object as W_Object_Fake
+##from pypy.rlib.nonconst import NonConstant
 
-class __extend__(W_Object_Fake):
-    __metaclass__ = extendabletype
+##class __extend__(W_Object_Fake):
+##    __metaclass__ = extendabletype
 
-    def tocli(self):
-        return NonConstant(None)
+##    def tocli(self):
+##        return NonConstant(None)

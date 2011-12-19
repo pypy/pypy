@@ -8,7 +8,7 @@ from pypy.tool.udir import udir
 from pypy.tool import logparser
 from pypy.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
-    LoopWithIds, OpMatcher
+    TraceWithIds, OpMatcher
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -45,12 +45,14 @@ class BaseTestPyPyC(object):
         cmdline = [sys.executable]
         if not import_site:
             cmdline.append('-S')
-        for key, value in jitopts.iteritems():
-            cmdline += ['--jit', '%s=%s' % (key, value)]
+        if jitopts:
+            jitcmdline = ['%s=%s' % (key, value)
+                          for key, value in jitopts.items()]
+            cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
         print cmdline, logfile
-        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-summary:' + str(logfile)}
+        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary:' + str(logfile)}
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -118,7 +120,7 @@ class TestOpMatcher(object):
     def match(self, src1, src2, **kwds):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
-        matcher = OpMatcher(loop.operations, src=src1)
+        matcher = OpMatcher(loop.operations)
         return matcher.match(src2, **kwds)
 
     def test_match_var(self):
@@ -317,14 +319,17 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
-        assert not loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0        
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
-        assert loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) > 0
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
-        assert len(loops) == 2
+        assert len(loops) == 1
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 2
 
     def test_loops_by_id(self):
         def f():

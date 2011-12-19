@@ -3,7 +3,7 @@ import py
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.gateway import interp2app
-from pypy.jit.metainterp.history import LoopToken
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.logger import Logger
 from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
@@ -41,11 +41,11 @@ class AppTestJitHook(object):
         """, namespace={'ptr0': code_gcref}).operations
 
         def interp_on_compile():
-            pypyjitdriver.on_compile(logger, LoopToken(), oplist, 'loop',
+            pypyjitdriver.on_compile(logger, JitCellToken(), oplist, 'loop',
                                      0, False, ll_code)
 
         def interp_on_compile_bridge():
-            pypyjitdriver.on_compile_bridge(logger, LoopToken(), oplist, 0)
+            pypyjitdriver.on_compile_bridge(logger, JitCellToken(), oplist, 0)
         
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))

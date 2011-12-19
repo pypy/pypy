@@ -156,7 +156,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i40 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i40, i38, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i40, i38, descr=...)
         """)
 
     def test_getattr_promote(self):
@@ -179,7 +179,7 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
-        assert len(loops) == 2
+        assert len(loops) == 1
         for loop in loops:
             loop.match_by_id('getattr','''
             guard_not_invalidated(descr=...)
