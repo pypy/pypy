@@ -114,14 +114,14 @@ class ConcreteSignature(Signature):
         return compute_identity_hash(self.dtype)
 
     def allocate_view_iter(self, arr, res_shape, chunklist):
-        r = arr.start, arr.strides, arr.backstrides
+        r = arr.shape, arr.start, arr.strides, arr.backstrides
         if chunklist:
             for chunkelem in chunklist:
-                r = calculate_slice_strides(r[0], r[1], r[2], chunkelem)
-        start, strides, backstrides = r
+                r = calculate_slice_strides(r[0], r[1], r[2], r[3], chunkelem)
+        shape, start, strides, backstrides = r
         if len(res_shape) == 1:
             return OneDimIterator(start, strides[0], res_shape[0])
-        return ViewIterator(start, strides, backstrides, arr.shape, res_shape)
+        return ViewIterator(start, strides, backstrides, shape, res_shape)
 
 class ArraySignature(ConcreteSignature):
     def debug_repr(self):

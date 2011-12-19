@@ -612,9 +612,9 @@ class BaseArray(Wrappable):
         shape += self.shape[s:]
         if not isinstance(self, ConcreteArray):
             return VirtualSlice(self, chunks, shape)
-        r = calculate_slice_strides(self.start, self.strides, self.backstrides,
-                                    chunks)
-        start, strides, backstrides = r
+        r = calculate_slice_strides(self.shape, self.start, self.strides,
+                                    self.backstrides, chunks)
+        _, start, strides, backstrides = r
         return W_NDimSlice(start, strides[:], backstrides[:],
                            shape[:], self)
 
