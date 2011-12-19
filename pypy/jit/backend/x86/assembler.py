@@ -275,7 +275,8 @@ class Assembler386(object):
         #
         self.mc = codebuf.MachineCodeBlockWrapper()
         # call on_leave_jitted_save_exc()
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
+                                                default_to_memoryerror=True)
         self.mc.CALL(imm(addr))
         self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         self._call_footer()
@@ -865,8 +866,8 @@ class Assembler386(object):
         high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
         low_part  = intmask(low_part)
         high_part = intmask(high_part)
-        self.mc.MOV_bi(to_loc.value,     low_part)
-        self.mc.MOV_bi(to_loc.value + 4, high_part)
+        self.mc.MOV32_bi(to_loc.value,     low_part)
+        self.mc.MOV32_bi(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
