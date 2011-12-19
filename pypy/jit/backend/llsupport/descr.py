@@ -384,7 +384,7 @@ class CallDescr(AbstractDescr):
             category = 'i'
         elif result_type == history.REF:
             assert RESULT == llmemory.GCREF   # should be ensured by the caller
-            result = 'res'
+            result = 'lltype.cast_opaque_ptr(llmemory.GCREF, res)'
             category = 'r'
         elif result_type == history.FLOAT:
             result = 'longlong.getfloatstorage(res)'
