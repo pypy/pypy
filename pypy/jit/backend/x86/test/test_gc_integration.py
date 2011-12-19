@@ -199,7 +199,7 @@ class GCDescrFastpathMalloc(GcLLDescription):
         return rffi.cast(lltype.Signed, self.addrs) + WORD
 
     def get_malloc_slowpath_addr(self):
-        return self.c_malloc_nursery_fn.value
+        return self.get_malloc_fn_addr('malloc_nursery')
 
     def check_nothing_in_nursery(self):
         # CALL_MALLOC_NURSERY should not write anything in the nursery
