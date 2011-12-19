@@ -107,9 +107,14 @@ class AbstractLLCPU(AbstractCPU):
             _exception_emulator[1] = 0
             self.saved_exc_value = rffi.cast(llmemory.GCREF, v_i)
 
+        def save_exception_memoryerr():
+            save_exception()
+            self.saved_exc_value = "memoryerror!"    # for tests
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = lambda: (0, 0, 0)
 
 
@@ -134,6 +139,13 @@ class AbstractLLCPU(AbstractCPU):
             # in the assignment to self.saved_exc_value, as needed.
             self.saved_exc_value = exc_value
 
+        def save_exception_memoryerr():
+            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+            save_exception()
+            exc = MemoryError()
+            exc = cast_instance_to_base_ptr(exc)
+            self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+
         from pypy.rlib import rstack
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
@@ -147,16 +159,19 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = insert_stack_check
 
     def _setup_on_leave_jitted_untranslated(self):
         # assume we don't need a backend leave in this case
         self.on_leave_jitted_save_exc = self.save_exception
+        self.on_leave_jitted_memoryerr = self.save_exception_memoryerr
         self.on_leave_jitted_noexc = lambda : None
 
     def _setup_on_leave_jitted_translated(self):
         on_leave_jitted_hook = self.get_on_leave_jitted_hook()
         save_exception = self.save_exception
+        save_exception_memoryerr = self.save_exception_memoryerr
 
         def on_leave_jitted_noexc():
             on_leave_jitted_hook()
@@ -165,16 +180,23 @@ class AbstractLLCPU(AbstractCPU):
             save_exception()
             on_leave_jitted_hook()
 
+        def on_leave_jitted_memoryerr():
+            save_exception_memoryerr()
+            on_leave_jitted_hook()
+
         self.on_leave_jitted_noexc = on_leave_jitted_noexc
         self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
+        self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
 
     def get_on_leave_jitted_hook(self):
         return lambda : None
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-    def get_on_leave_jitted_int(self, save_exception):
-        if save_exception:
+    def get_on_leave_jitted_int(self, save_exception, memoryerror=False):
+        if memoryerror:
+            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_memoryerr)
+        elif save_exception:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
         else:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
