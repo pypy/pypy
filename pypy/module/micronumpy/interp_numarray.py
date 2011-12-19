@@ -842,7 +842,7 @@ class Call1(VirtualArray):
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return signature.ArraySignature(self.forced_result.dtype)
+            return self.forced_result.array_sig(res_shape)
         return signature.Call1(self.ufunc, self.name,
                                self.values.create_sig(res_shape))
 
@@ -869,7 +869,7 @@ class Call2(VirtualArray):
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return signature.ArraySignature(self.forced_result.dtype)
+            return self.forced_result.array_sig(res_shape)
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(res_shape),
                                self.right.create_sig(res_shape))
@@ -930,6 +930,11 @@ class ConcreteArray(BaseArray):
         self.strides = strides[:]
         self.backstrides = backstrides[:]
 
+    def array_sig(self, res_shape):
+        if res_shape is not None and self.shape != res_shape:
+            return signature.ViewSignature(self.dtype)
+        return signature.ArraySignature(self.dtype)
+
 class W_NDimSlice(ConcreteArray):
     def __init__(self, start, strides, backstrides, shape, parent):
         if isinstance(parent, W_NDimSlice):
@@ -949,7 +954,7 @@ class W_NDimSlice(ConcreteArray):
 
     def _sliceloop(self, source, res_shape):
         sig = source.find_sig(res_shape)
-        frame = sig.create_frame(source)
+        frame = sig.create_frame(source, res_shape)
         res_iter = ViewIterator(self)
         shapelen = len(res_shape)
         while not res_iter.done():
@@ -1028,7 +1033,7 @@ class W_NDimArray(ConcreteArray):
         self.calc_strides(new_shape)
 
     def create_sig(self, res_shape):
-        return signature.ArraySignature(self.dtype)
+        return self.array_sig(res_shape)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)

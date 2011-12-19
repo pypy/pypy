@@ -62,7 +62,6 @@ class OneDimIterator(BaseIterator):
 
 class ViewIterator(BaseIterator):
     def __init__(self, arr, res_shape=None):
-        self.indices = [0] * len(arr.shape)
         self.offset  = arr.start
         self._done   = False
         if res_shape is not None and res_shape != arr.shape:
@@ -82,6 +81,7 @@ class ViewIterator(BaseIterator):
             self.strides = arr.strides
             self.backstrides = arr.backstrides
             self.res_shape = arr.shape
+        self.indices = [0] * len(self.res_shape)
 
 
     @jit.unroll_safe

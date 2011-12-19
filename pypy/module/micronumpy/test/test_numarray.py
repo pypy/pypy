@@ -865,7 +865,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [8, 6, 4, 2, 0]).all()
 
     def test_debug_repr(self):
-        skip("for now")
         from numpypy import zeros, sin
         a = zeros(1)
         assert a.__debug_repr__() == 'Array'
@@ -1001,7 +1000,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[0, 1, 2] == 1.0
 
     def test_broadcast_ufunc(self):
-        skip("broadcast unsupported")
         from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
         b = array([5, 6])
@@ -1009,15 +1007,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert c.all()
 
     def test_broadcast_setslice(self):
-        skip("broadcast unsupported")
         from numpypy import zeros, ones
-        a = zeros((100, 100))
-        b = ones(100)
+        a = zeros((10, 10))
+        b = ones(10)
         a[:, :] = b
-        assert a[13, 15] == 1
+        assert a[3, 5] == 1
 
     def test_broadcast_shape_agreement(self):
-        skip("broadcast unsupported")
         from numpypy import zeros, array
         a = zeros((3, 1, 3))
         b = array(((10, 11, 12), (20, 21, 22), (30, 31, 32)))
@@ -1032,7 +1028,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert c.all()
 
     def test_broadcast_scalar(self):
-        skip("broadcast unsupported")
         from numpypy import zeros
         a = zeros((4, 5), 'd')
         a[:, 1] = 3
@@ -1044,7 +1039,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[3, 2] == 0
 
     def test_broadcast_call2(self):
-        skip("broadcast unsupported")
         from numpypy import zeros, ones
         a = zeros((4, 1, 5))
         b = ones((4, 3, 5))

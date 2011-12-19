@@ -88,10 +88,11 @@ class Signature(object):
             allnumbers.append(no)
         self.iter_no = no
 
-    def create_frame(self, arr):
+    def create_frame(self, arr, res_shape=None):
+        res_shape = res_shape or arr.shape
         iterlist = []
         arraylist = []
-        self._create_iter(iterlist, arraylist, arr)
+        self._create_iter(iterlist, arraylist, arr, res_shape)
         return NumpyEvalFrame(iterlist, arraylist)
 
 class ConcreteSignature(Signature):
@@ -120,14 +121,14 @@ class ArraySignature(ConcreteSignature):
         storage = arr.get_concrete().storage
         self.array_no = _add_ptr_to_cache(storage, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
         storage = arr.get_concrete().storage
         if self.iter_no >= len(iterlist):
-            iterlist.append(self.allocate_iter(arr))
+            iterlist.append(self.allocate_iter(arr, res_shape))
         if self.array_no >= len(arraylist):
             arraylist.append(storage)
 
-    def allocate_iter(self, arr):
+    def allocate_iter(self, arr, res_shape):
         return ArrayIterator(arr.size)
 
     def eval(self, frame, arr):
@@ -141,7 +142,7 @@ class ScalarSignature(ConcreteSignature):
     def _invent_array_numbering(self, arr, cache):
         pass
 
-    def _create_iter(self, iterlist, arraylist, arr):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
         if self.iter_no >= len(iterlist):
             iter = ConstantIterator()
             iterlist.append(iter)
@@ -161,14 +162,14 @@ class ViewSignature(ArraySignature):
         allnumbers.append(no)
         self.iter_no = no
 
-    def allocate_iter(self, arr):
-        return ViewIterator(arr)
+    def allocate_iter(self, arr, res_shape):
+        return ViewIterator(arr, res_shape)
 
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
         return 'FlatIter(%s)' % self.child.debug_repr()
 
-    def _create_iter(self, iterlist, arraylist, arr):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
         raise NotImplementedError
 
 class Call1(Signature):
@@ -200,10 +201,10 @@ class Call1(Signature):
         assert isinstance(arr, Call1)
         self.child._invent_array_numbering(arr.values, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
-        self.child._create_iter(iterlist, arraylist, arr.values)
+        self.child._create_iter(iterlist, arraylist, arr.values, res_shape)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
@@ -244,12 +245,12 @@ class Call2(Signature):
         self.left._invent_numbering(cache, allnumbers)
         self.right._invent_numbering(cache, allnumbers)
 
-    def _create_iter(self, iterlist, arraylist, arr):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
         from pypy.module.micronumpy.interp_numarray import Call2
         
         assert isinstance(arr, Call2)
-        self.left._create_iter(iterlist, arraylist, arr.left)
-        self.right._create_iter(iterlist, arraylist, arr.right)
+        self.left._create_iter(iterlist, arraylist, arr.left, res_shape)
+        self.right._create_iter(iterlist, arraylist, arr.right, res_shape)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call2
@@ -263,8 +264,8 @@ class Call2(Signature):
                                   self.right.debug_repr())
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr):
-        self.right._create_iter(iterlist, arraylist, arr)
+    def _create_iter(self, iterlist, arraylist, arr, res_shape):
+        self.right._create_iter(iterlist, arraylist, arr, res_shape)
 
     def _invent_numbering(self, cache, allnumbers):
         self.right._invent_numbering(cache, allnumbers)
