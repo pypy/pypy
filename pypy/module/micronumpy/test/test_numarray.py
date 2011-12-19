@@ -869,13 +869,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros(1)
         assert a.__debug_repr__() == 'Array'
         assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
-        assert (a[::2]).__debug_repr__() == 'Slice(Array)'
+        assert (a[::2]).__debug_repr__() == 'Slice'
         assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
-        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
+        #assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
         assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
         b = a + a
         b[0] = 3
-        assert b.__debug_repr__() == 'Forced'
+        assert b.__debug_repr__() == 'Array'
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

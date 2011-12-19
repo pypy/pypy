@@ -154,7 +154,7 @@ class ScalarSignature(ConcreteSignature):
 
 class ViewSignature(ArraySignature):
     def debug_repr(self):
-        return 'Slice(%s)' % self.child.debug_repr()
+        return 'Slice'
 
     def _invent_numbering(self, cache, allnumbers):
         # always invent a new number for view
@@ -260,8 +260,8 @@ class Call2(Signature):
         return self.binfunc(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
-        return 'Call2(%s, %s)' % (self.left.debug_repr(),
-                                  self.right.debug_repr())
+        return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
+                                      self.right.debug_repr())
 
 class ReduceSignature(Call2):
     def _create_iter(self, iterlist, arraylist, arr, res_shape):
