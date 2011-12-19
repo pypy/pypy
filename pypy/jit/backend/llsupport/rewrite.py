@@ -1,3 +1,4 @@
+import sys
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -208,13 +209,16 @@ class GcRewriterAssembler(object):
         """Try to generate or update a CALL_MALLOC_NURSERY.
         If that fails, generate a plain CALL_MALLOC_GC instead.
         """
+        if size <= (sys.maxint & ~(WORD-1)):
+            size = self.round_up_for_allocation(size)
+        else:
+            size = sys.maxint  #corner case: generate a malloc that always fail
+        #
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
             self.gen_malloc_fixedsize(size, v_result)
             return
         #
-        size = self.round_up_for_allocation(size)
         op = None
-        #
         if self._op_malloc_nursery is not None:
             # already a MALLOC_NURSERY: increment its total size
             total_size = self._op_malloc_nursery.getarg(0).getint()

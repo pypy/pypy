@@ -149,7 +149,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 104, \
                                 descr=malloc_fixedsize_descr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
@@ -364,15 +364,15 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.max_size_of_young_obj = 100
         self.check_rewrite("""
             []
-            p0 = new_array(100, descr=bdescr)
+            p0 = new_array(103, descr=bdescr)
             jump()
         """, """
             []
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
-                                %(bdescr.basesize + 100)d,    \
+                                %(bdescr.basesize + 104)d,    \
                                 descr=malloc_fixedsize_descr)
             setfield_gc(p0, 8765, descr=tiddescr)
-            setfield_gc(p0, 100, descr=blendescr)
+            setfield_gc(p0, 103, descr=blendescr)
             jump()
         """)
 
@@ -421,7 +421,7 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 104, \
                                 descr=malloc_fixedsize_descr)
             setfield_gc(p0, 9315, descr=tiddescr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
