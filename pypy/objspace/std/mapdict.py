@@ -410,10 +410,8 @@ class BaseMapdictObject:
         self._become(new_obj)
 
     def user_setup(self, space, w_subtype):
-        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
         self.space = space
-        assert (not self.typedef.hasdict or
-                self.typedef is W_InstanceObject.typedef)
+        assert not self.typedef.hasdict
         self._init_empty(w_subtype.terminator)
 
     def getslotvalue(self, index):

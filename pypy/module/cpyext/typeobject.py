@@ -32,7 +32,6 @@ from pypy.interpreter.error import OperationError
 from pypy.rlib.rstring import rsplit
 from pypy.rlib.objectmodel import specialize
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
-from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.rlib import jit
 
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
@@ -551,9 +550,6 @@ def best_base(space, bases_w):
     w_winner = None
     w_base = None
     for w_base_i in bases_w:
-        if isinstance(w_base_i, W_ClassObject):
-            # old-style base
-            continue
         assert isinstance(w_base_i, W_TypeObject)
         w_candidate = solid_base(space, w_base_i)
         if not w_winner:

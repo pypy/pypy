@@ -45,9 +45,6 @@ class Module(MixedModule):
 
         'open'          : 'state.get(space).w_open',
 
-        # default __metaclass__: old-style class
-        '__metaclass__' : 'interp_classobj.W_ClassObject',
-
         # interp-level function definitions
         'abs'           : 'operation.abs',
         'ascii'         : 'operation.ascii',

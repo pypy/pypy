@@ -79,9 +79,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # exceptions & builtins
         self.make_builtins()
 
-        # the type of old-style classes
-        self.w_classobj = self.builtin.get('__metaclass__')
-
         # final setup
         self.setup_builtin_modules()
         # Adding transparent proxy call

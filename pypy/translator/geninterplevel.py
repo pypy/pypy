@@ -892,7 +892,7 @@ else:
         # XXX there seems to be no working support for member descriptors ???
         type(types.GeneratorType.gi_frame):
             (eval_helper, "member_descriptor", 'type(property.fdel)'),
-        types.ClassType: 'space.w_classobj',
+        types.ClassType: 'space.w_type',
         types.MethodType: (eval_helper, "instancemethod",
             "type((lambda:42).__get__(42))"),
         type(Ellipsis): (eval_helper, 'EllipsisType', 'types.EllipsisType'),
