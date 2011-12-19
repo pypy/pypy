@@ -276,7 +276,7 @@ class Assembler386(object):
         self.mc = codebuf.MachineCodeBlockWrapper()
         # call on_leave_jitted_save_exc()
         addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
-                                                memoryerror=True)
+                                                default_to_memoryerror=True)
         self.mc.CALL(imm(addr))
         self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         self._call_footer()
