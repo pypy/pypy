@@ -1,9 +1,7 @@
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp import history
 from pypy.rpython.lltypesystem import rffi
-from pypy.jit.backend.llsupport.descr import (
-    DynamicIntCallDescr, NonGcPtrCallDescr, FloatCallDescr, VoidCallDescr,
-    LongLongCallDescr, getCallDescrClass)
+from pypy.jit.backend.llsupport.descr import CallDescr
 
 class UnsupportedKind(Exception):
     pass
@@ -16,29 +14,13 @@ def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo, ffi_flags):
         argkinds = [get_ffi_type_kind(cpu, arg) for arg in ffi_args]
     except UnsupportedKind:
         return None
-    arg_classes = ''.join(argkinds)
-    if reskind == history.INT:
-        size = intmask(ffi_result.c_size)
-        signed = is_ffi_type_signed(ffi_result)
-        return DynamicIntCallDescr(arg_classes, size, signed, extrainfo,
-                                   ffi_flags=ffi_flags)
-    elif reskind == history.REF:
-        return  NonGcPtrCallDescr(arg_classes, extrainfo,
-                                  ffi_flags=ffi_flags)
-    elif reskind == history.FLOAT:
-        return FloatCallDescr(arg_classes, extrainfo,
-                              ffi_flags=ffi_flags)
-    elif reskind == history.VOID:
-        return VoidCallDescr(arg_classes, extrainfo,
-                             ffi_flags=ffi_flags)
-    elif reskind == 'L':
-        return LongLongCallDescr(arg_classes, extrainfo,
-                                 ffi_flags=ffi_flags)
-    elif reskind == 'S':
-        SingleFloatCallDescr = getCallDescrClass(rffi.FLOAT)
-        return SingleFloatCallDescr(arg_classes, extrainfo,
-                                    ffi_flags=ffi_flags)
-    assert False
+    if reskind == history.VOID:
+        result_size = 0
+    else:
+        result_size = intmask(ffi_result.c_size)
+    argkinds = ''.join(argkinds)
+    return CallDescr(argkinds, reskind, is_ffi_type_signed(ffi_result),
+                     result_size, extrainfo, ffi_flags=ffi_flags)
 
 def get_ffi_type_kind(cpu, ffi_type):
     from pypy.rlib.libffi import types
