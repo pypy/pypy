@@ -112,3 +112,18 @@ class AppTestRange:
                       expected.append(a)
                       a += step
                   assert lst == expected
+
+   def test_range_contains(self):
+      assert 3 in range(5)
+      assert 3 not in range(3)
+      assert 3 not in range(4, 5)
+      assert 3 in range(1, 5, 2)
+      assert 3 not in range(0, 5, 2)
+      assert '3' not in range(5)
+
+   def test_range_count(self):
+      assert range(5).count(3) == 1
+      assert type(range(5).count(3)) is int
+      assert range(0, 5, 2).count(3) == 0
+      assert range(5).count(3.0) == 1
+      assert range(5).count('3') == 0

@@ -66,10 +66,9 @@ def generator_new(space, w_frame, running):
     new_generator.running = running
     return space.wrap(new_generator)
 
-@unwrap_spec(current=int, remaining=int, step=int)
-def rangeiter_new(space, current, remaining, step):
+def rangeiter_new(space, w_start, w_step, w_len, w_index):
     from pypy.module.__builtin__.functional import W_RangeIterator
-    new_iter = W_RangeIterator(space, current, remaining, step)
+    new_iter = W_RangeIterator(space, w_start, w_step, w_len, w_index)
     return space.wrap(new_iter)
 
 @unwrap_spec(identifier=str)

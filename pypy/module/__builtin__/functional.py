@@ -13,13 +13,7 @@ from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.rbigint import rbigint
 
 
-def get_len_of_range(space, lo, hi, step):
-    """
-    Return number of items in range (lo, hi, step).
-    Raise ValueError if step == 0 and OverflowError if the true value is too
-    large to fit in a signed long.
-    """
-
+def get_len_of_range(lo, hi, step):
     # If lo >= hi, the range is empty.
     # Else if n values are in the range, the last one is
     # lo + (n-1)*step, which must be <= hi-1.  Rearranging,
@@ -30,22 +24,30 @@ def get_len_of_range(space, lo, hi, step):
     # for the RHS numerator is hi=M, lo=-M-1, and then
     # hi-lo-1 = M-(-M-1)-1 = 2*M.  Therefore unsigned long has enough
     # precision to compute the RHS exactly.
-    if step == 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
-    elif step < 0:
+    assert step != 0
+    if step < 0:
         lo, hi, step = hi, lo, -step
     if lo < hi:
         uhi = r_uint(hi)
         ulo = r_uint(lo)
         diff = uhi - ulo - 1
         n = intmask(diff // r_uint(step) + 1)
-        if n < 0:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
     else:
         n = 0
     return n
+
+def compute_range_length(space, w_start, w_stop, w_step):
+    # Algorithm is equal to that of get_len_of_range(), but operates
+    # on wrapped objects.
+    if space.is_true(space.lt(w_step, space.newint(0))):
+        w_start, w_stop = w_stop, w_start
+        w_step = space.neg(w_step)
+    if space.is_true(space.lt(w_start, w_stop)):
+        w_diff = space.sub(space.sub(w_stop, w_start), space.newint(1))
+        w_len = space.add(space.floordiv(w_diff, w_step), space.newint(1))
+    else:
+        w_len = space.newint(0)
+    return w_len
 
 
 @specialize.arg(2)
@@ -227,69 +229,109 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 class W_Range(Wrappable):
-    def __init__(self, space, start, len, step):
-        self.space = space
-        self.start = start
-        self.len   = len
-        self.step  = step
+    def __init__(self, w_start, w_stop, w_step, w_length):
+        self.w_start = w_start
+        self.w_stop  = w_stop
+        self.w_step  = w_step
+        self.w_length = w_length
 
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=1):
-        start = _toint(space, w_start)
-        step  = _toint(space, w_step)
+        w_start = space.index(w_start)
         if space.is_w(w_stop, space.w_None):  # only 1 argument provided
-            start, stop = 0, start
+            w_start, w_stop = space.newint(0), w_start
         else:
-            stop = _toint(space, w_stop)
-        howmany = get_len_of_range(space, start, stop, step)
+            w_stop = space.index(w_stop)
+            w_step = space.index(w_step)
+        try:
+            step = space.int_w(w_step)
+        except OperationError:
+            pass  # We know it's not zero
+        else:
+            if step == 0:
+                raise OperationError(space.w_ValueError, space.wrap(
+                        "step argument must not be zero"))
+        w_length = compute_range_length(space, w_start, w_stop, w_step)
         obj = space.allocate_instance(W_Range, w_subtype)
-        W_Range.__init__(obj, space, start, howmany, step)
+        W_Range.__init__(obj, w_start, w_stop, w_step, w_length)
         return space.wrap(obj)
 
-    def descr_repr(self):
-        stop = self.start + self.len * self.step
-        if self.start == 0 and self.step == 1:
-            s = "range(%d)" % (stop,)
-        elif self.step == 1:
-            s = "range(%d, %d)" % (self.start, stop)
+    def descr_repr(self, space):
+        if not space.is_true(space.eq(self.w_step, space.newint(1))):
+            return space.mod(space.wrap("range(%d, %d, %d)"),
+                             space.newtuple([self.w_start, self.w_stop, 
+                                             self.w_step]))
+        elif space.is_true(space.eq(self.w_start, space.newint(0))):
+            return space.mod(space.wrap("range(%d)"),
+                             space.newtuple([self.w_stop]))
         else:
-            s = "range(%d, %d, %d)" %(self.start, stop, self.step)
-        return self.space.wrap(s)
+            return space.mod(space.wrap("range(%d, %d)"),
+                             space.newtuple([self.w_start, self.w_stop]))
 
     def descr_len(self):
-        return self.space.wrap(self.len)
+        return self.w_length
 
-    @unwrap_spec(i='index')
-    def descr_getitem(self, i):
+    def descr_getitem(self, space, w_index):
         # range does NOT support slicing
-        space = self.space
-        len = self.len
-        if i < 0:
-            i += len
-        if 0 <= i < len:
-            return space.wrap(self.start + i * self.step)
-        raise OperationError(space.w_IndexError,
-                             space.wrap("range object index out of range"))
+        # return self.start + (i * self.step)
+        return space.add(self.w_start, space.mul(w_index, self.w_step))
 
-    def descr_iter(self):
-        return self.space.wrap(W_RangeIterator(self.space, self.start,
-                                                self.len, self.step))
+    def descr_iter(self, space):
+        return space.wrap(W_RangeIterator(
+                space, self.w_start, self.w_step, self.w_length))
 
-    def descr_reversed(self):
-        lastitem = self.start + (self.len-1) * self.step
-        return self.space.wrap(W_RangeIterator(self.space, lastitem,
-                                                self.len, -self.step))
+    def descr_reversed(self, space):
+        # lastitem = self.start + (self.length-1) * self.step
+        w_lastitem = space.add(
+            self.w_start,
+            space.mul(space.sub(self.w_length, space.newint(1)),
+                      self.w_step))
+        return space.wrap(W_RangeIterator(
+                space, w_lastitem, space.neg(self.w_step), self.w_length))
 
-    def descr_reduce(self):
-        space = self.space
+    def descr_reduce(self, space):
         return space.newtuple(
             [space.type(self),
-             space.newtuple([space.wrap(self.start),
-                             space.wrap(self.start + self.len * self.step),
-                             space.wrap(self.step)])
+             space.newtuple([self.w_start, self.w_stop, self.w_step]),
              ])
 
-def _toint(space, w_obj):
-    return space.int_w(space.index(w_obj))
+    def _contains_long(self, space, w_item):
+        # Check if the value can possibly be in the range.
+        if space.is_true(space.gt(self.w_step, space.newint(0))):
+            # positive steps: start <= ob < stop
+            if not (space.is_true(space.le(self.w_start, w_item)) and
+                    space.is_true(space.lt(w_item, self.w_stop))):
+                return False
+        else:
+            # negative steps: stop < ob <= start
+            if not (space.is_true(space.lt(self.w_stop, w_item)) and
+                    space.is_true(space.le(w_item, self.w_start))):
+                return False
+        # Check that the stride does not invalidate ob's membership.
+        if space.is_true(space.mod(space.sub(w_item, self.w_start),
+                                   self.w_step)):
+            return False
+        return True
+
+    def descr_contains(self, space, w_item):
+        try:
+            int_value = space.int_w(w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            return space.sequence_contains(self, w_item)
+        else:
+            return space.newbool(self._contains_long(space, w_item))
+
+    def descr_count(self, space, w_item):
+        try:
+            int_value = space.int_w(w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            return space.sequence_count(self, w_item)
+        else:
+            return space.newint(self._contains_long(space, w_item))
+
 
 W_Range.typedef = TypeDef("range",
     __new__          = interp2app(W_Range.descr_new.im_func),
@@ -299,40 +341,45 @@ W_Range.typedef = TypeDef("range",
     __len__          = interp2app(W_Range.descr_len),
     __reversed__     = interp2app(W_Range.descr_reversed),
     __reduce__       = interp2app(W_Range.descr_reduce),
+    __contains__     = interp2app(W_Range.descr_contains),
+    count            = interp2app(W_Range.descr_count),
 )
 
 class W_RangeIterator(Wrappable):
-    def __init__(self, space, current, remaining, step):
-        self.space = space
-        self.current = current
-        self.remaining = remaining
-        self.step = step
+    def __init__(self, space, w_start, w_step, w_len, w_index=None):
+        self.w_start = w_start
+        self.w_step = w_step
+        self.w_len = w_len
+        if w_index is None:
+            w_index = space.newint(0)
+        self.w_index = w_index
 
-    def descr_iter(self):
-        return self.space.wrap(self)
+    def descr_iter(self, space):
+        return space.wrap(self)
 
-    def descr_next(self):
-        if self.remaining > 0:
-            item = self.current
-            self.current = item + self.step
-            self.remaining -= 1
-            return self.space.wrap(item)
-        raise OperationError(self.space.w_StopIteration, self.space.w_None)
+    def descr_next(self, space):
+        if space.is_true(space.lt(self.w_index, self.w_len)):
+            w_index = space.add(self.w_index, space.newint(1))
+            w_product = space.mul(self.w_index, self.w_step)
+            w_result = space.add(w_product, self.w_start)
+            self.w_index = w_index
+            return w_result
+        raise OperationError(space.w_StopIteration, space.w_None)
 
-    def descr_len(self):
-        return self.space.wrap(self.remaining)
+    def descr_len(self, space):
+        return space.sub(self.w_length, self.w_index)
 
-    def descr_reduce(self):
+    def descr_reduce(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
-        space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('rangeiter_new')
-        w        = space.wrap
-        nt = space.newtuple
 
-        tup = [w(self.current), w(self.remaining), w(self.step)]
-        return nt([new_inst, nt(tup)])
+        return space.newtuple(
+            [mod.get('rangeiter_new'),
+             space.newtuple([self.w_start, self.w_step,
+                             self.w_len, self.w_index]),
+             ])
+
 
 W_RangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_RangeIterator.descr_iter),

@@ -393,9 +393,9 @@ class DescrOperation(object):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
             return space.get_and_call_function(w_descr, w_container, w_item)
-        return space._contains(w_container, w_item)
+        return space.sequence_contains(w_container, w_item)
 
-    def _contains(space, w_container, w_item):
+    def sequence_contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         while 1:
             try:
@@ -406,6 +406,19 @@ class DescrOperation(object):
                 return space.w_False
             if space.eq_w(w_next, w_item):
                 return space.w_True
+
+    def sequence_count(space, w_container, w_item):
+        w_iter = space.iter(w_container)
+        count = 0
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return space.wrap(count)
+            if space.eq_w(w_next, w_item):
+                count += 1
 
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
