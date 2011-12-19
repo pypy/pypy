@@ -875,6 +875,8 @@ class Call2(VirtualArray):
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not
     """
+    _immutable_fields_ = ['storage']
+
     def __init__(self, size, shape, dtype, order='C', parent=None):
         self.size = size
         self.parent = parent
@@ -1010,8 +1012,6 @@ class W_NDimArray(ConcreteArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
-    _immutable_fields_ = ['storage']
-
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
         rffi.c_memcpy(

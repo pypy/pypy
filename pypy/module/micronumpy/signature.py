@@ -1,24 +1,9 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     BroadcastIterator, OneDimIterator, ConstantIterator
+     OneDimIterator, ConstantIterator
 from pypy.rpython.lltypesystem.llmemory import cast_ptr_to_adr
 from pypy.rlib.jit import hint, unroll_safe, promote
-
-# def components_eq(lhs, rhs):
-#     if len(lhs) != len(rhs):
-#         return False
-#     for i in range(len(lhs)):
-#         v1, v2 = lhs[i], rhs[i]
-#         if type(v1) is not type(v2) or not v1.eq(v2):
-#             return False
-#     return True
-
-# def components_hash(components):
-#     res = 0x345678
-#     for component in components:
-#         res = intmask((1000003 * res) ^ component.hash())
-#     return res
 
 def sigeq(one, two):
     return one.eq(two)

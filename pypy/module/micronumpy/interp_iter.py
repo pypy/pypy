@@ -61,11 +61,28 @@ class OneDimIterator(BaseIterator):
         return self.offset
 
 class ViewIterator(BaseIterator):
-    def __init__(self, arr):
+    def __init__(self, arr, res_shape=None):
         self.indices = [0] * len(arr.shape)
         self.offset  = arr.start
-        self.arr     = arr
         self._done   = False
+        if res_shape is not None and res_shape != arr.shape:
+            self.strides = []
+            self.backstrides = []
+            for i in range(len(arr.shape)):
+                if arr.shape[i] == 1:
+                    self.strides.append(0)
+                    self.backstrides.append(0)
+                else:
+                    self.strides.append(arr.strides[i])
+                    self.backstrides.append(arr.backstrides[i])
+            self.strides = [0] * (len(res_shape) - len(arr.shape)) + self.strides
+            self.backstrides = [0] * (len(res_shape) - len(arr.shape)) + self.backstrides
+            self.res_shape = res_shape
+        else:
+            self.strides = arr.strides
+            self.backstrides = arr.backstrides
+            self.res_shape = arr.shape
+
 
     @jit.unroll_safe
     def next(self, shapelen):
@@ -75,59 +92,6 @@ class ViewIterator(BaseIterator):
             indices[i] = self.indices[i]
         done = False
         for i in range(shapelen - 1, -1, -1):
-            if indices[i] < self.arr.shape[i] - 1:
-                indices[i] += 1
-                offset += self.arr.strides[i]
-                break
-            else:
-                indices[i] = 0
-                offset -= self.arr.backstrides[i]
-        else:
-            done = True
-        res = instantiate(ViewIterator)
-        res.offset = offset
-        res.indices = indices
-        res.arr = self.arr
-        res._done = done
-        return res
-
-    def done(self):
-        return self._done
-
-    def get_offset(self):
-        return self.offset
-
-class BroadcastIterator(BaseIterator):
-    '''Like a view iterator, but will repeatedly access values
-       for all iterations across a res_shape, folding the offset
-       using mod() arithmetic
-    '''
-    def __init__(self, arr, res_shape):
-        self.indices = [0] * len(res_shape)
-        self.offset  = arr.start
-        #strides are 0 where original shape==1
-        self.strides = []
-        self.backstrides = []
-        for i in range(len(arr.shape)):
-            if arr.shape[i] == 1:
-                self.strides.append(0)
-                self.backstrides.append(0)
-            else:
-                self.strides.append(arr.strides[i])
-                self.backstrides.append(arr.backstrides[i])
-        self.res_shape = res_shape
-        self.strides = [0] * (len(res_shape) - len(arr.shape)) + self.strides
-        self.backstrides = [0] * (len(res_shape) - len(arr.shape)) + self.backstrides
-        self._done = False
-
-    @jit.unroll_safe
-    def next(self, shapelen):
-        offset = self.offset
-        indices = [0] * shapelen
-        _done = False
-        for i in range(shapelen):
-            indices[i] = self.indices[i]
-        for i in range(shapelen - 1, -1, -1):
             if indices[i] < self.res_shape[i] - 1:
                 indices[i] += 1
                 offset += self.strides[i]
@@ -136,14 +100,14 @@ class BroadcastIterator(BaseIterator):
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:
-            _done = True
-        res = instantiate(BroadcastIterator)
-        res.indices = indices
+            done = True
+        res = instantiate(ViewIterator)
         res.offset = offset
-        res._done = _done
+        res.indices = indices
         res.strides = self.strides
         res.backstrides = self.backstrides
         res.res_shape = self.res_shape
+        res._done = done
         return res
 
     def done(self):
