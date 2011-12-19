@@ -924,19 +924,14 @@ class ObjSpace(object):
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if self.is_w(w_exc_type, w_check_class):
-            return True   # fast path (also here to handle string exceptions)
-        try:
-            if self.is_true(self.isinstance(w_check_class, self.w_tuple)):
-                for w_t in self.fixedview(w_check_class):
-                    if self.exception_match(w_exc_type, w_t):
-                        return True
-                else:
-                    return False
-            return self.exception_issubclass_w(w_exc_type, w_check_class)
-        except OperationError, e:
-            if e.match(self, self.w_TypeError):   # string exceptions maybe
+            return True   # fast path
+        if self.is_true(self.isinstance(w_check_class, self.w_tuple)):
+            for w_t in self.fixedview(w_check_class):
+                if self.exception_match(w_exc_type, w_t):
+                    return True
+            else:
                 return False
-            raise
+        return self.exception_issubclass_w(w_exc_type, w_check_class)
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
@@ -1016,26 +1011,11 @@ class ObjSpace(object):
                 return w_value
         return None
 
-    def is_oldstyle_instance(self, w_obj):
-        # xxx hack hack hack
-        from pypy.module.__builtin__.interp_classobj import W_InstanceObject
-        obj = self.interpclass_w(w_obj)
-        return obj is not None and isinstance(obj, W_InstanceObject)
-
     def callable(self, w_obj):
         if self.lookup(w_obj, "__call__") is not None:
-            if self.is_oldstyle_instance(w_obj):
-                # ugly old style class special treatment, but well ...
-                try:
-                    self.getattr(w_obj, self.wrap("__call__"))
-                    return self.w_True
-                except OperationError, e:
-                    if not e.match(self, self.w_AttributeError):
-                        raise
-                    return self.w_False
-            else:
-                return self.w_True
-        return self.w_False
+            return self.w_True
+        else:
+            return self.w_None
 
     def issequence_w(self, w_obj):
         return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
@@ -1064,8 +1044,7 @@ class ObjSpace(object):
         # Equivalent to 'obj.__class__'.
         return self.type(w_obj)
 
-    # CPython rules allows old style classes or subclasses
-    # of BaseExceptions to be exceptions.
+    # CPython rules allows subclasses of BaseExceptions to be exceptions.
     # This is slightly less general than the case above, so we prefix
     # it with exception_
 

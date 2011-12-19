@@ -55,14 +55,7 @@ def raiseattrerror(space, w_obj, name, w_descr=None):
                               "'%s' object attribute '%s' is read-only",
                               typename, name)
 
-# Helpers for old-style and mix-style mixup
-
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
-    if (space.is_oldstyle_instance(w_obj1) and
-        space.is_oldstyle_instance(w_obj2)):
-        assert isinstance(w_obj1, W_InstanceObject)
-        assert isinstance(w_obj2, W_InstanceObject)
-        return space.is_w(w_obj1.w_class, w_obj2.w_class)
     return space.is_w(w_typ1, w_typ2)
 
 
@@ -350,7 +343,7 @@ class DescrOperation(object):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
@@ -616,53 +609,6 @@ def number_check(space, w_obj):
             space.lookup(w_obj, '__float__') is not None)
 
 
-
-# what is the maximum value slices can get on CPython?
-# we need to stick to that value, because fake.py etc.
-class Temp(object):
-    def __getslice__(self, i, j):
-        return j
-slice_max = Temp()[:]
-del Temp
-
-def old_slice_range_getlength(space, w_obj):
-    # NB. the language ref is inconsistent with the new-style class
-    # behavior when w_obj doesn't implement __len__(), so we just
-    # follow cpython. Also note that CPython slots make it easier
-    # to check for object implementing it or not. We just catch errors
-    # so this behavior is slightly different
-    try:
-        return space.len(w_obj)
-    except OperationError, e:
-        if not ((e.match(space, space.w_AttributeError) or
-                 e.match(space, space.w_TypeError))):
-            raise
-    return None
-
-def old_slice_range(space, w_obj, w_start, w_stop):
-    """Only for backward compatibility for __getslice__()&co methods."""
-    w_length = None
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    else:
-        start = space.getindex_w(w_start, None)
-        w_start = space.wrap(start)
-        if start < 0:
-            w_length = old_slice_range_getlength(space, w_obj)
-            if w_length is not None:
-                w_start = space.add(w_start, w_length)
-    if space.is_w(w_stop, space.w_None):
-        w_stop = space.wrap(slice_max)
-    else:
-        stop = space.getindex_w(w_stop, None)
-        w_stop = space.wrap(stop)
-        if stop < 0:
-            if w_length is None:
-                w_length = old_slice_range_getlength(space, w_obj)
-            if w_length is not None:
-                w_stop = space.add(w_stop, w_length)
-    return w_start, w_stop
-
 # regular methods def helpers
 
 def _make_binop_impl(symbol, specialnames):
@@ -674,7 +620,7 @@ def _make_binop_impl(symbol, specialnames):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        if space.is_w(w_typ1, w_typ2):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
@@ -716,21 +662,20 @@ def _make_comparison_impl(symbol, specialnames):
         w_first = w_obj1
         w_second = w_obj2
         #
-        if left == right and _same_class_w(space, w_obj1, w_obj2,
-                                           w_typ1, w_typ2):
+        if left == right and space.is_w(w_typ1, w_typ2):
             # for __eq__ and __ne__, if the objects have the same
-            # (old-style or new-style) class, then don't try the
-            # opposite method, which is the same one.
+            # class, then don't try the opposite method, which is the
+            # same one.
             w_right_impl = None
         else:
             # in all other cases, try the opposite method.
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
             if space.is_w(w_typ1, w_typ2):
-                # if the type is the same, *or* if both are old-style classes,
-                # then don't reverse: try left first, right next.
+                # if the type is the same, then don't reverse: try
+                # left first, right next.
                 pass
             elif space.is_true(space.issubtype(w_typ2, w_typ1)):
-                # for new-style classes, if typ2 is a subclass of typ1.
+                # if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 

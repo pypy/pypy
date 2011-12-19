@@ -173,20 +173,10 @@ def unpackcomplex(space, w_complex):
         return (w_complex.realval, w_complex.imagval)
     #
     # test for a '__complex__' method, and call it if found.
-    # special case old-style instances, like CPython does.
     w_z = None
-    if space.is_oldstyle_instance(w_complex):
-        try:
-            w_method = space.getattr(w_complex, space.wrap('__complex__'))
-        except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-        else:
-            w_z = space.call_function(w_method)
-    else:
-        w_method = space.lookup(w_complex, '__complex__')
-        if w_method is not None:
-            w_z = space.get_and_call_function(w_method, w_complex)
+    w_method = space.lookup(w_complex, '__complex__')
+    if w_method is not None:
+        w_z = space.get_and_call_function(w_method, w_complex)
     #
     if w_z is not None:
         # __complex__() must return a complex object

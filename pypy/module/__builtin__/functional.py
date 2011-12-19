@@ -218,14 +218,9 @@ W_Enumerate.typedef = TypeDef("enumerate",
 
 def reversed(space, w_sequence):
     """Return a iterator that yields items of sequence in reverse."""
-    w_reversed = None
-    if space.is_oldstyle_instance(w_sequence):
-        w_reversed = space.findattr(w_sequence, space.wrap("__reversed__"))
-    else:
-        w_reversed_descr = space.lookup(w_sequence, "__reversed__")
-        if w_reversed_descr is not None:
-            w_reversed = space.get(w_reversed_descr, w_sequence)
-    if w_reversed is not None:
+    w_reversed_descr = space.lookup(w_sequence, "__reversed__")
+    if w_reversed_descr is not None:
+        w_reversed = space.get(w_reversed_descr, w_sequence)
         return space.call_function(w_reversed)
     return space.wrap(W_ReversedIterator(space, w_sequence))
 

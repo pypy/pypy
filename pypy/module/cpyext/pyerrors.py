@@ -181,9 +181,8 @@ def PyErr_GivenExceptionMatches(space, w_given, w_exc):
     exc is a class object, this also returns true when given is an instance
     of a subclass.  If exc is a tuple, all exceptions in the tuple (and
     recursively in subtuples) are searched for a match."""
-    if (space.is_true(space.isinstance(w_given, space.w_BaseException)) or
-        space.is_oldstyle_instance(w_given)):
-        w_given_type = space.exception_getclass(w_given)
+    if space.is_true(space.isinstance(w_given, space.w_BaseException)):
+        w_given_type = space.type(w_given)
     else:
         w_given_type = w_given
     return space.exception_match(w_given_type, w_exc)
