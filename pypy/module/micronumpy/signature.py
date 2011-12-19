@@ -122,9 +122,10 @@ class ArraySignature(ConcreteSignature):
         self.array_no = _add_ptr_to_cache(storage, cache)
 
     def _create_iter(self, iterlist, arraylist, arr, res_shape):
-        storage = arr.get_concrete().storage
+        concr = arr.get_concrete()
+        storage = concr.storage
         if self.iter_no >= len(iterlist):
-            iterlist.append(self.allocate_iter(arr, res_shape))
+            iterlist.append(self.allocate_iter(concr, res_shape))
         if self.array_no >= len(arraylist):
             arraylist.append(storage)
 
@@ -163,6 +164,8 @@ class ViewSignature(ArraySignature):
         self.iter_no = no
 
     def allocate_iter(self, arr, res_shape):
+        if len(res_shape) == 1:
+            return OneDimIterator(arr.start, arr.strides[0], res_shape[0])
         return ViewIterator(arr, res_shape)
 
 class FlatiterSignature(ViewSignature):

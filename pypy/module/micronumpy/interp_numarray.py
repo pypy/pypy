@@ -379,18 +379,19 @@ class BaseArray(Wrappable):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
     def descr_set_shape(self, space, w_iterable):
-        concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space,
-                            concrete.find_size(), w_iterable)
-        if isinstance(self, ConcreteArray):
-            # scalars don't have to do anything, just check if the shape
-            # is still empty
-            concrete.setshape(space, new_shape)
+                            self.find_size(), w_iterable)
+        if isinstance(self, Scalar):
+            return
+        self.get_concrete().setshape(space, new_shape)
 
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
     def descr_copy(self, space):
+        return self.copy()
+
+    def copy(self):
         return self.get_concrete().copy()
 
     def descr_len(self, space):
@@ -506,7 +507,7 @@ class BaseArray(Wrappable):
 
     def descr_str(self, space):
         ret = StringBuilder()
-        concrete = self.get_concrete()
+        concrete = self.get_concrete_or_scalar()
         concrete.to_str(space, 0, ret, ' ')
         return space.wrap(ret.build())
 
@@ -679,11 +680,14 @@ class BaseArray(Wrappable):
         if self.find_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        concr = self.get_concrete()
+        concr = self.get_concrete_or_scalar()
         sig = concr.find_sig()
         frame = sig.create_frame(self)
         return space.wrap(space.is_true(
             sig.eval(frame, concr)))
+
+    def get_concrete_or_scalar(self):
+        return self.get_concrete()
 
     def descr_get_transpose(self, space):
         concrete = self.get_concrete()
@@ -743,9 +747,6 @@ class Scalar(BaseArray):
     def find_size(self):
         return 1
 
-    def get_concrete(self):
-        return self
-
     def find_dtype(self):
         return self.dtype
 
@@ -758,13 +759,11 @@ class Scalar(BaseArray):
     def copy(self):
         return Scalar(self.dtype, self.value)
 
-    def setshape(self, space, new_shape):
-        # In order to get here, we already checked that prod(new_shape) == 1,
-        # so in order to have a consistent API, let it go through.
-        pass
-
     def create_sig(self, res_shape):
         return signature.ScalarSignature(self.dtype)
+
+    def get_concrete_or_scalar(self):
+        return self
 
 class VirtualArray(BaseArray):
     """
@@ -935,7 +934,22 @@ class ConcreteArray(BaseArray):
             return signature.ViewSignature(self.dtype)
         return signature.ArraySignature(self.dtype)
 
-class W_NDimSlice(ConcreteArray):
+class ViewArray(ConcreteArray):
+    def copy(self):
+        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
+        iter = ViewIterator(self)
+        a_iter = ArrayIterator(array.size)
+        while not iter.done():
+            array.setitem(a_iter.offset, self.getitem(iter.offset))
+            iter = iter.next(len(self.shape))
+            a_iter = a_iter.next(len(array.shape))
+        return array
+
+    def create_sig(self, res_shape):
+        return signature.ViewSignature(self.dtype)
+    
+
+class W_NDimSlice(ViewArray):
     def __init__(self, start, strides, backstrides, shape, parent):
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
@@ -967,19 +981,6 @@ class W_NDimSlice(ConcreteArray):
                 self.find_dtype()))
             frame.next(shapelen)
             res_iter = res_iter.next(shapelen)
-
-    def copy(self):
-        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
-        iter = ViewIterator(self)
-        a_iter = ArrayIterator(array.size)
-        while not iter.done():
-            array.setitem(a_iter.offset, self.getitem(iter.offset))
-            iter = iter.next(len(self.shape))
-            a_iter = a_iter.next(len(array.shape))
-        return array
-
-    def create_sig(self, res_shape):
-        return signature.ViewSignature(self.dtype)
 
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
@@ -1180,36 +1181,30 @@ BaseArray.typedef = TypeDef(
 )
 
 
-class W_FlatIterator(ConcreteArray):
+class W_FlatIterator(ViewArray):
 
     @jit.unroll_safe
     def __init__(self, arr):
         size = 1
         for sh in arr.shape:
             size *= sh
-        ConcreteArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
-                               [arr.backstrides[-1]], [size])
+        self.strides = [arr.strides[-1]]
+        self.backstrides = [arr.backstrides[-1]]
+        ConcreteArray.__init__(self, size, [size], arr.dtype, arr.order,
+                               arr)
         self.shapelen = len(arr.shape)
-        self.arr = arr
-        self.iter = OneDimIterator(self.arr.start, self.strides[0],
-                                   arr.shape[0])
-
-    def find_dtype(self):
-        return self.arr.find_dtype()
-
-    def find_size(self):
-        return self.shape[0]
+        self.iter = OneDimIterator(arr.start, self.strides[0],
+                                   self.shape[0])
 
     def descr_next(self, space):
         if self.iter.done():
             raise OperationError(space.w_StopIteration, space.w_None)
-        result = self.eval(self.iter)
+        result = self.getitem(self.iter.offset)
         self.iter = self.iter.next(self.shapelen)
         return result
 
     def descr_iter(self):
         return self
-
 
 W_FlatIterator.typedef = TypeDef(
     'flatiter',

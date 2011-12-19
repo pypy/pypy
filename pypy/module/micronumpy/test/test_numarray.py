@@ -871,7 +871,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
         assert (a[::2]).__debug_repr__() == 'Slice'
         assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
-        #assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
+        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, Slice)'
         assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
         b = a + a
         b[0] = 3
@@ -1087,7 +1087,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert(b[:, 0] == a[0, :]).all()
 
     def test_flatiter(self):
-        skip("unsupported")
         from numpypy import array, flatiter
         a = array([[10, 30], [40, 60]])
         f_iter = a.flat
@@ -1103,7 +1102,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert s == 140
 
     def test_flatiter_array_conv(self):
-        skip("unsupported")
         from numpypy import array, dot
         a = array([1, 2, 3])
         assert dot(a.flat, a.flat) == 14
