@@ -108,7 +108,8 @@ class AbstractLLCPU(AbstractCPU):
 
         def save_exception_memoryerr():
             save_exception()
-            self.saved_exc_value = "memoryerror!"    # for tests
+            if not self.saved_exc_value:
+                self.saved_exc_value = "memoryerror!"    # for tests
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
@@ -141,9 +142,11 @@ class AbstractLLCPU(AbstractCPU):
         def save_exception_memoryerr():
             from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
             save_exception()
-            exc = MemoryError()
-            exc = cast_instance_to_base_ptr(exc)
-            self.saved_exc_value = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+            if not self.saved_exc_value:
+                exc = MemoryError()
+                exc = cast_instance_to_base_ptr(exc)
+                exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+                self.saved_exc_value = exc
 
         from pypy.rlib import rstack
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
@@ -192,8 +195,9 @@ class AbstractLLCPU(AbstractCPU):
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-    def get_on_leave_jitted_int(self, save_exception, memoryerror=False):
-        if memoryerror:
+    def get_on_leave_jitted_int(self, save_exception,
+                                default_to_memoryerror=False):
+        if default_to_memoryerror:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_memoryerr)
         elif save_exception:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
