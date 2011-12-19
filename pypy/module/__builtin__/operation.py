@@ -119,10 +119,6 @@ def divmod(space, w_x, w_y):
     """Return the tuple ((x-x%y)/y, x%y).  Invariant: div*y + mod == x."""
     return space.divmod(w_x, w_y)
 
-# semi-private: works only for new-style classes.
-def _issubtype(space, w_cls1, w_cls2):
-    return space.issubtype(w_cls1, w_cls2)
-
 # ____________________________________________________________
 
 # Here 0.30103 is an upper bound for log10(2)

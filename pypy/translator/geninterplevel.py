@@ -182,12 +182,6 @@ class GenRpy:
         # catching all builtins in advance, to avoid problems
         # with modified builtins
 
-        # add a dummy _issubtype() to builtins
-        if not hasattr(__builtin__, '_issubtype'):
-            def _issubtype(cls1, cls2):
-                raise TypeError, "this dummy should *not* be reached"
-            __builtin__._issubtype = _issubtype
-
         class bltinstub:
             def __init__(self, name):
                 self.__name__ = name

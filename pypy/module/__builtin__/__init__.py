@@ -61,7 +61,6 @@ class Module(MixedModule):
         'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
         'format'        : 'operation.format',
-        '_issubtype'    : 'operation._issubtype',
         'issubclass'    : 'abstractinst.app_issubclass',
         'isinstance'    : 'abstractinst.app_isinstance',
         'getattr'       : 'operation.getattr',
