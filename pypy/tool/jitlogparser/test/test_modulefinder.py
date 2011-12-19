@@ -3,7 +3,7 @@ from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
 import re, sys
 
 def setup_module(mod):
-    if sys.version_info[:2] != (2.6):
+    if sys.version_info[:2] != (2, 6):
         py.test.skip("Specific python 2.6 tests")
 
 def test_gather_code_py():
