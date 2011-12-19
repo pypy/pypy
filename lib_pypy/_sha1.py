@@ -63,7 +63,7 @@ def _long2bytesBigEndian(n, blocksize=0):
 def _bytelist2longBigEndian(list):
     "Transform a list of characters into a list of longs."
 
-    imax = len(list)/4
+    imax = len(list) // 4
     hl = [0L] * imax
 
     j = 0
