@@ -127,3 +127,31 @@ class AppTestRange:
       assert range(0, 5, 2).count(3) == 0
       assert range(5).count(3.0) == 1
       assert range(5).count('3') == 0
+
+   def test_range_getitem(self):
+      assert range(6)[3] == 3
+      assert range(6)[-1] == 5
+      raises(IndexError, range(6).__getitem__, 6)
+
+   def test_range_slice(self):
+      # range objects don't implement equality in 3.2, use the repr
+      assert repr(range(6)[2:5]) == 'range(2, 5)'
+      assert repr(range(6)[-1:-3:-2]) == 'range(5, 3, -2)'
+
+   def test_large_range(self):
+      import sys
+      def _range_len(x):
+         try:
+            length = len(x)
+         except OverflowError:
+            step = x[1] - x[0]
+            length = 1 + ((x[-1] - x[0]) // step)
+            return length
+         a = -sys.maxsize
+         b = sys.maxsize
+         expected_len = b - a
+         x = range(a, b)
+         assert a in x
+         assert b not in x
+         raises(OverflowError, len, x)
+         assert _range_len(x) == expected_len

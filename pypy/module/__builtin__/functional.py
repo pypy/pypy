@@ -49,6 +49,60 @@ def compute_range_length(space, w_start, w_stop, w_step):
         w_len = space.newint(0)
     return w_len
 
+def compute_slice_indices3(space, w_slice, w_length):
+    "An W_Object version of W_SliceObject.indices3"
+    from pypy.objspace.std.sliceobject import W_SliceObject
+    assert isinstance(w_slice, W_SliceObject)
+    w_0 = space.newint(0)
+    w_1 = space.newint(1)
+    if space.is_w(w_slice.w_step, space.w_None):
+        w_step = w_1
+    else:
+        w_step = space.index(w_slice.w_step)
+        if space.is_true(space.eq(w_step, w_0)):
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("slice step cannot be zero"))
+    negative_step = space.is_true(space.lt(w_step, w_0))
+    if space.is_w(w_slice.w_start, space.w_None):
+        if negative_step:
+            w_start = space.sub(w_length, w_1)
+        else:
+            w_start = w_0
+    else:
+        w_start = space.index(w_slice.w_start)
+        if space.is_true(space.lt(w_start, w_0)):
+            w_start = space.add(w_start, w_length)
+            if space.is_true(space.lt(w_start, w_0)):
+                if negative_step:
+                    w_start = space.newint(-1)
+                else:
+                    w_start = w_0
+        elif space.is_true(space.ge(w_start, w_length)):
+            if negative_step:
+                w_start = space.sub(w_length, w_1)
+            else:
+                w_start = w_length
+    if space.is_w(w_slice.w_stop, space.w_None):
+        if negative_step:
+            w_stop = space.newint(-1)
+        else:
+            w_stop = w_length
+    else:
+        w_stop = space.index(w_slice.w_stop)
+        if space.is_true(space.lt(w_stop, w_0)):
+            w_stop = space.add(w_stop, w_length)
+            if space.is_true(space.lt(w_stop, w_0)):
+                if negative_step:
+                    w_stop = space.newint(-1)
+                else:
+                    w_stop = w_0
+        elif space.is_true(space.ge(w_stop, w_length)):
+            if negative_step:
+                w_stop = space.sub(w_length, w_1)
+            else:
+                w_stop = w_length
+    return w_start, w_stop, w_step
+    
 
 @specialize.arg(2)
 @jit.look_inside_iff(lambda space, args, implementation_of:
@@ -270,10 +324,41 @@ class W_Range(Wrappable):
     def descr_len(self):
         return self.w_length
 
-    def descr_getitem(self, space, w_index):
-        # range does NOT support slicing
+    def _compute_item0(self, space, w_index):
+        "Get a range item, when known to be inside bounds"
         # return self.start + (i * self.step)
         return space.add(self.w_start, space.mul(w_index, self.w_step))
+        
+    def _compute_item(self, space, w_index):
+        if space.is_true(space.lt(w_index, space.newint(0))):
+            w_index = space.add(w_index, self.w_length)
+        if space.is_true(space.ge(w_index, self.w_length)):
+            raise OperationError(space.w_IndexError, space.wrap(
+                    "range object index out of range"))
+        return self._compute_item0(space, w_index)
+
+    def _compute_slice(self, space, w_slice):
+        w_start, w_stop, w_step = compute_slice_indices3(
+            space, w_slice, self.w_length)
+
+        w_substep = space.mul(self.w_step, w_step)
+        w_substart = self._compute_item0(space, w_start)
+        if w_stop:
+            w_substop = self._compute_item0(space, w_stop)
+        else:
+            w_substop = w_substart
+
+        w_length = compute_range_length(space, w_substart, w_substop, w_substep)
+        obj = W_Range(w_substart, w_substop, w_substep, w_length)
+        return space.wrap(obj)
+
+    def descr_getitem(self, space, w_index):
+        # Cannot use the usual space.decode_index methods, because
+        # numbers might not fit in longs.
+        if space.isinstance_w(w_index, space.w_slice):
+            return self._compute_slice(space, w_index)
+        else:
+            return self._compute_item(space, w_index)
 
     def descr_iter(self, space):
         return space.wrap(W_RangeIterator(
