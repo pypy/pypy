@@ -480,6 +480,7 @@ class TestFramework(RewriteTests):
         """)
 
     def test_write_barrier_before_short_array(self):
+        self.gc_ll_descr.max_size_of_young_obj = 2000
         self.check_rewrite("""
             [i2, p3]
             p1 = new_array(129, descr=cdescr)
@@ -500,6 +501,7 @@ class TestFramework(RewriteTests):
 
     def test_write_barrier_before_long_array(self):
         # the limit of "being too long" is fixed, arbitrarily, at 130
+        self.gc_ll_descr.max_size_of_young_obj = 2000
         self.check_rewrite("""
             [i2, p3]
             p1 = new_array(130, descr=cdescr)
