@@ -193,7 +193,7 @@ class TestNumpyJIt(LLJitMixin):
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
-        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 20,
+        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 22,
                            'getarrayitem_gc_pure': 2,
                            'getfield_gc_pure': 4,
                            'guard_class': 8, 'int_add': 8, 'float_mul': 2,
@@ -342,7 +342,24 @@ class TestNumpyJIt(LLJitMixin):
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
                                 'int_lt': 1, 'guard_true': 1, 'jump': 1,
-                                'arraylen_gc': 2})
+                                'arraylen_gc': 3})
+
+    def define_virtual_slice():
+        return """
+        a = |30|
+        c = a + a
+        d = c -> 1:20
+        d -> 1
+        """
+
+    def test_virtual_slice(self):
+        result = self.run("virtual_slice")
+        assert result == 4
+        self.check_loop_count(1)
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
+                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'int_ge': 1, 'guard_false': 1, 'jump': 1,
+                                'arraylen_gc': 1})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

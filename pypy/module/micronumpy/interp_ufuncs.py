@@ -62,7 +62,7 @@ class W_Ufunc(Wrappable):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
 
-        size = obj.find_size()
+        size = obj.size
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
             promote_to_largest=True

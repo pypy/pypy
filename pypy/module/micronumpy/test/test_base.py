@@ -57,6 +57,9 @@ class TestSignature(object):
         v3 = v2.descr_add(space, v1)
         v4 = v1.descr_add(space, v2)
         assert v3.find_sig() is v4.find_sig()
+        v5 = ar.descr_add(space, ar).descr_getitem(space, space.wrap(slice(1, 3, 1)))
+        v6 = ar.descr_add(space, ar).descr_getitem(space, space.wrap(slice(1, 4, 1)))
+        assert v5.find_sig() is v6.find_sig()
 
 class TestUfuncCoerscion(object):
     def test_binops(self, space):

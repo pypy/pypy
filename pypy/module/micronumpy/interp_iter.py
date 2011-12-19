@@ -1,6 +1,7 @@
 
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
+from pypy.module.micronumpy.strides import calculate_broadcast_strides
 
 # Iterators for arrays
 # --------------------
@@ -60,29 +61,23 @@ class OneDimIterator(BaseIterator):
     def get_offset(self):
         return self.offset
 
+def view_iter_from_arr(arr):
+    return ViewIterator(arr.start, arr.strides, arr.backstrides, arr.shape)
+
 class ViewIterator(BaseIterator):
-    def __init__(self, arr, res_shape=None):
-        self.offset  = arr.start
+    def __init__(self, start, strides, backstrides, shape, res_shape=None):
+        self.offset  = start
         self._done   = False
-        if res_shape is not None and res_shape != arr.shape:
-            self.strides = []
-            self.backstrides = []
-            for i in range(len(arr.shape)):
-                if arr.shape[i] == 1:
-                    self.strides.append(0)
-                    self.backstrides.append(0)
-                else:
-                    self.strides.append(arr.strides[i])
-                    self.backstrides.append(arr.backstrides[i])
-            self.strides = [0] * (len(res_shape) - len(arr.shape)) + self.strides
-            self.backstrides = [0] * (len(res_shape) - len(arr.shape)) + self.backstrides
+        if res_shape is not None and res_shape != shape:
+            r = calculate_broadcast_strides(strides, backstrides,
+                                            shape, res_shape)
+            self.strides, self.backstrides = r
             self.res_shape = res_shape
         else:
-            self.strides = arr.strides
-            self.backstrides = arr.backstrides
-            self.res_shape = arr.shape
+            self.strides = strides
+            self.backstrides = backstrides
+            self.res_shape = shape
         self.indices = [0] * len(self.res_shape)
-
 
     @jit.unroll_safe
     def next(self, shapelen):

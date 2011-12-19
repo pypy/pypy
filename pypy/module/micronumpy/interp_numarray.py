@@ -3,12 +3,13 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
+from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import ArrayIterator, ViewIterator,\
-     OneDimIterator
+from pypy.module.micronumpy.interp_iter import ArrayIterator,\
+     view_iter_from_arr, OneDimIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -203,7 +204,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
     return new_strides
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "shape"]
+    _attrs_ = ["invalidates", "shape", 'size']
 
     _immutable_fields_ = []
 
@@ -316,8 +317,7 @@ class BaseArray(Wrappable):
                 idx += 1
             return result
         def impl(self, space):
-            size = self.find_size()
-            if size == 0:
+            if self.size == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
             return space.wrap(loop(self))
@@ -380,13 +380,13 @@ class BaseArray(Wrappable):
 
     def descr_set_shape(self, space, w_iterable):
         new_shape = get_shape_from_iterable(space,
-                            self.find_size(), w_iterable)
+                            self.size, w_iterable)
         if isinstance(self, Scalar):
             return
         self.get_concrete().setshape(space, new_shape)
 
     def descr_get_size(self, space):
-        return space.wrap(self.find_size())
+        return space.wrap(self.size)
 
     def descr_copy(self, space):
         return self.copy()
@@ -405,7 +405,7 @@ class BaseArray(Wrappable):
         res.append("array(")
         concrete = self.get_concrete()
         dtype = concrete.find_dtype()
-        if not concrete.find_size():
+        if not concrete.size:
             res.append('[]')
             if len(self.shape) > 1:
                 # An empty slice reports its shape
@@ -417,7 +417,7 @@ class BaseArray(Wrappable):
             concrete.to_str(space, 1, res, indent='       ')
         if (dtype is not interp_dtype.get_dtype_cache(space).w_float64dtype and
             dtype is not interp_dtype.get_dtype_cache(space).w_int64dtype) or \
-            not self.find_size():
+            not self.size:
             res.append(", dtype=" + dtype.name)
         res.append(")")
         return space.wrap(res.build())
@@ -428,7 +428,7 @@ class BaseArray(Wrappable):
         Multidimensional arrays/slices will span a number of lines,
         each line will begin with indent.
         '''
-        size = self.find_size()
+        size = self.size
         if size < 1:
             builder.append('[]')
             return
@@ -454,7 +454,7 @@ class BaseArray(Wrappable):
                             builder.append(indent)
                     # create_slice requires len(chunks) > 1 in order to reduce
                     # shape
-                    view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
+                    view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
                     view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 builder.append('\n' + indent + '..., ')
                 i = self.shape[0] - 3
@@ -469,7 +469,7 @@ class BaseArray(Wrappable):
                         builder.append(indent)
                 # create_slice requires len(chunks) > 1 in order to reduce
                 # shape
-                view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
+                view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
                 view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 i += 1
         elif ndims == 1:
@@ -581,7 +581,7 @@ class BaseArray(Wrappable):
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item)
         chunks = self._prepare_slice_args(space, w_idx)
-        return space.wrap(self.create_slice(space, chunks))
+        return space.wrap(self.create_slice(chunks))
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -597,31 +597,24 @@ class BaseArray(Wrappable):
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
         chunks = self._prepare_slice_args(space, w_idx)
-        view = self.create_slice(space, chunks)
+        view = self.create_slice(chunks).get_concrete()
         view.setslice(space, w_value)
 
     @jit.unroll_safe
-    def create_slice(self, space, chunks):
-        #if not isinstance(self, ConcreteArray):
-        #    return VirtualSlice(self, chunks)
-        self = self.get_concrete()
+    def create_slice(self, chunks):
         shape = []
-        strides = []
-        backstrides = []
-        start = self.start
         i = -1
         for i, (start_, stop, step, lgt) in enumerate(chunks):
             if step != 0:
                 shape.append(lgt)
-                strides.append(self.strides[i] * step)
-                backstrides.append(self.strides[i] * (lgt - 1) * step)
-            start += self.strides[i] * start_
-        # add a reminder
         s = i + 1
         assert s >= 0
         shape += self.shape[s:]
-        strides += self.strides[s:]
-        backstrides += self.backstrides[s:]
+        if not isinstance(self, ConcreteArray):
+            return VirtualSlice(self, chunks, shape)
+        r = calculate_slice_strides(self.start, self.strides, self.backstrides,
+                                    chunks)
+        start, strides, backstrides = r
         return W_NDimSlice(start, strides[:], backstrides[:],
                            shape[:], self)
 
@@ -642,8 +635,7 @@ class BaseArray(Wrappable):
         else:
             w_shape = space.newtuple(args_w)
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space,
-                                            concrete.find_size(), w_shape)
+        new_shape = get_shape_from_iterable(space, concrete.size, w_shape)
         # Since we got to here, prod(new_shape) == self.size
         new_strides = calc_new_strides(new_shape,
                                        concrete.shape, concrete.strides)
@@ -662,10 +654,10 @@ class BaseArray(Wrappable):
         return arr
 
     def descr_mean(self, space):
-        return space.div(self.descr_sum(space), space.wrap(self.find_size()))
+        return space.div(self.descr_sum(space), space.wrap(self.size))
 
     def descr_nonzero(self, space):
-        if self.find_size() > 1:
+        if self.size > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
         concr = self.get_concrete_or_scalar()
@@ -725,6 +717,7 @@ class Scalar(BaseArray):
     """
     Intermediate class representing a literal.
     """
+    size = 1
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
@@ -732,9 +725,6 @@ class Scalar(BaseArray):
         BaseArray.__init__(self, [])
         self.dtype = dtype
         self.value = value
-
-    def find_size(self):
-        return 1
 
     def find_dtype(self):
         return self.dtype
@@ -770,16 +760,15 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        result_size = self.find_size()
-        result = W_NDimArray(result_size, self.shape, self.find_dtype())
+        result = W_NDimArray(self.size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
         sig = self.find_sig()
         frame = sig.create_frame(self)
-        ri = ArrayIterator(result_size)
+        ri = ArrayIterator(self.size)
         while not ri.done():
             numpy_driver.jit_merge_point(sig=sig,
                                          shapelen=shapelen,
-                                         result_size=result_size,
+                                         result_size=self.size,
                                          frame=frame,
                                          ri=ri,
                                          self=self, result=result)
@@ -804,32 +793,42 @@ class VirtualArray(BaseArray):
     def setitem(self, item, value):
         return self.get_concrete().setitem(item, value)
 
-    def find_size(self):
-        if self.forced_result is not None:
-            # The result has been computed and sources may be unavailable
-            return self.forced_result.find_size()
-        return self._find_size()
-
     def find_dtype(self):
         return self.res_dtype
 
 class VirtualSlice(VirtualArray):
-    def __init__(self, parent, chunks):
-        self.parent = parent
+    def __init__(self, child, chunks, shape):
+        size = 1
+        for sh in shape:
+            size *= sh
+        self.child = child
         self.chunks = chunks
-        VirtualArray.__init__(self, 'slice', parent.shape, parent.find_dtype())
+        self.size = size
+        VirtualArray.__init__(self, 'slice', shape, child.find_dtype())
+
+    def create_sig(self, res_shape):
+        if self.forced_result is not None:
+            return self.forced_result.create_sig(res_shape)
+        return signature.VirtualSliceSignature(
+            self.child.create_sig(res_shape))
+
+    def force_if_needed(self):
+        if self.forced_result is None:
+            concr = self.child.get_concrete()
+            self.forced_result = concr.create_slice(self.chunks)
+
+    def _del_sources(self):
+        self.child = None
 
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, res_dtype, values):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
+        self.size = values.size
         self.ufunc = ufunc
 
     def _del_sources(self):
         self.values = None
-
-    def _find_size(self):
-        return self.values.find_size()
 
     def _find_dtype(self):
         return self.res_dtype
@@ -857,9 +856,6 @@ class Call2(VirtualArray):
     def _del_sources(self):
         self.left = None
         self.right = None
-
-    def _find_size(self):
-        return self.size
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
@@ -890,9 +886,6 @@ class ConcreteArray(BaseArray):
 
     def get_concrete(self):
         return self
-
-    def find_size(self):
-        return self.size
 
     def find_dtype(self):
         return self.dtype
@@ -933,7 +926,7 @@ class ConcreteArray(BaseArray):
 class ViewArray(ConcreteArray):
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
-        iter = ViewIterator(self)
+        iter = view_iter_from_arr(self)
         a_iter = ArrayIterator(array.size)
         while not iter.done():
             array.setitem(a_iter.offset, self.getitem(iter.offset))
@@ -965,7 +958,7 @@ class W_NDimSlice(ViewArray):
     def _sliceloop(self, source, res_shape):
         sig = source.find_sig(res_shape)
         frame = sig.create_frame(source, res_shape)
-        res_iter = ViewIterator(self)
+        res_iter = view_iter_from_arr(self)
         shapelen = len(res_shape)
         while not res_iter.done():
             slice_driver.jit_merge_point(sig=sig,
