@@ -423,118 +423,11 @@ class BaseArray(Wrappable):
         res.append(")")
         return space.wrap(res.build())
 
-    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
-        '''Modifies builder with a representation of the array/slice
-        The items will be seperated by a comma if comma is 1
-        Multidimensional arrays/slices will span a number of lines,
-        each line will begin with indent.
-        '''
-        size = self.size
-        if size < 1:
-            builder.append('[]')
-            return
-        if size > 1000:
-            # Once this goes True it does not go back to False for recursive
-            # calls
-            use_ellipsis = True
-        dtype = self.find_dtype()
-        ndims = len(self.shape)
-        i = 0
-        start = True
-        builder.append('[')
-        if ndims > 1:
-            if use_ellipsis:
-                for i in range(3):
-                    if start:
-                        start = False
-                    else:
-                        builder.append(',' * comma + '\n')
-                        if ndims == 3:
-                            builder.append('\n' + indent)
-                        else:
-                            builder.append(indent)
-                    # create_slice requires len(chunks) > 1 in order to reduce
-                    # shape
-                    view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
-                    view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
-                builder.append('\n' + indent + '..., ')
-                i = self.shape[0] - 3
-            while i < self.shape[0]:
-                if start:
-                    start = False
-                else:
-                    builder.append(',' * comma + '\n')
-                    if ndims == 3:
-                        builder.append('\n' + indent)
-                    else:
-                        builder.append(indent)
-                # create_slice requires len(chunks) > 1 in order to reduce
-                # shape
-                view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
-                view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
-                i += 1
-        elif ndims == 1:
-            spacer = ',' * comma + ' '
-            item = self.start
-            # An iterator would be a nicer way to walk along the 1d array, but
-            # how do I reset it if printing ellipsis? iterators have no
-            # "set_offset()"
-            i = 0
-            if use_ellipsis:
-                for i in range(3):
-                    if start:
-                        start = False
-                    else:
-                        builder.append(spacer)
-                    builder.append(dtype.itemtype.str_format(self.getitem(item)))
-                    item += self.strides[0]
-                # Add a comma only if comma is False - this prevents adding two
-                # commas
-                builder.append(spacer + '...' + ',' * (1 - comma))
-                # Ugly, but can this be done with an iterator?
-                item = self.start + self.backstrides[0] - 2 * self.strides[0]
-                i = self.shape[0] - 3
-            while i < self.shape[0]:
-                if start:
-                    start = False
-                else:
-                    builder.append(spacer)
-                builder.append(dtype.itemtype.str_format(self.getitem(item)))
-                item += self.strides[0]
-                i += 1
-        else:
-            builder.append('[')
-        builder.append(']')
-
     def descr_str(self, space):
         ret = StringBuilder()
         concrete = self.get_concrete_or_scalar()
         concrete.to_str(space, 0, ret, ' ')
         return space.wrap(ret.build())
-
-    @jit.unroll_safe
-    def _index_of_single_item(self, space, w_idx):
-        if space.isinstance_w(w_idx, space.w_int):
-            idx = space.int_w(w_idx)
-            if idx < 0:
-                idx = self.shape[0] + idx
-            if idx < 0 or idx >= self.shape[0]:
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("index out of range"))
-            return self.start + idx * self.strides[0]
-        index = [space.int_w(w_item)
-                 for w_item in space.fixedview(w_idx)]
-        item = self.start
-        for i in range(len(index)):
-            v = index[i]
-            if v < 0:
-                v += self.shape[i]
-            if v < 0 or v >= self.shape[i]:
-                raise operationerrfmt(space.w_IndexError,
-                    "index (%d) out of range (0<=index<%d", i, self.shape[i],
-                )
-            item += v * self.strides[i]
-        return item
 
     @jit.unroll_safe
     def _single_item_result(self, space, w_idx):
@@ -575,7 +468,6 @@ class BaseArray(Wrappable):
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
-            assert isinstance(concrete, ConcreteArray)
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
@@ -588,7 +480,6 @@ class BaseArray(Wrappable):
         self.invalidated()
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
-            assert isinstance(concrete, ConcreteArray)
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
@@ -647,7 +538,7 @@ class BaseArray(Wrappable):
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-            arr = W_NDimSlice(self.start, new_strides, new_backstrides,
+            arr = W_NDimSlice(concrete.start, new_strides, new_backstrides,
                               new_shape, self)
         else:
             # Create copy with contiguous data
@@ -693,7 +584,7 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(W_NDimSlice(self.start, strides[:],
+        return space.wrap(W_NDimSlice(concrete.start, strides[:],
                                       backstrides[:], shape[:], concrete))
 
     def descr_get_flatiter(self, space):
@@ -810,7 +701,9 @@ class VirtualArray(BaseArray):
 
     def get_concrete(self):
         self.force_if_needed()
-        return self.forced_result
+        res = self.forced_result
+        assert isinstance(res, ConcreteArray)
+        return res
 
     def getitem(self, item):
         return self.get_concrete().getitem(item)
@@ -947,6 +840,113 @@ class ConcreteArray(BaseArray):
             return signature.ViewSignature(self.dtype)
         return signature.ArraySignature(self.dtype)
 
+    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
+        '''Modifies builder with a representation of the array/slice
+        The items will be seperated by a comma if comma is 1
+        Multidimensional arrays/slices will span a number of lines,
+        each line will begin with indent.
+        '''
+        size = self.size
+        if size < 1:
+            builder.append('[]')
+            return
+        if size > 1000:
+            # Once this goes True it does not go back to False for recursive
+            # calls
+            use_ellipsis = True
+        dtype = self.find_dtype()
+        ndims = len(self.shape)
+        i = 0
+        start = True
+        builder.append('[')
+        if ndims > 1:
+            if use_ellipsis:
+                for i in range(3):
+                    if start:
+                        start = False
+                    else:
+                        builder.append(',' * comma + '\n')
+                        if ndims == 3:
+                            builder.append('\n' + indent)
+                        else:
+                            builder.append(indent)
+                    # create_slice requires len(chunks) > 1 in order to reduce
+                    # shape
+                    view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
+                    view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                builder.append('\n' + indent + '..., ')
+                i = self.shape[0] - 3
+            while i < self.shape[0]:
+                if start:
+                    start = False
+                else:
+                    builder.append(',' * comma + '\n')
+                    if ndims == 3:
+                        builder.append('\n' + indent)
+                    else:
+                        builder.append(indent)
+                # create_slice requires len(chunks) > 1 in order to reduce
+                # shape
+                view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
+                view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                i += 1
+        elif ndims == 1:
+            spacer = ',' * comma + ' '
+            item = self.start
+            # An iterator would be a nicer way to walk along the 1d array, but
+            # how do I reset it if printing ellipsis? iterators have no
+            # "set_offset()"
+            i = 0
+            if use_ellipsis:
+                for i in range(3):
+                    if start:
+                        start = False
+                    else:
+                        builder.append(spacer)
+                    builder.append(dtype.itemtype.str_format(self.getitem(item)))
+                    item += self.strides[0]
+                # Add a comma only if comma is False - this prevents adding two
+                # commas
+                builder.append(spacer + '...' + ',' * (1 - comma))
+                # Ugly, but can this be done with an iterator?
+                item = self.start + self.backstrides[0] - 2 * self.strides[0]
+                i = self.shape[0] - 3
+            while i < self.shape[0]:
+                if start:
+                    start = False
+                else:
+                    builder.append(spacer)
+                builder.append(dtype.itemtype.str_format(self.getitem(item)))
+                item += self.strides[0]
+                i += 1
+        else:
+            builder.append('[')
+        builder.append(']')
+
+    @jit.unroll_safe
+    def _index_of_single_item(self, space, w_idx):
+        if space.isinstance_w(w_idx, space.w_int):
+            idx = space.int_w(w_idx)
+            if idx < 0:
+                idx = self.shape[0] + idx
+            if idx < 0 or idx >= self.shape[0]:
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("index out of range"))
+            return self.start + idx * self.strides[0]
+        index = [space.int_w(w_item)
+                 for w_item in space.fixedview(w_idx)]
+        item = self.start
+        for i in range(len(index)):
+            v = index[i]
+            if v < 0:
+                v += self.shape[i]
+            if v < 0 or v >= self.shape[i]:
+                raise operationerrfmt(space.w_IndexError,
+                    "index (%d) out of range (0<=index<%d", i, self.shape[i],
+                )
+            item += v * self.strides[i]
+        return item
+
 
 class ViewArray(ConcreteArray):
     def copy(self):
@@ -965,6 +965,7 @@ class ViewArray(ConcreteArray):
 
 class W_NDimSlice(ViewArray):
     def __init__(self, start, strides, backstrides, shape, parent):
+        assert isinstance(parent, ConcreteArray)
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
         size = 1
