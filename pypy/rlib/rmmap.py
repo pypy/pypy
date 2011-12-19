@@ -23,10 +23,6 @@ class RTypeError(Exception):
     def __init__(self, message):
         self.message = message
 
-class ROverflowError(Exception):
-    def __init__(self, message):
-        self.message = message
-
 includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
@@ -424,7 +420,11 @@ class MMap(object):
                 low, high = _get_file_size(self.file_handle)
                 if not high and low <= sys.maxint:
                     return low
+                # not so sure if the signed/unsigned strictness is a good idea:
+                high = rffi.cast(lltype.Unsigned, high)
+                low = rffi.cast(lltype.Unsigned, low)
                 size = (high << 32) + low
+                size = rffi.cast(lltype.Signed, size)
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
@@ -597,8 +597,6 @@ class MMap(object):
 def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
-    if rffi.cast(size_t, size) != size:
-        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,

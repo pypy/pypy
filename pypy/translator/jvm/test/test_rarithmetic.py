@@ -32,7 +32,7 @@ class BaseAdaptedTest(JvmTest):
                     cache[types] = fun
                 return cache[types](x, y)
             return f(x,y)
-        super(BaseAdaptedTest,self).binary_test(new_func, rargs)
+        super(BaseAdaptedTest,self).binary_test(new_func, rargs, translated=True)
 
 class Test_r_uint(BaseAdaptedTest, BaseTest_r_uint):
     RTYPE = ra.r_uint    

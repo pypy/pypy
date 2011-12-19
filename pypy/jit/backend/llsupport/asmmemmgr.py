@@ -37,25 +37,25 @@ class AsmMemoryManager(object):
             self._add_free_block(smaller_stop, stop)
             stop = smaller_stop
             result = (start, stop)
-        self.total_mallocs += stop - start
+        self.total_mallocs += r_uint(stop - start)
         return result   # pair (start, stop)
 
     def free(self, start, stop):
         """Free a block (start, stop) returned by a previous malloc()."""
-        self.total_mallocs -= (stop - start)
+        self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
         result = self._allocate_block(minsize)
         (start, stop) = result
-        self.total_mallocs += stop - start
+        self.total_mallocs += r_uint(stop - start)
         return result
 
     def open_free(self, middle, stop):
         """Used for freeing the end of an open-allocated block of memory."""
         if stop - middle >= self.min_fragment:
-            self.total_mallocs -= (stop - middle)
+            self.total_mallocs -= r_uint(stop - middle)
             self._add_free_block(middle, stop)
             return True
         else:
@@ -77,7 +77,7 @@ class AsmMemoryManager(object):
                 # Hack to make sure that mcs are not within 32-bits of one
                 # another for testing purposes
                 rmmap.hint.pos += 0x80000000 - size
-        self.total_memory_allocated += size
+        self.total_memory_allocated += r_uint(size)
         data = rffi.cast(lltype.Signed, data)
         return self._add_free_block(data, data + size)
 

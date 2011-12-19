@@ -71,6 +71,8 @@ class MsvcPlatform(Platform):
     so_ext = 'dll'
     exe_ext = 'exe'
 
+    relevant_environ = ('PATH', 'INCLUDE', 'LIB')
+
     cc = 'cl.exe'
     link = 'link.exe'
 
@@ -80,7 +82,7 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None):
+    def __init__(self, cc=None, x64=False):
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
@@ -103,9 +105,16 @@ class MsvcPlatform(Platform):
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            self.masm = 'c:/masm32/bin/ml.exe'
+            masm32 = 'c:/masm32/bin/ml.exe'
+            masm64 = 'c:/masm64/bin/ml64.exe'
         else:
-            self.masm = 'ml.exe'
+            masm32 = 'ml.exe'
+            masm64 = 'ml64.exe'
+        
+        if x64:
+            self.masm = masm64
+        else:
+            self.masm = masm32
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
@@ -165,7 +174,13 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
-        args = ['/nologo', '/c'] + compile_args + [str(cfile), '/Fo%s' % (oname,)]
+        # notabene: (tismer)
+        # This function may be called for .c but also .asm files.
+        # The c compiler accepts any order of arguments, while
+        # the assembler still has the old behavior that all options
+        # must come first, and after the file name all options are ignored.
+        # So please be careful with the order of parameters! ;-)
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -250,7 +265,7 @@ class MsvcPlatform(Platform):
                 return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
-        rel_ofiles = [rel_cfile[:-2]+'.obj' for rel_cfile in rel_cfiles]
+        rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.obj' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in eci.include_dirs]
@@ -281,6 +296,7 @@ class MsvcPlatform(Platform):
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
             ('.c.obj', '', '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'),
+            ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:

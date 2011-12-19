@@ -369,6 +369,8 @@ _oplist = [
     'FINISH/*d',
     '_FINAL_LAST',
 
+    'LABEL/*d',
+
     '_GUARD_FIRST',
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d',
@@ -379,11 +381,11 @@ _oplist = [
     'GUARD_ISNULL/1d',
     'GUARD_NONNULL_CLASS/2d',
     '_GUARD_FOLDABLE_LAST',
-    'GUARD_NO_EXCEPTION/0d',
-    'GUARD_EXCEPTION/1d',
+    'GUARD_NO_EXCEPTION/0d',    # may be called with an exception currently set
+    'GUARD_EXCEPTION/1d',       # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
-    'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
     'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
@@ -461,6 +463,7 @@ _oplist = [
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
     'GETINTERIORFIELD_GC/2d',
+    'GETINTERIORFIELD_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -479,6 +482,7 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
+    'SETINTERIORFIELD_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
@@ -492,6 +496,7 @@ _oplist = [
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
+    'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -503,6 +508,8 @@ _oplist = [
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
+    'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
+    'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 

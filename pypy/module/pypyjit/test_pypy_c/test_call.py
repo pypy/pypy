@@ -99,7 +99,7 @@ class TestCall(BaseTestPyPyC):
             i15 = int_add_ovf(i12, 1)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=...)
         """)
 
     def test_method_call(self):
@@ -142,7 +142,7 @@ class TestCall(BaseTestPyPyC):
             i19 = int_add_ovf(i10, i17)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=...)
         """)
 
     def test_static_classmethod_call(self):
@@ -174,7 +174,7 @@ class TestCall(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = force_token()
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_default_and_kw(self):
@@ -334,26 +334,27 @@ class TestCall(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == (1000, 998)
         loop, = log.loops_by_filename(self.filepath)
+        # the int strategy is used here
         assert loop.match_by_id('append', """
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
             # Will be killed by the backend
-            i17 = arraylen_gc(p7, descr=<GcPtrArrayDescr>)
-            call(ConstClass(_ll_list_resize_ge), p8, i15, descr=<VoidCallDescr>)
+            p15 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
+            i17 = arraylen_gc(p15, descr=<SignedArrayDescr>)
+            call(_, p8, i15, descr=<VoidCallDescr>) # this is a call to _ll_list_resize_ge_trampoline__...
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
-            p19 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p19, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
-            setarrayitem_gc(p17, i13, p19, descr=<GcPtrArrayDescr>)
+            setarrayitem_gc(p17, i13, i12, descr=<SignedArrayDescr>)
         """)
 
     def test_blockstack_virtualizable(self):
         def main(n):
             from pypyjit import residual_call
+            l = len
             i = 0
             while i < n:
                 try:
-                    residual_call(len, [])   # ID: call
+                    residual_call(l, [])   # ID: call
                 except:
                     pass
                 i += 1
@@ -369,11 +370,8 @@ class TestCall(BaseTestPyPyC):
             p22 = new_with_vtable(19511408)
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
-            p27 = new(descr=<SizeDescr .*>)
-            p29 = new_array(0, descr=<GcPtrArrayDescr>)
             setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
-            setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
-            setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
+            setfield_gc(p26, ConstPtr(ptr22), descr=<GcPtrFieldDescr pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
             setfield_gc(p22, p24, descr=<GcPtrFieldDescr .*Arguments.inst_arguments_w .*>)
             p32 = call_may_force(11376960, p18, p22, descr=<GcPtrCallDescr>)
@@ -396,7 +394,7 @@ class TestCall(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i120 = int_add(i5, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_global_closure_has_constant_cells(self):
@@ -440,7 +438,7 @@ class TestCall(BaseTestPyPyC):
             i33 = int_add_ovf(i15, i32)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=<Loop0>)
+            p39 = same_as(...) # Should be killed by backend
         """)
 
     def test_local_closure_is_virtual(self):
@@ -463,7 +461,7 @@ class TestCall(BaseTestPyPyC):
             p22 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=...)
         """)
 
     def test_kwargs_virtual(self):

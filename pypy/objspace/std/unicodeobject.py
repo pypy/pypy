@@ -11,6 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.rlib.objectmodel import compute_hash, specialize
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
@@ -21,6 +22,21 @@ from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_AbstractUnicodeObject(W_Object):
     __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractUnicodeObject):
+            return False
+        if self is w_other:
+            return True
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return False
+        return space.unicode_w(self) is space.unicode_w(w_other)
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        return space.wrap(compute_unique_id(space.unicode_w(self)))
+
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef

@@ -24,8 +24,8 @@ class GreenFieldsTests:
         #
         res = self.meta_interp(g, [7])
         assert res == -2
-        self.check_loop_count(2)
-        self.check_loops(guard_value=0)
+        self.check_trace_count(2)
+        self.check_resops(guard_value=0)
 
     def test_green_field_2(self):
         myjitdriver = JitDriver(greens=['ctx.x'], reds=['ctx'])
@@ -49,8 +49,8 @@ class GreenFieldsTests:
         #
         res = self.meta_interp(g, [7])
         assert res == -22
-        self.check_loop_count(6)
-        self.check_loops(guard_value=0)
+        self.check_trace_count(6)
+        self.check_resops(guard_value=0)
 
 
 class TestLLtypeGreenFieldsTests(GreenFieldsTests, LLJitMixin):

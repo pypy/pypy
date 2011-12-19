@@ -69,16 +69,17 @@ def get_entry(g):
 def get_functions_to_patch():
     from pypy.jit.backend.llsupport import gc
     #
-    can_inline_malloc1 = gc.GcLLDescr_framework.can_inline_malloc
-    def can_inline_malloc2(*args):
+    can_use_nursery_malloc1 = gc.GcLLDescr_framework.can_use_nursery_malloc
+    def can_use_nursery_malloc2(*args):
         try:
             if os.environ['PYPY_NO_INLINE_MALLOC']:
                 return False
         except KeyError:
             pass
-        return can_inline_malloc1(*args)
+        return can_use_nursery_malloc1(*args)
     #
-    return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
+    return {(gc.GcLLDescr_framework, 'can_use_nursery_malloc'):
+                can_use_nursery_malloc2}
 
 def compile(f, gc, enable_opts='', **kwds):
     from pypy.annotation.listdef import s_list_of_strings
@@ -456,6 +457,46 @@ class CompileFrameworkTests(BaseFrameworkTests):
 
     def test_compile_framework_7(self):
         self.run('compile_framework_7')
+
+    def define_compile_framework_7_interior(cls):
+        # Array of structs containing pointers (test the write barrier
+        # for setinteriorfield_gc)
+        S = lltype.GcStruct('S', ('i', lltype.Signed))
+        A = lltype.GcArray(lltype.Struct('entry', ('x', lltype.Ptr(S)),
+                                                  ('y', lltype.Ptr(S)),
+                                                  ('z', lltype.Ptr(S))))
+        class Glob:
+            a = lltype.nullptr(A)
+        glob = Glob()
+        #
+        def make_s(i):
+            s = lltype.malloc(S)
+            s.i = i
+            return s
+        #
+        @unroll_safe
+        def f(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
+            a = glob.a
+            if not a:
+                a = glob.a = lltype.malloc(A, 10)
+            i = 0
+            while i < 10:
+                a[i].x = make_s(n + i * 100 + 1)
+                a[i].y = make_s(n + i * 100 + 2)
+                a[i].z = make_s(n + i * 100 + 3)
+                i += 1
+            i = 0
+            while i < 10:
+                check(a[i].x.i == n + i * 100 + 1)
+                check(a[i].y.i == n + i * 100 + 2)
+                check(a[i].z.i == n + i * 100 + 3)
+                i += 1
+            n -= x.foo
+            return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
+        return None, f, None
+
+    def test_compile_framework_7_interior(self):
+        self.run('compile_framework_7_interior')
 
     def define_compile_framework_8(cls):
         # Array of pointers, of unknown length (test write_barrier_from_array)

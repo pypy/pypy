@@ -147,8 +147,8 @@ class TestString(BaseTestPyPyC):
             i31 = int_gt(i30, 23)
             guard_false(i31, descr=...)
             copystrcontent(p9, p21, 0, i25, i10)
-            i33 = int_eq(i30, 23)
-            guard_false(i33, descr=...)
+            i33 = int_lt(i30, 23)
+            guard_true(i33, descr=...)
             p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=...)
             i37 = strlen(p35)
@@ -156,7 +156,7 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i40 = int_sub(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i40, i38, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i40, i38, descr=...)
         """)
 
     def test_getattr_promote(self):
@@ -179,7 +179,7 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
-        assert len(loops) == 2
+        assert len(loops) == 1
         for loop in loops:
             loop.match_by_id('getattr','''
             guard_not_invalidated(descr=...)

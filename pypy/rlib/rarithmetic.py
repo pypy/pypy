@@ -143,7 +143,9 @@ def compute_restype(self_type, other_type):
         return self_type
     if self_type in (bool, int, long):
         return other_type
-    return build_int(None, self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
+    if self_type.SIGNED == other_type.SIGNED:
+        return build_int(None, self_type.SIGNED, max(self_type.BITS, other_type.BITS))
+    raise AssertionError, "Merging these types (%s, %s) is not supported" % (self_type, other_type)
 
 def signedtype(t):
     if t in (bool, int, long):
