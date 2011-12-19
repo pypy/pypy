@@ -1174,6 +1174,7 @@ class W_FlatIterator(ViewArray):
 
     @jit.unroll_safe
     def __init__(self, arr):
+        arr = arr.get_concrete()
         size = 1
         for sh in arr.shape:
             size *= sh
