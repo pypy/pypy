@@ -129,7 +129,3 @@ class Module(MixedModule):
         space.abstract_issubclass_w = ab.abstract_issubclass_w.__get__(space)
         space.abstract_isclass_w = ab.abstract_isclass_w.__get__(space)
         space.abstract_getclass = ab.abstract_getclass.__get__(space)
-        space.exception_is_valid_class_w = ab.exception_is_valid_class_w.__get__(space)
-        space.exception_is_valid_obj_as_class_w = ab.exception_is_valid_obj_as_class_w.__get__(space)
-        space.exception_getclass = ab.exception_getclass.__get__(space)
-        space.exception_issubclass_w = ab.exception_issubclass_w.__get__(space)

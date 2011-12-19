@@ -152,21 +152,6 @@ def abstract_issubclass_w(space, w_derived, w_klass_or_tuple,
                 " or tuple of classes and types")
     return _issubclass_recurse(space, w_derived, w_klass_or_tuple)
 
-# ------------------------------------------------------------
-# Exception helpers
-
-def exception_is_valid_obj_as_class_w(space, w_obj):
-    return BaseObjSpace.exception_is_valid_obj_as_class_w(space, w_obj)
-
-def exception_is_valid_class_w(space, w_cls):
-    return BaseObjSpace.exception_is_valid_class_w(space, w_cls)
-
-def exception_getclass(space, w_obj):
-    return BaseObjSpace.exception_getclass(space, w_obj)
-
-def exception_issubclass_w(space, w_cls1, w_cls2):
-    return BaseObjSpace.exception_issubclass_w(space, w_cls1, w_cls2)
-
 # ____________________________________________________________
 # App-level interface
 
