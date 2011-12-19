@@ -708,10 +708,11 @@ class BaseArray(Wrappable):
     def descr_debug_repr(self, space):
         return space.wrap(self.find_sig().debug_repr())
 
-    def find_sig(self):
+    def find_sig(self, res_shape=None):
         """ find a correct signature for the array
         """
-        return signature.find_sig(self.create_sig(), self)
+        res_shape = res_shape or self.shape
+        return signature.find_sig(self.create_sig(res_shape), self)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -762,7 +763,7 @@ class Scalar(BaseArray):
         # so in order to have a consistent API, let it go through.
         pass
 
-    def create_sig(self):
+    def create_sig(self, res_shape):
         return signature.ScalarSignature(self.dtype)
 
 class VirtualArray(BaseArray):
@@ -839,10 +840,11 @@ class Call1(VirtualArray):
     def _find_dtype(self):
         return self.res_dtype
 
-    def create_sig(self):
+    def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return signature.ForcedSignature(self.forced_result.dtype)
-        return signature.Call1(self.ufunc, self.name, self.values.create_sig())
+            return signature.ArraySignature(self.forced_result.dtype)
+        return signature.Call1(self.ufunc, self.name,
+                               self.values.create_sig(res_shape))
 
 class Call2(VirtualArray):
     """
@@ -865,12 +867,12 @@ class Call2(VirtualArray):
     def _find_size(self):
         return self.size
 
-    def create_sig(self):
+    def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return signature.ForcedSignature(self.forced_result.dtype)
+            return signature.ArraySignature(self.forced_result.dtype)
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
-                               self.left.create_sig(),
-                               self.right.create_sig())
+                               self.left.create_sig(res_shape),
+                               self.right.create_sig(res_shape))
 
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not
@@ -946,7 +948,7 @@ class W_NDimSlice(ConcreteArray):
         self._sliceloop(w_value, res_shape)
 
     def _sliceloop(self, source, res_shape):
-        sig = source.find_sig()
+        sig = source.find_sig(res_shape)
         frame = sig.create_frame(source)
         res_iter = ViewIterator(self)
         shapelen = len(res_shape)
@@ -971,7 +973,7 @@ class W_NDimSlice(ConcreteArray):
             a_iter = a_iter.next(len(array.shape))
         return array
 
-    def create_sig(self):
+    def create_sig(self, res_shape):
         return signature.ViewSignature(self.dtype)
 
     def setshape(self, space, new_shape):
@@ -1025,7 +1027,7 @@ class W_NDimArray(ConcreteArray):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
-    def create_sig(self):
+    def create_sig(self, res_shape):
         return signature.ArraySignature(self.dtype)
 
     def __del__(self):

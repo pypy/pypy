@@ -117,52 +117,22 @@ class ArraySignature(ConcreteSignature):
         return 'Array'
 
     def _invent_array_numbering(self, arr, cache):
-        from pypy.module.micronumpy.interp_numarray import ConcreteArray
-        assert isinstance(arr, ConcreteArray)
-        self.array_no = _add_ptr_to_cache(arr.storage, cache)
+        storage = arr.get_concrete().storage
+        self.array_no = _add_ptr_to_cache(storage, cache)
 
     def _create_iter(self, iterlist, arraylist, arr):
-        from pypy.module.micronumpy.interp_numarray import ConcreteArray
-        assert isinstance(arr, ConcreteArray)
+        storage = arr.get_concrete().storage
         if self.iter_no >= len(iterlist):
             iterlist.append(self.allocate_iter(arr))
         if self.array_no >= len(arraylist):
-            arraylist.append(arr.storage)
+            arraylist.append(storage)
 
     def allocate_iter(self, arr):
         return ArrayIterator(arr.size)
 
     def eval(self, frame, arr):
-        from pypy.module.micronumpy.interp_numarray import ConcreteArray
-        assert isinstance(arr, ConcreteArray)
         iter = frame.iterators[self.iter_no]
         return self.dtype.getitem(frame.arrays[self.array_no], iter.offset)
-
-class ForcedSignature(ArraySignature):
-    def debug_repr(self):
-        return 'ForcedArray'
-
-    def _invent_array_numbering(self, arr, cache):
-        from pypy.module.micronumpy.interp_numarray import VirtualArray
-        assert isinstance(arr, VirtualArray)
-        arr = arr.forced_result
-        self.array_no = _add_ptr_to_cache(arr.storage, cache)
-
-    def _create_iter(self, iterlist, arraylist, arr):
-        from pypy.module.micronumpy.interp_numarray import VirtualArray
-        assert isinstance(arr, VirtualArray)
-        arr = arr.forced_result
-        if self.iter_no >= len(iterlist):
-            iterlist.append(ArrayIterator(arr.size))
-        if self.array_no >= len(arraylist):
-            arraylist.append(arr.storage)
-
-    def eval(self, frame, arr):
-        from pypy.module.micronumpy.interp_numarray import VirtualArray
-        assert isinstance(arr, VirtualArray)
-        arr = arr.forced_result
-        iter = frame.iterators[self.iter_no]
-        return self.dtype.getitem(frame.arrays[self.array_no], iter.offset)    
 
 class ScalarSignature(ConcreteSignature):
     def debug_repr(self):
