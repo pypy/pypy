@@ -1,6 +1,7 @@
 from pypy.conftest import option
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.objspace.flow.model import Variable
+from pypy.interpreter.argument import Signature
 from pypy.translator.translator import TranslationContext
 from pypy.translator.generator import make_generatoriterator_class
 from pypy.translator.generator import replace_graph_with_bootstrap
@@ -96,7 +97,7 @@ class TestGenerator:
         assert block.exits[0].target is graph.returnblock
 
     def test_tweak_generator_body_graph(self):
-        def f(n, x, y, z):
+        def f(n, x, y, z=3):
             z *= 10
             yield n + 1
             z -= 10
@@ -109,6 +110,9 @@ class TestGenerator:
         if option.view:
             graph.show()
         # XXX how to test directly that the graph is correct?  :-(
+        assert len(graph.startblock.inputargs) == 1
+        assert graph.signature == Signature(['entry'])
+        assert graph.defaults == ()
 
     def test_tweak_generator_graph(self):
         def f(n, x, y, z):

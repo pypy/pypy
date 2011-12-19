@@ -4,6 +4,7 @@ from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
 from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.interpreter.argument import Signature
 
 
 class AbstractPosition(object):
@@ -30,6 +31,7 @@ def tweak_generator_graph(graph):
 def make_generatoriterator_class(graph):
     class GeneratorIterator(object):
         class Entry(AbstractPosition):
+            _immutable_ = True
             varnames = get_variable_names(graph.startblock.inputargs)
         def __init__(self, entry):
             self.current = entry
@@ -113,6 +115,7 @@ def tweak_generator_body_graph(Entry, graph):
                 newblock = newlink.target
                 #
                 class Resume(AbstractPosition):
+                    _immutable_ = True
                     block = newblock
                 Resume.__name__ = 'Resume%d' % len(mappings)
                 mappings.append(Resume)
@@ -157,5 +160,7 @@ def tweak_generator_body_graph(Entry, graph):
                            Constant(AssertionError("bad generator class"))],
                           graph.exceptblock))
     graph.startblock = regular_entry_block
+    graph.signature = Signature(['entry'])
+    graph.defaults = ()
     checkgraph(graph)
     eliminate_empty_blocks(graph)
