@@ -871,6 +871,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         b[0] = 3
         assert b.__debug_repr__() == 'Array'
 
+    def test_virtual_views(self):
+        from numpypy import arange
+        a = arange(15)
+        c = (a + a)
+        d = c[::2]
+        assert d[3] == 12
+        c[6] = 5
+        assert d[3] == 5
+        a = arange(15)
+        c = (a + a)
+        d = c[::2][::2]
+        assert d[1] == 8
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -1038,6 +1051,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = ones((4, 3, 5))
         b[:] = (a + a)
         assert (b == zeros((4, 3, 5))).all()
+
+    def test_broadcast_virtualview(self):
+        from numpypy import arange, zeros
+        a = arange(8).reshape([2, 2, 2])
+        b = (a + a)[1, 1]
+        c = zeros((2, 2, 2))
+        c[:] = b
+        assert (c == [[[12, 14], [12, 14]], [[12, 14], [12, 14]]]).all()
 
     def test_argmax(self):
         from numpypy import array
