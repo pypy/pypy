@@ -602,40 +602,28 @@ class BaseArray(Wrappable):
 
     @jit.unroll_safe
     def create_slice(self, space, chunks):
-        concr = self.get_concrete()
-        assert isinstance(concr, ConcreteArray)
-        if len(chunks) == 1:
-            start, stop, step, lgt = chunks[0]
-            if step == 0:
-                shape = self.shape[1:]
-                strides = concr.strides[1:]
-                backstrides = concr.backstrides[1:]
-            else:
-                shape = [lgt] + self.shape[1:]
-                strides = [concr.strides[0] * step] + concr.strides[1:]
-                backstrides = [(lgt - 1) * concr.strides[0] * step] + concr.backstrides[1:]
-            start *= concr.strides[0]
-            start += concr.start
-        else:
-            shape = []
-            strides = []
-            backstrides = []
-            start = concr.start
-            i = -1
-            for i, (start_, stop, step, lgt) in enumerate(chunks):
-                if step != 0:
-                    shape.append(lgt)
-                    strides.append(concr.strides[i] * step)
-                    backstrides.append(concr.strides[i] * (lgt - 1) * step)
-                start += concr.strides[i] * start_
-            # add a reminder
-            s = i + 1
-            assert s >= 0
-            shape += concr.shape[s:]
-            strides += concr.strides[s:]
-            backstrides += concr.backstrides[s:]
+        #if not isinstance(self, ConcreteArray):
+        #    return VirtualSlice(self, chunks)
+        self = self.get_concrete()
+        shape = []
+        strides = []
+        backstrides = []
+        start = self.start
+        i = -1
+        for i, (start_, stop, step, lgt) in enumerate(chunks):
+            if step != 0:
+                shape.append(lgt)
+                strides.append(self.strides[i] * step)
+                backstrides.append(self.strides[i] * (lgt - 1) * step)
+            start += self.strides[i] * start_
+        # add a reminder
+        s = i + 1
+        assert s >= 0
+        shape += self.shape[s:]
+        strides += self.strides[s:]
+        backstrides += self.backstrides[s:]
         return W_NDimSlice(start, strides[:], backstrides[:],
-                           shape[:], concr)
+                           shape[:], self)
 
     def descr_reshape(self, space, args_w):
         """reshape(...)
@@ -718,6 +706,7 @@ class BaseArray(Wrappable):
         res_shape = res_shape or self.shape
         return signature.find_sig(self.create_sig(res_shape), self)
 
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -764,6 +753,7 @@ class Scalar(BaseArray):
 
     def get_concrete_or_scalar(self):
         return self
+
 
 class VirtualArray(BaseArray):
     """
@@ -823,6 +813,11 @@ class VirtualArray(BaseArray):
     def find_dtype(self):
         return self.res_dtype
 
+class VirtualSlice(VirtualArray):
+    def __init__(self, parent, chunks):
+        self.parent = parent
+        self.chunks = chunks
+        VirtualArray.__init__(self, 'slice', parent.shape, parent.find_dtype())
 
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, res_dtype, values):
@@ -933,6 +928,7 @@ class ConcreteArray(BaseArray):
         if res_shape is not None and self.shape != res_shape:
             return signature.ViewSignature(self.dtype)
         return signature.ArraySignature(self.dtype)
+
 
 class ViewArray(ConcreteArray):
     def copy(self):
