@@ -177,35 +177,28 @@ class AssemblerPPC(OpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, stack_pointer, spilling_pointer):
+        def failure_recovery_func(mem_loc, spilling_pointer):
             """
                 mem_loc is a structure in memory describing where the values for
                 the failargs are stored.
-            
-                stack_pointer is the address of top of the stack.
 
                 spilling_pointer is the address of the FORCE_INDEX.
             """
-            return self.decode_registers_and_descr(mem_loc, stack_pointer,
-                    spilling_pointer)
+            return self.decode_registers_and_descr(mem_loc, spilling_pointer)
 
         self.failure_recovery_func = failure_recovery_func
 
     recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, 
-            lltype.Signed, lltype.Signed], lltype.Signed))
+            lltype.Signed], lltype.Signed))
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, stack_loc, spp_loc):
+    def decode_registers_and_descr(self, mem_loc, spp_loc):
         ''' 
             mem_loc     : pointer to encoded state
-            stack_loc   : pointer to top of the stack
             spp_loc     : pointer to begin of the spilling area
             '''
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         managed_size = WORD * len(r.MANAGED_REGS)
-
-        assert spp_loc > stack_loc
-
         regs = rffi.cast(rffi.CCHARP, spp_loc)
         i = -1
         fail_index = -1
@@ -346,8 +339,7 @@ class AssemblerPPC(OpAssembler):
             mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         else: 
             mc.ld(r.r3.value, r.SPP.value, self.ENCODING_AREA)     
-        mc.mr(r.r4.value, r.SP.value)          # load stack pointer
-        mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
+        mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into SCRATCH
         mc.alloc_scratch_reg(addr)
