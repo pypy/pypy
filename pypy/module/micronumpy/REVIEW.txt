@@ -1,8 +1,6 @@
 REVIEW NOTES
 ============
 
-* Scalar.reshape should turn the value into an array correct for an input of
-  ``1`` or ``(1,)``.
 * VirtualSlice vs. W_NDimSlice?
 * Call{1, 2}.create_sig, should it call forced_result.create_sig(), instead of
   array_sig()? If not, why not?

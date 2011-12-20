@@ -753,7 +753,7 @@ class Call1(VirtualArray):
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return self.forced_result.array_sig(res_shape)
+            return self.forced_result.create_sig(res_shape)
         return signature.Call1(self.ufunc, self.name,
                                self.values.create_sig(res_shape))
 
@@ -777,7 +777,7 @@ class Call2(VirtualArray):
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
-            return self.forced_result.array_sig(res_shape)
+            return self.forced_result.create_sig(res_shape)
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(res_shape),
                                self.right.create_sig(res_shape))
