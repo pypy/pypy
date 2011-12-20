@@ -46,7 +46,7 @@ class TestMisc(BaseTestPyPyC):
                 r *= n
                 n -= 1
             return r
-        log = self.run(fact, [7], threshold=5)
+        log = self.run(fact, [7], threshold=4)
         assert log.result == 5040
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""

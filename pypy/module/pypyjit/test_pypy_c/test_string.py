@@ -55,8 +55,8 @@ class TestString(BaseTestPyPyC):
                 i += int(long(string.digits[i % len(string.digits)], 16))
             return i
 
-        log = self.run(main, [1000])
-        assert log.result == main(1000)
+        log = self.run(main, [1100])
+        assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i11 = int_lt(i6, i7)
