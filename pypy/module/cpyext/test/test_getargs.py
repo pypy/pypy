@@ -137,13 +137,11 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             if (!PyArg_ParseTuple(args, "s*", &buf)) {
                 return NULL;
             }
-            printf("OH NO %s %d\\n", buf.buf, buf.len);
-            fflush(stdout);
             result = PyString_FromStringAndSize(buf.buf, buf.len);
             PyBuffer_Release(&buf);
             return result;
             ''')
-        assert buffer('foo\0bar\0baz') == pybuffer(buffer('foo\0bar\0baz'))
+        assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
 
 
     def test_pyarg_parse_charbuf_and_length(self):

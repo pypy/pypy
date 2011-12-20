@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, Py_ssize_t, cpython_struct, bootstrap_function,
     PyObjectFields, PyObject)
-from pypy.module.cpyext.pyobject import make_typedescr
+from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef
 from pypy.interpreter.buffer import Buffer, StringBuffer, SubBuffer
 
 
@@ -25,7 +25,7 @@ def init_bufferobject(space):
     make_typedescr(space.gettypefor(Buffer).instancetypedef,
                    basestruct=PyBufferObject.TO,
                    attach=buffer_attach,
-                   # dealloc=buffer_dealloc,
+                   dealloc=buffer_dealloc,
                    realize=buffer_realize)
 
 def buffer_attach(space, py_obj, w_obj):
@@ -57,6 +57,10 @@ def buffer_realize(space, py_obj):
 
 
 
-# @cpython_api([PyObject], lltype.Void, external=False)
-# def buffer_dealloc(space, py_obj):
-    
+@cpython_api([PyObject], lltype.Void, external=False)
+def buffer_dealloc(space, py_obj):
+    py_buf = rffi.cast(PyBufferObject, py_obj)
+    Py_DecRef(space, py_buf.c_b_base)
+    rffi.free_charp(py_buf.c_b_ptr)
+    from pypy.module.cpyext.object import PyObject_dealloc
+    PyObject_dealloc(space, py_obj)
