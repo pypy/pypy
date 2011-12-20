@@ -425,7 +425,7 @@ class CallDescr(AbstractDescr):
                 self.arg_classes.count('L')) == len(args_f or ())
 
     def repr_of_descr(self):
-        return '<CallDescr(%s,%s)>' % (self.arg_classes, self.result_type)
+        return '<CallDescr(%s/%s)>' % (self.arg_classes, self.result_type)
 
 
 def map_type_to_argclass(ARG, accept_void=False):
