@@ -336,6 +336,7 @@ class Regalloc(object):
         return locs
 
     prepare_guard_overflow = prepare_guard_no_overflow
+    prepare_guard_not_invalidated = prepare_guard_no_overflow
 
     def prepare_guard_exception(self, op):
         boxes = list(op.getarglist())

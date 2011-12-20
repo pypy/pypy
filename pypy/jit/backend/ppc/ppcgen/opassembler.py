@@ -284,6 +284,8 @@ class GuardOpAssembler(object):
             raise NotImplementedError
         self._cmp_guard_class(op, arglocs, regalloc)
 
+    def emit_guard_not_invalidated(self, op, locs, regalloc):
+        return self._emit_guard(op, locs, c.EQ, is_guard_not_invalidated=True)
 
 class MiscOpAssembler(object):
 

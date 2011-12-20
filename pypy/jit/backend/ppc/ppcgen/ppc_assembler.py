@@ -579,9 +579,6 @@ class AssemblerPPC(OpAssembler):
         self._teardown()
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
-    
-        assert 0, "Bridges do not work yet because they need to dynamically adjust the SP"
-
         self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
@@ -807,7 +804,8 @@ class AssemblerPPC(OpAssembler):
                 mc.prepare_insts_blocks(True)
                 mc.copy_to_raw_memory(block_start + tok.offset)
             else:
-                assert 0, "not implemented yet"
+                clt.invalidate_positions.append((block_start + tok.offset,
+                        descr._ppc_guard_pos - tok.offset))
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
         # The first instruction (word) is not overwritten, because it is the

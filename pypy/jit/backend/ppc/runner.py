@@ -14,6 +14,7 @@ from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
 from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
 from pypy.jit.backend.ppc.ppcgen.regalloc import PPCRegisterManager, PPCFrameManager
+from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen import register as r
 import sys
 
@@ -130,3 +131,20 @@ class PPC_64_CPU(AbstractLLCPU):
     def teardown(self):
         self.patch_list = None
         self.reg_map = None
+
+    def invalidate_loop(self, looptoken):
+        """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
+        bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
+        after this call, they all fail.  Note that afterwards, if one such
+        guard fails often enough, it has a bridge attached to it; it is
+        possible then to re-call invalidate_loop() on the same looptoken,
+        which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
+        old one that already has a bridge attached to it."""
+
+        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = PPCBuilder()
+            mc.b_offset(tgt)
+            mc.prepare_insts_blocks()
+            mc.copy_to_raw_memory(jmp)
+        # positions invalidated
+        looptoken.compiled_loop_token.invalidate_positions = []
