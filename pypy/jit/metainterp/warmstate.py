@@ -1,10 +1,10 @@
-import sys, weakref, math
+import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
@@ -151,26 +151,8 @@ class JitCell(BaseJitCell):
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
     dont_trace_here = False
+    extra_delay = chr(0)
     wref_procedure_token = None
-
-    def __init__(self, generation):
-        # The stored 'counter' value follows an exponential decay model.
-        # Conceptually after every generation, it decays by getting
-        # multiplied by a constant <= 1.0.  In practice, decaying occurs
-        # lazily: the following field records the latest seen generation
-        # number, and adjustment is done by adjust_counter() when needed.
-        self.latest_generation_seen = generation
-
-    def adjust_counter(self, generation, log_decay_factor):
-        if generation != self.latest_generation_seen:
-            # The latest_generation_seen is older than the current generation.
-            # Adjust by multiplying self.counter N times by decay_factor, i.e.
-            # by decay_factor ** N, which is equal to exp(log(decay_factor)*N).
-            assert self.counter >= 0
-            N = generation - self.latest_generation_seen
-            factor = math.exp(log_decay_factor * N)
-            self.counter = int(self.counter * factor)
-            self.latest_generation_seen = generation
 
     def get_procedure_token(self):
         if self.wref_procedure_token is not None:
@@ -230,17 +212,6 @@ class WarmEnterState(object):
 
     def set_param_inlining(self, value):
         self.inlining = value
-
-    def set_param_decay_halflife(self, value):
-        # Use 0 or -1 to mean "no decay".  Initialize the internal variable
-        # 'log_decay_factor'.  It is choosen such that by multiplying the
-        # counter on loops by 'exp(log_decay_factor)' (<= 1.0) every
-        # generation, then the counter will be divided by two after 'value'
-        # generations have passed.
-        if value <= 0:
-            self.log_decay_factor = 0.0    # log(1.0)
-        else:
-            self.log_decay_factor = math.log(0.5) / value
 
     def set_param_enable_opts(self, value):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
@@ -311,11 +282,6 @@ class WarmEnterState(object):
         confirm_enter_jit = self.confirm_enter_jit
         range_red_args = unrolling_iterable(
             range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
-        memmgr = self.warmrunnerdesc.memory_manager
-        if memmgr is not None:
-            get_current_generation = memmgr.get_current_generation_uint
-        else:
-            get_current_generation = lambda: r_uint(0)
         # get a new specialized copy of the method
         ARGS = []
         for kind in jitdriver_sd.red_args_types:
@@ -350,6 +316,36 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
+        def bound_reached(cell, *args):
+            # bound reached, but we do a last check: if it is the first
+            # time we reach the bound, or if another loop or bridge was
+            # compiled since the last time we reached it, then decrease
+            # the counter by a few percents instead.  It should avoid
+            # sudden bursts of JIT-compilation, and also corner cases
+            # where we suddenly compile more than one loop because all
+            # counters reach the bound at the same time, but where
+            # compiling all but the first one is pointless.
+            curgen = warmrunnerdesc.memory_manager.current_generation
+            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
+            if we_are_translated() and curgen != cell.extra_delay:
+                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
+                cell.extra_delay = curgen
+                return
+            #
+            if not confirm_enter_jit(*args):
+                cell.counter = 0
+                return
+            # start tracing
+            from pypy.jit.metainterp.pyjitpl import MetaInterp
+            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+            # set counter to -2, to mean "tracing in effect"
+            cell.counter = -2
+            try:
+                metainterp.compile_and_run_once(jitdriver_sd, *args)
+            finally:
+                if cell.counter == -2:
+                    cell.counter = 0
+
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
@@ -360,25 +356,13 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                cell.adjust_counter(get_current_generation(),
-                                    self.log_decay_factor)
                 n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
-                if not confirm_enter_jit(*args):
-                    cell.counter = 0
+                else:
+                    bound_reached(cell, *args)
                     return
-                # bound reached; start tracing
-                from pypy.jit.metainterp.pyjitpl import MetaInterp
-                metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-                # set counter to -2, to mean "tracing in effect"
-                cell.counter = -2
-                try:
-                    metainterp.compile_and_run_once(jitdriver_sd, *args)
-                finally:
-                    if cell.counter == -2:
-                        cell.counter = 0
             else:
                 if cell.counter != -1:
                     assert cell.counter == -2
@@ -454,15 +438,6 @@ class WarmEnterState(object):
         #
         return jit_getter
 
-    def _new_jitcell(self):
-        warmrunnerdesc = self.warmrunnerdesc
-        if (warmrunnerdesc is not None and
-                warmrunnerdesc.memory_manager is not None):
-            gen = warmrunnerdesc.memory_manager.get_current_generation_uint()
-        else:
-            gen = r_uint(0)
-        return JitCell(gen)
-
     def _make_jitcell_getter_default(self):
         "NOT_RPYTHON"
         jitdriver_sd = self.jitdriver_sd
@@ -492,44 +467,32 @@ class WarmEnterState(object):
         except AttributeError:
             pass
         #
-        memmgr = self.warmrunnerdesc and self.warmrunnerdesc.memory_manager
-        if memmgr:
-            def _cleanup_dict():
-                minimum = sys.maxint
-                if self.increment_threshold > 0:
-                    minimum = min(minimum, self.increment_threshold)
-                if self.increment_function_threshold > 0:
-                    minimum = min(minimum, self.increment_function_threshold)
-                currentgen = memmgr.get_current_generation_uint()
-                killme = []
-                for key, cell in jitcell_dict.iteritems():
-                    if cell.counter >= 0:
-                        cell.adjust_counter(currentgen, self.log_decay_factor)
-                        if cell.counter < minimum:
-                            killme.append(key)
-                    elif (cell.counter == -1
-                          and cell.get_procedure_token() is None):
+        def _cleanup_dict():
+            minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
+            killme = []
+            for key, cell in jitcell_dict.iteritems():
+                if cell.counter >= 0:
+                    cell.counter = int(cell.counter * 0.92)
+                    if cell.counter < minimum:
                         killme.append(key)
-                for key in killme:
-                    del jitcell_dict[key]
-            #
-            def _maybe_cleanup_dict():
-                # If no tracing goes on at all because the jitcells are
-                # each time for new greenargs, the dictionary grows forever.
-                # So every one in a (rare) while, we decide to force an
-                # artificial next_generation() and _cleanup_dict().
-                self._trigger_automatic_cleanup += 1
-                if self._trigger_automatic_cleanup > 20000:
-                    self._trigger_automatic_cleanup = 0
-                    memmgr.next_generation(do_cleanups_now=False)
-                    _cleanup_dict()
-            #
-            self._trigger_automatic_cleanup = 0
-            self._jitcell_dict = jitcell_dict       # for tests
-            memmgr.record_jitcell_dict(_cleanup_dict)
-        else:
-            def _maybe_cleanup_dict():
-                pass
+                elif (cell.counter == -1
+                      and cell.get_procedure_token() is None):
+                    killme.append(key)
+            for key in killme:
+                del jitcell_dict[key]
+        #
+        def _maybe_cleanup_dict():
+            # Once in a while, rarely, when too many entries have
+            # been put in the jitdict_dict, we do a cleanup phase:
+            # we decay all counters and kill entries with a too
+            # low counter.
+            self._trigger_automatic_cleanup += 1
+            if self._trigger_automatic_cleanup > 20000:
+                self._trigger_automatic_cleanup = 0
+                _cleanup_dict()
+        #
+        self._trigger_automatic_cleanup = 0
+        self._jitcell_dict = jitcell_dict       # for tests
         #
         def get_jitcell(build, *greenargs):
             try:
@@ -538,7 +501,7 @@ class WarmEnterState(object):
                 if not build:
                     return None
                 _maybe_cleanup_dict()
-                cell = self._new_jitcell()
+                cell = JitCell()
                 jitcell_dict[greenargs] = cell
             return cell
         return get_jitcell
@@ -549,7 +512,7 @@ class WarmEnterState(object):
         get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
-        # note that there is no equivalent of record_jitcell_dict()
+        # note that there is no equivalent of _maybe_cleanup_dict()
         # in the case of custom getters.  We assume that the interpreter
         # stores the JitCells on some objects that can go away by GC,
         # like the PyCode objects in PyPy.
@@ -574,7 +537,7 @@ class WarmEnterState(object):
             if not build:
                 return cell
             if cell is None:
-                cell = self._new_jitcell()
+                cell = JitCell()
                 # <hacks>
                 if we_are_translated():
                     cellref = cast_object_to_ptr(BASEJITCELL, cell)
