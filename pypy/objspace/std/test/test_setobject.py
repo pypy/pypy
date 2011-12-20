@@ -8,7 +8,7 @@ This file just contains some basic tests that make sure, the implementation
 is not too wrong.
 """
 import py.test
-from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
+from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject, IntegerSetStrategy
 from pypy.objspace.std.setobject import _initialize_set
 from pypy.objspace.std.setobject import newset
 from pypy.objspace.std.setobject import and__Set_Set
@@ -83,6 +83,45 @@ class TestW_SetObject:
         result = set_intersection__Set(space, a, [d,c,b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
 
+    def test_create_set_from_list(self):
+        from pypy.objspace.std.setobject import ObjectSetStrategy, StringSetStrategy
+        from pypy.objspace.std.floatobject import W_FloatObject
+        from pypy.objspace.std.model import W_Object
+
+        w = self.space.wrap
+        intstr = self.space.fromcache(IntegerSetStrategy)
+        tmp_func = intstr.get_storage_from_list
+        # test if get_storage_from_list is no longer used
+        intstr.get_storage_from_list = None
+
+        w_list = W_ListObject(self.space, [w(1), w(2), w(3)])
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is intstr
+        assert intstr.unerase(w_set.sstorage) == {1:None, 2:None, 3:None}
+
+        w_list = W_ListObject(self.space, [w("1"), w("2"), w("3")])
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is self.space.fromcache(StringSetStrategy)
+        assert w_set.strategy.unerase(w_set.sstorage) == {"1":None, "2":None, "3":None}
+
+        w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is self.space.fromcache(ObjectSetStrategy)
+        for item in w_set.strategy.unerase(w_set.sstorage):
+            assert isinstance(item, W_Object)
+
+        w_list = W_ListObject(self.space, [w(1.0), w(2.0), w(3.0)])
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_list)
+        assert w_set.strategy is self.space.fromcache(ObjectSetStrategy)
+        for item in w_set.strategy.unerase(w_set.sstorage):
+            assert isinstance(item, W_FloatObject)
+
+        # changed cached object, need to change it back for other tests to pass
+        intstr.get_storage_from_list = tmp_func
 
 class AppTestAppSetTest:
 

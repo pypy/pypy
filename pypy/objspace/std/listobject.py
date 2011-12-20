@@ -508,6 +508,11 @@ class RangeListStrategy(ListStrategy):
     def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
 
+    getitems_wrapped = getitems_copy
+
+    def getitems_unwrapped(self, w_list):
+        return self._getitems_range(w_list, False)
+
     def getstorage_copy(self, w_list):
         # tuple is unmutable
         return w_list.lstorage
@@ -697,6 +702,11 @@ class AbstractUnwrappedStrategy(object):
            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+
+    getitems_wrapped = getitems_copy
+
+    def getitems_unwrapped(self, w_list):
+        return self.unerase(w_list.lstorage)
 
     @jit.unroll_safe
     def getitems_unroll(self, w_list):
@@ -925,6 +935,8 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
+
+    getitems_wrapped = getitems
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0

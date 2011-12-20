@@ -5,7 +5,7 @@ from pypy.objspace.std.listobject import W_ListObject
 class TestW_SetStrategies:
 
     def wrapped(self, l):
-        return W_ListObject([self.space.wrap(x) for x in l])
+        return W_ListObject(self.space, [self.space.wrap(x) for x in l])
 
     def test_from_list(self):
         s = W_SetObject(self.space, self.wrapped([1,2,3,4,5]))
