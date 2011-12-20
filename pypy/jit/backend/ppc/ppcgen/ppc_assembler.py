@@ -102,6 +102,7 @@ class AssemblerPPC(OpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.max_stack_params = 0
+        self.propagate_exception_path = 0
 
     def _save_nonvolatiles(self):
         """ save nonvolatile GPRs in GPR SAVE AREA 
@@ -290,6 +291,21 @@ class AssemblerPPC(OpAssembler):
             locs.append(loc)
         return locs
 
+    def _build_propagate_exception_path(self):
+        if self.cpu.propagate_exception_v < 0:
+            return
+
+        mc = PPCBuilder()
+        with Saved_Volatiles(mc):
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+            mc.bl_abs(addr)
+        #mc.alloc_scratch_reg(self.cpu.propagate_exception_v)
+        #mc.mr(r.RES.value, r.SCRATCH.value)
+        #mc.free_scratch_reg()
+        mc.load_imm(r.RES, self.cpu.propagate_exception_v)
+        mc.prepare_insts_blocks()
+        self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
+
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = PPCBuilder()
 
@@ -328,7 +344,7 @@ class AssemblerPPC(OpAssembler):
         # load parameters into parameter registers
         if IS_PPC_32:
             mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
-        else:
+        else: 
             mc.ld(r.r3.value, r.SPP.value, self.ENCODING_AREA)     
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
@@ -495,6 +511,7 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr.initialize()
         ll_new = gc_ll_descr.get_funcptr_for_new()
         self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+        self._build_propagate_exception_path()
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
             self.malloc_array_func_addr = rffi.cast(lltype.Signed,
@@ -954,6 +971,10 @@ class AssemblerPPC(OpAssembler):
             mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
             assert gcrootmap.is_shadow_stack
             gcrootmap.write_callshape(mark, force_index)
+
+    def propagate_memoryerror_if_r3_is_null(self):
+        self.mc.cmp_op(0, r.RES.value, 0, imm=True)
+        self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and

@@ -838,7 +838,7 @@ class AllocOpAssembler(object):
                 self.mc.std(r.r0.value, r.r3.value, self.cpu.vtable_offset)
 
     def emit_new_array(self, op, arglocs, regalloc):
-        # XXX handle memory errors
+        self.propagate_memoryerror_if_r3_is_null()
         if len(arglocs) > 0:
             value_loc, base_loc, ofs_length = arglocs
             if IS_PPC_32:
