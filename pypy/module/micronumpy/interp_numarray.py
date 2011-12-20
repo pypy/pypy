@@ -658,9 +658,6 @@ class Scalar(BaseArray):
         return self
 
 
-    def get_storage(self, space):
-        raise OperationError(space.w_TypeError, space.wrap("Cannot get array interface on scalars in pypy"))
-
 class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
@@ -1051,22 +1048,12 @@ class W_NDimArray(ConcreteArray):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
 
-    def start_iter(self, res_shape=None):
-        if self.order == 'C':
-            if res_shape is not None and res_shape != self.shape:
-                return BroadcastIterator(self, res_shape)
-            return ArrayIterator(self.size)
-        raise NotImplementedError  # use ViewIterator simply, test it
-
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
     def create_sig(self, res_shape):
         return self.array_sig(res_shape)
-
-    def get_storage(self, space):
-        return self.storage
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
