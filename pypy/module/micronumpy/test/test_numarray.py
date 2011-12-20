@@ -911,10 +911,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = c[::2][::2]
         assert d[1] == 8
         b = a + a
-        c = c[::2]
+        c = b[::2]
         c[:] = 3
         assert b[0] == 3
-        assert b[1] == 4
+        assert b[1] == 2
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
