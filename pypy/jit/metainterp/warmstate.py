@@ -151,6 +151,7 @@ class JitCell(BaseJitCell):
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
     dont_trace_here = False
+    extra_delay = chr(0)
     wref_procedure_token = None
 
     def get_procedure_token(self):
@@ -315,6 +316,36 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
+        def bound_reached(cell, *args):
+            # bound reached, but we do a last check: if it is the first
+            # time we reach the bound, or if another loop or bridge was
+            # compiled since the last time we reached it, then decrease
+            # the counter by a few percents instead.  It should avoid
+            # sudden bursts of JIT-compilation, and also corner cases
+            # where we suddenly compile more than one loop because all
+            # counters reach the bound at the same time, but where
+            # compiling all but the first one is pointless.
+            curgen = warmrunnerdesc.memory_manager.current_generation
+            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
+            if we_are_translated() and curgen != cell.extra_delay:
+                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
+                cell.extra_delay = curgen
+                return
+            #
+            if not confirm_enter_jit(*args):
+                cell.counter = 0
+                return
+            # start tracing
+            from pypy.jit.metainterp.pyjitpl import MetaInterp
+            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+            # set counter to -2, to mean "tracing in effect"
+            cell.counter = -2
+            try:
+                metainterp.compile_and_run_once(jitdriver_sd, *args)
+            finally:
+                if cell.counter == -2:
+                    cell.counter = 0
+
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
@@ -329,19 +360,9 @@ class WarmEnterState(object):
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
-                if not confirm_enter_jit(*args):
-                    cell.counter = 0
+                else:
+                    bound_reached(cell, *args)
                     return
-                # bound reached; start tracing
-                from pypy.jit.metainterp.pyjitpl import MetaInterp
-                metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-                # set counter to -2, to mean "tracing in effect"
-                cell.counter = -2
-                try:
-                    metainterp.compile_and_run_once(jitdriver_sd, *args)
-                finally:
-                    if cell.counter == -2:
-                        cell.counter = 0
             else:
                 if cell.counter != -1:
                     assert cell.counter == -2
