@@ -311,7 +311,7 @@ class OpMatcher(object):
         # to repeat it every time
         ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
         """
@@ -320,9 +320,9 @@ class OpMatcher(object):
         # this is the ticker check generated if we have threads
         thread_ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, _)
-            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            setfield_raw(ticker_address, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker1, 0)
             guard_false(ticker_cond0, descr=...)
         """
@@ -330,7 +330,7 @@ class OpMatcher(object):
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
-            ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker2 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
@@ -451,7 +451,6 @@ class OpMatcher(object):
         try:
             self.match_loop(expected_ops, ignore_ops)
         except InvalidMatch, e:
-            #raise # uncomment this and use py.test --pdb for better debugging
             print '@' * 40
             print "Loops don't match"
             print "================="
@@ -464,7 +463,7 @@ class OpMatcher(object):
             print
             print "Expected:"
             print format(expected_src)
-            return False
+            raise     # always propagate the exception in case of mismatch
         else:
             return True
 

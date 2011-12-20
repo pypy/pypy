@@ -21,9 +21,9 @@ class TestGenerators(BaseTestPyPyC):
         assert loop.match_by_id("generator", """
             i16 = force_token()
             p45 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p45, i29, descr=<SignedFieldDescr .*>)
-            setarrayitem_gc(p8, 0, p45, descr=<GcPtrArrayDescr>)
-            i47 = arraylen_gc(p8, descr=<GcPtrArrayDescr>) # Should be removed by backend
+            setfield_gc(p45, i29, descr=<FieldS .*>)
+            setarrayitem_gc(p8, 0, p45, descr=<ArrayP .>)
+            i47 = arraylen_gc(p8, descr=<ArrayP .>) # Should be removed by backend
             jump(..., descr=...)
             """)
         assert loop.match_by_id("subtract", """
