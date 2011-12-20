@@ -898,22 +898,14 @@ class AllocOpAssembler(object):
         else:
             self.mc.ld(r.SCRATCH.value, loc_base.value, 0)
 
-        # offset to the byte we are interested in
-        byte_offset = descr.jit_wb_if_flag_byteofs
-        single_byte = descr.jit_wb_if_flag_singlebyte
-
-        # examine which bit in the byte is set
-        for i in range(8):
-            if 1 << i == single_byte:
-                n = i
-                break
+        # get the position of the bit we want to test
+        bitpos = descr.jit_wb_if_flag_bitpos
 
         if IS_PPC_32:
-            # compute the position of the bit we want to test
-            bitpos = (3 - byte_offset) * 8 + n
-                    # ^^^^^^^^^^^^^^^ due to endianess
             # put this bit to the rightmost bitposition of r0
-            self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 32 - bitpos, 31, 31)
+            if bitpos > 0:
+                self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
+                               32 - bitpos, 31, 31)
             # test whether this bit is set
             self.mc.cmpwi(0, r.SCRATCH.value, 1)
         else:
