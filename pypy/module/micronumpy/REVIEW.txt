@@ -1,0 +1,16 @@
+REVIEW NOTES
+============
+
+* Scalar.reshape should turn the value into an array correct for an input of
+  ``1`` or ``(1,)``.
+* VirtualSlice vs. W_NDimSlice?
+* Call{1, 2}.create_sig, should it call forced_result.create_sig(), instead of
+  array_sig()? If not, why not?
+* W_NDimSlice.__init__ calls ConcreteArray.__init__ instead of
+  ViewArray.__init__, W_FlatIterator as well.
+* Better names for sigeq and sigeq2, sighash doesn't say if numberings are
+  included in the hash.
+* Cleanup of the iterator and array caching/numbering.  It's a mess right now:
+  * _creater_iter updates the arraylist
+  * Why do Scalars need an iterator at all?
+  * Do views share storage with concrete arrays or other views?
