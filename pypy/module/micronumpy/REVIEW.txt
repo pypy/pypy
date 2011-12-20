@@ -4,8 +4,6 @@ REVIEW NOTES
 * VirtualSlice vs. W_NDimSlice?
 * W_NDimSlice.__init__ calls ConcreteArray.__init__ instead of
   ViewArray.__init__, W_FlatIterator as well.
-* Better names for sigeq and sigeq2, sighash doesn't say if numberings are
-  included in the hash.
 * Cleanup of the iterator and array caching/numbering.  It's a mess right now:
   * _creater_iter updates the arraylist
   * Why do Scalars need an iterator at all?

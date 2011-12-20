@@ -8,7 +8,9 @@ from pypy.rlib.jit import hint, unroll_safe, promote
 def sigeq(one, two):
     return one.eq(two)
 
-def sigeq2(one, two):
+def sigeq_numbering(one, two):
+    """ Cache for iterator numbering should not compare array numbers
+    """
     return one.eq(two, compare_array_no=False)
 
 def sighash(sig):
@@ -71,7 +73,7 @@ class Signature(object):
     iter_no = 0
 
     def invent_numbering(self):
-        cache = r_dict(sigeq2, sighash)
+        cache = r_dict(sigeq_numbering, sighash)
         allnumbers = []
         self._invent_numbering(cache, allnumbers)
 
