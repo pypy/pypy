@@ -432,7 +432,8 @@ def buf_getreadbuffer(space, pyref, segment, ref):
     return py_buf.c_b_size
 
 def setup_string_buffer_procs(space, pto):
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True, immortal=True)
+    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
@@ -443,7 +444,8 @@ def setup_string_buffer_procs(space, pto):
     pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
 
 def setup_buffer_buffer_procs(space, pto):
-    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True, immortal=True)
+    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
