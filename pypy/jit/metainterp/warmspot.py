@@ -64,11 +64,9 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
-                    threshold=3, trace_eagerness=2,
                     inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4, decay_halflife=0,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
-                    **kwds):
+                    function_threshold=4,
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -85,16 +83,15 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
-        jd.warmstate.set_param_threshold(threshold)
+        jd.warmstate.set_param_threshold(3)          # for tests
         jd.warmstate.set_param_function_threshold(function_threshold)
-        jd.warmstate.set_param_trace_eagerness(trace_eagerness)
+        jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
-        jd.warmstate.set_param_decay_halflife(decay_halflife)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
