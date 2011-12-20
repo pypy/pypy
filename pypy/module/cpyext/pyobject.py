@@ -113,8 +113,6 @@ def init_pyobject(space):
 
 @specialize.memo()
 def _get_typedescr_1(typedef):
-    if typedef.name == "buffer":
-        import pdb; pdb.set_trace()
     try:
         return typedescr_cache[typedef]
     except KeyError:
