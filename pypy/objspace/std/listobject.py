@@ -193,6 +193,11 @@ class W_ListObject(W_AbstractListObject):
         """ Return the items in the list as unwrapped strings. If the list does
         not use the list strategy, return None. """
         return self.strategy.getitems_str(self)
+
+    def getitems_int(self):
+        """ Return the items in the list as unwrapped strings. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_int(self)
     # ___________________________________________________
 
 
@@ -290,6 +295,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getitems_str(self, w_list):
+        return None
+
+    def getitems_int(self, w_list):
         return None
 
     def getstorage_copy(self, w_list):
@@ -502,16 +510,14 @@ class RangeListStrategy(ListStrategy):
             raise IndexError
         return start + i * step
 
+    def getitems_int(self, w_list):
+        return self._getitems_range(w_list, False)
+
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
 
     def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
-
-    getitems_wrapped = getitems_copy
-
-    def getitems_unwrapped(self, w_list):
-        return self._getitems_range(w_list, False)
 
     def getstorage_copy(self, w_list):
         # tuple is unmutable
@@ -702,11 +708,6 @@ class AbstractUnwrappedStrategy(object):
            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
-
-    getitems_wrapped = getitems_copy
-
-    def getitems_unwrapped(self, w_list):
-        return self.unerase(w_list.lstorage)
 
     @jit.unroll_safe
     def getitems_unroll(self, w_list):
@@ -936,8 +937,6 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
 
-    getitems_wrapped = getitems
-
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
     _applevel_repr = "int"
@@ -964,6 +963,9 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def getitems_int(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0.0
@@ -1021,7 +1023,6 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
-
 
 # _______________________________________________________
 

@@ -13,8 +13,6 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.listobject import IntegerListStrategy, StringListStrategy,\
-        EmptyListStrategy, RangeListStrategy, ObjectListStrategy, FloatListStrategy
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -282,9 +280,6 @@ class EmptySetStrategy(SetStrategy):
     def get_empty_storage(self):
         return self.erase(None)
 
-    def get_storage_from_w_list(self, w_list):
-        return self.get_empty_storage()
-
     def is_correct_type(self, w_key):
         return False
 
@@ -389,9 +384,7 @@ class AbstractUnwrappedSetStrategy(object):
             setdata[self.unwrap(w_item)] = None
         return self.erase(setdata)
 
-    def get_storage_from_w_list(self, w_list):
-        items = w_list.strategy.getitems_unwrapped(w_list)
-
+    def get_storage_from_unwrapped_list(self, items):
         setdata = self.get_empty_dict()
         for item in items:
             setdata[item] = None
@@ -759,14 +752,6 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def get_empty_storage(self):
         return self.erase(self.get_empty_dict())
 
-    def get_storage_from_w_list(self, w_list):
-        items = w_list.strategy.getitems_wrapped(w_list)
-
-        setdata = self.get_empty_dict()
-        for item in items:
-            setdata[item] = None
-        return self.erase(setdata)
-
     def get_empty_dict(self):
         return newset(self.space)
 
@@ -904,22 +889,6 @@ def next__SetIterObject(space, w_setiter):
 def newset(space):
     return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
-_strategy_map = {
-    EmptyListStrategy: EmptySetStrategy,
-    IntegerListStrategy: IntegerSetStrategy,
-    RangeListStrategy: IntegerSetStrategy,
-    StringListStrategy: StringSetStrategy,
-    FloatListStrategy: ObjectSetStrategy,
-    ObjectListStrategy: ObjectSetStrategy
-}
-
-def set_strategy_and_setdata_from_listobject(space, w_set, w_list):
-    strategy_class = _strategy_map[w_list.strategy.__class__]
-    strategy = space.fromcache(strategy_class)
-
-    w_set.sstorage = strategy.get_storage_from_w_list(w_list)
-    w_set.strategy = strategy
-
 def set_strategy_and_setdata(space, w_set, w_iterable):
     from pypy.objspace.std.intobject import W_IntObject
     if w_iterable is None :
@@ -932,8 +901,18 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = w_iterable.get_storage_copy()
         return
 
-    if isinstance(w_iterable, W_ListObject):
-        set_strategy_and_setdata_from_listobject(space, w_set, w_iterable)
+    stringlist = space.listview_str(w_iterable)
+    if stringlist != None:
+        strategy = space.fromcache(StringSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
+        return
+
+    intlist = space.listview_int(w_iterable)
+    if intlist != None:
+        strategy = space.fromcache(IntegerSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
         return
 
     iterable_w = space.listview(w_iterable)
