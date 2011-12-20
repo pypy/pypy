@@ -191,35 +191,28 @@ class GuardOpAssembler(object):
     def emit_guard_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         failargs = arglocs[1:]
-        if IS_PPC_32:
-            self.mc.cmpwi(l0.value, 0)
-        else:
-            self.mc.cmpdi(l0.value, 0)
+        self.mc.cmp_op(0, l0.value, 0, imm=True)
         self._emit_guard(op, failargs, c.EQ)
         #                        #      ^^^^ If this condition is met,
         #                        #           then the guard fails.
 
     def emit_guard_false(self, op, arglocs, regalloc):
-            l0 = arglocs[0]
-            failargs = arglocs[1:]
-            if IS_PPC_32:
-                self.mc.cmpwi(l0.value, 0)
-            else:
-                self.mc.cmpdi(l0.value, 0)
-            self._emit_guard(op, failargs, c.NE)
+        l0 = arglocs[0]
+        failargs = arglocs[1:]
+        self.mc.cmp_op(0, l0.value, 0, imm=True)
+        self._emit_guard(op, failargs, c.NE)
 
     # TODO - Evaluate whether this can be done with 
     #        SO bit instead of OV bit => usage of CR
     #        instead of XER could be more efficient
     def _emit_ovf_guard(self, op, arglocs, cond):
         # move content of XER to GPR
-        self.mc.mfspr(r.r0.value, 1)
+        self.mc.alloc_scratch_reg()
+        self.mc.mfspr(r.SCRATCH.value, 1)
         # shift and mask to get comparison result
-        self.mc.rlwinm(r.r0.value, r.r0.value, 1, 0, 0)
-        if IS_PPC_32:
-            self.mc.cmpwi(r.r0.value, 0)
-        else:
-            self.mc.cmpdi(r.r0.value, 0)
+        self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 1, 0, 0)
+        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+        self.mc.free_scratch_reg()
         self._emit_guard(op, arglocs, cond)
 
     def emit_guard_no_overflow(self, op, arglocs, regalloc):
@@ -235,15 +228,9 @@ class GuardOpAssembler(object):
 
         if l0.is_reg():
             if l1.is_imm():
-                if IS_PPC_32:
-                    self.mc.cmpwi(l0.value, l1.getint())
-                else:
-                    self.mc.cmpdi(l0.value, l1.getint())
+                self.mc.cmp_op(0, l0.value, l1.getint(), imm=True)
             else:
-                if IS_PPC_32:
-                    self.mc.cmpw(l0.value, l1.value)
-                else:
-                    self.mc.cmpd(l0.value, l1.value)
+                self.mc.cmp_op(0, l0.value, l1.value)
         else:
             assert 0, "not implemented yet"
         self._emit_guard(op, failargs, c.NE)
@@ -254,17 +241,13 @@ class GuardOpAssembler(object):
     def _cmp_guard_class(self, op, locs, regalloc):
         offset = locs[2]
         if offset is not None:
+            self.mc.alloc_scratch_reg()
             if offset.is_imm():
-                if IS_PPC_32:
-                    self.mc.lwz(r.r0.value, locs[0].value, offset.value)
-                else:
-                    self.mc.ld(r.r0.value, locs[0].value, offset.value)
+                self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
             else:
-                if IS_PPC_32:
-                    self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
-                else:
-                    self.mc.ldx(r.r0.value, locs[0].value, offset.value)
-            self.mc.cmp(r.r0.value, locs[1].value)
+                self.mc.loadx(r.SCRATCH.value, locs[0].value, offset.value)
+            self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
+            self.mc.free_scratch_reg()
         else:
             assert 0, "not implemented yet"
         self._emit_guard(op, locs[3:], c.NE)
@@ -274,10 +257,7 @@ class GuardOpAssembler(object):
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         offset = self.cpu.vtable_offset
-        if IS_PPC_32:
-            self.mc.cmpwi(arglocs[0].value, 0)
-        else:
-            self.mc.cmpdi(arglocs[0].value, 0)
+        self.mc.cmp_op(0, arglocs[0].value, 0, imm=True)
         if offset is not None:
             self._emit_guard(op, arglocs[3:], c.EQ)
         else:
@@ -317,12 +297,8 @@ class MiscOpAssembler(object):
         loc = arglocs[0]
         failargs = arglocs[1:]
 
-        if IS_PPC_32:
-            self.mc.lwz(loc.value, loc.value, 0)
-            self.mc.cmpwi(0, loc.value, 0)
-        else:
-            self.mc.ld(loc.value, loc.value, 0)
-            self.mc.cmpdi(0, loc.value, 0)
+        self.mc.load(loc.value, loc.value, 0)
+        self.mc.cmp_op(0, loc.value, 0, imm=True)
 
         self._emit_guard(op, failargs, c.NE, save_exc=True)
 
@@ -332,30 +308,19 @@ class MiscOpAssembler(object):
         self.mc.load_imm(loc1, pos_exception.value)
 
         self.mc.alloc_scratch_reg()
-        if IS_PPC_32:
-            self.mc.lwz(r.SCRATCH.value, loc1.value, 0)
-            self.mc.cmpw(0, r.SCRATCH.value, loc.value)
-        else:
-            self.mc.ld(r.SCRATCH.value, loc1.value, 0)
-            self.mc.cmpd(0, r.SCRATCH.value, loc.value)
+        self.mc.load(r.SCRATCH.value, loc1.value, 0)
+        self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
         self.mc.free_scratch_reg()
 
         self._emit_guard(op, failargs, c.NE, save_exc=True)
         self.mc.load_imm(loc, pos_exc_value.value)
 
         if resloc:
-            if IS_PPC_32:
-                self.mc.lwz(resloc.value, loc.value, 0)
-            else:
-                self.mc.ld(resloc.value, loc.value, 0)
+            self.mc.load(resloc.value, loc.value, 0)
 
         self.mc.alloc_scratch_reg(0)
-        if IS_PPC_32:
-            self.mc.stw(r.SCRATCH.value, loc.value, 0)
-            self.mc.stw(r.SCRATCH.value, loc1.value, 0)
-        else:
-            self.mc.sd(r.SCRATCH.value, loc.value, 0)
-            self.mc.sd(r.SCRATCH.value, loc1.value, 0)
+        self.mc.store(r.SCRATCH.value, loc.value, 0)
+        self.mc.store(r.SCRATCH.value, loc1.value, 0)
         self.mc.free_scratch_reg()
 
     def emit_call(self, op, args, regalloc, force_index=-1):
@@ -410,12 +375,8 @@ class MiscOpAssembler(object):
         for i, arg in enumerate(stack_args):
             offset = param_offset + i * WORD
             if arg is not None:
-                #self.mc.load_imm(r.SCRATCH, arg.value)
                 self.regalloc_mov(regalloc.loc(arg), r.SCRATCH)
-            if IS_PPC_32:
-                self.mc.stw(r.SCRATCH.value, r.SP.value, offset)
-            else:
-                self.mc.std(r.SCRATCH.value, r.SP.value, offset)
+            self.mc.store(r.SCRATCH.value, r.SP.value, offset)
         self.mc.free_scratch_reg()
 
         # collect variables that need to go in registers
@@ -541,10 +502,7 @@ class ArrayOpAssembler(object):
 
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs
-        if IS_PPC_32:
-            self.mc.lwz(res.value, base_loc.value, ofs.value)
-        else:
-            self.mc.ld(res.value, base_loc.value, ofs.value)
+        self.mc.load(res.value, base_loc.value, ofs.value)
 
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
@@ -622,15 +580,9 @@ class StrOpAssembler(object):
     def emit_strlen(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l1.is_imm():
-            if IS_PPC_32:
-                self.mc.lwz(res.value, l0.value, l1.getint())
-            else:
-                self.mc.ld(res.value, l0.value, l1.getint())
+            self.mc.load(res.value, l0.value, l1.getint())
         else:
-            if IS_PPC_32:
-                self.mc.lwzx(res.value, l0.value, l1.value)
-            else:
-                self.mc.ldx(res.value, l0.value, l1.value)
+            self.mc.loadx(res.value, l0.value, l1.value)
 
     def emit_strgetitem(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, basesize = arglocs
@@ -833,24 +785,18 @@ class AllocOpAssembler(object):
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
-            self.mc.load_imm(r.r0, adr)
-            if IS_PPC_32:
-                self.mc.stw(r.r0.value, r.r3.value, self.cpu.vtable_offset)
-            else:
-                self.mc.std(r.r0.value, r.r3.value, self.cpu.vtable_offset)
+            self.mc.alloc_scratch_reg(adr)
+            self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
+            self.mc.free_scratch_reg()
 
     def emit_new_array(self, op, arglocs, regalloc):
         self.propagate_memoryerror_if_r3_is_null()
         if len(arglocs) > 0:
             value_loc, base_loc, ofs_length = arglocs
-            if IS_PPC_32:
-                self.mc.stw(value_loc.value, base_loc.value, ofs_length.value)
-            else:
-                self.mc.std(value_loc.value, base_loc.value, ofs_length.value)
+            self.mc.store(value_loc.value, base_loc.value, ofs_length.value)
 
     emit_newstr = emit_new_array
     emit_newunicode = emit_new_array
-
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
@@ -895,10 +841,7 @@ class AllocOpAssembler(object):
         loc_base = arglocs[0]
 
         self.mc.alloc_scratch_reg()
-        if IS_PPC_32:
-            self.mc.lwz(r.SCRATCH.value, loc_base.value, 0)
-        else:
-            self.mc.ld(r.SCRATCH.value, loc_base.value, 0)
+        self.mc.load(r.SCRATCH.value, loc_base.value, 0)
 
         # get the position of the bit we want to test
         bitpos = descr.jit_wb_if_flag_bitpos
@@ -977,10 +920,7 @@ class ForceOpAssembler(object):
         resloc = regalloc.try_allocate_reg(resbox)
         assert resloc is r.RES
         self.mc.alloc_scratch_reg(value)
-        if IS_PPC_32:
-            self.mc.cmpw(0, resloc.value, r.SCRATCH.value)
-        else:
-            self.mc.cmpd(0, resloc.value, r.SCRATCH.value)
+        self.mc.cmp_op(0, resloc.value, r.SCRATCH.value)
         self.mc.free_scratch_reg()
         regalloc.possibly_free_var(resbox)
 
@@ -1034,10 +974,7 @@ class ForceOpAssembler(object):
             self.alloc_scratch_reg()
             self.mov_loc_loc(arglocs[1], r.SCRATCH)
             self.mc.li(resloc.value, 0)
-            if IS_PPC_32:
-                self.mc.stwx(resloc.value, 0, r.SCRATCH.value)
-            else:
-                self.mc.stdx(resloc.value, 0, r.SCRATCH.value)
+            self.mc.storex(resloc.value, 0, r.SCRATCH.value)
             self.free_scratch_reg()
             regalloc.possibly_free_var(resbox)
 
@@ -1058,10 +995,7 @@ class ForceOpAssembler(object):
             if op.result.type == FLOAT:
                 assert 0, "not implemented yet"
             else:
-                if IS_PPC_32:
-                    self.mc.lwzx(resloc.value, 0, r.SCRATCH.value)
-                else:
-                    self.mc.ldx(resloc.value, 0, r.SCRATCH.value)
+                self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
             self.mc.free_scratch_reg()
 
         # merge point
@@ -1072,12 +1006,8 @@ class ForceOpAssembler(object):
             pmc.overwrite()
 
         self.mc.alloc_scratch_reg()
-        if IS_PPC_32:
-            self.mc.cmpwi(0, r.SCRATCH.value, 0)
-            self.mc.lwz(r.SCRATCH.value, r.SPP.value, 0)
-        else:
-            self.mc.cmpdi(0, r.SCRATCH.value, 0)
-            self.mc.ld(r.SCRATCH.value, r.SPP.value, 0)
+        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+        self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
         self.mc.cror(2, 1, 2)
         self.mc.free_scratch_reg()
 
@@ -1086,12 +1016,8 @@ class ForceOpAssembler(object):
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         self.mc.alloc_scratch_reg()
-        if IS_PPC_32:
-            self.mc.lwz(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
-            self.mc.cmpwi(0, r.SCRATCH.value, 0)
-        else:
-            self.mc.ld(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
-            self.mc.cmpdi(0, r.SCRATCH.value, 0)
+        self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self.mc.free_scratch_reg()
         self._emit_guard(guard_op, arglocs, c.LT)
 

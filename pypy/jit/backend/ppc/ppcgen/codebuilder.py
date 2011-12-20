@@ -1033,6 +1033,30 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.free_scratch_reg()
         self.bctrl()
 
+    def load(self, target_reg, base_reg, offset):
+        if IS_PPC_32:
+            self.lwz(target_reg, base_reg, offset)
+        else:
+            self.ld(target_reg, base_reg, offset)
+
+    def loadx(self, target_reg, base_reg, offset_reg):
+        if IS_PPC_32:
+            self.lwzx(target_reg, base_reg, offset_reg)
+        else:
+            self.ldx(target_reg, base_reg. offset_reg)
+
+    def store(self, from_reg, base_reg, offset):
+        if IS_PPC_32:
+            self.stw(from_reg, base_reg, offset)
+        else:
+            self.std(from_reg, base_reg, offset)
+
+    def storex(self, from_reg, base_reg, offset_reg):
+        if IS_PPC_32:
+            self.stwx(from_reg, base_reg, offset_reg)
+        else:
+            self.stdx(from_reg, base_reg, offset_reg)
+
     def prepare_insts_blocks(self, show=False):
         self.assemble(show)
         insts = self.insts

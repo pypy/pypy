@@ -112,23 +112,15 @@ class AssemblerPPC(OpAssembler):
             # save r31 later on
             if reg.value == r.SPP.value:
                 continue
-            if IS_PPC_32:
-                self.mc.stw(reg.value, r.SPP.value, 
-                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
-            else:
-                self.mc.std(reg.value, r.SPP.value, 
-                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+            self.mc.store(reg.value, r.SPP.value, 
+                    self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
     def _restore_nonvolatiles(self, mc, spp_reg):
         """ restore nonvolatile GPRs from GPR SAVE AREA
         """
         for i, reg in enumerate(NONVOLATILES):
-            if IS_PPC_32:
-                mc.lwz(reg.value, spp_reg.value, 
-                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
-            else:
-                mc.ld(reg.value, spp_reg.value, 
-                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
+            mc.load(reg.value, spp_reg.value, 
+                self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -151,13 +143,12 @@ class AssemblerPPC(OpAssembler):
             self.mc.mflr(r.SCRATCH.value)  # move old link register
             # save old link register in previous frame
             self.mc.stw(r.SCRATCH.value, r.SP.value, frame_depth + WORD) 
-            # save r31 at the bottom of the stack frame
-            self.mc.stw(r.SPP.value, r.SP.value, WORD)
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.SCRATCH.value)
             self.mc.std(r.SCRATCH.value, r.SP.value, frame_depth + 2 * WORD)
-            self.mc.std(r.SPP.value, r.SP.value, WORD)
+        # save SPP at the bottom of the stack frame
+        self.mc.store(r.SPP.value, r.SP.value, WORD)
 
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, 
@@ -168,12 +159,8 @@ class AssemblerPPC(OpAssembler):
         assert NONVOLATILES[-1] == r.SPP
         ofs_to_r31 = (self.OFFSET_SPP_TO_GPR_SAVE_AREA +
                       WORD * (len(NONVOLATILES)-1))
-        if IS_PPC_32:
-            self.mc.lwz(r.r30.value, r.SP.value, WORD)
-            self.mc.stw(r.r30.value, r.SPP.value, ofs_to_r31)
-        else:
-            self.mc.ld(r.r30.value, r.SP.value, WORD)
-            self.mc.std(r.r30.value, r.SPP.value, ofs_to_r31)
+        self.mc.load(r.r30.value, r.SP.value, WORD)
+        self.mc.store(r.r30.value, r.SPP.value, ofs_to_r31)
 
     def setup_failure_recovery(self):
 
@@ -336,10 +323,7 @@ class AssemblerPPC(OpAssembler):
             r11_value = descr[2]
 
         # load parameters into parameter registers
-        if IS_PPC_32:
-            mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
-        else: 
-            mc.ld(r.r3.value, r.SPP.value, self.ENCODING_AREA)     
+        mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into SCRATCH
@@ -361,10 +345,7 @@ class AssemblerPPC(OpAssembler):
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
-        if IS_PPC_32:
-            mc.lwz(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + WORD) 
-        else:
-            mc.ld(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + 2 * WORD)
+        mc.load(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + WORD) 
         mc.mtlr(r.r4.value)     # restore LR
         # From SPP, we have a constant offset to the old backchain. We use the
         # SPP to re-establish the old backchain because this exit stub is
@@ -380,10 +361,7 @@ class AssemblerPPC(OpAssembler):
         """
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
-            if IS_PPC_32:
-                mc.stw(reg.value, r.SPP.value, i * WORD)
-            else:
-                mc.std(reg.value, r.SPP.value, i * WORD)
+            mc.store(reg.value, r.SPP.value, i * WORD)
 
     # Load parameters from fail args into locations (stack or registers)
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
@@ -453,10 +431,7 @@ class AssemblerPPC(OpAssembler):
             else:
                 loc = nonfloatlocs[i]
             if loc.is_reg():
-                if IS_PPC_32:
-                    self.mc.lwz(loc.value, r.SPP.value, stack_position)
-                else:
-                    self.mc.ld(loc.value, r.SPP.value, stack_position)
+                self.mc.load(loc.value, r.SPP.value, stack_position)
                 count += 1
             elif loc.is_vfp_reg():
                 assert 0, "not implemented yet"
@@ -466,10 +441,7 @@ class AssemblerPPC(OpAssembler):
                 elif loc.type == INT or loc.type == REF:
                     count += 1
                     self.mc.alloc_scratch_reg()
-                    if IS_PPC_32:
-                        self.mc.lwz(r.SCRATCH.value, r.SPP.value, stack_position)
-                    else:
-                        self.mc.ld(r.SCRATCH.value, r.SPP.value, stack_position)
+                    self.mc.load(r.SCRATCH.value, r.SPP.value, stack_position)
                     self.mov_loc_loc(r.SCRATCH, loc)
                     self.mc.free_scratch_reg()
                 else:
@@ -777,10 +749,7 @@ class AssemblerPPC(OpAssembler):
 
         # store addr in force index field
         self.mc.alloc_scratch_reg(memaddr)
-        if IS_PPC_32:
-            self.mc.stw(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        else:
-            self.mc.std(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
+        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
 
         if save_exc:
@@ -834,10 +803,7 @@ class AssemblerPPC(OpAssembler):
                 self.mc.alloc_scratch_reg()
                 offset = loc.as_key() * WORD - WORD
                 self.mc.load_imm(r.SCRATCH.value, value)
-                if IS_PPC_32:
-                    self.mc.stw(r.SCRATCH.value, r.SPP.value, offset)
-                else:
-                    self.mc.std(r.SCRATCH.value, r.SPP.value, offset)
+                self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
                 self.mc.free_scratch_reg()
                 return
             assert 0, "not supported location"
@@ -846,21 +812,14 @@ class AssemblerPPC(OpAssembler):
             # move from memory to register
             if loc.is_reg():
                 reg = loc.as_key()
-                if IS_PPC_32:
-                    self.mc.lwz(reg, r.SPP.value, offset)
-                else:
-                    self.mc.ld(reg, r.SPP.value, offset)
+                self.mc.load(reg, r.SPP.value, offset)
                 return
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.as_key() * WORD - WORD
                 self.mc.alloc_scratch_reg()
-                if IS_PPC_32:
-                    self.mc.lwz(r.SCRATCH.value, r.SPP.value, offset)
-                    self.mc.stw(r.SCRATCH.value, r.SPP.value, target_offset)
-                else:
-                    self.mc.ld(r.SCRATCH.value, r.SPP.value, offset)
-                    self.mc.std(r.SCRATCH.value, r.SPP.value, target_offset)
+                self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
+                self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
                 self.mc.free_scratch_reg()
                 return
             assert 0, "not supported location"
@@ -874,10 +833,7 @@ class AssemblerPPC(OpAssembler):
             # move to memory
             elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
-                if IS_PPC_32:
-                    self.mc.stw(reg, r.SPP.value, offset)
-                else:
-                    self.mc.std(reg, r.SPP.value, offset)
+                self.mc.store(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
@@ -987,11 +943,10 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
+        self.mc.alloc_scratch_reg(fail_index)
         self.mc.load_imm(r.SCRATCH, fail_index)
-        if IS_PPC_32:
-            self.mc.stw(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        else:
-            self.mc.std(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
+        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
+        self.mc.free_scratch_reg()
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()
