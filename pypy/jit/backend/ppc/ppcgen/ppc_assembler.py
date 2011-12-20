@@ -38,6 +38,7 @@ from pypy.jit.backend.x86.support import values_array
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.lltypesystem.lloperation import llop
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -931,6 +932,11 @@ class AssemblerPPC(OpAssembler):
             self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
         else:
             raise AssertionError('Trying to pop to an invalid location')
+
+    def leave_jitted_hook(self):
+        ptrs = self.fail_boxes_ptr.ar
+        llop.gc_assume_young_pointers(lltype.Void,
+                                      llmemory.cast_ptr_to_adr(ptrs))
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 1:

@@ -1082,12 +1082,16 @@ class ForceOpAssembler(object):
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.EQ)
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
-        self.mc.mr(r.r0.value, r.SP.value)
+        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
+        self.mc.alloc_scratch_reg()
         if IS_PPC_32:
-            self.mc.cmpwi(r.r0.value, 0)
+            self.mc.lwz(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.cmpwi(0, r.SCRATCH.value, 0)
         else:
-            self.mc.cmpdi(r.r0.value, 0)
-        self._emit_guard(guard_op, arglocs, c.EQ)
+            self.mc.ld(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.cmpdi(0, r.SCRATCH.value, 0)
+        self.mc.free_scratch_reg()
+        self._emit_guard(guard_op, arglocs, c.LT)
 
     emit_guard_call_release_gil = emit_guard_call_may_force
 

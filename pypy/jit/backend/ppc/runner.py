@@ -14,6 +14,7 @@ from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
 from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
 from pypy.jit.backend.ppc.ppcgen.regalloc import PPCRegisterManager, PPCFrameManager
+from pypy.jit.backend.ppc.ppcgen import register as r
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -87,6 +88,24 @@ class PPC_64_CPU(AbstractLLCPU):
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return PPC_64_CPU.cast_adr_to_int(adr)
+
+    def force(self, spilling_pointer):
+        TP = rffi.CArrayPtr(lltype.Signed)
+
+        addr_of_force_index = spilling_pointer + len(r.MANAGED_REGS) * WORD
+
+        fail_index = rffi.cast(TP, addr_of_force_index)[0]
+        assert fail_index >= 0, "already forced!"
+        faildescr = self.get_fail_descr_from_number(fail_index)
+        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
+
+        # start of "no gc operation!" block
+        fail_index_2 = self.asm.failure_recovery_func(
+                faildescr._failure_recovery_code, spilling_pointer)
+        self.asm.leave_jitted_hook()
+        # end of "no gc operation!" block
+        assert fail_index == fail_index_2
+        return faildescr
 
     # return the number of values that can be returned
     def get_latest_value_count(self):
