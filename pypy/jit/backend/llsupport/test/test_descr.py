@@ -342,16 +342,16 @@ def test_repr_of_descr():
     assert repr_of_descr(descr3i) == '<ArrayU 1>'
     #
     descr4 = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Ptr(S))
-    assert repr_of_descr(descr4) == '<CallDescr(ir/r)>'
+    assert repr_of_descr(descr4) == '<Callr %d ir>' % o
     #
     descr4i = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Char)
-    assert repr_of_descr(descr4i) == '<CallDescr(ir/i)>'
+    assert repr_of_descr(descr4i) == '<Calli 1 ir>'
     #
     descr4f = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Float)
-    assert repr_of_descr(descr4f) == '<CallDescr(ir/f)>'
+    assert repr_of_descr(descr4f) == '<Callf 8 ir>'
     #
     descr5f = get_call_descr(c0, [lltype.Char], lltype.SingleFloat)
-    assert repr_of_descr(descr5f) == '<CallDescr(i/S)>'
+    assert repr_of_descr(descr5f) == '<CallS 4 i>'
 
 def test_call_stubs_1():
     c0 = GcCache(False)
