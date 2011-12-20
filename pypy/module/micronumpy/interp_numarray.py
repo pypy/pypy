@@ -970,7 +970,7 @@ class W_NDimSlice(ViewArray):
             size *= sh
         self.strides = strides
         self.backstrides = backstrides
-        ConcreteArray.__init__(self, size, shape, parent.dtype, parent.order,
+        ViewArray.__init__(self, size, shape, parent.dtype, parent.order,
                                parent)
         self.start = start
 
@@ -1224,7 +1224,7 @@ class W_FlatIterator(ViewArray):
             size *= sh
         self.strides = [arr.strides[-1]]
         self.backstrides = [arr.backstrides[-1]]
-        ConcreteArray.__init__(self, size, [size], arr.dtype, arr.order,
+        ViewArray.__init__(self, size, [size], arr.dtype, arr.order,
                                arr)
         self.shapelen = len(arr.shape)
         self.iter = OneDimIterator(arr.start, self.strides[0],

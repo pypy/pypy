@@ -2,8 +2,6 @@ REVIEW NOTES
 ============
 
 * VirtualSlice vs. W_NDimSlice?
-* Call{1, 2}.create_sig, should it call forced_result.create_sig(), instead of
-  array_sig()? If not, why not?
 * W_NDimSlice.__init__ calls ConcreteArray.__init__ instead of
   ViewArray.__init__, W_FlatIterator as well.
 * Better names for sigeq and sigeq2, sighash doesn't say if numberings are
