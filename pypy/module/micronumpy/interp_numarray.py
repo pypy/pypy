@@ -736,9 +736,6 @@ class Call1(VirtualArray):
     def _del_sources(self):
         self.values = None
 
-    def _find_dtype(self):
-        return self.res_dtype
-
     def create_sig(self, res_shape):
         if self.forced_result is not None:
             return self.forced_result.create_sig(res_shape)
@@ -1028,12 +1025,6 @@ class W_NDimArray(ConcreteArray):
             self.size * self.dtype.itemtype.get_element_size()
         )
         return array
-
-    def descr_len(self, space):
-        if len(self.shape):
-            return space.wrap(self.shape[0])
-        raise OperationError(space.w_TypeError, space.wrap(
-            "len() of unsized object"))
 
     def setitem(self, item, value):
         self.invalidated()
