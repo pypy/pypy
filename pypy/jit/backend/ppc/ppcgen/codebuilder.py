@@ -1003,16 +1003,21 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.b(target_ofs)
 
     def b_cond_offset(self, offset, condition):
+        BI = condition[0]
+        BO = condition[1]
+
         pos = self.currpos()
         target_ofs = offset - pos
-        self.bc(condition, 2, target_ofs)
+        self.bc(BO, BI, target_ofs)
 
     def b_cond_abs(self, addr, condition):
-        assert condition in (c.EQ, c.NE)
+        BI = condition[0]
+        BO = condition[1]
+
         self.alloc_scratch_reg(addr)
         self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
-        self.bcctr(condition, 2)
+        self.bcctr(BO, BI)
 
     def b_abs(self, address, trap=False):
         self.alloc_scratch_reg(address)
