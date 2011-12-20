@@ -811,9 +811,6 @@ class ConcreteArray(BaseArray):
     def getitem(self, item):
         return self.dtype.getitem(self.storage, item)
 
-    def setitem_w(self, space, item, w_value):
-        return self.setitem(item, self.dtype.coerce(space, w_value))
-
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)

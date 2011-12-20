@@ -35,7 +35,7 @@ class NumpyEvalFrame(object):
         self.arrays = arrays[:]
         for i in range(len(self.iterators)):
             iter = self.iterators[i]
-            if not isinstance(iter, ConstantIterator):# or not isinstance(iter, BroadcastIterator):
+            if not isinstance(iter, ConstantIterator):
                 self.final_iter = i
                 break
         else:
@@ -255,7 +255,7 @@ class Call1(Signature):
 
 class Call2(Signature):
     _immutable_fields_ = ['binfunc', 'name', 'calc_dtype', 'left', 'right']
-    
+
     def __init__(self, func, name, calc_dtype, left, right):
         self.binfunc = func
         self.left = left
@@ -288,7 +288,7 @@ class Call2(Signature):
 
     def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         from pypy.module.micronumpy.interp_numarray import Call2
-        
+
         assert isinstance(arr, Call2)
         self.left._create_iter(iterlist, arraylist, arr.left, res_shape,
                                chunklist)
