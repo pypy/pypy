@@ -468,9 +468,6 @@ class BaseArray(Wrappable):
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
-            if len(concrete.shape) < 1:
-                raise OperationError(space.w_IndexError, space.wrap(
-                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item)
         chunks = self._prepare_slice_args(space, w_idx)
@@ -480,9 +477,6 @@ class BaseArray(Wrappable):
         self.invalidated()
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
-            if len(concrete.shape) < 1:
-                raise OperationError(space.w_IndexError, space.wrap(
-                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             dtype = concrete.find_dtype()
             concrete.setitem(item, dtype.coerce(space, w_value))
@@ -642,9 +636,6 @@ class Scalar(BaseArray):
     def find_dtype(self):
         return self.dtype
 
-    def getitem(self, item):
-        raise NotImplementedError
-
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.itemtype.str_format(self.value))
 
@@ -656,10 +647,6 @@ class Scalar(BaseArray):
 
     def get_concrete_or_scalar(self):
         return self
-
-
-    def get_storage(self, space):
-        raise OperationError(space.w_TypeError, space.wrap("Cannot get array interface on scalars in pypy"))
 
 class VirtualArray(BaseArray):
     """
@@ -1064,9 +1051,6 @@ class W_NDimArray(ConcreteArray):
 
     def create_sig(self, res_shape):
         return self.array_sig(res_shape)
-
-    def get_storage(self, space):
-        return self.storage
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
