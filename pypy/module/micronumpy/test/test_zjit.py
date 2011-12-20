@@ -49,10 +49,14 @@ class TestNumpyJIt(LLJitMixin):
             interp.run(space)
             w_res = interp.results[-1]
             if isinstance(w_res, BaseArray):
-                w_res = w_res.eval(w_res.start_iter())
-
+                concr = w_res.get_concrete_or_scalar()
+                sig = concr.find_sig()
+                frame = sig.create_frame(concr)
+                w_res = sig.eval(frame, concr)
             if isinstance(w_res, interp_boxes.W_Float64Box):
                 return w_res.value
+            if isinstance(w_res, interp_boxes.W_Int64Box):
+                return float(w_res.value)
             elif isinstance(w_res, interp_boxes.W_BoolBox):
                 return float(w_res.value)
             raise TypeError(w_res)
@@ -78,8 +82,9 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         result = self.run("add")
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_ge': 1, 'guard_false': 1, 'jump': 1})
+                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'int_ge': 1, 'guard_false': 1, 'jump': 1,
+                                'arraylen_gc': 1})
         assert result == 3 + 3
 
     def define_float_add():
@@ -93,7 +98,8 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 3 + 3
         self.check_simple_loop({"getinteriorfield_raw": 1, "float_add": 1,
                                 "setinteriorfield_raw": 1, "int_add": 2,
-                                "int_ge": 1, "guard_false": 1, "jump": 1})
+                                "int_ge": 1, "guard_false": 1, "jump": 1,
+                                'arraylen_gc': 1})
 
     def define_sum():
         return """
@@ -106,8 +112,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("sum")
         assert result == 2 * sum(range(30))
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 2,
-                                "int_add": 2, "int_ge": 1, "guard_false": 1,
-                                "jump": 1})
+                                "int_add": 1, "int_ge": 1, "guard_false": 1,
+                                "jump": 1, 'arraylen_gc': 1})
 
     def define_prod():
         return """
@@ -123,18 +129,22 @@ class TestNumpyJIt(LLJitMixin):
             expected *= i * 2
         assert result == expected
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 2,
-                                "int_ge": 1, "guard_false": 1, "jump": 1})
+                                "float_mul": 1, "int_add": 1,
+                                "int_ge": 1, "guard_false": 1, "jump": 1,
+                                'arraylen_gc': 1})
 
-    def test_max(self):
-        py.test.skip("broken, investigate")
-        result = self.run("""
+    def define_max():
+        return """
         a = |30|
         a[13] = 128
         b = a + a
         max(b)
-        """)
+        """
+
+    def test_max(self):
+        result = self.run("max")
         assert result == 256
+        py.test.skip("not there yet, getting though")
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
                                 "float_mul": 1, "int_add": 1,
                                 "int_lt": 1, "guard_true": 1, "jump": 1})
@@ -164,9 +174,9 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_ne": 1, "int_add": 2,
+                                "float_ne": 1, "int_add": 1,
                                 "int_ge": 1, "jump": 1,
-                                "guard_false": 2})
+                                "guard_false": 2, 'arraylen_gc': 1})
 
     def define_already_forced():
         return """
@@ -183,14 +193,13 @@ class TestNumpyJIt(LLJitMixin):
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
-        # XXX the comment above is wrong now.  We need preferrably a way to
-        # count the two loops separately
-        self.check_resops({'setinteriorfield_raw': 4, 'guard_nonnull': 1,
-                           'getfield_gc': 35, 'getfield_gc_pure': 6,
-                           'guard_class': 22, 'int_add': 8, 'float_mul': 2,
-                           'guard_isnull': 2, 'jump': 2, 'int_ge': 4,
-                           'getinteriorfield_raw': 4, 'float_add': 2, 'guard_false': 4,
-                           'guard_value': 2})
+        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 26,
+                           'getarrayitem_gc': 4, 'getarrayitem_gc_pure': 2,
+                           'getfield_gc_pure': 4,
+                           'guard_class': 8, 'int_add': 8, 'float_mul': 2,
+                           'jump': 2, 'int_ge': 4,
+                           'getinteriorfield_raw': 4, 'float_add': 2,
+                           'guard_false': 4, 'arraylen_gc': 2, 'same_as': 2})
 
     def define_ufunc():
         return """
@@ -204,8 +213,9 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("ufunc")
         assert result == -6
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1, "float_neg": 1,
-                                "setinteriorfield_raw": 1, "int_add": 3,
-                                "int_ge": 1, "guard_false": 1, "jump": 1})
+                                "setinteriorfield_raw": 1, "int_add": 2,
+                                "int_ge": 1, "guard_false": 1, "jump": 1,
+                                'arraylen_gc': 1})
 
     def define_specialization():
         return """
@@ -248,7 +258,8 @@ class TestNumpyJIt(LLJitMixin):
                                 'setinteriorfield_raw': 1,
                                 'int_add': 3,
                                 'int_ge': 1, 'guard_false': 1,
-                                'jump': 1})
+                                'jump': 1,
+                                'arraylen_gc': 1})
 
     def define_multidim():
         return """
@@ -263,8 +274,9 @@ class TestNumpyJIt(LLJitMixin):
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
         self.check_simple_loop({'float_add': 1, 'getinteriorfield_raw': 2,
-                                'guard_false': 1, 'int_add': 3, 'int_ge': 1,
-                                'jump': 1, 'setinteriorfield_raw': 1})
+                                'guard_false': 1, 'int_add': 2, 'int_ge': 1,
+                                'jump': 1, 'setinteriorfield_raw': 1,
+                                'arraylen_gc': 1})
 
     def define_multidim_slice():
         return """
@@ -312,7 +324,25 @@ class TestNumpyJIt(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_eq': 1, 'guard_false': 1, 'jump': 1})
+                                'int_lt': 1, 'guard_true': 1, 'jump': 1,
+                                'arraylen_gc': 3})
+
+    def define_virtual_slice():
+        return """
+        a = |30|
+        c = a + a
+        d = c -> 1:20
+        d -> 1
+        """
+
+    def test_virtual_slice(self):
+        result = self.run("virtual_slice")
+        assert result == 4
+        self.check_trace_count(1)
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
+                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'int_ge': 1, 'guard_false': 1, 'jump': 1,
+                                'arraylen_gc': 1})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

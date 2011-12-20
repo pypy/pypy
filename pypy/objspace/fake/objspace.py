@@ -252,7 +252,7 @@ class FakeObjSpace(ObjSpace):
         # grow the list
         done = 0
         while done < len(self._seen_extras):
-            print self._seen_extras
+            #print self._seen_extras
             ann.build_types(self._seen_extras[done], [],
                             complete_now=False)
             done += 1

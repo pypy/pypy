@@ -137,6 +137,16 @@ class TestRunner(object):
         interp = self.run(code)
         assert interp.results[0].value.value == 15
 
+    def test_sum2(self):
+        code = """
+        a = |30|
+        b = a + a
+        sum(b)
+        """
+        interp = self.run(code)
+        assert interp.results[0].value.value == 30 * (30 - 1)
+
+
     def test_array_write(self):
         code = """
         a = [1,2,3,4,5]
