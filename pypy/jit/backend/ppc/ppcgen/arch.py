@@ -1,7 +1,8 @@
 # Constants that depend on whether we are on 32-bit or 64-bit
 
 from pypy.jit.backend.ppc.ppcgen.register import (NONVOLATILES,
-                                                  NONVOLATILES_FLOAT)
+                                                  NONVOLATILES_FLOAT,
+                                                  MANAGED_REGS)
 
 import sys
 if sys.maxint == (2**31 - 1):
@@ -22,3 +23,5 @@ GPR_SAVE_AREA           = len(NONVOLATILES) * WORD
 FPR_SAVE_AREA           = len(NONVOLATILES_FLOAT) * DWORD
 FLOAT_INT_CONVERSION    = WORD
 MAX_REG_PARAMS          = 8
+
+FORCE_INDEX_OFS         = len(MANAGED_REGS) * WORD

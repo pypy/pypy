@@ -100,7 +100,7 @@ class PPCRegisterManager(RegisterManager):
 class PPCFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
-        self.frame_depth = 1
+        self.frame_depth = 0
 
     @staticmethod
     def frame_pos(loc, type):
@@ -864,6 +864,10 @@ class Regalloc(object):
             scale += 1
         assert (1 << scale) == size
         return size, scale, ofs, ofs_length, ptr
+
+    def prepare_force_spill(self, op):
+        self.force_spill_var(op.getarg(0))
+        return []
 
 def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)

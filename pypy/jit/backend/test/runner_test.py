@@ -540,6 +540,21 @@ class BaseBackendTest(Runner):
         result = self.cpu.get_latest_value_ref(0)
         assert result == u_box.value
 
+    def test_spilling(self):
+        ops = '''
+        [i0]
+        force_spill(i0)
+        finish(i0)
+        '''
+        loop = parse(ops, namespace=locals())
+        looptoken = LoopToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        
+        self.cpu.set_future_value_int(0, 42)
+        fail = self.cpu.execute_token(looptoken)
+        result = self.cpu.get_latest_value_int(0)
+        assert result == 42
+
     def test_bh_call(self):
         cpu = self.cpu
         #
@@ -631,6 +646,7 @@ class BaseBackendTest(Runner):
                                          [funcbox] + args,
                                          'float', descr=calldescr)
             assert abs(res.getfloat() - 4.6) < 0.0001
+
 
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than

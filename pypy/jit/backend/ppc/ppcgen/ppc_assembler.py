@@ -185,7 +185,8 @@ class AssemblerPPC(OpAssembler):
 
                 spilling_pointer is the address of the FORCE_INDEX.
             """
-            return self.decode_registers_and_descr(mem_loc, stack_pointer, spilling_pointer)
+            return self.decode_registers_and_descr(mem_loc, stack_pointer,
+                    spilling_pointer)
 
         self.failure_recovery_func = failure_recovery_func
 
@@ -201,10 +202,7 @@ class AssemblerPPC(OpAssembler):
             '''
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         managed_size = WORD * len(r.MANAGED_REGS)
-        # XXX do some sanity considerations
-        spilling_depth = spp_loc - stack_loc + managed_size
-        spilling_area = rffi.cast(rffi.CCHARP, stack_loc + managed_size)
-        assert spilling_depth >= 0
+
         assert spp_loc > stack_loc
 
         regs = rffi.cast(rffi.CCHARP, spp_loc)
@@ -235,7 +233,8 @@ class AssemblerPPC(OpAssembler):
                 if group == self.FLOAT_TYPE:
                     assert 0, "not implemented yet"
                 else:
-                    value = decode32(spilling_area, spilling_depth - stack_location * WORD)
+                    start = spp_loc - (stack_location + 1) * WORD
+                    value = rffi.cast(rffi.LONGP, start)[0]
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
@@ -669,12 +668,15 @@ class AssemblerPPC(OpAssembler):
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
             elif self.can_merge_with_next_guard(op, pos, operations)\
-                    and opnum in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER):  # XXX fix  
+                    and opnum in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER,\
+                    rop.CALL_MAY_FORCE):  # XXX fix  
                 regalloc.next_instruction()
                 arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
                                         operations[pos+1])
                 operations_with_guard[opnum](self, op,
                                         operations[pos+1], arglocs, regalloc)
+            elif not we_are_translated() and op.getopnum() == -124:
+                regalloc.prepare_force_spill(op)
             else:
                 arglocs = regalloc.operations[opnum](regalloc, op)
                 if arglocs is not None:
@@ -756,14 +758,14 @@ class AssemblerPPC(OpAssembler):
             tok.pos_recovery_stub = pos 
 
             memaddr = self.gen_exit_stub(descr, tok.failargs,
-                                            tok.faillocs, save_exc=tok.save_exc)
+                                            tok.faillocs,
+                                            save_exc=tok.save_exc)
             # store info on the descr
             descr._ppc_frame_depth = tok.faillocs[0].getint()
             descr._failure_recovery_code = memaddr
             descr._ppc_guard_pos = pos
 
-    def gen_exit_stub(self, descr, args, arglocs, fcond=c.NE,
-                               save_exc=False):
+    def gen_exit_stub(self, descr, args, arglocs, save_exc=False):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field

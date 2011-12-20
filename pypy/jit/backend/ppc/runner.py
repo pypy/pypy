@@ -6,7 +6,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history, compile
 from pypy.jit.metainterp.history import BoxPtr
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
+from pypy.jit.backend.ppc.ppcgen.arch import FORCE_INDEX_OFS
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
