@@ -313,6 +313,10 @@ def test_get_call_descr_sign():
 
 
 def test_repr_of_descr():
+    def repr_of_descr(descr):
+        s = descr.repr_of_descr()
+        assert ',' not in s  # makes the life easier for pypy.tool.jitlogparser
+        return s
     c0 = GcCache(False)
     T = lltype.GcStruct('T')
     S = lltype.GcStruct('S', ('x', lltype.Char),
@@ -320,34 +324,34 @@ def test_repr_of_descr():
                              ('z', lltype.Ptr(T)))
     descr1 = get_size_descr(c0, S)
     s = symbolic.get_size(S, False)
-    assert descr1.repr_of_descr() == '<SizeDescr %d>' % s
+    assert repr_of_descr(descr1) == '<SizeDescr %d>' % s
     #
     descr2 = get_field_descr(c0, S, 'y')
     o, _ = symbolic.get_field_token(S, 'y', False)
-    assert descr2.repr_of_descr() == '<FieldP S.y %d>' % o
+    assert repr_of_descr(descr2) == '<FieldP S.y %d>' % o
     #
     descr2i = get_field_descr(c0, S, 'x')
     o, _ = symbolic.get_field_token(S, 'x', False)
-    assert descr2i.repr_of_descr() == '<FieldU S.x %d>' % o
+    assert repr_of_descr(descr2i) == '<FieldU S.x %d>' % o
     #
     descr3 = get_array_descr(c0, lltype.GcArray(lltype.Ptr(S)))
     o = symbolic.get_size(lltype.Ptr(S), False)
-    assert descr3.repr_of_descr() == '<ArrayP %d>' % o
+    assert repr_of_descr(descr3) == '<ArrayP %d>' % o
     #
     descr3i = get_array_descr(c0, lltype.GcArray(lltype.Char))
-    assert descr3i.repr_of_descr() == '<ArrayU 1>'
+    assert repr_of_descr(descr3i) == '<ArrayU 1>'
     #
     descr4 = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Ptr(S))
-    assert descr4.repr_of_descr() == '<CallDescr(ir,r)>'
+    assert repr_of_descr(descr4) == '<Callr %d ir>' % o
     #
     descr4i = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Char)
-    assert descr4i.repr_of_descr() == '<CallDescr(ir,i)>'
+    assert repr_of_descr(descr4i) == '<Calli 1 ir>'
     #
     descr4f = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Float)
-    assert descr4f.repr_of_descr() == '<CallDescr(ir,f)>'
+    assert repr_of_descr(descr4f) == '<Callf 8 ir>'
     #
     descr5f = get_call_descr(c0, [lltype.Char], lltype.SingleFloat)
-    assert descr5f.repr_of_descr() == '<CallDescr(i,S)>'
+    assert repr_of_descr(descr5f) == '<CallS 4 i>'
 
 def test_call_stubs_1():
     c0 = GcCache(False)

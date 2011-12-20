@@ -425,7 +425,15 @@ class CallDescr(AbstractDescr):
                 self.arg_classes.count('L')) == len(args_f or ())
 
     def repr_of_descr(self):
-        return '<CallDescr(%s,%s)>' % (self.arg_classes, self.result_type)
+        res = 'Call%s %d' % (self.result_type, self.result_size)
+        if self.arg_classes:
+            res += ' ' + self.arg_classes
+        if self.extrainfo:
+            res += ' EF=%d' % self.extrainfo.extraeffect
+            oopspecindex = self.extrainfo.oopspecindex
+            if oopspecindex:
+                res += ' OS=%d' % oopspecindex
+        return '<%s>' % res
 
 
 def map_type_to_argclass(ARG, accept_void=False):
