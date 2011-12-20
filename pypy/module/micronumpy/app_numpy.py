@@ -53,7 +53,6 @@ def arange(start, stop=None, step=1, dtype=None):
     i = start
     for j in range(arr.size):
         arr[j] = i
-        j += 1
         i += step
     return arr
 

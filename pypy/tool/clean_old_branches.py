@@ -11,14 +11,17 @@ if not os.listdir('.hg'):
     sys.exit(1)
 
 def heads(args):
-    g = os.popen(r"hg heads --topo %s --template '{branches} {node|short}\n'"
+    g = os.popen(r"hg heads --topo %s --template '{node|short}:{branches}\n'"
                  % args, 'r')
     result = g.read()
     g.close()
     result = result.splitlines(False)
-    result = [s for s in result
-                if not s.startswith(' ')
-                   and not s.startswith('closed-branches ')]
+    for line in result:
+        if len(line.split(':', 1)) != 2:
+            raise ValueError("'result' contains: %r" % line)
+    result = [s.split(':', 1) for s in result]
+    result = [(head, branch) for (head, branch) in result
+                if branch not in ['', 'closed-branches']]
     return result
 
 all_heads = heads("--closed")
@@ -34,8 +37,7 @@ if not closed_heads:
 
 closed_heads.reverse()
 
-for branch_head in closed_heads:
-    branch, head = branch_head.split()
+for head, branch in closed_heads:
     print '\t', branch
 print
 print 'The branches listed above will be merged to "closed-branches".'
@@ -54,8 +56,7 @@ def do(cmd):
         print '*** error %r' % (err,)
         sys.exit(1)
 
-for branch_head in closed_heads:
-    branch, head = branch_head.split()
+for head, branch in closed_heads:
     print
     print '***** %s ***** %s *****' % (branch, head)
     do("hg up --clean closed-branches")

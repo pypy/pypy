@@ -32,9 +32,9 @@ class W_AbstractUnicodeObject(W_Object):
             return False
         return space.unicode_w(self) is space.unicode_w(w_other)
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         return space.wrap(compute_unique_id(space.unicode_w(self)))
 
 

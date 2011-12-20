@@ -285,3 +285,10 @@ from __future__ import generators""")
                 [], lineno=1, col_offset=0)
         ])
         exec compile(body, '<string>', 'exec')
+
+    def test_invalid_sum(self):
+        import _ast as ast
+        pos = dict(lineno=2, col_offset=3)
+        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+

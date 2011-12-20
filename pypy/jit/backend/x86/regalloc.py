@@ -16,8 +16,8 @@ from pypy.jit.backend.x86.jump import remap_frame_layout_mixed
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
-from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
+from pypy.jit.backend.llsupport.descr import FieldDescr, ArrayDescr
+from pypy.jit.backend.llsupport.descr import CallDescr, SizeDescr
 from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
@@ -870,9 +870,9 @@ class RegAlloc(object):
 
     def _consider_call(self, op, guard_not_forced_op=None):
         calldescr = op.getdescr()
-        assert isinstance(calldescr, BaseCallDescr)
+        assert isinstance(calldescr, CallDescr)
         assert len(calldescr.arg_classes) == op.numargs() - 1
-        size = calldescr.get_result_size(self.translate_support_code)
+        size = calldescr.get_result_size()
         sign = calldescr.is_result_signed()
         if sign:
             sign_loc = imm1
@@ -917,12 +917,15 @@ class RegAlloc(object):
 
     consider_call_release_gil = consider_call_may_force
 
+    def consider_call_malloc_gc(self, op):
+        self._consider_call(op)
+
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        size = jd.portal_calldescr.get_result_size(self.translate_support_code)
+        size = jd.portal_calldescr.get_result_size()
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self.rm._sync_var(op.getarg(vable_index))
@@ -957,21 +960,10 @@ class RegAlloc(object):
 
     consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
 
-    def fastpath_malloc_fixedsize(self, op, descr):
-        assert isinstance(descr, BaseSizeDescr)
-        self._do_fastpath_malloc(op, descr.size, descr.tid)
-
-    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
-        basesize = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        size = basesize + itemsize * num_elem
-        self._do_fastpath_malloc(op, size, arraydescr.tid)
-        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
-
-    def _do_fastpath_malloc(self, op, size, tid):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+    def consider_call_malloc_nursery(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
         #
         # We need edx as a temporary, but otherwise don't save any more
@@ -980,86 +972,39 @@ class RegAlloc(object):
         self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
         self.rm.possibly_free_var(tmp_box)
         #
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size, tid,
-            )
-
-    def consider_new(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self.fastpath_malloc_fixedsize(op, op.getdescr())
-        else:
-            args = gc_ll_descr.args_for_new(op.getdescr())
-            arglocs = [imm(x) for x in args]
-            return self._call(op, arglocs)
-
-    def consider_new_with_vtable(self, op):
-        classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
-        if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self.fastpath_malloc_fixedsize(op, descrsize)
-            self.assembler.set_vtable(eax, imm(classint))
-            # result of fastpath malloc is in eax
-        else:
-            args = self.assembler.cpu.gc_ll_descr.args_for_new(descrsize)
-            arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(op.getarg(0)))
-            return self._call(op, arglocs)
-
-    def consider_newstr(self, op):
-        loc = self.loc(op.getarg(0))
-        return self._call(op, [loc])
-
-    def consider_newunicode(self, op):
-        loc = self.loc(op.getarg(0))
-        return self._call(op, [loc])
-
-    def consider_new_array(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        box_num_elem = op.getarg(0)
-        if isinstance(box_num_elem, ConstInt):
-            num_elem = box_num_elem.value
-            if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
-                                                     num_elem):
-                self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                return
-        args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-            op.getdescr())
-        arglocs = [imm(x) for x in args]
-        arglocs.append(self.loc(box_num_elem))
-        self._call(op, arglocs)
+            size)
 
     def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
-        ofs = arraydescr.get_base_size(self.translate_support_code)
-        size = arraydescr.get_item_size(self.translate_support_code)
-        ptr = arraydescr.is_array_of_pointers()
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.basesize
+        size = arraydescr.itemsize
         sign = arraydescr.is_item_signed()
-        return size, ofs, ofs_length, ptr, sign
+        return size, ofs, sign
 
     def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.translate_support_code)
-        ptr = fielddescr.is_pointer_field()
+        size = fielddescr.field_size
         sign = fielddescr.is_field_signed()
-        return imm(ofs), imm(size), ptr, sign
+        return imm(ofs), imm(size), sign
+    _unpack_fielddescr._always_inline_ = True
 
     def _unpack_interiorfielddescr(self, descr):
         assert isinstance(descr, InteriorFieldDescr)
         arraydescr = descr.arraydescr
-        ofs = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        ofs = arraydescr.basesize
+        itemsize = arraydescr.itemsize
+        fieldsize = descr.fielddescr.field_size
         sign = descr.fielddescr.is_field_signed()
         ofs += descr.fielddescr.offset
         return imm(ofs), imm(itemsize), imm(fieldsize), sign
 
     def consider_setfield_gc(self, op):
-        ofs_loc, size_loc, _, _ = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.getdescr())
         assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
@@ -1117,7 +1062,7 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        itemsize, ofs, _, _, _ = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _ = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
@@ -1134,7 +1079,7 @@ class RegAlloc(object):
     consider_setarrayitem_raw = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
-        ofs_loc, size_loc, _, sign = self._unpack_fielddescr(op.getdescr())
+        ofs_loc, size_loc, sign = self._unpack_fielddescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars(args)
@@ -1150,7 +1095,7 @@ class RegAlloc(object):
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        itemsize, ofs, _, _, sign = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, sign = self._unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
@@ -1229,8 +1174,8 @@ class RegAlloc(object):
 
     def consider_arraylen_gc(self, op):
         arraydescr = op.getdescr()
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars_for_op(op)

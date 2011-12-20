@@ -166,6 +166,7 @@ class JitCell(BaseJitCell):
             # The latest_generation_seen is older than the current generation.
             # Adjust by multiplying self.counter N times by decay_factor, i.e.
             # by decay_factor ** N, which is equal to exp(log(decay_factor)*N).
+            assert self.counter >= 0
             N = generation - self.latest_generation_seen
             factor = math.exp(log_decay_factor * N)
             self.counter = int(self.counter * factor)
