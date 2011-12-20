@@ -277,65 +277,50 @@ def test_make_jitdriver_callbacks_5():
     assert res is True
 
 def test_cleanup_jitcell_dict():
-    from pypy.jit.metainterp.memmgr import MemoryManager
-    class FakeWarmRunnerDesc:
-        memory_manager = MemoryManager()
-        class cpu:
-            pass
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed]
     #
     # Test creating tons of jitcells that remain at 0
-    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = warmstate._make_jitcell_getter_default()
     cell1 = get_jitcell(True, -1)
     assert len(warmstate._jitcell_dict) == 1
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 1
     #
     for i in range(1, 20005):
         get_jitcell(True, i)     # should trigger a clean-up at 20001
         assert len(warmstate._jitcell_dict) == (i % 20000) + 1
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 2
     #
     # Same test, with one jitcell that has a counter of BASE instead of 0
-    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
-    warmstate.set_param_decay_halflife(2)
-    warmstate.set_param_threshold(5)
-    warmstate.set_param_function_threshold(0)
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = warmstate._make_jitcell_getter_default()
     cell2 = get_jitcell(True, -2)
-    cell2.counter = BASE = warmstate.increment_threshold * 3
+    cell2.counter = BASE = warmstate.THRESHOLD_LIMIT // 2    # 50%
     #
     for i in range(0, 20005):
         get_jitcell(True, i)
         assert len(warmstate._jitcell_dict) == (i % 19999) + 2
     #
     assert cell2 in warmstate._jitcell_dict.values()
-    assert cell2.counter == int(BASE * math.sqrt(0.5))   # decayed once
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 3
+    assert cell2.counter == int(BASE * 0.92)   # decayed once
     #
-    # Same test, with jitcells that are compiled and free by the memmgr
-    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    # Same test, with jitcells that are compiled and freed by the memmgr
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = warmstate._make_jitcell_getter_default()
     get_jitcell(True, -1)
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 3
     #
     for i in range(1, 20005):
         cell = get_jitcell(True, i)
         cell.counter = -1
         cell.wref_procedure_token = None    # or a dead weakref, equivalently
         assert len(warmstate._jitcell_dict) == (i % 20000) + 1
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 4
     #
     # Same test, with counter == -2 (rare case, kept alive)
-    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = warmstate._make_jitcell_getter_default()
     cell = get_jitcell(True, -1)
     cell.counter = -2
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 4
     #
     for i in range(1, 20005):
         cell = get_jitcell(True, i)
         cell.counter = -2
         assert len(warmstate._jitcell_dict) == i + 1
-    assert FakeWarmRunnerDesc.memory_manager.current_generation == 5

@@ -446,44 +446,32 @@ class WarmEnterState(object):
         except AttributeError:
             pass
         #
-        memmgr = self.warmrunnerdesc and self.warmrunnerdesc.memory_manager
-        if memmgr:
-            def _cleanup_dict():
-                minimum = sys.maxint
-                if self.increment_threshold > 0:
-                    minimum = min(minimum, self.increment_threshold)
-                if self.increment_function_threshold > 0:
-                    minimum = min(minimum, self.increment_function_threshold)
-                currentgen = memmgr.get_current_generation_uint()
-                killme = []
-                for key, cell in jitcell_dict.iteritems():
-                    if cell.counter >= 0:
-                        cell.adjust_counter(currentgen, self.log_decay_factor)
-                        if cell.counter < minimum:
-                            killme.append(key)
-                    elif (cell.counter == -1
-                          and cell.get_procedure_token() is None):
+        def _cleanup_dict():
+            minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
+            killme = []
+            for key, cell in jitcell_dict.iteritems():
+                if cell.counter >= 0:
+                    cell.counter = int(cell.counter * 0.92)
+                    if cell.counter < minimum:
                         killme.append(key)
-                for key in killme:
-                    del jitcell_dict[key]
-            #
-            def _maybe_cleanup_dict():
-                # If no tracing goes on at all because the jitcells are
-                # each time for new greenargs, the dictionary grows forever.
-                # So every one in a (rare) while, we decide to force an
-                # artificial next_generation() and _cleanup_dict().
-                self._trigger_automatic_cleanup += 1
-                if self._trigger_automatic_cleanup > 20000:
-                    self._trigger_automatic_cleanup = 0
-                    memmgr.next_generation(do_cleanups_now=False)
-                    _cleanup_dict()
-            #
-            self._trigger_automatic_cleanup = 0
-            self._jitcell_dict = jitcell_dict       # for tests
-            memmgr.record_jitcell_dict(_cleanup_dict)
-        else:
-            def _maybe_cleanup_dict():
-                pass
+                elif (cell.counter == -1
+                      and cell.get_procedure_token() is None):
+                    killme.append(key)
+            for key in killme:
+                del jitcell_dict[key]
+        #
+        def _maybe_cleanup_dict():
+            # Once in a while, rarely, when too many entries have
+            # been put in the jitdict_dict, we do a cleanup phase:
+            # we decay all counters and kill entries with a too
+            # low counter.
+            self._trigger_automatic_cleanup += 1
+            if self._trigger_automatic_cleanup > 20000:
+                self._trigger_automatic_cleanup = 0
+                _cleanup_dict()
+        #
+        self._trigger_automatic_cleanup = 0
+        self._jitcell_dict = jitcell_dict       # for tests
         #
         def get_jitcell(build, *greenargs):
             try:
@@ -503,7 +491,7 @@ class WarmEnterState(object):
         get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
-        # note that there is no equivalent of record_jitcell_dict()
+        # note that there is no equivalent of _maybe_cleanup_dict()
         # in the case of custom getters.  We assume that the interpreter
         # stores the JitCells on some objects that can go away by GC,
         # like the PyCode objects in PyPy.
