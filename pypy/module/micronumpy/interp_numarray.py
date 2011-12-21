@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator,\
-     view_iter_from_arr, OneDimIterator
+     view_iter_from_arr, OneDimIterator, AxisIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -606,6 +606,9 @@ class BaseArray(Wrappable):
                                                        space.w_False]))
         return w_d
 
+    def supports_fast_slicing(self):
+        return False
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -790,6 +793,9 @@ class ConcreteArray(BaseArray):
     def get_concrete(self):
         return self
 
+    def supports_fast_slicing(self):
+        return self.order == 'C' and self.strides[-1] == 1
+
     def find_dtype(self):
         return self.dtype
 
@@ -961,7 +967,33 @@ class W_NDimSlice(ViewArray):
 
     def setslice(self, space, w_value):
         res_shape = shape_agreement(space, self.shape, w_value.shape)
-        self._sliceloop(w_value, res_shape)
+        if (res_shape == w_value.shape and self.supports_fast_slicing() and
+            w_value.supports_fast_slicing() and
+            self.dtype is w_value.find_dtype()):
+            self._fast_setslice(space, w_value)
+        else:
+            self._sliceloop(w_value, res_shape)
+
+    def _fast_setslice(self, space, w_value):
+        assert isinstance(w_value, ConcreteArray)
+        itemsize = self.dtype.itemtype.get_element_size()
+        if len(self.shape) == 1:
+            rffi.c_memcpy(
+                rffi.ptradd(self.storage, self.start * itemsize),
+                rffi.ptradd(w_value.storage, w_value.start * itemsize),
+                self.size * itemsize
+            )
+        else:
+            dest = AxisIterator(self)
+            source = AxisIterator(w_value)
+            while not dest.done:
+                rffi.c_memcpy(
+                    rffi.ptradd(self.storage, dest.offset * itemsize),
+                    rffi.ptradd(w_value.storage, source.offset * itemsize),
+                    self.shape[0] * itemsize
+                )
+                source.next()
+                dest.next()
 
     def _sliceloop(self, source, res_shape):
         sig = source.find_sig(res_shape)
