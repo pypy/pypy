@@ -182,5 +182,29 @@ def reinit_lock(space):
         importing.getimportlock(space).reinit_lock()
 
 @unwrap_spec(pathname=str)
-def cache_from_source(space, pathname):
+def cache_from_source(space, pathname, w_debug_override=None):
+    """cache_from_source(path, [debug_override]) -> path
+    Given the path to a .py file, return the path to its .pyc/.pyo file.
+
+    The .py file does not need to exist; this simply returns the path to the
+    .pyc/.pyo file calculated as if the .py file were imported.  The extension
+    will be .pyc unless __debug__ is not defined, then it will be .pyo.
+
+    If debug_override is not None, then it must be a boolean and is taken as
+    the value of __debug__ instead."""
     return space.wrap(importing.make_compiled_pathname(pathname))
+
+@unwrap_spec(pathname=str)
+def source_from_cache(space, pathname):
+    """source_from_cache(path) -> path
+    Given the path to a .pyc./.pyo file, return the path to its .py file.
+
+    The .pyc/.pyo file does not need to exist; this simply returns the path to
+    the .py file calculated to correspond to the .pyc/.pyo file.  If path
+    does not conform to PEP 3147 format, ValueError will be raised."""
+    try:
+        sourcename = importing.make_source_pathname(pathname)
+    except ValueError:
+        raise operationerrfmt(space.w_ValueError,
+                              "Not a PEP 3147 pyc path: %s", pathname)
+    return space.wrap(sourcename)

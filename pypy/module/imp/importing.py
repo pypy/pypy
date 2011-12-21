@@ -866,6 +866,14 @@ def make_compiled_pathname(pathname):
     "Given the path to a .py file, return the path to its .pyc file."
     return pathname + 'c'
 
+def make_source_pathname(pathname):
+    pos_extension = len(pathname) - 4  # len('.pyc')
+    if pos_extension < 0:
+        raise ValueError("path is too short")
+    if pathname[pos_extension:] != '.pyc':
+        raise ValueError("not a .pyc path name")
+    return pathname[:pos_extension + 3]
+
 @jit.dont_look_inside
 def load_source_module(space, w_modulename, w_mod, pathname, source,
                        write_pyc=True):

@@ -579,6 +579,8 @@ class AppTestImport:
     def test_cache_from_source(self):
         import imp
         assert imp.cache_from_source('a/b/c.py') == 'a/b/c.pyc'
+        assert imp.source_from_cache('a/b/c.pyc') == 'a/b/c.py'
+        raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
     def test_shadow_builtin(self):
         if self.runappdirect: skip("hard to test: module is already imported")

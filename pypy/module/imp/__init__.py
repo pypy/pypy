@@ -36,6 +36,7 @@ class Module(MixedModule):
         'release_lock':    'interp_imp.release_lock',
 
         'cache_from_source': 'interp_imp.cache_from_source',
+        'source_from_cache': 'interp_imp.source_from_cache',
         }
 
     appleveldefs = {
