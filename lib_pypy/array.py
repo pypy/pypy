@@ -106,6 +106,8 @@ class array(object):
         self.itemsize = calcsize(typecode)
         if isinstance(initializer, list):
             self.fromlist(initializer)
+        elif isinstance(initializer, bytes):
+            self.fromstring(initializer)
         elif isinstance(initializer, str) and self.typecode == "u":
             self.fromunicode(initializer)
         else:
@@ -138,8 +140,6 @@ class array(object):
         """Appends items from the string, interpreting it as an array of machine
         values, as if it had been read from a file using the fromfile()
         method."""
-        if isinstance(s, unicode):
-            s = str(s)
         self._frombuffer(s)
 
     def _frombuffer(self, s):

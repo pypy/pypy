@@ -41,9 +41,9 @@ class __extend__(rsre_core.AbstractMatchContext):
 class __extend__(rsre_core.StrMatchContext):
     __metaclass__ = extendabletype
     def _w_slice(self, space, start, end):
-        return space.wrap(self._string[start:end])
+        return space.wrapbytes(self._string[start:end])
     def _w_string(self, space):
-        return space.wrap(self._string)
+        return space.wrapbytes(self._string)
 
 class __extend__(rsre_core.UnicodeMatchContext):
     __metaclass__ = extendabletype
@@ -225,7 +225,7 @@ class W_SRE_Pattern(Wrappable):
                 literal = u'\\' not in filter_as_unicode
             else:
                 try:
-                    filter_as_string = space.str_w(w_ptemplate)
+                    filter_as_string = space.bytes_w(w_ptemplate)
                 except OperationError, e:
                     if e.async(space):
                         raise
@@ -281,7 +281,7 @@ class W_SRE_Pattern(Wrappable):
         if space.is_true(space.isinstance(w_string, space.w_unicode)):
             w_emptystr = space.wrap(u'')
         else:
-            w_emptystr = space.wrap('')
+            w_emptystr = space.wrapbytes('')
         w_item = space.call_method(w_emptystr, 'join',
                                    space.newlist(sublist_w))
         return w_item, n

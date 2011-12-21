@@ -7,7 +7,7 @@ from pypy.conftest import gettestobjspace, option
 
 def init_globals_hack(space):
     space.appexec([space.wrap(autopath.this_dir)], """(this_dir):
-    import __builtin__ as b
+    import builtins as b
     import sys, os.path
     # Uh-oh, ugly hack
     sys.path.insert(0, this_dir)
@@ -38,7 +38,7 @@ class AppTestSrePattern:
 
     def test_creation_attributes(self):
         import re
-        pattern_string = "(b)l(?P<g>a)"
+        pattern_string = b"(b)l(?P<g>a)"
         p = re.compile(pattern_string, re.I | re.M)
         assert pattern_string == p.pattern
         assert re.I | re.M == p.flags
@@ -73,9 +73,9 @@ class AppTestSrePattern:
     def test_finditer(self):
         import re
         it = re.finditer("b(.)", "brabbel")
-        assert "br" == it.next().group(0)
-        assert "bb" == it.next().group(0)
-        raises(StopIteration, it.next)
+        assert "br" == next(it).group(0)
+        assert "bb" == next(it).group(0)
+        raises(StopIteration, next, it)
 
     def test_split(self):
         import re
@@ -177,25 +177,25 @@ class AppTestSreMatch:
         m = re.search("a(..)(?P<name>..)", "ab1bc")
         assert "b1bcbc" == m.expand(r"\1\g<name>\2")
 
-    def test_sub(self):
+    def test_sub_bytes(self):
         import re
-        assert "bbbbb" == re.sub("a", "b", "ababa")
-        assert ("bbbbb", 3) == re.subn("a", "b", "ababa")
-        assert "dddd" == re.sub("[abc]", "d", "abcd")
-        assert ("dddd", 3) == re.subn("[abc]", "d", "abcd")
-        assert "rbd\nbr\n" == re.sub("a(.)", r"b\1\n", "radar")
-        assert ("rbd\nbr\n", 2) == re.subn("a(.)", r"b\1\n", "radar")
-        assert ("bbbba", 2) == re.subn("a", "b", "ababa", 2)
+        assert b"bbbbb" == re.sub(b"a", b"b", b"ababa")
+        assert (b"bbbbb", 3) == re.subn(b"a", b"b", b"ababa")
+        assert b"dddd" == re.sub(b"[abc]", b"d", b"abcd")
+        assert (b"dddd", 3) == re.subn(b"[abc]", b"d", b"abcd")
+        assert b"rbd\nbr\n" == re.sub(b"a(.)", br"b\1\n", b"radar")
+        assert (b"rbd\nbr\n", 2) == re.subn(b"a(.)", br"b\1\n", b"radar")
+        assert (b"bbbba", 2) == re.subn(b"a", b"b", b"ababa", 2)
 
     def test_sub_unicode(self):
         import re
-        assert isinstance(re.sub(u"a", u"b", u""), unicode)
+        assert isinstance(re.sub(u"a", u"b", u""), str)
         # the input is returned unmodified if no substitution is performed,
         # which (if interpreted literally, as CPython does) gives the
         # following strangeish rules:
-        assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), unicode)
-        assert isinstance(re.sub(u"a", u"b", "diwoiiobmoi"), str)
-        assert isinstance(re.sub(u'x', 'y', 'x'), str)
+        assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), str)
+        assert isinstance(re.sub(u"a", u"b", b"diwoiiobmoi"), bytes)
+        assert isinstance(re.sub(u'x', b'y', b'x'), bytes)
 
     def test_sub_callable(self):
         import re
@@ -212,18 +212,10 @@ class AppTestSreMatch:
             return None
         assert "acd" == re.sub("b", call_me, "abcd")
 
-    def test_sub_callable_suddenly_unicode(self):
-        import re
-        def call_me(match):
-            if match.group() == 'A':
-                return unichr(0x3039)
-            return ''
-        assert (u"bb\u3039b", 2) == re.subn("[aA]", call_me, "babAb")
-
     def test_match_array(self):
         import re, array
-        a = array.array('c', 'hello')
-        m = re.match('hel+', a)
+        a = array.array('b', b'hello')
+        m = re.match(b'hel+', a)
         assert m.end() == 4
 
     def test_match_typeerror(self):
