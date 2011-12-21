@@ -707,7 +707,7 @@ class TargetToken(AbstractDescr):
         self.exported_state = None
 
     def repr_of_descr(self):
-        return 'TargetToken(%d)' % compute_identity_hash(self)
+        return 'TargetToken(%d)' % compute_unique_id(self)
         
 class TreeLoop(object):
     inputargs = None
