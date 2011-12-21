@@ -252,7 +252,8 @@ class W_FileConnection(W_BaseConnection):
         # "header" and the "body" of the message and send them at once.
         message = lltype.malloc(rffi.CCHARP.TO, size + 4, flavor='raw')
         try:
-            length = rffi.r_uint(rsocket.htonl(size))
+            length = rffi.r_uint(rsocket.htonl(
+                    rffi.cast(lltype.Unsigned, size)))
             rffi.cast(rffi.UINTP, message)[0] = length
             i = size - 1
             while i >= 0:
@@ -265,7 +266,8 @@ class W_FileConnection(W_BaseConnection):
     def do_recv_string(self, space, buflength, maxlength):
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as length_ptr:
             self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
-            length = intmask(rsocket.ntohl(length_ptr[0]))
+            length = intmask(rsocket.ntohl(
+                    rffi.cast(lltype.Unsigned, length_ptr[0])))
         if length > maxlength: # bad message, close connection
             self.flags &= ~READABLE
             if self.flags == 0:
