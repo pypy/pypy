@@ -524,7 +524,8 @@ def _string_replace(space, input, sub, by, maxsplit):
             result_size = ovfcheck(upper * len(by))
             result_size = ovfcheck(result_size + upper)
             result_size = ovfcheck(result_size + len(by))
-            result_size = ovfcheck(result_size + upper - len(input))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
         except OverflowError:
             raise OperationError(space.w_OverflowError,
                 space.wrap("replace string is too long")
