@@ -1084,7 +1084,7 @@ class Stats(object):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extraprocedures=[]):
+    def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
         from pypy.jit.metainterp.graphpage import display_procedures
         procedures = self.get_all_loops()[:]
         for procedure in extraprocedures:
@@ -1096,7 +1096,7 @@ class Stats(object):
             if hasattr(procedure, '_looptoken_number') and (
                procedure._looptoken_number in self.invalidated_token_numbers):
                 highlight_procedures.setdefault(procedure, 2)
-        display_procedures(procedures, errmsg, highlight_procedures)
+        display_procedures(procedures, errmsg, highlight_procedures, metainterp_sd)
 
 # ----------------------------------------------------------------
 
