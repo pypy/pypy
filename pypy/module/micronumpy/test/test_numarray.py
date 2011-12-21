@@ -8,8 +8,6 @@ from pypy.conftest import gettestobjspace
 
 
 class MockDtype(object):
-    signature = signature.BaseSignature()
-
     def malloc(self, size):
         return None
 
@@ -38,92 +36,86 @@ class TestNumArrayDirect(object):
         assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, [(3, 0, 0, 1)])
+        s = a.create_slice([(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
         assert s.backstrides == [40, 100]
-        s = a.create_slice(space, [(1, 9, 2, 4)])
+        s = a.create_slice([(1, 9, 2, 4)])
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
+        s = a.create_slice([(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
-        s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
-        s = a.create_slice(space, [(3, 0, 0, 1)])
+        s = a.create_slice([(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
         assert s.backstrides == [12, 2]
-        s = a.create_slice(space, [(1, 9, 2, 4)])
+        s = a.create_slice([(1, 9, 2, 4)])
         assert s.start == 15
         assert s.strides == [30, 3, 1]
         assert s.backstrides == [90, 12, 2]
-        s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
+        s = a.create_slice([(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.strides == [45, 3]
         assert s.backstrides == [45, 0]
-        s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, [(5, 0, 0, 1)])
+        s = a.create_slice([(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = s.create_slice(space, [(3, 0, 0, 1)])
+        s2 = s.create_slice([(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [50]
         assert s2.parent is a
         assert s2.backstrides == [100]
         assert s2.start == 35
-        s = a.create_slice(space, [(1, 5, 3, 2)])
-        s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
+        s = a.create_slice([(1, 5, 3, 2)])
+        s2 = s.create_slice([(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [3, 50]
         assert s2.backstrides == [3, 100]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice(space, [(5, 0, 0, 1)])
+        s = a.create_slice([(5, 0, 0, 1)])
         assert s.start == 15 * 5
-        s2 = s.create_slice(space, [(3, 0, 0, 1)])
+        s2 = s.create_slice([(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [1]
         assert s2.parent is a
         assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
-        s = a.create_slice(space, [(1, 5, 3, 2)])
-        s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
+        s = a.create_slice([(1, 5, 3, 2)])
+        s2 = s.create_slice([(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [45, 1]
         assert s2.backstrides == [45, 2]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, [(9, -1, -2, 5)])
+        s = a.create_slice([(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
-        space = self.space
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice(space, [(9, -1, -2, 5)])
+        s = a.create_slice([(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
@@ -132,7 +124,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
-        s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -142,7 +134,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
-        s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -897,13 +889,32 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros(1)
         assert debug_repr(a) == 'Array'
         assert debug_repr(a + a) == 'Call2(add, Array, Array)'
-        assert debug_repr(a[::2]) == 'Slice(Array)'
+        assert debug_repr(a[::2]) == 'Slice'
         assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
-        assert debug_repr(a + a.flat) == 'Call2(add, Array, FlatIter(Array))'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, Slice)'
         assert debug_repr(sin(a)) == 'Call1(sin, Array)'
+
         b = a + a
         b[0] = 3
-        assert debug_repr(b) == 'Call2(add, forced=Array)'
+        assert debug_repr(b) == 'Array'
+
+    def test_virtual_views(self):
+        from numpypy import arange
+        a = arange(15)
+        c = (a + a)
+        d = c[::2]
+        assert d[3] == 12
+        c[6] = 5
+        assert d[3] == 5
+        a = arange(15)
+        c = (a + a)
+        d = c[::2][::2]
+        assert d[1] == 8
+        b = a + a
+        c = b[::2]
+        c[:] = 3
+        assert b[0] == 3
+        assert b[1] == 2
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
@@ -1075,10 +1086,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_broadcast_setslice(self):
         from numpypy import zeros, ones
-        a = zeros((100, 100))
-        b = ones(100)
+        a = zeros((10, 10))
+        b = ones(10)
         a[:, :] = b
-        assert a[13, 15] == 1
+        assert a[3, 5] == 1
 
     def test_broadcast_shape_agreement(self):
         from numpypy import zeros, array
@@ -1111,6 +1122,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = ones((4, 3, 5))
         b[:] = (a + a)
         assert (b == zeros((4, 3, 5))).all()
+
+    def test_broadcast_virtualview(self):
+        from numpypy import arange, zeros
+        a = arange(8).reshape([2, 2, 2])
+        b = (a + a)[1, 1]
+        c = zeros((2, 2, 2))
+        c[:] = b
+        assert (c == [[[12, 14], [12, 14]], [[12, 14], [12, 14]]]).all()
 
     def test_argmax(self):
         from numpypy import array
@@ -1172,6 +1191,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import array, dot
         a = array([1, 2, 3])
         assert dot(a.flat, a.flat) == 14
+
+    def test_flatiter_varray(self):
+        from numpypy import ones
+        a = ones((2, 2))
+        assert list(((a + a).flat)) == [2, 2, 2, 2]
 
     def test_slice_copy(self):
         from numpypy import zeros

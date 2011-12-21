@@ -8,11 +8,10 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import (get_size_descr,
-     get_field_descr, BaseFieldDescr, DynamicFieldDescr, get_array_descr,
-     BaseArrayDescr, DynamicArrayNoLengthDescr, get_call_descr,
-     BaseIntCallDescr, GcPtrCallDescr, FloatCallDescr, VoidCallDescr,
-     InteriorFieldDescr, get_interiorfield_descr)
+from pypy.jit.backend.llsupport.descr import (
+    get_size_descr, get_field_descr, get_array_descr,
+    get_call_descr, get_interiorfield_descr, get_dynamic_interiorfield_descr,
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -247,14 +246,14 @@ class AbstractLLCPU(AbstractCPU):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
 
     def unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         return fielddescr.offset
     unpack_fielddescr._always_inline_ = True
 
     def unpack_fielddescr_size(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.translate_support_code)
+        size = fielddescr.field_size
         sign = fielddescr.is_field_signed()
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
@@ -263,23 +262,23 @@ class AbstractLLCPU(AbstractCPU):
         return get_array_descr(self.gc_ll_descr, A)
 
     def interiorfielddescrof(self, A, fieldname):
-        return get_interiorfield_descr(self.gc_ll_descr, A, A.OF, fieldname)
+        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
 
     def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
-        is_pointer, is_float, is_signed):
-        arraydescr = DynamicArrayNoLengthDescr(width)
-        fielddescr = DynamicFieldDescr(offset, fieldsize, is_pointer, is_float, is_signed)
-        return InteriorFieldDescr(arraydescr, fielddescr)
+                                     is_pointer, is_float, is_signed):
+        return get_dynamic_interiorfield_descr(self.gc_ll_descr,
+                                               offset, width, fieldsize,
+                                               is_pointer, is_float, is_signed)
 
     def unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        return arraydescr.get_base_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        return arraydescr.basesize
     unpack_arraydescr._always_inline_ = True
 
     def unpack_arraydescr_size(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_base_size(self.translate_support_code)
-        size = arraydescr.get_item_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.basesize
+        size = arraydescr.itemsize
         sign = arraydescr.is_item_signed()
         return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
@@ -307,8 +306,8 @@ class AbstractLLCPU(AbstractCPU):
     # ____________________________________________________________
 
     def bh_arraylen_gc(self, arraydescr, array):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
     @specialize.argtype(2)
@@ -393,7 +392,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         sign = descr.fielddescr.is_field_signed()
         fullofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
@@ -444,7 +443,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         ofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -630,25 +629,26 @@ class AbstractLLCPU(AbstractCPU):
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, BaseIntCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_i(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, GcPtrCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.REF)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_r(func, args_i, args_r, args_f)
 
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, FloatCallDescr)  # or LongLongCallDescr
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_f(func, args_i, args_r, args_f)
 
     def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, VoidCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        # the 'i' return value is ignored (and nonsense anyway)
+        calldescr.call_stub_i(func, args_i, args_r, args_f)

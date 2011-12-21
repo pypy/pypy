@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, Storage, _sortboxes, FakeDescrWithSnapshot)
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken

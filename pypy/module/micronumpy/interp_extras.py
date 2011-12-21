@@ -4,4 +4,4 @@ from pypy.module.micronumpy.interp_numarray import BaseArray
 
 @unwrap_spec(array=BaseArray)
 def debug_repr(space, array):
-    return space.wrap(array.debug_repr())
+    return space.wrap(array.find_sig().debug_repr())
