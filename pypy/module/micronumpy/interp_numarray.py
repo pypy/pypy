@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator,\
-     view_iter_from_arr, OneDimIterator
+     view_iter_from_arr, OneDimIterator, AxisIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -390,10 +390,10 @@ class BaseArray(Wrappable):
         return space.wrap(self.size)
 
     def descr_copy(self, space):
-        return self.copy()
+        return self.copy(space)
 
-    def copy(self):
-        return self.get_concrete().copy()
+    def copy(self, space):
+        return self.get_concrete().copy(space)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -536,7 +536,7 @@ class BaseArray(Wrappable):
                               new_shape, self)
         else:
             # Create copy with contiguous data
-            arr = concrete.copy()
+            arr = concrete.copy(space)
             arr.setshape(space, new_shape)
         return arr
 
@@ -606,6 +606,9 @@ class BaseArray(Wrappable):
                                                        space.w_False]))
         return w_d
 
+    def supports_fast_slicing(self):
+        return False
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -639,7 +642,7 @@ class Scalar(BaseArray):
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.itemtype.str_format(self.value))
 
-    def copy(self):
+    def copy(self, space):
         return Scalar(self.dtype, self.value)
 
     def create_sig(self, res_shape):
@@ -790,6 +793,9 @@ class ConcreteArray(BaseArray):
     def get_concrete(self):
         return self
 
+    def supports_fast_slicing(self):
+        return self.order == 'C' and self.strides[-1] == 1
+
     def find_dtype(self):
         return self.dtype
 
@@ -929,18 +935,59 @@ class ConcreteArray(BaseArray):
             item += v * self.strides[i]
         return item
 
+    def setslice(self, space, w_value):
+        res_shape = shape_agreement(space, self.shape, w_value.shape)
+        if (res_shape == w_value.shape and self.supports_fast_slicing() and
+            w_value.supports_fast_slicing() and
+            self.dtype is w_value.find_dtype()):
+            self._fast_setslice(space, w_value)
+        else:
+            self._sliceloop(w_value, res_shape)
 
-class ViewArray(ConcreteArray):
-    def copy(self):
-        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
-        iter = view_iter_from_arr(self)
-        a_iter = ArrayIterator(array.size)
-        while not iter.done():
-            array.setitem(a_iter.offset, self.getitem(iter.offset))
-            iter = iter.next(len(self.shape))
-            a_iter = a_iter.next(len(array.shape))
+    def _fast_setslice(self, space, w_value):
+        assert isinstance(w_value, ConcreteArray)
+        itemsize = self.dtype.itemtype.get_element_size()
+        if len(self.shape) == 1:
+            rffi.c_memcpy(
+                rffi.ptradd(self.storage, self.start * itemsize),
+                rffi.ptradd(w_value.storage, w_value.start * itemsize),
+                self.size * itemsize
+            )
+        else:
+            dest = AxisIterator(self)
+            source = AxisIterator(w_value)
+            while not dest.done:
+                rffi.c_memcpy(
+                    rffi.ptradd(self.storage, dest.offset * itemsize),
+                    rffi.ptradd(w_value.storage, source.offset * itemsize),
+                    self.shape[-1] * itemsize
+                )
+                source.next()
+                dest.next()
+
+    def _sliceloop(self, source, res_shape):
+        sig = source.find_sig(res_shape)
+        frame = sig.create_frame(source, res_shape)
+        res_iter = view_iter_from_arr(self)
+        shapelen = len(res_shape)
+        while not res_iter.done():
+            slice_driver.jit_merge_point(sig=sig,
+                                         frame=frame,
+                                         shapelen=shapelen,
+                                         self=self, source=source,
+                                         res_iter=res_iter)
+            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
+                self.find_dtype()))
+            frame.next(shapelen)
+            res_iter = res_iter.next(shapelen)
+
+    def copy(self, space):
+        array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
+        array.setslice(space, self)
         return array
 
+
+class ViewArray(ConcreteArray):
     def create_sig(self, res_shape):
         return signature.ViewSignature(self.dtype)
 
@@ -958,26 +1005,6 @@ class W_NDimSlice(ViewArray):
         ViewArray.__init__(self, size, shape, parent.dtype, parent.order,
                                parent)
         self.start = start
-
-    def setslice(self, space, w_value):
-        res_shape = shape_agreement(space, self.shape, w_value.shape)
-        self._sliceloop(w_value, res_shape)
-
-    def _sliceloop(self, source, res_shape):
-        sig = source.find_sig(res_shape)
-        frame = sig.create_frame(source, res_shape)
-        res_iter = view_iter_from_arr(self)
-        shapelen = len(res_shape)
-        while not res_iter.done():
-            slice_driver.jit_merge_point(sig=sig,
-                                         frame=frame,
-                                         shapelen=shapelen,
-                                         self=self, source=source,
-                                         res_iter=res_iter)
-            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
-                self.find_dtype()))
-            frame.next(shapelen)
-            res_iter = res_iter.next(shapelen)
 
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
@@ -1017,15 +1044,6 @@ class W_NDimArray(ConcreteArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
-    def copy(self):
-        array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
-        rffi.c_memcpy(
-            array.storage,
-            self.storage,
-            self.size * self.dtype.itemtype.get_element_size()
-        )
-        return array
-
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
