@@ -880,7 +880,7 @@ class VirtualTests:
                 elif op == 'j':
                     j = Int(0)
                 elif op == '+':
-                    sa += i.val * j.val
+                    sa += (i.val + 2) * (j.val + 2)
                 elif op == 'a':
                     i = Int(i.val + 1)
                 elif op == 'b':
@@ -902,6 +902,7 @@ class VirtualTests:
         assert res == f(10)
         self.check_aborted_count(0)
         self.check_target_token_count(3)
+        self.check_resops(int_mul=2)
 
     def test_nested_loops_bridge(self):
         class Int(object):
