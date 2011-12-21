@@ -860,12 +860,15 @@ class VirtualTests:
         assert res == f(10)
         self.check_resops(jump=2)
 
-    def test_nested_loops(self):
+    def test_nested_loops_1(self):
         class Int(object):
             def __init__(self, val):
                 self.val = val
-        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'])
         bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'],
+                                get_printable_location=get_printable_location)
         def f(n):
             pc = sa = 0
             i = j = Int(0)

@@ -38,7 +38,8 @@ def show_procedures(metainterp_sd, procedure=None, error=None):
         else:
             extraprocedures = [procedure]
         metainterp_sd.stats.view(errmsg=errmsg,
-                                 extraprocedures=extraprocedures)
+                                 extraprocedures=extraprocedures,
+                                 metainterp_sd=metainterp_sd)
 
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
