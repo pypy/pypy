@@ -52,7 +52,7 @@ class TestW_SetObject:
 
     def test_space_newset(self):
         s = self.space.newset()
-        assert self.space.str_w(self.space.repr(s)) == 'set([])'
+        assert self.space.str_w(self.space.repr(s)) == '{}'
 
 class AppTestAppSetTest:
     def test_subtype(self):
@@ -189,9 +189,9 @@ class AppTestAppSetTest:
         s = set([1, 2, 3])
         s.add(A(s))
         therepr = repr(s)
-        assert therepr.startswith("set([")
-        assert therepr.endswith("])")
-        inner = set(therepr[5:-2].split(", "))
+        assert therepr.startswith("{")
+        assert therepr.endswith("}")
+        inner = set(therepr[1:-1].split(", "))
         assert inner == set(["1", "2", "3", "set(...)"])
 
     def test_recursive_repr_frozenset(self):
@@ -202,8 +202,8 @@ class AppTestAppSetTest:
         s = frozenset([1, 2, 3, a])
         a.s = s
         therepr = repr(s)
-        assert therepr.startswith("frozenset([")
-        assert therepr.endswith("])")
+        assert therepr.startswith("frozenset({")
+        assert therepr.endswith("})")
         inner = set(therepr[11:-2].split(", "))
         assert inner == set(["1", "2", "3", "frozenset(...)"])
         
@@ -211,7 +211,7 @@ class AppTestAppSetTest:
         s = set()
         try:
             s.remove(1)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] == 1
         else:
             assert 0, "should raise"
@@ -223,7 +223,7 @@ class AppTestAppSetTest:
                 return int(id(self) & 0x7fffffff)
         s = H()
         f = set([s])
-        print f
+        print(f)
         assert s in f
         f.remove(s)
         f.add(s)
@@ -265,7 +265,7 @@ class AppTestAppSetTest:
         key = set([2, 3])
         try:
             s.remove(key)
-        except KeyError, e:
+        except KeyError as e:
             assert e.args[0] is key
 
     def test_contains(self):
@@ -294,7 +294,7 @@ class AppTestAppSetTest:
         for v1 in ['Q', (1,)]:
             try:
                 s.remove(v1)
-            except KeyError, e:
+            except KeyError as e:
                 v2 = e.args[0]
                 assert v1 == v2
             else:

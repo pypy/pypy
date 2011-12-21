@@ -641,7 +641,11 @@ app = gateway.applevel("""
             return '%s(...)' % (s.__class__.__name__,)
         currently_in_repr[set_id] = 1
         try:
-            return '%s(%s)' % (s.__class__.__name__, [x for x in s])
+            listrepr = repr([x for x in s])
+            if type(s) is set:
+                return '{%s}' % (listrepr[1:-1],)
+            else:
+                return '%s({%s})' % (s.__class__.__name__, listrepr[1:-1])
         finally:
             try:
                 del currently_in_repr[set_id]
