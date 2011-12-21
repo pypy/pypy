@@ -234,7 +234,7 @@ typedef struct {
 	writebufferproc bf_getwritebuffer;
 	segcountproc bf_getsegcount;
 	charbufferproc bf_getcharbuffer;
-  getbufferproc bf_getbuffer;
+	getbufferproc bf_getbuffer;
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
