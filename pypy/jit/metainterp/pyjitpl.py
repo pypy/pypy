@@ -980,7 +980,7 @@ class MIFrame(object):
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
-            if not self.metainterp.get_procedure_token(greenboxes, True):
+            if self.metainterp.in_recursion or not self.metainterp.get_procedure_token(greenboxes, True):
                 if not jitdriver_sd.no_loop_header:
                     return
             # automatically add a loop_header if there is none
