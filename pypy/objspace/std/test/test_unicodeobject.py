@@ -162,6 +162,13 @@ class AppTestUnicodeString:
         assert "!Brown Fox".istitle() == True
         assert "Brow&&&&N Fox".istitle() == True
         assert "!Brow&&&&n Fox".istitle() == False
+
+    def test_isidentifier(self):
+        assert "".isidentifier() is False
+        assert "a4".isidentifier() is True
+        assert "_var".isidentifier() is True
+        assert "_!var".isidentifier() is False
+        assert "3abc".isidentifier() is False
         
     def test_capitalize(self):
         assert "brown fox".capitalize() == "Brown fox"

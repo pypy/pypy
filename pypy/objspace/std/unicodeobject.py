@@ -279,6 +279,27 @@ def unicode_istitle__Unicode(space, w_unicode):
             previous_is_cased = False
     return space.newbool(cased)
 
+def unicode_isidentifier__Unicode(space, w_unicode):
+    v = w_unicode._value
+    if len(v) == 0:
+        return space.w_False
+
+    # PEP 3131 says that the first character must be in XID_Start and
+    # subsequent characters in XID_Continue, and for the ASCII range,
+    # the 2.x rules apply (i.e start with letters and underscore,
+    # continue with letters, digits, underscore). However, given the
+    # current definition of XID_Start and XID_Continue, it is
+    # sufficient to check just for these, except that _ must be
+    # allowed as starting an identifier.
+    first = v[0]
+    if not (unicodedb.isxidstart(ord(first)) or first == u'_'):
+        return space.w_False
+
+    for i in range(1, len(v)):
+        if not unicodedb.isxidcontinue(ord(v[i])):
+            return space.w_False
+    return space.w_True
+
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value

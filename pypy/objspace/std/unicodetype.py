@@ -107,6 +107,10 @@ unicode_isupper    = SMM('isupper', 1,
                              ' characters in S are uppercase and there is\nat'
                              ' least one cased character in S, False'
                              ' otherwise.')
+unicode_isidentifier = SMM('isidentifier', 1,
+                         doc='S.isidentifier() -> bool\n\nReturn True if S is'
+                             ' a valid identifier according\nto the language'
+                             ' definition.')
 unicode_join       = SMM('join', 2,
                          doc='S.join(sequence) -> unicode\n\nReturn a string'
                              ' which is the concatenation of the strings in'
