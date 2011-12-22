@@ -12,7 +12,7 @@ class W_StringIO(W_TextIOBase):
         self.buf = []
         self.pos = 0
 
-    def descr_init(self, space, w_initvalue=None, w_newline="\n"):
+    def descr_init(self, space, w_initvalue=None, w_newline=u"\n"):
         # In case __init__ is called multiple times
         self.buf = []
         self.pos = 0

@@ -66,9 +66,6 @@ class TestImportLock:
     def test_lock(self, space, monkeypatch):
         from pypy.module.imp.importing import getimportlock, importhook
 
-        # Force importing the module _file now
-        space.builtin.get('file')
-
         # Monkeypatch the import lock and add a counter
         importlock = getimportlock(space)
         original_acquire = importlock.acquire_lock
@@ -82,9 +79,9 @@ class TestImportLock:
         importhook(space, 'sys')
         assert importlock.count == 0
         # A new module
-        importhook(space, 're')
-        assert importlock.count == 7
+        importhook(space, 'pprint')
+        assert importlock.count == 1
         # Import it again
         previous_count = importlock.count
-        importhook(space, 're')
+        importhook(space, 'pprint')
         assert importlock.count == previous_count
