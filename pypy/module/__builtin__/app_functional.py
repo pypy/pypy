@@ -129,7 +129,10 @@ function is None, return the items that are true.  If sequence is a tuple
 or string, return the same type, else return a list."""
     if func is None:
         func = bool
-    for item in seq:
+    return _filter(func, iter(seq))
+
+def _filter(func, iterator):
+    for item in iterator:
         if func(item):
             yield item
 
