@@ -47,16 +47,16 @@ import struct, copy
 def _bytelist2long(list):
     "Transform a list of characters into a list of longs."
 
-    imax = len(list)/4
+    imax = len(list) // 4
     hl = [0L] * imax
 
     j = 0
     i = 0
     while i < imax:
-        b0 = long(ord(list[j]))
-        b1 = (long(ord(list[j+1]))) << 8
-        b2 = (long(ord(list[j+2]))) << 16
-        b3 = (long(ord(list[j+3]))) << 24
+        b0 = list[j]
+        b1 = list[j+1] << 8
+        b2 = list[j+2] << 16
+        b3 = list[j+3] << 24
         hl[i] = b0 | b1 |b2 | b3
         i = i+1
         j = j+4
@@ -118,7 +118,7 @@ class md5:
     digest_size = digestsize = 16
     block_size = 64
 
-    def __init__(self):
+    def __init__(self, arg=None):
         "Initialisation."
         
         # Initial message length in bits(!).
@@ -131,6 +131,9 @@ class md5:
         # Call a separate init function, that can be used repeatedly
         # to start from scratch on the same object.
         self.init()
+
+        if arg:
+            self.update(arg)
 
 
     def init(self):
@@ -316,7 +319,7 @@ class md5:
         else:
             padLen = 120 - index
 
-        padding = ['\200'] + ['\000'] * 63
+        padding = [0o200] + [0] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).
@@ -346,7 +349,7 @@ class md5:
         binary environments.
         """
 
-        return ''.join(['%02x' % ord(c) for c in self.digest()])
+        return ''.join(['%02x' % c for c in self.digest()])
 
     def copy(self):
         """Return a clone object.

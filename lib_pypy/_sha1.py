@@ -35,7 +35,7 @@ def _long2bytesBigEndian(n, blocksize=0):
     """
 
     # After much testing, this algorithm was deemed to be the fastest.
-    s = ''
+    s = b''
     pack = struct.pack
     while n > 0:
         s = pack('>I', n & 0xffffffffL) + s
@@ -69,10 +69,10 @@ def _bytelist2longBigEndian(list):
     j = 0
     i = 0
     while i < imax:
-        b0 = long(ord(list[j])) << 24
-        b1 = long(ord(list[j+1])) << 16
-        b2 = long(ord(list[j+2])) << 8
-        b3 = long(ord(list[j+3]))
+        b0 = list[j] << 24
+        b1 = list[j+1] << 16
+        b2 = list[j+2] << 8
+        b3 = list[j+3]
         hl[i] = b0 | b1 | b2 | b3
         i = i+1
         j = j+4
@@ -280,7 +280,7 @@ class sha:
         else:
             padLen = 120 - index
 
-        padding = ['\200'] + ['\000'] * 63
+        padding = [0o200] + [0] * 63
         self.update(padding[:padLen])
 
         # Append length (before padding).
@@ -314,7 +314,7 @@ class sha:
         used to exchange the value safely in email or other non-
         binary environments.
         """
-        return ''.join(['%02x' % ord(c) for c in self.digest()])
+        return ''.join(['%02x' % c for c in self.digest()])
 
     def copy(self):
         """Return a clone object.
