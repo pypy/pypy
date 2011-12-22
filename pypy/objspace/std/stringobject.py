@@ -510,16 +510,6 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     return space.wrap(res)
 
-def _replace_overflow_check(space, builder, new_piece):
-    # Checks if adding new_piece chars to the builder would overflow, and
-    # converts into an OverflowError.
-    try:
-        ovfcheck(builder.getlength() + new_piece)
-    except OverflowError:
-        raise OperationError(space.w_OverflowError,
-            space.wrap("replace string is too long")
-        )
-
 def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
@@ -548,7 +538,19 @@ def _string_replace(space, input, sub, by, maxsplit):
         builder.append_slice(input, upper, len(input))
     else:
         # An ok guess for the result size
-        builder = StringBuilder(len(input))
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string is too long")
+            )
+
+        builder = StringBuilder(result_size)
         start = 0
         sublen = len(sub)
         first = True
@@ -558,18 +560,14 @@ def _string_replace(space, input, sub, by, maxsplit):
             if next < 0:
                 break
             if not first:
-                _replace_overflow_check(space, builder, len(by))
                 builder.append(by)
             first = False
-            _replace_overflow_check(space, builder, next - start)
             builder.append_slice(input, start, next)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         if not first:
-            _replace_overflow_check(space, builder, len(by))
             builder.append(by)
-        _replace_overflow_check(space, builder, len(input) - start)
         builder.append_slice(input, start, len(input))
 
     return space.wrap(builder.build())
