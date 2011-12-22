@@ -1077,6 +1077,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = ones((1, 2, 3))
         assert a[0, 1, 2] == 1.0
 
+    def test_multidim_setslice(self):
+        from numpypy import zeros, ones
+        a = zeros((3, 3))
+        b = ones((3, 3))
+        a[:,1:3] = b[:,1:3]
+        assert (a == [[0, 1, 1], [0, 1, 1], [0, 1, 1]]).all()
+        a = zeros((3, 3))
+        b = ones((3, 3))
+        a[:,::2] = b[:,::2]
+        assert (a == [[1, 0, 1], [1, 0, 1], [1, 0, 1]]).all()
+
     def test_broadcast_ufunc(self):
         from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])

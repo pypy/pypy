@@ -385,3 +385,32 @@ def test_random_mixed():
             assert read(loc, WORD) == src_values1[i]
         for i, loc in enumerate(dst_locations2):
             assert read(loc, 8) == src_values2[i]
+
+
+def test_overflow_bug():
+    CASE = [
+        (-144, -248),   # \ cycle
+        (-248, -144),   # /
+        (-488, -416),   # \ two usages of -488
+        (-488, -480),   # /
+        (-488, -488),   # - one self-application of -488
+        ]
+    class FakeAssembler:
+        def regalloc_mov(self, src, dst):
+            print "mov", src, dst
+        def regalloc_push(self, x):
+            print "push", x
+        def regalloc_pop(self, x):
+            print "pop", x
+        def regalloc_immedmem2mem(self, x, y):
+            print "?????????????????????????"
+    def main():
+        srclocs = [StackLoc(9999, x, 'i') for x,y in CASE]
+        dstlocs = [StackLoc(9999, y, 'i') for x,y in CASE]
+        remap_frame_layout(FakeAssembler(), srclocs, dstlocs, eax)
+    # it works when run directly
+    main()
+    # but it used to crash when translated,
+    # because of a -sys.maxint-2 overflowing to sys.maxint
+    from pypy.rpython.test.test_llinterp import interpret
+    interpret(main, [])

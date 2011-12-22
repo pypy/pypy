@@ -510,6 +510,16 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     return space.wrap(res)
 
+def _replace_overflow_check(space, builder, new_piece):
+    # Checks if adding new_piece chars to the builder would overflow, and
+    # converts into an OverflowError.
+    try:
+        ovfcheck(builder.getlength() + new_piece)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("replace string is too long")
+        )
+
 def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
@@ -519,7 +529,7 @@ def _string_replace(space, input, sub, by, maxsplit):
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        
+
         try:
             result_size = ovfcheck(upper * len(by))
             result_size = ovfcheck(result_size + upper)
@@ -548,14 +558,18 @@ def _string_replace(space, input, sub, by, maxsplit):
             if next < 0:
                 break
             if not first:
+                _replace_overflow_check(space, builder, len(by))
                 builder.append(by)
             first = False
+            _replace_overflow_check(space, builder, next - start)
             builder.append_slice(input, start, next)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         if not first:
+            _replace_overflow_check(space, builder, len(by))
             builder.append(by)
+        _replace_overflow_check(space, builder, len(input) - start)
         builder.append_slice(input, start, len(input))
 
     return space.wrap(builder.build())

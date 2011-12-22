@@ -6,7 +6,7 @@ from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import rpoll
+from pypy.rlib import rpoll, rsocket
 import sys
 
 READABLE = 1
@@ -252,7 +252,9 @@ class W_FileConnection(W_BaseConnection):
         # "header" and the "body" of the message and send them at once.
         message = lltype.malloc(rffi.CCHARP.TO, size + 4, flavor='raw')
         try:
-            rffi.cast(rffi.UINTP, message)[0] = rffi.r_uint(size) # XXX htonl!
+            length = rffi.r_uint(rsocket.htonl(
+                    rffi.cast(lltype.Unsigned, size)))
+            rffi.cast(rffi.UINTP, message)[0] = length
             i = size - 1
             while i >= 0:
                 message[4 + i] = buffer[offset + i]
@@ -264,7 +266,8 @@ class W_FileConnection(W_BaseConnection):
     def do_recv_string(self, space, buflength, maxlength):
         with lltype.scoped_alloc(rffi.CArrayPtr(rffi.UINT).TO, 1) as length_ptr:
             self._recvall(space, rffi.cast(rffi.CCHARP, length_ptr), 4)
-            length = intmask(length_ptr[0])
+            length = intmask(rsocket.ntohl(
+                    rffi.cast(lltype.Unsigned, length_ptr[0])))
         if length > maxlength: # bad message, close connection
             self.flags &= ~READABLE
             if self.flags == 0:
