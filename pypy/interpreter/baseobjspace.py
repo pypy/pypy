@@ -1012,10 +1012,7 @@ class ObjSpace(object):
         return None
 
     def callable(self, w_obj):
-        if self.lookup(w_obj, "__call__") is not None:
-            return self.w_True
-        else:
-            return self.w_None
+        return self.wrap(self.lookup(w_obj, "__call__") is not None)
 
     def issequence_w(self, w_obj):
         return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
