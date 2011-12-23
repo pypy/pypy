@@ -521,14 +521,20 @@ class TestDebuggingAssembler(object):
 
         loop = """
         [i0]
-        label(i0, descr=targettoken)
+        label(i0, descr=preambletoken)
         debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
-        jump(i1, descr=targettoken)
+        label(i1, descr=targettoken)
+        debug_merge_point('xyz', 0)
+        i11 = int_add(i1, 1)
+        i12 = int_ge(i11, 10)
+        guard_false(i12) []
+        jump(i11, descr=targettoken)
         """
-        ops = parse(loop, namespace={'targettoken': TargetToken()})
+        ops = parse(loop, namespace={'targettoken': TargetToken(),
+                                     'preambletoken': TargetToken()})
         debug._log = dlog = debug.DebugLog()
         try:
             self.cpu.assembler.set_debug(True)
@@ -537,6 +543,8 @@ class TestDebuggingAssembler(object):
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[1]
             assert struct.i == 10
             self.cpu.finish_once()
         finally:
