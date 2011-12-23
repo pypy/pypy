@@ -17,6 +17,40 @@ class BaseTestGenerator(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 358
 
+    def test_cannot_merge(self):
+        # merging two different generators is not supported
+        # right now, but we can use workarounds like here
+        class MyGen:
+            def next(self):
+                raise NotImplementedError
+        class MyG1(MyGen):
+            def __init__(self, a):
+                self._gen = self.g1(a)
+            def next(self):
+                return self._gen.next()
+            @staticmethod
+            def g1(a):
+                yield a + 1
+                yield a + 2
+        class MyG2(MyGen):
+            def __init__(self):
+                self._gen = self.g2()
+            def next(self):
+                return self._gen.next()
+            @staticmethod
+            def g2():
+                yield 42
+        def f(n):
+            if n > 0:
+                gen = MyG1(n)
+            else:
+                gen = MyG2()
+            return gen.next()
+        res = self.interpret(f, [10])
+        assert res == 11
+        res = self.interpret(f, [0])
+        assert res == 42
+
 
 class TestLLtype(BaseTestGenerator, LLRtypeMixin):
     pass
