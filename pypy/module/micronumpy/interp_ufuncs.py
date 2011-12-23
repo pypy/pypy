@@ -49,7 +49,7 @@ class W_Ufunc(Wrappable):
     def descr_reduce(self, space, w_obj):
         return self.reduce(space, w_obj, multidim=False)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest):
+    def reduce(self, space, w_obj, multidim):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         
         if self.argcount != 2:
@@ -136,19 +136,12 @@ class W_Ufunc2(W_Ufunc):
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
         self.comparison_func = comparison_func
-        self.signature = signature.Call2(func)
-        self.reduce_signature = signature.BaseSignature()
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement)
-        #TODO: use of w_ssd, w_osd can be optimized.
-        if len(args_w)<4:
-            [w_lhs, w_rhs] = args_w
-            w_ssd = space.newlist([space.wrap(-1)]*2)
-            w_osd = space.newlist([space.wrap(-1)]*2)
-        else:
-            [w_lhs, w_rhs, w_ssd, w_osd] = args_w
+
+        [w_lhs, w_rhs] = args_w
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
         calc_dtype = find_binop_result_dtype(space,
@@ -166,17 +159,10 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
 
-        new_shape = []
-        ssd = [space.int_w(s) for s in space.listview(w_ssd)]
-        osd = [space.int_w(s) for s in space.listview(w_osd)]
-        if  ssd[0]<0:
-            new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
-        else:
-            #Assumption (should have been checked in call): 
-            #w_lhs.shape[ssd[1]] == w_rhs.shape[osd[1]]
-            new_shape = [w_lhs.shape[ssd[1]]]
-        w_res = Call2(new_sig, new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs, ssd, osd)
+        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        w_res = Call2(self.func, self.name,
+                      new_shape, calc_dtype,
+                      res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

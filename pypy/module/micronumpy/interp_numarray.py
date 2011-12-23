@@ -280,14 +280,13 @@ class BaseArray(Wrappable):
     def _reduce_ufunc_impl(ufunc_name):
         def impl(self, space):
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                   self, multidim=True, promote_to_largest=promote_to_largest)
+                   self, multidim=True)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
-    descr_sum = _reduce_ufunc_impl("add", False)
-    descr_prod = _reduce_ufunc_impl("multiply", False)
-    descr_max = _reduce_ufunc_impl("maximum", False)
-    descr_min = _reduce_ufunc_impl("minimum", False)
-    descr_sumpromote = _reduce_ufunc_impl("add", True)
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_prod = _reduce_ufunc_impl("multiply")
+    descr_max = _reduce_ufunc_impl("maximum")
+    descr_min = _reduce_ufunc_impl("minimum")
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
@@ -631,7 +630,7 @@ class BaseArray(Wrappable):
         return w_result
 
     def descr_mean(self, space):
-        return space.div(self.descr_sumpromote(space), 
+        return space.div(self.descr_sum(space), 
                          space.wrap(self.size))
 
     def descr_nonzero(self, space):

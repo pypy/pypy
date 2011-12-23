@@ -716,7 +716,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         b = a.sum()
         assert b == 10
-        assert isinstance(b,int)
         assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
