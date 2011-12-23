@@ -1034,7 +1034,11 @@ class Regalloc(object):
         self.assembler.emit_op_call(op, args, self, fcond, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
+            if op.result:
+                result_loc = self.call_result_location(op.result)
+            else:
+                result_loc = None
+            self.assembler.call_reacquire_gil(gcrootmap, result_loc, fcond)
         locs = self._prepare_guard(guard_op)
         return locs
 

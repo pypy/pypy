@@ -367,10 +367,10 @@ class OpAssembler(object):
         self.gen_func_epilog()
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond, force_index=-1):
+    def emit_op_call(self, op, args, regalloc, fcond, force_index=NO_FORCE_INDEX):
         adr = args[0].value
         arglist = op.getarglist()[1:]
-        if force_index == -1:
+        if force_index == NO_FORCE_INDEX:
             force_index = self.write_new_force_index()
         cond =  self._emit_call(force_index, adr, arglist, 
                                     regalloc, fcond, op.result)
@@ -1122,15 +1122,18 @@ class ForceOpAssembler(object):
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
         # XXX like with call_release_gil(), we assume that we don't need
-        # to save vfp regs in this case.
+        # to save vfp regs in this case. Besides the result location
         regs_to_save = []
+        vfp_regs_to_save = []
         if save_loc.is_reg():
             regs_to_save.append(save_loc)
+        if save_loc.is_vfp_reg():
+            vfp_regs_to_save.append(save_loc)
         # call the reopenstack() function (also reacquiring the GIL)
-        if len(regs_to_save) == 1:
+        if len(regs_to_save) % 2 != 1:
             regs_to_save.append(r.ip) # for alingment
         assert gcrootmap.is_shadow_stack
-        with saved_registers(self.mc, regs_to_save):
+        with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
             self._emit_call(NO_FORCE_INDEX, self.reacqgil_addr, [], self._regalloc, fcond)
 
     def write_new_force_index(self):
