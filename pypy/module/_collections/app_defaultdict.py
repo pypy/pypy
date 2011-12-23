@@ -38,7 +38,7 @@ class defaultdict(dict):
             recurse.remove(id(self))
 
     def copy(self):
-        return type(self)(self, default_factory=self.default_factory)
+        return type(self)(self.default_factory, self)
     
     def __copy__(self):
         return self.copy()

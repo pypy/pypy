@@ -89,6 +89,28 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i])
             assert res is True
 
+    def test_iter_over_char(self):
+        const = self.const
+        def fn(i):
+            for c in const('a'):
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [0])
+        assert res == ord('a') + 10000
+
+    def test_iter_over_nonconst_char(self):
+        const = self.const
+        def fn(i):
+            if i > 0:
+                c = const('a')
+            else:
+                c = const('A')
+            for c in c:
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [1])
+        assert res == 1 + ord('a') + 10000
+
     def test_char_constant(self):
         const = self.const
         def fn(s):

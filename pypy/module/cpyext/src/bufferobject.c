@@ -4,17 +4,6 @@
 #include "Python.h"
 
 
-typedef struct {
-	PyObject_HEAD
-	PyObject *b_base;
-	void *b_ptr;
-	Py_ssize_t b_size;
-	Py_ssize_t b_offset;
-	int b_readonly;
-	long b_hash;
-} PyBufferObject;
-
-
 enum buffer_t {
     READ_BUFFER,
     WRITE_BUFFER,

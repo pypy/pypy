@@ -374,6 +374,7 @@ def round_up_for_allocation(size, minsize=0):
     following an object.  For arenas containing heterogenous objects.
     If minsize is specified, it gives a minimum on the resulting size."""
     return _round_up_for_allocation(size, minsize)
+round_up_for_allocation._annenforceargs_ = [int, int]
 
 def _round_up_for_allocation(size, minsize):    # internal
     return RoundedUpForAllocation(size, minsize)

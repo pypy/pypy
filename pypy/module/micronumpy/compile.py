@@ -39,6 +39,7 @@ class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
     w_IndexError = None
+    w_OverflowError = None
     w_None = None
 
     w_bool = "bool"
@@ -149,6 +150,10 @@ class FakeSpace(object):
             return len(w_obj.items)
         # XXX array probably
         assert False
+
+    def exception_match(self, w_exc_type, w_check_class):
+        # Good enough for now
+        raise NotImplementedError
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float

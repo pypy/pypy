@@ -75,12 +75,12 @@ class TestCall(BaseTestPyPyC):
         assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            p38 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
-            p39 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
+            p38 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
+            p39 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
-            p41 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
+            p41 = getfield_gc(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_isnull(p41, descr=...)
-            i42 = getfield_gc(p38, descr=<NonGcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
+            i42 = getfield_gc(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i43 = int_is_zero(i42)
             guard_true(i43, descr=...)
             i50 = force_token()
@@ -99,7 +99,7 @@ class TestCall(BaseTestPyPyC):
             i15 = int_add_ovf(i12, 1)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=...)
         """)
 
     def test_method_call(self):
@@ -142,7 +142,7 @@ class TestCall(BaseTestPyPyC):
             i19 = int_add_ovf(i10, i17)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=...)
         """)
 
     def test_static_classmethod_call(self):
@@ -174,7 +174,7 @@ class TestCall(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = force_token()
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_default_and_kw(self):
@@ -192,7 +192,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
-            p14 = getarrayitem_gc_pure(p8, i9, descr=<GcPtrArrayDescr>)
+            p14 = getarrayitem_gc_pure(p8, i9, descr=<ArrayP .>)
             i14 = force_token()
             i16 = force_token()
         """)
@@ -336,15 +336,15 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         # the int strategy is used here
         assert loop.match_by_id('append', """
-            i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
+            i13 = getfield_gc(p8, descr=<FieldS list.length .*>)
             i15 = int_add(i13, 1)
             # Will be killed by the backend
-            p15 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
-            i17 = arraylen_gc(p15, descr=<SignedArrayDescr>)
-            call(_, p8, i15, descr=<VoidCallDescr>) # this is a call to _ll_list_resize_ge_trampoline__...
+            p15 = getfield_gc(p8, descr=<FieldP list.items .*>)
+            i17 = arraylen_gc(p15, descr=<ArrayS .>)
+            call(_, p8, i15, descr=<Callv 0 ri EF=4>) # this is a call to _ll_list_resize_ge_trampoline__...
             guard_no_exception(descr=...)
-            p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
-            setarrayitem_gc(p17, i13, i12, descr=<SignedArrayDescr>)
+            p17 = getfield_gc(p8, descr=<FieldP list.items .*>)
+            setarrayitem_gc(p17, i13, i12, descr=<ArrayS .>)
         """)
 
     def test_blockstack_virtualizable(self):
@@ -368,13 +368,13 @@ class TestCall(BaseTestPyPyC):
             ...
             i20 = force_token()
             p22 = new_with_vtable(19511408)
-            p24 = new_array(1, descr=<GcPtrArrayDescr>)
+            p24 = new_array(1, descr=<ArrayP .>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
-            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
-            setfield_gc(p26, ConstPtr(ptr22), descr=<GcPtrFieldDescr pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
-            setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
-            setfield_gc(p22, p24, descr=<GcPtrFieldDescr .*Arguments.inst_arguments_w .*>)
-            p32 = call_may_force(11376960, p18, p22, descr=<GcPtrCallDescr>)
+            setfield_gc(p0, i20, descr=<FieldS .*PyFrame.vable_token .*>)
+            setfield_gc(p26, ConstPtr(ptr22), descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
+            setarrayitem_gc(p24, 0, p26, descr=<ArrayP .>)
+            setfield_gc(p22, p24, descr=<FieldP .*Arguments.inst_arguments_w .*>)
+            p32 = call_may_force(11376960, p18, p22, descr=<Callr . rr EF=6>)
             ...
         """)
 
@@ -394,7 +394,7 @@ class TestCall(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i120 = int_add(i5, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_global_closure_has_constant_cells(self):
@@ -415,30 +415,30 @@ class TestCall(BaseTestPyPyC):
             guard_nonnull_class(p8, ConstClass(W_IntObject), descr=...)
             guard_value(i4, 0, descr=...)
             guard_value(p3, ConstPtr(ptr14), descr=...)
-            i15 = getfield_gc_pure(p8, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i15 = getfield_gc_pure(p8, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i17 = int_lt(i15, 5000)
             guard_true(i17, descr=...)
-            p18 = getfield_gc(p0, descr=<GcPtrFieldDescr pypy.interpreter.eval.Frame.inst_w_globals .*>)
+            p18 = getfield_gc(p0, descr=<FieldP pypy.interpreter.eval.Frame.inst_w_globals .*>)
             guard_value(p18, ConstPtr(ptr19), descr=...)
-            p20 = getfield_gc(p18, descr=<GcPtrFieldDescr pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
+            p20 = getfield_gc(p18, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
             guard_value(p20, ConstPtr(ptr21), descr=...)
             guard_not_invalidated(descr=...)
             # most importantly, there is no getarrayitem_gc here
-            p23 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
-            p24 = getfield_gc(p23, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
+            p23 = call(ConstClass(getexecutioncontext), descr=<Callr . EF=1>)
+            p24 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i25 = force_token()
-            p26 = getfield_gc(p23, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
+            p26 = getfield_gc(p23, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_isnull(p26, descr=...)
-            i27 = getfield_gc(p23, descr=<NonGcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
+            i27 = getfield_gc(p23, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i28 = int_is_zero(i27)
             guard_true(i28, descr=...)
-            p30 = getfield_gc(ConstPtr(ptr29), descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
+            p30 = getfield_gc(ConstPtr(ptr29), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
             guard_nonnull_class(p30, ConstClass(W_IntObject), descr=...)
-            i32 = getfield_gc_pure(p30, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i32 = getfield_gc_pure(p30, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i33 = int_add_ovf(i15, i32)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=<Loop0>)
+            p39 = same_as(...) # Should be killed by backend
         """)
 
     def test_local_closure_is_virtual(self):
@@ -452,16 +452,16 @@ class TestCall(BaseTestPyPyC):
             """, [])
         loop, = log.loops_by_id('call')
         assert loop.match("""
-            i8 = getfield_gc_pure(p6, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            i8 = getfield_gc_pure(p6, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i10 = int_lt(i8, 5000)
             guard_true(i10, descr=...)
             i11 = force_token()
             i13 = int_add(i8, 1)
             --TICK--
             p22 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+            setfield_gc(p22, i13, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
+            setfield_gc(p4, p22, descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=...)
         """)
 
     def test_kwargs_virtual(self):
