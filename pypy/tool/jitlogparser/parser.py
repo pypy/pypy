@@ -387,6 +387,25 @@ def import_log(logname, ParserCls=SimpleParser):
         loops.append(loop)
     return log, loops
 
+class Part(object):
+    def __init__(self, trace, operations):
+        self.trace = trace
+        self.operations = operations
+
+    def __len___(self):
+        return len(self.operations)
+
+def split_trace(trace):
+    labels = [i for i, op in enumerate(trace.operations)
+              if op.name == 'label']
+    labels = [0] + labels + [len(trace.operations) - 1]
+    parts = []
+    for i in range(len(labels) - 1):
+        start, stop = labels[i], labels[i+1]
+        
+        parts.append(Part(trace, trace.operations[start : stop + 1]))
+    
+    return parts
 
 def parse_log_counts(input, loops):
     if not input:
