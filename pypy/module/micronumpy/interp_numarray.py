@@ -921,9 +921,7 @@ class ConcreteArray(BaseArray):
                             builder.append('\n' + indent)
                         else:
                             builder.append(indent)
-                    # create_slice requires len(chunks) > 1 in order to reduce
-                    # shape
-                    view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
+                    view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
                     view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 builder.append('\n' + indent + '..., ')
                 i = self.shape[0] - 3
