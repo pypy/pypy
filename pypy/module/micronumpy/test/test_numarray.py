@@ -718,7 +718,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
-        
+
         raises(TypeError, 'a.sum(2, 3)')
         a = arange(15).reshape(5, 3)
         assert (a.sum(0) == [30, 35, 40]).all()
@@ -730,19 +730,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = identity(0)
         assert len(a) == 0
         assert a.dtype == dtype('float64')
-        assert a.shape == (0,0)
+        assert a.shape == (0, 0)
         b = identity(1, dtype=int32)
         assert len(b) == 1
         assert b[0][0] == 1
-        assert b.shape == (1,1)
+        assert b.shape == (1, 1)
         assert b.dtype == dtype('int32')
         c = identity(2)
-        assert c.shape == (2,2)
-        assert (c == [[1,0],[0,1]]).all()
+        assert c.shape == (2, 2)
+        assert (c == [[1, 0], [0, 1]]).all()
         d = identity(3, dtype='int32')
-        assert d.shape == (3,3)
+        assert d.shape == (3, 3)
         assert d.dtype == dtype('int32')
-        assert (d == [[1,0,0],[0,1,0],[0,0,1]]).all()
+        assert (d == [[1, 0, 0], [0, 1, 0], [0, 0, 1]]).all()
 
     def test_prod(self):
         from numpypy import array
@@ -950,13 +950,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_tolist_view(self):
         from numpypy import array
-        a = array([[1,2],[3,4]])
+        a = array([[1, 2], [3, 4]])
         assert (a + a).tolist() == [[2, 4], [6, 8]]
 
     def test_tolist_slice(self):
         from numpypy import array
         a = array([[17.1, 27.2], [40.3, 50.3]])
-        assert a[:,0].tolist() == [17.1, 40.3]
+        assert a[:, 0].tolist() == [17.1, 40.3]
         assert a[0].tolist() == [17.1, 27.2]
 
 
@@ -1086,11 +1086,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import zeros, ones
         a = zeros((3, 3))
         b = ones((3, 3))
-        a[:,1:3] = b[:,1:3]
+        a[:, 1:3] = b[:, 1:3]
         assert (a == [[0, 1, 1], [0, 1, 1], [0, 1, 1]]).all()
         a = zeros((3, 3))
         b = ones((3, 3))
-        a[:,::2] = b[:,::2]
+        a[:, ::2] = b[:, ::2]
         assert (a == [[1, 0, 1], [1, 0, 1], [1, 0, 1]]).all()
 
     def test_broadcast_ufunc(self):
@@ -1271,17 +1271,17 @@ class AppTestSupport(BaseNumpyAppTest):
         assert g[1] == 2
         assert g[2] == 3
         h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
-        assert (h == [1,0,2,3]).all()
+        assert (h == [1, 0, 2, 3]).all()
         i = fromstring("1    2 3", dtype=uint8, sep=" ")
-        assert (i == [1,2,3]).all()
+        assert (i == [1, 2, 3]).all()
         j = fromstring("1\t\t\t\t2\t3", dtype=uint8, sep="\t")
-        assert (j == [1,2,3]).all()
+        assert (j == [1, 2, 3]).all()
         k = fromstring("1,x,2,3", dtype=uint8, sep=",")
-        assert (k == [1,0]).all()
+        assert (k == [1, 0]).all()
         l = fromstring("1,x,2,3", dtype='float32', sep=",")
-        assert (l == [1.0,-1.0]).all()
+        assert (l == [1.0, -1.0]).all()
         m = fromstring("1,,2,3", sep=",")
-        assert (m == [1.0,-1.0,2.0,3.0]).all()
+        assert (m == [1.0, -1.0, 2.0, 3.0]).all()
         n = fromstring("3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
         assert (n == [3]).all()
         o = fromstring("1.0 2f.0f 3.8 2.2", dtype=float32, sep=" ")
@@ -1328,7 +1328,6 @@ class AppTestSupport(BaseNumpyAppTest):
         assert i[0] == float64(300.4)
         j = fromstring(self.ulongval, dtype='L')
         assert j[0] == 12
-
 
     def test_fromstring_invalid(self):
         from numpypy import fromstring, uint16, uint8, int32

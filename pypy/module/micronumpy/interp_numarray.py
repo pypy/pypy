@@ -277,10 +277,11 @@ class BaseArray(Wrappable):
     descr_rdiv = _binop_right_impl("divide")
     descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
-
+    
     def _reduce_ufunc_impl(ufunc_name):
-        def impl(self, space, args_w):
-            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space, self, True, args_w)
+        def impl(self, space, w_dim=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
+                                                       self, True, w_dim)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")

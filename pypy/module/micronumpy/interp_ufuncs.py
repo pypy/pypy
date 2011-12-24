@@ -47,19 +47,16 @@ class W_Ufunc(Wrappable):
         return self.call(space, __args__.arguments_w)
 
     def descr_reduce(self, space, w_obj):
-        return self.reduce(space, w_obj, False)
+        return self.reduce(space, w_obj, False, space.wrap(-1))
 
-    def reduce(self, space, w_obj, multidim, args_w):
+    def reduce(self, space, w_obj, multidim, w_dim):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
         dim = -1
-        if multidim and len(args_w)>0:
-            dim = space.int_w(args_w[0])
-        if len(args_w)>1:
-            raise OperationError(space.w_TypeError, space.wrap(
-                 self.name + " recieved extra arguments"))
+        if not space.is_w(w_dim, space.w_None):
+            dim = space.int_w(w_dim)
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if isinstance(obj, Scalar):
@@ -72,6 +69,7 @@ class W_Ufunc(Wrappable):
             promote_to_largest=True
         )
         shapelen = len(obj.shape)
+        #TODO: if dim>=0 return a ArraySignature?
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)
