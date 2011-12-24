@@ -613,7 +613,10 @@ class Assembler386(object):
         struct.bridge = int(bridge)
         struct.number = number
         self.loop_run_counters.append(struct)
-        self.loop_run_counter_tokens.append(token.repr_of_descr())
+        if token is not None:
+            self.loop_run_counter_tokens.append(token.repr_of_descr())
+        else:
+            self.loop_run_counter_tokens.append(None)
         return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):
