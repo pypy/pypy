@@ -361,22 +361,6 @@ class BaseArray(Wrappable):
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
-    def _binop_impl_one_dim(ufunc_name):
-        #The third and fourth arguments allow the operator to proceed on a
-        #single dimension starting at a particular index
-        #i.e. ssd => self start, dimension; osd => other start, dimension
-        def impl(self, space, w_other, w_ssd, w_osd):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
-                                         [self, w_other, w_ssd, w_osd])
-        return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
-
-    descr_add1d = _binop_impl_one_dim("add")
-    descr_sub1d = _binop_impl_one_dim("subtract")
-    descr_mul1d = _binop_impl_one_dim("multiply")
-    descr_div1d = _binop_impl_one_dim("divide")
-    descr_pow1d = _binop_impl_one_dim("power")
-    descr_mod1d = _binop_impl_one_dim("mod")
-
     def descr_dot(self, space, w_other):
         '''Dot product of two arrays.
 
@@ -396,7 +380,7 @@ class BaseArray(Wrappable):
             return w_res.descr_sum(space)
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.find_dtype(), w_other.find_dtype())
-        if self.find_size() < 1 and w_other.find_size() < 1:
+        if self.size < 1 and w_other.size < 1:
             #numpy compatability
             return scalar_w(space, dtype, space.wrap(0))
         #Do the dims match?
@@ -414,7 +398,7 @@ class BaseArray(Wrappable):
                          w_other.shape[0:other_critical_dim] + \
                          w_other.shape[other_critical_dim + 1:]
         elif len(w_other.shape) > 0:
-            #dot does not reduce
+            #dot does not reduce for scalars
             out_shape += self.shape[:-1]
         if my_critical_dim_size != other_critical_dim_size:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -425,7 +409,7 @@ class BaseArray(Wrappable):
         out_ndims = len(out_shape)
         #TODO: what should the order be? C or F?
         arr = W_NDimArray(out_size, out_shape, dtype=dtype)
-        out_iter = ViewIterator(arr)
+        out_iter = view_iter_from_arr(arr)
         #TODO: invalidate self, w_other with arr ?
         while not out_iter.done():
             my_index = self.start
@@ -441,7 +425,7 @@ class BaseArray(Wrappable):
                                    space.wrap(len(self.shape) - 1)])
             w_osd = space.newlist([space.wrap(other_index),
                                    space.wrap(other_critical_dim)])
-            w_res = self.descr_mul1d(space, w_other, w_ssd, w_osd)
+            w_res = self.descr_mul(space, w_other)
             assert isinstance(w_res, BaseArray)
             value = w_res.descr_sum(space)
             arr.setitem(out_iter.get_offset(), value)
@@ -952,9 +936,7 @@ class ConcreteArray(BaseArray):
                         builder.append('\n' + indent)
                     else:
                         builder.append(indent)
-                # create_slice requires len(chunks) > 1 in order to reduce
-                # shape
-                view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
+                view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
                 view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 i += 1
         elif ndims == 1:
