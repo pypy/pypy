@@ -25,6 +25,30 @@ def mean(a):
     return a.mean()
 
 def sum(a):
+    '''sum(a, axis=None)
+    Sum of array elements over a given axis.
+    
+    Parameters
+    ----------
+    a : array_like
+        Elements to sum.
+    axis : integer, optional
+        Axis over which the sum is taken. By default `axis` is None,
+        and all elements are summed.
+    
+    Returns
+    -------
+    sum_along_axis : ndarray
+        An array with the same shape as `a`, with the specified
+        axis removed.   If `a` is a 0-d array, or if `axis` is None, a scalar
+        is returned.  If an output array is specified, a reference to
+        `out` is returned.
+    
+    See Also
+    --------
+    ndarray.sum : Equivalent method.
+    '''
+    # TODO: add to doc (once it's implemented): cumsum : Cumulative sum of array elements.
     if not hasattr(a, "sum"):
         a = numpypy.array(a)
     return a.sum()

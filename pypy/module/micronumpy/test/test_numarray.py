@@ -711,13 +711,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:4].mean() == 1.5
 
     def test_sum(self):
-        from numpypy import array
+        from numpypy import array, arange
         a = array(range(5))
         assert a.sum() == 10.0
         assert a[:4].sum() == 6.0
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
+        
+        raises(TypeError, 'a.sum(2, 3)')
+        a = arange(15).reshape(5, 3)
+        assert (a.sum(0) == [30, 35, 40]).all()
+        assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
 
     def test_identity(self):
         from numpypy import identity, array
