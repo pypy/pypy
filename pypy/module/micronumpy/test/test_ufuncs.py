@@ -339,12 +339,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, add.reduce, 1)
 
     def test_reduce(self):
-        from numpypy import add, maximum
+        from numpypy import add, maximum, arange
 
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+        a = arange(12).reshape(3,4)
+        assert add.reduce(a, 0) == add.reduce(a)
+        assert (add.reduce(a, 1) == [ 6, 22, 38]).all()
 
     def test_comparisons(self):
         import operator
