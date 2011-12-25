@@ -402,7 +402,6 @@ def split_trace(trace):
     parts = []
     for i in range(len(labels) - 1):
         start, stop = labels[i], labels[i+1]
-        
         parts.append(Part(trace, trace.operations[start : stop + 1]))
     
     return parts

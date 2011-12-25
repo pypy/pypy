@@ -39,6 +39,7 @@ from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -76,7 +77,6 @@ class Assembler386(object):
                                              failargs_limit)
         self.fail_ebp = 0
         self.loop_run_counters = []
-        self.loop_run_counter_tokens = []
         self.float_const_neg_addr = 0
         self.float_const_abs_addr = 0
         self.malloc_slowpath1 = 0
@@ -150,14 +150,10 @@ class Assembler386(object):
             debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
                 struct = self.loop_run_counters[i]
-                token = self.loop_run_counter_tokens[i]
-                if token:
-                    prefix = token
+                if not struct.bridge:
+                    prefix = 'TargetToken(%d)' % struct.number
                 else:
-                    if struct.bridge:
-                        prefix = 'bridge ' + str(struct.number)
-                    else:
-                        prefix = 'loop ' + str(struct.number)
+                    prefix = 'bridge ' + str(struct.number)
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
@@ -611,12 +607,12 @@ class Assembler386(object):
                                track_allocation=False)
         struct.i = 0
         struct.bridge = int(bridge)
-        struct.number = number
-        self.loop_run_counters.append(struct)
-        if token is not None:
-            self.loop_run_counter_tokens.append(token.repr_of_descr())
+        if bridge:
+            struct.number = number
         else:
-            self.loop_run_counter_tokens.append(None)
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)            
         return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):

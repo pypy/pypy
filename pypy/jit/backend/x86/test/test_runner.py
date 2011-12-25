@@ -545,12 +545,8 @@ class TestDebuggingAssembler(object):
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 1
-            token = self.cpu.assembler.loop_run_counter_tokens[0]
-            assert token == preambletoken.repr_of_descr()
             struct = self.cpu.assembler.loop_run_counters[1]
             assert struct.i == 9
-            token = self.cpu.assembler.loop_run_counter_tokens[1]
-            assert token == targettoken.repr_of_descr()
             self.cpu.finish_once()
         finally:
             debug._log = None
