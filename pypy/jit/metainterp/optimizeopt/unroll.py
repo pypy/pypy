@@ -269,6 +269,8 @@ class UnrollOptimizer(Optimization):
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
                 if newresult is not op.result and not newvalue.is_constant():
+                    # XXX fix me?
+                    #self.short_boxes.alias(newresult, op.result)
                     op = ResOperation(rop.SAME_AS, [op.result], newresult)
                     self.optimizer._newoperations = [op] + self.optimizer._newoperations
         self.optimizer.flush()
