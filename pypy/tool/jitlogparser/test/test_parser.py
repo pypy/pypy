@@ -1,6 +1,6 @@
 from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            Function, adjust_bridges,
-                                           import_log, Op)
+                                           import_log, split_trace, Op)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 
@@ -231,3 +231,21 @@ def test_Op_repr_is_pure():
     myrepr = 'c = foobar(a, b, descr=mydescr)'
     assert op.repr() == myrepr
     assert op.repr() == myrepr # do it twice
+
+def test_split_trace():
+    loop = parse('''
+    [i7]
+    i9 = int_lt(i7, 1003)
+    label(i9)
+    guard_true(i9, descr=<Guard2>) []
+    i13 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    label(i13)
+    i19 = int_lt(i13, 1003)
+    guard_true(i19, descr=<Guard2>) []
+    i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    ''')
+    parts = split_trace(loop)
+    assert len(parts) == 3
+    assert len(parts[0].operations) == 2
+    assert len(parts[1].operations) == 4
+    assert len(parts[2].operations) == 4

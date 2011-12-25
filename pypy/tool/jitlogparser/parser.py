@@ -3,6 +3,7 @@ import re, sys
 from pypy.jit.metainterp.resoperation import opname
 from pypy.jit.tool.oparser import OpParser
 from pypy.tool.logparser import parse_log_file, extract_category
+from copy import copy
 
 class Op(object):
     bridge = None
@@ -387,6 +388,18 @@ def import_log(logname, ParserCls=SimpleParser):
         loops.append(loop)
     return log, loops
 
+def split_trace(trace):
+    labels = [i for i, op in enumerate(trace.operations)
+              if op.name == 'label']
+    labels = [0] + labels + [len(trace.operations) - 1]
+    parts = []
+    for i in range(len(labels) - 1):
+        start, stop = labels[i], labels[i+1]
+        part = copy(trace)
+        part.operations = trace.operations[start : stop + 1]
+        parts.append(part)
+    
+    return parts
 
 def parse_log_counts(input, loops):
     if not input:

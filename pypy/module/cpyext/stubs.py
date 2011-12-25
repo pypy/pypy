@@ -1,5 +1,5 @@
 from pypy.module.cpyext.api import (
-    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
+    cpython_api, PyObject, PyObjectP, CANNOT_FAIL, Py_buffer
     )
 from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -10,7 +10,6 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
-Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
 PyDateTime_Date = rffi.VOIDP
 PyDateTime_DateTime = rffi.VOIDP
@@ -176,13 +175,6 @@ def PyObject_GetBuffer(space, obj, view, flags):
 def PyBuffer_SizeFromFormat(space, format):
     """Return the implied ~Py_buffer.itemsize from the struct-stype
     ~Py_buffer.format."""
-    raise NotImplementedError
-
-@cpython_api([Py_buffer, lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
-def PyBuffer_IsContiguous(space, view, fortran):
-    """Return 1 if the memory defined by the view is C-style (fortran is
-    'C') or Fortran-style (fortran is 'F') contiguous or either one
-    (fortran is 'A').  Return 0 otherwise."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real, Py_ssize_t, Py_ssize_t, Py_ssize_t, lltype.Char], lltype.Void)

@@ -11,7 +11,6 @@ from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
-from pypy.jit.metainterp.optimize import RetraceLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 
 class TestBasic:
@@ -449,7 +448,7 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        bridge.start_resumedescr = FakeDescrWithSnapshot()
+        bridge.resume_at_jump_descr = FakeDescrWithSnapshot()
         optimize_trace(metainterp_sd, bridge, self.enable_opts)
 
         

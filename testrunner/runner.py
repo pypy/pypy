@@ -21,6 +21,16 @@ if sys.platform == 'win32':
                 win32api.CloseHandle(proch)
             except pywintypes.error, e:
                 pass
+    #Try to avoid opeing a dialog box if one of the tests causes a system error
+    import ctypes
+    winapi = ctypes.windll.kernel32
+    SEM_FAILCRITICALERRORS = 1
+    SEM_NOGPFAULTERRORBOX  = 2
+    SEM_NOOPENFILEERRORBOX = 0x8000
+    flags = SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX
+    #Since there is no GetErrorMode, do a double Set
+    old_mode = winapi.SetErrorMode(flags)
+    winapi.SetErrorMode(old_mode | flags)
 
     SIGKILL = SIGTERM = 0
     READ_MODE = 'rU'
