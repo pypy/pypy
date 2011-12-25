@@ -8,11 +8,12 @@ py.log.setconsumer('jitcodewriter', ansi_log)
 
 
 class JitPolicy(object):
-    def __init__(self):
+    def __init__(self, portal=None):
         self.unsafe_loopy_graphs = set()
         self.supports_floats = False
         self.supports_longlong = False
         self.supports_singlefloats = False
+        self.portal = portal
 
     def set_supports_floats(self, flag):
         self.supports_floats = flag

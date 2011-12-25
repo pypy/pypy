@@ -30,9 +30,11 @@ TOTAL_FREED_BRIDGES
 """
 
 def _setup():
+    counter_names = []
     names = counters.split()
     for i, name in enumerate(names):
         globals()[name] = i
+        counter_names.append(name)
     global ncounters
     ncounters = len(names)
 _setup()

@@ -211,6 +211,7 @@ class WarmRunnerDesc(object):
         self.make_driverhook_graphs()
         self.make_enter_functions()
         self.rewrite_jit_merge_points(policy)
+        self.make_portal_callbacks(policy.portal)
 
         verbose = False # not self.cpu.translate_support_code
         self.codewriter.make_jitcodes(verbose=verbose)
@@ -423,6 +424,15 @@ class WarmRunnerDesc(object):
     def make_enter_functions(self):
         for jd in self.jitdrivers_sd:
             self.make_enter_function(jd)
+
+    def make_portal_callbacks(self, portal):
+        if portal is not None:
+            def on_abort(reason):
+                portal.on_abort(reason)
+        else:
+            def on_abort(reason):
+                pass
+        self.on_abort = on_abort
 
     def make_enter_function(self, jd):
         from pypy.jit.metainterp.warmstate import WarmEnterState

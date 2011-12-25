@@ -1795,6 +1795,7 @@ class MetaInterp(object):
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
+        self.staticdata.warmrunnerdesc.on_abort(reason)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):

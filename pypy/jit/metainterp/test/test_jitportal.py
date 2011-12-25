@@ -1,13 +1,16 @@
 
 from pypy.rlib.jit import JitDriver, JitPortal
 from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.jit.codewriter.policy import PortalPolicy
+from pypy.jit.codewriter.policy import JitPolicy
+from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
 
 class TestJitPortal(LLJitMixin):
     def test_abort_quasi_immut(self):
+        reasons = []
+        
         class MyJitPortal(JitPortal):
-            def abort(self, *args):
-                xxxx
+            def on_abort(self, reason):
+                reasons.append(reason)
 
         portal = MyJitPortal()
 
@@ -29,6 +32,6 @@ class TestJitPortal(LLJitMixin):
             return total
         #
         assert f(100, 7) == 721
-        res = self.meta_interp(f, [100, 7], policy=PortalPolicy(portal))
+        res = self.meta_interp(f, [100, 7], policy=JitPolicy(portal))
         assert res == 721
-        
+        assert reasons == [ABORT_FORCE_QUASIIMMUT] * 2
