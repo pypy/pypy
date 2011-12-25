@@ -15,7 +15,7 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_FORCE_QUASIIMMUT
+                                        ABORT_FORCE_QUASIIMMUT, ABORT_BAD_LOOP
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.jit.metainterp.heapcache import HeapCache
 from pypy.rlib.objectmodel import specialize
