@@ -265,7 +265,13 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
                 newresult = newvalue.get_key_box()
-                assert newresult is op.result or newvalue.is_constant()
+                # note that emitting here SAME_AS should not happen, but
+                # in case it does, we would prefer to be suboptimal in asm
+                # to a fatal RPython exception.
+                if newresult is not op.result and not newvalue.is_constant():
+                    self.short_boxes.alias(newresult, op.result)
+                    op = ResOperation(rop.SAME_AS, [op.result], newresult)
+                    self.optimizer._newoperations = [op] + self.optimizer._newoperations
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
