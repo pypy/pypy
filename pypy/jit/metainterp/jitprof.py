@@ -29,8 +29,9 @@ TOTAL_FREED_LOOPS
 TOTAL_FREED_BRIDGES
 """
 
+counter_names = []
+
 def _setup():
-    counter_names = []
     names = counters.split()
     for i, name in enumerate(names):
         globals()[name] = i

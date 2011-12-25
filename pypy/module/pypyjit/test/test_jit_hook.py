@@ -10,8 +10,10 @@ from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
+from pypy.module.pypyjit.policy import pypy_portal
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
+from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
 
 class MockSD(object):
     class cpu(object):
@@ -46,9 +48,13 @@ class AppTestJitHook(object):
 
         def interp_on_compile_bridge():
             pypyjitdriver.on_compile_bridge(logger, JitCellToken(), oplist, 0)
+
+        def interp_on_abort():
+            pypy_portal.on_abort(ABORT_TOO_LONG)
         
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
+        cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
 
     def test_on_compile(self):
         import pypyjit
@@ -124,3 +130,14 @@ class AppTestJitHook(object):
         import pypyjit
         dmp = pypyjit.DebugMergePoint(0, 0, self.f.func_code)
         assert dmp.code is self.f.func_code 
+
+    def test_on_abort(self):
+        import pypyjit
+        l = []
+
+        def hook(reason):
+            l.append(reason)
+        
+        pypyjit.set_abort_hook(hook)
+        self.on_abort()
+        assert l == ['ABORT_TOO_LONG']

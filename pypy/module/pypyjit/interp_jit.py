@@ -229,6 +229,7 @@ class Cache(object):
 
     def __init__(self, space):
         self.w_compile_hook = space.w_None
+        self.w_abort_hook = space.w_None
 
 def set_compile_hook(space, w_hook):
     """ set_compile_hook(hook)
@@ -254,3 +255,16 @@ def set_compile_hook(space, w_hook):
     cache.w_compile_hook = w_hook
     cache.in_recursion = NonConstant(False)
     return space.w_None
+
+def set_abort_hook(space, w_hook):
+    """ set_abort_hook(hook)
+
+    Set a hook (callable) that will be called each time there is tracing
+    aborted due to some reason. The hook will be called with string describing
+    the reason as an argument
+    """
+    cache = space.fromcache(Cache)
+    cache.w_abort_hook = w_hook
+    cache.in_recursion = NonConstant(False)
+    return space.w_None
+    

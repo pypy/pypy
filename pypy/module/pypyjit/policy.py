@@ -1,4 +1,25 @@
 from pypy.jit.codewriter.policy import JitPolicy
+from pypy.rlib.jit import JitPortal
+from pypy.module.pypyjit.interp_jit import Cache
+from pypy.interpreter.error import OperationError
+from pypy.jit.metainterp.jitprof import counter_names
+
+class PyPyPortal(JitPortal):
+    def on_abort(self, reason):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
+        if space.is_true(cache.w_abort_hook):
+            cache.in_recursion = True
+            try:
+                space.call_function(cache.w_abort_hook,
+                                    space.wrap(counter_names[reason]))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
+            cache.in_recursion = False
+
+pypy_portal = PyPyPortal()
 
 class PyPyJitPolicy(JitPolicy):
 
