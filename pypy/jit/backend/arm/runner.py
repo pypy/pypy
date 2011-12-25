@@ -21,12 +21,13 @@ class ArmCPU(AbstractLLCPU):
             assert gcdescr.config.translation.gcremovetypeptr is False
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
+
     def setup(self):
         if self.opts is not None:
             failargs_limit = self.opts.failargs_limit
         else:
             failargs_limit = 1000
-        self.assembler = AssemblerARM(self)
+        self.assembler = AssemblerARM(self, failargs_limit=failargs_limit)
 
     def setup_once(self):
         self.assembler.setup_once()
@@ -34,7 +35,8 @@ class ArmCPU(AbstractLLCPU):
     def finish_once(self):
         pass
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken,
+                                                    log=True, name=''):
         self.assembler.assemble_loop(inputargs, operations,
                                                     looptoken, log=log)
 
@@ -113,11 +115,11 @@ class ArmCPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         # start of "no gc operation!" block
-        frame_depth = faildescr._arm_frame_depth*WORD
+        frame_depth = faildescr._arm_frame_depth * WORD
         addr_end_of_frame = (addr_of_force_index -
                             (frame_depth +
-                            len(all_regs)*WORD + 
-                            len(all_vfp_regs)*2*WORD))
+                            len(all_regs) * WORD +
+                            len(all_vfp_regs) * 2 * WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
             faildescr._failure_recovery_code,
             addr_of_force_index,

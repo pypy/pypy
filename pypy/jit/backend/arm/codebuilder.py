@@ -4,13 +4,9 @@ from pypy.jit.backend.arm import registers as reg
 from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN)
 from pypy.jit.backend.arm.instruction_builder import define_instructions
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
-from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rmmap import alloc, PTR
-from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.tool.udir import udir
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 clear_cache = rffi.llexternal(
     "__clear_cache",
@@ -19,9 +15,10 @@ clear_cache = rffi.llexternal(
     _nowrapper=True,
     sandboxsafe=True)
 
+
 def binary_helper_call(name):
-    signature = getattr(arch, 'arm_%s_sign' % name)
     function = getattr(arch, 'arm_%s' % name)
+
     def f(self, c=cond.AL):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
@@ -31,8 +28,9 @@ def binary_helper_call(name):
         else:
             self.PUSH(range(2, 4), cond=c)
             self.BL(addr, c)
-            self.POP(range(2,4), cond=c)
+            self.POP(range(2, 4), cond=c)
     return f
+
 
 class AbstractARMv7Builder(object):
 
@@ -42,6 +40,7 @@ class AbstractARMv7Builder(object):
     def align(self):
         while(self.currpos() % FUNC_ALIGN != 0):
             self.writechar(chr(0))
+
     def NOP(self):
         self.MOV_rr(0, 0)
 
@@ -79,7 +78,7 @@ class AbstractARMv7Builder(object):
                 | 0xB << 8
                 | nregs)
         self.write32(instr)
-    
+
     def VMOV_rc(self, rt, rt2, dm, cond=cond.AL):
         """This instruction copies two words from two ARM core registers into a
         doubleword extension register, or from a doubleword extension register
@@ -116,7 +115,7 @@ class AbstractARMv7Builder(object):
         self.write32(instr)
 
     def VMOV_cc(self, dd, dm, cond=cond.AL):
-        sz = 1 # for 64-bit mode
+        sz = 1  # for 64-bit mode
         instr = (cond << 28
                 | 0xEB << 20
                 | (dd & 0xF) << 12
@@ -163,10 +162,8 @@ class AbstractARMv7Builder(object):
         self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
-        #assert self._fits_in_24bits(target)
-        #return (c << 20 | 0xA << 24 | target & 0xFFFFFF)
         if c == cond.AL:
-            self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET/2)
+            self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET / 2)
             self.write32(target)
         else:
             self.gen_load_int(reg.ip.value, target, cond=c)
@@ -180,8 +177,8 @@ class AbstractARMv7Builder(object):
 
     def BL(self, target, c=cond.AL):
         if c == cond.AL:
-            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET/2)
-            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET/2)
+            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET / 2)
+            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET / 2)
             self.write32(target)
         else:
             self.gen_load_int(reg.ip.value, target, cond=c)
@@ -235,7 +232,6 @@ class AbstractARMv7Builder(object):
     def currpos(self):
         raise NotImplementedError
 
-    size_of_gen_load_int = 2 * WORD
     def gen_load_int(self, r, value, cond=cond.AL):
         """r is the register number, value is the value to be loaded to the
         register"""
@@ -244,6 +240,8 @@ class AbstractARMv7Builder(object):
         self.MOVW_ri(r, bottom, cond)
         if top:
             self.MOVT_ri(r, top, cond)
+    size_of_gen_load_int = 2 * WORD
+
 
 class OverwritingBuilder(AbstractARMv7Builder):
     def __init__(self, cb, start, size):
@@ -259,6 +257,7 @@ class OverwritingBuilder(AbstractARMv7Builder):
         assert self.index <= self.end
         self.cb.overwrite(self.index, char)
         self.index += 1
+
 
 class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
     def __init__(self):
@@ -279,7 +278,7 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
     # XXX remove and setup aligning in llsupport
     def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
-        malloced = asmmemmgr.malloc(size, size+7)
+        malloced = asmmemmgr.malloc(size, size + 7)
         allblocks.append(malloced)
         rawstart = malloced[0]
         while(rawstart % FUNC_ALIGN != 0):
@@ -294,7 +293,8 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
     def clear_cache(self, addr):
         if we_are_translated():
             startaddr = rffi.cast(llmemory.Address, addr)
-            endaddr = rffi.cast(llmemory.Address, addr + self.get_relative_pos())
+            endaddr = rffi.cast(llmemory.Address,
+                            addr + self.get_relative_pos())
             clear_cache(startaddr, endaddr)
 
     def copy_to_raw_memory(self, addr):

@@ -1,7 +1,7 @@
 # ../x86/jump.py
 # XXX combine with ../x86/jump.py and move to llsupport
 import sys
-from pypy.tool.pairtype import extendabletype
+
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
@@ -65,11 +65,13 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                     assembler.regalloc_pop(dst)
             assert pending_dests == 0
 
+
 def _move(assembler, src, dst, tmpreg):
     if dst.is_stack() and src.is_stack():
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)
+
 
 def remap_frame_layout_mixed(assembler,
                              src_locations1, dst_locations1, tmpreg1,
@@ -84,7 +86,7 @@ def remap_frame_layout_mixed(assembler,
     src_locations2red = []
     dst_locations2red = []
     for i in range(len(src_locations2)):
-        loc    = src_locations2[i]
+        loc = src_locations2[i]
         dstloc = dst_locations2[i]
         if loc.is_stack():
             key = loc.as_key()
