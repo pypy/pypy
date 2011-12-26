@@ -103,34 +103,49 @@ class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
 
-# ------ other iterators that are not part of the computation frame ----------
+def axis_iter_from_arr(arr, dim=-1, start=[]):
+    return AxisIterator(arr.start, arr.strides, arr.backstrides, arr.shape,
+                        dim, start)
 
 class AxisIterator(object):
     """ This object will return offsets of each start of a stride on the 
         desired dimension, starting at the desired index
     """
-    def __init__(self, arr, dim=-1, start=[]):
-        self.arr = arr
+    def __init__(self, start, strides, backstrides, shape, dim=-1, start=[]):
+        self.shape = shape
         self.indices = [0] * len(arr.shape)
         self.done = False
-        self.offset = arr.start
-        self.dim = len(arr.shape) - 1
+        self.offset = start
+        self.dim = len(shape) - 1
         if dim >= 0:
             self.dim = dim
-        if len(start) == len(arr.shape):
+        if len(start) == len(shape):
             for i in range(len(start)):
-                self.offset += arr.strides[i] * start[i]
-    def next(self):
-        for i in range(len(self.arr.shape) - 1, -1, -1):
+                self.offset += strides[i] * start[i]
+    def next(self, shapelen):
+        offset = self.offset
+        indices = [0] * shapelen
+        for i in range(shapelen):
+            indices[i] = self.indices[i]
+        for i in range(shapelen - 1, -1, -1):
             if i == self.dim:
                 continue
-            if self.indices[i] < self.arr.shape[i] - 1:
-                self.indices[i] += 1
-                self.offset += self.arr.strides[i]
+            if indices[i] < self.shape[i] - 1:
+                indices[i] += 1
+                offset += self.strides[i]
                 break
             else:
-                self.indices[i] = 0
-                self.offset -= self.arr.backstrides[i]
+                indices[i] = 0
+                offset -= self.backstrides[i]
         else:
             self.done = True
-        
+        res = instantiate(AxisIterator)
+        res.offset = offset
+        res.indices = indices
+        res.strides = self.strides
+        res.backstrides = self.backstrides
+        res.shape = self.shape
+        res.dim = self.dim
+        res.done = done
+        return res
+

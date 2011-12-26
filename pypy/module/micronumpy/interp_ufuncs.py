@@ -3,8 +3,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, types
-from pypy.module.micronumpy.signature import (ReduceSignature, ScalarSignature, 
-                            ArraySignature, find_sig)
+from pypy.module.micronumpy.signature import (ReduceSignature, 
+                            ScalarSignature, find_sig)
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -124,12 +124,10 @@ class W_Ufunc(Wrappable):
             promote_to_largest=True
         )
         shapelen = len(obj.shape)
-        if dim>=0 or 0:
-            sig = find_sig(ReduceSignature(self.func, self.name, dtype,
-                                       ArraySignature(dtype),
-                                       obj.create_sig(obj.shape)), obj)
-        else:
-            sig = find_sig(ReduceSignature(self.func, self.name, dtype,
+        if shapelen>1 and dim>=0:
+            from pypy.module.micronumpy.interp_numarray import Reduce
+            return Reduce(self.func, self.name, dim, dtype, obj)
+        sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)
         frame = sig.create_frame(obj)

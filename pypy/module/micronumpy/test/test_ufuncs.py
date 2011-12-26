@@ -338,16 +338,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, sin.reduce, [1, 2, 3])
         raises(TypeError, add.reduce, 1)
 
-    def test_reduce(self):
-        from numpypy import add, maximum, arange
-
+    def test_reduce1D(self):
+        from numpypy import add, maximum
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
-        a = arange(12).reshape(3,4)
-        assert add.reduce(a, 0) == add.reduce(a)
+
+    def test_reduceND(self):
+        from numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        assert add.reduce(a,1)[0] ==6
         assert (add.reduce(a, 1) == [ 6, 22, 38]).all()
+        assert (add.reduce(a, 0) == add.reduce(a)).all()
 
     def test_comparisons(self):
         import operator

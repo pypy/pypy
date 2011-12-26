@@ -90,11 +90,11 @@ class Signature(object):
             allnumbers.append(no)
         self.iter_no = no
 
-    def create_frame(self, arr, res_shape=None):
+    def create_frame(self, arr, res_shape=None, chunks = []):
         res_shape = res_shape or arr.shape
         iterlist = []
         arraylist = []
-        self._create_iter(iterlist, arraylist, arr, res_shape, [])
+        self._create_iter(iterlist, arraylist, arr, res_shape, chunks)
         return NumpyEvalFrame(iterlist, arraylist)
 
 class ConcreteSignature(Signature):

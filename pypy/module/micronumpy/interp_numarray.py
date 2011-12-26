@@ -664,7 +664,8 @@ class VirtualArray(BaseArray):
         self.name = name
 
     def _del_sources(self):
-        # Function for deleting references to source arrays, to allow garbage-collecting them
+        # Function for deleting references to source arrays, 
+        # to allow garbage-collecting them
         raise NotImplementedError
 
     def compute(self):
@@ -729,6 +730,42 @@ class VirtualSlice(VirtualArray):
 
     def _del_sources(self):
         self.child = None
+
+class Reduce(VirtualArray):
+    def __init__(self, ufunc, name, dim, res_dtype, values):
+        shape=values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
+        VirtualArray.__init__(self, name, shape, res_dtype)
+        self.values = values
+        self.size = values.size
+        self.ufunc = ufunc
+        self.res_dtype = res_dtype
+        self.dim = dim
+
+    def _del_sources(self):
+        self.values = None
+
+    def create_sig(self, res_shape):
+        if self.forced_result is not None:
+            return self.forced_result.create_sig(res_shape)
+        return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
+                           signature.ViewSignature(self.res_dtype),
+                           self.values.create_sig(res_shape))
+
+    def compute(self):
+        result = W_NDimArray(self.size, self.shape, self.find_dtype())
+        shapelen = len(result.shape)
+        sig = self.find_sig()
+        ri = ArrayIterator(self.size)
+        si = AxisIterator(self,self.dim)
+        while not ri.done():
+            frame = sig.create_frame(self, self.values, chunks = si.indices)
+            val = sig.eval(frame, self)
+            result.dtype.setitem(result.storage, ri.offset, val)
+            ri = ri.next(shapelen)
+            si = si.next(shapelen)
+        return result
+
+
 
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, res_dtype, values):
