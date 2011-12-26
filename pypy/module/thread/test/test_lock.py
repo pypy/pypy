@@ -80,3 +80,45 @@ def test_compile_lock():
 class AppTestLockAgain(GenericTestThread):
     # test it at app-level again to detect strange interactions
     test_lock_again = AppTestLock.test_lock.im_func
+
+
+class AppTestRLock(GenericTestThread):
+    """
+    Tests for recursive locks.
+    """
+    def test_reacquire(self):
+        import _thread
+        lock = _thread.RLock()
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+
+    def test_release_unacquired(self):
+        # Cannot release an unacquired lock
+        import _thread
+        lock = _thread.RLock()
+        raises(RuntimeError, lock.release)
+        lock.acquire()
+        lock.acquire()
+        lock.release()
+        lock.acquire()
+        lock.release()
+        lock.release()
+        raises(RuntimeError, lock.release)
+
+    def test__is_owned(self):
+        import _thread
+        lock = _thread.RLock()
+        assert lock._is_owned() is False
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.acquire()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is True
+        lock.release()
+        assert lock._is_owned() is False
+
