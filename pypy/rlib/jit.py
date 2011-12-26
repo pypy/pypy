@@ -176,7 +176,6 @@ def oopspec(spec):
     return decorator
 
 @oopspec("jit.isconstant(value)")
-@specialize.ll()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -186,9 +185,9 @@ def isconstant(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
+isconstant._annspecialcase_ = "specialize:call_location"
 
 @oopspec("jit.isvirtual(value)")
-@specialize.ll()
 def isvirtual(value):
     """
     Returns if this value is virtual, while tracing, it's relatively
@@ -197,6 +196,7 @@ def isvirtual(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
+isvirtual._annspecialcase_ = "specialize:call_location"
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
