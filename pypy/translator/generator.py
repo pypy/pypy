@@ -105,12 +105,20 @@ def tweak_generator_body_graph(Entry, graph):
     #
     mappings = [Entry]
     #
+    stopblock = Block([])
+    v0 = Variable(); v1 = Variable()
+    stopblock.operations = [
+        SpaceOperation('simple_call', [Constant(StopIteration)], v0),
+        SpaceOperation('type', [v0], v1),
+        ]
+    stopblock.closeblock(Link([v1, v0], graph.exceptblock))
+    #
     for block in list(graph.iterblocks()):
         for exit in block.exits:
             if exit.target is graph.returnblock:
-                exit.args = [Constant(StopIteration),
-                             Constant(StopIteration())]
-                exit.target = graph.exceptblock
+                exit.args = []
+                exit.target = stopblock
+        assert block is not stopblock
         for index in range(len(block.operations)-1, -1, -1):
             op = block.operations[index]
             if op.opname == 'yield':
