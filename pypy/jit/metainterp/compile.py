@@ -176,10 +176,10 @@ def compile_loop(metainterp, greenkey, start,
     loop.original_jitcell_token = jitcell_token
     for label in all_target_tokens:
         assert isinstance(label, TargetToken)
-        label.original_jitcell_token = jitcell_token
         if label.virtual_state and label.short_preamble:
             metainterp_sd.logger_ops.log_short_preamble([], label.short_preamble)
     jitcell_token.target_tokens = all_target_tokens
+    propagate_original_jitcell_token(loop)
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
     return all_target_tokens[0]
@@ -247,11 +247,11 @@ def compile_retrace(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
-    target_token = loop.operations[-1].getdescr()
+    target_token = loop.operations[-1].getdescr()    
     resumekey.compile_and_attach(metainterp, loop)
+    
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)
-    target_token.original_jitcell_token = loop.original_jitcell_token
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -288,6 +288,15 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
     assert i == len(inputargs)
     loop.operations = extra_ops + loop.operations
 
+def propagate_original_jitcell_token(trace):
+    for op in trace.operations:
+        if op.getopnum() == rop.LABEL:
+            token = op.getdescr()
+            assert isinstance(token, TargetToken)
+            assert token.original_jitcell_token is None
+            token.original_jitcell_token = trace.original_jitcell_token
+            
+    
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
     if vinfo is not None:
@@ -558,6 +567,7 @@ class ResumeGuardDescr(ResumeDescr):
         inputargs = metainterp.history.inputargs
         if not we_are_translated():
             self._debug_suboperations = new_loop.operations
+        propagate_original_jitcell_token(new_loop)
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token)
@@ -744,6 +754,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         jitdriver_sd = metainterp.jitdriver_sd
         redargs = new_loop.inputargs
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
+        propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
