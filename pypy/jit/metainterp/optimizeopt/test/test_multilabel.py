@@ -424,10 +424,10 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         expected = """
         [p1]
         i1 = strlen(p1)
+        label(p1, i1)
         i11 = same_as(i1)
-        label(p1, i11)
         i2 = int_add(i11, 7)
-        jump(p1)
+        jump(p1, i11)
         """
         self.optimize_loop(ops, expected)
 
