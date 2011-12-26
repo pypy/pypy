@@ -267,7 +267,7 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'type', 'basestring']):
+                  'type', 'text']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:

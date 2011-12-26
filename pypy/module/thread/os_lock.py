@@ -8,7 +8,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import OperationError
-from pypy.rlib.rarithmetic import r_longlong, r_uint, ovfcheck
+from pypy.rlib.rarithmetic import r_longlong, ovfcheck
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
@@ -212,7 +212,7 @@ class W_RLock(Wrappable):
         else:
             return space.w_False
 
-    @unwrap_spec(count=r_uint, owner=int)
+    @unwrap_spec(count=int, owner=int)
     def acquire_restore_w(self, space, count, owner):
         """For internal use by `threading.Condition`."""
         r = True
