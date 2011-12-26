@@ -52,7 +52,7 @@ class TestW_SetObject:
 
     def test_space_newset(self):
         s = self.space.newset()
-        assert self.space.str_w(self.space.repr(s)) == '{}'
+        assert self.space.str_w(self.space.repr(s)) == 'set()'
 
 class AppTestAppSetTest:
     def test_subtype(self):
