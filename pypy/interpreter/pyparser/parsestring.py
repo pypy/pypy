@@ -21,10 +21,6 @@ def parsestr(space, encoding, s):
             ps += 1
             quote = s[ps]
             unicode = False
-        elif quote == 'u' or quote == 'U':
-            ps += 1
-            quote = s[ps]
-            unicode = True
         if quote == 'r' or quote == 'R':
             ps += 1
             quote = s[ps]

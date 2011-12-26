@@ -141,7 +141,7 @@ def makePyPseudoDFA ():
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,
-                     maybe(states, groupStr(states, "uUbB")),
+                     maybe(states, groupStr(states, "bB")),
                      maybe(states, groupStr(states, "rR")))
     # ____________________________________________________________
     contStr = group(states,

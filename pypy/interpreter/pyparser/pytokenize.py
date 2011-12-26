@@ -45,7 +45,7 @@ states = [
      'I': 1, 'J': 1, 'K': 1, 'L': 1,
      'M': 1, 'N': 1, 'O': 1, 'P': 1,
      'Q': 1, 'R': 3, 'S': 1, 'T': 1,
-     'U': 2, 'V': 1, 'W': 1, 'X': 1,
+     'U': 1, 'V': 1, 'W': 1, 'X': 1,
      'Y': 1, 'Z': 1, '[': 13, '\\': 17,
      ']': 13, '^': 12, '_': 1, '`': 13,
      'a': 1, 'b': 2, 'c': 1, 'd': 1,
@@ -53,7 +53,7 @@ states = [
      'i': 1, 'j': 1, 'k': 1, 'l': 1,
      'm': 1, 'n': 1, 'o': 1, 'p': 1,
      'q': 1, 'r': 3, 's': 1, 't': 1,
-     'u': 2, 'v': 1, 'w': 1, 'x': 1,
+     'u': 1, 'v': 1, 'w': 1, 'x': 1,
      'y': 1, 'z': 1, '{': 13, '|': 12,
      '}': 13, '~': 13},
     # 1
@@ -311,12 +311,10 @@ endDFAs = {"'" : singleDFA,
            '"' : doubleDFA,
            'r' : None,
            'R' : None,
-           'u' : None,
-           'U' : None,
            'b' : None,
            'B' : None}
 
-for uniPrefix in ("", "u", "U", "b", "B"):
+for uniPrefix in ("", "b", "B"):
     for rawPrefix in ("", "r", "R"):
         prefix = uniPrefix + rawPrefix
         endDFAs[prefix + "'''"] = single3DFA
@@ -332,20 +330,14 @@ whiteSpaceDFA = automata.DFA(whiteSpaceStates, whiteSpaceStatesAccepts)
 triple_quoted = {}
 for t in ("'''", '"""',
           "r'''", 'r"""', "R'''", 'R"""',
-          "u'''", 'u"""', "U'''", 'U"""',
           "b'''", 'b"""', "B'''", 'B"""',
-          "ur'''", 'ur"""', "Ur'''", 'Ur"""',
-          "uR'''", 'uR"""', "UR'''", 'UR"""',
           "br'''", 'br"""', "Br'''", 'Br"""',
           "bR'''", 'bR"""', "BR'''", 'BR"""'):
     triple_quoted[t] = t
 single_quoted = {}
 for t in ("'", '"',
           "r'", 'r"', "R'", 'R"',
-          "u'", 'u"', "U'", 'U"',
           "b'", 'b"', "B'", 'B"',
-          "ur'", 'ur"', "Ur'", 'Ur"',
-          "uR'", 'uR"', "UR'", 'UR"',
           "br'", 'br"', "Br'", 'Br"',
           "bR'", 'bR"', "BR'", 'BR"'):
     single_quoted[t] = t
