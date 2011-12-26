@@ -287,10 +287,10 @@ class rbigint(object):
     def tofloat(self):
         return _AsDouble(self)
 
-    def format(self, digits, prefix='', suffix=''):
+    def format(self, digits, prefix=''):
         # 'digits' is a string whose length is the base to use,
         # and where each character is the corresponding digit.
-        return _format(self, digits, prefix, suffix)
+        return _format(self, digits, prefix)
 
     def repr(self):
         return _format(self, BASE10)
@@ -603,10 +603,10 @@ class rbigint(object):
         if self.sign == 0:
             return '0L'
         else:
-            return _format(self, BASE8, '0', 'L')
+            return _format(self, BASE8, '0')
 
     def hex(self):
-        return _format(self, BASE16, '0x', 'L')
+        return _format(self, BASE16, '0x')
 
     def log(self, base):
         # base is supposed to be positive or 0.0, which means we use e
@@ -1586,7 +1586,7 @@ BASE8  = '01234567'
 BASE10 = '0123456789'
 BASE16 = '0123456789abcdef'
 
-def _format(a, digits, prefix='', suffix=''):
+def _format(a, digits, prefix=''):
     """
     Convert a bigint object to a string, using a given conversion base.
     Return a string object.
@@ -1602,14 +1602,9 @@ def _format(a, digits, prefix='', suffix=''):
     while i > 1:
         bits += 1
         i >>= 1
-    i = 5 + len(prefix) + len(suffix) + (size_a*SHIFT + bits-1) // bits
+    i = 5 + len(prefix) + (size_a*SHIFT + bits-1) // bits
     s = [chr(0)] * i
     p = i
-    j = len(suffix)
-    while j > 0:
-        p -= 1
-        j -= 1
-        s[p] = suffix[j]
 
     if a.sign == 0:
         p -= 1
