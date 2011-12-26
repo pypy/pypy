@@ -351,8 +351,8 @@ class AppTestInt:
         assert pow(2, -10) == 1/1024.
 
     def test_int_w_long_arg(self):
-        assert int(10000000000) == 10000000000L
-        assert int("10000000000") == 10000000000l
+        assert int(10000000000) == 10000000000
+        assert int("10000000000") == 10000000000
         raises(ValueError, int, "10000000000JUNK")
         raises(ValueError, int, "10000000000JUNK", 10)
 
@@ -362,7 +362,7 @@ class AppTestInt:
             pass
         assert j(100) == 100
         assert isinstance(j(100),j)
-        assert j(100L) == 100
+        assert j(100) == 100
         assert j("100") == 100
         assert j("100",2) == 4
         assert isinstance(j("100",2),j)
@@ -408,14 +408,14 @@ class AppTestInt:
                 return '<instance of j>'
         class subint(int):
             pass
-        value = 42L
+        value = 42
         assert int(j()) == 42
-        value = 4200000000000000000000000000000000L
-        assert int(j()) == 4200000000000000000000000000000000L
+        value = 4200000000000000000000000000000000
+        assert int(j()) == 4200000000000000000000000000000000
         value = subint(42)
         assert int(j()) == 42 and type(int(j())) is subint
-        value = subint(4200000000000000000000000000000000L)
-        assert (int(j()) == 4200000000000000000000000000000000L
+        value = subint(4200000000000000000000000000000000)
+        assert (int(j()) == 4200000000000000000000000000000000
                 and type(int(j())) is subint)
         value = 42.0
         raises(TypeError, int, j())

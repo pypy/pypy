@@ -60,25 +60,21 @@ def makePyPseudoDFA ():
                       newArcPair(states, "0"),
                       groupStr(states, "xX"),
                       atleastonce(states,
-                                  groupStr(states, "0123456789abcdefABCDEF")),
-                      maybe(states, groupStr(states, "lL")))
+                                  groupStr(states, "0123456789abcdefABCDEF")))
     octNumber = chain(states,
                       newArcPair(states, "0"),
                       maybe(states,
                             chain(states,
                                   groupStr(states, "oO"),
                                   groupStr(states, "01234567"))),
-                      any(states, groupStr(states, "01234567")),
-                      maybe(states, groupStr(states, "lL")))
+                      any(states, groupStr(states, "01234567")))
     binNumber = chain(states,
                       newArcPair(states, "0"),
                       groupStr(states, "bB"),
-                      atleastonce(states, groupStr(states, "01")),
-                      maybe(states, groupStr(states, "lL")))
+                      atleastonce(states, groupStr(states, "01")))
     decNumber = chain(states,
                       groupStr(states, "123456789"),
-                      any(states, makeDigits()),
-                      maybe(states, groupStr(states, "lL")))
+                      any(states, makeDigits()))
     intNumber = group(states, hexNumber, octNumber, binNumber, decNumber)
     # ____________________________________________________________
     # Exponents
