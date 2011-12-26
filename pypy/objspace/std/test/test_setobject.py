@@ -59,7 +59,7 @@ class AppTestAppSetTest:
         class subset(set):pass
         a = subset()
         b = a | set('abc')
-        assert type(b) is subset
+        assert type(b) is set
 
     def test_init_new_behavior(self):
         s = set.__new__(set, 'abc')
@@ -77,14 +77,14 @@ class AppTestAppSetTest:
         b = subset('abc')
         subset.__new__ = lambda *args: foobar   # not called
         b = b.copy()
-        assert type(b) is subset
+        assert type(b) is set
         assert set(b) == set('abc')
         #
         class frozensubset(frozenset): pass
         b = frozensubset('abc')
         frozensubset.__new__ = lambda *args: foobar   # not called
         b = b.copy()
-        assert type(b) is frozensubset
+        assert type(b) is frozenset
         assert frozenset(b) == frozenset('abc')
 
     def test_union(self):
@@ -160,7 +160,7 @@ class AppTestAppSetTest:
         s2 = s1.copy()
         assert s1 is not s2
         assert s1 == s2
-        assert type(s2) is myfrozen
+        assert type(s2) is frozenset
 
     def test_update(self):
         s1 = set('abc')
@@ -317,8 +317,7 @@ class AppTestAppSetTest:
             s = subset([2])
             assert s.x == ([2],)
             t = s | base([5])
-            # obscure CPython behavior:
-            assert type(t) is subset
+            assert type(t) is base
             assert not hasattr(t, 'x')
 
     def test_isdisjoint(self):

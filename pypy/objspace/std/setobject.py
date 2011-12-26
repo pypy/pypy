@@ -44,12 +44,7 @@ class W_SetObject(W_BaseSetObject):
 
     def _newobj(w_self, space, rdict_w):
         """Make a new set by taking ownership of 'rdict_w'."""
-        if type(w_self) is W_SetObject:
-            return W_SetObject(space, rdict_w)
-        w_type = space.type(w_self)
-        w_obj = space.allocate_instance(W_SetObject, w_type)
-        W_SetObject.__init__(w_obj, space, rdict_w)
-        return w_obj
+        return W_SetObject(space, rdict_w)
 
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
@@ -57,12 +52,7 @@ class W_FrozensetObject(W_BaseSetObject):
 
     def _newobj(w_self, space, rdict_w):
         """Make a new frozenset by taking ownership of 'rdict_w'."""
-        if type(w_self) is W_FrozensetObject:
-            return W_FrozensetObject(space, rdict_w)
-        w_type = space.type(w_self)
-        w_obj = space.allocate_instance(W_FrozensetObject, w_type)
-        W_FrozensetObject.__init__(w_obj, space, rdict_w)
-        return w_obj
+        return W_FrozensetObject(space, rdict_w)
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
