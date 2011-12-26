@@ -16,14 +16,14 @@ import operator
 is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
 class Base:
-    def codetest(self, func):
+    def codetest(self, func, **kwds):
         import inspect
         try:
             func = func.im_func
         except AttributeError:
             pass
         #name = func.func_name
-        graph = self.space.build_flow(func)
+        graph = self.space.build_flow(func, **kwds)
         graph.source = inspect.getsource(func)
         self.show(graph)
         return graph
@@ -881,12 +881,6 @@ class TestFlowObjSpace(Base):
             for name in ['CALL_METHOD', 'LOOKUP_METHOD']:
                 num = bytecode_spec.opmap[name]
                 flow_meth_names[num] = locals()['old_' + name]
-
-    def test_generator(self):
-        def f():
-            yield 3
-
-        py.test.raises(TypeError, "self.codetest(f)")
 
     def test_dont_capture_RuntimeError(self):
         class Foo:

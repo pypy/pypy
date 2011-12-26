@@ -63,6 +63,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              ),
             ])
         assert mod.getarg_O(1) == 1
+        assert mod.getarg_O.__name__ == "getarg_O"
         raises(TypeError, mod.getarg_O)
         raises(TypeError, mod.getarg_O, 1, 1)
 

@@ -7759,7 +7759,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i0, p0, i2)
         """
         self.optimize_loop(ops, expected)
-
+        
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
