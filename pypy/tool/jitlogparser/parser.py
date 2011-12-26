@@ -389,14 +389,22 @@ def import_log(logname, ParserCls=SimpleParser):
     return log, loops
 
 def split_trace(trace):
-    labels = [i for i, op in enumerate(trace.operations)
-              if op.name == 'label']
-    labels = [0] + labels + [len(trace.operations) - 1]
+    labels = [0]
+    if trace.comment and 'Guard' in trace.comment:
+        descrs = ['bridge ' + re.search('Guard (\d+)', trace.comment).group(1)]
+    else:
+        descrs = ['']
+    for i, op in enumerate(trace.operations):
+        if op.name == 'label':
+            labels.append(i)
+            descrs.append(op.descr)
+    labels.append(len(trace.operations) - 1)
     parts = []
     for i in range(len(labels) - 1):
         start, stop = labels[i], labels[i+1]
         part = copy(trace)
         part.operations = trace.operations[start : stop + 1]
+        part.descr = descrs[i]
         parts.append(part)
     
     return parts
@@ -407,11 +415,7 @@ def parse_log_counts(input, loops):
     lines = input[-1].splitlines()
     mapping = {}
     for loop in loops:
-        com = loop.comment
-        if 'Loop' in com:
-            mapping['loop ' + re.search('Loop (\d+)', com).group(1)] = loop
-        else:
-            mapping['bridge ' + re.search('Guard (\d+)', com).group(1)] = loop
+        mapping[loop.descr] = loop
     for line in lines:
         if line:
             num, count = line.split(':', 2)
