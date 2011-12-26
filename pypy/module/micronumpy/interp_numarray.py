@@ -578,8 +578,8 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(W_NDimSlice(concrete.start, strides[:],
-                                      backstrides[:], shape[:], concrete))
+        return space.wrap(W_NDimSlice(concrete.start, strides,
+                                      backstrides, shape, concrete))
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
@@ -820,8 +820,8 @@ class ConcreteArray(BaseArray):
         if self.order == 'C':
             strides.reverse()
             backstrides.reverse()
-        self.strides = strides[:]
-        self.backstrides = backstrides[:]
+        self.strides = strides
+        self.backstrides = backstrides
 
     def array_sig(self, res_shape):
         if res_shape is not None and self.shape != res_shape:
@@ -1025,9 +1025,9 @@ class W_NDimSlice(ViewArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            self.strides = strides[:]
-            self.backstrides = backstrides[:]
-            self.shape = new_shape[:]
+            self.strides = strides
+            self.backstrides = backstrides
+            self.shape = new_shape
             return
         new_strides = calc_new_strides(new_shape, self.shape, self.strides)
         if new_strides is None:
@@ -1037,7 +1037,7 @@ class W_NDimSlice(ViewArray):
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         self.strides = new_strides[:]
-        self.backstrides = new_backstrides[:]
+        self.backstrides = new_backstrides
         self.shape = new_shape[:]
 
 class W_NDimArray(ConcreteArray):
