@@ -54,6 +54,26 @@ class BaseTestGenerator(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == 42
 
+    def test_except_block(self):
+        def foo():
+            raise ValueError
+        def g(a, b, c):
+            yield a
+            yield b
+            try:
+                foo()
+            except ValueError:
+                pass
+            yield c
+        def f():
+            gen = g(3, 5, 8)
+            x = gen.next() * 100
+            x += gen.next() * 10
+            x += gen.next()
+            return x
+        res = self.interpret(f, [])
+        assert res == 358
+
 
 class TestLLtype(BaseTestGenerator, LLRtypeMixin):
     pass
