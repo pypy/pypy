@@ -154,7 +154,7 @@ class TraceForOpcode(object):
         for op in operations:
             if op.name == 'debug_merge_point':
                 self.inline_level = int(op.args[0])
-                self.parse_code_data(op.args[1])
+                self.parse_code_data(op.args[1][1:-1])
                 break
         else:
             self.inline_level = 0

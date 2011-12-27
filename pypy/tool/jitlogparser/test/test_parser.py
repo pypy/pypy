@@ -52,7 +52,7 @@ def test_split():
     assert len(res.chunks[2].operations) == 2
     assert len(res.chunks[3].operations) == 2
     assert res.chunks[3].bytecode_no == 11
-    assert res.chunks[0].bytecode_name == 'loopname'
+    assert res.chunks[0].bytecode_name == '<loopname>'
 
 def test_inlined_call():
     ops = parse("""
