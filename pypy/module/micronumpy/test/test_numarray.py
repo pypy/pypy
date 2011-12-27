@@ -720,6 +720,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 5
 
         raises(TypeError, 'a.sum(2, 3)')
+
+    def test_sumND(self):
+        skip('Not finished yet')
         a = arange(15).reshape(5, 3)
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
