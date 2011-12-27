@@ -59,7 +59,8 @@ class GuardToken(object):
         self.is_guard_not_invalidated = is_guard_not_invalidated
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
-                              ('bridge', lltype.Signed), # 0 or 1
+                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
+                                                     # 'e'ntry point
                               ('number', lltype.Signed))
 
 class Assembler386(object):
@@ -150,10 +151,12 @@ class Assembler386(object):
             debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
                 struct = self.loop_run_counters[i]
-                if not struct.bridge:
+                if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
-                else:
+                elif struct.type == 'b':
                     prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
@@ -425,7 +428,7 @@ class Assembler386(object):
         self.setup(looptoken)
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
-                                                     False, looptoken.number)
+                                                     'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -492,7 +495,7 @@ class Assembler386(object):
         self.setup(original_loop_token)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
-                                                     True, descr_number)
+                                                     'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
         if not we_are_translated():
@@ -599,15 +602,15 @@ class Assembler386(object):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _register_counter(self, bridge, number, token):
+    def _register_counter(self, tp, number, token):
         # YYY very minor leak -- we need the counters to stay alive
         # forever, just because we want to report them at the end
         # of the process
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0
-        struct.bridge = int(bridge)
-        if bridge:
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
             struct.number = number
         else:
             assert token
@@ -657,8 +660,8 @@ class Assembler386(object):
             targettoken._x86_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
-    def _append_debugging_code(self, operations, bridge, number, token):
-        counter = self._register_counter(bridge, number, token)
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
         c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
         box = BoxInt()
         box2 = BoxInt()
@@ -670,7 +673,7 @@ class Assembler386(object):
         operations.extend(ops)
         
     @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, bridge, number):
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
             # before doing anything, let's increase a counter
             s = 0
@@ -679,12 +682,12 @@ class Assembler386(object):
             looptoken._x86_debug_checksum = s
 
             newoperations = []
-            self._append_debugging_code(newoperations, bridge, number,
+            self._append_debugging_code(newoperations, tp, number,
                                         None)
             for op in operations:
                 newoperations.append(op)
                 if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, bridge, number,
+                    self._append_debugging_code(newoperations, 'l', number,
                                                 op.getdescr())
             operations = newoperations
         return operations

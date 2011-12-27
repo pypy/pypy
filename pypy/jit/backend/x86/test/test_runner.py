@@ -546,6 +546,8 @@ class TestDebuggingAssembler(object):
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 1
             struct = self.cpu.assembler.loop_run_counters[1]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
             assert struct.i == 9
             self.cpu.finish_once()
         finally:
