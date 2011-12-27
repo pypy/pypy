@@ -393,11 +393,17 @@ class RegisterManager(object):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
 
-def compute_vars_longevity(inputargs, operations):
+def _compute_vars_longevity(self, inputargs, operations):
     # compute a dictionary that maps variables to index in
     # operations that is a "last-time-seen"
+
+    # returns a pair longevity/useful. Non-useful variables are ones that
+    # never appear in the assembler or it does not matter if they appear on
+    # stack or in registers. Main example is loop arguments that go
+    # only to guard operations or to jump or to finish
     produced = {}
     last_used = {}
+    useful = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.result:
@@ -405,8 +411,11 @@ def compute_vars_longevity(inputargs, operations):
                 continue
             assert op.result not in produced
             produced[op.result] = i
+        opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
+            if opnum != rop.JUMP and opnum != rop.FINISH:
+                useful[arg] = None
             if isinstance(arg, Box) and arg not in last_used:
                 last_used[arg] = i
         if op.is_guard():
@@ -416,7 +425,7 @@ def compute_vars_longevity(inputargs, operations):
                 assert isinstance(arg, Box)
                 if arg not in last_used:
                     last_used[arg] = i
-                    
+
     longevity = {}
     for arg in produced:
         if arg in last_used:
@@ -432,8 +441,7 @@ def compute_vars_longevity(inputargs, operations):
             longevity[arg] = (0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
-    return longevity
-
+    return longevity, useful
 
 def compute_loop_consts(inputargs, jump, looptoken):
     if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:

@@ -1,4 +1,3 @@
-import itertools
 import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
@@ -519,8 +518,8 @@ class ObjSpace(object):
         exception_types_w = self.export_builtin_exceptions()
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
-        types_w = itertools.chain(self.get_builtin_types().iteritems(),
-                                  exception_types_w.iteritems())
+        types_w = (self.get_builtin_types().items() +
+                   exception_types_w.items())
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
@@ -1608,6 +1607,8 @@ ObjSpace.ExceptionTable = [
     'UnicodeError',
     'ValueError',
     'ZeroDivisionError',
+    'UnicodeEncodeError',
+    'UnicodeDecodeError',
     ]
 
 ## Irregular part of the interface:

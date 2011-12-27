@@ -19,7 +19,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox, compute_vars_longevity, compute_loop_consts
+     TempBox, compute_vars_longevity
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
 from pypy.rlib.rarithmetic import r_longlong
@@ -167,26 +167,22 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity = compute_vars_longevity(inputargs, operations)
+        longevity, useful = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
-        return operations
+        return operations, useful
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        jump = operations[-1]
-        loop_consts = compute_loop_consts(inputargs, jump, looptoken)
-        self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs), operations
+        operations, useful = self._prepare(inputargs, operations, allgcrefs)
+        return self._process_inputargs(inputargs, useful), operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
                        allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        self.loop_consts = {}
+        operations, _ = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
@@ -195,7 +191,7 @@ class RegAlloc(object):
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
 
-    def _process_inputargs(self, inputargs):
+    def _process_inputargs(self, inputargs, useful):
         # XXX we can sort out here by longevity if we need something
         # more optimal
         floatlocs = [None] * len(inputargs)
@@ -211,7 +207,7 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             reg = None
-            if arg not in self.loop_consts and self.longevity[arg][1] > -1:
+            if self.longevity[arg][1] > -1 and arg in useful:
                 if arg.type == FLOAT:
                     # xxx is it really a good idea?  at the first CALL they
                     # will all be flushed anyway

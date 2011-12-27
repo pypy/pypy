@@ -149,6 +149,13 @@ class BaseTestRegalloc(object):
             self.cpu.execute_token(loop.token)
         return loop
 
+    def prepare_loop(self, ops):
+        loop = self.parse(ops)
+        regalloc = RegAlloc(self.cpu.assembler, False)
+        regalloc.prepare_loop(loop.inputargs, loop.operations,
+                              loop.token, [])
+        return regalloc
+
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
 
@@ -421,6 +428,35 @@ class TestRegallocSimple(BaseTestRegalloc):
             self.cpu.set_future_value_int(i, i)
         self.run(loop)
         assert self.getints(9) == range(9)
+
+    def test_loopargs(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        jump(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
+
+    def test_loopargs_2(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        finish(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
+
+    def test_loopargs_3(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        guard_true(i4) [i0, i1, i2, i3, i4]
+        jump(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
+    
 
 class TestRegallocCompOps(BaseTestRegalloc):
     
