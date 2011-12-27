@@ -219,7 +219,6 @@ class Function(object):
         Also detect inlined functions and make them Function
         """
         stack = []
-        seen_dmp = False
 
         def getpath(stack):
             return ",".join([str(len(v)) for v in stack])
@@ -240,14 +239,11 @@ class Function(object):
         stack = []
         for op in operations:
             if op.name == 'debug_merge_point':
-                if seen_dmp:
-                    if so_far:
-                        append_to_res(cls.TraceForOpcode(so_far, storage))
-                        if limit:
-                            break
-                        so_far = []
-                else:
-                    seen_dmp = True
+                if so_far:
+                    append_to_res(cls.TraceForOpcode(so_far, storage))
+                    if limit:
+                        break
+                    so_far = []
             so_far.append(op)
         if so_far:
             append_to_res(cls.TraceForOpcode(so_far, storage))
@@ -391,7 +387,7 @@ def split_trace(trace):
     if trace.comment and 'Guard' in trace.comment:
         descrs = ['bridge ' + re.search('Guard (\d+)', trace.comment).group(1)]
     else:
-        descrs = ['']
+        descrs = ['entry ' + re.search('Loop (\d+)', trace.comment).group(1)]
     for i, op in enumerate(trace.operations):
         if op.name == 'label':
             labels.append(i)

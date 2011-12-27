@@ -38,7 +38,6 @@ def test_parse_non_code():
 def test_split():
     ops = parse('''
     [i0]
-    label()
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i1 = int_add(i0, 1)
@@ -47,7 +46,7 @@ def test_split():
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 3
-    assert len(res.chunks[0].operations) == 2
+    assert len(res.chunks[0].operations) == 1
     assert len(res.chunks[1].operations) == 2
     assert len(res.chunks[2].operations) == 2
     assert res.chunks[2].bytecode_no == 11
@@ -97,7 +96,7 @@ def test_name_no_first():
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
-    assert res.repr() == res.chunks[0].repr()
+    assert res.repr() == res.chunks[1].repr()
 
 def test_lineno():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
@@ -246,6 +245,7 @@ def test_split_trace():
     guard_true(i19, descr=<Guard2>) []
     i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
     ''')
+    loop.comment = 'Loop 0'
     parts = split_trace(loop)
     assert len(parts) == 3
     assert len(parts[0].operations) == 2
@@ -273,7 +273,7 @@ def test_parse_log_counts():
     finish(i0)
     ''')
     bridge.comment = 'bridge out of Guard 2 with 1 ops'
-    loop.comment = ''
+    loop.comment = 'Loop 0'
     loops = split_trace(loop) + split_trace(bridge)
     input = ['grrr:123\nasb:12\nbridge 2:1234']
     parse_log_counts(input, loops)
