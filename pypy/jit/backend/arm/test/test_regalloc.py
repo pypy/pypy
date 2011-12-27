@@ -3,14 +3,12 @@
 """
 
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, LoopToken, BasicFailDescr
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.history import BasicFailDescr
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.arm.regalloc import Regalloc
+from pypy.jit.backend.arm.regalloc import Regalloc, ARMFrameManager
 from pypy.jit.tool.oparser import parse
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -19,6 +17,8 @@ skip_unless_arm()
 
 
 CPU = getcpuclass()
+
+
 class MockGcDescr(GcCache):
     def get_funcptr_for_new(self):
         return 123
@@ -28,6 +28,7 @@ class MockGcDescr(GcCache):
 
     def rewrite_assembler(self, cpu, operations):
         pass
+
 
 class MockAssembler(object):
     gcrefs = None
@@ -60,10 +61,13 @@ class MockAssembler(object):
     def load_effective_addr(self, *args):
         self.lea.append(args)
 
+
 class RegAllocForTests(Regalloc):
     position = 0
+
     def _compute_next_usage(self, v, _):
         return -1
+
 
 class BaseTestRegalloc(object):
     cpu = CPU(None, None)
@@ -137,6 +141,13 @@ class BaseTestRegalloc(object):
         if run:
             self.cpu.execute_token(loop.token)
         return loop
+
+    def prepare_loop(self, ops):
+        loop = self.parse(ops)
+        regalloc = Regalloc(assembler=self.cpu.assembler,
+        frame_manager=ARMFrameManager())
+        regalloc.prepare_loop(loop.inputargs, loop.operations)
+        return regalloc
 
     def getint(self, index):
         return self.cpu.get_latest_value_int(index)
@@ -410,6 +421,34 @@ class TestRegallocSimple(BaseTestRegalloc):
             self.cpu.set_future_value_int(i, i)
         self.run(loop)
         assert self.getints(9) == range(9)
+
+    def test_loopargs(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        jump(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
+
+    def test_loopargs_2(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        finish(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
+
+    def test_loopargs_3(self):
+        ops = """
+        [i0, i1, i2, i3]
+        i4 = int_add(i0, i1)
+        guard_true(i4) [i0, i1, i2, i3, i4]
+        jump(i4, i1, i2, i3)
+        """
+        regalloc = self.prepare_loop(ops)
+        assert len(regalloc.rm.reg_bindings) == 2
 
 class TestRegallocCompOps(BaseTestRegalloc):
 

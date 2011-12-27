@@ -1,5 +1,5 @@
 from pypy.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_loop_consts
+        RegisterManager, TempBox, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm.locations import imm
@@ -178,13 +178,10 @@ class ARMv7RegisterMananger(RegisterManager):
 
 class Regalloc(object):
 
-    def __init__(self, longevity, frame_manager=None, assembler=None):
+    def __init__(self, frame_manager=None, assembler=None):
         self.cpu = assembler.cpu
-        self.longevity = longevity
-        self.frame_manager = frame_manager
         self.assembler = assembler
-        self.vfprm = VFPRegisterManager(longevity, frame_manager, assembler)
-        self.rm = ARMv7RegisterMananger(longevity, frame_manager, assembler)
+        self.frame_manager = frame_manager
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -281,15 +278,31 @@ class Regalloc(object):
             assert isinstance(value, ConstFloat)
             return self.vfprm.convert_to_imm(value)
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        loop_consts = compute_loop_consts(inputargs, operations[-1], looptoken)
+    def _prepare(self,  inputargs, operations):
+        longevity, useful = compute_vars_longevity(inputargs, operations)
+        self.longevity = longevity
+        fm = self.frame_manager
+        asm = self.assembler
+        self.vfprm = VFPRegisterManager(longevity, fm, asm)
+        self.rm = ARMv7RegisterMananger(longevity, fm, asm)
+        return useful
+
+    def prepare_loop(self, inputargs, operations):
+        useful = self._prepare(inputargs, operations)
+        return self._process_inputargs(inputargs, useful)
+
+    def prepare_bridge(self, frame_depth, inputargs, arglocs, ops):
+        self._prepare(inputargs, ops)
+        self._update_bindings(arglocs, frame_depth, inputargs)
+
+    def _process_inputargs(self, inputargs, useful):
         floatlocs = [None] * len(inputargs)
         nonfloatlocs = [None] * len(inputargs)
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = inputargs[i]
-            if arg not in loop_consts and self.longevity[arg][1] > -1:
+            if self.longevity[arg][1] > -1 and arg in useful:
                 self.try_allocate_reg(loc)
 
             loc = self.loc(arg)
@@ -300,7 +313,7 @@ class Regalloc(object):
         self.possibly_free_vars(list(inputargs))
         return nonfloatlocs, floatlocs
 
-    def update_bindings(self, locs, frame_depth, inputargs):
+    def _update_bindings(self, locs, frame_depth, inputargs):
         used = {}
         i = 0
         self.frame_manager.frame_depth = frame_depth

@@ -14,7 +14,6 @@ from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     operations as regalloc_operations,
                     operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.arm.jump import remap_frame_layout
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.codewriter import longlong
@@ -277,7 +276,7 @@ class AssemblerARM(ResOpAssembler):
         self.fail_force_index = frame_loc
         return descr
 
-    def decode_inputargs(self, enc, regalloc):
+    def decode_inputargs(self, enc):
         locs = []
         j = 0
         while enc[j] != self.END_OF_LOCS:
@@ -302,7 +301,7 @@ class AssemblerARM(ResOpAssembler):
                 else:
                     t = REF
                 stack_loc = decode32(enc, j + 1)
-                loc = regalloc.frame_manager.frame_pos(stack_loc, t)
+                loc = ARMFrameManager.frame_pos(stack_loc, t)
                 j += 4
             else:  # REG_LOC
                 if res_type == self.FLOAT_TYPE:
@@ -509,7 +508,8 @@ class AssemblerARM(ResOpAssembler):
         mc.SUB_ri(r.r5.value, r.r4.value, imm=2 * WORD)  # ADD r5, r4 [2*WORD]
         mc.STR_ri(r.r5.value, r.ip.value)
 
-    def gen_bootstrap_code(self, nonfloatlocs, floatlocs, inputargs):
+    def gen_bootstrap_code(self, arglocs, inputargs):
+        nonfloatlocs, floatlocs = arglocs
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
             if loc is None:
@@ -636,24 +636,21 @@ class AssemblerARM(ResOpAssembler):
 
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
-
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
 
         operations = self.setup(looptoken, operations)
         self._dump(operations)
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = Regalloc(longevity, assembler=self,
-                                frame_manager=ARMFrameManager())
 
         self.align()
         self.gen_func_prolog()
         sp_patch_location = self._prepare_sp_patch_position()
-        nonfloatlocs, floatlocs = regalloc.prepare_loop(inputargs,
-                                                operations, looptoken)
-        self.gen_bootstrap_code(nonfloatlocs, floatlocs, inputargs)
-        looptoken._arm_arglocs = [nonfloatlocs, floatlocs]
+
+        regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
+        arglocs = regalloc.prepare_loop(inputargs, operations)
+        self.gen_bootstrap_code(arglocs, inputargs)
+        looptoken._arm_arglocs = arglocs
         loop_head = self.mc.currpos()
 
         looptoken._arm_loop_code = loop_head
@@ -689,15 +686,15 @@ class AssemblerARM(ResOpAssembler):
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = Regalloc(longevity, assembler=self,
-                                            frame_manager=ARMFrameManager())
+        frame_depth = faildescr._arm_frame_depth
+        arglocs = self.decode_inputargs(enc)
+        if not we_are_translated():
+            assert len(inputargs) == len(arglocs)
+
+        regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
+        regalloc.prepare_bridge(frame_depth, inputargs, arglocs, operations)
 
         sp_patch_location = self._prepare_sp_patch_position()
-        frame_depth = faildescr._arm_frame_depth
-        locs = self.decode_inputargs(enc, regalloc)
-        assert len(inputargs) == len(locs)
-        regalloc.update_bindings(locs, frame_depth, inputargs)
 
         self._walk_operations(operations, regalloc)
 

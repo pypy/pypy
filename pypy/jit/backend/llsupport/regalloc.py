@@ -1,4 +1,4 @@
-
+import os
 from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.resoperation import rop
@@ -393,7 +393,7 @@ class RegisterManager(object):
         """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
 
-def _compute_vars_longevity(self, inputargs, operations):
+def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
     # operations that is a "last-time-seen"
 
@@ -442,16 +442,6 @@ def _compute_vars_longevity(self, inputargs, operations):
             del last_used[arg]
     assert len(last_used) == 0
     return longevity, useful
-
-def compute_loop_consts(inputargs, jump, looptoken):
-    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-        loop_consts = {}
-    else:
-        loop_consts = {}
-        for i in range(len(inputargs)):
-            if inputargs[i] is jump.getarg(i):
-                loop_consts[inputargs[i]] = i
-    return loop_consts
 
 
 def not_implemented(msg):
