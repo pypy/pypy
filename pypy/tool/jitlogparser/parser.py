@@ -24,19 +24,13 @@ class Op(object):
         self.failargs = failargs
 
     def getarg(self, i):
-        return self._getvar(self.args[i])
+        return self.args[i]
 
     def getargs(self):
-        return [self._getvar(v) for v in self.args]
+        return self.args
 
     def getres(self):
-        return self._getvar(self.res)
-
-    def getdescr(self):
-        return self.descr
-
-    def _getvar(self, v):
-        return v
+        return self.res
 
     def is_guard(self):
         return self._is_guard
@@ -44,7 +38,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.getdescr())
+            args.append('descr=%s' % self.descr)
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -53,8 +47,6 @@ class Op(object):
 
     def __repr__(self):
         return self.repr()
-        ## return '<%s (%s)>' % (self.name, ', '.join([repr(a)
-        ##                                             for a in self.args]))
 
 class SimpleParser(OpParser):
 
