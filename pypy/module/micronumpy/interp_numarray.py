@@ -756,15 +756,19 @@ class Reduce(VirtualArray):
     def compute(self):
         result = W_NDimArray(self.size, self.shape, self.find_dtype())
         shapelen = len(result.shape)
-        sig = self.find_sig()
+        #sig = self.find_sig(result.shape) ##Don't do this, it causes an infinite recursion
+        sig = self.create_sig(result.shape)
         ri = ArrayIterator(self.size)
-        si = axis_iter_from_arr(self, self.dim)
+        si = axis_iter_from_arr(self.values, self.dim)
         while not ri.done():
-            frame = sig.create_frame(self, self.values, chunks = si.indices)
-            val = sig.eval(frame, self)
+            #frame = sig.create_frame(self.values, chunks = [si.indices])
+            #Frame should be returning self.func applied to the axis starting at si.offset
+            frame = sig.create_frame(self.values, chunks = [])
+            val = sig.eval(frame, self.values).convert_to( self.find_dtype())
             result.dtype.setitem(result.storage, ri.offset, val)
             ri = ri.next(shapelen)
             si = si.next(shapelen)
+            frame = frame.next
         return result
 
 
