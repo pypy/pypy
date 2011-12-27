@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.module.micronumpy.strides import calculate_slice_strides
@@ -14,22 +14,26 @@ from pypy.module.micronumpy.interp_iter import ArrayIterator,\
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['result_size', 'frame', 'ri', 'self', 'result']
+    reds=['result_size', 'frame', 'ri', 'self', 'result'],
+    get_printable_location=signature.new_printable_location('numpy'),
 )
 all_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype']
+    reds=['frame', 'self', 'dtype'],
+    get_printable_location=signature.new_printable_location('all'),
 )
 any_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype']
+    reds=['frame', 'self', 'dtype'],
+    get_printable_location=signature.new_printable_location('any'),
 )
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self', 'frame', 'source', 'res_iter']
+    reds=['self', 'frame', 'source', 'res_iter'],
+    get_printable_location=signature.new_printable_location('slice'),
 )
 
 def _find_shape_and_elems(space, w_iterable):
@@ -291,7 +295,8 @@ class BaseArray(Wrappable):
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
             greens=['shapelen', 'sig'],
-            reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype']
+            reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype'],
+            get_printable_location=signature.new_printable_location(op_name),
         )
         def loop(self):
             sig = self.find_sig()

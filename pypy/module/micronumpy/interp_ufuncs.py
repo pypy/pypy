@@ -1,9 +1,10 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, types
-from pypy.module.micronumpy.signature import ReduceSignature, ScalarSignature, find_sig
+from pypy.module.micronumpy import interp_boxes, interp_dtype
+from pypy.module.micronumpy.signature import ReduceSignature, ScalarSignature,\
+     find_sig, new_printable_location
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -11,7 +12,8 @@ from pypy.tool.sourcetools import func_with_new_name
 reduce_driver = jit.JitDriver(
     greens = ['shapelen', "sig"],
     virtualizables = ["frame"],
-    reds = ["frame", "self", "dtype", "value", "obj"]
+    reds = ["frame", "self", "dtype", "value", "obj"],
+    get_printable_location=new_printable_location('reduce'),
 )
 
 class W_Ufunc(Wrappable):
