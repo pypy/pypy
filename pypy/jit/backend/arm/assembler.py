@@ -87,6 +87,7 @@ class AssemblerARM(ResOpAssembler):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
         self.pending_guards = []
+        self.currently_compiling_loop = None
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
@@ -98,6 +99,7 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
+        self.currently_compiling_loop = None
         assert self.datablockwrapper is None
 
     def setup_once(self):
@@ -641,6 +643,7 @@ class AssemblerARM(ResOpAssembler):
         looptoken.compiled_loop_token = clt
 
         operations = self.setup(looptoken, operations)
+        self.currently_compiling_loop = looptoken
         self._dump(operations)
 
         self.align()
@@ -656,9 +659,9 @@ class AssemblerARM(ResOpAssembler):
         looptoken._arm_loop_code = loop_head
         looptoken._arm_bootstrap_code = 0
 
-        self._walk_operations(operations, regalloc)
-
-        looptoken._arm_frame_depth = regalloc.frame_manager.frame_depth
+        looptoken._arm_frame_depth = -1
+        frame_depth = self._assemble(operations, regalloc)
+        looptoken._arm_frame_depth = frame_depth
         self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
 
         self.align()
@@ -679,6 +682,15 @@ class AssemblerARM(ResOpAssembler):
             print 'Done assembling loop with token %r' % looptoken
         self.teardown()
 
+    def _assemble(self, operations, regalloc):
+        regalloc.compute_hint_frame_locations(operations)
+        self._walk_operations(operations, regalloc)
+        frame_depth = regalloc.frame_manager.get_frame_depth()
+        jump_target_descr = regalloc.jump_target_descr
+        if jump_target_descr is not None:
+            frame_depth = max(frame_depth, jump_target_descr._arm_frame_depth)
+        return frame_depth
+
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
         operations = self.setup(original_loop_token, operations)
@@ -692,14 +704,13 @@ class AssemblerARM(ResOpAssembler):
             assert len(inputargs) == len(arglocs)
 
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
-        regalloc.prepare_bridge(frame_depth, inputargs, arglocs, operations)
+        regalloc.prepare_bridge(inputargs, arglocs, operations)
 
         sp_patch_location = self._prepare_sp_patch_position()
 
-        self._walk_operations(operations, regalloc)
+        frame_depth = self._assemble(operations, regalloc)
 
-        self._patch_sp_offset(sp_patch_location,
-                                regalloc.frame_manager.frame_depth)
+        self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.write_pending_failure_recoveries()
         bridge_start = self.materialize_loop(original_loop_token)
@@ -712,6 +723,10 @@ class AssemblerARM(ResOpAssembler):
             self.mc._dump_trace(bridge_start, 'bridge_%d.asm' %
             self.cpu.total_compiled_bridges)
         self.teardown()
+
+
+    def target_arglocs(self, loop_token):
+        return loop_token._arm_arglocs
 
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr

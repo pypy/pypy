@@ -51,7 +51,9 @@ class ARMFrameManager(FrameManager):
 
     def __init__(self):
         FrameManager.__init__(self)
-        self.frame_depth = 1
+        self.used = [True]  # keep first slot free
+        # XXX refactor frame to avoid this issue of keeping the first slot
+        # reserved
 
     @staticmethod
     def frame_pos(loc, type):
@@ -70,6 +72,13 @@ class ARMFrameManager(FrameManager):
             return  2
         return 1
 
+    @staticmethod
+    def get_loc_index(loc):
+        assert loc.is_stack()
+        if loc.type == FLOAT:
+            return loc.position - 1
+        else:
+            return loc.position
 
 def void(self, op, fcond):
     return []
@@ -182,6 +191,7 @@ class Regalloc(object):
         self.cpu = assembler.cpu
         self.assembler = assembler
         self.frame_manager = frame_manager
+        self.jump_target_descr = None
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -291,9 +301,9 @@ class Regalloc(object):
         useful = self._prepare(inputargs, operations)
         return self._process_inputargs(inputargs, useful)
 
-    def prepare_bridge(self, frame_depth, inputargs, arglocs, ops):
+    def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
-        self._update_bindings(arglocs, frame_depth, inputargs)
+        self._update_bindings(arglocs, inputargs)
 
     def _process_inputargs(self, inputargs, useful):
         floatlocs = [None] * len(inputargs)
@@ -313,10 +323,9 @@ class Regalloc(object):
         self.possibly_free_vars(list(inputargs))
         return nonfloatlocs, floatlocs
 
-    def _update_bindings(self, locs, frame_depth, inputargs):
+    def _update_bindings(self, locs, inputargs):
         used = {}
         i = 0
-        self.frame_manager.frame_depth = frame_depth
         for loc in locs:
             arg = inputargs[i]
             i += 1
@@ -326,7 +335,7 @@ class Regalloc(object):
                 self.vfprm.reg_bindings[arg] = loc
             else:
                 assert loc.is_stack()
-                self.frame_manager.frame_bindings[arg] = loc
+                self.frame_manager.set_binding(arg, loc)
             used[loc] = None
 
         # XXX combine with x86 code and move to llsupport
@@ -519,7 +528,7 @@ class Regalloc(object):
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
-        args.append(imm(self.frame_manager.frame_depth))
+        args.append(imm(self.frame_manager.get_frame_depth()))
         for arg in op.getfailargs():
             if arg:
                 args.append(self.loc(arg))
@@ -613,10 +622,34 @@ class Regalloc(object):
 
         return arglocs
 
+    def compute_hint_frame_locations(self, operations):
+        # optimization only: fill in the 'hint_frame_locations' dictionary
+        # of rm and xrm based on the JUMP at the end of the loop, by looking
+        # at where we would like the boxes to be after the jump.
+        op = operations[-1]
+        if op.getopnum() != rop.JUMP:
+            return
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            if isinstance(box, Box):
+                loc = nonfloatlocs[i]
+                if loc is not None and loc.is_stack():
+                    assert box.type != FLOAT
+                    self.frame_manager.hint_frame_locations[box] = loc
+                else:
+                    loc = floatlocs[i]
+                    if loc is not None and loc.is_stack():
+                        assert box.type == FLOAT
+                        self.frame_manager.hint_frame_locations[box] = loc
+
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
-        nonfloatlocs, floatlocs = descr._arm_arglocs
+        self.jump_target_descr = descr
+        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
 
         # get temporary locs
         tmploc = r.ip
@@ -940,7 +973,7 @@ class Regalloc(object):
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(False)
-        for v, val in self.frame_manager.frame_bindings.items():
+        for v, val in self.frame_manager.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
                 gcrootmap.add_frame_offset(shape, val.position * -WORD)
