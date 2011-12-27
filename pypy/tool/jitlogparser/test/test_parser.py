@@ -38,18 +38,21 @@ def test_parse_non_code():
 def test_split():
     ops = parse('''
     [i0]
+    label()
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i1 = int_add(i0, 1)
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i2 = int_add(i1, 1)
     ''')
-    res = Function.from_operations(ops.operations, LoopStorage())
-    assert len(res.chunks) == 3
+    res = Function.from_operations(ops.operations, LoopStorage(), loopname='<loopname>')
+    assert len(res.chunks) == 4
     assert len(res.chunks[0].operations) == 1
-    assert len(res.chunks[1].operations) == 2
+    assert len(res.chunks[1].operations) == 1
     assert len(res.chunks[2].operations) == 2
-    assert res.chunks[2].bytecode_no == 11
+    assert len(res.chunks[3].operations) == 2
+    assert res.chunks[3].bytecode_no == 11
+    assert res.chunks[0].bytecode_name == 'loopname'
 
 def test_inlined_call():
     ops = parse("""

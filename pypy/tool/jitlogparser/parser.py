@@ -138,20 +138,27 @@ class TraceForOpcode(object):
     is_bytecode = True
     inline_level = None
 
-    def __init__(self, operations, storage):
+    def parse_code_data(self, arg):
+        m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
+                      arg)
+        if m is None:
+            # a non-code loop, like StrLiteralSearch or something
+            self.bytecode_name = arg
+        else:
+            self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
+            self.startlineno = int(lineno)
+            self.bytecode_no = int(bytecode_no)
+
+
+    def __init__(self, operations, storage, loopname):
         for op in operations:
             if op.name == 'debug_merge_point':
                 self.inline_level = int(op.args[0])
-                m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                             op.args[1])
-                if m is None:
-                    # a non-code loop, like StrLiteralSearch or something
-                    self.bytecode_name = op.args[1][1:-1]
-                else:
-                    self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
-                    self.startlineno = int(lineno)
-                    self.bytecode_no = int(bytecode_no)
+                self.parse_code_data(op.args[1])
                 break
+        else:
+            self.inline_level = 0
+            self.parse_code_data(loopname)
         self.operations = operations
         self.storage = storage
         self.code = storage.disassemble_code(self.filename, self.startlineno,
@@ -214,7 +221,8 @@ class Function(object):
         self.storage = storage
 
     @classmethod
-    def from_operations(cls, operations, storage, limit=None, inputargs=''):
+    def from_operations(cls, operations, storage, limit=None, inputargs='',
+                        loopname=''):
         """ Slice given operation list into a chain of TraceForOpcode chunks.
         Also detect inlined functions and make them Function
         """
@@ -240,13 +248,13 @@ class Function(object):
         for op in operations:
             if op.name == 'debug_merge_point':
                 if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage))
+                    append_to_res(cls.TraceForOpcode(so_far, storage, loopname))
                     if limit:
                         break
                     so_far = []
             so_far.append(op)
         if so_far:
-            append_to_res(cls.TraceForOpcode(so_far, storage))
+            append_to_res(cls.TraceForOpcode(so_far, storage, loopname))
         # wrap stack back up
         if not stack:
             # no ops whatsoever
@@ -294,7 +302,7 @@ class Function(object):
 
     def repr(self):
         if self.filename is None:
-            return "Unknown"
+            return self.chunks[0].bytecode_name
         return "%s, file '%s', line %d" % (self.name, self.filename,
                                            self.startlineno)
 
