@@ -33,7 +33,7 @@ def test_parse_non_code():
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 1
-    assert res.chunks[0].repr()
+    assert 'SomeRandomStuff' in res.chunks[0].repr()
 
 def test_split():
     ops = parse('''

@@ -27,7 +27,7 @@ class Op(object):
         return self.args[i]
 
     def getargs(self):
-        return self.args
+        return self.args[:]
 
     def getres(self):
         return self.res
@@ -159,7 +159,7 @@ class TraceForOpcode(object):
 
     def repr(self):
         if self.filename is None:
-            return "Unknown"
+            return self.bytecode_name
         return "%s, file '%s', line %d" % (self.name, self.filename,
                                            self.startlineno)
 
