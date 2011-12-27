@@ -9,7 +9,7 @@ from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat
 from pypy.translator.translator import TranslationContext
 from pypy.tool.option import make_config
 
@@ -145,8 +145,14 @@ class FakeObjSpace(ObjSpace):
                 self._see_interp2app(x)
             if isinstance(x, GetSetProperty):
                 self._see_getsetproperty(x)
+        if isinstance(x, r_singlefloat):
+            self._wrap_not_rpython(x)
         return w_some_obj()
     wrap._annspecialcase_ = "specialize:argtype(1)"
+
+    def _wrap_not_rpython(self, x):
+        "NOT_RPYTHON"
+        raise NotImplementedError
 
     def _see_interp2app(self, interp2app):
         "NOT_RPYTHON"
@@ -238,6 +244,7 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
+        ann.policy.allow_someobjects = False
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         #

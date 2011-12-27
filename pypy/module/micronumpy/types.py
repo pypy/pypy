@@ -1,6 +1,7 @@
 import functools
 import math
 
+from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, libffi, clibffi
@@ -76,6 +77,9 @@ class Primitive(object):
         assert isinstance(w_obj, self.BoxType)
         w_obj.__init__(self._coerce(space, w_item).value)
         return w_obj
+
+    def to_builtin_type(self, space, box):
+        return space.wrap(self.for_computation(self.unbox(box)))
 
     def _coerce(self, space, w_item):
         raise NotImplementedError
@@ -179,6 +183,9 @@ class Bool(BaseType, Primitive):
     def _coerce(self, space, w_item):
         return self.box(space.is_true(w_item))
 
+    def to_builtin_type(self, space, w_item):
+        return space.wrap(self.unbox(w_item))
+
     def str_format(self, box):
         value = self.unbox(box)
         return "True" if value else "False"
@@ -270,6 +277,19 @@ class Int64(BaseType, Integer):
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
+
+    def _coerce(self, space, w_item):
+        try:
+            return Integer._coerce(self, space, w_item)
+        except OperationError, e:
+            if not e.match(space, space.w_OverflowError):
+                raise
+        bigint = space.bigint_w(w_item)
+        try:
+            value = bigint.toulonglong()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.w_None)
+        return self.box(value)
 
 class Float(Primitive):
     _mixin_ = True
