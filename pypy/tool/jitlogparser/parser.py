@@ -147,17 +147,19 @@ class TraceForOpcode(object):
     inline_level = None
 
     def __init__(self, operations, storage):
-        if operations[0].name == 'debug_merge_point':
-            self.inline_level = int(operations[0].args[0])
-            m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].args[1])
-            if m is None:
-                # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1][1:-1]
-            else:
-                self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
-                self.startlineno = int(lineno)
-                self.bytecode_no = int(bytecode_no)
+        for op in operations:
+            if op.name == 'debug_merge_point':
+                self.inline_level = int(op.args[0])
+                m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
+                             op.args[1])
+                if m is None:
+                    # a non-code loop, like StrLiteralSearch or something
+                    self.bytecode_name = op.args[1][1:-1]
+                else:
+                    self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
+                    self.startlineno = int(lineno)
+                    self.bytecode_no = int(bytecode_no)
+                break
         self.operations = operations
         self.storage = storage
         self.code = storage.disassemble_code(self.filename, self.startlineno,
@@ -225,6 +227,7 @@ class Function(object):
         Also detect inlined functions and make them Function
         """
         stack = []
+        seen_dmp = False
 
         def getpath(stack):
             return ",".join([str(len(v)) for v in stack])
@@ -245,11 +248,14 @@ class Function(object):
         stack = []
         for op in operations:
             if op.name == 'debug_merge_point':
-                if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage))
-                    if limit:
-                        break
-                    so_far = []
+                if seen_dmp:
+                    if so_far:
+                        append_to_res(cls.TraceForOpcode(so_far, storage))
+                        if limit:
+                            break
+                        so_far = []
+                else:
+                    seen_dmp = True
             so_far.append(op)
         if so_far:
             append_to_res(cls.TraceForOpcode(so_far, storage))
@@ -405,6 +411,7 @@ def split_trace(trace):
         part = copy(trace)
         part.operations = trace.operations[start : stop + 1]
         part.descr = descrs[i]
+        part.comment = trace.comment
         parts.append(part)
     
     return parts
