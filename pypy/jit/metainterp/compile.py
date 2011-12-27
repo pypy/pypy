@@ -114,6 +114,7 @@ def compile_loop(metainterp, greenkey, start,
 
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
+    history = metainterp.history
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
     part = create_empty_loop(metainterp)
@@ -311,7 +312,10 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
+    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
+                                      type, ops_offset,
+                                      name=loopname)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(original_jitcell_token)
