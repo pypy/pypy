@@ -386,6 +386,17 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_as_field_of_forced_box(self):
+        ops = """
+        [p0]
+        pv1 = new_with_vtable(ConstClass(node_vtable))
+        label(pv1, p0)
+        pv2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(pv2, pv1, descr=valuedescr)
+        jump(pv1, pv2)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
 
 class OptRenameStrlen(Optimization):
     def propagate_forward(self, op):
