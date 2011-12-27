@@ -79,9 +79,9 @@ class HeapCache(object):
             opnum == rop.COPYSTRCONTENT or
             opnum == rop.COPYUNICODECONTENT):
             return
-        if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
-            return
-        if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
+        if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
+            rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
+            rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
         if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT:
             effectinfo = descr.get_extra_info()
