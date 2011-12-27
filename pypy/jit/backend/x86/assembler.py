@@ -679,9 +679,8 @@ class Assembler386(object):
             looptoken._x86_debug_checksum = s
 
             newoperations = []
-            if bridge:
-                self._append_debugging_code(newoperations, bridge, number,
-                                            None)
+            self._append_debugging_code(newoperations, bridge, number,
+                                        None)
             for op in operations:
                 newoperations.append(op)
                 if op.getopnum() == rop.LABEL:
