@@ -93,20 +93,6 @@ class AppTestBuiltinApp:
         raises(ValueError, chr, -1)
         raises(ValueError, chr, sys.maxunicode+1)
 
-    def test_intern(self):
-        raises(TypeError, intern)
-        raises(TypeError, intern, 1)
-        class S(str):
-            pass
-        raises(TypeError, intern, S("hello"))
-        s = "never interned before"
-        s2 = intern(s)
-        assert s == s2
-        s3 = s.swapcase()
-        assert s3 != s2
-        s4 = s3.swapcase()
-        assert intern(s4) is s2
-
     def test_globals(self):
         d = {"foo":"bar"}
         exec("def f(): return globals()", d)

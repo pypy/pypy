@@ -607,3 +607,19 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         assert len(frames) == 1
         _, other_frame = frames.popitem()
         assert other_frame.f_code.co_name in ('other_thread', '?')
+
+    def test_intern(self):
+        from sys import intern
+        raises(TypeError, intern)
+        raises(TypeError, intern, 1)
+        class S(str):
+            pass
+        raises(TypeError, intern, S("hello"))
+        s = "never interned before"
+        s2 = intern(s)
+        assert s == s2
+        s3 = s.swapcase()
+        assert s3 != s2
+        s4 = s3.swapcase()
+        assert intern(s4) is s2
+

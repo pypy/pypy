@@ -70,7 +70,6 @@ class Module(MixedModule):
         'iter'          : 'operation.iter',
         'next'          : 'operation.next',
         'id'            : 'operation.id',
-        'intern'        : 'operation.intern',
         'callable'      : 'operation.callable',
 
         'compile'       : 'compiling.compile',

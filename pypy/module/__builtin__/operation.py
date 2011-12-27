@@ -220,15 +220,6 @@ setattr(x, 'y', z) is equivalent to ``x.y = z''."""
     space.setattr(w_object, w_name, w_val)
     return space.w_None
 
-def intern(space, w_str):
-    """``Intern'' the given string.  This enters the string in the (global)
-table of interned strings whose purpose is to speed up dictionary lookups.
-Return the string itself or the previously interned string object with the
-same value."""
-    if space.is_w(space.type(w_str), space.w_unicode):
-        return space.new_interned_w_str(w_str)
-    raise OperationError(space.w_TypeError, space.wrap("intern() argument must be string."))
-
 def callable(space, w_object):
     """Check whether the object appears to be callable (i.e., some kind of
 function).  Note that classes are callable."""

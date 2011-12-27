@@ -201,3 +201,13 @@ def getsizeof(space, w_object, w_default=NoneNotWrapped):
         raise OperationError(space.w_TypeError,
             space.wrap("sys.getsizeof() not implemented on PyPy"))
     return w_default
+
+def intern(space, w_str):
+    """``Intern'' the given string.  This enters the string in the (global)
+table of interned strings whose purpose is to speed up dictionary lookups.
+Return the string itself or the previously interned string object with the
+same value."""
+    if space.is_w(space.type(w_str), space.w_unicode):
+        return space.new_interned_w_str(w_str)
+    raise OperationError(space.w_TypeError, space.wrap("intern() argument must be string."))
+
