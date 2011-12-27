@@ -314,10 +314,7 @@ class AppTestInt:
 
     def test_int_string(self):
         assert 42 == int("42")
-        assert 10000000000 == long("10000000000")
-
-    def test_int_unicode(self):
-        assert 42 == int(unicode('42'))
+        assert 10000000000 == int("10000000000")
 
     def test_int_float(self):
         assert 4 == int(4.2)
@@ -348,7 +345,7 @@ class AppTestInt:
     def test_overflow(self):
         import sys
         n = sys.maxint + 1
-        assert isinstance(n, long)
+        assert isinstance(n, int)
 
     def test_pow(self):
         assert pow(2, -10) == 1/1024.
@@ -369,8 +366,6 @@ class AppTestInt:
         assert j("100") == 100
         assert j("100",2) == 4
         assert isinstance(j("100",2),j)
-        raises(OverflowError,j,sys.maxint+1)
-        raises(OverflowError,j,str(sys.maxint+1))
 
     def test_int_subclass_ops(self):
         import sys
@@ -402,7 +397,7 @@ class AppTestInt:
         assert (5 +  j(100),  type(5 +  j(100))) == (     105, int)
         assert (5 -  j(100),  type(5 -  j(100))) == (     -95, int)
         assert (5 *  j(100),  type(5 *  j(100))) == (     500, int)
-        assert (5 << j(100),  type(5 << j(100))) == (5 << 100, long)
+        assert (5 << j(100),  type(5 << j(100))) == (5 << 100, int)
         assert (j(100) >> 2,  type(j(100) >> 2)) == (      25, int)
 
     def test_int_subclass_int(self):
@@ -413,17 +408,15 @@ class AppTestInt:
                 return '<instance of j>'
         class subint(int):
             pass
-        class sublong(long):
-            pass
         value = 42L
         assert int(j()) == 42
         value = 4200000000000000000000000000000000L
         assert int(j()) == 4200000000000000000000000000000000L
         value = subint(42)
         assert int(j()) == 42 and type(int(j())) is subint
-        value = sublong(4200000000000000000000000000000000L)
+        value = subint(4200000000000000000000000000000000L)
         assert (int(j()) == 4200000000000000000000000000000000L
-                and type(int(j())) is sublong)
+                and type(int(j())) is subint)
         value = 42.0
         raises(TypeError, int, j())
         value = "foo"
@@ -444,16 +437,16 @@ class AppTestInt:
 
     def test_special_long(self):
         class a(object):
-            def __long__(self): 
+            def __int__(self): 
                 self.ar = True 
                 return None
         inst = a()
-        raises(TypeError, long, inst) 
+        raises(TypeError, int, inst) 
         assert inst.ar == True 
 
         class b(object): 
             pass 
-        raises((AttributeError,TypeError), long, b())
+        raises((AttributeError,TypeError), int, b())
 
     def test_just_trunc(self):
         class myint(object):

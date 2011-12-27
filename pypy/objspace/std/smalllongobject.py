@@ -9,7 +9,7 @@ from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.rlib.rarithmetic import r_longlong, r_int, r_uint
 from pypy.rlib.rarithmetic import intmask, LONGLONG_BIT
 from pypy.rlib.rbigint import rbigint
-from pypy.objspace.std.longobject import W_AbstractLongObject, W_LongObject
+from pypy.objspace.std.longobject import W_AbstractIntObject, W_LongObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.interpreter.error import OperationError
@@ -17,7 +17,7 @@ from pypy.interpreter.error import OperationError
 LONGLONG_MIN = r_longlong((-1) << (LONGLONG_BIT-1))
 
 
-class W_SmallLongObject(W_AbstractLongObject):
+class W_SmallLongObject(W_AbstractIntObject):
     from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['longlong']
 
@@ -108,9 +108,6 @@ def delegate_SmallLong2Float(space, w_small):
 def delegate_SmallLong2Complex(space, w_small):
     return space.newcomplex(float(w_small.longlong), 0.0)
 
-
-def long__SmallLong(space, w_value):
-    return w_value
 
 def int__SmallLong(space, w_value):
     a = w_value.longlong

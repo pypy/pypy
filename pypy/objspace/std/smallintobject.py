@@ -16,7 +16,7 @@ from pypy.objspace.std.inttype import wrapint
 
 class W_SmallIntObject(W_AbstractIntObject, UnboxedValue):
     __slots__ = 'intval'
-    from pypy.objspace.std.inttype import int_typedef as typedef
+    from pypy.objspace.std.longtype import long_typedef as typedef
 
     def unwrap(w_self, space):
         return int(w_self.intval)

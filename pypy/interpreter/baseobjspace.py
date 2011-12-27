@@ -1409,8 +1409,7 @@ class ObjSpace(object):
         # not os.close().  It's likely designed for 'select'.  It's irregular
         # in the sense that it expects either a real int/long or an object
         # with a fileno(), but not an object with an __int__().
-        if (not self.isinstance_w(w_fd, self.w_int) and
-            not self.isinstance_w(w_fd, self.w_long)):
+        if not self.isinstance_w(w_fd, self.w_int):
             try:
                 w_fileno = self.getattr(w_fd, self.wrap("fileno"))
             except OperationError, e:
@@ -1519,7 +1518,6 @@ ObjSpace.MethodTable = [
     ('int',             'int',       1, ['__int__']),
     ('index',           'index',     1, ['__index__']),
     ('float',           'float',     1, ['__float__']),
-    ('long',            'long',      1, ['__long__']),
     ('inplace_add',     '+=',        2, ['__iadd__']),
     ('inplace_sub',     '-=',        2, ['__isub__']),
     ('inplace_mul',     '*=',        2, ['__imul__']),

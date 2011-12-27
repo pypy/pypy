@@ -47,7 +47,7 @@ def PyNumber_Int(space, w_obj):
 def PyNumber_Long(space, w_obj):
     """Returns the o converted to a long integer object on success, or NULL on
     failure.  This is the equivalent of the Python expression long(o)."""
-    return space.long(w_obj)
+    return space.int(w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyNumber_Index(space, w_obj):

@@ -109,9 +109,14 @@ def hkey_w(w_hkey, space):
     elif isinstance(w_hkey, W_HKEY):
         return w_hkey.hkey
     elif space.is_true(space.isinstance(w_hkey, space.w_int)):
-        return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
-    elif space.is_true(space.isinstance(w_hkey, space.w_long)):
-        return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
+        try:
+            value = space.int_w(w_hkey)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            return rffi.cast(rwinreg.HKEY, space.uint_w(w_hkey))
+        else:
+            return rffi.cast(rwinreg.HKEY, space.int_w(w_hkey))
     else:
         errstring = space.wrap("The object is not a PyHKEY object")
         raise OperationError(space.w_TypeError, errstring)

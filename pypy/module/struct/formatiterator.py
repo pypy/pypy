@@ -64,8 +64,7 @@ class PackFormatIterator(FormatIterator):
         def _accept_integral(self, meth):
             space = self.space
             w_obj = self.accept_obj_arg()
-            if (space.isinstance_w(w_obj, space.w_int) or
-                space.isinstance_w(w_obj, space.w_long)):
+            if space.isinstance_w(w_obj, space.w_int):
                 w_index = w_obj
             else:
                 w_index = None

@@ -36,7 +36,7 @@ def descr_bit_length(space, w_int):
 @gateway.unwrap_spec(s='bufferstr', byteorder=str)
 def descr_from_bytes(space, w_cls, s, byteorder):
     from pypy.objspace.std.longtype import descr_from_bytes
-    return descr_from_bytes(space, space.w_long, s, byteorder)
+    return descr_from_bytes(space, space.w_int, s, byteorder)
 
 def wrapint(space, x):
     if space.config.objspace.std.withsmallint:

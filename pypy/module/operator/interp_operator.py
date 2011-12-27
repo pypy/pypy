@@ -226,8 +226,7 @@ def irepeat(space, w_obj1, w_obj2):
         raise OperationError(space.w_TypeError,
                            space.wrap("non-sequence object can't be repeated"))
 
-    if not (space.is_true(space.isinstance(w_obj2, space.w_int)) or \
-            space.is_true(space.isinstance(w_obj2, space.w_long))):
+    if not space.is_true(space.isinstance(w_obj2, space.w_int)):
         # second arg has to be int/long
         raise OperationError(space.w_TypeError,
                              space.wrap('an integer is required'))

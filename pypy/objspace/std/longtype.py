@@ -5,7 +5,7 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
 
 def descr_conjugate(space, w_int):
-    return space.long(w_int)
+    return space.int(w_int)
 
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
@@ -20,7 +20,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     if w_base is None:
         # check for easy cases
         if (W_SmallLongObject and type(w_value) is W_SmallLongObject
-            and space.is_w(w_longtype, space.w_long)):
+            and space.is_w(w_longtype, space.w_int)):
             return w_value
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
@@ -34,20 +34,13 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             return string_to_w_long(space, w_longtype,
                                     unicode_to_decimal_w(space, w_value))
         else:
-            # otherwise, use the __long__() or the __trunc__ methods
+            # otherwise, use the __int__() or the __trunc__ methods
             w_obj = w_value
-            if (space.lookup(w_obj, '__long__') is not None or
-                space.lookup(w_obj, '__int__') is not None):
-                w_obj = space.long(w_obj)
+            if space.lookup(w_obj, '__int__') is not None:
+                w_obj = space.int(w_obj)
             else:
                 w_obj = space.trunc(w_obj)
-                # :-(  blame CPython 2.7
-                if space.lookup(w_obj, '__long__') is not None:
-                    w_obj = space.long(w_obj)
-                else:
-                    w_obj = space.int(w_obj)
-            bigint = space.bigint_w(w_obj)
-            return newbigint(space, w_longtype, bigint)
+            return w_obj
     else:
         base = space.int_w(w_base)
 
@@ -80,7 +73,7 @@ def newbigint(space, w_longtype, bigint):
     longobject.py, but takes an explicit w_longtype argument.
     """
     if (space.config.objspace.std.withsmalllong
-        and space.is_w(w_longtype, space.w_long)):
+        and space.is_w(w_longtype, space.w_int)):
         try:
             z = bigint.tolonglong()
         except OverflowError:
@@ -94,13 +87,13 @@ def newbigint(space, w_longtype, bigint):
     return w_obj
 
 def descr_get_numerator(space, w_obj):
-    return space.long(w_obj)
+    return space.int(w_obj)
 
 def descr_get_denominator(space, w_obj):
     return space.newlong(1)
 
 def descr_get_real(space, w_obj):
-    return space.long(w_obj)
+    return space.int(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.newlong(0)
@@ -124,8 +117,8 @@ def descr_from_bytes(space, w_cls, s, byteorder):
 
 # ____________________________________________________________
 
-long_typedef = StdTypeDef("long",
-    __doc__ = '''long(x[, base]) -> integer
+long_typedef = StdTypeDef("int",
+    __doc__ = '''int(x[, base]) -> integer
 
 Convert a string or number to a long integer, if possible.  A floating
 point argument will be truncated towards zero (this does not include a

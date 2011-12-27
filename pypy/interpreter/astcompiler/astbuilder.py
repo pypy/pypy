@@ -1047,10 +1047,7 @@ class ASTBuilder(object):
         w_num_str = self.space.wrap(raw)
         w_index = None
         w_base = self.space.wrap(base)
-        if raw[-1] in "lL":
-            tp = self.space.w_long
-            return self.space.call_function(tp, w_num_str, w_base)
-        elif raw[-1] in "jJ":
+        if raw[-1] in "jJ":
             tp = self.space.w_complex
             return self.space.call_function(tp, w_num_str)
         try:

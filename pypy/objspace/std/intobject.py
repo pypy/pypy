@@ -24,7 +24,7 @@ class W_AbstractIntObject(W_Object):
             return False
         if self.user_overridden_class or w_other.user_overridden_class:
             return self is w_other
-        return space.int_w(self) == space.int_w(w_other)
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -39,7 +39,7 @@ class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
 
-    from pypy.objspace.std.inttype import int_typedef as typedef
+    from pypy.objspace.std.longtype import long_typedef as typedef
 
     def __init__(w_self, intval):
         w_self.intval = intval

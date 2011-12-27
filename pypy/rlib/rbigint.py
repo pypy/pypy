@@ -293,7 +293,7 @@ class rbigint(object):
         return _format(self, digits, prefix, suffix)
 
     def repr(self):
-        return _format(self, BASE10, '', 'L')
+        return _format(self, BASE10)
 
     def str(self):
         return _format(self, BASE10)

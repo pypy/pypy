@@ -41,8 +41,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     if not (space.isinstance_w(w_file, space.w_unicode) or
             space.isinstance_w(w_file, space.w_str) or
-            space.isinstance_w(w_file, space.w_int) or
-            space.isinstance_w(w_file, space.w_long)):
+            space.isinstance_w(w_file, space.w_int)):
         raise operationerrfmt(space.w_TypeError,
             "invalid file: %s", space.str_w(space.repr(w_file))
         )

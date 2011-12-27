@@ -31,7 +31,7 @@ option_to_typename = {
 }
 
 IDTAG_INT     = 1
-IDTAG_LONG    = 3
+#IDTAG_LONG    = 3
 IDTAG_FLOAT   = 5
 IDTAG_COMPLEX = 7
 
@@ -44,7 +44,7 @@ class StdTypeModel:
         class result:
             from pypy.objspace.std.objecttype import object_typedef
             from pypy.objspace.std.booltype   import bool_typedef
-            from pypy.objspace.std.inttype    import int_typedef
+            #from pypy.objspace.std.inttype    import int_typedef
             from pypy.objspace.std.floattype  import float_typedef
             from pypy.objspace.std.complextype  import complex_typedef
             from pypy.objspace.std.settype import set_typedef
@@ -184,8 +184,8 @@ class StdTypeModel:
             (complexobject.W_ComplexObject, complexobject.delegate_Bool2Complex),
             ]
         self.typeorder[intobject.W_IntObject] += [
-            (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
             (longobject.W_LongObject,   longobject.delegate_Int2Long),
+            (floatobject.W_FloatObject, floatobject.delegate_Int2Float),
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         if config.objspace.std.withsmalllong:

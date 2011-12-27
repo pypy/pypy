@@ -270,11 +270,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         return current_guess
     elif space.isinstance_w(w_obj, space.w_int):
         if (current_guess is None or current_guess is bool_dtype or
-            current_guess is long_dtype):
-            return long_dtype
-        return current_guess
-    elif space.isinstance_w(w_obj, space.w_long):
-        if (current_guess is None or current_guess is bool_dtype or
             current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
         return current_guess

@@ -101,8 +101,7 @@ def ldexp(space, w_x,  w_i):
     """ldexp(x, i) -> x * (2**i)
     """
     x = _get_double(space, w_x)
-    if (space.isinstance_w(w_i, space.w_int) or
-        space.isinstance_w(w_i, space.w_long)):
+    if space.isinstance_w(w_i, space.w_int):
         try:
             exp = space.int_w(w_i)
         except OperationError, e:
@@ -189,7 +188,7 @@ def degrees(space, w_x):
 def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
     try:
-        if space.is_true(space.isinstance(w_x, space.w_long)):
+        if space.is_true(space.isinstance(w_x, space.w_int)):
             # special case to support log(extremely-large-long)
             num = space.bigint_w(w_x)
             result = num.log(base)

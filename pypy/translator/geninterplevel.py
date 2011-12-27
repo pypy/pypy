@@ -844,7 +844,7 @@ else:
     typename_mapping = {
         object: 'space.w_object',
         int:    'space.w_int',
-        long:   'space.w_long',
+        long:   'space.w_int',
         bool:   'space.w_bool',
         list:   'space.w_list',
         tuple:  'space.w_tuple',

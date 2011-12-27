@@ -126,7 +126,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
 @cpython_api([lltype.Float], PyObject)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
-    return space.long(space.wrap(val))
+    return space.int(space.wrap(val))
 
 @cpython_api([PyObject], lltype.Float, error=-1.0)
 def PyLong_AsDouble(space, w_long):
@@ -151,7 +151,7 @@ def PyLong_FromString(space, str, pend, base):
     w_base = space.wrap(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))
-    return space.call_function(space.w_long, w_str, w_base)
+    return space.call_function(space.w_int, w_str, w_base)
 
 @cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):

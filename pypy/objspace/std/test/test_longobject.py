@@ -63,7 +63,7 @@ class AppTestLong:
         assert x * 2 ** 40 == x << 40
 
     def test_truediv(self):
-        exec "from __future__ import division; a = 31415926L / 10000000L"
+        a = 31415926L / 10000000L
         assert a == 3.1415926
 
     def test_floordiv(self):
@@ -155,22 +155,22 @@ class AppTestLong:
             assert not (int(BIG)-1 >= BIG)
 
     def test_conversion(self):
-        class long2(long):
+        class long2(int):
             pass
         x = 1L
         x = long2(x<<100)
         y = int(x)
-        assert type(y) == long
-        assert type(+long2(5)) is long
-        assert type(long2(5) << 0) is long
-        assert type(long2(5) >> 0) is long
-        assert type(long2(5) + 0) is long
-        assert type(long2(5) - 0) is long
-        assert type(long2(5) * 1) is long
-        assert type(1 * long2(5)) is long
-        assert type(0 + long2(5)) is long
-        assert type(-long2(0)) is long
-        assert type(long2(5) // 1) is long
+        assert type(y) == int
+        assert type(+long2(5)) is int
+        assert type(long2(5) << 0) is int
+        assert type(long2(5) >> 0) is int
+        assert type(long2(5) + 0) is int
+        assert type(long2(5) - 0) is int
+        assert type(long2(5) * 1) is int
+        assert type(1 * long2(5)) is int
+        assert type(0 + long2(5)) is int
+        assert type(-long2(0)) is int
+        assert type(long2(5) // 1) is int
 
     def test_pow(self):
         x = 0L
@@ -194,7 +194,7 @@ class AppTestLong:
                 assert y < r <= 0
         for x in [-1L, 0L, 1L, 2L ** 100 - 1, -2L ** 100 - 1]:
             for y in [-105566530L, -1L, 1L, 1034522340L]:
-                print "checking division for %s, %s" % (x, y)
+                print("checking division for %s, %s" % (x, y))
                 check_division(x, y)
         # special case from python tests:
         s1 = 33
@@ -209,7 +209,7 @@ class AppTestLong:
         raises(ZeroDivisionError, "x // 0L")
 
     def test_format(self):
-        assert repr(12345678901234567890) == '12345678901234567890L'
+        assert repr(12345678901234567890) == '12345678901234567890'
         assert str(12345678901234567890) == '12345678901234567890'
         assert hex(0x1234567890ABCDEFL) == '0x1234567890abcdefL'
         assert oct(01234567012345670L) == '01234567012345670L'
@@ -227,7 +227,7 @@ class AppTestLong:
     def test_hash(self):
         # ints have the same hash as equal longs
         for i in range(-4, 14):
-            assert hash(i) == hash(long(i))
+            assert hash(i) == hash(int(i))
         # might check too much -- it's ok to change the hashing algorithm
         assert hash(123456789L) == 123456789
         assert hash(1234567890123456789L) in (
@@ -247,8 +247,8 @@ class AppTestLong:
     def test_long(self):
         import sys
         n = -sys.maxint-1
-        assert long(n) == n
-        assert str(long(n)) == str(n)
+        assert int(n) == n
+        assert str(int(n)) == str(n)
 
     def test_huge_longs(self):
         import operator
@@ -262,45 +262,41 @@ class AppTestLong:
         class myint(object):
             def __trunc__(self):
                 return 42
-        assert long(myint()) == 42
+        assert int(myint()) == 42
 
-    def test_override___long__(self):
-        class mylong(long):
-            def __long__(self):
+    def test_override___int__(self):
+        class myint(int):
+            def __int__(self):
                 return 42L
-        assert long(mylong(21)) == 42L
-        class myotherlong(long):
+        assert int(myint(21)) == 42L
+        class myotherint(int):
             pass
-        assert long(myotherlong(21)) == 21L
+        assert int(myotherint(21)) == 21L
 
-    def test___long__(self):
+    def test___int__(self):
         class A(object):
-            def __long__(self):
-                return 42
-        assert long(A()) == 42L
-        class B(object):
             def __int__(self):
                 return 42
-        raises(TypeError, long, B())
+        assert int(A()) == 42L
         # but!: (blame CPython 2.7)
         class Integral(object):
             def __int__(self):
                 return 42
-        class TruncReturnsNonLong(object):
+        class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        assert long(TruncReturnsNonLong()) == 42
+        assert int(TruncReturnsNonInt()) == 42
 
     def test_conjugate(self):
         assert (7L).conjugate() == 7L
         assert (-7L).conjugate() == -7L
 
-        class L(long):
+        class L(int):
             pass
 
-        assert type(L(7).conjugate()) is long
+        assert type(L(7).conjugate()) is int
 
-        class L(long):
+        class L(int):
             def __pos__(self):
                 return 43
         assert L(7).conjugate() == 7L
@@ -311,27 +307,14 @@ class AppTestLong:
         assert ((2**31)-1).bit_length() == 31
 
     def test_from_bytes(self):
-        assert long.from_bytes(b'c', 'little') == 99
-        assert long.from_bytes(b'\x01\x01', 'little') == 257
+        assert int.from_bytes(b'c', 'little') == 99
+        assert int.from_bytes(b'\x01\x01', 'little') == 257
 
     def test_negative_zero(self):
         x = eval("-0L")
         assert x == 0L
 
-    def test_mix_int_and_long(self):
-        class IntLongMixClass(object):
-            def __int__(self):
-                return 42L
-
-            def __long__(self):
-                return 64
-
-        mixIntAndLong = IntLongMixClass()
-        as_long = long(mixIntAndLong)
-        assert type(as_long) is long
-        assert as_long == 64
-
     def test_long_real(self):
-        class A(long): pass
+        class A(int): pass
         b = A(5).real
-        assert type(b) is long
+        assert type(b) is int

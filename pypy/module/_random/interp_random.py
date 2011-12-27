@@ -28,8 +28,6 @@ class W_Random(Wrappable):
         else:
             if space.is_true(space.isinstance(w_n, space.w_int)):
                 w_n = space.abs(w_n)
-            elif space.is_true(space.isinstance(w_n, space.w_long)):
-                w_n = space.abs(w_n)
             else:
                 # XXX not perfectly like CPython
                 w_n = space.abs(space.hash(w_n))
@@ -76,11 +74,13 @@ class W_Random(Wrappable):
         self._rnd.index = space.int_w(w_item)
 
     def jumpahead(self, space, w_n):
-        if space.is_true(space.isinstance(w_n, space.w_long)):
+        try:
+            n = space.int_w(w_n)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
             num = space.bigint_w(w_n)
             n = intmask(num.uintmask())
-        else:
-            n = space.int_w(w_n)
         self._rnd.jumpahead(n)
 
     assert rbigint.SHIFT <= 32

@@ -187,7 +187,7 @@ class DtypeCache(object):
             name="int64",
             char="q",
             w_box_type = space.gettypefor(interp_boxes.W_Int64Box),
-            alternate_constructors=[space.w_long],
+            alternate_constructors=[space.w_int],
         )
         self.w_uint64dtype = W_Dtype(
             types.UInt64(),

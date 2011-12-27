@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.inttype import int_typedef
+from pypy.objspace.std.longtype import long_typedef
 
 def descr__new__(space, w_booltype, w_obj=None):
     space.w_bool.check_user_subclass(w_booltype)
@@ -11,7 +11,7 @@ def descr__new__(space, w_booltype, w_obj=None):
 
 # ____________________________________________________________
 
-bool_typedef = StdTypeDef("bool", int_typedef,
+bool_typedef = StdTypeDef("bool", long_typedef,
     __doc__ = '''bool(x) -> bool
 
 Returns True when the argument x is true, False otherwise.

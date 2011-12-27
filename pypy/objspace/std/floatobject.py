@@ -93,15 +93,13 @@ def int__Float(space, w_value):
     try:
         value = ovfcheck_float_to_int(w_value.floatval)
     except OverflowError:
-        return space.long(w_value)
+        pass
     else:
         return space.newint(value)
-
-def long__Float(space, w_floatobj):
     try:
-        return W_LongObject.fromfloat(space, w_floatobj.floatval)
+        return W_LongObject.fromfloat(space, w_value.floatval)
     except OverflowError:
-        if isnan(w_floatobj.floatval):
+        if isnan(w_value.floatval):
             raise OperationError(
                 space.w_ValueError,
                 space.wrap("cannot convert float NaN to integer"))
@@ -112,7 +110,7 @@ def trunc__Float(space, w_floatobj):
     try:
         value = ovfcheck_float_to_int(whole)
     except OverflowError:
-        return long__Float(space, w_floatobj)
+        return int__Float(space, w_floatobj)
     else:
         return space.newint(value)
 

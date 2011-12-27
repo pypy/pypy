@@ -428,18 +428,12 @@ class DescrOperation(object):
         w_resulttype = space.type(w_result)
         if space.is_w(w_resulttype, space.w_int):
             return w_result
-        elif space.is_w(w_resulttype, space.w_long):
-            return space.hash(w_result)
         elif space.is_true(space.isinstance(w_result, space.w_int)):
             # be careful about subclasses of 'int'...
             return space.wrap(space.int_w(w_result))
-        elif space.is_true(space.isinstance(w_result, space.w_long)):
-            # be careful about subclasses of 'long'...
-            bigint = space.bigint_w(w_result)
-            return space.wrap(bigint.hash())
         else:
             raise OperationError(space.w_TypeError,
-                    space.wrap("__hash__() should return an int or long"))
+                    space.wrap("__hash__() should return an int"))
 
     def userdel(space, w_obj):
         w_del = space.lookup(w_obj, '__del__')
@@ -724,9 +718,8 @@ def _make_unaryop_impl(symbol, specialnames):
 # more of the above manually-coded operations as well)
 
 for targetname, specialname, checkerspec in [
-    ('int', '__int__', ("space.w_int", "space.w_long")),
-    ('index', '__index__', ("space.w_int", "space.w_long")),
-    ('long', '__long__', ("space.w_int", "space.w_long")),
+    ('int', '__int__', ("space.w_int",)),
+    ('index', '__index__', ("space.w_int",)),
     ('float', '__float__', ("space.w_float",))]:
 
     l = ["space.is_true(space.isinstance(w_result, %s))" % x

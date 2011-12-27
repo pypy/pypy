@@ -269,12 +269,6 @@ class AppTestIntFormatting(BaseIntegralFormattingTest):
         cls.w_i = cls.space.w_int
 
 
-class AppTestLongFormatting(BaseIntegralFormattingTest):
-
-    def setup_class(cls):
-        cls.w_i = cls.space.w_long
-
-
 class AppTestFloatFormatting:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('_locale',))
