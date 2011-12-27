@@ -98,7 +98,6 @@ class Frame(Wrappable):
         "Abstract. Get the expected number of locals."
         raise TypeError, "abstract"
 
-    @jit.dont_look_inside
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         if self.w_locals is None:
@@ -112,7 +111,6 @@ class Frame(Wrappable):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
-    @jit.dont_look_inside
     def locals2fast(self):
         # Copy values from self.w_locals to the fastlocals
         assert self.w_locals is not None

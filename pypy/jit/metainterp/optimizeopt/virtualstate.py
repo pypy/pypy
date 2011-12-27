@@ -559,13 +559,13 @@ class BoxNotProducable(Exception):
     pass
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes):
+    def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
-        self.aliases = {}
         self.rename = {}
         self.optimizer = optimizer
+        self.availible_boxes = availible_boxes
 
         if surviving_boxes is not None:
             for box in surviving_boxes:
@@ -581,12 +581,9 @@ class ShortBoxes(object):
                 except BoxNotProducable:
                     pass
 
-    def clone(self):
-        sb = ShortBoxes(self.optimizer, None)
-        sb.aliases.update(self.aliases)
-        sb.short_boxes = {}
-        sb.short_boxes.update(self.short_boxes)
-        return sb
+            self.short_boxes_in_production = None # Not needed anymore
+        else:
+            self.short_boxes = {}
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
@@ -639,6 +636,8 @@ class ShortBoxes(object):
             return
         if box in self.short_boxes_in_production:
             raise BoxNotProducable
+        if self.availible_boxes is not None and box not in self.availible_boxes:
+            raise BoxNotProducable
         self.short_boxes_in_production[box] = True
         
         if box in self.potential_ops:
@@ -690,13 +689,3 @@ class ShortBoxes(object):
 
     def has_producer(self, box):
         return box in self.short_boxes
-
-    def alias(self, newbox, oldbox):
-        if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
-            self.short_boxes[newbox] = self.short_boxes[oldbox]
-        self.aliases[newbox] = oldbox
-
-    def original(self, box):
-        while box in self.aliases:
-            box = self.aliases[box]
-        return box

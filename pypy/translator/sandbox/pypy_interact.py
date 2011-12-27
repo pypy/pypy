@@ -26,7 +26,8 @@ import autopath
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from pypy.translator.sandbox.vfs import Dir, RealDir, RealFile
-from pypy.tool.lib_pypy import LIB_ROOT
+import pypy
+LIB_ROOT = os.path.dirname(os.path.dirname(pypy.__file__))
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     argv0 = '/bin/pypy-c'

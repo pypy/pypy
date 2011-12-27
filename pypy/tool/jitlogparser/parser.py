@@ -3,6 +3,7 @@ import re, sys
 from pypy.jit.metainterp.resoperation import opname
 from pypy.jit.tool.oparser import OpParser
 from pypy.tool.logparser import parse_log_file, extract_category
+from copy import copy
 
 class Op(object):
     bridge = None
@@ -23,19 +24,13 @@ class Op(object):
         self.failargs = failargs
 
     def getarg(self, i):
-        return self._getvar(self.args[i])
+        return self.args[i]
 
     def getargs(self):
-        return [self._getvar(v) for v in self.args]
+        return self.args[:]
 
     def getres(self):
-        return self._getvar(self.res)
-
-    def getdescr(self):
-        return self.descr
-
-    def _getvar(self, v):
-        return v
+        return self.res
 
     def is_guard(self):
         return self._is_guard
@@ -43,7 +38,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.getdescr())
+            args.append('descr=%s' % self.descr)
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -52,8 +47,6 @@ class Op(object):
 
     def __repr__(self):
         return self.repr()
-        ## return '<%s (%s)>' % (self.name, ', '.join([repr(a)
-        ##                                             for a in self.args]))
 
 class SimpleParser(OpParser):
 
@@ -146,17 +139,19 @@ class TraceForOpcode(object):
     inline_level = None
 
     def __init__(self, operations, storage):
-        if operations[0].name == 'debug_merge_point':
-            self.inline_level = int(operations[0].args[0])
-            m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].args[1])
-            if m is None:
-                # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1][1:-1]
-            else:
-                self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
-                self.startlineno = int(lineno)
-                self.bytecode_no = int(bytecode_no)
+        for op in operations:
+            if op.name == 'debug_merge_point':
+                self.inline_level = int(op.args[0])
+                m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
+                             op.args[1])
+                if m is None:
+                    # a non-code loop, like StrLiteralSearch or something
+                    self.bytecode_name = op.args[1][1:-1]
+                else:
+                    self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
+                    self.startlineno = int(lineno)
+                    self.bytecode_no = int(bytecode_no)
+                break
         self.operations = operations
         self.storage = storage
         self.code = storage.disassemble_code(self.filename, self.startlineno,
@@ -164,7 +159,7 @@ class TraceForOpcode(object):
 
     def repr(self):
         if self.filename is None:
-            return "Unknown"
+            return self.bytecode_name
         return "%s, file '%s', line %d" % (self.name, self.filename,
                                            self.startlineno)
 
@@ -224,6 +219,7 @@ class Function(object):
         Also detect inlined functions and make them Function
         """
         stack = []
+        seen_dmp = False
 
         def getpath(stack):
             return ",".join([str(len(v)) for v in stack])
@@ -244,11 +240,14 @@ class Function(object):
         stack = []
         for op in operations:
             if op.name == 'debug_merge_point':
-                if so_far:
-                    append_to_res(cls.TraceForOpcode(so_far, storage))
-                    if limit:
-                        break
-                    so_far = []
+                if seen_dmp:
+                    if so_far:
+                        append_to_res(cls.TraceForOpcode(so_far, storage))
+                        if limit:
+                            break
+                        so_far = []
+                else:
+                    seen_dmp = True
             so_far.append(op)
         if so_far:
             append_to_res(cls.TraceForOpcode(so_far, storage))
@@ -384,9 +383,30 @@ def import_log(logname, ParserCls=SimpleParser):
                               parser.postprocess(loop, backend_tp=bname,
                                                  backend_dump=dump,
                                                  dump_start=start_ofs))
-        loops.append(loop)
+        loops += split_trace(loop)
     return log, loops
 
+def split_trace(trace):
+    labels = [0]
+    if trace.comment and 'Guard' in trace.comment:
+        descrs = ['bridge ' + re.search('Guard (\d+)', trace.comment).group(1)]
+    else:
+        descrs = ['']
+    for i, op in enumerate(trace.operations):
+        if op.name == 'label':
+            labels.append(i)
+            descrs.append(op.descr)
+    labels.append(len(trace.operations) - 1)
+    parts = []
+    for i in range(len(labels) - 1):
+        start, stop = labels[i], labels[i+1]
+        part = copy(trace)
+        part.operations = trace.operations[start : stop + 1]
+        part.descr = descrs[i]
+        part.comment = trace.comment
+        parts.append(part)
+    
+    return parts
 
 def parse_log_counts(input, loops):
     if not input:
@@ -394,11 +414,7 @@ def parse_log_counts(input, loops):
     lines = input[-1].splitlines()
     mapping = {}
     for loop in loops:
-        com = loop.comment
-        if 'Loop' in com:
-            mapping['loop ' + re.search('Loop (\d+)', com).group(1)] = loop
-        else:
-            mapping['bridge ' + re.search('Guard (\d+)', com).group(1)] = loop
+        mapping[loop.descr] = loop
     for line in lines:
         if line:
             num, count = line.split(':', 2)

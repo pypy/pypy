@@ -162,7 +162,6 @@ _ll_3_list_insert = rlist.ll_insert_nonneg
 _ll_4_list_setslice = rlist.ll_listsetslice
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
-_ll_1_list_list2fixed = lltypesystem_rlist.ll_list2fixed
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 
 _ll_2_list_getitem_foldable = _ll_2_list_getitem

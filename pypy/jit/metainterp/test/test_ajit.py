@@ -2910,27 +2910,6 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
-    def test_decay_counters(self):
-        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
-        def f(m, n):
-            while n > 0:
-                myjitdriver.jit_merge_point(m=m, n=n)
-                n += m
-                n -= m
-                n -= 1
-        def main():
-            f(5, 7)      # run 7x with m=5           counter[m=5] = 7
-            f(15, 10)    # compiles one loop         counter[m=5] = 3  (automatic decay)
-            f(5, 5)      # run 5x times with m=5     counter[m=5] = 8
-        #
-        self.meta_interp(main, [], decay_halflife=1,
-                         function_threshold=0, threshold=9, trace_eagerness=99)
-        self.check_trace_count(1)
-        #
-        self.meta_interp(main, [], decay_halflife=1,
-                         function_threshold=0, threshold=8, trace_eagerness=99)
-        self.check_trace_count(2)
-
 
 class TestOOtype(BasicTests, OOJitMixin):
 

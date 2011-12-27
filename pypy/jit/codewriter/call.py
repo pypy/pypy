@@ -42,8 +42,7 @@ class CallControl(object):
         except AttributeError:
             pass
 
-        def is_candidate(graph):
-            return policy.look_inside_graph(graph)
+        is_candidate = policy.look_inside_graph
 
         assert len(self.jitdrivers_sd) > 0
         todo = [jd.portal_graph for jd in self.jitdrivers_sd]
