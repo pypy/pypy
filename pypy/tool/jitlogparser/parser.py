@@ -32,6 +32,9 @@ class Op(object):
     def getres(self):
         return self.res
 
+    def getdescr(self):
+        return self.descr
+
     def is_guard(self):
         return self._is_guard
 
