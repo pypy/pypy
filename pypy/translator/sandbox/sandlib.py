@@ -8,11 +8,11 @@ import sys, os, posixpath, errno, stat, time
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
 from pypy.translator.sandbox.vfs import UID, GID
+import py
 
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
     # These imports are local to avoid importing pypy if we don't need to.
-    import py
     from pypy.tool.ansi_print import AnsiLog
 
     class MyAnsiLog(AnsiLog):
