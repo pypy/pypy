@@ -756,7 +756,7 @@ class LoopTest(object):
         res = self.meta_interp(interpret, [1])
         assert res == interpret(1)
         # XXX it's unsure how many loops should be there
-        self.check_trace_count(3)
+        self.check_trace_count(2)
 
     def test_path_with_operations_not_from_start(self):
         jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])
