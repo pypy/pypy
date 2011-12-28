@@ -1043,7 +1043,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         if IS_PPC_32:
             self.lwzx(target_reg, base_reg, offset_reg)
         else:
-            self.ldx(target_reg, base_reg. offset_reg)
+            self.ldx(target_reg, base_reg, offset_reg)
 
     def store(self, from_reg, base_reg, offset):
         if IS_PPC_32:
