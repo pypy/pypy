@@ -282,16 +282,17 @@ class BaseArray(Wrappable):
     descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
     
-    def _reduce_ufunc_impl(ufunc_name):
+    def _reduce_ufunc_impl(ufunc_name, promote_to_largest = False):
         def impl(self, space, w_dim=None):
             if w_dim is None:
                 w_dim = space.wrap(w_dim)
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                                       self, True, w_dim)
+                                        self, True, promote_to_largest, w_dim)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
-    descr_prod = _reduce_ufunc_impl("multiply")
+    descr_sum_promote = _reduce_ufunc_impl("add", True)
+    descr_prod = _reduce_ufunc_impl("multiply", True)
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")
 
@@ -318,6 +319,7 @@ class BaseArray(Wrappable):
                                               idx=idx,
                                               cur_best=cur_best)
                 new_best = getattr(dtype.itemtype, op_name)(cur_best, sig.eval(frame, self))
+                print 'new_best',new_best.value,'cur_best',cur_best.value
                 if dtype.itemtype.ne(new_best, cur_best):
                     result = idx
                     cur_best = new_best
@@ -560,7 +562,7 @@ class BaseArray(Wrappable):
         return w_result
 
     def descr_mean(self, space):
-        return space.div(self.descr_sum(space), space.wrap(self.size))
+        return space.div(self.descr_sum_promote(space), space.wrap(self.size))
 
     def descr_nonzero(self, space):
         if self.size > 1:

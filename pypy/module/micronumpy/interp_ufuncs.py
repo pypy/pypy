@@ -101,9 +101,9 @@ class W_Ufunc(Wrappable):
     array([[ 1,  5],
            [ 9, 13]])
     '''
-        return self.reduce(space, w_obj, False, w_dim)
+        return self.reduce(space, w_obj, False, False, w_dim)
 
-    def reduce(self, space, w_obj, multidim, w_dim):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, w_dim):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -122,7 +122,9 @@ class W_Ufunc(Wrappable):
         size = obj.size
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
-            promote_to_float=self.promote_to_float
+            promote_to_float=self.promote_to_float,
+            promote_to_largest = promote_to_largest,
+            promote_bools = True
         )
         shapelen = len(obj.shape)
         if self.identity is None and size == 0:
