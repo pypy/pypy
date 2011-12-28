@@ -5,6 +5,11 @@ from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
 from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib.jit import hint, unroll_safe, promote
 
+def new_printable_location(driver_name):
+    def get_printable_location(shapelen, sig):
+        return 'numpy ' + sig.debug_repr() + ' [%d dims,%s]' % (shapelen, driver_name)
+    return get_printable_location
+
 def sigeq(one, two):
     return one.eq(two)
 

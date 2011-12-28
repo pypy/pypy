@@ -180,7 +180,7 @@ class TestLogger(object):
     def test_intro_loop(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_loop, [], [], 1, "foo")
-        assert output.splitlines()[0] == "# Loop 1 : foo with 0 ops"
+        assert output.splitlines()[0] == "# Loop 1 () : foo with 0 ops"
         pure_parse(output)
 
     def test_intro_bridge(self):

@@ -898,6 +898,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         b[0] = 3
         assert debug_repr(b) == 'Array'
 
+    def test_remove_invalidates(self):
+        from numpypy import array
+        from numpypy.pypy import remove_invalidates
+        a = array([1, 2, 3])
+        b = a + a
+        remove_invalidates(a)
+        a[0] = 14
+        assert b[0] == 28
+
     def test_virtual_views(self):
         from numpypy import arange
         a = arange(15)
