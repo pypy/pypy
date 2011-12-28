@@ -245,6 +245,7 @@ class GuardOpAssembler(object):
             if offset.is_imm():
                 self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
             else:
+                assert offset.is_reg()
                 self.mc.loadx(r.SCRATCH.value, locs[0].value, offset.value)
             self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
             self.mc.free_scratch_reg()
