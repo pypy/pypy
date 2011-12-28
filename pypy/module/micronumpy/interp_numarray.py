@@ -319,7 +319,6 @@ class BaseArray(Wrappable):
                                               idx=idx,
                                               cur_best=cur_best)
                 new_best = getattr(dtype.itemtype, op_name)(cur_best, sig.eval(frame, self))
-                print 'new_best',new_best.value,'cur_best',cur_best.value
                 if dtype.itemtype.ne(new_best, cur_best):
                     result = idx
                     cur_best = new_best
