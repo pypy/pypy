@@ -375,7 +375,6 @@ def ll_list2fixed(l):
         newitems = malloc(LIST.items.TO, n)
         rgc.ll_arraycopy(olditems, newitems, 0, 0, n)
         return newitems
-ll_list2fixed.oopspec = 'list.list2fixed(l)'
 
 def ll_list2fixed_exact(l):
     ll_assert(l.length == len(l.items), "ll_list2fixed_exact: bad length")

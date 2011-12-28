@@ -112,33 +112,26 @@ def compile_loop(metainterp, greenkey, start,
     """
     from pypy.jit.metainterp.optimizeopt import optimize_trace
 
-    history = metainterp.history
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
+    history = metainterp.history
 
-    if False:
-        part = partial_trace
-        assert False
-        procedur_token = metainterp.get_procedure_token(greenkey)
-        assert procedure_token
-        all_target_tokens = []
-    else:
-        jitcell_token = make_jitcell_token(jitdriver_sd)
-        part = create_empty_loop(metainterp)
-        part.inputargs = inputargs[:]
-        h_ops = history.operations
-        part.resume_at_jump_descr = resume_at_jump_descr
-        part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
-                          [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
+    jitcell_token = make_jitcell_token(jitdriver_sd)
+    part = create_empty_loop(metainterp)
+    part.inputargs = inputargs[:]
+    h_ops = history.operations
+    part.resume_at_jump_descr = resume_at_jump_descr
+    part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
+                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
 
-        try:
-            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
-        except InvalidLoop:
-            return None
-        target_token = part.operations[0].getdescr()
-        assert isinstance(target_token, TargetToken)
-        all_target_tokens = [target_token]
+    try:
+        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+    except InvalidLoop:
+        return None
+    target_token = part.operations[0].getdescr()
+    assert isinstance(target_token, TargetToken)
+    all_target_tokens = [target_token]
 
     loop = create_empty_loop(metainterp)        
     loop.inputargs = part.inputargs
@@ -319,7 +312,10 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
-    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
+    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+    metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
+                                      type, ops_offset,
+                                      name=loopname)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(original_jitcell_token)

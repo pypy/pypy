@@ -39,6 +39,7 @@ from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -58,7 +59,8 @@ class GuardToken(object):
         self.is_guard_not_invalidated = is_guard_not_invalidated
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
-                              ('bridge', lltype.Signed), # 0 or 1
+                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
+                                                     # 'e'ntry point
                               ('number', lltype.Signed))
 
 class Assembler386(object):
@@ -147,12 +149,15 @@ class Assembler386(object):
     def finish_once(self):
         if self._debug:
             debug_start('jit-backend-counts')
-            for struct in self.loop_run_counters:
-                if struct.bridge:
-                    prefix = 'bridge '
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
                 else:
-                    prefix = 'loop '
-                debug_print(prefix + str(struct.number) + ':' + str(struct.i))
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
@@ -422,8 +427,8 @@ class Assembler386(object):
 
         self.setup(looptoken)
         if log:
-            self._register_counter(False, looptoken.number)
-            operations = self._inject_debugging_code(looptoken, operations)
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         #
@@ -489,8 +494,8 @@ class Assembler386(object):
 
         self.setup(original_loop_token)
         if log:
-            self._register_counter(True, descr_number)
-            operations = self._inject_debugging_code(faildescr, operations)
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
         if not we_are_translated():
@@ -597,17 +602,21 @@ class Assembler386(object):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _register_counter(self, bridge, number):
-        if self._debug:
-            # YYY very minor leak -- we need the counters to stay alive
-            # forever, just because we want to report them at the end
-            # of the process
-            struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                                   track_allocation=False)
-            struct.i = 0
-            struct.bridge = int(bridge)
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
             struct.number = number
-            self.loop_run_counters.append(struct)
+        else:
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)            
+        return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):
         adr_jump_offset = faildescr._x86_adr_jump_offset
@@ -651,27 +660,36 @@ class Assembler386(object):
             targettoken._x86_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
+        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+        box = BoxInt()
+        box2 = BoxInt()
+        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
+                            box, descr=self.debug_counter_descr),
+               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
+                            None, descr=self.debug_counter_descr)]
+        operations.extend(ops)
+        
     @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations):
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
             # before doing anything, let's increase a counter
             s = 0
             for op in operations:
                 s += op.getopnum()
             looptoken._x86_debug_checksum = s
-            c_adr = ConstInt(rffi.cast(lltype.Signed,
-                                       self.loop_run_counters[-1]))
-            box = BoxInt()
-            box2 = BoxInt()
-            ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                                box, descr=self.debug_counter_descr),
-                   ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-                   ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                                None, descr=self.debug_counter_descr)]
-            if operations[0].getopnum() == rop.LABEL:
-                operations = [operations[0]] + ops + operations[1:]
-            else:
-                operations =  ops + operations
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
         return operations
 
     def _assemble(self, regalloc, operations):

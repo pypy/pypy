@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.module.micronumpy.strides import calculate_slice_strides
@@ -14,22 +14,26 @@ from pypy.module.micronumpy.interp_iter import ArrayIterator,\
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['result_size', 'frame', 'ri', 'self', 'result']
+    reds=['result_size', 'frame', 'ri', 'self', 'result'],
+    get_printable_location=signature.new_printable_location('numpy'),
 )
 all_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype']
+    reds=['frame', 'self', 'dtype'],
+    get_printable_location=signature.new_printable_location('all'),
 )
 any_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype']
+    reds=['frame', 'self', 'dtype'],
+    get_printable_location=signature.new_printable_location('any'),
 )
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self', 'frame', 'source', 'res_iter']
+    reds=['self', 'frame', 'source', 'res_iter'],
+    get_printable_location=signature.new_printable_location('slice'),
 )
 
 def _find_shape_and_elems(space, w_iterable):
@@ -294,7 +298,8 @@ class BaseArray(Wrappable):
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
             greens=['shapelen', 'sig'],
-            reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype']
+            reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype'],
+            get_printable_location=signature.new_printable_location(op_name),
         )
         def loop(self):
             sig = self.find_sig()
@@ -581,8 +586,8 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(W_NDimSlice(concrete.start, strides[:],
-                                      backstrides[:], shape[:], concrete))
+        return space.wrap(W_NDimSlice(concrete.start, strides,
+                                      backstrides, shape, concrete))
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
@@ -886,8 +891,8 @@ class ConcreteArray(BaseArray):
         if self.order == 'C':
             strides.reverse()
             backstrides.reverse()
-        self.strides = strides[:]
-        self.backstrides = backstrides[:]
+        self.strides = strides
+        self.backstrides = backstrides
 
     def array_sig(self, res_shape):
         if res_shape is not None and self.shape != res_shape:
@@ -1092,9 +1097,9 @@ class W_NDimSlice(ViewArray):
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()
-            self.strides = strides[:]
-            self.backstrides = backstrides[:]
-            self.shape = new_shape[:]
+            self.strides = strides
+            self.backstrides = backstrides
+            self.shape = new_shape
             return
         new_strides = calc_new_strides(new_shape, self.shape, self.strides)
         if new_strides is None:
@@ -1104,7 +1109,7 @@ class W_NDimSlice(ViewArray):
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
         self.strides = new_strides[:]
-        self.backstrides = new_backstrides[:]
+        self.backstrides = new_backstrides
         self.shape = new_shape[:]
 
 class W_NDimArray(ConcreteArray):

@@ -2,7 +2,7 @@ from pypy.objspace.flow.model import Block, Link, SpaceOperation, checkgraph
 from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import split_block
-from pypy.translator.simplify import eliminate_empty_blocks
+from pypy.translator.simplify import eliminate_empty_blocks, simplify_graph
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.argument import Signature
 
@@ -64,6 +64,7 @@ def attach_next_method(GeneratorIterator, graph):
     def next(self):
         entry = self.current
         self.current = None
+        assert entry is not None      # else, recursive generator invocation
         (next_entry, return_value) = func(entry)
         self.current = next_entry
         return return_value
@@ -91,6 +92,10 @@ def _insert_reads(block, varnames):
     block.inputargs = [v_entry1]
 
 def tweak_generator_body_graph(Entry, graph):
+    # First, always run simplify_graph in order to reduce the number of
+    # variables passed around
+    simplify_graph(graph)
+    #
     assert graph.startblock.operations[0].opname == 'generator_mark'
     graph.startblock.operations.pop(0)
     #
@@ -100,12 +105,20 @@ def tweak_generator_body_graph(Entry, graph):
     #
     mappings = [Entry]
     #
+    stopblock = Block([])
+    v0 = Variable(); v1 = Variable()
+    stopblock.operations = [
+        SpaceOperation('simple_call', [Constant(StopIteration)], v0),
+        SpaceOperation('type', [v0], v1),
+        ]
+    stopblock.closeblock(Link([v1, v0], graph.exceptblock))
+    #
     for block in list(graph.iterblocks()):
         for exit in block.exits:
             if exit.target is graph.returnblock:
-                exit.args = [Constant(StopIteration),
-                             Constant(StopIteration())]
-                exit.target = graph.exceptblock
+                exit.args = []
+                exit.target = stopblock
+        assert block is not stopblock
         for index in range(len(block.operations)-1, -1, -1):
             op = block.operations[index]
             if op.opname == 'yield':

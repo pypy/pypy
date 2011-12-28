@@ -30,8 +30,9 @@ py.log.setconsumer("sandlib", MyAnsiLog())
 # load().  Also, marshal.load(f) blocks with the GIL held when
 # f is a pipe with no data immediately avaialble, preventing the
 # _waiting_thread to run.
-from pypy.tool.lib_pypy import import_from_lib_pypy
-marshal = import_from_lib_pypy('marshal')
+import pypy
+marshal = py.path.local(pypy.__file__).join('..', '..', 'lib_pypy',
+                                            'marshal.py').pyimport()
 
 # Non-marshal result types
 RESULTTYPE_STATRESULT = object()

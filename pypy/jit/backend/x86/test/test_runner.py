@@ -519,6 +519,7 @@ class TestDebuggingAssembler(object):
         from pypy.tool.logparser import parse_log_file, extract_category
         from pypy.rlib import debug
 
+        targettoken, preambletoken = TargetToken(), TargetToken()
         loop = """
         [i0]
         label(i0, descr=preambletoken)
@@ -533,8 +534,8 @@ class TestDebuggingAssembler(object):
         guard_false(i12) []
         jump(i11, descr=targettoken)
         """
-        ops = parse(loop, namespace={'targettoken': TargetToken(),
-                                     'preambletoken': TargetToken()})
+        ops = parse(loop, namespace={'targettoken': targettoken,
+                                     'preambletoken': preambletoken})
         debug._log = dlog = debug.DebugLog()
         try:
             self.cpu.assembler.set_debug(True)
@@ -545,11 +546,16 @@ class TestDebuggingAssembler(object):
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 1
             struct = self.cpu.assembler.loop_run_counters[1]
-            assert struct.i == 10
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
+            assert struct.i == 9
             self.cpu.finish_once()
         finally:
             debug._log = None
-        assert ('jit-backend-counts', [('debug_print', 'loop -1:10')]) in dlog
+        l0 = ('debug_print', 'entry -1:1')
+        l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
+        l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
+        assert ('jit-backend-counts', [l0, l1, l2]) in dlog
 
     def test_debugger_checksum(self):
         loop = """
