@@ -279,7 +279,14 @@ class AssemblerPPC(OpAssembler):
         mc = PPCBuilder()
         with Saved_Volatiles(mc):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
-            mc.bl_abs(addr)
+            if IS_PPC_32:
+                mc.bl_abs(addr)
+            else:
+                mc.load_from_addr(r.SCRATCH, addr)
+                mc.load_from_addr(r.r2, addr + WORD)
+                mc.load_from_addr(r.r11, addr + 2 * WORD)
+                mc.mtctr(r.SCRATCH.value)
+                mc.bctrl()
         #mc.alloc_scratch_reg(self.cpu.propagate_exception_v)
         #mc.mr(r.RES.value, r.SCRATCH.value)
         #mc.free_scratch_reg()
@@ -292,7 +299,14 @@ class AssemblerPPC(OpAssembler):
 
         with Saved_Volatiles(mc):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            mc.bl_abs(addr)
+            if IS_PPC_32:
+                mc.bl_abs(addr)
+            else:
+                mc.load_from_addr(r.SCRATCH, addr)
+                mc.load_from_addr(r.r2, addr + WORD)
+                mc.load_from_addr(r.r11, addr + 2 * WORD)
+                mc.mtctr(r.SCRATCH.value)
+                mc.bctrl()
 
         mc.b_abs(self.exit_code_adr)
         mc.prepare_insts_blocks()
@@ -345,7 +359,11 @@ class AssemblerPPC(OpAssembler):
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
-        mc.load(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + WORD) 
+	if IS_PPC_32:
+	    ofs = WORD
+	else:
+	    ofs = WORD * 2
+        mc.load(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + ofs) 
         mc.mtlr(r.r4.value)     # restore LR
         # From SPP, we have a constant offset to the old backchain. We use the
         # SPP to re-establish the old backchain because this exit stub is

@@ -872,7 +872,14 @@ class AllocOpAssembler(object):
             #
             # misaligned stack in the call, but it's ok because the write barrier
             # is not going to call anything more.  
-            self.mc.bl_abs(func)
+            if IS_PPC_32:
+                self.mc.bl_abs(func)
+            else:
+                self.mc.load_from_addr(r.SCRATCH, adr)
+                self.mc.load_from_addr(r.TOC, adr + WORD)
+                self.mc.load_from_addr(r.r11, adr + 2 * WORD)
+                self.mc.mtctr(r.SCRATCH.value)
+                self.mc.bctrl()
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
