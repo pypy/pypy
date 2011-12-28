@@ -528,6 +528,7 @@ def set_user_param(driver, text):
                         set_param(driver, name1, int(value))
                     except ValueError:
                         raise
+                    break
             else:
                 raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
