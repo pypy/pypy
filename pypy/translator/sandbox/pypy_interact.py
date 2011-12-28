@@ -13,7 +13,8 @@ Options:
                   ATM this only works with PyPy translated with Boehm or
                   the semispace or generation GCs.
     --timeout=N   limit execution time to N (real-time) seconds.
-    --log=FILE    log all user input into the FILE
+    --log=FILE    log all user input into the FILE.
+    --verbose     log all proxied system calls.
 
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
@@ -68,13 +69,13 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:hq', 
+    options, arguments = getopt(sys.argv[1:], 't:hv', 
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
-                                 'quiet', 'help'])
+                                 'verbose', 'help'])
     tmpdir = None
     timeout = None
     logfile = None
-    debug = True
+    debug = False
     extraoptions = []
 
     def help():
@@ -106,8 +107,8 @@ if __name__ == '__main__':
             timeout = int(value)
         elif option == '--log':
             logfile = value
-        elif option in ['-q', '--quiet']:
-            debug = False
+        elif option in ['-v', '--verbose']:
+            debug = True
         elif option in ['-h', '--help']:
             help()
         else:
