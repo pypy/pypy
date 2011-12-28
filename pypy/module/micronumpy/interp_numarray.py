@@ -734,7 +734,7 @@ class VirtualSlice(VirtualArray):
         self.child = None
 
 class Reduce(VirtualArray):
-    def __init__(self, ufunc, name, dim, res_dtype, values):
+    def __init__(self, ufunc, name, dim, res_dtype, values, identity=None):
         shape=values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
@@ -742,9 +742,11 @@ class Reduce(VirtualArray):
         self.ufunc = ufunc
         self.res_dtype = res_dtype
         self.dim = dim
+        self.identity = identity
 
     def _del_sources(self):
         self.values = None
+        pass
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
@@ -754,21 +756,37 @@ class Reduce(VirtualArray):
                            self.values.create_sig(res_shape))
 
     def compute(self):
-        result = W_NDimArray(self.size, self.shape, self.find_dtype())
+        dtype = self.res_dtype
+        result = W_NDimArray(self.size, self.shape, dtype)
         shapelen = len(result.shape)
+        objlen = len(self.values.shape)
+        target_len = self.values.shape[self.dim]
         #sig = self.find_sig(result.shape) ##Don't do this, it causes an infinite recursion
         sig = self.create_sig(result.shape)
         ri = ArrayIterator(self.size)
         si = axis_iter_from_arr(self.values, self.dim)
         while not ri.done():
-            #frame = sig.create_frame(self.values, chunks = [si.indices])
-            #Frame should be returning self.func applied to the axis starting at si.offset
-            frame = sig.create_frame(self.values, chunks = [])
-            val = sig.eval(frame, self.values).convert_to( self.find_dtype())
-            result.dtype.setitem(result.storage, ri.offset, val)
+            chunks = []
+            for i in range(objlen - 1, -1, -1):
+                if i==self.dim:
+                    chunks.append((0, target_len, 1, target_len))
+                else:
+                    chunks.append((si.indices[i], 0, 0, 1))
+            frame = sig.create_frame(self.values, 
+                         res_shape = [target_len], chunks = [chunks,])
+            if self.identity is None:
+                value = sig.eval(frame, self.values).convert_to(dtype)
+                frame.next(shapelen)
+            else:
+                value = self.identity.convert_to(dtype)
+            while not frame.done():
+                assert isinstance(sig, signature.ReduceSignature)
+                nextval = sig.eval(frame, self.values).convert_to(dtype)
+                value = sig.binfunc(dtype, value, nextval)
+                frame.next(shapelen)
+            result.dtype.setitem(result.storage, ri.offset, value)
             ri = ri.next(shapelen)
             si = si.next(shapelen)
-            frame = frame.next
         return result
 
 

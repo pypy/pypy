@@ -121,20 +121,20 @@ class W_Ufunc(Wrappable):
         size = obj.size
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
-            promote_to_largest=True
+            promote_to_float=self.promote_to_float
         )
         shapelen = len(obj.shape)
+        if self.identity is None and size == 0:
+            raise operationerrfmt(space.w_ValueError, "zero-size array to "
+                    "%s.reduce without identity", self.name)
         if shapelen>1 and dim>=0:
             from pypy.module.micronumpy.interp_numarray import Reduce
-            return Reduce(self.func, self.name, dim, dtype, obj)
+            return Reduce(self.func, self.name, dim, dtype, obj, self.identity)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)
         frame = sig.create_frame(obj)
         if self.identity is None:
-            if size == 0:
-                raise operationerrfmt(space.w_ValueError, "zero-size array to "
-                    "%s.reduce without identity", self.name)
             value = sig.eval(frame, obj).convert_to(dtype)
             frame.next(shapelen)
         else:

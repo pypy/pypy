@@ -348,9 +348,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_reduceND(self):
         from numpypy import add, arange
         a = arange(12).reshape(3, 4)
-        assert add.reduce(a,1)[0] ==6
-        assert (add.reduce(a, 1) == [ 6, 22, 38]).all()
-        assert (add.reduce(a, 0) == add.reduce(a)).all()
+        assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
+        assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
 
     def test_comparisons(self):
         import operator

@@ -113,6 +113,7 @@ class AxisIterator(object):
     """
     def __init__(self, arr_start, strides, backstrides, shape, dim=-1, slice_start=[]):
         self.shape = shape
+        self.shapelen = len(shape)
         self.indices = [0] * len(shape)
         self.done = False
         self.offset = arr_start
@@ -125,11 +126,12 @@ class AxisIterator(object):
             for i in range(len(slice_start)):
                 self.offset += strides[i] * slice_start[i]
     def next(self, shapelen):
+        #shapelen will always be one less than self.shapelen
         offset = self.offset
-        indices = [0] * shapelen
-        for i in range(shapelen):
+        indices = [0] * self.shapelen
+        for i in range(self.shapelen):
             indices[i] = self.indices[i]
-        for i in range(shapelen - 1, -1, -1):
+        for i in range(self.shapelen - 1, -1, -1):
             if i == self.dim:
                 continue
             if indices[i] < self.shape[i] - 1:
@@ -147,6 +149,7 @@ class AxisIterator(object):
         res.strides = self.strides
         res.backstrides = self.backstrides
         res.shape = self.shape
+        res.shapelen = self.shapelen
         res.dim = self.dim
         res.done = self.done
         return res
