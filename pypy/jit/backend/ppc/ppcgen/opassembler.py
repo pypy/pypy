@@ -855,7 +855,11 @@ class AllocOpAssembler(object):
             # test whether this bit is set
             self.mc.cmpwi(0, r.SCRATCH.value, 1)
         else:
-            assert 0, "not implemented yet"
+            if bitpos > 0:
+                self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
+                               64 - bitpos, 63)
+            # test whether this bit is set
+            self.mc.cmpdi(0, r.SCRATCH.value, 1)
         self.mc.free_scratch_reg()
 
         jz_location = self.mc.currpos()
@@ -876,9 +880,9 @@ class AllocOpAssembler(object):
             if IS_PPC_32:
                 self.mc.bl_abs(func)
             else:
-                self.mc.load_from_addr(r.SCRATCH, adr)
-                self.mc.load_from_addr(r.TOC, adr + WORD)
-                self.mc.load_from_addr(r.r11, adr + 2 * WORD)
+                self.mc.load_from_addr(r.SCRATCH, func)
+                self.mc.load_from_addr(r.TOC, func + WORD)
+                self.mc.load_from_addr(r.r11, func + 2 * WORD)
                 self.mc.mtctr(r.SCRATCH.value)
                 self.mc.bctrl()
 
