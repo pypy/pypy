@@ -142,17 +142,17 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, jitcell_token, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
-        clt = model.CompiledLoopToken(self, looptoken.number)
+        clt = model.CompiledLoopToken(self, jitcell_token.number)
         clt.loop_and_bridges = [c]
         clt.compiled_version = c
-        looptoken.compiled_loop_token = clt
+        jitcell_token.compiled_loop_token = clt
         self._compile_loop_or_bridge(c, inputargs, operations)
 
     def free_loop_and_bridges(self, compiled_loop_token):
@@ -183,9 +183,11 @@ class BaseCPU(model.AbstractCPU):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
                                          descr.arg_types, descr.extrainfo,
                                          descr.width)
-            if (isinstance(descr, history.LoopToken) and
-                op.getopnum() != rop.JUMP):
+            if isinstance(descr, history.JitCellToken):
+                assert op.getopnum() != rop.JUMP
                 llimpl.compile_add_loop_token(c, descr)
+            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
+                llimpl.compile_add_target_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].setdescr(descr)
@@ -239,9 +241,7 @@ class BaseCPU(model.AbstractCPU):
         assert op.is_final()
         if op.getopnum() == rop.JUMP:
             targettoken = op.getdescr()
-            assert isinstance(targettoken, history.LoopToken)
-            compiled_version = targettoken.compiled_loop_token.compiled_version
-            llimpl.compile_add_jump_target(c, compiled_version)
+            llimpl.compile_add_jump_target(c, targettoken)
         elif op.getopnum() == rop.FINISH:
             faildescr = op.getdescr()
             index = self.get_fail_descr_number(faildescr)

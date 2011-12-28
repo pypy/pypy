@@ -582,7 +582,7 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
         assert res == f(123)
         self.check_aborted_count(2)
-        self.check_tree_loop_count(0)
+        self.check_jitcell_token_count(0)
 
     def test_external_read_with_exception(self):
         jitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -621,7 +621,7 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(f, [123], policy=StopAtXPolicy(g))
         assert res == f(123)
         self.check_aborted_count(2)
-        self.check_tree_loop_count(0)
+        self.check_jitcell_token_count(0)
 
     def test_external_write(self):
         jitdriver = JitDriver(greens = [], reds = ['frame'],
@@ -653,7 +653,7 @@ class ImplicitVirtualizableTests:
         res = self.meta_interp(f, [240], policy=StopAtXPolicy(g))
         assert res == f(240)
         self.check_aborted_count(3)
-        self.check_tree_loop_count(0)
+        self.check_jitcell_token_count(0)
 
     def test_external_read_sometimes(self):
         jitdriver = JitDriver(greens = [], reds = ['frame'],

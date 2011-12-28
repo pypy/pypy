@@ -24,5 +24,5 @@ class TestThread(BaseTestPyPyC):
             guard_true(i2, descr=...)
             i3 = int_add(i0, 1)
             --THREAD-TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)

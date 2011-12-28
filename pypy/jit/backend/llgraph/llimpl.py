@@ -8,6 +8,7 @@ import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -47,6 +48,11 @@ def _to_opaque(value):
                               externalobj=value)
         value._the_opaque_pointer = op
         return op
+
+def _normalize(value):
+    if isinstance(value, lltype._ptr):
+        value = lltype.top_container(value._obj)
+    return value
 
 def from_opaque_string(s):
     if isinstance(s, str):
@@ -347,6 +353,14 @@ def compile_add_loop_token(loop, descr):
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
 
+TARGET_TOKENS = weakref.WeakKeyDictionary()
+
+def compile_add_target_token(loop, descr):
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    descrobj = _normalize(descr)
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args
+
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
@@ -381,13 +395,17 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target):
+def compile_add_jump_target(loop, targettoken):
     loop = _from_opaque(loop)
-    loop_target = _from_opaque(loop_target)
+    descrobj = _normalize(targettoken)
+    loop_target, target_opindex, target_inputargs = TARGET_TOKENS[descrobj]
+    #
     op = loop.operations[-1]
     op.jump_target = loop_target
+    op.jump_target_opindex = target_opindex
+    op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(loop_target.inputargs)
+    assert len(op.args) == len(target_inputargs)
     if loop_target == loop:
         log.info("compiling new loop")
     else:
@@ -521,10 +539,11 @@ class Frame(object):
                 self.opindex += 1
                 continue
             if op.opnum == rop.JUMP:
-                assert len(op.jump_target.inputargs) == len(args)
-                self.env = dict(zip(op.jump_target.inputargs, args))
+                inputargs = op.jump_target_inputargs
+                assert len(inputargs) == len(args)
+                self.env = dict(zip(inputargs, args))
                 self.loop = op.jump_target
-                self.opindex = 0
+                self.opindex = op.jump_target_opindex
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
                 if self.verbose:
@@ -616,6 +635,15 @@ class Frame(object):
             return func(*args)
         #
         return _op_default_implementation
+
+    def op_label(self, _, *args):
+        op = self.loop.operations[self.opindex]
+        assert op.opnum == rop.LABEL
+        assert len(op.args) == len(args)
+        newenv = {}
+        for v, value in zip(op.args, args):
+            newenv[v] = value
+        self.env = newenv
 
     def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
@@ -1791,6 +1819,7 @@ setannotation(compile_start_float_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_descr_arg, annmodel.s_None)
+setannotation(compile_add_target_token, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)

@@ -500,8 +500,9 @@ class Optimizer(Optimization):
         else:
             return CVAL_ZERO
 
-    def propagate_all_forward(self):
-        self.clear_newoperations()
+    def propagate_all_forward(self, clear=True):
+        if clear:
+            self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()

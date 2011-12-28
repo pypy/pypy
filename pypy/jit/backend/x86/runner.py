@@ -215,14 +215,3 @@ class CPU_X86_64(AbstractX86CPU):
         super(CPU_X86_64, self).__init__(*args, **kwargs)
 
 CPU = CPU386
-
-# silence warnings
-##history.LoopToken._x86_param_depth = 0
-##history.LoopToken._x86_arglocs = (None, None)
-##history.LoopToken._x86_frame_depth = 0
-##history.LoopToken._x86_bootstrap_code = 0
-##history.LoopToken._x86_direct_bootstrap_code = 0
-##history.LoopToken._x86_loop_code = 0
-##history.LoopToken._x86_debug_checksum = 0
-##compile.AbstractFailDescr._x86_current_depths = (0, 0)
-##compile.AbstractFailDescr._x86_adr_jump_offset = 0

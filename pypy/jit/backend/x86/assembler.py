@@ -2,8 +2,8 @@ import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
-from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
-                                         LoopToken)
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
@@ -152,14 +152,13 @@ class Assembler386(object):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        self.target_tokens_currently_compiling = {}
 
     def teardown(self):
         self.pending_guard_tokens = None
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
-        self.looppos = -1
-        self.currently_compiling_loop = None
         self.current_clt = None
 
     def finish_once(self):
@@ -425,8 +424,6 @@ class Assembler386(object):
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
                _x86_direct_bootstrap_code  ( "    "     "    "   )
-               _x86_frame_depth
-               _x86_param_depth
                _x86_arglocs
                _x86_debug_checksum
         '''
@@ -443,7 +440,6 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.currently_compiling_loop = looptoken
         if log:
             self._register_counter(False, looptoken.number)
             operations = self._inject_debugging_code(looptoken, operations)
@@ -455,15 +451,16 @@ class Assembler386(object):
 
         bootstrappos = self.mc.get_relative_pos()
         stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
-        self.looppos = self.mc.get_relative_pos()
-        looptoken._x86_frame_depth = -1     # temporarily
-        looptoken._x86_param_depth = -1     # temporarily
+        looppos = self.mc.get_relative_pos()
+        looptoken._x86_loop_code = looppos
+        clt.frame_depth = -1     # temporarily
+        clt.param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
-        looptoken._x86_frame_depth = frame_depth
-        looptoken._x86_param_depth = param_depth
+        clt.frame_depth = frame_depth
+        clt.param_depth = param_depth
 
         directbootstrappos = self.mc.get_relative_pos()
-        self._assemble_bootstrap_direct_call(arglocs, self.looppos,
+        self._assemble_bootstrap_direct_call(arglocs, looppos,
                                              frame_depth+param_depth)
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
@@ -472,7 +469,7 @@ class Assembler386(object):
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
-            rawstart + self.looppos,
+            rawstart + looppos,
             rawstart + directbootstrappos,
             rawstart))
         debug_stop("jit-backend-addr")
@@ -488,8 +485,8 @@ class Assembler386(object):
             looptoken._x86_ops_offset = ops_offset
 
         looptoken._x86_bootstrap_code = rawstart + bootstrappos
-        looptoken._x86_loop_code = rawstart + self.looppos
         looptoken._x86_direct_bootstrap_code = rawstart + directbootstrappos
+        self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -548,6 +545,9 @@ class Assembler386(object):
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
+        self.fixup_target_tokens(rawstart)
+        self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
+        self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -668,6 +668,11 @@ class Assembler386(object):
             mc.copy_to_raw_memory(adr_target)
         faildescr._x86_adr_jump_offset = 0    # means "patched"
 
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._x86_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
+
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations):
         if self._debug:
@@ -685,7 +690,10 @@ class Assembler386(object):
                    ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
                    ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                                 None, descr=self.debug_counter_descr)]
-            operations = ops + operations
+            if operations[0].getopnum() == rop.LABEL:
+                operations = [operations[0]] + ops + operations[1:]
+            else:
+                operations =  ops + operations
         return operations
 
     def _assemble(self, regalloc, operations):
@@ -698,8 +706,8 @@ class Assembler386(object):
         param_depth = regalloc.param_depth
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_frame_depth
-            target_param_depth = jump_target_descr._x86_param_depth
+            target_frame_depth = jump_target_descr._x86_clt.frame_depth
+            target_param_depth = jump_target_descr._x86_clt.param_depth
             frame_depth = max(frame_depth, target_frame_depth)
             param_depth = max(param_depth, target_param_depth)
         return frame_depth, param_depth
@@ -2345,7 +2353,7 @@ class Assembler386(object):
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
         #
         # Write a call to the direct_bootstrap_code of the target assembler
@@ -2579,15 +2587,13 @@ class Assembler386(object):
                     gcrootmap.put(self.gcrootmap_retaddr_forced, mark)
                     self.gcrootmap_retaddr_forced = -1
 
-    def target_arglocs(self, loop_token):
-        return loop_token._x86_arglocs
-
-    def closing_jump(self, loop_token):
-        if loop_token is self.currently_compiling_loop:
+    def closing_jump(self, target_token):
+        target = target_token._x86_loop_code
+        if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
-            self.mc.JMP_l(self.looppos - curpos)
+            self.mc.JMP_l(target - curpos)
         else:
-            self.mc.JMP(imm(loop_token._x86_loop_code))
+            self.mc.JMP(imm(target))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)

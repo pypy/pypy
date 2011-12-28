@@ -1,6 +1,6 @@
 import py
 from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr, LoopToken
+     BoxPtr, ConstPtr, BasicFailDescr, JitCellToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.arch import WORD
@@ -20,7 +20,7 @@ def test_bug_rshift():
         ]
     cpu = CPU(None, None)
     cpu.setup_once()
-    looptoken = LoopToken()
+    looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 9)
     cpu.execute_token(looptoken)
@@ -43,7 +43,7 @@ def test_bug_int_is_true_1():
             ]
     cpu = CPU(None, None)
     cpu.setup_once()
-    looptoken = LoopToken()
+    looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -10)
     cpu.execute_token(looptoken)
@@ -140,7 +140,7 @@ def test_bug_0():
             ]
     cpu = CPU(None, None)
     cpu.setup_once()
-    looptoken = LoopToken()
+    looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, -13)
     cpu.set_future_value_int(1, 10)
@@ -255,7 +255,7 @@ def test_bug_1():
             ]
     cpu = CPU(None, None)
     cpu.setup_once()
-    looptoken = LoopToken()
+    looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
     cpu.set_future_value_int(0, 17)
     cpu.set_future_value_int(1, -20)
