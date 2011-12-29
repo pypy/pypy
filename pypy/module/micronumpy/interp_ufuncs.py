@@ -108,11 +108,7 @@ class W_Ufunc(Wrappable):
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
-        dim = -1
-        if not space.is_w(w_dim, space.w_None):
-            dim = space.int_w(w_dim)
-        if not multidim and space.is_w(w_dim, space.w_None):
-            dim = 0
+        dim = space.int_w(w_dim)
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if isinstance(obj, Scalar):
@@ -132,7 +128,8 @@ class W_Ufunc(Wrappable):
                     "%s.reduce without identity", self.name)
         if shapelen>1 and dim>=0:
             from pypy.module.micronumpy.interp_numarray import Reduce
-            return Reduce(self.func, self.name, dim, dtype, obj, self.identity)
+            return space.wrap(Reduce(self.func, self.name, dim, dtype, 
+                                                        obj, self.identity))
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)

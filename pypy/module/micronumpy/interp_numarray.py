@@ -283,8 +283,8 @@ class BaseArray(Wrappable):
     descr_rmod = _binop_right_impl("mod")
     
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest = False):
-        def impl(self, space, w_dim=None):
-            if w_dim is None:
+        def impl(self, space, w_dim=-1):
+            if isinstance(w_dim,int):
                 w_dim = space.wrap(w_dim)
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
                                         self, True, promote_to_largest, w_dim)
