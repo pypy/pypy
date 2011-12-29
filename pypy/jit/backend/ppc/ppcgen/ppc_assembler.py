@@ -515,7 +515,6 @@ class AssemblerPPC(OpAssembler):
 
         self.setup(looptoken, operations)
         self.startpos = self.mc.currpos()
-
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self,
                             frame_manager=PPCFrameManager())
@@ -540,6 +539,8 @@ class AssemblerPPC(OpAssembler):
         self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
 
         self.write_pending_failure_recoveries()
+	if IS_PPC_64:
+		fdescrs = self.gen_64_bit_func_descrs()
         loop_start = self.materialize_loop(looptoken, False)
         looptoken._ppc_bootstrap_code = loop_start
 
@@ -547,13 +548,15 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_32:
             looptoken._ppc_direct_bootstrap_code = real_start
         else:
-            looptoken._ppc_direct_bootstrap_code = self.gen_64_bit_func_descr(real_start)
+            self.write_64_bit_func_descr(fdescrs[0], real_start)
+            looptoken._ppc_direct_bootstrap_code = fdescrs[0]
 
         real_start = loop_start + start_pos
         if IS_PPC_32:
             looptoken.ppc_code = real_start
         else:
-            looptoken.ppc_code = self.gen_64_bit_func_descr(real_start)
+            self.write_64_bit_func_descr(fdescrs[1], real_start)
+            looptoken.ppc_code = fdescrs[1]
         self.process_pending_guards(loop_start)
         if not we_are_translated():
             print 'Loop', inputargs, operations
@@ -701,13 +704,16 @@ class AssemblerPPC(OpAssembler):
             return False
         return True
 
-    def gen_64_bit_func_descr(self, start_addr):
-        mc = PPCBuilder()
-        mc.write64(start_addr)
-        mc.write64(0)
-        mc.write64(0)
-        return mc.materialize(self.cpu.asmmemmgr, [], 
-                              self.cpu.gc_ll_descr.gcrootmap)
+    def gen_64_bit_func_descrs(self):
+        d0 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
+        d1 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
+	return [d0, d1]
+
+    def write_64_bit_func_descr(self, descr, start_addr):
+        data = rffi.cast(rffi.CArrayPtr(lltype.Signed), descr)
+	data[0] = start_addr
+	data[1] = 0
+	data[2] = 0
 
     def compute_frame_depth(self, regalloc):
         PARAMETER_AREA = self.max_stack_params * WORD
