@@ -4,10 +4,10 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
-                                         LoopToken,
                                          ConstInt, ConstPtr,
                                          BoxObj, Const,
                                          ConstObj, BoxFloat, ConstFloat)
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.backend.detect_cpu import getcpuclass
@@ -27,7 +27,7 @@ class TestBackendTranslation(object):
             i2 = BoxInt()
             faildescr1 = BasicFailDescr(1)
             faildescr2 = BasicFailDescr(2)
-            looptoken = LoopToken()
+            looptoken = JitCellToken()
             operations = [
                 ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
                 ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),

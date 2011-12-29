@@ -10,7 +10,7 @@ from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, \
                                     PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
-                    ARMv7RegisterMananger, check_imm_arg,
+                    ARMv7RegisterManager, check_imm_arg,
                     operations as regalloc_operations,
                     operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.arm.jump import remap_frame_layout
@@ -87,11 +87,11 @@ class AssemblerARM(ResOpAssembler):
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
         self.pending_guards = []
-        self.currently_compiling_loop = None
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        self.target_tokens_currently_compiling = {}
         return operations
 
     def teardown(self):
@@ -99,7 +99,6 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
-        self.currently_compiling_loop = None
         assert self.datablockwrapper is None
 
     def setup_once(self):
@@ -326,10 +325,10 @@ class AssemblerARM(ResOpAssembler):
             mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
             # XXX replace with an STMxx operation
-            for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
+            for reg, ofs in ARMv7RegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.STR_ri(reg.value, r.fp.value, imm=ofs)
             mc.BL(addr)
-            for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
+            for reg, ofs in ARMv7RegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
 
         mc.CMP_ri(r.r0.value, 0)
@@ -546,9 +545,9 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.VLDR(r.vfp_ip.value, r.ip.value)
                 self.mov_loc_loc(r.vfp_ip, loc)
 
-    def gen_direct_bootstrap_code(self, loop_head, looptoken, inputargs):
+    def gen_direct_bootstrap_code(self, loop_head, arglocs, frame_depth, inputargs):
         self.gen_func_prolog()
-        nonfloatlocs, floatlocs = looptoken._arm_arglocs
+        nonfloatlocs, floatlocs = arglocs
 
         reg_args = count_reg_args(inputargs)
 
@@ -627,7 +626,7 @@ class AssemblerARM(ResOpAssembler):
 
         sp_patch_location = self._prepare_sp_patch_position()
         self.mc.B_offs(loop_head)
-        self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
+        self._patch_sp_offset(sp_patch_location, frame_depth)
 
     def _dump(self, ops, type='loop'):
         debug_start('jit-backend-ops')
@@ -642,8 +641,11 @@ class AssemblerARM(ResOpAssembler):
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
 
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
         operations = self.setup(looptoken, operations)
-        self.currently_compiling_loop = looptoken
         self._dump(operations)
 
         self.align()
@@ -659,25 +661,31 @@ class AssemblerARM(ResOpAssembler):
         looptoken._arm_loop_code = loop_head
         looptoken._arm_bootstrap_code = 0
 
-        looptoken._arm_frame_depth = -1
+        clt.frame_depth = -1
         frame_depth = self._assemble(operations, regalloc)
-        looptoken._arm_frame_depth = frame_depth
-        self._patch_sp_offset(sp_patch_location, looptoken._arm_frame_depth)
+        clt.frame_depth = frame_depth
+        self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.align()
 
         direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(loop_head, looptoken, inputargs)
+        self.gen_direct_bootstrap_code(loop_head, arglocs,
+                                        frame_depth, inputargs)
 
         self.write_pending_failure_recoveries()
-        loop_start = self.materialize_loop(looptoken)
-        looptoken._arm_bootstrap_code = loop_start
-        direct_code_start = loop_start + direct_bootstrap_code
+
+        rawstart = self.materialize_loop(looptoken)
+        direct_code_start = rawstart + direct_bootstrap_code
+
+        looptoken._arm_bootstrap_code = rawstart
         looptoken._arm_direct_bootstrap_code = direct_code_start
-        self.process_pending_guards(loop_start)
+
+        self.process_pending_guards(rawstart)
+        self.fixup_target_tokens(rawstart)
+
         if log and not we_are_translated():
             print 'Loop', inputargs, operations
-            self.mc._dump_trace(loop_start,
+            self.mc._dump_trace(rawstart,
                     'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
         self.teardown()
@@ -688,7 +696,7 @@ class AssemblerARM(ResOpAssembler):
         frame_depth = regalloc.frame_manager.get_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            frame_depth = max(frame_depth, jump_target_descr._arm_frame_depth)
+            frame_depth = max(frame_depth, jump_target_descr._arm_clt.frame_depth)
         return frame_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations,
@@ -698,7 +706,7 @@ class AssemblerARM(ResOpAssembler):
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
-        frame_depth = faildescr._arm_frame_depth
+        frame_depth = faildescr._arm_current_frame_depth
         arglocs = self.decode_inputargs(enc)
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
@@ -713,17 +721,27 @@ class AssemblerARM(ResOpAssembler):
         self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.write_pending_failure_recoveries()
-        bridge_start = self.materialize_loop(original_loop_token)
-        self.process_pending_guards(bridge_start)
+        rawstart = self.materialize_loop(original_loop_token)
+        self.process_pending_guards(rawstart)
 
         self.patch_trace(faildescr, original_loop_token,
-                                    bridge_start, regalloc)
-        if log and not we_are_translated():
-            print 'Bridge', inputargs, operations
-            self.mc._dump_trace(bridge_start, 'bridge_%d.asm' %
-            self.cpu.total_compiled_bridges)
+                                    rawstart, regalloc)
+        self.fixup_target_tokens(rawstart)
+
+        if not we_are_translated():
+            # for the benefit of tests
+            faildescr._arm_bridge_frame_depth = frame_depth
+            if log:
+                print 'Bridge', inputargs, operations
+                self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
+                self.cpu.total_compiled_bridges)
+        self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
         self.teardown()
 
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._arm_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
 
     def target_arglocs(self, loop_token):
         return loop_token._arm_arglocs
@@ -745,7 +763,7 @@ class AssemblerARM(ResOpAssembler):
             memaddr = self._gen_path_to_exit_path(descr, tok.failargs,
                                         tok.faillocs, save_exc=tok.save_exc)
             # store info on the descr
-            descr._arm_frame_depth = tok.faillocs[0].getint()
+            descr._arm_current_frame_depth = tok.faillocs[0].getint()
             descr._failure_recovery_code = memaddr
             descr._arm_guard_pos = pos
 

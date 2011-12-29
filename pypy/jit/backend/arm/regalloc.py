@@ -16,7 +16,8 @@ from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS, WORD
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
-                                        INT, REF, FLOAT, LoopToken)
+                                        INT, REF, FLOAT)
+from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
                                              BaseSizeDescr, InteriorFieldDescr
@@ -24,6 +25,11 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
+
+
+# xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
+# that it is a LABEL that was not compiled yet.
+TargetToken._arm_loop_code = 0
 
 
 class TempInt(TempBox):
@@ -80,6 +86,7 @@ class ARMFrameManager(FrameManager):
         else:
             return loc.position
 
+
 def void(self, op, fcond):
     return []
 
@@ -128,7 +135,7 @@ class VFPRegisterManager(RegisterManager):
         return reg
 
 
-class ARMv7RegisterMananger(RegisterManager):
+class ARMv7RegisterManager(RegisterManager):
     all_regs = r.all_regs
     box_types = None       # or a list of acceptable types
     no_lower_byte_regs = all_regs
@@ -192,6 +199,7 @@ class Regalloc(object):
         self.assembler = assembler
         self.frame_manager = frame_manager
         self.jump_target_descr = None
+        self.final_jump_op = None
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -294,7 +302,7 @@ class Regalloc(object):
         fm = self.frame_manager
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
-        self.rm = ARMv7RegisterMananger(longevity, fm, asm)
+        self.rm = ARMv7RegisterManager(longevity, fm, asm)
         return useful
 
     def prepare_loop(self, inputargs, operations):
@@ -629,11 +637,24 @@ class Regalloc(object):
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
+        self.final_jump_op = op
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
+        if descr._arm_loop_code != 0:
+            # if the target LABEL was already compiled, i.e. if it belongs
+            # to some already-compiled piece of code
+            self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding prepare_op_label() to know where the
+        #   we would like the boxes to be after the jump.
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
         nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
-        for i in range(op.numargs()):
-            box = op.getarg(i)
+        jump_op = self.final_jump_op
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
             if isinstance(box, Box):
                 loc = nonfloatlocs[i]
                 if loc is not None and loc.is_stack():
@@ -647,16 +668,13 @@ class Regalloc(object):
 
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr
         nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
 
         # get temporary locs
         tmploc = r.ip
-        box = TempFloat()
-        # compute 'vfptmploc' to be all_regs[0] by spilling what is there
-        vfptmp = self.vfprm.all_regs[0]
-        vfptmploc = self.vfprm.force_allocate_reg(box, selected_reg=vfptmp)
+        vfptmploc = r.vfp_ip
 
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
@@ -671,7 +689,6 @@ class Regalloc(object):
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)
-        self.possibly_free_var(box)
         return []
 
     def prepare_op_setfield_gc(self, op, fcond):
@@ -1066,6 +1083,39 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [res_loc]
 
+    def prepare_op_label(self, op, fcond):
+        # XXX big refactoring needed?
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        floatlocs = [None] * len(inputargs)
+        nonfloatlocs = [None] * len(inputargs)
+
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            if arg.type == FLOAT:
+                floatlocs[i] = loc
+            else:
+                nonfloatlocs[i] = loc
+            if loc.is_reg():
+                self.frame_manager.mark_as_free(arg)
+        descr._arm_arglocs = nonfloatlocs, floatlocs
+        descr._arm_loop_code = self.assembler.mc.currpos()
+        descr._arm_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
+        return None
+
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
@@ -1106,7 +1156,7 @@ class Regalloc(object):
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         size = jd.portal_calldescr.get_result_size(

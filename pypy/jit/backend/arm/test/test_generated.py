@@ -3,10 +3,10 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
-                                         LoopToken,
                                          ConstInt, ConstPtr,
                                          BoxObj, Const,
                                          ConstObj, BoxFloat, ConstFloat)
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.backend.detect_cpu import getcpuclass
@@ -40,7 +40,7 @@ class TestStuff(object):
             ResOperation(rop.GUARD_TRUE, [v12], None, descr=faildescr1),
             ResOperation(rop.FINISH, [v9, v6, v10, v2, v8, v5, v1, v4], None, descr=faildescr2),
             ]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         operations[2].setfailargs([v12, v8, v3, v2, v1, v11])
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, -12)
@@ -101,7 +101,7 @@ class TestStuff(object):
             ]
         operations[2].setfailargs([v10, v6])
         operations[9].setfailargs([v15, v7, v10, v18, v4, v17, v1])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 16)
         cpu.set_future_value_int(1, 5)
@@ -152,7 +152,7 @@ class TestStuff(object):
             ]
         operations[2].setfailargs([v8, v3])
         operations[4].setfailargs([v2, v12, v1, v3, v4])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, -5)
         cpu.set_future_value_int(1, 24)
@@ -203,7 +203,7 @@ class TestStuff(object):
             ResOperation(rop.FINISH, [v8, v2, v6, v5, v7, v1, v10], None, descr=faildescr2),
             ]
         operations[5].setfailargs([])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 19)
         cpu.set_future_value_int(1, -3)
@@ -254,7 +254,7 @@ class TestStuff(object):
             ResOperation(rop.GUARD_NO_OVERFLOW, [], None, descr=faildescr1),
             ResOperation(rop.FINISH, [v1, v4, v10, v8, v7, v3], None, descr=faildescr2),
             ]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         operations[5].setfailargs([])
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 1073741824)
@@ -316,7 +316,7 @@ class TestStuff(object):
             ResOperation(rop.GUARD_FALSE, [tmp17], None, descr=faildescr3),
             ResOperation(rop.FINISH, [v8, v10, v6, v3, v2, v9], None, descr=faildescr4),
             ]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         operations[1].setfailargs([v8, v6, v1])
         operations[7].setfailargs([v4])
         operations[9].setfailargs([v10, v13])
@@ -376,7 +376,7 @@ class TestStuff(object):
             ]
         operations[1].setfailargs([v6, v8, v1, v4])
         operations[8].setfailargs([v5, v9])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, -8)
         cpu.set_future_value_int(1, 0)
@@ -434,7 +434,7 @@ class TestStuff(object):
         operations[3].setfailargs([])
         operations[-4].setfailargs([v15])
         operations[-2].setfailargs([v9, v4, v10, v11, v14])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, -39)
         cpu.set_future_value_int(1, -18)
@@ -497,7 +497,7 @@ class TestStuff(object):
         operations[1].setfailargs([v9, v1])
         operations[5].setfailargs([v10, v2, v11, v3])
         operations[9].setfailargs([v5, v7, v12, v14, v2, v13, v8])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 0)
         cpu.set_future_value_int(1, -2)
@@ -547,7 +547,7 @@ class TestStuff(object):
             ResOperation(rop.FINISH, [v8, v2, v10, v6, v7, v9, v5, v4], None, descr=faildescr2),
             ]
         operations[2].setfailargs([v10, v3, v6, v11, v9, v2])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 3)
         cpu.set_future_value_int(1, -5)
@@ -604,7 +604,7 @@ class TestStuff(object):
             ]
         operations[-2].setfailargs([v4, v10, v3, v9, v14, v2])
         operations[4].setfailargs([v14])
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         cpu.set_future_value_int(0, 14)
         cpu.set_future_value_int(1, -20)

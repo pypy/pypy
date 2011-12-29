@@ -115,7 +115,7 @@ class ArmCPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         # start of "no gc operation!" block
-        frame_depth = faildescr._arm_frame_depth * WORD
+        frame_depth = faildescr._arm_current_frame_depth * WORD
         addr_end_of_frame = (addr_of_force_index -
                             (frame_depth +
                             len(all_regs) * WORD +

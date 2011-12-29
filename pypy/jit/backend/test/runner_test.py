@@ -122,7 +122,7 @@ class BaseBackendTest(Runner):
             ResOperation(rop.FINISH, [i1], None, descr=BasicFailDescr(1))
             ]
         inputargs = [i0]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_float(0, longlong.getfloatstorage(2.8))
         fail = self.cpu.execute_token(looptoken)
@@ -1248,7 +1248,7 @@ class BaseBackendTest(Runner):
         guard_false(i0) [f1, f2, f3]
         finish()"""
         loop = parse(loopops)
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         self.cpu.set_future_value_int(0, 1)
         self.cpu.set_future_value_float(1, longlong.getfloatstorage(132.25))
@@ -1298,7 +1298,7 @@ class BaseBackendTest(Runner):
                     ResOperation(rop.FINISH, [], None, descr=faildescr2),
                     ]
                 operations[1].setfailargs([])
-                looptoken = LoopToken()
+                looptoken = JitCellToken()
                 self.cpu.compile_loop(inputargs, operations, looptoken)
                 #
                 cpu = self.cpu
@@ -1397,7 +1397,7 @@ class BaseBackendTest(Runner):
                         ResOperation(rop.FINISH, [], None, descr=faildescr2),
                         ]
                     operations[-2].setfailargs([])
-                    looptoken = LoopToken()
+                    looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, operations, looptoken)
                     #
                     cpu = self.cpu
@@ -2642,7 +2642,7 @@ class LLtypeBackendTest(BaseBackendTest):
         del called[:]
         self.cpu.done_with_this_frame_int_v = done_number
         try:
-            othertoken = LoopToken()
+            othertoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
             for i in range(10):
                 self.cpu.set_future_value_int(i, i+1)

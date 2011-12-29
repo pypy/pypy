@@ -1,13 +1,15 @@
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.history import LoopToken
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.backend.test.calling_convention_test import TestCallingConv, parse
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.arm.test.support import skip_unless_arm
 skip_unless_arm()
 
-# ../../test/calling_convention_test.py
+
 class TestARMCallingConvention(TestCallingConv):
+    # ../../test/calling_convention_test.py
+
     def test_call_argument_spilling(self):
         # bug when we have a value in r0, that is overwritten by an argument
         # and needed after the call, so that the register gets spilled after it
@@ -28,7 +30,7 @@ class TestARMCallingConvention(TestCallingConv):
         i99 = call(ConstClass(func_ptr), 22, descr=calldescr)
         finish(%s, i99)""" % (args, args)
         loop = parse(ops, namespace=locals())
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         for x in range(11):
             self.cpu.set_future_value_int(x, x)

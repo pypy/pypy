@@ -22,7 +22,8 @@ from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
 from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.metainterp.history import (Box, AbstractFailDescr,
-                                            LoopToken, INT, FLOAT, REF)
+                                            INT, FLOAT, REF)
+from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
@@ -305,15 +306,14 @@ class OpAssembler(object):
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
         assert fcond == c.AL
 
         self._insert_checks()
-        if descr is self.currently_compiling_loop:
+        if descr in self.target_tokens_currently_compiling:
             self.mc.B_offs(descr._arm_loop_code, fcond)
         else:
-            target = descr._arm_bootstrap_code + descr._arm_loop_code
-            self.mc.B(target, fcond)
+            self.mc.B(descr._arm_loop_code, fcond)
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
@@ -373,8 +373,7 @@ class OpAssembler(object):
                                     regalloc, fcond, op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
-        if (op.result and not we_are_translated()
-                        and not isinstance(descr, LoopToken)):
+        if (op.result and not we_are_translated()):
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
             size = descr.get_result_size(False)
@@ -999,7 +998,7 @@ class ForceOpAssembler(object):
         self._write_fail_index(fail_index)
 
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         # XXX check this
         assert op.numargs() == len(descr._arm_arglocs[0])
         resbox = TempInt()
