@@ -122,12 +122,6 @@ class AssemblerPPC(OpAssembler):
             mc.load(reg.value, spp_reg.value, 
                 self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
-    def get_asmmemmgr_blocks(self, looptoken):
-        clt = looptoken.compiled_loop_token
-        if clt.asmmemmgr_blocks is None:
-            clt.asmmemmgr = []
-        return clt.asmmemmgr_blocks
-
     def _make_prologue(self, target_pos, frame_depth):
         self._make_frame(frame_depth)
         curpos = self.mc.currpos()
@@ -343,7 +337,7 @@ class AssemblerPPC(OpAssembler):
         # load address of decoding function into SCRATCH
         mc.alloc_scratch_reg(addr)
         if IS_PPC_64:
-            mc.std(r.r2.value, r.SP.value, 3 * WORD)
+            mc.std(r.r2.value, r.SP.value, 5 * WORD)
             # load TOC pointer and environment pointer
             mc.load_imm(r.r2, r2_value)
             mc.load_imm(r.r11, r11_value)
@@ -352,7 +346,7 @@ class AssemblerPPC(OpAssembler):
         mc.free_scratch_reg()
         mc.bctrl()
         if IS_PPC_64:
-            mc.ld(r.r2.value, r.SP.value, 3 * WORD)
+            mc.ld(r.r2.value, r.SP.value, 5 * WORD)
         #
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
