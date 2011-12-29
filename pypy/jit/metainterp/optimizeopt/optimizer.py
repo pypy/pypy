@@ -453,6 +453,7 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
+        self.seen_results = {}
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)

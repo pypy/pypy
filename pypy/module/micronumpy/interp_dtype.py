@@ -21,7 +21,6 @@ class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[]):
-        self.signature = signature.BaseSignature()
         self.itemtype = itemtype
         self.num = num
         self.kind = kind

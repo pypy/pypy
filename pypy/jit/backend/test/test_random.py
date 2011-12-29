@@ -6,6 +6,7 @@ from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat, Const
+from pypy.jit.metainterp.history import INT, FLOAT
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.resoperation import opname
@@ -616,8 +617,13 @@ class RandomLoop(object):
             return self.loop._jitcelltoken
         if not hasattr(self, '_initialjumploop_celltoken'):
             self._initialjumploop_celltoken = JitCellToken()
-            self.cpu.compile_loop(self.startvars[:],
-                                  [ResOperation(rop.JUMP, self.startvars[:], None,
+            args = []
+            for box in self.startvars:
+                if box not in self.loop.inputargs:
+                    box = box.constbox()
+                args.append(box)
+            self.cpu.compile_loop(self.loop.inputargs,
+                                  [ResOperation(rop.JUMP, args, None,
                                                 descr=self.loop._targettoken)],
                                   self._initialjumploop_celltoken)
         return self._initialjumploop_celltoken
@@ -649,14 +655,8 @@ class RandomLoop(object):
         exc = cpu.grab_exc_value()
         assert not exc
 
-        for i, box in enumerate(self.startvars):
-            if isinstance(box, BoxInt):
-                cpu.set_future_value_int(i, box.value)
-            elif isinstance(box, BoxFloat):
-                cpu.set_future_value_float(i, box.value)
-            else:
-                raise NotImplementedError(box)
-        fail = cpu.execute_token(self.runjitcelltoken())
+        arguments = [box.value for box in self.loop.inputargs]
+        fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
@@ -717,10 +717,21 @@ class RandomLoop(object):
             # to build_bridge().)
 
             # First make up the other loop...
-            subset = bridge_builder.subset_of_intvars(r)
-            subset = [i for i in subset if i in fail_args]
-            if len(subset) == 0:
-                return False
+            #
+            # New restriction: must have the same argument count and types
+            # as the original loop
+            subset = []
+            for box in self.loop.inputargs:
+                srcbox = r.choice(fail_args)
+                if srcbox.type != box.type:
+                    if box.type == INT:
+                        srcbox = ConstInt(r.random_integer())
+                    elif box.type == FLOAT:
+                        srcbox = ConstFloat(r.random_float_storage())
+                    else:
+                        raise AssertionError(box.type)
+                subset.append(srcbox)
+            #
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)

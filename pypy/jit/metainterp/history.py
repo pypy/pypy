@@ -124,9 +124,6 @@ class AbstractValue(object):
     def sort_key(self):
         raise NotImplementedError
 
-    def set_future_value(self, cpu, j):
-        raise NotImplementedError
-
     def nonnull(self):
         raise NotImplementedError
 
@@ -144,59 +141,6 @@ class AbstractDescr(AbstractValue):
 
     def repr_of_descr(self):
         return '%r' % (self,)
-
-    def get_arg_types(self):
-        """ Implement in call descr.
-        Must return a string of INT, REF and FLOAT ('i', 'r', 'f').
-        """
-        raise NotImplementedError
-
-    def get_return_type(self):
-        """ Implement in call descr.
-        Must return INT, REF, FLOAT, or 'v' for void.
-        On 32-bit (hack) it can also be 'L' for longlongs.
-        Additionally it can be 'S' for singlefloats.
-        """
-        raise NotImplementedError
-
-    def get_extra_info(self):
-        """ Implement in call descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_pointers(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_floats(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_structs(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_pointer_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def is_float_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def as_vtable_size_descr(self):
-        """ Implement for size descr representing objects with vtables.
-        Returns self.  (it's an annotation hack)
-        """
-        raise NotImplementedError
-
-    def count_fields_if_immutable(self):
-        return -1
 
     def _clone_if_mutable(self):
         return self
@@ -289,9 +233,6 @@ class ConstInt(Const):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def same_constant(self, other):
         if isinstance(other, ConstInt):
             return self.value == other.value
@@ -328,9 +269,6 @@ class ConstFloat(Const):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
@@ -377,9 +315,6 @@ class ConstPtr(Const):
 
     def getaddr(self):
         return llmemory.cast_ptr_to_adr(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstPtr):
@@ -431,9 +366,6 @@ class ConstObj(Const):
             return ootype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
 ##    def getaddr(self):
 ##        # so far this is used only when calling
@@ -540,9 +472,6 @@ class BoxInt(Box):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def nonnull(self):
         return self.value != 0
 
@@ -574,9 +503,6 @@ class BoxFloat(Box):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
         return self.value != longlong.ZEROF
@@ -619,9 +545,6 @@ class BoxPtr(Box):
             return lltype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def nonnull(self):
         return bool(self.value)
@@ -667,18 +590,11 @@ class BoxObj(Box):
     def nonnull(self):
         return bool(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
-
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
 
     _getrepr_ = repr_object
 
-
-def set_future_values(cpu, boxes):
-    for j in range(len(boxes)):
-        boxes[j].set_future_value(cpu, j)
 
 # ____________________________________________________________
 
@@ -768,14 +684,30 @@ class JitCellToken(AbstractDescr):
 
 class TargetToken(AbstractDescr):
     def __init__(self, targeting_jitcell_token=None):
-        # The jitcell to which jumps might result in a jump to this label
+        # Warning, two different jitcell_tokens here!
+        #
+        # * 'targeting_jitcell_token' is only useful for the front-end,
+        #   and it means: consider the LABEL that uses this TargetToken.
+        #   At this position, the state is logically the one given
+        #   by targeting_jitcell_token.  So e.g. if we want to enter the
+        #   JIT with some given green args, if the jitcell matches, then
+        #   we can jump to this LABEL.
+        #
+        # * 'original_jitcell_token' is information from the backend's
+        #   point of view: it means that this TargetToken is used in
+        #   a LABEL that belongs to either:
+        #   - a loop; then 'original_jitcell_token' is this loop
+        #   - or a bridge; then 'original_jitcell_token' is the loop
+        #     out of which we made this bridge
+        #
         self.targeting_jitcell_token = targeting_jitcell_token
-        
-        # The jitcell where the trace containing the label with this TargetToken begins
         self.original_jitcell_token = None
 
         self.virtual_state = None
         self.exported_state = None
+
+    def repr_of_descr(self):
+        return 'TargetToken(%d)' % compute_unique_id(self)
         
 class TreeLoop(object):
     inputargs = None
@@ -783,7 +715,7 @@ class TreeLoop(object):
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
-    start_resumedescr = None
+    resume_at_jump_descr = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")
@@ -981,15 +913,19 @@ class Stats(object):
         self.aborted_keys = []
         self.invalidated_token_numbers = set()    # <- not RPython
         self.jitcell_token_wrefs = []
+        self.jitcell_dicts = []                   # <- not RPython
 
     def clear(self):
         del self.loops[:]
         del self.locations[:]
         del self.aborted_keys[:]
+        del self.jitcell_token_wrefs[:]
         self.invalidated_token_numbers.clear()
         self.compiled_count = 0
         self.enter_count = 0
         self.aborted_count = 0
+        for dict in self.jitcell_dicts:
+            dict.clear()
 
     def add_jitcell_token(self, token):
         assert isinstance(token, JitCellToken)
@@ -1071,25 +1007,6 @@ class Stats(object):
         # a jump back to itself and possibly a few bridges ending with finnish.
         # Only the operations within the loop formed by that single jump will
         # be counted.
-
-        # XXX hacked version, ignore and remove me when jit-targets is merged.
-        loops = self.get_all_loops()
-        loops = [loop for loop in loops if 'Preamble' not in repr(loop)] #XXX
-        assert len(loops) == 1
-        loop, = loops
-        jumpop = loop.operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        insns = {}
-        for op in loop.operations:
-            opname = op.getopname()
-            insns[opname] = insns.get(opname, 0) + 1
-        return self._check_insns(insns, expected, check)
-
-    def check_simple_loop(self, expected=None, **check):
-        # Usefull in the simplest case when we have only one trace ending with
-        # a jump back to itself and possibly a few bridges ending with finnish.
-        # Only the operations within the loop formed by that single jump will
-        # be counted.
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
@@ -1148,7 +1065,7 @@ class Stats(object):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extraprocedures=[]):
+    def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
         from pypy.jit.metainterp.graphpage import display_procedures
         procedures = self.get_all_loops()[:]
         for procedure in extraprocedures:
@@ -1160,7 +1077,7 @@ class Stats(object):
             if hasattr(procedure, '_looptoken_number') and (
                procedure._looptoken_number in self.invalidated_token_numbers):
                 highlight_procedures.setdefault(procedure, 2)
-        display_procedures(procedures, errmsg, highlight_procedures)
+        display_procedures(procedures, errmsg, highlight_procedures, metainterp_sd)
 
 # ----------------------------------------------------------------
 

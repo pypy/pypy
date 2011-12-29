@@ -70,6 +70,8 @@ class FrameManager(object):
         self.bindings[box] = loc
         #
         index = self.get_loc_index(loc)
+        if index < 0:
+            return
         endindex = index + self.frame_size(box.type)
         while len(self.used) < endindex:
             self.used.append(False)
@@ -92,6 +94,8 @@ class FrameManager(object):
         #
         size = self.frame_size(box.type)
         baseindex = self.get_loc_index(loc)
+        if baseindex < 0:
+            return
         for i in range(size):
             index = baseindex + i
             assert 0 <= index < len(self.used)
@@ -99,7 +103,8 @@ class FrameManager(object):
 
     def try_to_reuse_location(self, box, loc):
         index = self.get_loc_index(loc)
-        assert index >= 0
+        if index < 0:
+            return False
         size = self.frame_size(box.type)
         for i in range(size):
             while (index + i) >= len(self.used):

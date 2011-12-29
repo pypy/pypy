@@ -7,8 +7,9 @@ from lib_pypy import disassembler
 from pypy.tool.udir import udir
 from pypy.tool import logparser
 from pypy.jit.tool.jitoutput import parse_prof
-from pypy.module.pypyjit.test_pypy_c.model import Log, find_ids_range, find_ids, \
-    TraceWithIds, OpMatcher
+from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
+                                                   find_ids, TraceWithIds,
+                                                   OpMatcher, InvalidMatch)
 
 class BaseTestPyPyC(object):
     def setup_class(cls):
@@ -45,8 +46,10 @@ class BaseTestPyPyC(object):
         cmdline = [sys.executable]
         if not import_site:
             cmdline.append('-S')
-        for key, value in jitopts.iteritems():
-            cmdline += ['--jit', '%s=%s' % (key, value)]
+        if jitopts:
+            jitcmdline = ['%s=%s' % (key, value)
+                          for key, value in jitopts.items()]
+            cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
         print cmdline, logfile
@@ -113,13 +116,18 @@ class TestLog(object):
         assert opcodes_names == ['LOAD_FAST', 'LOAD_CONST', 'BINARY_ADD', 'STORE_FAST']
 
 
-class TestOpMatcher(object):
+class TestOpMatcher_(object):
 
     def match(self, src1, src2, **kwds):
         from pypy.tool.jitlogparser.parser import SimpleParser
         loop = SimpleParser.parse_from_input(src1)
         matcher = OpMatcher(loop.operations)
-        return matcher.match(src2, **kwds)
+        try:
+            res = matcher.match(src2, **kwds)
+            assert res is True
+            return True
+        except InvalidMatch:
+            return False
 
     def test_match_var(self):
         match_var = OpMatcher([]).match_var
@@ -445,7 +453,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             jump(p0, p1, p2, p3, i8, descr=...)
         """)
         #
-        assert not loop.match("""
+        py.test.raises(InvalidMatch, loop.match, """
             i6 = int_lt(i4, 1003)
             guard_true(i6)
             i8 = int_add(i5, 1) # variable mismatch
@@ -490,9 +498,8 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_no_exception(descr=...)
         """)
         #
-        assert not loop.match_by_id('ntohs', """
+        py.test.raises(InvalidMatch, loop.match_by_id, 'ntohs', """
             guard_not_invalidated(descr=...)
             p12 = call(ConstClass(foobar), 1, descr=...)
             guard_no_exception(descr=...)
         """)
-        

@@ -51,34 +51,6 @@ def build_opt_chain(metainterp_sd, enable_opts):
 
     return optimizations, unroll
 
-
-def optimize_loop_1(metainterp_sd, loop, enable_opts,
-                    inline_short_preamble=True, retraced=False):
-    """Optimize loop.operations to remove internal overheadish operations.
-    """
-
-    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts,
-                                            inline_short_preamble, retraced)
-    if unroll:
-        optimize_unroll(metainterp_sd, loop, optimizations)
-    else:
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        optimizer.propagate_all_forward()
-
-def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
-                      inline_short_preamble=True, retraced=False):
-    """The same, but for a bridge. """
-    enable_opts = enable_opts.copy()
-    try:
-        del enable_opts['unroll']
-    except KeyError:
-        pass
-    optimize_loop_1(metainterp_sd, bridge, enable_opts,
-                    inline_short_preamble, retraced)
-
-if __name__ == '__main__':
-    print ALL_OPTS_NAMES
-
 def optimize_trace(metainterp_sd, loop, enable_opts, inline_short_preamble=True):
     """Optimize loop.operations to remove internal overheadish operations.
     """
@@ -96,3 +68,6 @@ def optimize_trace(metainterp_sd, loop, enable_opts, inline_short_preamble=True)
     finally:
         debug_stop("jit-optimize")
         
+if __name__ == '__main__':
+    print ALL_OPTS_NAMES
+

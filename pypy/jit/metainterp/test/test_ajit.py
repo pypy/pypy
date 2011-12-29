@@ -9,7 +9,6 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
@@ -2698,7 +2697,7 @@ class BasicTests:
         # bridge back to the preamble of the first loop is produced. A guard in
         # this bridge is later traced resulting in a failed attempt of retracing
         # the second loop.
-        self.check_trace_count(8)
+        self.check_trace_count(9)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
 

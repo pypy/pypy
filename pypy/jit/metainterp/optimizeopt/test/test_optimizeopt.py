@@ -4,7 +4,7 @@ from pypy.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, Storage, _sortboxes, convert_old_style_to_targets)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, build_opt_chain
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
@@ -4211,7 +4211,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p0]
         i0 = strlen(p0)
-        i3 = same_as(i0) # Should be killed by backend        
         jump(p0)
         """
         expected = """
@@ -5668,8 +5667,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = newstr(i3)
         copystrcontent(p1, p3, 0, 0, i1)
         copystrcontent(p2, p3, 0, i1, i2)
-        i7 = same_as(i2)        
-        jump(p2, p3, i7)
+        jump(p2, p3, i2)
         """
         expected = """
         [p1, p2, i1]
@@ -5744,9 +5742,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p1, p5, 0, 0, i1)
         copystrcontent(p2, p5, 0, i1, i2)
         copystrcontent(p3, p5, 0, i12, i3)
-        i129 = same_as(i2)
-        i130 = same_as(i3)
-        jump(p2, p3, p5, i129, i130)
+        jump(p2, p3, p5, i2, i3)
         """
         expected = """
         [p1, p2, p3, i1, i2]
@@ -5959,8 +5955,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p4 = newstr(i5)
         copystrcontent(p1, p4, i1, 0, i3)
         copystrcontent(p2, p4, 0, i3, i4)
-        i9 = same_as(i4)
-        jump(p4, i1, i2, p2, i5, i3, i9)
+        jump(p4, i1, i2, p2, i5, i3, i4)
         """
         expected = """
         [p1, i1, i2, p2, i5, i3, i4]
@@ -6082,9 +6077,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, p3, p4, descr=strequaldescr)
         escape(i0)
-        i11 = same_as(i1)
-        i12 = same_as(i2)
-        jump(p1, p2, p3, i3, i11, i12)
+        jump(p1, p2, p3, i3, i1, i2)
         """
         expected = """
         [p1, p2, p3, i3, i1, i2]
@@ -6304,7 +6297,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = strlen(p1)
         i0 = int_eq(i1, 0)
         escape(i0)
-        i3 = same_as(i1)        
         jump(p1, i0)
         """
         self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
@@ -6350,9 +6342,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         copystrcontent(p2, p4, 0, i1, i2)
         i0 = call(0, s"hello world", p4, descr=streq_nonnull_descr)
         escape(i0)
-        i11 = same_as(i1)
-        i12 = same_as(i2)
-        jump(p1, p2, i3, i11, i12)
+        jump(p1, p2, i3, i1, i2)
         """
         expected = """
         [p1, p2, i3, i1, i2]
@@ -6925,8 +6915,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p9]
         i843 = strlen(p9)
         call(i843, descr=nonwritedescr)
-        i0 = same_as(i843)
-        jump(p9, i0)
+        jump(p9, i843)
         """
         short = """
         [p9]
@@ -7755,6 +7744,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setinteriorfield_should_not_clear_cache(self):
+        ops = """
+        [i0, p0]
+        i2 = getfield_gc(p0, descr=adescr)
+        i3 = call(i2, descr=nonwritedescr)
+        setinteriorfield_raw(i0, i2, i3)
+        jump(i0, p0)
+        """
+        expected = """
+        [i0, p0, i2]
+        i3 = call(i2, descr=nonwritedescr)
+        setinteriorfield_raw(i0, i2, i3)
+        jump(i0, p0, i2)
+        """
+        self.optimize_loop(ops, expected)
+        
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
