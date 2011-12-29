@@ -20,7 +20,7 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
-     TempBox, compute_vars_longevity
+     TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
 from pypy.rlib.rarithmetic import r_longlong
@@ -1460,16 +1460,6 @@ oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
 
 def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
-
-def is_comparison_or_ovf_op(opnum):
-    from pypy.jit.metainterp.resoperation import opclasses
-    cls = opclasses[opnum]
-    # hack hack: in theory they are instance method, but they don't use
-    # any instance field, we can use a fake object
-    class Fake(cls):
-        pass
-    op = Fake(None)
-    return op.is_comparison() or op.is_ovf()
 
 for name, value in RegAlloc.__dict__.iteritems():
     if name.startswith('consider_'):

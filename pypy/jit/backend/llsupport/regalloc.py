@@ -527,6 +527,17 @@ def compute_vars_longevity(inputargs, operations):
     return longevity, useful
 
 
+def is_comparison_or_ovf_op(opnum):
+    from pypy.jit.metainterp.resoperation import opclasses
+    cls = opclasses[opnum]
+    # hack hack: in theory they are instance method, but they don't use
+    # any instance field, we can use a fake object
+    class Fake(cls):
+        pass
+    op = Fake(None)
+    return op.is_comparison() or op.is_ovf()
+
+
 def not_implemented(msg):
     os.write(2, '[llsupport/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
