@@ -281,8 +281,8 @@ class BaseArray(Wrappable):
     descr_rdiv = _binop_right_impl("divide")
     descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
-    
-    def _reduce_ufunc_impl(ufunc_name, promote_to_largest = False):
+
+    def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_dim=-1):
             if isinstance(w_dim,int):
                 w_dim = space.wrap(w_dim)

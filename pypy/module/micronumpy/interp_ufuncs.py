@@ -119,8 +119,8 @@ class W_Ufunc(Wrappable):
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
             promote_to_float=self.promote_to_float,
-            promote_to_largest = promote_to_largest,
-            promote_bools = True
+            promote_to_largest=promote_to_largest,
+            promote_bools=True
         )
         shapelen = len(obj.shape)
         if self.identity is None and size == 0:
