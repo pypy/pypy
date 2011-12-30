@@ -64,6 +64,16 @@ def decode32(mem, index):
             | ord(mem[index+1]) << 16
             | ord(mem[index]) << 24)
 
+def encode64(mem, i, n):
+    mem[i+7] = chr(n & 0xFF)
+    mem[i+6] = chr((n >> 8) & 0xFF)
+    mem[i+5] = chr((n >> 16) & 0xFF)
+    mem[i+4] = chr((n >> 24) & 0xFF)
+    mem[i+3] = chr((n >> 32) & 0xFF)
+    mem[i+2] = chr((n >> 40) & 0xFF)
+    mem[i+1] = chr((n >> 48) & 0xFF)
+    mem[i]   = chr((n >> 56) & 0xFF)
+
 def decode64(mem, index):
     value = 0
     for x in unrolling_iterable(range(8)):
