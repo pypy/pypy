@@ -175,7 +175,8 @@ class AbstractARMv7Builder(object):
         assert target_ofs & 0x3 == 0
         self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
 
-    def BL(self, target, c=cond.AL):
+    def BL(self, addr, c=cond.AL):
+        target = rffi.cast(rffi.INT, addr)
         if c == cond.AL:
             self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET / 2)
             self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET / 2)
