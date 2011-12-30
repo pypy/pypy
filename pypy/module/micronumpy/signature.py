@@ -95,7 +95,9 @@ class Signature(object):
             allnumbers.append(no)
         self.iter_no = no
 
-    def create_frame(self, arr, res_shape=None, chunks = []):
+    def create_frame(self, arr, res_shape=None, chunks = None):
+        if chunks is None:
+            chunks = []
         res_shape = res_shape or arr.shape
         iterlist = []
         arraylist = []
