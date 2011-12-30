@@ -19,6 +19,9 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import FieldDescr, ArrayDescr
 from pypy.jit.backend.llsupport.descr import CallDescr, SizeDescr
 from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
+from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox, compute_vars_longevity, is_comparison_or_ovf_op
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
@@ -917,33 +920,11 @@ class RegAlloc(object):
             gc_ll_descr.get_nursery_top_addr(),
             size)
 
-    def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.basesize
-        size = arraydescr.itemsize
-        sign = arraydescr.is_item_signed()
-        return size, ofs, sign
-
-    def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, FieldDescr)
-        ofs = fielddescr.offset
-        size = fielddescr.field_size
-        sign = fielddescr.is_field_signed()
-        return imm(ofs), imm(size), sign
-    _unpack_fielddescr._always_inline_ = True
-
-    def _unpack_interiorfielddescr(self, descr):
-        assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs = arraydescr.basesize
-        itemsize = arraydescr.itemsize
-        fieldsize = descr.fielddescr.field_size
-        sign = descr.fielddescr.is_field_signed()
-        ofs += descr.fielddescr.offset
-        return imm(ofs), imm(itemsize), imm(fieldsize), sign
 
     def consider_setfield_gc(self, op):
-        ofs_loc, size_loc, _ = self._unpack_fielddescr(op.getdescr())
+        ofs, size, _ = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
         assert isinstance(size_loc, ImmedLoc)
         if size_loc.value == 1:
             need_lower_byte = True
@@ -959,8 +940,8 @@ class RegAlloc(object):
     consider_setfield_raw = consider_setfield_gc
 
     def consider_setinteriorfield_gc(self, op):
-        t = self._unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, _ = t
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize = imm(t[0]), imm(t[1]), imm(t[2])
         args = op.getarglist()
         if fieldsize.value == 1:
             need_lower_byte = True
@@ -1001,7 +982,7 @@ class RegAlloc(object):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_setarrayitem_gc(self, op):
-        itemsize, ofs, _ = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc  = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         if itemsize == 1:
@@ -1018,7 +999,9 @@ class RegAlloc(object):
     consider_setarrayitem_raw = consider_setarrayitem_gc
 
     def consider_getfield_gc(self, op):
-        ofs_loc, size_loc, sign = self._unpack_fielddescr(op.getdescr())
+        ofs, size, sign = unpack_fielddescr(op.getdescr())
+        ofs_loc = imm(ofs)
+        size_loc = imm(size)
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         self.rm.possibly_free_vars(args)
@@ -1034,7 +1017,7 @@ class RegAlloc(object):
     consider_getfield_gc_pure = consider_getfield_gc
 
     def consider_getarrayitem_gc(self, op):
-        itemsize, ofs, sign = self._unpack_arraydescr(op.getdescr())
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
@@ -1051,8 +1034,8 @@ class RegAlloc(object):
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
 
     def consider_getinteriorfield_gc(self, op):
-        t = self._unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
         if sign:
             sign_loc = imm1
         else:
