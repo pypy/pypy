@@ -113,8 +113,8 @@ def axis_iter_from_arr(arr, dim=-1, start=None):
                         dim, start)
 
 class AxisIterator(object):
-    """ This object will return offsets of each start of a stride on the 
-        desired dimension, starting at "start" which is an index along 
+    """ This object will return offsets of each start of a stride on the
+        desired dimension, starting at "start" which is an index along
         each axis
     """
     def __init__(self, arr_start, strides, backstrides, shape, dim, start):
@@ -131,6 +131,7 @@ class AxisIterator(object):
         if len(start) == len(shape):
             for i in range(len(start)):
                 self.offset += strides[i] * start[i]
+
     def next(self, shapelen):
         #shapelen will always be one less than self.shapelen
         offset = self.offset
@@ -159,4 +160,3 @@ class AxisIterator(object):
         res.dim = self.dim
         res.done = self.done
         return res
-

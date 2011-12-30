@@ -10,11 +10,12 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
 reduce_driver = jit.JitDriver(
-    greens = ['shapelen', "sig"],
-    virtualizables = ["frame"],
-    reds = ["frame", "self", "dtype", "value", "obj"],
+    greens=['shapelen', "sig"],
+    virtualizables=["frame"],
+    reds=["frame", "self", "dtype", "value", "obj"],
     get_printable_location=new_printable_location('reduce'),
 )
+
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -51,23 +52,23 @@ class W_Ufunc(Wrappable):
     def descr_reduce(self, space, w_obj, w_dim=0):
         '''reduce(...)
     reduce(a, axis=0)
-    
+
     Reduces `a`'s dimension by one, by applying ufunc along one axis.
-    
+
     Let :math:`a.shape = (N_0, ..., N_i, ..., N_{M-1})`.  Then
     :math:`ufunc.reduce(a, axis=i)[k_0, ..,k_{i-1}, k_{i+1}, .., k_{M-1}]` =
     the result of iterating `j` over :math:`range(N_i)`, cumulatively applying
     ufunc to each :math:`a[k_0, ..,k_{i-1}, j, k_{i+1}, .., k_{M-1}]`.
     For a one-dimensional array, reduce produces results equivalent to:
     ::
-    
+
      r = op.identity # op = ufunc
      for i in xrange(len(A)):
        r = op(r, A[i])
      return r
-    
+
     For example, add.reduce() is equivalent to sum().
-    
+
     Parameters
     ----------
     a : array_like
@@ -79,9 +80,9 @@ class W_Ufunc(Wrappable):
     --------
     >>> np.multiply.reduce([2,3,5])
     30
-    
+
     A multi-dimensional array example:
-    
+
     >>> X = np.arange(8).reshape((2,2,2))
     >>> X
     array([[[0, 1],
@@ -104,7 +105,8 @@ class W_Ufunc(Wrappable):
         return self.reduce(space, w_obj, False, False, w_dim)
 
     def reduce(self, space, w_obj, multidim, promote_to_largest, w_dim):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+        from pypy.module.micronumpy.interp_numarray import convert_to_array, \
+                                                           Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -126,9 +128,9 @@ class W_Ufunc(Wrappable):
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-        if shapelen>1 and dim>=0:
+        if shapelen > 1 and dim >= 0:
             from pypy.module.micronumpy.interp_numarray import Reduce
-            return space.wrap(Reduce(self.func, self.name, dim, dtype, 
+            return space.wrap(Reduce(self.func, self.name, dim, dtype,
                                                         obj, self.identity))
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
@@ -148,9 +150,11 @@ class W_Ufunc(Wrappable):
                                           value=value, obj=obj, frame=frame,
                                           dtype=dtype)
             assert isinstance(sig, ReduceSignature)
-            value = sig.binfunc(dtype, value, sig.eval(frame, obj).convert_to(dtype))
+            value = sig.binfunc(dtype, value,
+                                sig.eval(frame, obj).convert_to(dtype))
             frame.next(shapelen)
         return value
+
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1
@@ -236,6 +240,7 @@ W_Ufunc.typedef = TypeDef("ufunc",
     reduce = interp2app(W_Ufunc.descr_reduce),
 )
 
+
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     promote_bools=False):
     # dt1.num should be <= dt2.num
@@ -284,6 +289,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             dtypenum += 3
         return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
+
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
@@ -307,6 +313,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         else:
             assert False
     return dt
+
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype

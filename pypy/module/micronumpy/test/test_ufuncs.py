@@ -298,7 +298,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.atan(a[i])
 
-        a  = array([float('nan')])
+        a = array([float('nan')])
         b = arctan(a)
         assert math.isnan(b[0])
 

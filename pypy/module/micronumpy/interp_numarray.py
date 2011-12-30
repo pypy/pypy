@@ -283,9 +283,9 @@ class BaseArray(Wrappable):
     descr_rmod = _binop_right_impl("mod")
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
-        def impl(self, space, w_dim=-1):
-            if isinstance(w_dim,int):
-                w_dim = space.wrap(w_dim)
+        def impl(self, space, w_dim=None):
+            if space.is_w(w_dim, space.w_None):
+                w_dim = space.wrap(-1)
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
                                         self, True, promote_to_largest, w_dim)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
@@ -376,7 +376,7 @@ class BaseArray(Wrappable):
         else:
             w_res = self.descr_mul(space, w_other)
             assert isinstance(w_res, BaseArray)
-            return w_res.descr_sum(space)
+            return w_res.descr_sum(space, space.wrap(-1))
 
     def get_concrete(self):
         raise NotImplementedError
@@ -560,8 +560,11 @@ class BaseArray(Wrappable):
             )
         return w_result
 
-    def descr_mean(self, space):
-        return space.div(self.descr_sum_promote(space), space.wrap(self.size))
+    def descr_mean(self, space, w_dim=None):
+        if space.is_w(w_dim, space.w_None):
+            w_dim = space.wrap(-1)
+        return space.div(self.descr_sum_promote(space, w_dim), 
+                                                      space.wrap(self.size))
 
     def descr_nonzero(self, space):
         if self.size > 1:
@@ -672,7 +675,7 @@ class VirtualArray(BaseArray):
         self.name = name
 
     def _del_sources(self):
-        # Function for deleting references to source arrays, 
+        # Function for deleting references to source arrays,
         # to allow garbage-collecting them
         raise NotImplementedError
 
@@ -739,9 +742,10 @@ class VirtualSlice(VirtualArray):
     def _del_sources(self):
         self.child = None
 
+
 class Reduce(VirtualArray):
     def __init__(self, ufunc, name, dim, res_dtype, values, identity=None):
-        shape=values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
+        shape = values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
         self.size = 1
@@ -770,7 +774,7 @@ class Reduce(VirtualArray):
         shapelen = len(result.shape)
         objlen = len(self.values.shape)
         target_len = self.values.shape[self.dim]
-        #sig = self.find_sig(result.shape) ##Don't do this, it causes an infinite recursion
+        #sig = self.find_sig(result.shape) ##Don't do this, infinite recursion
         sig = self.create_sig(result.shape)
         ri = ArrayIterator(result.size)
         si = axis_iter_from_arr(self.values, self.dim)
@@ -778,12 +782,12 @@ class Reduce(VirtualArray):
             chunks = []
             #for i in range(objlen - 1, -1, -1):
             for i in range(objlen):
-                if i==self.dim:
+                if i == self.dim:
                     chunks.append((0, target_len, 1, target_len))
                 else:
                     chunks.append((si.indices[i], 0, 0, 1))
-            frame = sig.create_frame(self.values, 
-                         res_shape = [target_len], chunks = [chunks,])
+            frame = sig.create_frame(self.values,
+                         res_shape=[target_len], chunks = [chunks, ])
             if self.identity is None:
                 value = sig.eval(frame, self.values).convert_to(dtype)
                 frame.next(shapelen)
@@ -798,7 +802,6 @@ class Reduce(VirtualArray):
             ri = ri.next(shapelen)
             si = si.next(shapelen)
         return result
-
 
 
 class Call1(VirtualArray):
@@ -930,10 +933,9 @@ class ConcreteArray(BaseArray):
                             builder.append('\n' + indent)
                         else:
                             builder.append(indent)
-                    # create_slice requires len(chunks) > 1 in order to reduce
-                    # shape
-                    view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
-                    view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                    view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
+                    view.to_str(space, comma, builder, indent=indent + ' ',
+                                                    use_ellipsis=use_ellipsis)
                 builder.append('\n' + indent + '..., ')
                 i = self.shape[0] - 3
             while i < self.shape[0]:
@@ -945,10 +947,9 @@ class ConcreteArray(BaseArray):
                         builder.append('\n' + indent)
                     else:
                         builder.append(indent)
-                # create_slice requires len(chunks) > 1 in order to reduce
-                # shape
-                view = self.create_slice([(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])]).get_concrete()
-                view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
+                view.to_str(space, comma, builder, indent=indent + ' ',
+                                                    use_ellipsis=use_ellipsis)
                 i += 1
         elif ndims == 1:
             spacer = ',' * comma + ' '
