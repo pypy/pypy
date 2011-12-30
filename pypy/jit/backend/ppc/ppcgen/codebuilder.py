@@ -990,11 +990,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.ldx(rD.value, 0, rD.value)
 
     def store_reg(self, source_reg, addr):
-        self.load_imm(r.r0, addr)
+        self.alloc_scratch_reg(addr)
         if IS_PPC_32:
-            self.stwx(source_reg.value, 0, r.r0.value)
+            self.stwx(source_reg.value, 0, r.SCRATCH.value)
         else:
-            self.stdx(source_reg.value, 0, r.r0.value)
+            self.stdx(source_reg.value, 0, r.SCRATCH.value)
+        self.free_scratch_reg()
 
     def b_offset(self, offset):
         curpos = self.currpos()
@@ -1021,7 +1022,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
 
     def b_abs(self, address, trap=False):
         self.alloc_scratch_reg(address)
-        self.mtctr(r.r0.value)
+        self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
         if trap:
             self.trap()
@@ -1029,7 +1030,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
 
     def bl_abs(self, address):
         self.alloc_scratch_reg(address)
-        self.mtctr(r.r0.value)
+        self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
         self.bctrl()
 
