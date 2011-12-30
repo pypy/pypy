@@ -57,9 +57,8 @@ class TestARM(LLtypeBackendTest):
             ResOperation(rop.FINISH, out, None, descr=BasicFailDescr(1)),
             ]
         cpu.compile_loop(inp, operations, looptoken)
-        for i in range(1, 15):
-            self.cpu.set_future_value_int(i - 1, i)
-        self.cpu.execute_token(looptoken)
+        args = [i for i in range(1, 15)]
+        self.cpu.execute_token(looptoken, *args)
         output = [self.cpu.get_latest_value_int(i - 1) for i in range(1, 15)]
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
@@ -100,25 +99,12 @@ class TestARM(LLtypeBackendTest):
         self.cpu.compile_loop(loop2.inputargs, loop2.operations, lt2)
         self.cpu.compile_loop(loop3.inputargs, loop3.operations, lt3)
         self.cpu.compile_loop(loop1.inputargs, loop1.operations, lt1)
-        self.cpu.set_future_value_int(0, 11)
-        self.cpu.execute_token(lt1)
+        self.cpu.execute_token(lt1, 11)
         assert self.cpu.get_latest_value_int(0) == 12
 
         self.cpu.redirect_call_assembler(lt2, lt3)
-        self.cpu.set_future_value_int(0, 11)
-        self.cpu.execute_token(lt1)
+        self.cpu.execute_token(lt1, 11)
         assert self.cpu.get_latest_value_int(0) == 10
-
-    def test_new_array_with_const_length(self):
-        """ Test for an issue with malloc_varsize when the size is an imm
-        that gets lost around the call to malloc"""
-        A = lltype.GcArray(lltype.Signed)
-        arraydescr = self.cpu.arraydescrof(A)
-        r1 = self.execute_operation(rop.NEW_ARRAY, [ConstInt(6)],
-                                    'ref', descr=arraydescr)
-        a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
-        assert a[0] == 0
-        assert len(a) == 6
 
     def test_cond_call_gc_wb_array_card_marking_fast_path(self):
         py.test.skip('ignore this fast path for now')

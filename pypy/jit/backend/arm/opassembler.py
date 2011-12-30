@@ -305,9 +305,17 @@ class OpAssembler(object):
     _mixin_ = True
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
+        # The backend's logic assumes that the target code is in a piece of
+        # assembler that was also called with the same number of arguments,
+        # so that the locations [ebp+8..] of the input arguments are valid
+        # stack locations both before and after the jump.
+        #
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         assert fcond == c.AL
+        my_nbargs = self.current_clt._debug_nbargs
+        target_nbargs = descr._arm_clt._debug_nbargs
+        assert my_nbargs == target_nbargs
 
         self._insert_checks()
         if descr in self.target_tokens_currently_compiling:
@@ -376,7 +384,7 @@ class OpAssembler(object):
         if (op.result and not we_are_translated()):
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size(False)
+            size = descr.get_result_size()
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
         return cond
@@ -786,7 +794,7 @@ class ArrayOpAssember(object):
         #XXX Hack, Hack, Hack
         if not we_are_translated():
             descr = op.getdescr()
-            size = descr.get_item_size(False)
+            size = descr.itemsize
             signed = descr.is_item_signed()
             self._ensure_result_bit_extension(res, size, signed)
         return fcond
@@ -1000,9 +1008,9 @@ class ForceOpAssembler(object):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         # XXX check this
-        assert op.numargs() == len(descr._arm_arglocs[0])
+        # assert len(arglocs) - 2 == descr.compiled_loop_token._debug_nbargs
         resbox = TempInt()
-        self._emit_call(fail_index, descr._arm_direct_bootstrap_code,
+        self._emit_call(fail_index, descr._arm_func_addr,
                         op.getarglist(), regalloc, fcond, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
@@ -1059,9 +1067,9 @@ class ForceOpAssembler(object):
 
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, BaseFieldDescr)
+            assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
             self.mov_loc_loc(arglocs[1], r.ip)
@@ -1103,11 +1111,15 @@ class ForceOpAssembler(object):
 
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        # we overwrite the instructions at the old _x86_direct_bootstrap_code
-        # to start with a JMP to the new _arm_direct_bootstrap_code.
+        # some minimal sanity checking
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
+        # we overwrite the instructions at the old _arm_func_adddr
+        # to start with a JMP to the new _arm_func_addr.
         # Ideally we should rather patch all existing CALLs, but well.
-        oldadr = oldlooptoken._arm_direct_bootstrap_code
-        target = newlooptoken._arm_direct_bootstrap_code
+        oldadr = oldlooptoken._arm_func_addr
+        target = newlooptoken._arm_func_addr
         mc = ARMv7Builder()
         mc.B(target)
         mc.copy_to_raw_memory(oldadr)
@@ -1191,35 +1203,9 @@ class AllocOpAssembler(object):
         self._emit_call(force_index, self.malloc_func_addr, [size_box],
                                                 regalloc, result=result)
 
-    def emit_op_new(self, op, arglocs, regalloc, fcond):
+    def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.propagate_memoryerror_if_r0_is_null()
         return fcond
-
-    def emit_op_new_with_vtable(self, op, arglocs, regalloc, fcond):
-        classint = arglocs[0].value
-        self.set_vtable(op.result, classint)
-        return fcond
-
-    def set_vtable(self, box, vtable):
-        if self.cpu.vtable_offset is not None:
-            adr = rffi.cast(lltype.Signed, vtable)
-            self.mc.gen_load_int(r.ip.value, adr)
-            self.mc.STR_ri(r.ip.value, r.r0.value, self.cpu.vtable_offset)
-
-    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
-        assert loc.is_reg()
-        self.mc.gen_load_int(r.ip.value, loc_num_elem)
-        self.mc.STR_ri(r.ip.value, loc.value, imm=ofs_length)
-
-    def emit_op_new_array(self, op, arglocs, regalloc, fcond):
-        self.propagate_memoryerror_if_r0_is_null()
-        if len(arglocs) > 0:
-            value_loc, base_loc, ofs_length = arglocs
-            self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
-        return fcond
-
-    emit_op_newstr = emit_op_new_array
-    emit_op_newunicode = emit_op_new_array
 
 
 class FloatOpAssemlber(object):

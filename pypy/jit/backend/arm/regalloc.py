@@ -12,25 +12,26 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     check_imm_box
                                                     )
 from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
-from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS, WORD
+from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS
+from pypy.jit.backend.arm.arch import WORD, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
-                                             BaseSizeDescr, InteriorFieldDescr
+from pypy.jit.backend.llsupport.descr import ArrayDescr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
-from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
+from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
 TargetToken._arm_loop_code = 0
-
 
 class TempInt(TempBox):
     type = INT
@@ -65,9 +66,11 @@ class ARMFrameManager(FrameManager):
     def frame_pos(loc, type):
         num_words = ARMFrameManager.frame_size(type)
         if type == FLOAT:
-            # Make sure that loc is an even value
-            # the frame layout requires loc to be even!!
-            assert (loc & 1) == 0
+            if loc > 0:
+                # Make sure that loc is an even value
+                # the frame layout requires loc to be even if it is a spilled
+                # value!!
+                assert (loc & 1) == 0
             return locations.StackLocation(loc + 1,
                             num_words=num_words, type=type)
         return locations.StackLocation(loc, num_words=num_words, type=type)
@@ -118,8 +121,8 @@ class VFPRegisterManager(RegisterManager):
         if isinstance(thing, Const):
             assert isinstance(thing, ConstFloat)
             loc = self.get_scratch_reg(FLOAT, self.temp_boxes + forbidden_vars)
-            imm = self.convert_to_imm(thing)
-            self.assembler.load(loc, imm)
+            immvalue = self.convert_to_imm(thing)
+            self.assembler.load(loc, immvalue)
         else:
             loc = self.make_sure_var_in_reg(thing,
                             forbidden_vars=self.temp_boxes + forbidden_vars)
@@ -161,7 +164,8 @@ class ARMv7RegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
-            return locations.ImmLocation(c.value)
+            val = rffi.cast(rffi.INT, c.value)
+            return locations.ImmLocation(val)
         else:
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
@@ -176,8 +180,8 @@ class ARMv7RegisterManager(RegisterManager):
                 tp = INT
             loc = self.get_scratch_reg(tp, forbidden_vars=self.temp_boxes
                                                             + forbidden_vars)
-            imm = self.convert_to_imm(thing)
-            self.assembler.load(loc, imm)
+            immvalue = self.convert_to_imm(thing)
+            self.assembler.load(loc, immvalue)
         else:
             loc = self.make_sure_var_in_reg(thing,
                             forbidden_vars=forbidden_vars)
@@ -297,39 +301,63 @@ class Regalloc(object):
             return self.vfprm.convert_to_imm(value)
 
     def _prepare(self,  inputargs, operations):
-        longevity, useful = compute_vars_longevity(inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(
+                                                    inputargs, operations)
         self.longevity = longevity
+        self.last_real_usage = last_real_usage
         fm = self.frame_manager
         asm = self.assembler
         self.vfprm = VFPRegisterManager(longevity, fm, asm)
         self.rm = ARMv7RegisterManager(longevity, fm, asm)
-        return useful
 
     def prepare_loop(self, inputargs, operations):
-        useful = self._prepare(inputargs, operations)
-        return self._process_inputargs(inputargs, useful)
+        self._prepare(inputargs, operations)
+        self._set_initial_bindings(inputargs)
+        self.possibly_free_vars(list(inputargs))
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
         self._update_bindings(arglocs, inputargs)
 
-    def _process_inputargs(self, inputargs, useful):
-        floatlocs = [None] * len(inputargs)
-        nonfloatlocs = [None] * len(inputargs)
-        for i in range(len(inputargs)):
-            arg = inputargs[i]
-            assert not isinstance(arg, Const)
-            loc = inputargs[i]
-            if self.longevity[arg][1] > -1 and arg in useful:
-                self.try_allocate_reg(loc)
+    def _set_initial_bindings(self, inputargs):
+        # The first inputargs are passed in registers r0-r3
+        # we relly on the soft-float calling convention so we need to move
+        # float params to the coprocessor.
 
-            loc = self.loc(arg)
-            if arg.type == FLOAT:
-                floatlocs[i] = loc
+        arg_index = 0
+        count = 0
+        n_register_args = len(r.argument_regs)
+        cur_frame_pos = - (self.assembler.STACK_FIXED_AREA / WORD) + 1
+        for box in inputargs:
+            assert isinstance(box, Box)
+            # handle inputargs in argument registers
+            if box.type == FLOAT and arg_index % 2 != 0:
+                arg_index += 1  # align argument index for float passed
+                                # in register
+            if arg_index < n_register_args:
+                if box.type == FLOAT:
+                    loc = r.argument_regs[arg_index]
+                    loc2 = r.argument_regs[arg_index + 1]
+                    vfpreg = self.try_allocate_reg(box)
+                    # move soft-float argument to vfp
+                    self.assembler.mov_to_vfp_loc(loc, loc2, vfpreg)
+                    arg_index += 2  # this argument used to argument registers
+                else:
+                    loc = r.argument_regs[arg_index]
+                    self.try_allocate_reg(box, selected_reg=loc)
+                    arg_index += 1
             else:
-                nonfloatlocs[i] = loc
-        self.possibly_free_vars(list(inputargs))
-        return nonfloatlocs, floatlocs
+                # treat stack args as stack locations with a negative offset
+                if box.type == FLOAT:
+                    cur_frame_pos -= 2
+                    if count % 2 != 0: # Stack argument alignment
+                        cur_frame_pos -= 1
+                        count = 0
+                else:
+                    cur_frame_pos -= 1
+                    count += 1
+                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                self.frame_manager.set_binding(box, loc)
 
     def _update_bindings(self, locs, inputargs):
         used = {}
@@ -533,6 +561,10 @@ class Regalloc(object):
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
+    def prepare_op_call_malloc_gc(self, op, fcond):
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        return args
+
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
@@ -651,41 +683,45 @@ class Regalloc(object):
         #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
-        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
+        arglocs = self.assembler.target_arglocs(descr)
         jump_op = self.final_jump_op
+        assert len(arglocs) == jump_op.numargs()
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
             if isinstance(box, Box):
-                loc = nonfloatlocs[i]
+                loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    assert box.type != FLOAT
                     self.frame_manager.hint_frame_locations[box] = loc
-                else:
-                    loc = floatlocs[i]
-                    if loc is not None and loc.is_stack():
-                        assert box.type == FLOAT
-                        self.frame_manager.hint_frame_locations[box] = loc
 
     def prepare_op_jump(self, op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr
-        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
+        arglocs = self.assembler.target_arglocs(descr)
 
         # get temporary locs
         tmploc = r.ip
         vfptmploc = r.vfp_ip
 
         # Part about non-floats
-        # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
-                         if op.getarg(i).type != FLOAT]
-        assert tmploc not in nonfloatlocs
-        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
+        src_locations1 = []
+        dst_locations1 = []
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
-                         if op.getarg(i).type == FLOAT]
-        dst_locations2 = [loc for loc in floatlocs if loc is not None]
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)
@@ -694,7 +730,7 @@ class Regalloc(object):
     def prepare_op_setfield_gc(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0, boxes)
         value_loc = self._ensure_value_is_boxed(a1, boxes)
         if check_imm_arg(ofs):
@@ -708,7 +744,7 @@ class Regalloc(object):
 
     def prepare_op_getfield_gc(self, op, fcond):
         a0 = op.getarg(0)
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0)
         immofs = imm(ofs)
         if check_imm_arg(ofs):
@@ -726,7 +762,7 @@ class Regalloc(object):
     prepare_op_getfield_gc_pure = prepare_op_getfield_gc
 
     def prepare_op_getinteriorfield_gc(self, op, fcond):
-        t = self._unpack_interiorfielddescr(op.getdescr())
+        t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t
         args = op.getarglist()
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
@@ -744,7 +780,7 @@ class Regalloc(object):
                                     imm(itemsize), imm(fieldsize)]
 
     def prepare_op_setinteriorfield_gc(self, op, fcond):
-        t = self._unpack_interiorfielddescr(op.getdescr())
+        t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t
         args = op.getarglist()
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
@@ -761,8 +797,8 @@ class Regalloc(object):
 
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         arg = op.getarg(0)
         base_loc = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars_for_op(op)
@@ -772,27 +808,27 @@ class Regalloc(object):
 
     def prepare_op_setarrayitem_gc(self, op, fcond):
         a0, a1, a2 = list(op.getarglist())
-        _, scale, base_ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
-
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
         args = op.getarglist()
         base_loc = self._ensure_value_is_boxed(a0, args)
         ofs_loc = self._ensure_value_is_boxed(a1, args)
         value_loc = self._ensure_value_is_boxed(a2, args)
-        assert check_imm_arg(base_ofs)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
+        assert check_imm_arg(ofs)
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
 
     def prepare_op_getarrayitem_gc(self, op, fcond):
         a0, a1 = boxes = list(op.getarglist())
-        _, scale, base_ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
-
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
         base_loc = self._ensure_value_is_boxed(a0, boxes)
         ofs_loc = self._ensure_value_is_boxed(a1, boxes)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
-        assert check_imm_arg(base_ofs)
-        return [res, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
+        assert check_imm_arg(ofs)
+        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     prepare_op_getarrayitem_raw = prepare_op_getarrayitem_gc
     prepare_op_getarrayitem_gc_pure = prepare_op_getarrayitem_gc
@@ -906,86 +942,22 @@ class Regalloc(object):
     prepare_op_cast_ptr_to_int = prepare_op_same_as
     prepare_op_cast_int_to_ptr = prepare_op_same_as
 
-    def prepare_op_new(self, op, fcond):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self.fastpath_malloc_fixedsize(op, op.getdescr())
-        else:
-            arglocs = self._prepare_args_for_new_op(op.getdescr())
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                        self.assembler.malloc_func_addr, arglocs,
-                        self, fcond, result=op.result)
-            self.possibly_free_vars(arglocs)
-        self.possibly_free_var(op.result)
-        return []
+    def prepare_op_call_malloc_nursery(self, op, fcond):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
 
-    def prepare_op_new_with_vtable(self, op, fcond):
-        classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.cpu, classint)
-        if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self.fastpath_malloc_fixedsize(op, descrsize)
-        else:
-            callargs = self._prepare_args_for_new_op(descrsize)
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                        self.assembler.malloc_func_addr, callargs,
-                        self, fcond, result=op.result)
-            self.possibly_free_vars(callargs)
-        self.possibly_free_var(op.result)
-        return [imm(classint)]
-
-    def prepare_op_new_array(self, op, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            # framework GC
-            box_num_elem = op.getarg(0)
-            if isinstance(box_num_elem, ConstInt):
-                num_elem = box_num_elem.value
-                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
-                                                         num_elem):
-                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                    return []
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-                op.getdescr())
-            argboxes = [ConstInt(x) for x in args]
-            argboxes.append(box_num_elem)
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                    self.assembler.malloc_array_func_addr, argboxes, self,
-                    fcond, result=op.result)
-            return []
-        # boehm GC
-        itemsize, scale, basesize, ofs_length, _ = (
-            self._unpack_arraydescr(op.getdescr()))
-        return self._malloc_varsize(basesize, ofs_length, itemsize, op)
-
-    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.cpu.translate_support_code)
-        basesize = arraydescr.get_base_size(self.cpu.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
-        size = basesize + itemsize * num_elem
-        self._do_fastpath_malloc(op, size, arraydescr.tid)
-        # we know the resullt of the malloc call is in r0
-        self.assembler.set_new_array_length(r.r0, ofs_length, num_elem)
-
-    def fastpath_malloc_fixedsize(self, op, descr):
-        assert isinstance(descr, BaseSizeDescr)
-        self._do_fastpath_malloc(op, descr.size, descr.tid)
-
-    def _do_fastpath_malloc(self, op, size, tid):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         t = TempInt()
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
         self.possibly_free_var(op.result)
         self.possibly_free_var(t)
 
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size, tid,
+            size
             )
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
@@ -1006,59 +978,6 @@ class Regalloc(object):
                     assert 0, 'sure??'
         return gcrootmap.compress_callshape(shape,
                                             self.assembler.datablockwrapper)
-
-    def prepare_op_newstr(self, op, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                    self.assembler.malloc_str_func_addr, [op.getarg(0)],
-                    self, fcond, op.result)
-            return []
-        # boehm GC
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
-                            self.cpu.translate_support_code)
-        assert itemsize == 1
-        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
-
-    def prepare_op_newunicode(self, op, fcond):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                                self.assembler.malloc_unicode_func_addr,
-                                [op.getarg(0)], self, fcond, op.result)
-            return []
-        # boehm GC
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                            self.cpu.translate_support_code)
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                            self.cpu.translate_support_code)
-        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
-
-    def _malloc_varsize(self, ofs_items, ofs_length, itemsize, op):
-        v = op.getarg(0)
-        res_v = op.result
-        boxes = [v, res_v]
-        immofs = imm(ofs_items)
-        if check_imm_arg(ofs_items):
-            ofs_items_loc = immofs
-        else:
-            ofs_items_loc = self.get_scratch_reg(INT, boxes)
-            self.assembler.load(ofs_items_loc, immofs)
-        vloc = self._ensure_value_is_boxed(v, [res_v])
-
-        size = self.get_scratch_reg(INT, boxes)
-        self.assembler.load(itemsize)
-
-        self.assembler._regalloc_malloc_varsize(size, size_box,
-                                vloc, vbox, ofs_items_loc, self, res_v)
-        base_loc = self.make_sure_var_in_reg(res_v)
-
-        value_loc = self._ensure_value_is_boxed(v, [res_v])
-        assert value_loc.is_reg()
-        assert base_loc.is_reg()
-        return [value_loc, base_loc, imm(ofs_length)]
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
@@ -1088,20 +1007,28 @@ class Regalloc(object):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         inputargs = op.getarglist()
-        floatlocs = [None] * len(inputargs)
-        nonfloatlocs = [None] * len(inputargs)
+        arglocs = [None] * len(inputargs)
+        #
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert isinstance(arg, Box)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
 
+        #
         for i in range(len(inputargs)):
             arg = inputargs[i]
-            assert not isinstance(arg, Const)
+            assert isinstance(arg, Box)
             loc = self.loc(arg)
-            if arg.type == FLOAT:
-                floatlocs[i] = loc
-            else:
-                nonfloatlocs[i] = loc
+            arglocs[i] = loc
             if loc.is_reg():
                 self.frame_manager.mark_as_free(arg)
-        descr._arm_arglocs = nonfloatlocs, floatlocs
+        #
+        descr._arm_arglocs = arglocs
         descr._arm_loop_code = self.assembler.mc.currpos()
         descr._arm_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
@@ -1114,7 +1041,6 @@ class Regalloc(object):
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
-        return None
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
         faildescr = guard_op.getdescr()
@@ -1159,8 +1085,7 @@ class Regalloc(object):
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        size = jd.portal_calldescr.get_result_size(
-                                self.cpu.translate_support_code)
+        size = jd.portal_calldescr.get_result_size()
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self._sync_var(op.getarg(vable_index))
@@ -1181,40 +1106,6 @@ class Regalloc(object):
             self.assembler.load(l, imm(arg))
             arglocs.append(t)
         return arglocs
-
-    # from ../x86/regalloc.py:791
-    def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
-        ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.cpu.translate_support_code)
-        ptr = fielddescr.is_pointer_field()
-        return ofs, size, ptr
-
-    # from ../x86/regalloc.py:779
-    def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        cpu = self.cpu
-        ofs_length = arraydescr.get_ofs_length(cpu.translate_support_code)
-        ofs = arraydescr.get_base_size(cpu.translate_support_code)
-        size = arraydescr.get_item_size(cpu.translate_support_code)
-        ptr = arraydescr.is_array_of_pointers()
-        scale = 0
-        while (1 << scale) < size:
-            scale += 1
-        assert (1 << scale) == size
-        return size, scale, ofs, ofs_length, ptr
-
-    # from ../x86/regalloc.py:965
-    def _unpack_interiorfielddescr(self, descr):
-        assert isinstance(descr, InteriorFieldDescr)
-        arraydescr = descr.arraydescr
-        ofs = arraydescr.get_base_size(self.cpu.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
-        fieldsize = descr.fielddescr.get_field_size(
-                                            self.cpu.translate_support_code)
-        sign = descr.fielddescr.is_field_signed()
-        ofs += descr.fielddescr.offset
-        return ofs, itemsize, fieldsize, sign
 
     prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
     prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
@@ -1293,6 +1184,14 @@ def notimplemented_with_guard(self, op, guard_op, fcond):
 
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+
+
+def get_scale(size):
+    scale = 0
+    while (1 << scale) < size:
+        scale += 1
+    assert (1 << scale) == size
+    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

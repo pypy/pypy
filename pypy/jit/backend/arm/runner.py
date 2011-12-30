@@ -9,7 +9,6 @@ from pypy.jit.backend.arm.arch import FORCE_INDEX_OFS
 
 class ArmCPU(AbstractLLCPU):
 
-    BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     supports_floats = True
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
@@ -47,15 +46,6 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
-    def set_future_value_float(self, index, floatvalue):
-        self.assembler.fail_boxes_float.setitem(index, floatvalue)
-
-    def set_future_value_int(self, index, intvalue):
-        self.assembler.fail_boxes_int.setitem(index, intvalue)
-
-    def set_future_value_ref(self, index, ptrvalue):
-        self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
-
     def get_latest_value_float(self, index):
         return self.assembler.fail_boxes_float.getitem(index)
 
@@ -80,27 +70,29 @@ class ArmCPU(AbstractLLCPU):
         for index in range(count):
             setitem(index, null)
 
-    def execute_token(self, executable_token):
-        #i = [self.get_latest_value_int(x) for x in range(10)]
-        #print 'Inputargs: %r for token %r' % (i, executable_token)
-        addr = executable_token._arm_bootstrap_code
-        assert addr % 8 == 0
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        fail_index = self._execute_call(func)
-        return self.get_fail_descr_from_number(fail_index)
+    def make_execute_token(self, *ARGS):
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
 
-    def _execute_call(self, func):
-        prev_interpreter = None
-        if not self.translate_support_code:
-            prev_interpreter = LLInterpreter.current_interpreter
-            LLInterpreter.current_interpreter = self.debug_ll_interpreter
-        res = 0
-        try:
-            res = func()
-        finally:
+        def execute_token(executable_token, *args):
+            clt = executable_token.compiled_loop_token
+            assert len(args) == clt._debug_nbargs
+            #
+            addr = executable_token._arm_func_addr
+            assert addr % 8 == 0
+            func = rffi.cast(FUNCPTR, addr)
+            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            prev_interpreter = None   # help flow space
             if not self.translate_support_code:
-                LLInterpreter.current_interpreter = prev_interpreter
-        return res
+                prev_interpreter = LLInterpreter.current_interpreter
+                LLInterpreter.current_interpreter = self.debug_ll_interpreter
+            try:
+                fail_index = func(*args)
+            finally:
+                if not self.translate_support_code:
+                    LLInterpreter.current_interpreter = prev_interpreter
+            #llop.debug_print(lltype.Void, "<<<< Back")
+            return self.get_fail_descr_from_number(fail_index)
+        return execute_token
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)

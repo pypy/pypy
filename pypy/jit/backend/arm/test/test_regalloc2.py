@@ -25,8 +25,7 @@ def test_bug_rshift():
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.set_future_value_int(0, 9)
-    cpu.execute_token(looptoken)
+    cpu.execute_token(looptoken, 9)
     assert cpu.get_latest_value_int(0) == (9 >> 3)
     assert cpu.get_latest_value_int(1) == (~18)
 
@@ -48,8 +47,7 @@ def test_bug_int_is_true_1():
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.set_future_value_int(0, -10)
-    cpu.execute_token(looptoken)
+    cpu.execute_token(looptoken, -10)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == -1000
     assert cpu.get_latest_value_int(2) == 1
@@ -145,17 +143,8 @@ def test_bug_0():
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.set_future_value_int(0, -13)
-    cpu.set_future_value_int(1, 10)
-    cpu.set_future_value_int(2, 10)
-    cpu.set_future_value_int(3, 8)
-    cpu.set_future_value_int(4, -8)
-    cpu.set_future_value_int(5, -16)
-    cpu.set_future_value_int(6, -18)
-    cpu.set_future_value_int(7, 46)
-    cpu.set_future_value_int(8, -12)
-    cpu.set_future_value_int(9, 26)
-    cpu.execute_token(looptoken)
+    args = [-13 , 10 , 10 , 8 , -8 , -16 , -18 , 46 , -12 , 26]
+    cpu.execute_token(looptoken, *args)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == 0
     assert cpu.get_latest_value_int(2) == 0
@@ -260,17 +249,8 @@ def test_bug_1():
     cpu.setup_once()
     looptoken = JitCellToken()
     cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.set_future_value_int(0, 17)
-    cpu.set_future_value_int(1, -20)
-    cpu.set_future_value_int(2, -6)
-    cpu.set_future_value_int(3, 6)
-    cpu.set_future_value_int(4, 1)
-    cpu.set_future_value_int(5, 13)
-    cpu.set_future_value_int(6, 13)
-    cpu.set_future_value_int(7, 9)
-    cpu.set_future_value_int(8, 49)
-    cpu.set_future_value_int(9, 8)
-    cpu.execute_token(looptoken)
+    args = [17 , -20 , -6 , 6 , 1 , 13 , 13 , 9 , 49 , 8]
+    cpu.execute_token(looptoken, *args)
     assert cpu.get_latest_value_int(0) == 0
     assert cpu.get_latest_value_int(1) == 8
     assert cpu.get_latest_value_int(2) == 1

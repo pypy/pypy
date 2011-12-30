@@ -32,9 +32,8 @@ class TestARMCallingConvention(TestCallingConv):
         loop = parse(ops, namespace=locals())
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        for x in range(11):
-            self.cpu.set_future_value_int(x, x)
-        self.cpu.execute_token(looptoken)
+        args = [x for x in range(11)]
+        self.cpu.execute_token(looptoken, *args)
         for x in range(11):
             assert self.cpu.get_latest_value_int(x) == x
         assert self.cpu.get_latest_value_int(11) == 38

@@ -43,17 +43,8 @@ class TestStuff(object):
         looptoken = JitCellToken()
         operations[2].setfailargs([v12, v8, v3, v2, v1, v11])
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, -12)
-        cpu.set_future_value_int(1, -26)
-        cpu.set_future_value_int(2, -19)
-        cpu.set_future_value_int(3, 7)
-        cpu.set_future_value_int(4, -5)
-        cpu.set_future_value_int(5, -24)
-        cpu.set_future_value_int(6, -37)
-        cpu.set_future_value_int(7, 62)
-        cpu.set_future_value_int(8, 9)
-        cpu.set_future_value_int(9, 12)
-        op = cpu.execute_token(looptoken)
+        args = [-12 , -26 , -19 , 7 , -5 , -24 , -37 , 62 , 9 , 12]
+        op = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_value_int(0) == 0
         assert cpu.get_latest_value_int(1) == 62
         assert cpu.get_latest_value_int(2) == -19
@@ -103,17 +94,8 @@ class TestStuff(object):
         operations[9].setfailargs([v15, v7, v10, v18, v4, v17, v1])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 16)
-        cpu.set_future_value_int(1, 5)
-        cpu.set_future_value_int(2, 5)
-        cpu.set_future_value_int(3, 16)
-        cpu.set_future_value_int(4, 46)
-        cpu.set_future_value_int(5, 6)
-        cpu.set_future_value_int(6, 63)
-        cpu.set_future_value_int(7, 39)
-        cpu.set_future_value_int(8, 78)
-        cpu.set_future_value_int(9, 0)
-        op = cpu.execute_token(looptoken)
+        args = [16 , 5 , 5 , 16 , 46 , 6 , 63 , 39 , 78 , 0]
+        op = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_value_int(0) == 105
         assert cpu.get_latest_value_int(1) == 63
         assert cpu.get_latest_value_int(2) == 0
@@ -154,16 +136,7 @@ class TestStuff(object):
         operations[4].setfailargs([v2, v12, v1, v3, v4])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, -5)
-        cpu.set_future_value_int(1, 24)
-        cpu.set_future_value_int(2, 46)
-        cpu.set_future_value_int(3, -15)
-        cpu.set_future_value_int(4, 13)
-        cpu.set_future_value_int(5, -8)
-        cpu.set_future_value_int(6, 0)
-        cpu.set_future_value_int(7, -6)
-        cpu.set_future_value_int(8, 6)
-        cpu.set_future_value_int(9, 6)
+        args = [-5 , 24 , 46 , -15 , 13 , -8 , 0 , -6 , 6 , 6]
         op = cpu.execute_token(looptoken)
         assert op.identifier == 2
         assert cpu.get_latest_value_int(0) == 24
@@ -205,17 +178,8 @@ class TestStuff(object):
         operations[5].setfailargs([])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 19)
-        cpu.set_future_value_int(1, -3)
-        cpu.set_future_value_int(2, -58)
-        cpu.set_future_value_int(3, -7)
-        cpu.set_future_value_int(4, 12)
-        cpu.set_future_value_int(5, 22)
-        cpu.set_future_value_int(6, -54)
-        cpu.set_future_value_int(7, -29)
-        cpu.set_future_value_int(8, -19)
-        cpu.set_future_value_int(9, -64)
-        op = cpu.execute_token(looptoken)
+        args = [19 , -3 , -58 , -7 , 12 , 22 , -54 , -29 , -19 , -64]
+        op = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_value_int(0) == -29
         assert cpu.get_latest_value_int(1) == -3
         assert cpu.get_latest_value_int(2) == 22
@@ -257,17 +221,8 @@ class TestStuff(object):
         looptoken = JitCellToken()
         operations[5].setfailargs([])
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 1073741824)
-        cpu.set_future_value_int(1, 95)
-        cpu.set_future_value_int(2, -16)
-        cpu.set_future_value_int(3, 5)
-        cpu.set_future_value_int(4, 92)
-        cpu.set_future_value_int(5, 12)
-        cpu.set_future_value_int(6, 32)
-        cpu.set_future_value_int(7, 17)
-        cpu.set_future_value_int(8, 37)
-        cpu.set_future_value_int(9, -63)
-        op = cpu.execute_token(looptoken)
+        args = [1073741824 , 95 , -16 , 5 , 92 , 12 , 32 , 17 , 37 , -63]
+        op = cpu.execute_token(looptoken, *args)
         assert cpu.get_latest_value_int(0) == 1073741824
         assert cpu.get_latest_value_int(1) == 5
         assert cpu.get_latest_value_int(2) == -63
@@ -320,18 +275,9 @@ class TestStuff(object):
         operations[1].setfailargs([v8, v6, v1])
         operations[7].setfailargs([v4])
         operations[9].setfailargs([v10, v13])
-        cpu.set_future_value_int(0, 32)
-        cpu.set_future_value_int(1, 41)
-        cpu.set_future_value_int(2, -9)
-        cpu.set_future_value_int(3, 12)
-        cpu.set_future_value_int(4, -18)
-        cpu.set_future_value_int(5, 46)
-        cpu.set_future_value_int(6, 15)
-        cpu.set_future_value_int(7, 17)
-        cpu.set_future_value_int(8, 10)
-        cpu.set_future_value_int(9, 12)
+        args = [32 , 41 , -9 , 12 , -18 , 46 , 15 , 17 , 10 , 12]
         cpu.compile_loop(inputargs, operations, looptoken)
-        op = cpu.execute_token(looptoken)
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 3
         assert cpu.get_latest_value_int(0) == 12
         assert cpu.get_latest_value_int(1) == 23
@@ -378,17 +324,8 @@ class TestStuff(object):
         operations[8].setfailargs([v5, v9])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, -8)
-        cpu.set_future_value_int(1, 0)
-        cpu.set_future_value_int(2, 62)
-        cpu.set_future_value_int(3, 35)
-        cpu.set_future_value_int(4, 16)
-        cpu.set_future_value_int(5, 9)
-        cpu.set_future_value_int(6, 30)
-        cpu.set_future_value_int(7, 581610154)
-        cpu.set_future_value_int(8, -1)
-        cpu.set_future_value_int(9, 738197503)
-        op = cpu.execute_token(looptoken)
+        args = [-8 , 0 , 62 , 35 , 16 , 9 , 30 , 581610154 , -1 , 738197503]
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 2
         assert cpu.get_latest_value_int(0) == 16
         assert cpu.get_latest_value_int(1) == -1
@@ -436,17 +373,8 @@ class TestStuff(object):
         operations[-2].setfailargs([v9, v4, v10, v11, v14])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, -39)
-        cpu.set_future_value_int(1, -18)
-        cpu.set_future_value_int(2, 1588243114)
-        cpu.set_future_value_int(3, -9)
-        cpu.set_future_value_int(4, -4)
-        cpu.set_future_value_int(5, 1252698794)
-        cpu.set_future_value_int(6, 0)
-        cpu.set_future_value_int(7, 715827882)
-        cpu.set_future_value_int(8, -15)
-        cpu.set_future_value_int(9, 536870912)
-        op = cpu.execute_token(looptoken)
+        args = [-39 , -18 , 1588243114 , -9 , -4 , 1252698794 , 0 , 715827882 , -15 , 536870912]
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 1
         assert cpu.get_latest_value_int(0) == -15
         assert cpu.get_latest_value_int(1) == -9
@@ -499,17 +427,8 @@ class TestStuff(object):
         operations[9].setfailargs([v5, v7, v12, v14, v2, v13, v8])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 0)
-        cpu.set_future_value_int(1, -2)
-        cpu.set_future_value_int(2, 24)
-        cpu.set_future_value_int(3, 1)
-        cpu.set_future_value_int(4, -4)
-        cpu.set_future_value_int(5, 13)
-        cpu.set_future_value_int(6, -95)
-        cpu.set_future_value_int(7, 33)
-        cpu.set_future_value_int(8, 2)
-        cpu.set_future_value_int(9, -44)
-        op = cpu.execute_token(looptoken)
+        args = [0 , -2 , 24 , 1 , -4 , 13 , -95 , 33 , 2 , -44]
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 3
         assert cpu.get_latest_value_int(0) == -4
         assert cpu.get_latest_value_int(1) == -95
@@ -549,17 +468,8 @@ class TestStuff(object):
         operations[2].setfailargs([v10, v3, v6, v11, v9, v2])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 3)
-        cpu.set_future_value_int(1, -5)
-        cpu.set_future_value_int(2, 1431655765)
-        cpu.set_future_value_int(3, 47)
-        cpu.set_future_value_int(4, 12)
-        cpu.set_future_value_int(5, 1789569706)
-        cpu.set_future_value_int(6, 15)
-        cpu.set_future_value_int(7, 939524096)
-        cpu.set_future_value_int(8, 16)
-        cpu.set_future_value_int(9, -43)
-        op = cpu.execute_token(looptoken)
+        args = [3 , -5 , 1431655765 , 47 , 12 , 1789569706 , 15 , 939524096 , 16 , -43]
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 1
         assert cpu.get_latest_value_int(0) == -43
         assert cpu.get_latest_value_int(1) == 1431655765
@@ -606,17 +516,8 @@ class TestStuff(object):
         operations[4].setfailargs([v14])
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
-        cpu.set_future_value_int(0, 14)
-        cpu.set_future_value_int(1, -20)
-        cpu.set_future_value_int(2, 18)
-        cpu.set_future_value_int(3, -2058005163)
-        cpu.set_future_value_int(4, 6)
-        cpu.set_future_value_int(5, 1)
-        cpu.set_future_value_int(6, -16)
-        cpu.set_future_value_int(7, 11)
-        cpu.set_future_value_int(8, 0)
-        cpu.set_future_value_int(9, 19)
-        op = cpu.execute_token(looptoken)
+        args = [14 , -20 , 18 , -2058005163 , 6 , 1 , -16 , 11 , 0 , 19]
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 1
         assert cpu.get_latest_value_int(0) == -2058005163
         assert cpu.get_latest_value_int(1) == 19

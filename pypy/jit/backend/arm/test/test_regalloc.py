@@ -151,19 +151,20 @@ class BaseTestRegalloc(object):
         loop = self.parse(ops)
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        for i, arg in enumerate(args):
+        args = []
+        for arg in args:
             if isinstance(arg, int):
-                self.cpu.set_future_value_int(i, arg)
+                args.append(arg)
             elif isinstance(arg, float):
                 arg = longlong.getfloatstorage(arg)
-                self.cpu.set_future_value_float(i, arg)
+                args.append(arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
-                self.cpu.set_future_value_ref(i, llgcref)
+                args.append(llgcref)
         loop._jitcelltoken = looptoken
         if run:
-            self.cpu.execute_token(looptoken)
+            self.cpu.execute_token(looptoken, *args)
         return loop
 
     def prepare_loop(self, ops):
@@ -202,8 +203,8 @@ class BaseTestRegalloc(object):
                                 loop._jitcelltoken)
         return bridge
 
-    def run(self, loop):
-        return self.cpu.execute_token(loop._jitcelltoken)
+    def run(self, loop, *args):
+        return self.cpu.execute_token(loop._jitcelltoken, *args)
 
 
 class TestRegallocSimple(BaseTestRegalloc):
@@ -245,8 +246,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, i4, i4, i4, descr=targettoken)
         '''
         self.attach_bridge(bridge_ops, loop2, 5)
-        self.cpu.set_future_value_int(0, 0)
-        self.run(loop2)
+        self.run(loop2, 0)
         assert self.getint(0) == 31
         assert self.getint(1) == 30
         assert self.getint(2) == 30
@@ -284,8 +284,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         loop = self.interpret(ops, [0])
         assert self.getint(0) == 1
         self.attach_bridge(bridge_ops, loop, 2)
-        self.cpu.set_future_value_int(0, 0)
-        self.run(loop)
+        self.run(loop, 0)
         assert self.getint(0) == 1
 
     def test_inputarg_unused(self):
@@ -311,9 +310,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         assert self.getint(0) == 0
         assert self.getint(1) == 10
         self.attach_bridge(bridge_ops, loop, 0)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 10)
-        self.run(loop)
+        relf.run(loop, 0, 10)
         assert self.getint(0) == 0
         assert self.getint(1) == 10
 
@@ -330,9 +327,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         finish(1, 2)
         '''
         self.attach_bridge(bridge_ops, loop, 0)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 1)
-        self.run(loop)
+        self.run(loop, 0, 1)
 
     def test_spill_for_constant(self):
         ops = '''
@@ -450,9 +445,8 @@ class TestRegallocSimple(BaseTestRegalloc):
         finish(i0, i1, i2, i3, i4, i5, i6, i7, i8)
         '''
         self.attach_bridge(bridge_ops, loop, 1)
-        for i in range(9):
-            self.cpu.set_future_value_int(i, i)
-        self.run(loop)
+        args = [i for i in range(9)]
+        self.run(loop, *args)
         assert self.getints(9) == range(9)
 
     def test_loopargs(self):
@@ -725,9 +719,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         '''
         self.attach_bridge(ops, loop, -2)
 
-        self.cpu.set_future_value_int(0, 4)
-        self.cpu.set_future_value_int(1, 7)
-        self.run(loop)
+        self.run(loop, 4, 7)
         assert self.getint(0) == 5 * 7
 
     def test_bridge_calls_2(self):
@@ -746,9 +738,7 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         '''
         self.attach_bridge(ops, loop, -2)
 
-        self.cpu.set_future_value_int(0, 4)
-        self.cpu.set_future_value_int(1, 7)
-        self.run(loop)
+        self.run(loop, 4, 7)
         assert self.getint(0) == 29
 
 
@@ -787,7 +777,7 @@ class TestJumps(BaseTestRegalloc):
         large = self.interpret(loop1, range(11), run=False)
         large._jitcelltoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.namespace['looptoken'] = large._jitcelltoken
-        assert self.namespace['looptoken']._arm_bootstrap_code != 0
+        assert self.namespace['looptoken']._arm_func_addr != 0
         loop2 = """
         [i0]
         i1 = force_token()

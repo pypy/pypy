@@ -21,8 +21,7 @@ class TestRecompilation(BaseTestRegalloc):
         finish(i3, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
-        self.cpu.set_future_value_int(0, 0)
-        fail = self.run(loop)
+        fail = self.run(loop, 0)
         assert fail.identifier == 2
         assert self.getint(0) == 21
 
@@ -57,8 +56,7 @@ class TestRecompilation(BaseTestRegalloc):
         #assert descr._x86_bridge_param_depth == 0
         # the force_spill() forces the stack to grow
         assert new > previous
-        self.cpu.set_future_value_int(0, 0)
-        fail = self.run(loop)
+        fail = self.run(loop, 0)
         assert fail.identifier == 2
         assert self.getint(0) == 21
         assert self.getint(1) == 22
@@ -85,8 +83,7 @@ class TestRecompilation(BaseTestRegalloc):
         jump(i3, 1, 2, 3, 4, 5, 6, 7, descr=targettoken)
         '''
         bridge = self.attach_bridge(ops, other_loop, 1)
-        self.cpu.set_future_value_int(0, 1)
-        fail = self.run(other_loop)
+        fail = self.run(other_loop, 1)
         assert fail.identifier == 1
 
     def test_bridge_jumps_to_self_deeper(self):
@@ -125,10 +122,7 @@ class TestRecompilation(BaseTestRegalloc):
         # the force_spill() forces the stack to grow
         assert guard_op.getdescr()._arm_bridge_frame_depth > loop_frame_depth
         #assert guard_op.getdescr()._x86_bridge_param_depth == 0
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 0)
-        self.cpu.set_future_value_int(2, 0)
-        self.run(loop)
+        self.run(loop, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
 
@@ -152,10 +146,7 @@ class TestRecompilation(BaseTestRegalloc):
         jump(i3, 0, 1, descr=targettoken)
         '''
         bridge = self.attach_bridge(ops, loop, 5)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 0)
-        self.cpu.set_future_value_int(2, 0)
-        self.run(loop)
+        self.run(loop, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
 

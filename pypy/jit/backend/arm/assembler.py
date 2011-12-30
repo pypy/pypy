@@ -57,6 +57,8 @@ class AssemblerARM(ResOpAssembler):
 
     END_OF_LOCS = '\xFF'
 
+    STACK_FIXED_AREA = -1
+
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
@@ -67,10 +69,6 @@ class AssemblerARM(ResOpAssembler):
         self.fail_force_index = 0
         self.setup_failure_recovery()
         self.mc = None
-        self.malloc_func_addr = 0
-        self.malloc_array_func_addr = 0
-        self.malloc_str_func_addr = 0
-        self.malloc_unicode_func_addr = 0
         self.memcpy_addr = 0
         self.pending_guards = None
         self._exit_code_addr = 0
@@ -79,6 +77,18 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.datablockwrapper = None
         self.propagate_exception_path = 0
+        self._compute_stack_size()
+
+    def _compute_stack_size(self):
+        self.STACK_FIXED_AREA = len(r.callee_saved_registers) * WORD
+        self.STACK_FIXED_AREA += WORD  # FORCE_TOKEN
+        self.STACK_FIXED_AREA += N_REGISTERS_SAVED_BY_MALLOC * WORD
+        if self.cpu.supports_floats:
+            self.STACK_FIXED_AREA += (len(r.callee_saved_vfp_registers)
+                                        * 2 * WORD)
+        if self.STACK_FIXED_AREA % 8 != 0:
+            self.STACK_FIXED_AREA += WORD  # Stack alignment
+        assert self.STACK_FIXED_AREA % 8 == 0
 
     def setup(self, looptoken, operations):
         self.current_clt = looptoken.compiled_loop_token
@@ -105,21 +115,7 @@ class AssemblerARM(ResOpAssembler):
         # Addresses of functions called by new_xxx operations
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
-        ll_new = gc_ll_descr.get_funcptr_for_new()
-        self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
         self._build_propagate_exception_path()
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
-            self.malloc_array_func_addr = rffi.cast(lltype.Signed,
-                                                    ll_new_array)
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
-            self.malloc_str_func_addr = rffi.cast(lltype.Signed,
-                                                  ll_new_str)
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
-            self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
-                                                      ll_new_unicode)
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
@@ -172,7 +168,8 @@ class AssemblerARM(ResOpAssembler):
         # call on_leave_jitted_save_exc()
         # XXX add a check if cpu supports floats
         with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
+                                                default_to_memoryerror=True)
             mc.BL(addr)
         mc.gen_load_int(r.ip.value, self.cpu.propagate_exception_v)
         mc.MOV_rr(r.r0.value, r.ip.value)
@@ -456,33 +453,36 @@ class AssemblerARM(ResOpAssembler):
             self.mc.writechar(chr(0))
 
     def gen_func_epilog(self, mc=None, cond=c.AL):
+        stack_size = self.STACK_FIXED_AREA
+        stack_size -= len(r.callee_saved_registers) * WORD
+        if self.cpu.supports_floats:
+            stack_size -= len(r.callee_saved_vfp_registers) * 2 * WORD
+
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if mc is None:
             mc = self.mc
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_footer_shadowstack(gcrootmap, mc)
-        offset = 1
-        if self.cpu.supports_floats:
-            offset += 1  # to keep stack alignment
         mc.MOV_rr(r.sp.value, r.fp.value, cond=cond)
-        mc.ADD_ri(r.sp.value, r.sp.value,
-                    (N_REGISTERS_SAVED_BY_MALLOC + offset) * WORD, cond=cond)
+        mc.ADD_ri(r.sp.value, r.sp.value, stack_size, cond=cond)
         if self.cpu.supports_floats:
             mc.VPOP([reg.value for reg in r.callee_saved_vfp_registers],
                                                                     cond=cond)
         mc.POP([reg.value for reg in r.callee_restored_registers], cond=cond)
 
     def gen_func_prolog(self):
+        stack_size = self.STACK_FIXED_AREA
+        stack_size -= len(r.callee_saved_registers) * WORD
+        if self.cpu.supports_floats:
+            stack_size -= len(r.callee_saved_vfp_registers) * 2 * WORD
+
         self.mc.PUSH([reg.value for reg in r.callee_saved_registers])
-        offset = 1
         if self.cpu.supports_floats:
             self.mc.VPUSH([reg.value for reg in r.callee_saved_vfp_registers])
-            offset += 1  # to keep stack alignment
         # here we modify the stack pointer to leave room for the 9 registers
         # that are going to be saved here around malloc calls and one word to
         # store the force index
-        self.mc.SUB_ri(r.sp.value, r.sp.value,
-                    (N_REGISTERS_SAVED_BY_MALLOC + offset) * WORD)
+        self.mc.SUB_ri(r.sp.value, r.sp.value, stack_size)
         self.mc.MOV_rr(r.fp.value, r.sp.value)
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -509,125 +509,6 @@ class AssemblerARM(ResOpAssembler):
         mc.SUB_ri(r.r5.value, r.r4.value, imm=2 * WORD)  # ADD r5, r4 [2*WORD]
         mc.STR_ri(r.r5.value, r.ip.value)
 
-    def gen_bootstrap_code(self, arglocs, inputargs):
-        nonfloatlocs, floatlocs = arglocs
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            assert arg.type != FLOAT
-            if arg.type == REF:
-                addr = self.fail_boxes_ptr.get_addr_for_num(i)
-            elif arg.type == INT:
-                addr = self.fail_boxes_int.get_addr_for_num(i)
-            else:
-                assert 0
-            if loc.is_reg():
-                reg = loc
-            else:
-                reg = r.ip
-            self.mc.gen_load_int(reg.value, addr)
-            self.mc.LDR_ri(reg.value, reg.value)
-            if loc.is_stack():
-                self.mov_loc_loc(r.ip, loc)
-        for i in range(len(floatlocs)):
-            loc = floatlocs[i]
-            if loc is None:
-                continue
-            arg = inputargs[i]
-            assert arg.type == FLOAT
-            addr = self.fail_boxes_float.get_addr_for_num(i)
-            self.mc.gen_load_int(r.ip.value, addr)
-            if loc.is_vfp_reg():
-                self.mc.VLDR(loc.value, r.ip.value)
-            else:
-                self.mc.VLDR(r.vfp_ip.value, r.ip.value)
-                self.mov_loc_loc(r.vfp_ip, loc)
-
-    def gen_direct_bootstrap_code(self, loop_head, arglocs, frame_depth, inputargs):
-        self.gen_func_prolog()
-        nonfloatlocs, floatlocs = arglocs
-
-        reg_args = count_reg_args(inputargs)
-
-        selected_reg = 0
-        count = 0
-        float_args = []
-        nonfloat_args = []
-        nonfloat_regs = []
-        # load reg args
-        for i in range(reg_args):
-            arg = inputargs[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                    selected_reg += 1
-                    count = 0
-            reg = r.all_regs[selected_reg]
-
-            if arg.type == FLOAT:
-                float_args.append((reg, floatlocs[i]))
-            else:
-                nonfloat_args.append(reg)
-                nonfloat_regs.append(nonfloatlocs[i])
-
-            if arg.type == FLOAT:
-                selected_reg += 2
-            else:
-                selected_reg += 1
-                count += 1
-
-        # move float arguments to vfp regsiters
-        for loc, vfp_reg in float_args:
-            self.mov_to_vfp_loc(loc, r.all_regs[loc.value + 1], vfp_reg)
-
-        # remap values stored in core registers
-        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.ip)
-
-        # load values passed on the stack to the corresponding locations
-        stack_position = len(r.callee_saved_registers) * WORD + \
-                        len(r.callee_saved_vfp_registers) * 2 * WORD + \
-                        N_REGISTERS_SAVED_BY_MALLOC * WORD + \
-                        2 * WORD  # for the FAIL INDEX and the stack padding
-        count = 0
-        for i in range(reg_args, len(inputargs)):
-            arg = inputargs[i]
-            if arg.type == FLOAT:
-                loc = floatlocs[i]
-            else:
-                loc = nonfloatlocs[i]
-            if loc.is_reg():
-                self.mc.LDR_ri(loc.value, r.fp.value, stack_position)
-                count += 1
-            elif loc.is_vfp_reg():
-                if count % 2 != 0:
-                    stack_position += WORD
-                    count = 0
-                self.mc.VLDR(loc.value, r.fp.value, stack_position)
-            elif loc.is_stack():
-                if loc.type == FLOAT:
-                    if count % 2 != 0:
-                        stack_position += WORD
-                        count = 0
-                    self.mc.VLDR(r.vfp_ip.value, r.fp.value, stack_position)
-                    self.mov_loc_loc(r.vfp_ip, loc)
-                elif loc.type == INT or loc.type == REF:
-                    count += 1
-                    self.mc.LDR_ri(r.ip.value, r.fp.value, stack_position)
-                    self.mov_loc_loc(r.ip, loc)
-                else:
-                    assert 0, 'invalid location'
-            else:
-                assert 0, 'invalid location'
-            if loc.type == FLOAT:
-                size = 2
-            else:
-                size = 1
-            stack_position += size * WORD
-
-        sp_patch_location = self._prepare_sp_patch_position()
-        self.mc.B_offs(loop_head)
-        self._patch_sp_offset(sp_patch_location, frame_depth)
-
     def _dump(self, ops, type='loop'):
         debug_start('jit-backend-ops')
         debug_print(type)
@@ -635,11 +516,16 @@ class AssemblerARM(ResOpAssembler):
             debug_print(op.repr())
         debug_stop('jit-backend-ops')
 
+    def _call_header(self):
+        self.align()
+        self.gen_func_prolog()
+
     # cpu interface
     def assemble_loop(self, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
+        clt._debug_nbargs = len(inputargs)
 
         if not we_are_translated():
             # Arguments should be unique
@@ -648,37 +534,24 @@ class AssemblerARM(ResOpAssembler):
         operations = self.setup(looptoken, operations)
         self._dump(operations)
 
-        self.align()
-        self.gen_func_prolog()
+        self._call_header()
         sp_patch_location = self._prepare_sp_patch_position()
 
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
-        arglocs = regalloc.prepare_loop(inputargs, operations)
-        self.gen_bootstrap_code(arglocs, inputargs)
-        looptoken._arm_arglocs = arglocs
-        loop_head = self.mc.currpos()
+        regalloc.prepare_loop(inputargs, operations)
 
+        loop_head = self.mc.currpos()
         looptoken._arm_loop_code = loop_head
-        looptoken._arm_bootstrap_code = 0
 
         clt.frame_depth = -1
         frame_depth = self._assemble(operations, regalloc)
         clt.frame_depth = frame_depth
         self._patch_sp_offset(sp_patch_location, frame_depth)
 
-        self.align()
-
-        direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(loop_head, arglocs,
-                                        frame_depth, inputargs)
-
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(looptoken)
-        direct_code_start = rawstart + direct_bootstrap_code
-
-        looptoken._arm_bootstrap_code = rawstart
-        looptoken._arm_direct_bootstrap_code = direct_code_start
+        looptoken._arm_func_addr = rawstart
 
         self.process_pending_guards(rawstart)
         self.fixup_target_tokens(rawstart)
@@ -692,11 +565,13 @@ class AssemblerARM(ResOpAssembler):
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
+        #self.mc.BKPT()
         self._walk_operations(operations, regalloc)
         frame_depth = regalloc.frame_manager.get_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            frame_depth = max(frame_depth, jump_target_descr._arm_clt.frame_depth)
+            frame_depth = max(frame_depth,
+                                jump_target_descr._arm_clt.frame_depth)
         return frame_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations,
@@ -735,7 +610,8 @@ class AssemblerARM(ResOpAssembler):
                 print 'Bridge', inputargs, operations
                 self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
                 self.cpu.total_compiled_bridges)
-        self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
+        self.current_clt.frame_depth = max(self.current_clt.frame_depth,
+                                                                frame_depth)
         self.teardown()
 
     def fixup_target_tokens(self, rawstart):
@@ -1161,7 +1037,8 @@ class AssemblerARM(ResOpAssembler):
         llop.gc_assume_young_pointers(lltype.Void,
                                       llmemory.cast_ptr_to_adr(ptrs))
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+        assert size & (WORD-1) == 0     # must be correctly aligned
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
         size = (size + WORD - 1) & ~(WORD - 1)     # round up
 
@@ -1204,9 +1081,6 @@ class AssemblerARM(ResOpAssembler):
 
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)
         self.mc.STR_ri(r.r1.value, r.ip.value)
-
-        self.mc.gen_load_int(r.ip.value, tid)
-        self.mc.STR_ri(r.ip.value, r.r0.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:

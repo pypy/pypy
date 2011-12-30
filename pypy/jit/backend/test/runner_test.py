@@ -1225,7 +1225,7 @@ class BaseBackendTest(Runner):
         loop = parse(loopops)
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-		args = [1]
+        args = [1]
         args.append(longlong.getfloatstorage(132.25))
         args.append(longlong.getfloatstorage(0.75))
         fail = self.cpu.execute_token(looptoken, *args)  #xxx check
@@ -1242,10 +1242,10 @@ class BaseBackendTest(Runner):
             ]
         self.cpu.compile_bridge(loop.operations[-2].getdescr(), fboxes,
                                                         bridgeops, looptoken)
-        self.cpu.set_future_value_int(0, 1)
-        self.cpu.set_future_value_float(1, longlong.getfloatstorage(132.25))
-        self.cpu.set_future_value_float(2, longlong.getfloatstorage(0.75))
-        fail = self.cpu.execute_token(looptoken)
+        args = [1,
+                longlong.getfloatstorage(132.25),
+                longlong.getfloatstorage(0.75)]
+        fail = self.cpu.execute_token(looptoken, *args)
         assert fail.identifier == 100
         f1 = self.cpu.get_latest_value_float(0)
         f2 = self.cpu.get_latest_value_float(1)
@@ -1278,8 +1278,7 @@ class BaseBackendTest(Runner):
                 #
                 cpu = self.cpu
                 for value in [-42, 0, 1, 10]:
-                    cpu.set_future_value_int(0, value)
-                    fail = cpu.execute_token(looptoken)
+                    fail = cpu.execute_token(looptoken, value)
                     #
                     expected = compare(value)
                     expected ^= guard_case

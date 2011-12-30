@@ -1,6 +1,5 @@
 # ../x86/jump.py
 # XXX combine with ../x86/jump.py and move to llsupport
-import sys
 
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
@@ -18,7 +17,10 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
         key = src.as_key()
         if key in srccount:
             if key == dst_locations[i].as_key():
-                srccount[key] = -sys.maxint     # ignore a move "x = x"
+                # ignore a move "x = x"
+                # setting any "large enough" negative value is ok, but
+                # be careful of overflows, don't use -sys.maxint
+                srccount[key] = -len(dst_locations) - 1
                 pending_dests -= 1
             else:
                 srccount[key] += 1
