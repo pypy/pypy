@@ -414,12 +414,14 @@ class MiscOpAssembler(object):
         if IS_PPC_32:
             self.mc.bl_abs(adr)
         else:
-            self.mc.load_from_addr(r.SCRATCH, adr)
-            self.mc.load_from_addr(r.TOC, adr + WORD)
-            self.mc.load_from_addr(r.r11, adr + 2 * WORD)
+            self.mc.std(r.TOC.value, r.SP.value, 5 * WORD)
+            self.mc.load_imm(r.r11, adr)
+            self.mc.load(r.SCRATCH.value, r.r11.value, 0)
             self.mc.mtctr(r.SCRATCH.value)
+            self.mc.load(r.TOC.value, r.r11.value, WORD)
+            self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
             self.mc.bctrl()
-            
+            self.mc.ld(r.TOC.value, r.SP.value, 5 * WORD)
 
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
@@ -880,10 +882,11 @@ class AllocOpAssembler(object):
             if IS_PPC_32:
                 self.mc.bl_abs(func)
             else:
-                self.mc.load_from_addr(r.SCRATCH, func)
-                self.mc.load_from_addr(r.TOC, func + WORD)
-                self.mc.load_from_addr(r.r11, func + 2 * WORD)
+                self.mc.load_imm(r.r11, func)
+                self.mc.load(r.SCRATCH.value, r.r11.value, 0)
                 self.mc.mtctr(r.SCRATCH.value)
+                self.mc.load(r.TOC.value, r.r11.value, WORD)
+                self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
                 self.mc.bctrl()
 
         # patch the JZ above
@@ -952,10 +955,11 @@ class ForceOpAssembler(object):
         if IS_PPC_32:
             self.mc.bl_abs(asm_helper_adr)
         else:
-            self.mc.load_from_addr(r.SCRATCH, asm_helper_adr)
-            self.mc.load_from_addr(r.TOC, asm_helper_adr + WORD)
-            self.mc.load_from_addr(r.r11, asm_helper_adr + 2 * WORD)
-            self.mc.mtctr(r.r0.value)
+            self.mc.load_imm(r.r11, asm_helper_adr)
+            self.mc.load(r.SCRATCH.value, r.r11.value, 0)
+            self.mc.mtctr(r.SCRATCH.value)
+            self.mc.load(r.TOC.value, r.r11.value, WORD)
+            self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
             self.mc.bctrl()
 
         if op.result:
