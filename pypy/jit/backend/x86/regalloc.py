@@ -466,7 +466,7 @@ class RegAlloc(object):
         while mc.get_relative_pos() < self.min_bytes_before_label:
             mc.NOP()
 
-     def loc(self, v):
+    def loc(self, v):
         if v is None: # xxx kludgy
             return None
         if v.type == FLOAT:
