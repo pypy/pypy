@@ -491,7 +491,7 @@ def compute_vars_longevity(inputargs, operations):
     # only to guard operations or to jump or to finish
     produced = {}
     last_used = {}
-    useful = {}
+    last_real_usage = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.result:
@@ -502,10 +502,13 @@ def compute_vars_longevity(inputargs, operations):
         opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
-            if opnum != rop.JUMP and opnum != rop.FINISH:
-                useful[arg] = None
-            if isinstance(arg, Box) and arg not in last_used:
+            if not isinstance(arg, Box):
+                continue
+            if arg not in last_used:
                 last_used[arg] = i
+            if opnum != rop.JUMP and opnum != rop.LABEL:
+                if arg not in last_real_usage:
+                    last_real_usage[arg] = i
         if op.is_guard():
             for arg in op.getfailargs():
                 if arg is None: # hole
@@ -513,7 +516,7 @@ def compute_vars_longevity(inputargs, operations):
                 assert isinstance(arg, Box)
                 if arg not in last_used:
                     last_used[arg] = i
-
+    #
     longevity = {}
     for arg in produced:
         if arg in last_used:
@@ -529,8 +532,7 @@ def compute_vars_longevity(inputargs, operations):
             longevity[arg] = (0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
-    return longevity, useful
-
+    return longevity, last_real_usage
 
 def is_comparison_or_ovf_op(opnum):
     from pypy.jit.metainterp.resoperation import opclasses

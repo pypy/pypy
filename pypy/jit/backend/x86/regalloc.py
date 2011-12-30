@@ -174,7 +174,10 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        self._compute_vars_longevity(inputargs, operations)
+        longevity, last_real_usage = compute_vars_longevity(
+                                                    inputargs, operations)
+        self.longevity = longevity
+        self.last_real_usage = last_real_usage
         self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
