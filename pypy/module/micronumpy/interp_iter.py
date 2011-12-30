@@ -128,7 +128,7 @@ class AxisIterator(object):
         self.backstrides = backstrides
         if dim >= 0:
             self.dim = dim
-        if len(slice_start) == len(shape):
+        if len(start) == len(shape):
             for i in range(len(start)):
                 self.offset += strides[i] * start[i]
     def next(self, shapelen):
