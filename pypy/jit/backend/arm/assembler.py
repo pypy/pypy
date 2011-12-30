@@ -1039,8 +1039,6 @@ class AssemblerARM(ResOpAssembler):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
-        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
-        size = (size + WORD - 1) & ~(WORD - 1)     # round up
 
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
