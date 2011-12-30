@@ -1189,6 +1189,7 @@ class AllocOpAssembler(object):
     _mixin_ = True
 
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
+        self.emit_op_call(op, arglocs, regalloc, fcond)
         self.propagate_memoryerror_if_r0_is_null()
         return fcond
 
