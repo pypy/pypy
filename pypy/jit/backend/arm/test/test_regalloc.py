@@ -151,20 +151,20 @@ class BaseTestRegalloc(object):
         loop = self.parse(ops)
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        args = []
+        arguments = []
         for arg in args:
             if isinstance(arg, int):
-                args.append(arg)
+                arguments.append(arg)
             elif isinstance(arg, float):
                 arg = longlong.getfloatstorage(arg)
-                args.append(arg)
+                arguments.append(arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
-                args.append(llgcref)
+                arguments.append(llgcref)
         loop._jitcelltoken = looptoken
         if run:
-            self.cpu.execute_token(looptoken, *args)
+            self.cpu.execute_token(looptoken, *arguments)
         return loop
 
     def prepare_loop(self, ops):
