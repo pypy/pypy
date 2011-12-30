@@ -15,8 +15,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               FPR_SAVE_AREA,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, decode32,
-                                                          decode64,
+                                                          encode32, encode64,
+                                                          decode32, decode64,
                                                           count_reg_args,
                                                           Saved_Volatiles)
 import pypy.jit.backend.ppc.ppcgen.register as r
@@ -199,8 +199,12 @@ class AssemblerPPC(OpAssembler):
             if res == self.IMM_LOC:
                # imm value
                 if group == self.INT_TYPE or group == self.REF_TYPE:
-                    value = decode32(enc, i+1)
-                    i += 4
+                    if IS_PPC_32:
+                        value = decode32(enc, i+1)
+                        i += 4
+                    else:
+                        value = decode64(enc, i+1)
+                        i += 8
                 else:
                     assert 0, "not implemented yet"
             elif res == self.STACK_LOC:
@@ -620,8 +624,12 @@ class AssemblerPPC(OpAssembler):
                     assert (arg.type == INT or arg.type == REF
                                 or arg.type == FLOAT)
                     mem[j] = self.IMM_LOC
-                    encode32(mem, j+1, loc.getint())
-                    j += 5
+                    if IS_PPC_32:
+                        encode32(mem, j+1, loc.getint())
+                        j += 5
+                    else:
+                        encode64(mem, j+1, loc.getint())
+                        j += 9
                 else:
                     mem[j] = self.STACK_LOC
                     encode32(mem, j+1, loc.position)
