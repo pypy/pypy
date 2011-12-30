@@ -280,10 +280,11 @@ class AssemblerPPC(OpAssembler):
             if IS_PPC_32:
                 mc.bl_abs(addr)
             else:
-                mc.load_from_addr(r.SCRATCH, addr)
-                mc.load_from_addr(r.r2, addr + WORD)
-                mc.load_from_addr(r.r11, addr + 2 * WORD)
+                mc.load_imm(r.r11, addr)
+                mc.load(r.SCRATCH.value, r.r11.value, 0)
                 mc.mtctr(r.SCRATCH.value)
+                mc.load(r.r2.value, r.r11.value, WORD)
+                mc.load(r.r11.value, r.r11.value, 2 * WORD)
                 mc.bctrl()
         #mc.alloc_scratch_reg(self.cpu.propagate_exception_v)
         #mc.mr(r.RES.value, r.SCRATCH.value)
@@ -300,10 +301,11 @@ class AssemblerPPC(OpAssembler):
             if IS_PPC_32:
                 mc.bl_abs(addr)
             else:
-                mc.load_from_addr(r.SCRATCH, addr)
-                mc.load_from_addr(r.r2, addr + WORD)
-                mc.load_from_addr(r.r11, addr + 2 * WORD)
+                mc.load_imm(r.r11, addr)
+                mc.load(r.SCRATCH.value, r.r11.value, 0)
                 mc.mtctr(r.SCRATCH.value)
+                mc.load(r.r2.value, r.r11.value, WORD)
+                mc.load(r.r11.value, r.r11.value, 2 * WORD)
                 mc.bctrl()
 
         mc.b_abs(self.exit_code_adr)
@@ -325,32 +327,28 @@ class AssemblerPPC(OpAssembler):
         self._save_managed_regs(mc)
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
-        if IS_PPC_32:
-            addr = rffi.cast(lltype.Signed, decode_func_addr)
-        else:
-            intp = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
-            descr = rffi.cast(intp, decode_func_addr)
-            addr = descr[0]
-            r2_value = descr[1]
-            r11_value = descr[2]
+        addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
         mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into SCRATCH
-        mc.alloc_scratch_reg(addr)
-        if IS_PPC_64:
-            mc.std(r.r2.value, r.SP.value, 5 * WORD)
-            # load TOC pointer and environment pointer
-            mc.load_imm(r.r2, r2_value)
-            mc.load_imm(r.r11, r11_value)
+        if IS_PPC_32:
+            mc.alloc_scratch_reg(addr)
+            mc.mtctr(r.SCRATCH.value)
+            mc.free_scratch_reg()
         # ... and branch there
-        mc.mtctr(r.SCRATCH.value)
-        mc.free_scratch_reg()
-        mc.bctrl()
-        if IS_PPC_64:
-            mc.ld(r.r2.value, r.SP.value, 5 * WORD)
+            mc.bctrl()
+        else:
+            mc.std(r.TOC.value, r.SP.value, 5 * WORD)
+            mc.load_imm(r.r11, addr)
+            mc.load(r.SCRATCH.value, r.r11.value, 0)
+            mc.mtctr(r.SCRATCH.value)
+            mc.load(r.TOC.value, r.r11.value, WORD)
+            mc.load(r.r11.value, r.r11.value, 2 * WORD)
+            mc.bctrl()
+            mc.ld(r.TOC.value, r.SP.value, 5 * WORD)
         #
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
