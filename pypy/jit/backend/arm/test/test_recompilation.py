@@ -71,19 +71,19 @@ class TestRecompilation(BaseTestRegalloc):
         i2 = int_lt(i1, 20)
         guard_true(i2, descr=fdescr1) [i1]
         jump(i1, i10, i11, i12, i13, i14, i15, i16, descr=targettoken)
-        ''', [0])
+        ''', [0, 0, 0, 0, 0, 0, 0, 0])
         other_loop = self.interpret('''
-        [i3]
+        [i3, i10, i11, i12, i13, i14, i15, i16]
         label(i3, descr=targettoken2)
         guard_false(i3, descr=fdescr2) [i3]
         jump(i3, descr=targettoken2)
-        ''', [1])
+        ''', [1, 0, 0, 0, 0, 0, 0, 0])
         ops = '''
         [i3]
         jump(i3, 1, 2, 3, 4, 5, 6, 7, descr=targettoken)
         '''
         bridge = self.attach_bridge(ops, other_loop, 1)
-        fail = self.run(other_loop, 1)
+        fail = self.run(other_loop, 1, 0, 0, 0, 0, 0, 0, 0)
         assert fail.identifier == 1
 
     def test_bridge_jumps_to_self_deeper(self):
@@ -99,7 +99,7 @@ class TestRecompilation(BaseTestRegalloc):
         i5 = int_lt(i3, 20)
         guard_true(i5) [i99, i3]
         jump(i3, i30, 1, i30, i30, i30, descr=targettoken)
-        ''', [0])
+        ''', [0, 0, 0, 0, 0, 0])
         assert self.getint(0) == 0
         assert self.getint(1) == 1
         ops = '''
@@ -120,9 +120,9 @@ class TestRecompilation(BaseTestRegalloc):
         guard_op = loop.operations[6]
         #assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         # the force_spill() forces the stack to grow
-        assert guard_op.getdescr()._arm_bridge_frame_depth > loop_frame_depth
+        #assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
         #assert guard_op.getdescr()._x86_bridge_param_depth == 0
-        self.run(loop, 0, 0, 0)
+        self.run(loop, 0, 0, 0, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
 
@@ -138,7 +138,7 @@ class TestRecompilation(BaseTestRegalloc):
         i5 = int_lt(i3, 20)
         guard_true(i5) [i99, i3]
         jump(i3, i1, i2, descr=targettoken)
-        ''', [0])
+        ''', [0, 0, 0])
         assert self.getint(0) == 0
         assert self.getint(1) == 1
         ops = '''
@@ -149,4 +149,4 @@ class TestRecompilation(BaseTestRegalloc):
         self.run(loop, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
-
+        
