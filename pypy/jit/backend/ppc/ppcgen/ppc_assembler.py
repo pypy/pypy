@@ -713,13 +713,13 @@ class AssemblerPPC(OpAssembler):
     def gen_64_bit_func_descrs(self):
         d0 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
         d1 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
-	return [d0, d1]
+        return [d0, d1]
 
     def write_64_bit_func_descr(self, descr, start_addr):
         data = rffi.cast(rffi.CArrayPtr(lltype.Signed), descr)
-	data[0] = start_addr
-	data[1] = 0
-	data[2] = 0
+        data[0] = start_addr
+        data[1] = 0
+        data[2] = 0
 
     def compute_frame_depth(self, regalloc):
         PARAMETER_AREA = self.max_stack_params * WORD
