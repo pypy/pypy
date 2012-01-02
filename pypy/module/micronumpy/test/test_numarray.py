@@ -1347,6 +1347,7 @@ class AppTestSupport(BaseNumpyAppTest):
 class AppTestRepr(BaseNumpyAppTest):
     def test_repr(self):
         from numpypy import array, zeros
+        intSize = array(5).dtype.itemsize
         a = array(range(5), float)
         assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
         a = array([], float)
@@ -1354,11 +1355,23 @@ class AppTestRepr(BaseNumpyAppTest):
         a = zeros(1001)
         assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
         a = array(range(5), long)
-        assert repr(a) == "array([0, 1, 2, 3, 4])"
+        if a.dtype.itemsize == intSize:
+            assert repr(a) == "array([0, 1, 2, 3, 4])"
+        else:
+            assert repr(a) == "array([0, 1, 2, 3, 4], dtype=int64)"
+        a = array(range(5), 'int32')
+        if a.dtype.itemsize == intSize:
+            assert repr(a) == "array([0, 1, 2, 3, 4])"
+        else:
+            assert repr(a) == "array([0, 1, 2, 3, 4], dtype=int32)"
         a = array([], long)
         assert repr(a) == "array([], dtype=int64)"
         a = array([True, False, True, False], "?")
         assert repr(a) == "array([True, False, True, False], dtype=bool)"
+        a = zeros([])
+        assert repr(a) == "array(0.0)"
+        a = array(0.2)
+        assert repr(a) == "array(0.2)"
 
     def test_repr_multi(self):
         from numpypy import array, zeros
