@@ -411,17 +411,7 @@ class MiscOpAssembler(object):
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
-        if IS_PPC_32:
-            self.mc.bl_abs(adr)
-        else:
-            self.mc.std(r.TOC.value, r.SP.value, 5 * WORD)
-            self.mc.load_imm(r.r11, adr)
-            self.mc.load(r.SCRATCH.value, r.r11.value, 0)
-            self.mc.mtctr(r.SCRATCH.value)
-            self.mc.load(r.TOC.value, r.r11.value, WORD)
-            self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
-            self.mc.bctrl()
-            self.mc.ld(r.TOC.value, r.SP.value, 5 * WORD)
+        self.mc.call(adr)
 
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
@@ -879,15 +869,7 @@ class AllocOpAssembler(object):
             #
             # misaligned stack in the call, but it's ok because the write barrier
             # is not going to call anything more.  
-            if IS_PPC_32:
-                self.mc.bl_abs(func)
-            else:
-                self.mc.load_imm(r.r11, func)
-                self.mc.load(r.SCRATCH.value, r.r11.value, 0)
-                self.mc.mtctr(r.SCRATCH.value)
-                self.mc.load(r.TOC.value, r.r11.value, WORD)
-                self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
-                self.mc.bctrl()
+            self.mc.call(func)
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
@@ -952,15 +934,7 @@ class ForceOpAssembler(object):
 
         # do call to helper function
         self.mov_loc_loc(arglocs[1], r.r4)
-        if IS_PPC_32:
-            self.mc.bl_abs(asm_helper_adr)
-        else:
-            self.mc.load_imm(r.r11, asm_helper_adr)
-            self.mc.load(r.SCRATCH.value, r.r11.value, 0)
-            self.mc.mtctr(r.SCRATCH.value)
-            self.mc.load(r.TOC.value, r.r11.value, WORD)
-            self.mc.load(r.r11.value, r.r11.value, 2 * WORD)
-            self.mc.bctrl()
+        self.mc.call(asm_helper_adr)
 
         if op.result:
             resloc = regalloc.after_call(op.result)

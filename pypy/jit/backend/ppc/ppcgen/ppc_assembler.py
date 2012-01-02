@@ -277,15 +277,7 @@ class AssemblerPPC(OpAssembler):
         mc = PPCBuilder()
         with Saved_Volatiles(mc):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
-            if IS_PPC_32:
-                mc.bl_abs(addr)
-            else:
-                mc.load_imm(r.r11, addr)
-                mc.load(r.SCRATCH.value, r.r11.value, 0)
-                mc.mtctr(r.SCRATCH.value)
-                mc.load(r.r2.value, r.r11.value, WORD)
-                mc.load(r.r11.value, r.r11.value, 2 * WORD)
-                mc.bctrl()
+            mc.call(addr)
         #mc.alloc_scratch_reg(self.cpu.propagate_exception_v)
         #mc.mr(r.RES.value, r.SCRATCH.value)
         #mc.free_scratch_reg()
@@ -298,15 +290,7 @@ class AssemblerPPC(OpAssembler):
 
         with Saved_Volatiles(mc):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            if IS_PPC_32:
-                mc.bl_abs(addr)
-            else:
-                mc.load_imm(r.r11, addr)
-                mc.load(r.SCRATCH.value, r.r11.value, 0)
-                mc.mtctr(r.SCRATCH.value)
-                mc.load(r.r2.value, r.r11.value, WORD)
-                mc.load(r.r11.value, r.r11.value, 2 * WORD)
-                mc.bctrl()
+            mc.call(addr)
 
         mc.b_abs(self.exit_code_adr)
         mc.prepare_insts_blocks()
@@ -333,23 +317,9 @@ class AssemblerPPC(OpAssembler):
         mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
         #
-        # load address of decoding function into SCRATCH
-        if IS_PPC_32:
-            mc.alloc_scratch_reg(addr)
-            mc.mtctr(r.SCRATCH.value)
-            mc.free_scratch_reg()
-        # ... and branch there
-            mc.bctrl()
-        else:
-            mc.std(r.TOC.value, r.SP.value, 5 * WORD)
-            mc.load_imm(r.r11, addr)
-            mc.load(r.SCRATCH.value, r.r11.value, 0)
-            mc.mtctr(r.SCRATCH.value)
-            mc.load(r.TOC.value, r.r11.value, WORD)
-            mc.load(r.r11.value, r.r11.value, 2 * WORD)
-            mc.bctrl()
-            mc.ld(r.TOC.value, r.SP.value, 5 * WORD)
-        #
+        # call decoding function
+        mc.call(addr)
+
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)

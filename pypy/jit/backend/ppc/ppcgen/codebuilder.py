@@ -7,7 +7,7 @@ from pypy.jit.backend.ppc.ppcgen.regalloc import (TempInt, PPCFrameManager,
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
-                                              GPR_SAVE_AREA)
+                                              GPR_SAVE_AREA, IS_PPC_64)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
@@ -1028,11 +1028,24 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.trap()
         self.bctr()
 
-    def bl_abs(self, address):
-        self.alloc_scratch_reg(address)
+    def call(self, address):
+        """ do a call to an absolute address
+        """
+        self.alloc_scratch_reg()
+        if IS_PPC_32:
+            self.load_imm(r.SCRATCH, address)
+        else:
+            self.store(r.TOC.value, r.SP.value, 5 * WORD)
+            self.load_imm(r.r11, address)
+            self.load(r.SCRATCH.value, r.r11.value, 0)
+            self.load(r.r2.value, r.r11.value, WORD)
+            self.load(r.r11.value, r.r11.value, 2 * WORD)
         self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
         self.bctrl()
+
+        if IS_PPC_64:
+            self.load(t.TOC.value, r.SP.value, 5 * WORD)
 
     def load(self, target_reg, base_reg, offset):
         if IS_PPC_32:
