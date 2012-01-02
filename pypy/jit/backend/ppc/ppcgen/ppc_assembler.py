@@ -938,7 +938,6 @@ class AssemblerPPC(OpAssembler):
 
     def _write_fail_index(self, fail_index):
         self.mc.alloc_scratch_reg(fail_index)
-        self.mc.load_imm(r.SCRATCH, fail_index)
         self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
             
