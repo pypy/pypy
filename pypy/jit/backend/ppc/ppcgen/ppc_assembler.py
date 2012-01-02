@@ -355,10 +355,10 @@ class AssemblerPPC(OpAssembler):
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
-	if IS_PPC_32:
-	    ofs = WORD
-	else:
-	    ofs = WORD * 2
+        if IS_PPC_32:
+            ofs = WORD
+        else:
+            ofs = WORD * 2
         mc.load(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + ofs) 
         mc.mtlr(r.r4.value)     # restore LR
         # From SPP, we have a constant offset to the old backchain. We use the
@@ -541,8 +541,8 @@ class AssemblerPPC(OpAssembler):
         self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
 
         self.write_pending_failure_recoveries()
-	if IS_PPC_64:
-		fdescrs = self.gen_64_bit_func_descrs()
+        if IS_PPC_64:
+            fdescrs = self.gen_64_bit_func_descrs()
         loop_start = self.materialize_loop(looptoken, False)
         looptoken._ppc_bootstrap_code = loop_start
 
