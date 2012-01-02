@@ -1045,7 +1045,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.bctrl()
 
         if IS_PPC_64:
-            self.load(t.TOC.value, r.SP.value, 5 * WORD)
+            self.load(r.TOC.value, r.SP.value, 5 * WORD)
 
     def load(self, target_reg, base_reg, offset):
         if IS_PPC_32:
