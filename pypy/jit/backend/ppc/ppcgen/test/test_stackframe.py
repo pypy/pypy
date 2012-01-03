@@ -38,7 +38,7 @@
             |       AND LINKER        |          |  
             ---------------------------         --
             |         SAVED LR        | WORD     |
-            ---------------------------          |>> 4 WORDS (64 Bit)
+            ---------------------------          |>> 3 WORDS (64 Bit)
   (64 Bit)  |         SAVED CR        | WORD     |   2 WORDS (32 Bit)
             ---------------------------          |
             |        BACK CHAIN       | WORD     |
