@@ -445,7 +445,7 @@ class SendTests(object):
         myjitdriver = JitDriver(greens = [], reds = ['node'])
         def f(n):
             node = Node(n)
-            while node.x > 0:
+            while node.x > -10:
                 myjitdriver.can_enter_jit(node=node)
                 myjitdriver.jit_merge_point(node=node)
                 if node.x < 40:
@@ -456,7 +456,7 @@ class SendTests(object):
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        self.check_trace_count(3)
+        self.check_trace_count(4)
 
     def test_three_classes(self):
         class Base:
