@@ -6,7 +6,6 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.tool.sourcetools import func_with_new_name
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -628,7 +627,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
         # of the variables are the same for each of the calls.
-        from pypy.rpython.error import TyperError
         from pypy.rpython.lltypesystem import lltype
         driver = self.instance.im_self
         greens_v = []
