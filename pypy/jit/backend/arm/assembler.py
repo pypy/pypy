@@ -1,7 +1,6 @@
 from __future__ import with_statement
 import os
 from pypy.jit.backend.arm.helper.assembler import saved_registers, \
-                                                    count_reg_args, \
                                                     decode32, encode32, \
                                                     decode64
 from pypy.jit.backend.arm import conditions as c
@@ -13,7 +12,6 @@ from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     ARMv7RegisterManager, check_imm_arg,
                     operations as regalloc_operations,
                     operations_with_guard as regalloc_operations_with_guard)
-from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.codewriter import longlong

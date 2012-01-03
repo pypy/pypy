@@ -13,7 +13,7 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     )
 from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
 from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS
-from pypy.jit.backend.arm.arch import WORD, N_REGISTERS_SAVED_BY_MALLOC
+from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
