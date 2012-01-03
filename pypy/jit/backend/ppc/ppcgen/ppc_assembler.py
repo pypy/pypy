@@ -278,10 +278,9 @@ class AssemblerPPC(OpAssembler):
         with Saved_Volatiles(mc):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
             mc.call(addr)
-        #mc.alloc_scratch_reg(self.cpu.propagate_exception_v)
-        #mc.mr(r.RES.value, r.SCRATCH.value)
-        #mc.free_scratch_reg()
+
         mc.load_imm(r.RES, self.cpu.propagate_exception_v)
+        self._gen_epilogue(mc)
         mc.prepare_insts_blocks()
         self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
 
@@ -320,6 +319,14 @@ class AssemblerPPC(OpAssembler):
         # call decoding function
         mc.call(addr)
 
+        # generate return and restore registers
+        self._gen_epilogue(mc)
+
+        mc.prepare_insts_blocks()
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                                   self.cpu.gc_ll_descr.gcrootmap)
+
+    def _gen_epilogue(self, mc):
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)
@@ -336,9 +343,6 @@ class AssemblerPPC(OpAssembler):
         # generated before we know how much space the entire frame will need.
         mc.addi(r.SP.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN) # restore old SP
         mc.blr()
-        mc.prepare_insts_blocks()
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                                   self.cpu.gc_ll_descr.gcrootmap)
 
     def _save_managed_regs(self, mc):
         """ store managed registers in ENCODING AREA
