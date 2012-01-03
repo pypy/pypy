@@ -780,6 +780,8 @@ class Reduce(VirtualArray):
         target_len = self.values.shape[self.dim]
         #sig = self.find_sig(result.shape) ##Don't do this, infinite recursion
         sig = self.create_sig(result.shape)
+        if not isinstance(self.values, W_NDimSlice):
+            abc=kil
         ri = ArrayIterator(result.size)
         si = axis_iter_from_arr(self.values, self.dim)
         while not ri.done():

@@ -155,7 +155,9 @@ class ArraySignature(ConcreteSignature):
 
     def allocate_iter(self, arr, res_shape, chunklist):
         if chunklist:
-            return self.allocate_view_iter(arr, res_shape, chunklist)
+            #How did we get here?
+            assert NotImplemented
+            #return self.allocate_view_iter(arr, res_shape, chunklist)
         return ArrayIterator(arr.size)
 
     def eval(self, frame, arr):

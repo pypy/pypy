@@ -743,6 +743,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
         assert (a.max(0) == [12, 13, 14]).all()
         assert (a.max(1) == [2, 5, 8, 11, 14]).all()
+        b = a.copy()
+        #b should be an array, not a view
+        assert (b.sum(1) == [3, 12, 21, 30, 39]).all()
 
     def test_identity(self):
         from numpypy import identity, array
