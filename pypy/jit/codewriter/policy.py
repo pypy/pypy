@@ -13,6 +13,9 @@ class JitPolicy(object):
         self.supports_floats = False
         self.supports_longlong = False
         self.supports_singlefloats = False
+        if portal is None:
+            from pypy.rlib.jit import JitPortal
+            portal = JitPortal()
         self.portal = portal
 
     def set_supports_floats(self, flag):

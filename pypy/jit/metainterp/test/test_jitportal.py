@@ -9,7 +9,9 @@ class TestJitPortal(LLJitMixin):
         reasons = []
         
         class MyJitPortal(JitPortal):
-            def on_abort(self, reason):
+            def on_abort(self, reason, jitdriver, greenkey):
+                assert jitdriver is myjitdriver
+                assert len(greenkey) == 1
                 reasons.append(reason)
 
         portal = MyJitPortal()
