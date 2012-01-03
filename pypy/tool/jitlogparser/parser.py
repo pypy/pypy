@@ -32,6 +32,9 @@ class Op(object):
     def getres(self):
         return self.res
 
+    def getdescr(self):
+        return self.descr
+
     def is_guard(self):
         return self._is_guard
 
@@ -182,7 +185,10 @@ class TraceForOpcode(object):
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
-        return self.getopcode().lineno
+        code = self.getopcode()
+        if code is None:
+            return None
+        return code.lineno
     lineno = property(getlineno)
 
     def getline_starts_here(self):

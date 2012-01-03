@@ -409,7 +409,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        boxes[self.position_in_notvirtuals] = value.force_box(optimizer)
+        if optimizer:
+            box = value.force_box(optimizer)
+        else:
+            if value.is_virtual():
+                raise BadVirtualState
+            box = value.get_key_box()
+        boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
         if self.level == LEVEL_CONSTANT:
@@ -471,8 +477,14 @@ class VirtualState(object):
             optimizer = optimizer.optearlyforce
         assert len(values) == len(self.state)
         inputargs = [None] * len(self.notvirtuals)
+
+        # We try twice. The first time around we allow boxes to be forced
+        # which might change the virtual state if the box appear in more
+        # than one place among the inputargs.
         for i in range(len(values)):
             self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
+        for i in range(len(values)):
+            self.state[i].enum_forced_boxes(inputargs, values[i], None)
 
         if keyboxes:
             for i in range(len(values)):
