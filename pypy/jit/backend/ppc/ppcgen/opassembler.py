@@ -996,9 +996,8 @@ class ForceOpAssembler(object):
             pmc.overwrite()
 
         self.mc.alloc_scratch_reg()
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
-        self.mc.cror(2, 1, 2)
+        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self.mc.free_scratch_reg()
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
