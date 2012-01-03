@@ -1191,6 +1191,7 @@ class AllocOpAssembler(object):
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)
         self.propagate_memoryerror_if_r0_is_null()
+        self._alignment_check()
         return fcond
 
     def emit_op_call_malloc_nursery(self, op, arglocs, regalloc, fcond):
@@ -1203,7 +1204,18 @@ class AllocOpAssembler(object):
             gc_ll_descr.get_nursery_top_addr(),
             size
             )
+        self._alignment_check()
         return fcond
+
+    def _alignment_check(self):
+        if not self.debug:
+            return
+        self.mc.MOV_rr(r.ip.value, r.r0.value)
+        self.mc.AND_ri(r.ip.value, r.ip.value, 3)
+        self.mc.CMP_ri(r.ip.value, 0)
+        self.mc.MOV_rr(r.pc.value, r.pc.value, cond=c.EQ)
+        self.mc.BKPT()
+        self.mc.NOP()
 
 
 class FloatOpAssemlber(object):

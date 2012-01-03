@@ -57,6 +57,8 @@ class AssemblerARM(ResOpAssembler):
 
     STACK_FIXED_AREA = -1
 
+    debug = True
+
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
