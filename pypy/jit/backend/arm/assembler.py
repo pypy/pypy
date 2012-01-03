@@ -329,17 +329,13 @@ class AssemblerARM(ResOpAssembler):
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
 
         mc.CMP_ri(r.r0.value, 0)
-        jmp_pos = mc.currpos()
-        mc.NOP()
+        mc.B(self.propagate_exception_path, c=c.EQ)
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.r1.value, nursery_free_adr)
         mc.LDR_ri(r.r1.value, r.r1.value)
         # see above
         mc.POP([r.ip.value, r.pc.value])
 
-        pmc = OverwritingBuilder(mc, jmp_pos, WORD)
-        pmc.B_offs(jmp_pos, c=c.EQ)
-        mc.B(self.propagate_exception_path)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
 
@@ -1055,9 +1051,6 @@ class AssemblerARM(ResOpAssembler):
 
         self.mc.CMP_rr(r.r1.value, r.ip.value)
 
-        fast_jmp_pos = self.mc.currpos()
-        self.mc.NOP()
-
         # XXX update
         # See comments in _build_malloc_slowpath for the
         # details of the two helper functions that we are calling below.
@@ -1071,11 +1064,7 @@ class AssemblerARM(ResOpAssembler):
         # a no-op.
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
-        self.mc.BL(self.malloc_slowpath)
-
-        offset = self.mc.currpos() - fast_jmp_pos
-        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
-        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.LS)
+        self.mc.BL(self.malloc_slowpath, c=c.HI)
 
         self.mc.gen_load_int(r.ip.value, nursery_free_adr)
         self.mc.STR_ri(r.r1.value, r.ip.value)
