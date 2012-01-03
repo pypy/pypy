@@ -380,6 +380,9 @@ class BaseArray(Wrappable):
     def descr_get_dtype(self, space):
         return space.wrap(self.find_dtype())
 
+    def descr_get_ndim(self, space):
+        return space.wrap(len(self.shape))
+
     @jit.unroll_safe
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
@@ -1185,6 +1188,7 @@ BaseArray.typedef = TypeDef(
     shape = GetSetProperty(BaseArray.descr_get_shape,
                            BaseArray.descr_set_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
+    ndim = GetSetProperty(BaseArray.descr_get_ndim),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
     flat = GetSetProperty(BaseArray.descr_get_flatiter),

@@ -179,6 +179,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         ar = array(range(5))
         assert type(ar) is type(ar + ar)
 
+    def test_ndim(self):
+        from numpypy import array
+        x = array(0.2)
+        assert x.ndim == 0
+        x = array([1,2])
+        assert x.ndim == 1
+        x = array([[1,2], [3,4]])
+        assert x.ndim == 2
+        x = array([[[1,2], [3,4]], [[5,6], [7,8]] ])
+        assert x.ndim == 3
+        # numpy actually raises an AttributeError, but numpypy raises an AttributeError
+        raises (TypeError, 'x.ndim=3')
+        
     def test_init(self):
         from numpypy import zeros
         a = zeros(15)
