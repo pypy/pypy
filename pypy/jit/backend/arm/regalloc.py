@@ -953,13 +953,7 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         self.possibly_free_var(t)
 
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            size
-            )
-
+        return [imm(size)]
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(False)
         for v, val in self.frame_manager.bindings.items():
