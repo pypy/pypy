@@ -6,7 +6,7 @@ from pypy.jit.backend.arm.helper.assembler import saved_registers, \
                                                     decode64
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, \
+from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
                                     PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
@@ -85,7 +85,7 @@ class AssemblerARM(ResOpAssembler):
         self.STACK_FIXED_AREA += N_REGISTERS_SAVED_BY_MALLOC * WORD
         if self.cpu.supports_floats:
             self.STACK_FIXED_AREA += (len(r.callee_saved_vfp_registers)
-                                        * 2 * WORD)
+                                        * DOUBLE_WORD)
         if self.STACK_FIXED_AREA % 8 != 0:
             self.STACK_FIXED_AREA += WORD  # Stack alignment
         assert self.STACK_FIXED_AREA % 8 == 0
@@ -202,16 +202,16 @@ class AssemblerARM(ResOpAssembler):
 
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         frame_depth = frame_loc - (regs_loc + len(r.all_regs)
-                            * WORD + len(r.all_vfp_regs) * 2 * WORD)
+                            * WORD + len(r.all_vfp_regs) * DOUBLE_WORD)
         assert (frame_loc - frame_depth) % 4 == 0
         stack = rffi.cast(rffi.CCHARP, frame_loc - frame_depth)
         assert regs_loc % 4 == 0
         vfp_regs = rffi.cast(rffi.CCHARP, regs_loc)
-        assert (regs_loc + len(r.all_vfp_regs) * 2 * WORD) % 4 == 0
+        assert (regs_loc + len(r.all_vfp_regs) * DOUBLE_WORD) % 4 == 0
         assert frame_depth >= 0
 
         regs = rffi.cast(rffi.CCHARP,
-                    regs_loc + len(r.all_vfp_regs) * 2 * WORD)
+                    regs_loc + len(r.all_vfp_regs) * DOUBLE_WORD)
         i = -1
         fail_index = -1
         while(True):
@@ -253,7 +253,7 @@ class AssemblerARM(ResOpAssembler):
             else:  # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
-                    value = decode64(vfp_regs, reg * 2 * WORD)
+                    value = decode64(vfp_regs, reg * DOUBLE_WORD)
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:

@@ -1,5 +1,5 @@
 from pypy.jit.backend.arm.assembler import AssemblerARM
-from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD
 from pypy.jit.backend.arm.registers import all_regs, all_vfp_regs
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
@@ -111,7 +111,7 @@ class ArmCPU(AbstractLLCPU):
         addr_end_of_frame = (addr_of_force_index -
                             (frame_depth +
                             len(all_regs) * WORD +
-                            len(all_vfp_regs) * 2 * WORD))
+                            len(all_vfp_regs) * DOUBLE_WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
             faildescr._failure_recovery_code,
             addr_of_force_index,
