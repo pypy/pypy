@@ -184,15 +184,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array
         x = array(0.2)
         assert x.ndim == 0
-        x = array([1,2])
+        x = array([1, 2])
         assert x.ndim == 1
-        x = array([[1,2], [3,4]])
+        x = array([[1, 2], [3, 4]])
         assert x.ndim == 2
-        x = array([[[1,2], [3,4]], [[5,6], [7,8]] ])
+        x = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
         assert x.ndim == 3
-        # numpy actually raises an AttributeError, but numpypy raises an AttributeError
-        raises (TypeError, 'x.ndim=3')
-        
+        # numpy actually raises an AttributeError, but numpypy raises an
+        # AttributeError
+        raises (TypeError, 'x.ndim = 3')
+
     def test_init(self):
         from numpypy import zeros
         a = zeros(15)
@@ -1361,7 +1362,7 @@ class AppTestSupport(BaseNumpyAppTest):
 class AppTestRepr(BaseNumpyAppTest):
     def test_repr(self):
         from numpypy import array, zeros
-        intSize = array(5).dtype.itemsize
+        int_size = array(5).dtype.itemsize
         a = array(range(5), float)
         assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
         a = array([], float)
@@ -1369,12 +1370,12 @@ class AppTestRepr(BaseNumpyAppTest):
         a = zeros(1001)
         assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
         a = array(range(5), long)
-        if a.dtype.itemsize == intSize:
+        if a.dtype.itemsize == int_size:
             assert repr(a) == "array([0, 1, 2, 3, 4])"
         else:
             assert repr(a) == "array([0, 1, 2, 3, 4], dtype=int64)"
         a = array(range(5), 'int32')
-        if a.dtype.itemsize == intSize:
+        if a.dtype.itemsize == int_size:
             assert repr(a) == "array([0, 1, 2, 3, 4])"
         else:
             assert repr(a) == "array([0, 1, 2, 3, 4], dtype=int32)"

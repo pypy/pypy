@@ -424,13 +424,10 @@ class BaseArray(Wrappable):
                 res.append(')')
         else:
             concrete.to_str(space, 1, res, indent='       ')
-        if (dtype is interp_dtype.get_dtype_cache(space).w_float64dtype or \
-             dtype.kind == interp_dtype.SIGNEDLTR and \
-             dtype.itemtype.get_element_size() == rffi.sizeof(lltype.Signed)) \
-            and self.size:
-            # Do not print dtype
-            pass
-        else:
+        if (dtype is not interp_dtype.get_dtype_cache(space).w_float64dtype and
+            not (dtype.kind == interp_dtype.SIGNEDLTR and
+            dtype.itemtype.get_element_size() == rffi.sizeof(lltype.Signed)) or
+            not self.size):
             res.append(", dtype=" + dtype.name)
         res.append(")")
         return space.wrap(res.build())
