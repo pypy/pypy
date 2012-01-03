@@ -154,8 +154,9 @@ class AbstractARMv7Builder(object):
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
-    def BKPT(self, cond=cond.AL):
-        self.write32(cond << 28 | 0x1200070)
+    def BKPT(self):
+        """Unconditional breakpoint"""
+        self.write32(0x1200070)
 
     # corresponds to the instruction vmrs APSR_nzcv, fpscr
     def VMRS(self, cond=cond.AL):
