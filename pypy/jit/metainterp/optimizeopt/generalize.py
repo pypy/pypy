@@ -5,15 +5,20 @@ class GeneralizationStrategy(object):
         self.optimizer = optimizer
 
     def apply(self):
-        raise NotImplementedError
+        for v in self.optimizer.values.values():
+            self._apply(v)
 
 class KillHugeIntBounds(GeneralizationStrategy):
-    def apply(self):
-        for v in self.optimizer.values.values():
-            if v.is_constant():
-                continue
+    def _apply(self, v):
+        if not v.is_constant():
             if v.intbound.lower < MININT/2:
                 v.intbound.lower = MININT
             if v.intbound.upper > MAXINT/2:
                 v.intbound.upper = MAXINT
           
+class KillIntBounds(GeneralizationStrategy):
+    def _apply(self, v):
+        if not v.is_constant():
+            v.intbound.lower = MININT
+            v.intbound.upper = MAXINT
+        

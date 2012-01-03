@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
+from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds, KillIntBounds
 from pypy.jit.metainterp.inliner import Inliner
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.resume import Snapshot
@@ -137,11 +137,20 @@ class UnrollOptimizer(Optimization):
             self.close_bridge(start_label)
 
         self.optimizer.flush()
-        KillHugeIntBounds(self.optimizer).apply()
 
+        self.generalize_state(start_label, stop_label)
         loop.operations = self.optimizer.get_newoperations()
         self.export_state(stop_label)
         loop.operations.append(stop_label)
+
+    def generalize_state(self, start_label, stop_label):
+        if self.jump_to_start_label(start_label, stop_label):
+            # At the end of the preamble, don't generalize much
+            KillHugeIntBounds(self.optimizer).apply()
+        else:
+            # At the end of a bridge about to force a retrcae
+            KillIntBounds(self.optimizer).apply()
+            self.optimizer.kill_consts_at_end_of_preamble = True
 
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:
@@ -170,14 +179,16 @@ class UnrollOptimizer(Optimization):
         assert self.optimizer.loop.resume_at_jump_descr
         resume_at_jump_descr = self.optimizer.loop.resume_at_jump_descr.clone_if_mutable()
         assert isinstance(resume_at_jump_descr, ResumeGuardDescr)
-        resume_at_jump_descr.rd_snapshot = self.fix_snapshot(jump_args, resume_at_jump_descr.rd_snapshot)
+        resume_at_jump_descr.rd_snapshot = self.fix_snapshot(jump_args,
+                                                   resume_at_jump_descr.rd_snapshot)
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
             
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
-        short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        short_inputargs = virtual_state.make_inputargs(values, self.optimizer,
+                                                       keyboxes=True)
 
 
         if self.boxes_created_this_iteration is not None:

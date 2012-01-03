@@ -902,7 +902,8 @@ class VirtualTests:
         assert res == f(10)
         self.check_aborted_count(0)
         self.check_target_token_count(3)
-        self.check_resops(int_mul=2)
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
 
     def test_nested_loops_bridge(self):
         class Int(object):

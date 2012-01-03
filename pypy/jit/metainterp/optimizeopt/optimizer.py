@@ -125,6 +125,12 @@ class OptValue(object):
         return self.box
 
     def force_at_end_of_preamble(self, already_forced, optforce):
+        if optforce.optimizer.kill_consts_at_end_of_preamble and self.is_constant():
+            constbox = self.box
+            box = constbox.clonebox()
+            op = ResOperation(rop.SAME_AS, [constbox], box)
+            optforce.optimizer._newoperations.append(op)
+            return OptValue(box)
         return self
 
     def get_args_for_fail(self, modifier):
@@ -352,6 +358,7 @@ class Optimizer(Optimization):
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
+        self.kill_consts_at_end_of_preamble = False
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 

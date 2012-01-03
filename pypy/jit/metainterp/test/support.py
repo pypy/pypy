@@ -172,7 +172,8 @@ class JitMixin:
 
     def check_target_token_count(self, count):
         tokens = get_stats().get_all_jitcell_tokens()
-        n = sum ([len(t.target_tokens) for t in tokens])
+        n = sum ([len(t.target_tokens) for t in tokens
+                  if t.target_tokens])
         assert n == count
 
     def check_enter_count(self, count):
