@@ -1001,7 +1001,7 @@ class ForceOpAssembler(object):
         self.mc.cror(2, 1, 2)
         self.mc.free_scratch_reg()
 
-        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.EQ)
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
