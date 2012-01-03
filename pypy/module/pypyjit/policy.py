@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.jit.metainterp.jitprof import counter_names
 
 class PyPyPortal(JitPortal):
-    def on_abort(self, reason):
+    def on_abort(self, reason, jitdriver, greenkey):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
