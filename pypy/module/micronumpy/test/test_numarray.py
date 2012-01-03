@@ -191,8 +191,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         x = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
         assert x.ndim == 3
         # numpy actually raises an AttributeError, but numpypy raises an
-        # AttributeError
-        raises (TypeError, 'x.ndim = 3')
+        # TypeError
+        raises(TypeError, 'x.ndim = 3')
 
     def test_init(self):
         from numpypy import zeros
