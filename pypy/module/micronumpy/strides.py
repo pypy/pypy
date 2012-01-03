@@ -1,4 +1,9 @@
+from pypy.rlib import jit
 
+
+@jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
+    jit.isconstant(len(chunks))
+)
 def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     rstrides = []
     rbackstrides = []

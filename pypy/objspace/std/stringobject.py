@@ -537,7 +537,7 @@ def _string_replace(space, input, sub, by, maxsplit):
         builder.append(by)
         builder.append_slice(input, upper, len(input))
     else:
-        # An ok guess for the result size
+        # First compute the exact result size
         count = input.count(sub)
         if count > maxsplit and maxsplit > 0:
             count = maxsplit
@@ -553,21 +553,16 @@ def _string_replace(space, input, sub, by, maxsplit):
         builder = StringBuilder(result_size)
         start = 0
         sublen = len(sub)
-        first = True
 
         while maxsplit != 0:
             next = input.find(sub, start)
             if next < 0:
                 break
-            if not first:
-                builder.append(by)
-            first = False
             builder.append_slice(input, start, next)
+            builder.append(by)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-        if not first:
-            builder.append(by)
         builder.append_slice(input, start, len(input))
 
     return space.wrap(builder.build())

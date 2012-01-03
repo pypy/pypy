@@ -420,8 +420,8 @@ class TestX86(LLtypeBackendTest):
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset
-        # getfield_raw/int_add/setfield_raw + ops + None
-        assert len(ops_offset) == 3 + len(operations) + 1
+        # 2*(getfield_raw/int_add/setfield_raw) + ops + None
+        assert len(ops_offset) == 2*3 + len(operations) + 1
         assert (ops_offset[operations[0]] <=
                 ops_offset[operations[1]] <=
                 ops_offset[operations[2]] <=
@@ -546,13 +546,16 @@ class TestDebuggingAssembler(object):
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 1
             struct = self.cpu.assembler.loop_run_counters[1]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
             assert struct.i == 9
             self.cpu.finish_once()
         finally:
             debug._log = None
+        l0 = ('debug_print', 'entry -1:1')
         l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
         l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
-        assert ('jit-backend-counts', [l1, l2]) in dlog
+        assert ('jit-backend-counts', [l0, l1, l2]) in dlog
 
     def test_debugger_checksum(self):
         loop = """

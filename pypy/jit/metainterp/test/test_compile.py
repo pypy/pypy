@@ -18,7 +18,7 @@ class FakeCPU(object):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         pass
 
     def repr_of_resop(self, op):
