@@ -449,23 +449,6 @@ class JitDriver(object):
         # special-cased by ExtRegistryEntry
         pass
 
-    def on_compile(self, logger, looptoken, operations, type, *greenargs):
-        """ A hook called when loop is compiled. Overwrite
-        for your own jitdriver if you want to do something special, like
-        call applevel code
-        """
-
-    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
-        """ A hook called when a bridge is compiled. Overwrite
-        for your own jitdriver if you want to do something special
-        """
-
-    # note: if you overwrite this functions with the above signature it'll
-    #       work, but the *greenargs is different for each jitdriver, so we
-    #       can't share the same methods
-    del on_compile
-    del on_compile_bridge
-
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
         # used as methods of a frozen object, but we can attach the
@@ -753,6 +736,32 @@ class JitPortal(object):
     An instance of this class might be returned by the policy.get_jit_portal
     method in order to function.
     """
+    def on_abort(self, reason, jitdriver, greenkey):
+        """ A hook called each time a loop is aborted with jitdriver and
+        greenkey where it started, reason is a string why it got aborted
+        """
+
+    def on_compile(self, jitdriver, logger, looptoken, operations, greenkey,
+                   asmaddr, asmlen):
+        """ A hook called when loop is compiled. Overwrite
+        for your own jitdriver if you want to do something special, like
+        call applevel code.
+
+        jitdriver - an instance of jitdriver where tracing started
+        logger - an instance of jit.metainterp.logger.LogOperations
+        asmaddr - (int) raw address of assembler block
+        asmlen - assembler block length
+        """
+
+    def on_compile_bridge(self, jitdriver, logger, orig_looptoken, operations,
+                          fail_descr_no, asmaddr, asmlen):
+        """ A hook called when a bridge is compiled. Overwrite
+        for your own jitdriver if you want to do something special
+        """
+
+    def get_stats(self):
+        """ Returns various statistics
+        """
 
 class Entry(ExtRegistryEntry):
     _about_ = record_known_class
