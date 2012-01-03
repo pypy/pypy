@@ -70,8 +70,8 @@ translation_optiondescription = OptionDescription(
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
-                     "boehm": [("translation.gctransformer", "boehm"),
-                               ("translation.continuation", False)],  # breaks
+                     "boehm": [("translation.continuation", False),  # breaks
+                               ("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
@@ -398,6 +398,10 @@ def set_opt_level(config, level):
     # list_comprehension_operations is needed for translation, because
     # make_sure_not_resized often relies on it, so we always enable them
     config.translation.suggest(list_comprehension_operations=True)
+
+    # finally, make the choice of the gc definitive.  This will fail
+    # if we have specified strange inconsistent settings.
+    config.translation.gc = config.translation.gc
 
 # ----------------------------------------------------------------
 

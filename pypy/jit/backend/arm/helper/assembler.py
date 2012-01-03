@@ -29,7 +29,7 @@ def gen_emit_guard_unary_cmp(name, true_cond):
         guard_opnum = guard.getopnum()
         if guard_opnum == rop.GUARD_FALSE:
             cond = false_cond
-        return self._emit_guard(guard, arglocs[1:], cond)
+        return self._emit_guard(guard, arglocs[1:], cond, save_exc=False)
     f.__name__ = 'emit_guard_%s' % name
     return f
 
@@ -92,7 +92,7 @@ def gen_emit_cmp_op_guard(name, true_cond):
         cond = true_cond
         if guard_opnum == rop.GUARD_FALSE:
             cond = false_cond
-        return self._emit_guard(guard, arglocs[2:], cond)
+        return self._emit_guard(guard, arglocs[2:], cond, save_exc=False)
     f.__name__ = 'emit_guard_%s' % name
     return f
 
@@ -137,7 +137,7 @@ def gen_emit_float_cmp_op_guard(name, true_cond):
         guard_opnum = guard.getopnum()
         if guard_opnum == rop.GUARD_FALSE:
             cond = false_cond
-        return self._emit_guard(guard, arglocs[2:], cond)
+        return self._emit_guard(guard, arglocs[2:], cond, save_exc=False)
     f.__name__ = 'emit_guard_%s' % name
     return f
 

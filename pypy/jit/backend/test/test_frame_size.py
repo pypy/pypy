@@ -87,7 +87,7 @@ class TestFrameSize(object):
         """ 
         large = self.interpret(large_frame_loop, range(15), run=False)
         self.namespace['looptoken'] = large.token
-        assert self.namespace['looptoken']._arm_bootstrap_code != 0
+        assert self.namespace['looptoken']._arm_func_addr != 0
         small_frame_loop = """
         [i0]
         i1 = int_add(i0, 1)

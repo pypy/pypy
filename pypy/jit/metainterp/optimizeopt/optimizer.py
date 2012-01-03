@@ -348,6 +348,7 @@ class Optimizer(Optimization):
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
+        self.seen_results = {}
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
@@ -452,6 +453,7 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
+        self.seen_results = {}
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
@@ -499,8 +501,9 @@ class Optimizer(Optimization):
         else:
             return CVAL_ZERO
 
-    def propagate_all_forward(self):
-        self.clear_newoperations()
+    def propagate_all_forward(self, clear=True):
+        if clear:
+            self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
@@ -542,6 +545,10 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        if op.result:
+            if op.result in self.seen_results:
+                raise ValueError, "invalid optimization"
+            self.seen_results[op.result] = None
         self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):
@@ -559,9 +566,12 @@ class Optimizer(Optimization):
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values, self.pendingfields)
-        if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
-            compile.giveup()
+        try:
+            newboxes = modifier.finish(self.values, self.pendingfields)
+            if len(newboxes) > self.metainterp_sd.options.failargs_limit:
+                raise resume.TagOverflow
+        except resume.TagOverflow:
+            raise compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
         if op.getopnum() == rop.GUARD_VALUE:

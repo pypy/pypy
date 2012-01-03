@@ -495,7 +495,8 @@ class AppTestStringObject:
         assert "".join([]) == ""
         assert "-".join(['a', 'b']) == 'a-b'
         text = 'text'
-        assert "".join([text]) is text
+        assert "".join([text]) == text
+        assert " -- ".join([text]) is text
         raises(TypeError, ''.join, 1)
         raises(TypeError, ''.join, [1])
         raises(TypeError, ''.join, [[1]])
@@ -735,13 +736,6 @@ class AppTestStringObject:
     def test_no_len_on_str_iter(self):
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
-
-    def test_overflow_replace(self):
-        import sys
-        if sys.maxint > 2**31-1:
-            skip("Wrong platform")
-        x = "A" * (2**16)
-        raises(OverflowError, x.replace, '', x)
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):

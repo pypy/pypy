@@ -2,13 +2,15 @@ import pypyjit
 pypyjit.set_param(threshold=200)
 
 
+def g(*args):
+    return len(args)
+
 def f(n):
-    pairs = [(0.0, 1.0), (2.0, 3.0)] * n
-    mag = 0
-    for (x1, x2) in pairs:
-        dx = x1 - x2
-        mag += ((dx * dx ) ** (-1.5))            
-    return n
+    s = 0
+    for i in range(n):
+        l = [i, n, 2]
+        s += g(*l)
+    return s
 
 try:
     print f(301)

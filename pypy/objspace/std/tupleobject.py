@@ -10,7 +10,16 @@ from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
 class W_AbstractTupleObject(W_Object):
-    pass
+    __slots__ = ()
+
+    def tolist(self):
+        "Returns the items, as a fixed-size list."
+        raise NotImplementedError
+
+    def getitems_copy(self):
+        "Returns a copy of the items, as a resizable list."
+        raise NotImplementedError
+
 
 class W_TupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
@@ -28,6 +37,12 @@ class W_TupleObject(W_AbstractTupleObject):
     def unwrap(w_tuple, space):
         items = [space.unwrap(w_item) for w_item in w_tuple.wrappeditems]
         return tuple(items)
+
+    def tolist(self):
+        return self.wrappeditems
+
+    def getitems_copy(self):
+        return self.wrappeditems[:]   # returns a resizable list
 
 registerimplementation(W_TupleObject)
 

@@ -412,7 +412,12 @@ class UnixConsole(Console):
                    e.args[4] == 'unexpected end of data':
                 pass
             else:
-                raise
+                # was: "raise".  But it crashes pyrepl, and by extension the
+                # pypy currently running, in which we are e.g. in the middle
+                # of some debugging session.  Argh.  Instead just print an
+                # error message to stderr and continue running, for now.
+                self.partial_char = ''
+                sys.stderr.write('\n%s: %s\n' % (e.__class__.__name__, e))
         else:
             self.partial_char = ''
             self.event_queue.push(c)

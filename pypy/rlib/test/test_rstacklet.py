@@ -1,4 +1,4 @@
-import gc
+import gc, sys
 import py
 from pypy.rpython.tool.rffi_platform import CompilationError
 try:
@@ -64,6 +64,15 @@ class Runner:
         while self.status < self.STATUSMAX or self.any_alive():
             self.tasks[0].withdepth(self.random.genrand32() % 50)
             assert len(self.tasks[0].lst) == 0
+
+    @here_is_a_test
+    def test_destroy(self):
+        # this used to give MemoryError in shadowstack tests
+        for i in range(100000):
+            self.status = 0
+            h = self.sthread.new(switchbackonce_callback,
+                                 rffi.cast(llmemory.Address, 321))
+            self.sthread.destroy(h)
 
     def any_alive(self):
         for task in self.tasks:
@@ -228,6 +237,8 @@ class BaseTestStacklet(StandaloneTests):
         cls.old_values = Runner.config, Runner.STATUSMAX
         Runner.config = config
         Runner.STATUSMAX = 25000
+        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
+            py.test.skip("fails with asmgcc on win32")
 
     def teardown_class(cls):
         Runner.config, Runner.STATUSMAX = cls.old_values

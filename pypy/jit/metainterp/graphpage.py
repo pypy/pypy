@@ -12,30 +12,32 @@ class SubGraph:
     def get_display_text(self):
         return None
 
-def display_loops(loops, errmsg=None, highlight_loops={}):
-    graphs = [(loop, highlight_loops.get(loop, 0)) for loop in loops]    
+def display_procedures(procedures, errmsg=None, highlight_procedures={}, metainterp_sd=None):
+    graphs = [(procedure, highlight_procedures.get(procedure, 0))
+              for procedure in procedures]
     for graph, highlight in graphs:
         for op in graph.get_operations():
             if is_interesting_guard(op):
                 graphs.append((SubGraph(op.getdescr()._debug_suboperations),
                                highlight))
-    graphpage = ResOpGraphPage(graphs, errmsg)
+    graphpage = ResOpGraphPage(graphs, errmsg, metainterp_sd)
     graphpage.display()
 
 def is_interesting_guard(op):
     return hasattr(op.getdescr(), '_debug_suboperations')
 
+def getdescr(op):
+    if op._descr is not None:
+        return op._descr
+    if hasattr(op, '_descr_wref'):
+        return op._descr_wref()
+    return None
+
 
 class ResOpGraphPage(GraphPage):
 
-    def compute(self, graphs, errmsg=None):
-        resopgen = ResOpGen()
-        for graph, highlight in graphs:
-            if getattr(graph, 'token', None) is not None:
-                resopgen.jumps_to_graphs[graph.token] = graph
-            if getattr(graph, '_looptoken_number', None) is not None:
-                resopgen.jumps_to_graphs[graph._looptoken_number] = graph
-        
+    def compute(self, graphs, errmsg=None, metainterp_sd=None):
+        resopgen = ResOpGen(metainterp_sd)
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
         if errmsg:
@@ -48,13 +50,14 @@ class ResOpGen(object):
     CLUSTERING = True
     BOX_COLOR = (128, 0, 96)
 
-    def __init__(self):
+    def __init__(self, metainterp_sd=None):
         self.graphs = []
         self.highlight_graphs = {}
         self.block_starters = {}    # {graphindex: {set-of-operation-indices}}
         self.all_operations = {}
         self.errmsg = None
-        self.jumps_to_graphs = {}
+        self.target_tokens = {}
+        self.metainterp_sd = metainterp_sd
 
     def op_name(self, graphindex, opindex):
         return 'g%dop%d' % (graphindex, opindex)
@@ -73,16 +76,21 @@ class ResOpGen(object):
         for graphindex in range(len(self.graphs)):
             self.block_starters[graphindex] = {0: True}
         for graphindex, graph in enumerate(self.graphs):
-            last_was_mergepoint = False
+            mergepointblock = None
             for i, op in enumerate(graph.get_operations()):
                 if is_interesting_guard(op):
                     self.mark_starter(graphindex, i+1)
                 if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                    if not last_was_mergepoint:
-                        last_was_mergepoint = True
-                        self.mark_starter(graphindex, i)
+                    if mergepointblock is None:
+                        mergepointblock = i
+                elif op.getopnum() == rop.LABEL:
+                    self.mark_starter(graphindex, i)
+                    self.target_tokens[getdescr(op)] = (graphindex, i)
+                    mergepointblock = i
                 else:
-                    last_was_mergepoint = False
+                    if mergepointblock is not None:
+                        self.mark_starter(graphindex, mergepointblock)
+                        mergepointblock = None
 
     def set_errmsg(self, errmsg):
         self.errmsg = errmsg
@@ -157,7 +165,14 @@ class ResOpGen(object):
         opindex = opstartindex
         while True:
             op = operations[opindex]
-            lines.append(op.repr(graytext=True))
+            op_repr = op.repr(graytext=True)
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
+                if jd_sd._get_printable_location_ptr:
+                    s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+                    s = s.replace(',', '.') # we use comma for argument splitting
+                    op_repr = "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
+            lines.append(op_repr)
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]
@@ -172,24 +187,10 @@ class ResOpGen(object):
                              (graphindex, opindex))
                 break
         if op.getopnum() == rop.JUMP:
-            tgt_g = -1
-            tgt = None
-            tgt_number = getattr(op, '_jumptarget_number', None)
-            if tgt_number is not None:
-                tgt = self.jumps_to_graphs.get(tgt_number)
-            else:
-                tgt_descr = op.getdescr()
-                if tgt_descr is None:
-                    tgt_g = graphindex
-                else:
-                    tgt = self.jumps_to_graphs.get(tgt_descr.number)
-                    if tgt is None:
-                        tgt = self.jumps_to_graphs.get(tgt_descr)
-            if tgt is not None:
-                tgt_g = self.graphs.index(tgt)
-            if tgt_g != -1:
+            tgt_descr = getdescr(op)
+            if tgt_descr is not None and tgt_descr in self.target_tokens:
                 self.genedge((graphindex, opstartindex),
-                             (tgt_g, 0),
+                             self.target_tokens[tgt_descr],
                              weight="0")
         lines.append("")
         label = "\\l".join(lines)

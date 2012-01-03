@@ -48,6 +48,8 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
+    OS_LIBFFI_GETARRAYITEM      = 63
+    OS_LIBFFI_SETARRAYITEM      = 64
     #
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
@@ -239,12 +241,15 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
         return op.opname == 'jit_force_quasi_immutable'
 
 class RandomEffectsAnalyzer(BoolGraphAnalyzer):
-    def analyze_direct_call(self, graph, seen=None):
-        if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
-            if graph.func._ptr._obj.random_effects_on_gcobjs:
+    def analyze_external_call(self, op, seen=None):
+        try:
+            funcobj = op.args[0].value._obj
+            if funcobj.random_effects_on_gcobjs:
                 return True
-        return super(RandomEffectsAnalyzer, self).analyze_direct_call(graph,
-                                                                      seen)
+        except (AttributeError, lltype.DelayedPointer):
+            return True   # better safe than sorry
+        return super(RandomEffectsAnalyzer, self).analyze_external_call(
+            op, seen)
 
     def analyze_simple_operation(self, op, graphinfo):
         return False

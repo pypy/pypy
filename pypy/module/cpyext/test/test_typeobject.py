@@ -397,3 +397,31 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             def __str__(self):
                 return "text"
         assert module.tp_str(C()) == "text"
+
+    def test_mp_ass_subscript(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static int
+            mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
+            {
+                PyErr_SetNone(PyExc_ZeroDivisionError);
+                return -1;
+            }
+            PyMappingMethods tp_as_mapping;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.new_obj()
+        raises(ZeroDivisionError, obj.__setitem__, 5, None)

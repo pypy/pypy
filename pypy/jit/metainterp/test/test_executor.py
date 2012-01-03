@@ -18,7 +18,7 @@ class FakeDescr(AbstractDescr):
     pass
 
 class FakeCallDescr(FakeDescr):
-    def get_return_type(self):
+    def get_result_type(self):
         return history.FLOAT
 
 class FakeFieldDescr(FakeDescr):

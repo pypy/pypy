@@ -14,16 +14,14 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
+_ARM = platform.machine().startswith('arm')
+_PPC = platform.machine().startswith('ppc')
 
 class RValueError(Exception):
     def __init__(self, message):
         self.message = message
 
 class RTypeError(Exception):
-    def __init__(self, message):
-        self.message = message
-
-class ROverflowError(Exception):
     def __init__(self, message):
         self.message = message
 
@@ -116,7 +114,11 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
     has_mremap = cConfig['has_mremap']
-    c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
+    if _ARM or _PPC:
+        funcname = 'mmap64'
+    else:
+        funcname = 'mmap'
+    c_mmap, c_mmap_safe = external(funcname, [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
@@ -424,7 +426,11 @@ class MMap(object):
                 low, high = _get_file_size(self.file_handle)
                 if not high and low <= sys.maxint:
                     return low
+                # not so sure if the signed/unsigned strictness is a good idea:
+                high = rffi.cast(lltype.Unsigned, high)
+                low = rffi.cast(lltype.Unsigned, low)
                 size = (high << 32) + low
+                size = rffi.cast(lltype.Signed, size)
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
@@ -597,8 +603,6 @@ class MMap(object):
 def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
-    if rffi.cast(size_t, size) != size:
-        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,

@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext, operation, specialcase
@@ -95,6 +96,12 @@ class FlowObjSpace(ObjSpace):
     def leave_cache_building_mode(self, previous_recorder):
         self.executioncontext.recorder = previous_recorder
         self.concrete_mode -= 1
+
+    def is_w(self, w_one, w_two):
+        return self.is_true(self.is_(w_one, w_two))
+
+    is_ = None     # real version added by add_operations()
+    id  = None     # real version added by add_operations()
 
     def newdict(self):
         if self.concrete_mode:
@@ -241,15 +248,13 @@ class FlowObjSpace(ObjSpace):
                 return ecls
         return None
 
-    def build_flow(self, func, constargs={}):
+    def build_flow(self, func, constargs={}, tweak_for_generator=True):
         """
         """
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         code = func.func_code
-        if code.co_flags & 32:
-            # generator
-            raise TypeError("%r is a generator" % (func,))
+        is_generator = bool(code.co_flags & CO_GENERATOR)
         code = PyCode._from_code(self, code)
         if func.func_closure is None:
             cl = None
@@ -265,7 +270,8 @@ class FlowObjSpace(ObjSpace):
         class outerfunc: # hack
             closure = cl
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, outerfunc, name)
+                                              constargs, outerfunc, name,
+                                              is_generator)
         graph = ec.graph
         graph.func = func
         # attach a signature and defaults to the graph
@@ -285,6 +291,11 @@ class FlowObjSpace(ObjSpace):
             e = error.FlowingError(formated)
             raise error.FlowingError, e, tb
         checkgraph(graph)
+        #
+        if is_generator and tweak_for_generator:
+            from pypy.translator.generator import tweak_generator_graph
+            tweak_generator_graph(graph)
+        #
         return graph
 
     def fixedview(self, w_tuple, expected_length=None):

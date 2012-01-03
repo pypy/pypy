@@ -1,5 +1,7 @@
 from pypy.jit.backend.arm import conditions as cond
 from pypy.jit.backend.arm import instructions
+
+
 # move table lookup out of generated functions
 def define_load_store_func(name, table):
     n = (0x1 << 26
@@ -13,6 +15,7 @@ def define_load_store_func(name, table):
     rncond = ('rn' in table and table['rn'] == '!0xF')
     if table['imm']:
         assert not b_zero
+
         def f(self, rt, rn, imm=0, cond=cond.AL):
             assert not (rncond and rn == 0xF)
             p = 1
@@ -20,7 +23,7 @@ def define_load_store_func(name, table):
             u, imm = self._encode_imm(imm)
             instr = (n
                     | cond << 28
-                    | (p & 0x1) <<  24
+                    | (p & 0x1) << 24
                     | (u & 0x1) << 23
                     | (w & 0x1) << 21
                     | imm_operation(rt, rn, imm))
@@ -34,7 +37,7 @@ def define_load_store_func(name, table):
             u, imm = self._encode_imm(imm)
             instr = (n
                     | cond << 28
-                    | (p & 0x1) <<  24
+                    | (p & 0x1) << 24
                     | (u & 0x1) << 23
                     | (w & 0x1) << 21
                     | reg_operation(rt, rn, rm, imm, s, shifttype))
@@ -43,6 +46,7 @@ def define_load_store_func(name, table):
             assert instr & 0x1F00000 != op1cond
             self.write32(instr)
     return f
+
 
 def define_extra_load_store_func(name, table):
     def check_registers(r1, r2):
@@ -57,7 +61,7 @@ def define_extra_load_store_func(name, table):
     p = 1
     w = 0
     rncond = ('rn' in table and table['rn'] == '!0xF')
-    dual =  (name[-4] == 'D')
+    dual = (name[-4] == 'D')
 
     if dual:
         if name[-2:] == 'rr':
@@ -114,6 +118,7 @@ def define_extra_load_store_func(name, table):
                         | (imm & 0xF))
     return f
 
+
 def define_data_proc_imm_func(name, table):
     n = (0x1 << 25
         | (table['op'] & 0x1F) << 20)
@@ -138,6 +143,7 @@ def define_data_proc_imm_func(name, table):
                 | s << 20
                 | imm_operation(0, rn, imm))
     return imm_func
+
 
 def define_data_proc_func(name, table):
     n = ((table['op1'] & 0x1F) << 20
@@ -175,6 +181,7 @@ def define_data_proc_func(name, table):
                         | reg_operation(rd, rn, rm, imm, s, shifttype))
     return f
 
+
 def define_data_proc_reg_shift_reg_func(name, table):
     n = ((0x1 << 4) | (table['op1'] & 0x1F) << 20 | (table['op2'] & 0x3) << 5)
     if 'result' in table and not table['result']:
@@ -211,8 +218,10 @@ def define_data_proc_reg_shift_reg_func(name, table):
                         | (rn & 0xF))
     return f
 
+
 def define_supervisor_and_coproc_func(name, table):
     n = (0x3 << 26 | (table['op1'] & 0x3F) << 20 | (table['op'] & 0x1) << 4)
+
     def f(self, coproc, opc1, rt, crn, crm, opc2=0, cond=cond.AL):
         self.write32(n
                     | cond << 28
@@ -223,6 +232,7 @@ def define_supervisor_and_coproc_func(name, table):
                     | (opc2 & 0x7) << 5
                     | (crm & 0xF))
     return f
+
 
 def define_multiply_func(name, table):
     n = (table['op'] & 0xF) << 20 | 0x9 << 4
@@ -246,14 +256,14 @@ def define_multiply_func(name, table):
                             | (rn & 0xF))
 
     elif 'long' in table and table['long']:
-       def f(self, rdlo, rdhi, rn, rm, cond=cond.AL):
+        def f(self, rdlo, rdhi, rn, rm, cond=cond.AL):
             assert rdhi != rdlo
             self.write32(n
-                        | cond << 28
-                        | (rdhi & 0xF) << 16
-                        | (rdlo & 0xF) << 12
-                        | (rm & 0xF) << 8
-                        | (rn & 0xF))
+                    | cond << 28
+                    | (rdhi & 0xF) << 16
+                    | (rdlo & 0xF) << 12
+                    | (rm & 0xF) << 8
+                    | (rn & 0xF))
     else:
         def f(self, rd, rn, rm, cond=cond.AL, s=0):
             self.write32(n
@@ -265,8 +275,10 @@ def define_multiply_func(name, table):
 
     return f
 
+
 def define_block_data_func(name, table):
     n = (table['op'] & 0x3F) << 20
+
     def f(self, rn, regs, w=0, cond=cond.AL):
         # no R bit for now at bit 15
         instr = (n
@@ -278,6 +290,8 @@ def define_block_data_func(name, table):
         self.write32(instr)
 
     return f
+
+
 def define_float_load_store_func(name, table):
     n = (0x3 << 26
         | (table['opcode'] & 0x1F) << 20
@@ -288,9 +302,9 @@ def define_float_load_store_func(name, table):
     # the value actually encoded is imm / 4
     def f(self, dd, rn, imm=0, cond=cond.AL):
         assert imm % 4 == 0
-        imm = imm/4
+        imm = imm / 4
         u, imm = self._encode_imm(imm)
-        instr = ( n
+        instr = (n
                 | (cond & 0xF) << 28
                 | (u & 0x1) << 23
                 | (rn & 0xF) << 16
@@ -299,10 +313,11 @@ def define_float_load_store_func(name, table):
         self.write32(instr)
     return f
 
+
 def define_float64_data_proc_instructions_func(name, table):
     n = (0xE << 24
         | 0x5 << 9
-        | 0x1 << 8 # 64 bit flag
+        | 0x1 << 8  # 64 bit flag
         | (table['opc3'] & 0x3) << 6)
 
     if 'opc1' in table:
@@ -335,10 +350,12 @@ def define_float64_data_proc_instructions_func(name, table):
             self.write32(instr)
     return f
 
+
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
     | (rt & 0xFF) << 12
     | (imm & 0xFFF))
+
 
 def reg_operation(rt, rn, rm, imm, s, shifttype):
     return ((s & 0x1) << 20
@@ -348,9 +365,11 @@ def reg_operation(rt, rn, rm, imm, s, shifttype):
             | (shifttype & 0x3) << 5
             | (rm & 0xF))
 
+
 def define_instruction(builder, key, val, target):
     f = builder(key, val)
     setattr(target, key, f)
+
 
 def define_instructions(target):
     inss = [k for k in instructions.__dict__.keys() if not k.startswith('__')]

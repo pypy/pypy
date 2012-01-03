@@ -4,13 +4,15 @@ from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.vstring import OptString
-from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
+from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure
 from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
+
 
 ALL_OPTS = [('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
@@ -28,8 +30,7 @@ ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 ALL_OPTS_LIST = [name for name, _ in ALL_OPTS]
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 
-def build_opt_chain(metainterp_sd, enable_opts,
-                    inline_short_preamble=True, retraced=False):
+def build_opt_chain(metainterp_sd, enable_opts):
     config = metainterp_sd.config
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
@@ -45,38 +46,28 @@ def build_opt_chain(metainterp_sd, enable_opts,
                 optimizations.append(OptFfiCall())
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts):
+        or 'heap' not in enable_opts or 'unroll' not in enable_opts):
         optimizations.append(OptSimplify())
-
-    if inline_short_preamble:
-        optimizations = [OptInlineShortPreamble(retraced)] + optimizations
 
     return optimizations, unroll
 
-
-def optimize_loop_1(metainterp_sd, loop, enable_opts,
-                    inline_short_preamble=True, retraced=False):
+def optimize_trace(metainterp_sd, loop, enable_opts, inline_short_preamble=True):
     """Optimize loop.operations to remove internal overheadish operations.
     """
 
-    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts,
-                                            inline_short_preamble, retraced)
-    if unroll:
-        optimize_unroll(metainterp_sd, loop, optimizations)
-    else:
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
-        optimizer.propagate_all_forward()
-
-def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
-                      inline_short_preamble=True, retraced=False):
-    """The same, but for a bridge. """
-    enable_opts = enable_opts.copy()
+    debug_start("jit-optimize")
     try:
-        del enable_opts['unroll']
-    except KeyError:
-        pass
-    optimize_loop_1(metainterp_sd, bridge, enable_opts,
-                    inline_short_preamble, retraced)
-
+        loop.logops = metainterp_sd.logger_noopt.log_loop(loop.inputargs,
+                                                          loop.operations)
+        optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
+        if unroll:
+            optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble)
+        else:
+            optimizer = Optimizer(metainterp_sd, loop, optimizations)
+            optimizer.propagate_all_forward()
+    finally:
+        debug_stop("jit-optimize")
+        
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
+

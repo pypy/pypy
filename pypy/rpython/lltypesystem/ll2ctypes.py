@@ -112,7 +112,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_long),
+        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_byte),
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -1024,9 +1024,6 @@ def get_ctypes_callable(funcptr, calling_conv):
 
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
-    #XXX Fix this, hack for ARM
-    if funcname == 'mmap':
-        funcname = 'mmap64'
     if hasattr(old_eci, '_with_ctypes'):
         old_eci = old_eci._with_ctypes
 

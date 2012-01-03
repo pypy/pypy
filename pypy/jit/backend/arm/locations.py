@@ -1,5 +1,7 @@
-from pypy.jit.metainterp.history import INT, FLOAT, REF
+from pypy.jit.metainterp.history import INT, FLOAT
 from pypy.jit.backend.arm.arch import WORD
+
+
 class AssemblerLocation(object):
     _immutable_ = True
     type = INT
@@ -22,6 +24,7 @@ class AssemblerLocation(object):
     def as_key(self):
         raise NotImplementedError
 
+
 class RegisterLocation(AssemblerLocation):
     _immutable_ = True
     width = WORD
@@ -38,13 +41,15 @@ class RegisterLocation(AssemblerLocation):
     def as_key(self):
         return self.value
 
+
 class VFPRegisterLocation(RegisterLocation):
     _immutable_ = True
-    type = FLOAT 
-    width = 2*WORD
+    type = FLOAT
+    width = 2 * WORD
 
     def get_single_precision_regs(self):
-        return [VFPRegisterLocation(i) for i in [self.value*2, self.value*2+1]]
+        return [VFPRegisterLocation(i) for i in
+                        [self.value * 2, self.value * 2 + 1]]
 
     def __repr__(self):
         return 'vfp%d' % self.value
@@ -58,10 +63,10 @@ class VFPRegisterLocation(RegisterLocation):
     def as_key(self):
         return self.value + 20
 
+
 class ImmLocation(AssemblerLocation):
     _immutable_ = True
     width = WORD
-
 
     def __init__(self, value):
         self.value = value
@@ -78,11 +83,12 @@ class ImmLocation(AssemblerLocation):
     def as_key(self):
         return self.value + 40
 
+
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
     the address stored in the field value"""
     _immutable_ = True
-    width = 2*WORD
+    width = 2 * WORD
     type = FLOAT
 
     def __init__(self, value):
@@ -99,6 +105,7 @@ class ConstFloatLoc(AssemblerLocation):
 
     def as_key(self):
         return -1 * self.value
+
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True
@@ -122,6 +129,7 @@ class StackLocation(AssemblerLocation):
 
     def as_key(self):
         return -self.position
+
 
 def imm(i):
     return ImmLocation(i)

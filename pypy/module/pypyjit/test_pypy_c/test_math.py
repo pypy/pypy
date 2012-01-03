@@ -23,13 +23,13 @@ class TestMath(BaseTestPyPyC):
             f1 = cast_int_to_float(i0)
             i3 = float_le(f1, 0)
             guard_false(i3, descr=...)
-            f2 = call(ConstClass(log), f1, descr=<FloatCallDescr>)
-            f3 = call(ConstClass(log10), f1, descr=<FloatCallDescr>)
+            f2 = call(ConstClass(log), f1, descr=<Callf . f EF=2>)
+            f3 = call(ConstClass(log10), f1, descr=<Callf . f EF=2>)
             f4 = float_sub(f2, f3)
             f5 = float_add(f0, f4)
             i4 = int_add(i0, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_sin_cos(self):
@@ -52,8 +52,8 @@ class TestMath(BaseTestPyPyC):
             f1 = cast_int_to_float(i0)
             i6 = --ISINF--(f1)
             guard_false(i6, descr=...)
-            f2 = call(ConstClass(sin), f1, descr=<FloatCallDescr>)
-            f3 = call(ConstClass(cos), f1, descr=<FloatCallDescr>)
+            f2 = call(ConstClass(sin), f1, descr=<Callf . f EF=2>)
+            f3 = call(ConstClass(cos), f1, descr=<Callf . f EF=2>)
             f4 = float_sub(f2, f3)
             f5 = float_add(f0, f4)
             i7 = int_add(i0, f1)
@@ -84,7 +84,7 @@ class TestMath(BaseTestPyPyC):
             i4 = int_or(i2, i3)
             i5 = int_is_true(i4)
             guard_false(i5, descr=...)
-            f2 = call(ConstClass(fmod), f1, 2.0, descr=<FloatCallDescr>)
+            f2 = call(ConstClass(fmod), f1, 2.0, descr=<Callf . ff EF=2>)
             f3 = float_add(f0, f2)
             i6 = int_sub(i0, 1)
             --TICK--

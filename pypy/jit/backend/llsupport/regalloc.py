@@ -1,3 +1,4 @@
+import os
 from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.resoperation import rop
@@ -16,31 +17,105 @@ class FrameManager(object):
     """ Manage frame positions
     """
     def __init__(self):
-        self.frame_bindings = {}
-        self.frame_depth    = 0
+        self.bindings = {}
+        self.used = []      # list of bools
+        self.hint_frame_locations = {}
+
+    frame_depth = property(lambda:xxx, lambda:xxx)   # XXX kill me
+
+    def get_frame_depth(self):
+        return len(self.used)
 
     def get(self, box):
-        return self.frame_bindings.get(box, None)
+        return self.bindings.get(box, None)
 
     def loc(self, box):
-        res = self.get(box)
-        if res is not None:
-            return res
+        """Return or create the frame location associated with 'box'."""
+        # first check if it's already in the frame_manager
+        try:
+            return self.bindings[box]
+        except KeyError:
+            pass
+        # check if we have a hint for this box
+        if box in self.hint_frame_locations:
+            # if we do, try to reuse the location for this box
+            loc = self.hint_frame_locations[box]
+            if self.try_to_reuse_location(box, loc):
+                return loc
+        # no valid hint.  make up a new free location
+        return self.get_new_loc(box)
+
+    def get_new_loc(self, box):
         size = self.frame_size(box.type)
-        self.frame_depth += ((-self.frame_depth) & (size-1))
-        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.frame_pos(self.frame_depth, box.type)
-        self.frame_bindings[box] = newloc
-        self.frame_depth += size
+        while self.get_frame_depth() & (size - 1):
+            self.used.append(False)
+        #
+        index = self.get_frame_depth()
+        newloc = self.frame_pos(index, box.type)
+        for i in range(size):
+            self.used.append(True)
+        #
+        if not we_are_translated():    # extra testing
+            testindex = self.get_loc_index(newloc)
+            assert testindex == index
+        #
+        self.bindings[box] = newloc
         return newloc
 
+    def set_binding(self, box, loc):
+        self.bindings[box] = loc
+        #
+        index = self.get_loc_index(loc)
+        if index < 0:
+            return
+        endindex = index + self.frame_size(box.type)
+        while len(self.used) < endindex:
+            self.used.append(False)
+        while index < endindex:
+            self.used[index] = True
+            index += 1
+
     def reserve_location_in_frame(self, size):
-        frame_depth = self.frame_depth
-        self.frame_depth += size
+        frame_depth = self.get_frame_depth()
+        for i in range(size):
+            self.used.append(True)
         return frame_depth
+
+    def mark_as_free(self, box):
+        try:
+            loc = self.bindings[box]
+        except KeyError:
+            return    # already gone
+        del self.bindings[box]
+        #
+        size = self.frame_size(box.type)
+        baseindex = self.get_loc_index(loc)
+        if baseindex < 0:
+            return
+        for i in range(size):
+            index = baseindex + i
+            assert 0 <= index < len(self.used)
+            self.used[index] = False
+
+    def try_to_reuse_location(self, box, loc):
+        index = self.get_loc_index(loc)
+        if index < 0:
+            return False
+        size = self.frame_size(box.type)
+        for i in range(size):
+            while (index + i) >= len(self.used):
+                self.used.append(False)
+            if self.used[index + i]:
+                return False    # already in use
+        # good, we can reuse the location
+        for i in range(size):
+            self.used[index + i] = True
+        self.bindings[box] = loc
+        return True
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
@@ -49,6 +124,10 @@ class FrameManager(object):
     @staticmethod
     def frame_size(type):
         return 1
+    @staticmethod
+    def get_loc_index(loc):
+        raise NotImplementedError("Purely abstract")
+
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -58,6 +137,7 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
+    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
@@ -68,7 +148,14 @@ class RegisterManager(object):
         self.frame_manager = frame_manager
         self.assembler = assembler
 
+    def is_still_alive(self, v):
+        # Check if 'v' is alive at the current position.
+        # Return False if the last usage is strictly before.
+        return self.longevity[v][1] >= self.position
+
     def stays_alive(self, v):
+        # Check if 'v' stays alive after the current position.
+        # Return False if the last usage is before or at position.
         return self.longevity[v][1] > self.position
 
     def next_instruction(self, incr=1):
@@ -84,11 +171,14 @@ class RegisterManager(object):
             point for all variables that might be in registers.
         """
         self._check_type(v)
-        if isinstance(v, Const) or v not in self.reg_bindings:
+        if isinstance(v, Const):
             return
         if v not in self.longevity or self.longevity[v][1] <= self.position:
-            self.free_regs.append(self.reg_bindings[v])
-            del self.reg_bindings[v]
+            if v in self.reg_bindings:
+                self.free_regs.append(self.reg_bindings[v])
+                del self.reg_bindings[v]
+            if self.frame_manager is not None:
+                self.frame_manager.mark_as_free(v)
 
     def possibly_free_vars(self, vars):
         """ Same as 'possibly_free_var', but for all v in vars.
@@ -100,6 +190,10 @@ class RegisterManager(object):
         for i in range(op.numargs()):
             self.possibly_free_var(op.getarg(i))
 
+    def free_temp_vars(self):
+        self.possibly_free_vars(self.temp_boxes)
+        self.temp_boxes = []
+
     def _check_invariants(self):
         if not we_are_translated():
             # make sure no duplicates
@@ -110,6 +204,7 @@ class RegisterManager(object):
             assert len(rev_regs) + len(self.free_regs) == len(self.all_regs)
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(self.all_regs)
+        assert len(self.temp_boxes) == 0
         if self.longevity:
             for v in self.reg_bindings:
                 assert self.longevity[v][1] > self.position
@@ -382,11 +477,21 @@ class RegisterManager(object):
         """
         raise NotImplementedError("Abstract")
 
+    def get_scratch_reg(self, forbidden_vars=[]):
+        """ Platform specific - Allocates a temporary register """
+        raise NotImplementedError("Abstract")
+
 def compute_vars_longevity(inputargs, operations):
     # compute a dictionary that maps variables to index in
     # operations that is a "last-time-seen"
+
+    # returns a pair longevity/useful. Non-useful variables are ones that
+    # never appear in the assembler or it does not matter if they appear on
+    # stack or in registers. Main example is loop arguments that go
+    # only to guard operations or to jump or to finish
     produced = {}
     last_used = {}
+    last_real_usage = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         if op.result:
@@ -394,10 +499,16 @@ def compute_vars_longevity(inputargs, operations):
                 continue
             assert op.result not in produced
             produced[op.result] = i
+        opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
-            if isinstance(arg, Box) and arg not in last_used:
+            if not isinstance(arg, Box):
+                continue
+            if arg not in last_used:
                 last_used[arg] = i
+            if opnum != rop.JUMP and opnum != rop.LABEL:
+                if arg not in last_real_usage:
+                    last_real_usage[arg] = i
         if op.is_guard():
             for arg in op.getfailargs():
                 if arg is None: # hole
@@ -405,7 +516,7 @@ def compute_vars_longevity(inputargs, operations):
                 assert isinstance(arg, Box)
                 if arg not in last_used:
                     last_used[arg] = i
-                    
+    #
     longevity = {}
     for arg in produced:
         if arg in last_used:
@@ -421,18 +532,17 @@ def compute_vars_longevity(inputargs, operations):
             longevity[arg] = (0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
-    return longevity
+    return longevity, last_real_usage
 
-
-def compute_loop_consts(inputargs, jump, looptoken):
-    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-        loop_consts = {}
-    else:
-        loop_consts = {}
-        for i in range(len(inputargs)):
-            if inputargs[i] is jump.getarg(i):
-                loop_consts[inputargs[i]] = i
-    return loop_consts
+def is_comparison_or_ovf_op(opnum):
+    from pypy.jit.metainterp.resoperation import opclasses
+    cls = opclasses[opnum]
+    # hack hack: in theory they are instance method, but they don't use
+    # any instance field, we can use a fake object
+    class Fake(cls):
+        pass
+    op = Fake(None)
+    return op.is_comparison() or op.is_ovf()
 
 
 def not_implemented(msg):

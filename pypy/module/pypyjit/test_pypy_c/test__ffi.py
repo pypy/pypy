@@ -35,7 +35,7 @@ class Test__ffi(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i17 = force_token()
             setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)
-            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<FloatCallDescr>)
+            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<Callf 8 ff EF=6>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """ % pow_addr)

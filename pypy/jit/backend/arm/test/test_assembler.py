@@ -1,8 +1,6 @@
-from pypy.jit.backend.arm import arch
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
-from pypy.jit.backend.arm.arch import WORD
-from pypy.jit.backend.arm.arch import arm_int_div, arm_int_div_sign
+from pypy.jit.backend.arm.arch import arm_int_div
 from pypy.jit.backend.arm.assembler import AssemblerARM
 from pypy.jit.backend.arm.locations import imm
 from pypy.jit.backend.arm.test.support import skip_unless_arm, run_asm
@@ -10,21 +8,21 @@ from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.metainterp.resoperation import rop
 
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.jit.metainterp.history import LoopToken
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.jit.backend.model import CompiledLoopToken
 
 skip_unless_arm()
 
 CPU = getcpuclass()
+
+
 class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)
-        #lp = LoopToken()
-        #lp.compiled_loop_token = CompiledLoopToken(cpu, None)
         self.a = AssemblerARM(cpu)
         self.a.setup_once()
-        token = LoopToken()
+        token = JitCellToken()
         clt = CompiledLoopToken(cpu, 0)
         clt.allgcrefs = []
         token.compiled_loop_token = clt
@@ -33,7 +31,8 @@ class TestRunningAssembler(object):
     def test_make_operation_list(self):
         i = rop.INT_ADD
         from pypy.jit.backend.arm import assembler
-        assert assembler.asm_operations[i] is AssemblerARM.emit_op_int_add.im_func
+        assert assembler.asm_operations[i] \
+            is AssemblerARM.emit_op_int_add.im_func
 
     def test_load_small_int_to_reg(self):
         self.a.gen_func_prolog()
@@ -77,7 +76,6 @@ class TestRunningAssembler(object):
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 464
 
-
     def test_or(self):
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r1.value, 8)
@@ -115,7 +113,7 @@ class TestRunningAssembler(object):
         self.a.gen_func_prolog()
         self.a.mc.MOV_ri(r.r1.value, 1)
         loop_head = self.a.mc.currpos()
-        self.a.mc.CMP_ri(r.r1.value, 0) # z=0, z=1
+        self.a.mc.CMP_ri(r.r1.value, 0)  # z=0, z=1
         self.a.mc.MOV_ri(r.r1.value, 0, cond=c.NE)
         self.a.mc.MOV_ri(r.r1.value, 7, cond=c.EQ)
         self.a.mc.B_offs(loop_head, c.NE)
@@ -143,7 +141,8 @@ class TestRunningAssembler(object):
         self.a.mc.MOV_ri(r.r0.value, 123, cond=c.NE)
 
         for x in range(15):
-            self.a.mc.POP([reg.value for reg in r.callee_restored_registers], cond=c.NE)
+            self.a.mc.POP(
+                [reg.value for reg in r.callee_restored_registers], cond=c.NE)
 
         self.a.mc.MOV_ri(r.r1.value, 33)
         self.a.mc.MOV_ri(r.r0.value, 23)
@@ -160,7 +159,8 @@ class TestRunningAssembler(object):
         self.a.mc.MOV_ri(r.r0.value, 123, cond=c.NE)
 
         for x in range(100):
-            self.a.mc.POP([reg.value for reg in r.callee_restored_registers], cond=c.NE)
+            self.a.mc.POP(
+                [reg.value for reg in r.callee_restored_registers], cond=c.NE)
 
         self.a.mc.MOV_ri(r.r1.value, 33)
         self.a.mc.MOV_ri(r.r0.value, 23)
@@ -216,7 +216,6 @@ class TestRunningAssembler(object):
         self.a.gen_func_epilog()
         assert run_asm(self.a) == -36
 
-
     def test_bl_with_conditional_exec(self):
         functype = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, callme))
@@ -240,7 +239,7 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 2478
 
     def test_load_store(self):
-        x =  0x60002224
+        x = 0x60002224
         self.a.gen_func_prolog()
         self.a.mc.gen_load_int(r.r1.value, x)
         self.a.mc.MOV_ri(r.r3.value, 8)
@@ -249,7 +248,7 @@ class TestRunningAssembler(object):
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
 
+
 def callme(inp):
     i = inp + 10
     return i
-

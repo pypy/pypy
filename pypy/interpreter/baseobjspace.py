@@ -1,4 +1,3 @@
-import itertools
 import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
@@ -187,6 +186,12 @@ class W_Root(object):
         raise NotImplementedError
 
     # -------------------------------------------------------------------
+
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def immutable_unique_id(self, space):
+        return None
 
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
@@ -482,6 +487,16 @@ class ObjSpace(object):
         'parser', 'fcntl', '_codecs', 'binascii'
     ]
 
+    # These modules are treated like CPython treats built-in modules,
+    # i.e. they always shadow any xx.py.  The other modules are treated
+    # like CPython treats extension modules, and are loaded in sys.path
+    # order by the fake entry '.../lib_pypy/__extensions__'.
+    MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
+        '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
+        '_weakref', 'errno', 'exceptions', 'gc', 'imp', 'marshal',
+        'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
+    ], None)
+
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
@@ -513,8 +528,8 @@ class ObjSpace(object):
         exception_types_w = self.export_builtin_exceptions()
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
-        types_w = itertools.chain(self.get_builtin_types().iteritems(),
-                                  exception_types_w.iteritems())
+        types_w = (self.get_builtin_types().items() +
+                   exception_types_w.items())
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
@@ -681,9 +696,20 @@ class ObjSpace(object):
         """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
-    def is_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
-        return self.is_true(self.is_(w_obj1, w_obj2))
+    def is_(self, w_one, w_two):
+        return self.newbool(self.is_w(w_one, w_two))
+
+    def is_w(self, w_one, w_two):
+        # done by a method call on w_two (and not on w_one, because of the
+        # expected programming style where we say "if x is None" or
+        # "if x is object").
+        return w_two.is_w(self, w_one)
+
+    def id(self, w_obj):
+        w_result = w_obj.immutable_unique_id(self)
+        if w_result is None:
+            w_result = self.wrap(compute_unique_id(w_obj))
+        return w_result
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
@@ -879,6 +905,16 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    def listview_str(self, w_list):
+        """ Return a list of unwrapped strings out of a list of strings. If the
+        argument is not a list or does not contain only strings, return None.
+        May return None anyway.
+        """
+        return None
+
+    def newlist_str(self, list_s):
+        return self.newlist([self.wrap(s) for s in list_s])
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
@@ -1012,9 +1048,6 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
-
-    def id(self, w_obj):
-        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
@@ -1587,6 +1620,8 @@ ObjSpace.ExceptionTable = [
     'UnicodeError',
     'ValueError',
     'ZeroDivisionError',
+    'UnicodeEncodeError',
+    'UnicodeDecodeError',
     ]
 
 ## Irregular part of the interface:

@@ -3,63 +3,74 @@
 """
 
 import py
-from pypy.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, TreeLoop
+from pypy.jit.metainterp.history import BoxInt, \
+     BoxPtr, TreeLoop, TargetToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.detect_cpu import getcpuclass
-from pypy.jit.backend.arm.regalloc import Regalloc
 from pypy.jit.backend.arm.arch import WORD
-from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcPtrFieldDescr
+from pypy.rpython.lltypesystem import rclass
+from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 
 from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
-from pypy.jit.backend.arm.regalloc import ARMv7RegisterMananger, ARMFrameManager,\
-     VFPRegisterManager
+from pypy.jit.backend.arm.regalloc import ARMFrameManager, VFPRegisterManager
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.arm.test.support import skip_unless_arm
+from pypy.jit.backend.arm.regalloc import Regalloc, ARMv7RegisterManager
 skip_unless_arm()
 
 CPU = getcpuclass()
 
+
 class MockGcRootMap(object):
     is_shadow_stack = False
+
     def get_basic_shape(self, is_64_bit):
         return ['shape']
+
     def add_frame_offset(self, shape, offset):
         shape.append(offset)
+
     def add_callee_save_reg(self, shape, reg_index):
-        index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
+        index_to_name = {1: 'ebx', 2: 'esi', 3: 'edi'}
         shape.append(index_to_name[reg_index])
+
     def compress_callshape(self, shape, datablockwrapper):
         assert datablockwrapper == 'fakedatablockwrapper'
         assert shape[0] == 'shape'
         return ['compressed'] + shape[1:]
+
 
 class MockGcRootMap2(object):
     is_shadow_stack = False
+
     def get_basic_shape(self, is_64_bit):
         return ['shape']
+
     def add_frame_offset(self, shape, offset):
         shape.append(offset)
+
     def add_callee_save_reg(self, shape, reg_index):
-        index_to_name = { 1: 'ebx', 2: 'esi', 3: 'edi' }
+        index_to_name = {1: 'ebx', 2: 'esi', 3: 'edi'}
         shape.append(index_to_name[reg_index])
+
     def compress_callshape(self, shape, datablockwrapper):
         assert datablockwrapper == 'fakedatablockwrapper'
         assert shape[0] == 'shape'
         return ['compressed'] + shape[1:]
 
+
 class MockGcDescr(GcCache):
     is_shadow_stack = False
+
     def get_funcptr_for_new(self):
         return 123
+
     get_funcptr_for_newarray = get_funcptr_for_new
     get_funcptr_for_newstr = get_funcptr_for_new
     get_funcptr_for_newunicode = get_funcptr_for_new
@@ -74,13 +85,14 @@ class MockGcDescr(GcCache):
     record_constptrs = GcLLDescr_framework.record_constptrs.im_func
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
+
 class TestRegallocDirectGcIntegration(object):
 
     def test_mark_gc_roots(self):
         py.test.skip('roots')
         cpu = CPU(None, None)
         cpu.setup_once()
-        regalloc = RegAlloc(MockAssembler(cpu, MockGcDescr(False)))
+        regalloc = Regalloc(MockAssembler(cpu, MockGcDescr(False)))
         regalloc.assembler.datablockwrapper = 'fakedatablockwrapper'
         boxes = [BoxPtr() for i in range(len(ARMv7RegisterManager.all_regs))]
         longevity = {}
@@ -95,7 +107,8 @@ class TestRegallocDirectGcIntegration(object):
         for box in boxes:
             regalloc.rm.try_allocate_reg(box)
         TP = lltype.FuncType([], lltype.Signed)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT, EffectInfo.MOST_GENERAL)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT,
+                                                EffectInfo.MOST_GENERAL)
         regalloc.rm._check_invariants()
         box = boxes[0]
         regalloc.position = 0
@@ -129,6 +142,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
 
     descr0 = cpu.fielddescrof(S, 'int')
     ptr0 = struct_ref
+    targettoken = TargetToken()
 
     namespace = locals().copy()
 
@@ -153,6 +167,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        label(i0, i1, i2, i3, i4, i5, i6, i7, i8, descr=targettoken)
         guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
         guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
         i11 = getfield_gc(i4, descr=descr0)
@@ -180,7 +195,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         guard_false(i32) [i4, i6, i7, i0, i1, i24]
         i33 = getfield_gc(i0, descr=descr0)
         guard_value(i33, ConstPtr(ptr0)) [i4, i6, i7, i0, i1, i33, i24]
-        jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24)
+        jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24, descr=targettoken)
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0, 0], run=False)
 
@@ -322,16 +337,21 @@ class TestMallocFastpath(BaseTestRegalloc):
 class Seen(Exception):
     pass
 
+
 class GCDescrFastpathMallocVarsize(GCDescrFastpathMalloc):
     def can_inline_malloc_varsize(self, arraydescr, num_elem):
         return num_elem < 5
+
     def get_funcptr_for_newarray(self):
         return 52
+
     def init_array_descr(self, A, descr):
         descr.tid = self._counter
         self._counter += 1
+
     def args_for_new_array(self, descr):
         raise Seen("args_for_new_array")
+
 
 class TestMallocVarsizeFastpath(BaseTestRegalloc):
     def setup_method(self, method):

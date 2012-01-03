@@ -315,7 +315,7 @@ _add_exceptions("""pow""",
 del _add_exceptions, _add_except_ovf
 
 def make_op(fs, name, symbol, arity, specialnames):
-    if hasattr(fs, name):
+    if getattr(fs, name, None) is not None:
         return
 
     op = None

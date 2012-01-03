@@ -317,6 +317,10 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+
+# These are C symbols which cpyext will export, but which are defined in .c
+# files somewhere in the implementation of cpyext (rather than being defined in
+# RPython).
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -864,6 +868,7 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
+        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
