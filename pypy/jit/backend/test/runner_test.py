@@ -150,8 +150,6 @@ class BaseBackendTest(Runner):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        looptoken = LoopToken()
-        operations = [
         looptoken = JitCellToken()
         targettoken = TargetToken()
         operations = [

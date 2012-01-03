@@ -11,8 +11,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
-from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
-                                         AbstractFailDescr)
+from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
+                                         TargetToken, AbstractFailDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, AsmMemoryManager, MachineDataBlockWrapper)
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
                                                  compute_vars_longevity)

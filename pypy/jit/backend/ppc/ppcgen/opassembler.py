@@ -6,8 +6,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               MAX_REG_PARAMS)
 
-from pypy.jit.metainterp.history import (LoopToken, AbstractFailDescr, FLOAT,
-                                         INT)
+from pypy.jit.metainterp.history import (JitCellToken, TargetToken, 
+                                         AbstractFailDescr, FLOAT, INT)
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)

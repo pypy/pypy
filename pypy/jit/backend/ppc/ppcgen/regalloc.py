@@ -1,6 +1,5 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
-                                                 TempBox, compute_vars_longevity,
-                                                 compute_loop_consts)
+                                                 TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
 from pypy.jit.backend.ppc.ppcgen.locations import imm
@@ -11,9 +10,8 @@ from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg,
                                                          prepare_binary_int_op_with_imm,
                                                          prepare_unary_cmp)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
-                                         ConstPtr, LoopToken, Box)
-from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
-                                             BaseCallDescr, BaseSizeDescr
+                                         ConstPtr, Box)
+from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
 from pypy.rpython.lltypesystem import rffi, lltype, rstr
