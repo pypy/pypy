@@ -404,8 +404,12 @@ class AssemblerPPC(OpAssembler):
         self.mc.free_scratch_reg()
 
         # load values passed on the stack to the corresponding locations
-        stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
-                         + BACKCHAIN_SIZE * WORD
+        if IS_PPC_32:
+            stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
+                             + BACKCHAIN_SIZE * WORD
+        else:
+            stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
+                             + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD
 
         count = 0
         for i in range(reg_args, len(inputargs)):
