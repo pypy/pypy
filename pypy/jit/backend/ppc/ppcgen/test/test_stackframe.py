@@ -32,7 +32,11 @@
             |                         |          |
             ---------------------------         --
   (64 Bit)  |        TOC POINTER      | WORD     |
-            ---------------------------          |
+            ---------------------------         --
+            |                         |          |
+  (64 Bit)  |  RESERVED FOR COMPILER  |          |>> 2 * WORD
+            |       AND LINKER        |          |  
+            ---------------------------         --
             |         SAVED LR        | WORD     |
             ---------------------------          |>> 4 WORDS (64 Bit)
   (64 Bit)  |         SAVED CR        | WORD     |   2 WORDS (32 Bit)
