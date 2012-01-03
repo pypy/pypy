@@ -577,7 +577,7 @@ class AssemblerARM(ResOpAssembler):
         operations = self.setup(original_loop_token, operations)
         self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
-        code = faildescr._failure_recovery_code
+        code = faildescr._arm_failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
         frame_depth = faildescr._arm_current_frame_depth
         arglocs = self.decode_inputargs(enc)
@@ -638,7 +638,7 @@ class AssemblerARM(ResOpAssembler):
                                         tok.faillocs, save_exc=tok.save_exc)
             # store info on the descr
             descr._arm_current_frame_depth = tok.faillocs[0].getint()
-            descr._failure_recovery_code = memaddr
+            descr._arm_failure_recovery_code = memaddr
             descr._arm_guard_pos = pos
 
     def process_pending_guards(self, block_start):

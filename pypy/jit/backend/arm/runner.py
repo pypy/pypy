@@ -113,7 +113,7 @@ class ArmCPU(AbstractLLCPU):
                             len(all_regs) * WORD +
                             len(all_vfp_regs) * DOUBLE_WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
-            faildescr._failure_recovery_code,
+            faildescr._arm_failure_recovery_code,
             addr_of_force_index,
             addr_end_of_frame)
         self.assembler.leave_jitted_hook()
