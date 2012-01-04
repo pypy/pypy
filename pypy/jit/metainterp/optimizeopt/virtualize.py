@@ -40,6 +40,9 @@ class AbstractVirtualValue(optimizer.OptValue):
             return value
         return OptValue(self.force_box(optforce))
 
+    def kill_consts(self, already_killed, opt):
+        return self
+
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
             return self._make_virtual(modifier)
@@ -128,6 +131,15 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced, optforce)
         return self
 
+    def kill_consts(self, already_killed, opt):
+        if self in already_killed:
+            return self
+        already_killed[self] = self
+        if self._fields:
+            for ofs in self._fields.keys():
+                self._fields[ofs] = self._fields[ofs].kill_consts(already_killed, opt)
+        return self
+        
     def _really_force(self, optforce):
         op = self.source_op
         assert op is not None
@@ -262,6 +274,14 @@ class VArrayValue(AbstractVirtualValue):
             self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
         return self
 
+    def kill_consts(self, already_killed, opt):
+        if self in already_killed:
+            return self
+        already_killed[self] = self
+        for index in range(len(self._items)):
+            self._items[index] = self._items[index].kill_consts(already_killed, opt)
+        return self
+
     def _really_force(self, optforce):
         assert self.source_op is not None
         if not we_are_translated():
@@ -355,6 +375,15 @@ class VArrayStructValue(AbstractVirtualValue):
         for index in range(len(self._items)):
             for descr in self._items[index].keys():
                 self._items[index][descr] = self._items[index][descr].force_at_end_of_preamble(already_forced, optforce)
+        return self
+
+    def kill_consts(self, already_killed, opt):
+        if self in already_killed:
+            return self
+        already_killed[self] = self
+        for index in range(len(self._items)):
+            for descr in self._items[index].keys():
+                self._items[index][descr] = self._items[index][descr].kill_consts(already_killed, opt)
         return self
 
     def _make_virtual(self, modifier):

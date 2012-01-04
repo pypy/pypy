@@ -152,7 +152,12 @@ class UnrollOptimizer(Optimization):
             # At the end of a bridge about to force a retrcae
             debug_print('Generalize for retrace')
             KillIntBounds(self.optimizer).apply()
-            self.optimizer.kill_consts_at_end_of_preamble = True
+
+            jump_args = stop_label.getarglist()
+            already_killed = {}
+            values = [self.getvalue(box).kill_consts(already_killed, self.optimizer)
+                      for box in jump_args]
+            stop_label.initarglist([v.get_key_box() for v in values])
 
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:

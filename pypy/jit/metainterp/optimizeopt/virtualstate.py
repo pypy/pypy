@@ -520,8 +520,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
 
-    def state(self, box):
-        value = self.getvalue(box)
+    def state(self, value):
         box = value.get_key_box()
         try:
             info = self.info[box]
@@ -529,7 +528,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
             if value.is_virtual():
                 self.info[box] = info = value.make_virtual_info(self, None)
                 flds = self.fieldboxes[box]
-                info.fieldstate = [self.state(b) for b in flds]
+                info.fieldstate = [self.state(self.getvalue(b)) for b in flds]
             else:
                 self.info[box] = info = self.make_not_virtual(value)
         return info
@@ -550,7 +549,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
                 value.get_args_for_fail(self)
             else:
                 self.make_not_virtual(value)
-        return VirtualState([self.state(box) for box in jump_args])
+        return VirtualState([self.state(value) for value in values])
 
     def make_not_virtual(self, value):
         return NotVirtualStateInfo(value)

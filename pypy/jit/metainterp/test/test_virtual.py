@@ -949,6 +949,151 @@ class VirtualTests:
         self.check_aborted_count(0)
         self.check_target_token_count(3)
 
+    def test_nested_loops_const(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'c', 'sa', 'i', 'j'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = c = 0
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    sa += (i.val + 2) * (j.val + 2) + c
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                    c = 42
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                    c = 7
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
+
+    def test_nested_loops_const_array(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j', 'c'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = 0
+            c = [0]
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    sa += (i.val + 2) * (j.val + 2) + c[0]
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                    c = [42, 2]
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                    c = [7, 3]
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
+
+    def test_nested_loops_const_dict(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j', 'c'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = 0
+            c = {}
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    sa += (i.val + 2) * (j.val + 2) + c[0]
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                    c = {}
+                    c[0] = 42
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                    c = {}
+                    c[0] = 7
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j, c=c)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
+
 class VirtualMiscTests:
 
     def test_multiple_equal_virtuals(self):
