@@ -146,9 +146,11 @@ class UnrollOptimizer(Optimization):
     def generalize_state(self, start_label, stop_label):
         if self.jump_to_start_label(start_label, stop_label):
             # At the end of the preamble, don't generalize much
+            debug_print('Generalize preamble')
             KillHugeIntBounds(self.optimizer).apply()
         else:
             # At the end of a bridge about to force a retrcae
+            debug_print('Generalize for retrace')
             KillIntBounds(self.optimizer).apply()
             self.optimizer.kill_consts_at_end_of_preamble = True
 
@@ -184,6 +186,9 @@ class UnrollOptimizer(Optimization):
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print('Exporting ')
+        debug_stop('jit-log-virtualstate')        
             
         values = [self.getvalue(arg) for arg in jump_args]
         inputargs = virtual_state.make_inputargs(values, self.optimizer)

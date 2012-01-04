@@ -22,6 +22,7 @@ class TestMisc(BaseTestPyPyC):
         # "i" is virtual. However, in this specific case the two loops happen
         # to contain the very same operations
         loop0, loop1 = log.loops_by_filename(self.filepath)
+        
         expected = """
             i9 = int_le(i7, i8)
             guard_true(i9, descr=...)
@@ -37,7 +38,7 @@ class TestMisc(BaseTestPyPyC):
         # XXX: The retracing fails to form a loop since j
         # becomes constant 0 after the bridge and constant 1 at the end of the
         # loop. A bridge back to the peramble is produced instead.        
-        #assert loop1.match(expected)
+        assert loop1.match(expected)
 
     def test_factorial(self):
         def fact(n):
