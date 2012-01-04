@@ -197,18 +197,19 @@ class BaseBackendTest(Runner):
         i1_1 = BoxInt()
         i2_1 = BoxInt()
         looptoken1 = JitCellToken()
+        targettoken1 = TargetToken()
         operations1 = [
+            ResOperation(rop.LABEL, [i0_1], None, descr=targettoken1),
             ResOperation(rop.INT_ADD, [i0_1, ConstInt(1)], i1_1),
             ResOperation(rop.INT_LE, [i1_1, ConstInt(9)], i2_1),
             ResOperation(rop.GUARD_TRUE, [i2_1], None, descr=BasicFailDescr(2)),
-            ResOperation(rop.JUMP, [i1_1], None, descr=looptoken1),
+            ResOperation(rop.JUMP, [i1_1], None, descr=targettoken1),
             ]
         inputargs1 = [i0_1]
-        operations1[2].setfailargs([i1_1])
+        operations1[3].setfailargs([i1_1])
         
         self.cpu.compile_loop(inputargs1, operations1, looptoken1)
-        self.cpu.set_future_value_int(0, 2)
-        fail1 = self.cpu.execute_token(looptoken1)
+        fail1 = self.cpu.execute_token(looptoken1, 2)
         assert fail1.identifier == 2
         res1 = self.cpu.get_latest_value_int(0)
         assert res1 == 10
@@ -218,18 +219,19 @@ class BaseBackendTest(Runner):
         i1_2 = BoxInt()
         i2_2 = BoxInt()
         looptoken2 = JitCellToken()
+        targettoken2 = TargetToken()
         operations2 = [
+            ResOperation(rop.LABEL, [i0_2], None, descr=targettoken2),
             ResOperation(rop.INT_ADD, [i0_2, ConstInt(1)], i1_2),
             ResOperation(rop.INT_LE, [i1_2, ConstInt(19)], i2_2),
             ResOperation(rop.GUARD_TRUE, [i2_2], None, descr=BasicFailDescr(2)),
-            ResOperation(rop.JUMP, [i1_2], None, descr=looptoken2),
+            ResOperation(rop.JUMP, [i1_2], None, descr=targettoken2),
             ]
         inputargs2 = [i0_2]
-        operations2[2].setfailargs([i1_2])
+        operations2[3].setfailargs([i1_2])
         
         self.cpu.compile_loop(inputargs2, operations2, looptoken2)
-        self.cpu.set_future_value_int(0, 2)
-        fail2 = self.cpu.execute_token(looptoken2)
+        fail2 = self.cpu.execute_token(looptoken2, 2)
         assert fail2.identifier == 2
         res2 = self.cpu.get_latest_value_int(0)
         assert res2 == 20
