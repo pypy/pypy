@@ -181,7 +181,6 @@ class AssemblerPPC(OpAssembler):
         regs = rffi.cast(rffi.CCHARP, spp_loc)
         i = -1
         fail_index = -1
-        import pdb; pdb.set_trace()
         while(True):
             i += 1
             fail_index += 1
@@ -396,6 +395,7 @@ class AssemblerPPC(OpAssembler):
         regalloc_head = self.mc.currpos()
 
         start_pos = self.mc.currpos()
+        looptoken._ppc_loop_code = start_pos
         clt.frame_depth = -1
         spilling_area = self._assemble(operations, regalloc)
         clt.frame_depth = spilling_area
@@ -607,6 +607,14 @@ class AssemblerPPC(OpAssembler):
 
         return frame_depth
     
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._ppc_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
+
+    def target_arglocs(self, looptoken):
+        return looptoken._ppc_arglocs
+
     def materialize_loop(self, looptoken, show):
         self.mc.prepare_insts_blocks(show)
         self.datablockwrapper.done()
