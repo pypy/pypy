@@ -157,7 +157,8 @@ class UnrollOptimizer(Optimization):
             already_killed = {}
             values = [self.getvalue(box).kill_consts(already_killed, self.optimizer)
                       for box in jump_args]
-            stop_label.initarglist([v.get_key_box() for v in values])
+            for i in range(len(jump_args)):
+                self.optimizer.make_equal_to(jump_args[i], values[i], replace=True)
 
     def jump_to_start_label(self, start_label, stop_label):
         if not start_label or not stop_label:
