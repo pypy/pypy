@@ -321,16 +321,21 @@ class MiscOpAssembler(object):
         self._gen_epilogue(self.mc)
 
     def emit_jump(self, op, arglocs, regalloc):
+        # The backend's logic assumes that the target code is in a piece of
+        # assembler that was also called with the same number of arguments,
+        # so that the locations [ebp+8..] of the input arguments are valid
+        # stack locations both before and after the jump.
+        #
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
-        if descr._ppc_bootstrap_code == 0:
+        assert isinstance(descr, TargetToken)
+        my_nbargs = self.current_clt._debug_nbargs
+        target_nbargs = descr._ppc_clt._debug_nbargs
+        assert my_nbargs == target_nbargs
+
+        if descr in self.target_tokens_currently_compiling:
             self.mc.b_offset(descr._ppc_loop_code)
         else:
-            target = descr._ppc_bootstrap_code + descr._ppc_loop_code
-            self.mc.b_abs(target)
-            new_fd = max(regalloc.frame_manager.frame_depth,
-                         descr._ppc_frame_manager_depth)
-            regalloc.frame_manager.frame_depth = new_fd
+            self.mc.b_abs(descr._ppc_loop_code)
 
     def emit_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs

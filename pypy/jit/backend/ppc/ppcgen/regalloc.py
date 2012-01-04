@@ -1,7 +1,8 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
-from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
+from pypy.jit.backend.ppc.ppcgen.jump import (remap_frame_layout_mixed,
+                                              remap_frame_layout)
 from pypy.jit.backend.ppc.ppcgen.locations import imm
 from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg, 
                                                          prepare_cmp_op,
@@ -19,6 +20,10 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.codewriter.effectinfo import EffectInfo
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.codewriter import heaptracker
+
+# xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
+# that it is a LABEL that was not compiled yet.
+TargetToken._ppc_loop_code = 0
 
 class TempInt(TempBox):
     type = INT
@@ -525,17 +530,30 @@ class Regalloc(object):
 
     def prepare_jump(self, op):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
-        nonfloatlocs = descr._ppc_arglocs[0]
+        assert isinstance(descr, TargetToken)
+        self.jump_target_descr = descr
+        arglocs = self.assembler.target_arglocs(descr)
 
-        tmploc = r.r0       
-        src_locs1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
-                            if op.getarg(i).type != FLOAT]
-        assert tmploc not in nonfloatlocs
-        dst_locs1 = [loc for loc in nonfloatlocs if loc is not None]
-        remap_frame_layout_mixed(self.assembler,
-                                 src_locs1, dst_locs1, tmploc,
-                                 [], [], None)
+        # get temporary locs
+        tmploc = r.SCRATCH
+
+        # Part about non-floats
+        src_locations1 = []
+        dst_locations1 = []
+
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                assert 0, "not implemented yet"
+
+        remap_frame_layout(self.assembler, src_locations1,
+                dst_locations1, tmploc)
         return []
 
     def prepare_setfield_gc(self, op):
@@ -869,6 +887,46 @@ class Regalloc(object):
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res_loc]
+
+    def prepare_label(self, op):
+        # XXX big refactoring needed?
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        arglocs = [None] * len(inputargs)
+        #
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert isinstance(arg, Box)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
+
+        #
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert isinstance(arg, Box)
+            loc = self.loc(arg)
+            arglocs[i] = loc
+            if loc.is_reg():
+                self.frame_manager.mark_as_free(arg)
+        #
+        descr._ppc_arglocs = arglocs
+        descr._ppc_loop_code = self.assembler.mc.currpos()
+        descr._ppc_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
 
     def prepare_guard_call_may_force(self, op, guard_op):
         faildescr = guard_op.getdescr()
