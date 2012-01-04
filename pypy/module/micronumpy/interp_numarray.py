@@ -762,7 +762,6 @@ class Reduce(VirtualArray):
 
     def _del_sources(self):
         self.values = None
-        pass
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
@@ -779,7 +778,6 @@ class Reduce(VirtualArray):
         objlen = len(self.values.shape)
         target_len = self.values.shape[self.dim]
         sig = self.values.find_sig(result.shape)
-        #sig = self.create_sig(result.shape)
         ri = ArrayIterator(result.size)
         si = axis_iter_from_arr(self.values, self.dim)
         while not ri.done():
