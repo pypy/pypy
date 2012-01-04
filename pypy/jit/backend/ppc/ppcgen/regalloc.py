@@ -118,6 +118,13 @@ class PPCFrameManager(FrameManager):
             assert 0, "TODO"
         return 1
 
+    @staticmethod
+    def get_loc_index(loc):
+        assert loc.is_stack()
+        if loc.type == FLOAT:
+            assert 0, "not implemented yet"
+        return loc.position
+
 class Regalloc(object):
 
     def __init__(self, frame_manager=None, assembler=None):
