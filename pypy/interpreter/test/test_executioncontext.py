@@ -42,6 +42,7 @@ class TestExecutionContext:
         assert i == 9
 
     def test_periodic_action(self):
+        from pypy.interpreter.executioncontext import ActionFlag
 
         class DemoAction(executioncontext.PeriodicAsyncAction):
             counter = 0
@@ -53,17 +54,20 @@ class TestExecutionContext:
 
         space = self.space
         a2 = DemoAction(space)
-        space.actionflag.register_periodic_action(a2, True)
         try:
-            for i in range(500):
-                space.appexec([], """():
-                    n = 5
-                    return n + 2
-                """)
-        except Finished:
-            pass
-        checkinterval = space.actionflag.getcheckinterval()
-        assert checkinterval / 10 < i < checkinterval * 1.1
+            space.actionflag.setcheckinterval(100)
+            space.actionflag.register_periodic_action(a2, True)
+            try:
+                for i in range(500):
+                    space.appexec([], """():
+                        n = 5
+                        return n + 2
+                    """)
+            except Finished:
+                pass
+        finally:
+            space.actionflag = ActionFlag()   # reset to default
+        assert 10 < i < 110
 
     def test_llprofile(self):
         l = []
@@ -288,7 +292,7 @@ gc.collect()
         import os, sys
         print sys.executable, self.tmpfile
         if sys.platform == "win32":
-            cmdformat = '""%s" "%s""'    # excellent! tons of "!
+            cmdformat = '"%s" "%s"'
         else:
             cmdformat = "'%s' '%s'"
         g = os.popen(cmdformat % (sys.executable, self.tmpfile), 'r')

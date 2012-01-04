@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 #
@@ -98,7 +99,7 @@ class BaseLLStringRepr(Repr):
             return p
 
     def make_iterator_repr(self):
-        return self.iterator_repr
+        return self.repr.iterator_repr
 
     def can_ll_be_null(self, s_value):
         # XXX unicode
@@ -315,6 +316,8 @@ class LLHelpers(AbstractLLHelpers):
         s.chars[0] = ch
         return s
 
+    # @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
+    @jit.oopspec("str.str2unicode(str)")
     def ll_str2unicode(str):
         lgt = len(str.chars)
         s = mallocunicode(lgt)
@@ -323,13 +326,14 @@ class LLHelpers(AbstractLLHelpers):
                 raise UnicodeDecodeError
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
-    ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
     @jit.elidable
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
+        if not s:
+            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
@@ -364,8 +368,10 @@ class LLHelpers(AbstractLLHelpers):
             while lpos < rpos and s.chars[lpos] == ch:
                 lpos += 1
         if right:
-            while lpos < rpos and s.chars[rpos] == ch:
+            while lpos < rpos + 1 and s.chars[rpos] == ch:
                 rpos -= 1
+        if rpos < lpos:
+            return s.empty()
         r_len = rpos - lpos + 1
         result = s.malloc(r_len)
         s.copy_contents(s, result, lpos, 0, r_len)
@@ -694,8 +700,8 @@ class LLHelpers(AbstractLLHelpers):
             return -1
         return count
 
-    @jit.look_inside_iff(lambda length, items: jit.isconstant(length) and length <= 2)
     @enforceargs(int, None)
+    @jit.look_inside_iff(lambda length, items: jit.isconstant(length) and length <= 2)
     def ll_join_strs(length, items):
         # Special case for length 1 items, helps both the JIT and other code
         if length == 1:

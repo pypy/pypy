@@ -1,11 +1,12 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
-class W_StringBufferObject(W_Object):
+class W_StringBufferObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     w_str = None
@@ -32,6 +33,9 @@ class W_StringBufferObject(W_Object):
     def unwrap(self, space):
         return self.force()
 
+    def str_w(self, space):
+        return self.force()
+
 registerimplementation(W_StringBufferObject)
 
 # ____________________________________________________________
@@ -54,9 +58,6 @@ def delegate_buf2unicode(space, w_strbuf):
 
 def len__StringBuffer(space, w_self):
     return space.wrap(w_self.length)
-
-def str_w__StringBuffer(space, w_strbuf):
-    return w_strbuf.force()
 
 def add__StringBuffer_String(space, w_self, w_other):
     if w_self.builder.getlength() != w_self.length:

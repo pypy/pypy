@@ -6,6 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+from pypy.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -257,15 +258,15 @@ class DescrOperation(object):
             msg = "'%s' has no length" % (name,)
             raise OperationError(space.w_TypeError, space.wrap(msg))
         w_res = space.get_and_call_function(w_descr, w_obj)
-        space._check_len_result(w_res)
-        return w_res
+        return space.wrap(space._check_len_result(w_res))
 
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
-        result = space.int_w(w_obj)
+        result = space.int_w(space.int(w_obj))
         if result < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("__len__() should return >= 0"))
+        return result
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
@@ -507,6 +508,7 @@ class DescrOperation(object):
     def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
+    @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
         return space.wrap(space._type_isinstance(w_inst, w_type))
 

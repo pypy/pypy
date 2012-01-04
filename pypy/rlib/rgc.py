@@ -3,6 +3,7 @@ import types
 
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import we_are_translated, enforceargs, specialize
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
 
@@ -143,6 +144,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
 
+    # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
+    if NonConstant(False):
+        dest[dest_start] = source[source_start]
+
     # supports non-overlapping copies only
     if not we_are_translated():
         if source == dest:
@@ -158,8 +163,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                                                 source_start, dest_start,
                                                 length):
             # if the write barrier is not supported, copy by hand
-            for i in range(length):
+            i = 0
+            while i < length:
                 dest[i + dest_start] = source[i + source_start]
+                i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
@@ -209,6 +216,10 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
+def must_be_light_finalizer(func):
+    func._must_be_light_finalizer_ = True
+    return func
+
 # ____________________________________________________________
 
 def get_rpy_roots():
@@ -249,6 +260,24 @@ def _keep_object(x):
         return type(x).__module__ != '__builtin__'   # keep non-builtins
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
+
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
 
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"

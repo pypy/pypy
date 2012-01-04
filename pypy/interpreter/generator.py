@@ -1,14 +1,15 @@
-from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.rlib import jit
 from pypy.interpreter.pyopcode import LoopBlock
+from pypy.rlib import jit
+from pypy.rlib.objectmodel import specialize
 
 
 class GeneratorIterator(Wrappable):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
-    
+
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
@@ -81,7 +82,7 @@ return next yielded value or raise StopIteration."""
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
-                raise OperationError(space.w_StopIteration, space.w_None) 
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 return w_result     # YIELDed
         finally:
@@ -97,21 +98,21 @@ return next yielded value or raise StopIteration."""
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
-        
+
         msg = "throw() third argument must be a traceback object"
         if space.is_w(w_tb, space.w_None):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)
-       
+
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
         return self.send_ex(space.w_None, operr)
-             
+
     def descr_next(self):
         """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
- 
+
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside generator."""
         assert isinstance(self, GeneratorIterator)
@@ -124,7 +125,7 @@ return next yielded value or raise StopIteration."""
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
             raise
-        
+
         if w_retval is not None:
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
@@ -155,3 +156,44 @@ return next yielded value or raise StopIteration."""
                                                  "interrupting generator of ")
                     break
                 block = block.previous
+
+    # Results can be either an RPython list of W_Root, or it can be an
+    # app-level W_ListObject, which also has an append() method, that's why we
+    # generate 2 versions of the function and 2 jit drivers.
+    def _create_unpack_into():
+        jitdriver = jit.JitDriver(greens=['pycode'],
+                                  reds=['self', 'frame', 'results'])
+        def unpack_into(self, results):
+            """This is a hack for performance: runs the generator and collects
+            all produced items in a list."""
+            # XXX copied and simplified version of send_ex()
+            space = self.space
+            if self.running:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap('generator already executing'))
+            frame = self.frame
+            if frame is None:    # already finished
+                return
+            self.running = True
+            try:
+                pycode = self.pycode
+                while True:
+                    jitdriver.jit_merge_point(self=self, frame=frame,
+                                              results=results, pycode=pycode)
+                    try:
+                        w_result = frame.execute_frame(space.w_None)
+                    except OperationError, e:
+                        if not e.match(space, space.w_StopIteration):
+                            raise
+                        break
+                    # if the frame is now marked as finished, it was RETURNed from
+                    if frame.frame_finished_execution:
+                        break
+                    results.append(w_result)     # YIELDed
+            finally:
+                frame.f_backref = jit.vref_None
+                self.running = False
+                self.frame = None
+        return unpack_into
+    unpack_into = _create_unpack_into()
+    unpack_into_w = _create_unpack_into()

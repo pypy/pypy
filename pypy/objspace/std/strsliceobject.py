@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -12,7 +13,7 @@ from pypy.objspace.std.stringtype import wrapstr, wrapchar, sliced, \
      stringendswith, stringstartswith
 
 
-class W_StringSliceObject(W_Object):
+class W_StringSliceObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, str, start, stop):
@@ -30,6 +31,9 @@ class W_StringSliceObject(W_Object):
         w_self.start = 0
         w_self.stop = len(str)
         return str
+
+    def str_w(w_self, space):
+        return w_self.force()
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -57,8 +61,8 @@ def contains__StringSlice_String(space, w_self, w_sub):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     length = w_self.stop - w_self.start
     sub = w_sub._value
-    start = slicetype.adapt_bound(space, length, w_start)
-    end = slicetype.adapt_bound(space, length, w_end)
+    start, end = slicetype.unwrap_start_stop(
+            space, length, w_start, w_end, True)
 
     assert start >= 0
     assert end >= 0
@@ -164,11 +168,6 @@ def str_startswith__StringSlice_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
-
-
-def str_w__StringSlice(space, w_str):
-    return w_str.force()
-
 
 def getitem__StringSlice_ANY(space, w_str, w_index):
     ival = space.getindex_w(w_index, space.w_IndexError, "string index")

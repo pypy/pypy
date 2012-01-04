@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.llinterp import LLException
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
+from pypy.rlib.jit import non_virtual_ref
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, _get_jitcodes
 from pypy.jit.metainterp.resoperation import rop
@@ -170,7 +171,7 @@ class VRefTests:
             return 1
         #
         self.meta_interp(f, [10])
-        self.check_loops(new_with_vtable=1)   # the vref
+        self.check_resops(new_with_vtable=2) # the vref
         self.check_aborted_count(0)
 
     def test_simple_all_removed(self):
@@ -204,8 +205,7 @@ class VRefTests:
                 virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=0,     # all virtualized
-                         new_array=0)
+        self.check_resops(new_with_vtable=0, new_array=0)
         self.check_aborted_count(0)
 
     def test_simple_no_access(self):
@@ -241,7 +241,7 @@ class VRefTests:
                 virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=1,     # the vref: xy doesn't need to be forced
+        self.check_resops(new_with_vtable=2,     # the vref: xy doesn't need to be forced
                          new_array=0)           # and neither xy.next1/2/3
         self.check_aborted_count(0)
 
@@ -279,8 +279,8 @@ class VRefTests:
                 exctx.topframeref = vref_None
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=2,   # XY(), the vref
-                         new_array=3)         # next1/2/3
+        self.check_resops(new_with_vtable=4,   # XY(), the vref
+                          new_array=6)         # next1/2/3
         self.check_aborted_count(0)
 
     def test_simple_force_sometimes(self):
@@ -319,9 +319,9 @@ class VRefTests:
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=1,   # the vref, but not XY()
-                         new_array=0)         # and neither next1/2/3
-        self.check_loop_count(1)
+        self.check_resops(new_with_vtable=2,   # the vref, but not XY()
+                          new_array=0)         # and neither next1/2/3
+        self.check_trace_count(1)
         self.check_aborted_count(0)
 
     def test_blackhole_forces(self):
@@ -361,9 +361,9 @@ class VRefTests:
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=0, # all virtualized in the n!=13 loop
+        self.check_resops(new_with_vtable=0, # all virtualized in the n!=13 loop
                          new_array=0)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_aborted_count(0)
 
     def test_bridge_forces(self):
@@ -410,8 +410,8 @@ class VRefTests:
         #
         res = self.meta_interp(f, [72])
         assert res == 6
-        self.check_loop_count(2)     # the loop and the bridge
-        self.check_loops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
+        self.check_trace_count(2)     # the loop and the bridge
+        self.check_resops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
                          new_array=2)        # bridge: next4, next5
         self.check_aborted_count(0)
 
@@ -441,8 +441,8 @@ class VRefTests:
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_loops(new_with_vtable=2,     # vref, xy
-                         new_array=1)           # next1
+        self.check_resops(new_with_vtable=4,     # vref, xy
+                          new_array=2)           # next1
         self.check_aborted_count(0)
 
     def test_recursive_call_1(self):
@@ -542,7 +542,7 @@ class VRefTests:
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_loops(new_with_vtable=2)     # vref, xy
+        self.check_resops(new_with_vtable=4)     # vref, xy
 
     def test_cannot_use_invalid_virtualref(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -594,6 +594,65 @@ class VRefTests:
         assert fn(10) == 6
         res = self.meta_interp(fn, [10])
         assert res == 6
+
+    def test_is_virtual(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        class X:
+            pass
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                x = X()
+                vref = virtual_ref(x)
+                res1 = residual(vref)
+                virtual_ref_finish(vref, x)
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 1
+
+    def test_is_not_virtual_none(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                res1 = residual(vref_None)
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 0
+
+    def test_is_not_virtual_non_none(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        class X:
+            pass
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                x = X()
+                res1 = residual(non_virtual_ref(x))
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 0
 
 
 class TestLLtype(VRefTests, LLJitMixin):

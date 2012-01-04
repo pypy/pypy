@@ -42,11 +42,11 @@ def PySequence_Fast(space, w_obj, m):
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
-    if (space.is_true(space.isinstance(w_obj, space.w_list)) or
-        space.is_true(space.isinstance(w_obj, space.w_tuple))):
+    if (isinstance(w_obj, listobject.W_ListObject) or
+        isinstance(w_obj, tupleobject.W_TupleObject)):
         return w_obj
     try:
-        return space.newtuple(space.fixedview(w_obj))
+        return tupleobject.W_TupleObject(space.fixedview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
@@ -56,7 +56,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
     if isinstance(w_obj, listobject.W_ListObject):
-        w_res = w_obj.wrappeditems[index]
+        w_res = w_obj.getitem(index)
     else:
         assert isinstance(w_obj, tupleobject.W_TupleObject)
         w_res = w_obj.wrappeditems[index]
@@ -70,7 +70,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     PySequence_Fast_GET_SIZE() is faster because it can assume o is a list
     or tuple."""
     if isinstance(w_obj, listobject.W_ListObject):
-        return len(w_obj.wrappeditems)
+        return w_obj.length()
     assert isinstance(w_obj, tupleobject.W_TupleObject)
     return len(w_obj.wrappeditems)
 

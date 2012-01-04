@@ -47,32 +47,33 @@ class Log(object):
         storage = LoopStorage()
         traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
-        self.loops = [LoopWithIds.from_trace(trace, storage) for trace in traces]
+        self.loops = [TraceWithIds.from_trace(trace, storage) for trace in traces]
 
     def _filter(self, loop, is_entry_bridge=False):
-        return is_entry_bridge == '*' or loop.is_entry_bridge == is_entry_bridge
+        if is_entry_bridge == '*':
+            return loop
+        assert is_entry_bridge in (True, False)
+        return PartialTraceWithIds(loop, is_entry_bridge)
 
     def loops_by_filename(self, filename, **kwds):
         """
         Return all loops which start in the file ``filename``
         """
-        return [loop for loop in self.loops
-                if loop.filename == filename and self._filter(loop, **kwds)]
+        return [self._filter(loop, **kwds)  for loop in self.loops
+                if loop.filename == filename]
 
     def loops_by_id(self, id, **kwds):
         """
         Return all loops which contain the ID ``id``
         """
-        return [loop for loop in self.loops
-                if loop.has_id(id) and self._filter(loop, **kwds)]
+        return [self._filter(loop, **kwds) for loop in self.loops
+                if loop.has_id(id)]
 
     @classmethod
     def opnames(self, oplist):
         return [op.name for op in oplist]
 
-class LoopWithIds(Function):
-
-    is_entry_bridge = False
+class TraceWithIds(Function):
 
     def __init__(self, *args, **kwds):
         Function.__init__(self, *args, **kwds)
@@ -88,7 +89,6 @@ class LoopWithIds(Function):
     @classmethod
     def from_trace(cls, trace, storage):
         res = cls.from_operations(trace.operations, storage)
-        res.is_entry_bridge = 'entry bridge' in trace.comment
         return res
 
     def flatten_chunks(self):
@@ -117,7 +117,7 @@ class LoopWithIds(Function):
         #
         # 2. compute the ids of all the inlined functions
         for chunk in self.chunks:
-            if isinstance(chunk, LoopWithIds):
+            if isinstance(chunk, TraceWithIds):
                 chunk.compute_ids(ids)
 
     def get_set_of_opcodes(self):
@@ -144,6 +144,10 @@ class LoopWithIds(Function):
                    (opcode and opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+            else:
+               for op in  chunk.operations:
+                   if op.name == 'label':
+                       yield op
 
     def allops(self, *args, **kwds):
         return list(self._allops(*args, **kwds))
@@ -161,26 +165,72 @@ class LoopWithIds(Function):
     def _ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
+        loop_ops = self.allops(include_debug_merge_points, opcode)
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
             if opcode in target_opcodes and (opcode_name is None or
                                              opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
-                    yield op
+                    if op in loop_ops:
+                        yield op
 
     def ops_by_id(self, *args, **kwds):
         return list(self._ops_by_id(*args, **kwds))
 
     def match(self, expected_src, **kwds):
-        ops = list(self.allops())
-        matcher = OpMatcher(ops, src=self.format_ops())
+        ops = self.allops()
+        matcher = OpMatcher(ops)
         return matcher.match(expected_src, **kwds)
 
     def match_by_id(self, id, expected_src, **kwds):
         ops = list(self.ops_by_id(id, **kwds))
-        matcher = OpMatcher(ops, src=self.format_ops(id))
+        matcher = OpMatcher(ops)
         return matcher.match(expected_src)
 
+class PartialTraceWithIds(TraceWithIds):
+    def __init__(self, trace, is_entry_bridge=False):
+        self.trace = trace
+        self.is_entry_bridge = is_entry_bridge
+    
+    def allops(self, *args, **kwds):
+        if self.is_entry_bridge:
+            return self.entry_bridge_ops(*args, **kwds)
+        else:
+            return self.simple_loop_ops(*args, **kwds)
+
+    def simple_loop_ops(self, *args, **kwds):
+        ops = list(self._allops(*args, **kwds))
+        labels = [op for op in ops if op.name == 'label']
+        jumpop = self.chunks[-1].operations[-1]
+        assert jumpop.name == 'jump'
+        assert jumpop.getdescr() == labels[-1].getdescr()
+        i = ops.index(labels[-1])
+        return ops[i+1:]
+
+    def entry_bridge_ops(self, *args, **kwds):
+        ops = list(self._allops(*args, **kwds))
+        labels = [op for op in ops if op.name == 'label']
+        i0 = ops.index(labels[0])
+        i1 = ops.index(labels[1])
+        return ops[i0+1:i1]
+
+    @property
+    def chunks(self):
+        return self.trace.chunks
+
+    @property
+    def ids(self):
+        return self.trace.ids
+
+    @property
+    def filename(self):
+        return self.trace.filename
+    
+    @property
+    def code(self):
+        return self.trace.code
+    
+    
 class InvalidMatch(Exception):
     opindex = None
 
@@ -210,9 +260,9 @@ class InvalidMatch(Exception):
 
 class OpMatcher(object):
 
-    def __init__(self, ops, src=None):
+    def __init__(self, ops):
         self.ops = ops
-        self.src = src
+        self.src = '\n'.join(map(str, ops))
         self.alpha_map = {}
 
     @classmethod
@@ -225,6 +275,8 @@ class OpMatcher(object):
         # strip comment
         if '#' in line:
             line = line[:line.index('#')]
+        if line.strip() == 'guard_not_invalidated?':
+            return 'guard_not_invalidated', None, [], '...', False
         # find the resvar, if any
         if ' = ' in line:
             resvar, _, line = line.partition(' = ')
@@ -249,7 +301,7 @@ class OpMatcher(object):
             descr = descr[len('descr='):]
         else:
             descr = None
-        return opname, resvar, args, descr
+        return opname, resvar, args, descr, True
 
     @classmethod
     def preprocess_expected_src(cls, src):
@@ -258,21 +310,36 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
-            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            ticker1 = int_sub(ticker0, 1)
-            setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            ticker_cond0 = int_lt(ticker1, 0)
+            guard_not_invalidated?
+            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
         """
         src = src.replace('--TICK--', ticker_check)
         #
+        # this is the ticker check generated if we have threads
+        thread_ticker_check = """
+            guard_not_invalidated?
+            ticker0 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker1 = int_sub(ticker0, _)
+            setfield_raw(ticker_address, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker_cond0 = int_lt(ticker1, 0)
+            guard_false(ticker_cond0, descr=...)
+        """
+        src = src.replace('--THREAD-TICK--', thread_ticker_check)
+        #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
-            ticker2 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker2 = getfield_raw(ticker_address, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
         src = src.replace('--EXC-TICK--', exc_ticker_check)
+        #
+        # ISINF is done as a macro; fix it here
+        r = re.compile('(\w+) = --ISINF--[(](\w+)[)]')
+        src = r.sub(r'\2\B999 = float_add(\2, ...)\n\1 = float_eq(\2\B999, \2)',
+                    src)
         return src
 
     @classmethod
@@ -298,7 +365,7 @@ class OpMatcher(object):
         if not cond:
             raise InvalidMatch(message, frame=sys._getframe(1))
 
-    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
+    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr, _)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
         if exp_args != ['...']:
@@ -341,8 +408,8 @@ class OpMatcher(object):
         what is after the '...'
         """
         iter_exp_ops = iter(expected_ops)
-        iter_ops = iter(self.ops)
-        for opindex, exp_op in enumerate(iter_exp_ops):
+        iter_ops = RevertableIterator(self.ops)
+        for exp_op in iter_exp_ops:
             try:
                 if exp_op == '...':
                     # loop until we find an operation which matches
@@ -360,7 +427,10 @@ class OpMatcher(object):
                             break
                 self.match_op(op, exp_op)
             except InvalidMatch, e:
-                e.opindex = opindex
+                if exp_op[4] is False:    # optional operation
+                    iter_ops.revert_one()
+                    continue       # try to match with the next exp_op
+                e.opindex = iter_ops.index - 1
                 raise
         #
         # make sure we exhausted iter_ops
@@ -372,8 +442,8 @@ class OpMatcher(object):
                 return ''
             text = str(py.code.Source(src).deindent().indent())
             lines = text.splitlines(True)
-            if opindex is not None and 0 <= opindex < len(lines):
-                lines[opindex] = lines[opindex].rstrip() + '\t<=====\n'
+            if opindex is not None and 0 <= opindex <= len(lines):
+                lines.insert(opindex, '\n\t===== HERE =====\n')
             return ''.join(lines)
         #
         expected_src = self.preprocess_expected_src(expected_src)
@@ -381,7 +451,6 @@ class OpMatcher(object):
         try:
             self.match_loop(expected_ops, ignore_ops)
         except InvalidMatch, e:
-            #raise # uncomment this and use py.test --pdb for better debugging
             print '@' * 40
             print "Loops don't match"
             print "================="
@@ -394,7 +463,22 @@ class OpMatcher(object):
             print
             print "Expected:"
             print format(expected_src)
-            return False
+            raise     # always propagate the exception in case of mismatch
         else:
             return True
 
+
+class RevertableIterator(object):
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.index = 0
+    def __iter__(self):
+        return self
+    def next(self):
+        index = self.index
+        if index == len(self.sequence):
+            raise StopIteration
+        self.index = index + 1
+        return self.sequence[index]
+    def revert_one(self):
+        self.index -= 1

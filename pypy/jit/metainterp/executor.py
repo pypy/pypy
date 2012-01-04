@@ -1,11 +1,8 @@
 """This implements pyjitpl's execution of operations.
 """
 
-import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask, r_longlong
+from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
@@ -49,7 +46,7 @@ def do_call(cpu, metainterp, argboxes, descr):
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
-    rettype = descr.get_return_type()
+    rettype = descr.get_result_type()
     if rettype == INT or rettype == 'S':       # *S*ingle float
         try:
             result = cpu.bh_call_i(func, descr, args_i, args_r, args_f)
@@ -122,6 +119,29 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
                                   itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
+
+def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    if descr.is_pointer_field():
+        return BoxPtr(cpu.bh_getinteriorfield_gc_r(array, index, descr))
+    elif descr.is_float_field():
+        return BoxFloat(cpu.bh_getinteriorfield_gc_f(array, index, descr))
+    else:
+        return BoxInt(cpu.bh_getinteriorfield_gc_i(array, index, descr))
+
+def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    if descr.is_pointer_field():
+        cpu.bh_setinteriorfield_gc_r(array, index, descr,
+                                     valuebox.getref_base())
+    elif descr.is_float_field():
+        cpu.bh_setinteriorfield_gc_f(array, index, descr,
+                                     valuebox.getfloatstorage())
+    else:
+        cpu.bh_setinteriorfield_gc_i(array, index, descr,
+                                     valuebox.getint())
 
 def do_getfield_gc(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()
@@ -320,8 +340,13 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.GETINTERIORFIELD_RAW,
+                         rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
+                         rop.CALL_MALLOC_GC,
+                         rop.CALL_MALLOC_NURSERY,
+                         rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

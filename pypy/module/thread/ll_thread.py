@@ -2,10 +2,11 @@
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
-from pypy.rlib import jit
+from pypy.rlib import jit, rgc
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.tool import rffi_platform
 from pypy.tool import autopath
 
 class error(Exception):
@@ -17,7 +18,8 @@ eci = ExternalCompilationInfo(
     include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))],
     export_symbols = ['RPyThreadGetIdent', 'RPyThreadLockInit',
                       'RPyThreadAcquireLock', 'RPyThreadReleaseLock',
-                      'RPyThreadYield',
+                      'RPyGilAllocate', 'RPyGilYieldThread',
+                      'RPyGilRelease', 'RPyGilAcquire',
                       'RPyThreadGetStackSize', 'RPyThreadSetStackSize',
                       'RPyOpaqueDealloc_ThreadLock',
                       'RPyThreadAfterFork']
@@ -48,7 +50,7 @@ c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
-
+TLOCKP_SIZE = rffi_platform.sizeof('struct RPyOpaque_ThreadLock', eci)
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
                                 threadsafe=False)   # may add in a global list
 c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
@@ -69,8 +71,16 @@ c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
                                          _nowrapper=True)
 
-# this function does nothing apart from releasing the GIL temporarily.
-yield_thread = llexternal('RPyThreadYield', [], lltype.Void, threadsafe=True)
+# these functions manipulate directly the GIL, whose definition does not
+# escape the C code itself
+gil_allocate     = llexternal('RPyGilAllocate', [], lltype.Signed,
+                              _nowrapper=True)
+gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
+                              _nowrapper=True)
+gil_release      = llexternal('RPyGilRelease', [], lltype.Void,
+                              _nowrapper=True)
+gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
+                              _nowrapper=True)
 
 def allocate_lock():
     return Lock(allocate_ll_lock())
@@ -155,6 +165,9 @@ def allocate_ll_lock():
     if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
+    # Add some memory pressure for the size of the lock because it is an
+    # Opaque object
+    rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
 
 def free_ll_lock(ll_lock):

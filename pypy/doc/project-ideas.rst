@@ -17,17 +17,26 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
+Make big integers faster
+-------------------------
+
+PyPy's implementation of the Python ``long`` type is slower than CPython's.
+Find out why and optimize them.
+
+Make bytearray type fast
+------------------------
+
+PyPy's bytearray type is very inefficient. It would be an interesting
+task to look into possible optimizations on this.
+
 Numpy improvements
 ------------------
 
-This is more of a project-container than a single project. Possible ideas:
+The numpy is rapidly progressing in pypy, so feel free to come to IRC and
+ask for proposed topic. A not necesarilly up-to-date `list of topics`_
+is also available.
 
-* experiment with auto-vectorization using SSE or implement vectorization
-  without automatically detecting it for array operations.
-
-* improve numpy, for example implement memory views.
-
-* interface with fortran/C libraries.
+.. _`list of topics`: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
 
 Improving the jitviewer
 ------------------------
@@ -52,6 +61,18 @@ The jitviewer is a web application based on flask and jinja2 (and jQuery on
 the client): if you have great web developing skills and want to help PyPy,
 this is an ideal task to get started, because it does not require any deep
 knowledge of the internals.
+
+Optimized Unicode Representation
+--------------------------------
+
+CPython 3.3 will use an `optimized unicode representation`_ which switches between
+different ways to represent a unicode string, depending on whether the string
+fits into ASCII, has only two-byte characters or needs four-byte characters.
+
+The actual details would be rather differen in PyPy, but we would like to have
+the same optimization implemented.
+
+.. _`optimized unicode representation`: http://www.python.org/dev/peps/pep-0393/
 
 Translation Toolchain
 ---------------------

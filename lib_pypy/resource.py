@@ -7,7 +7,7 @@ from ctypes_config_cache._resource_cache import *
 
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
-from ctypes import Structure, c_int, c_long, byref, sizeof, POINTER
+from ctypes import Structure, c_int, c_long, byref, POINTER
 from errno import EINVAL, EPERM
 import _structseq
 
@@ -165,7 +165,6 @@ def setrlimit(resource, rlim):
 
 @builtinify
 def getpagesize():
-    pagesize = 0
     if _getpagesize:
         return _getpagesize()
     else:

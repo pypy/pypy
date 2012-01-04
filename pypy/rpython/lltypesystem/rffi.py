@@ -16,6 +16,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -125,6 +126,7 @@ def llexternal(name, args, result, _callable=None,
                                  canraise=False,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
+                                 calling_conv=calling_conv,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -245,8 +247,13 @@ def llexternal(name, args, result, _callable=None,
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
+    wrapper = func_with_new_name(wrapper, name)
 
-    return func_with_new_name(wrapper, name)
+    if calling_conv != "c":
+        wrapper = jit.dont_look_inside(wrapper)
+
+    return wrapper
+
 
 class CallbackHolder:
     def __init__(self):
@@ -690,6 +697,8 @@ def make_string_mappings(strtype):
         return b.build()
 
     # str -> char*
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def get_nonmovingbuffer(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
@@ -710,6 +719,8 @@ def make_string_mappings(strtype):
     get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def free_nonmovingbuffer(data, buf):
         """
         Either free a non-moving buffer or keep the original storage alive.
@@ -855,11 +866,14 @@ def size_and_sign(tp):
     try:
         unsigned = not tp._type.SIGNED
     except AttributeError:
-        if tp in [lltype.Char, lltype.Float, lltype.Signed] or\
-               isinstance(tp, lltype.Ptr):
+        if not isinstance(tp, lltype.Primitive):
             unsigned = False
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
+            unsigned = False
+        elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
+            unsigned = True
         else:
-            unsigned = False
+            raise AssertionError("size_and_sign(%r)" % (tp,))
     return size, unsigned
 
 def sizeof(tp):

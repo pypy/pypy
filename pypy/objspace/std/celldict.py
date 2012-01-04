@@ -37,10 +37,10 @@ class ModuleDictStrategy(DictStrategy):
         self.version = VersionTag()
 
     def get_empty_storage(self):
-       return self.erase({})
+        return self.erase({})
 
     def mutated(self):
-       self.version = VersionTag()
+        self.version = VersionTag()
 
     def getdictvalue_no_unwrapping(self, w_dict, key):
         # NB: it's important to promote self here, so that self.version is a
@@ -65,11 +65,11 @@ class ModuleDictStrategy(DictStrategy):
         if isinstance(cell, ModuleCell):
             cell.w_value = w_value
             return
-        # If the new value and the current value are the same, don't create a
-        # level of indirection, or mutate are version.
-        if self.space.is_w(w_value, cell):
-            return
         if cell is not None:
+            # If the new value and the current value are the same, don't create a
+            # level of indirection, or mutate the version.
+            if self.space.is_w(w_value, cell):
+                return
             w_value = ModuleCell(w_value)
         self.mutated()
         self.unerase(w_dict.dstorage)[key] = w_value

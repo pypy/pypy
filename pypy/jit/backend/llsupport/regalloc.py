@@ -16,31 +16,105 @@ class FrameManager(object):
     """ Manage frame positions
     """
     def __init__(self):
-        self.frame_bindings = {}
-        self.frame_depth    = 0
+        self.bindings = {}
+        self.used = []      # list of bools
+        self.hint_frame_locations = {}
+
+    frame_depth = property(lambda:xxx, lambda:xxx)   # XXX kill me
+
+    def get_frame_depth(self):
+        return len(self.used)
 
     def get(self, box):
-        return self.frame_bindings.get(box, None)
+        return self.bindings.get(box, None)
 
     def loc(self, box):
-        res = self.get(box)
-        if res is not None:
-            return res
+        """Return or create the frame location associated with 'box'."""
+        # first check if it's already in the frame_manager
+        try:
+            return self.bindings[box]
+        except KeyError:
+            pass
+        # check if we have a hint for this box
+        if box in self.hint_frame_locations:
+            # if we do, try to reuse the location for this box
+            loc = self.hint_frame_locations[box]
+            if self.try_to_reuse_location(box, loc):
+                return loc
+        # no valid hint.  make up a new free location
+        return self.get_new_loc(box)
+
+    def get_new_loc(self, box):
         size = self.frame_size(box.type)
-        self.frame_depth += ((-self.frame_depth) & (size-1))
-        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.frame_pos(self.frame_depth, box.type)
-        self.frame_bindings[box] = newloc
-        self.frame_depth += size
+        while self.get_frame_depth() & (size - 1):
+            self.used.append(False)
+        #
+        index = self.get_frame_depth()
+        newloc = self.frame_pos(index, box.type)
+        for i in range(size):
+            self.used.append(True)
+        #
+        if not we_are_translated():    # extra testing
+            testindex = self.get_loc_index(newloc)
+            assert testindex == index
+        #
+        self.bindings[box] = newloc
         return newloc
 
+    def set_binding(self, box, loc):
+        self.bindings[box] = loc
+        #
+        index = self.get_loc_index(loc)
+        if index < 0:
+            return
+        endindex = index + self.frame_size(box.type)
+        while len(self.used) < endindex:
+            self.used.append(False)
+        while index < endindex:
+            self.used[index] = True
+            index += 1
+
     def reserve_location_in_frame(self, size):
-        frame_depth = self.frame_depth
-        self.frame_depth += size
+        frame_depth = self.get_frame_depth()
+        for i in range(size):
+            self.used.append(True)
         return frame_depth
+
+    def mark_as_free(self, box):
+        try:
+            loc = self.bindings[box]
+        except KeyError:
+            return    # already gone
+        del self.bindings[box]
+        #
+        size = self.frame_size(box.type)
+        baseindex = self.get_loc_index(loc)
+        if baseindex < 0:
+            return
+        for i in range(size):
+            index = baseindex + i
+            assert 0 <= index < len(self.used)
+            self.used[index] = False
+
+    def try_to_reuse_location(self, box, loc):
+        index = self.get_loc_index(loc)
+        if index < 0:
+            return False
+        size = self.frame_size(box.type)
+        for i in range(size):
+            while (index + i) >= len(self.used):
+                self.used.append(False)
+            if self.used[index + i]:
+                return False    # already in use
+        # good, we can reuse the location
+        for i in range(size):
+            self.used[index + i] = True
+        self.bindings[box] = loc
+        return True
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
@@ -49,6 +123,10 @@ class FrameManager(object):
     @staticmethod
     def frame_size(type):
         return 1
+    @staticmethod
+    def get_loc_index(loc):
+        raise NotImplementedError("Purely abstract")
+
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -68,7 +146,14 @@ class RegisterManager(object):
         self.frame_manager = frame_manager
         self.assembler = assembler
 
+    def is_still_alive(self, v):
+        # Check if 'v' is alive at the current position.
+        # Return False if the last usage is strictly before.
+        return self.longevity[v][1] >= self.position
+
     def stays_alive(self, v):
+        # Check if 'v' stays alive after the current position.
+        # Return False if the last usage is before or at position.
         return self.longevity[v][1] > self.position
 
     def next_instruction(self, incr=1):
@@ -84,11 +169,14 @@ class RegisterManager(object):
             point for all variables that might be in registers.
         """
         self._check_type(v)
-        if isinstance(v, Const) or v not in self.reg_bindings:
+        if isinstance(v, Const):
             return
         if v not in self.longevity or self.longevity[v][1] <= self.position:
-            self.free_regs.append(self.reg_bindings[v])
-            del self.reg_bindings[v]
+            if v in self.reg_bindings:
+                self.free_regs.append(self.reg_bindings[v])
+                del self.reg_bindings[v]
+            if self.frame_manager is not None:
+                self.frame_manager.mark_as_free(v)
 
     def possibly_free_vars(self, vars):
         """ Same as 'possibly_free_var', but for all v in vars.
@@ -287,7 +375,6 @@ class RegisterManager(object):
         self.reg_bindings[to_v] = reg
 
     def _move_variable_away(self, v, prev_loc):
-        reg = None
         if self.free_regs:
             loc = self.free_regs.pop()
             self.reg_bindings[v] = loc

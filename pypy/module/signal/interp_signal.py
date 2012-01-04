@@ -109,8 +109,11 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         value = p.c_value
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= by
-            p.c_value = value
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                p.c_value = value
         return value
 
 

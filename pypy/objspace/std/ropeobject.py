@@ -6,7 +6,7 @@ from pypy.interpreter import gateway
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import stringobject, slicetype, iterobject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -19,7 +19,7 @@ from pypy.objspace.std.stringobject import (
     str_format__String as str_format__Rope,
     _upper, _lower, DEFAULT_NOOP_TABLE)
 
-class W_RopeObject(W_Object):
+class W_RopeObject(stringobject.W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_node']
 
@@ -34,11 +34,17 @@ class W_RopeObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self._node.flatten_string()
+    str_w = unwrap
 
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeObject:
             return w_self
         return W_RopeObject(w_self._node)
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._node.flatten_string())
 
 W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
 W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])
@@ -53,7 +59,7 @@ def rope_w(space, w_str):
 
 registerimplementation(W_RopeObject)
 
-class W_RopeIterObject(W_Object):
+class W_RopeIterObject(iterobject.W_AbstractIterObject):
     from pypy.objspace.std.itertype import iter_typedef as typedef
 
     def __init__(w_self, w_rope, index=0):
@@ -351,16 +357,8 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
     self = w_self._node
     sub = w_sub._node
 
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    if space.is_w(w_end, space.w_None):
-        w_end = space.len(w_self)
-    if upper_bound:
-        start = slicetype.adapt_bound(space, self.length(), w_start)
-        end = slicetype.adapt_bound(space, self.length(), w_end)
-    else:
-        start = slicetype.adapt_lower_bound(space, self.length(), w_start)
-        end = slicetype.adapt_lower_bound(space, self.length(), w_end)
+    start, end = slicetype.unwrap_start_stop(
+            space, self.length(), w_start, w_end, upper_bound)
 
     return (self, sub, start, end)
 _convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
@@ -662,9 +660,6 @@ def str_zfill__Rope_ANY(space, w_self, w_width):
         middle = width - length
         return W_RopeObject(rope.concatenate(
             rope.multiply(zero, middle), node))
-
-def str_w__Rope(space, w_str):
-    return w_str._node.flatten_string()
 
 def hash__Rope(space, w_str):
     return wrapint(space, rope.hash_rope(w_str._node))

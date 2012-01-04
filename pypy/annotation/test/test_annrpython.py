@@ -856,6 +856,46 @@ class TestAnnotateTestCase:
         py.test.raises(Exception, a.build_types, f, [])
         # if you want to get a r_uint, you have to be explicit about it
 
+    def test_add_different_ints(self):
+        def f(a, b):
+            return a + b
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_different_ints(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_ruint_zero(self):
+        def f(a):
+            if a:
+                c = a
+            else:
+                c = 0
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+    def test_merge_ruint_nonneg_signed(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                assert b >= 0
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint, int])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+
     def test_prebuilt_long_that_is_not_too_long(self):
         small_constant = 12L
         def f():
@@ -1193,6 +1233,20 @@ class TestAnnotateTestCase:
 
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
         assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
+
+    def test_specialize_arg_or_var(self):
+        def f(a):
+            return 1
+        f._annspecialcase_ = 'specialize:arg_or_var(0)'
+
+        def fn(a):
+            return f(3) + f(a)
+
+        a = self.RPythonAnnotator()
+        a.build_types(fn, [int])
+        executedesc = a.bookkeeper.getdesc(f)
+        assert sorted(executedesc._cache.keys()) == [None, (3,)]
+        # we got two different special
 
     def test_specialize_call_location(self):
         def g(a):
@@ -3015,7 +3069,7 @@ class TestAnnotateTestCase:
             if g(x, y):
                 g(x, r_uint(y))
         a = self.RPythonAnnotator()
-        a.build_types(f, [int, int])
+        py.test.raises(Exception, a.build_types, f, [int, int])
 
     def test_compare_with_zero(self):
         def g():
@@ -3190,6 +3244,8 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeList)
         assert not s.listdef.listitem.resized
+        assert not s.listdef.listitem.immutable
+        assert s.listdef.listitem.mutated
 
     def test_delslice(self):
         def f():

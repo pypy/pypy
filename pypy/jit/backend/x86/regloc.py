@@ -16,14 +16,19 @@ from pypy.jit.codewriter import longlong
 #
 
 class AssemblerLocation(object):
-    # XXX: Is adding "width" here correct?
-    __slots__ = ('value', 'width')
+    _attrs_ = ('value', '_location_code')
     _immutable_ = True
     def _getregkey(self):
         return self.value
 
     def is_memory_reference(self):
         return self.location_code() in ('b', 's', 'j', 'a', 'm')
+
+    def location_code(self):
+        return self._location_code
+
+    def get_width(self):
+        raise NotImplementedError
 
     def value_r(self): return self.value
     def value_b(self): return self.value
@@ -38,19 +43,25 @@ class AssemblerLocation(object):
 
 class StackLoc(AssemblerLocation):
     _immutable_ = True
-    def __init__(self, position, ebp_offset, num_words, type):
-        assert ebp_offset < 0   # so no confusion with RegLoc.value
+    _location_code = 'b'
+
+    def __init__(self, position, ebp_offset, type):
+        # _getregkey() returns self.value; the value returned must not
+        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
+        # so let it fail the following assert if it no longer does.
+        assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
         self.position = position
         self.value = ebp_offset
-        self.width = num_words * WORD
         # One of INT, REF, FLOAT
         self.type = type
 
+    def get_width(self):
+        if self.type == FLOAT:
+            return 8
+        return WORD
+
     def __repr__(self):
         return '%d(%%ebp)' % (self.value,)
-
-    def location_code(self):
-        return 'b'
 
     def assembler(self):
         return repr(self)
@@ -62,14 +73,19 @@ class RegLoc(AssemblerLocation):
         self.value = regnum
         self.is_xmm = is_xmm
         if self.is_xmm:
-            self.width = 8
+            self._location_code = 'x'
         else:
-            self.width = WORD
+            self._location_code = 'r'
     def __repr__(self):
         if self.is_xmm:
             return rx86.R.xmmnames[self.value]
         else:
             return rx86.R.names[self.value]
+
+    def get_width(self):
+        if self.is_xmm:
+            return 8
+        return WORD
 
     def lowest8bits(self):
         assert not self.is_xmm
@@ -78,12 +94,6 @@ class RegLoc(AssemblerLocation):
     def higher8bits(self):
         assert not self.is_xmm
         return RegLoc(rx86.high_byte(self.value), False)
-
-    def location_code(self):
-        if self.is_xmm:
-            return 'x'
-        else:
-            return 'r'
 
     def assembler(self):
         return '%' + repr(self)
@@ -94,19 +104,23 @@ class RegLoc(AssemblerLocation):
         else:
             return eax
 
-class ImmedLoc(AssemblerLocation):
+class ImmediateAssemblerLocation(AssemblerLocation):
     _immutable_ = True
-    width = WORD
+
+class ImmedLoc(ImmediateAssemblerLocation):
+    _immutable_ = True
+    _location_code = 'i'
+
     def __init__(self, value):
         from pypy.rpython.lltypesystem import rffi, lltype
         # force as a real int
         self.value = rffi.cast(lltype.Signed, value)
 
-    def location_code(self):
-        return 'i'
-
     def getint(self):
         return self.value
+
+    def get_width(self):
+        return WORD
 
     def __repr__(self):
         return "ImmedLoc(%d)" % (self.value)
@@ -120,7 +134,6 @@ class ImmedLoc(AssemblerLocation):
 class AddressLoc(AssemblerLocation):
     _immutable_ = True
 
-    width = WORD
     # The address is base_loc + (scaled_loc << scale) + static_offset
     def __init__(self, base_loc, scaled_loc, scale=0, static_offset=0):
         assert 0 <= scale < 4
@@ -149,8 +162,8 @@ class AddressLoc(AssemblerLocation):
         info = getattr(self, attr, '?')
         return '<AddressLoc %r: %s>' % (self._location_code, info)
 
-    def location_code(self):
-        return self._location_code
+    def get_width(self):
+        return WORD
 
     def value_a(self):
         return self.loc_a
@@ -186,32 +199,33 @@ class AddressLoc(AssemblerLocation):
             raise AssertionError(self._location_code)
         return result
 
-class ConstFloatLoc(AssemblerLocation):
-    # XXX: We have to use this class instead of just AddressLoc because
-    # we want a width of 8  (... I think.  Check this!)
+class ConstFloatLoc(ImmediateAssemblerLocation):
     _immutable_ = True
-    width = 8
+    _location_code = 'j'
 
     def __init__(self, address):
         self.value = address
 
+    def get_width(self):
+        return 8
+
     def __repr__(self):
         return '<ConstFloatLoc @%s>' % (self.value,)
 
-    def location_code(self):
-        return 'j'
-
 if IS_X86_32:
-    class FloatImmedLoc(AssemblerLocation):
+    class FloatImmedLoc(ImmediateAssemblerLocation):
         # This stands for an immediate float.  It cannot be directly used in
         # any assembler instruction.  Instead, it is meant to be decomposed
         # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
         # instead; see below.
         _immutable_ = True
-        width = 8
+        _location_code = '#'     # don't use me
 
         def __init__(self, floatstorage):
             self.aslonglong = floatstorage
+
+        def get_width(self):
+            return 8
 
         def low_part(self):
             return intmask(self.aslonglong)
@@ -228,9 +242,6 @@ if IS_X86_32:
         def __repr__(self):
             floatvalue = longlong.getrealfloat(self.aslonglong)
             return '<FloatImmedLoc(%s)>' % (floatvalue,)
-
-        def location_code(self):
-            raise NotImplementedError
 
 if IS_X86_64:
     def FloatImmedLoc(floatstorage):
@@ -270,6 +281,11 @@ def _rx86_getattr(obj, methname):
     else:
         raise AssertionError(methname + " undefined")
 
+def _missing_binary_insn(name, code1, code2):
+    raise AssertionError(name + "_" + code1 + code2 + " missing")
+_missing_binary_insn._dont_inline_ = True
+
+
 class LocationCodeBuilder(object):
     _mixin_ = True
 
@@ -303,12 +319,31 @@ class LocationCodeBuilder(object):
             else:
                 # For this case, we should not need the scratch register more than here.
                 self._load_scratch(val2)
+                if name == 'MOV' and loc1 is X86_64_SCRATCH_REG:
+                    return     # don't need a dummy "MOV r11, r11"
                 INSN(self, loc1, X86_64_SCRATCH_REG)
 
         def invoke(self, codes, val1, val2):
             methname = name + "_" + codes
             _rx86_getattr(self, methname)(val1, val2)
         invoke._annspecialcase_ = 'specialize:arg(1)'
+
+        def has_implementation_for(loc1, loc2):
+            # A memo function that returns True if there is any NAME_xy that could match.
+            # If it returns False we know the whole subcase can be omitted from translated
+            # code.  Without this hack, the size of most _binaryop INSN functions ends up
+            # quite large in C code.
+            if loc1 == '?':
+                return any([has_implementation_for(loc1, loc2)
+                            for loc1 in unrolling_location_codes])
+            methname = name + "_" + loc1 + loc2
+            if not hasattr(rx86.AbstractX86CodeBuilder, methname):
+                return False
+            # any NAME_j should have a NAME_m as a fallback, too.  Check it
+            if loc1 == 'j': assert has_implementation_for('m', loc2), methname
+            if loc2 == 'j': assert has_implementation_for(loc1, 'm'), methname
+            return True
+        has_implementation_for._annspecialcase_ = 'specialize:memo'
 
         def INSN(self, loc1, loc2):
             code1 = loc1.location_code()
@@ -325,6 +360,8 @@ class LocationCodeBuilder(object):
                 assert code2 not in ('j', 'i')
 
             for possible_code2 in unrolling_location_codes:
+                if not has_implementation_for('?', possible_code2):
+                    continue
                 if code2 == possible_code2:
                     val2 = getattr(loc2, "value_" + possible_code2)()
                     #
@@ -335,28 +372,32 @@ class LocationCodeBuilder(object):
                     #
                     # Regular case
                     for possible_code1 in unrolling_location_codes:
+                        if not has_implementation_for(possible_code1,
+                                                      possible_code2):
+                            continue
                         if code1 == possible_code1:
                             val1 = getattr(loc1, "value_" + possible_code1)()
                             # More faking out of certain operations for x86_64
-                            if possible_code1 == 'j' and not rx86.fits_in_32bits(val1):
+                            fits32 = rx86.fits_in_32bits
+                            if possible_code1 == 'j' and not fits32(val1):
                                 val1 = self._addr_as_reg_offset(val1)
                                 invoke(self, "m" + possible_code2, val1, val2)
-                            elif possible_code2 == 'j' and not rx86.fits_in_32bits(val2):
+                                return
+                            if possible_code2 == 'j' and not fits32(val2):
                                 val2 = self._addr_as_reg_offset(val2)
                                 invoke(self, possible_code1 + "m", val1, val2)
-                            elif possible_code1 == 'm' and not rx86.fits_in_32bits(val1[1]):
+                                return
+                            if possible_code1 == 'm' and not fits32(val1[1]):
                                 val1 = self._fix_static_offset_64_m(val1)
-                                invoke(self, "a" + possible_code2, val1, val2)
-                            elif possible_code2 == 'm' and not rx86.fits_in_32bits(val2[1]):
+                            if possible_code2 == 'm' and not fits32(val2[1]):
                                 val2 = self._fix_static_offset_64_m(val2)
-                                invoke(self, possible_code1 + "a", val1, val2)
-                            else:
-                                if possible_code1 == 'a' and not rx86.fits_in_32bits(val1[3]):
-                                    val1 = self._fix_static_offset_64_a(val1)
-                                if possible_code2 == 'a' and not rx86.fits_in_32bits(val2[3]):
-                                    val2 = self._fix_static_offset_64_a(val2)
-                                invoke(self, possible_code1 + possible_code2, val1, val2)
+                            if possible_code1 == 'a' and not fits32(val1[3]):
+                                val1 = self._fix_static_offset_64_a(val1)
+                            if possible_code2 == 'a' and not fits32(val2[3]):
+                                val2 = self._fix_static_offset_64_a(val2)
+                            invoke(self, possible_code1 + possible_code2, val1, val2)
                             return
+            _missing_binary_insn(name, code1, code2)
 
         return func_with_new_name(INSN, "INSN_" + name)
 
@@ -431,12 +472,14 @@ class LocationCodeBuilder(object):
     def _fix_static_offset_64_m(self, (basereg, static_offset)):
         # For cases where an AddressLoc has the location_code 'm', but
         # where the static offset does not fit in 32-bits.  We have to fall
-        # back to the X86_64_SCRATCH_REG.  Note that this returns a location
-        # encoded as mode 'a'.  These are all possibly rare cases; don't try
+        # back to the X86_64_SCRATCH_REG.  Returns a new location encoded
+        # as mode 'm' too.  These are all possibly rare cases; don't try
         # to reuse a past value of the scratch register at all.
         self._scratch_register_known = False
         self.MOV_ri(X86_64_SCRATCH_REG.value, static_offset)
-        return (basereg, X86_64_SCRATCH_REG.value, 0, 0)
+        self.LEA_ra(X86_64_SCRATCH_REG.value,
+                    (basereg, X86_64_SCRATCH_REG.value, 0, 0))
+        return (X86_64_SCRATCH_REG.value, 0)
 
     def _fix_static_offset_64_a(self, (basereg, scalereg,
                                        scale, static_offset)):

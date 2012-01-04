@@ -458,3 +458,7 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
     if module:
         space.setattr(w_exc, space.wrap("__module__"), space.wrap(module))
     return w_exc
+
+def typed_unwrap_error_msg(space, expected, w_obj):
+    type_name = space.type(w_obj).getname(space)
+    return space.wrap("expected %s, got %s object" % (expected, type_name))

@@ -255,6 +255,11 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
 
+        h.invalidate_caches(rop.GUARD_TRUE, None, [])
+        assert h.getfield(box1, descr1) is box2
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        assert h.getarrayitem(box1, descr1, index2) is box4
+
         h.invalidate_caches(
             rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT), [])
 
@@ -355,6 +360,14 @@ class TestHeapCache(object):
         assert not h.is_unescaped(box1)
         assert not h.is_unescaped(box2)
 
+    def test_circular_virtuals(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box2, box1])
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box3, box1]) # does not crash
+
     def test_unescaped_array(self):
         h = HeapCache()
         h.new_array(box1, lengthbox1)
@@ -363,3 +376,17 @@ class TestHeapCache(object):
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box2, index1, box1])
         assert not h.is_unescaped(box1)
+
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.new(box2)
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box1, lengthbox2, box2])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(
+            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS), [box1]
+        )
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)

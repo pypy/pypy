@@ -9,7 +9,12 @@ Try:
 """
 
 import autopath
-import operator, sys, os, re, py, new
+import new
+import operator
+import py
+import re
+import sys
+import subprocess
 from bisect import bisect_left
 
 # don't use pypy.tool.udir here to avoid removing old usessions which
@@ -44,14 +49,16 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
-    g = os.popen(objdump % {
+    p = subprocess.Popen(objdump % {
         'file': tmpfile,
         'origin': originaddr,
         'backend': objdump_backend_option[backend_name],
-    }, 'r')
-    result = g.readlines()
-    g.close()
-    lines = result[6:]   # drop some objdump cruft
+    }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    assert not p.returncode, ('Encountered an error running objdump: %s' %
+                              stderr)
+    # drop some objdump cruft
+    lines = stdout.splitlines(True)[6:]     # drop some objdump cruft
     return format_code_dump_with_labels(originaddr, lines, label_list)
 
 def format_code_dump_with_labels(originaddr, lines, label_list):
@@ -85,8 +92,12 @@ def load_symbols(filename):
     #
     print 'loading symbols from %s...' % (filename,)
     symbols = {}
-    g = os.popen(symbollister % filename, "r")
-    for line in g:
+    p = subprocess.Popen(symbollister % filename, shell=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    assert not p.returncode, ('Encountered an error running nm: %s' %
+                              stderr)
+    for line in stdout.splitlines(True):
         match = re_symbolentry.match(line)
         if match:
             addr = long(match.group(1), 16)
@@ -94,7 +105,6 @@ def load_symbols(filename):
             if name.startswith('pypy_g_'):
                 name = '\xb7' + name[7:]
             symbols[addr] = name
-    g.close()
     print '%d symbols found' % (len(symbols),)
     return symbols
 

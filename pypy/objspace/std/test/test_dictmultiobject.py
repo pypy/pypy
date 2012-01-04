@@ -577,15 +577,17 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         assert getattr(a, s) == 42
 
     def test_setattr_string_identify(self):
-        attrs = []
+        class StrHolder(object):
+            pass
+        holder = StrHolder()
         class A(object):
             def __setattr__(self, attr, value):
-                attrs.append(attr)
+                holder.seen = attr
 
         a = A()
         s = "abc"
         setattr(a, s, 123)
-        assert attrs[0] is s
+        assert holder.seen is s
 
 class AppTestDictViews:
     def test_dictview(self):

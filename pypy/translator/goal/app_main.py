@@ -144,7 +144,7 @@ def _print_jit_help():
     print '  --jit off                  turn off the JIT'
 
 def print_version(*args):
-    print "Python", sys.version
+    print >> sys.stderr, "Python", sys.version
     raise SystemExit
 
 def set_jit_option(options, jitparam, *args):
@@ -672,7 +672,7 @@ if __name__ == '__main__':
     def pypy_initial_path(s):
         from pypy.module.sys.state import getinitialpath
         try:
-            return getinitialpath(s)
+            return getinitialpath(None, s)
         except OSError:
             return None
 

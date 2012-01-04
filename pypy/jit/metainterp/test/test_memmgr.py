@@ -14,10 +14,13 @@ import py
 from pypy.jit.metainterp.memmgr import MemoryManager
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
-
+from pypy.jit.metainterp.warmspot import get_stats
+from pypy.jit.metainterp.warmstate import JitCell
+from pypy.rlib import rgc
 
 class FakeLoopToken:
     generation = 0
+    invalidated = False
 
 
 class _TestMemoryManager:
@@ -80,6 +83,20 @@ class _TestIntegration(LLJitMixin):
     # See comments in TestMemoryManager.  To get temporarily the normal
     # behavior just rename this class to TestIntegration.
 
+    # We need an extra rgc.collect in get_procedure_token() for some of
+    # these tests to pass. But we dont want it there always since that will
+    # make all other tests take forever.
+    def setup_class(cls):
+        original_get_procedure_token = JitCell.get_procedure_token
+        def get_procedure_token(self):
+            rgc.collect();
+            return original_get_procedure_token(self)
+        JitCell.get_procedure_token = get_procedure_token
+        cls.original_get_procedure_token = original_get_procedure_token
+
+    def teardown_class(cls):
+        JitCell.get_procedure_token = cls.original_get_procedure_token
+
     def test_loop_kept_alive(self):
         myjitdriver = JitDriver(greens=[], reds=['n'])
         def g():
@@ -98,7 +115,7 @@ class _TestIntegration(LLJitMixin):
         assert res == 42
 
         # we should see only the loop and the entry bridge
-        self.check_tree_loop_count(2)
+        self.check_target_token_count(2)
 
     def test_target_loop_kept_alive_or_not(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -113,6 +130,8 @@ class _TestIntegration(LLJitMixin):
             # Depending on loop_longevity, either:
             # A. create the loop and the entry bridge for 'g(5)'
             # B. create 8 loops (and throw them away at each iteration)
+            #    Actually, it's 4 loops and 4 exit bridges thrown away
+            #    every second iteration
             for i in range(8):
                 g(5)
             # create another loop and another entry bridge for 'g(7)',
@@ -131,14 +150,15 @@ class _TestIntegration(LLJitMixin):
         # case A
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        # we should see only the loop and the entry bridge for g(5) and g(7)
-        self.check_tree_loop_count(4)
+        # we should see only the loop with preamble and the exit bridge
+        # for g(5) and g(7)
+        self.check_enter_count(4)
 
         # case B, with a lower longevity
         res = self.meta_interp(f, [], loop_longevity=1)
         assert res == 42
         # we should see a loop for each call to g()
-        self.check_tree_loop_count(8 + 20*2*2)
+        self.check_enter_count(8 + 20*2)
 
     def test_throw_away_old_loops(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -151,9 +171,9 @@ class _TestIntegration(LLJitMixin):
             return 21
         def f():
             for i in range(10):
-                g(1)   # g(1) gets a loop and an entry bridge, stays alive
-                g(2)   # (and an exit bridge, which does not count in
-                g(1)   # check_tree_loop_count)
+                g(1)   # g(1) gets a loop with an entry bridge
+                g(2)   # and an exit bridge, stays alive
+                g(1)   
                 g(3)
                 g(1)
                 g(4)   # g(2), g(3), g(4), g(5) are thrown away every iteration
@@ -163,7 +183,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        self.check_tree_loop_count(2 + 10*4*2)
+        self.check_enter_count(2 + 10*4)
 
     def test_call_assembler_keep_alive(self):
         myjitdriver1 = JitDriver(greens=['m'], reds=['n'])
@@ -186,7 +206,7 @@ class _TestIntegration(LLJitMixin):
             return 21
         def f(u):
             for i in range(8):
-                h(u, 32)  # make a loop and an entry bridge for h(u)
+                h(u, 32)  # make a loop and an exit bridge for h(u)
             g(u, 8)       # make a loop for g(u) with a call_assembler
             g(u, 0); g(u+1, 0)     # \
             g(u, 0); g(u+2, 0)     #  \  make more loops for g(u+1) to g(u+4),
@@ -197,7 +217,12 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [1], loop_longevity=4, inline=True)
         assert res == 42
-        self.check_tree_loop_count(12)
+        self.check_jitcell_token_count(6)
+        tokens = [t() for t in get_stats().jitcell_token_wrefs]
+        # Some loops have been freed
+        assert None in tokens
+        # Loop with number 0, h(), has not been freed
+        assert 0 in [t.number for t in tokens if t]
 
 # ____________________________________________________________
 
@@ -216,10 +241,17 @@ def test_all():
 if __name__ == '__main__':
     # occurs in the subprocess
     for test in [_TestMemoryManager(), _TestIntegration()]:
-        for name in dir(test):
-            if name.startswith('test_'):
-                print
-                print '-'*79
-                print '----- Now running test', name, '-----'
-                print
-                getattr(test, name)()
+        if hasattr(test, 'setup_class'):
+            test.setup_class()
+        try:
+            for name in dir(test):
+                if name.startswith('test_'):
+                    print
+                    print '-'*79
+                    print '----- Now running test', name, '-----'
+                    print
+                    getattr(test, name)()
+        finally:
+            if hasattr(test, 'teardown_class'):
+                test.teardown_class()
+            

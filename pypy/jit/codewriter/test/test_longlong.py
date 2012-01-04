@@ -57,7 +57,8 @@ class TestLongLong:
             assert op1.opname == 'residual_call_irf_f'
         else:
             assert op1.opname == 'residual_call_irf_i'
-        gotindex = getattr(EffectInfo, 'OS_' + op1.args[0].value.upper())
+        gotindex = getattr(EffectInfo,
+                           'OS_' + op1.args[0].value.upper().lstrip('U'))
         assert gotindex == oopspecindex
         assert op1.args[1] == 'calldescr-%d' % oopspecindex
         assert list(op1.args[2]) == [v for v in vlist
@@ -77,7 +78,7 @@ class TestLongLong:
             oplist = tr.rewrite_operation(op)
             assert len(oplist) == 2
             assert oplist[0].opname == 'residual_call_irf_f'
-            assert oplist[0].args[0].value == 'llong_from_int'
+            assert oplist[0].args[0].value == opname.split('_')[0]+'_from_int'
             assert oplist[0].args[1] == 'calldescr-84'
             assert list(oplist[0].args[2]) == [const(0)]
             assert list(oplist[0].args[3]) == []
@@ -192,8 +193,12 @@ class TestLongLong:
                       [lltype.SignedLongLong], lltype.Signed)
         self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
                       [lltype.Float], lltype.SignedLongLong)
+        self.do_check('cast_float_to_ulonglong', EffectInfo.OS_LLONG_FROM_FLOAT,
+                      [lltype.Float], lltype.UnsignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
+        self.do_check('cast_ulonglong_to_float', EffectInfo.OS_LLONG_U_TO_FLOAT,
+                      [lltype.UnsignedLongLong], lltype.Float)
         for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
             for T2 in [lltype.Signed, lltype.Unsigned]:
                 self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
