@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.history import INT, FLOAT
-from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD
 
 
 class AssemblerLocation(object):
@@ -110,9 +110,13 @@ class ConstFloatLoc(AssemblerLocation):
 class StackLocation(AssemblerLocation):
     _immutable_ = True
 
-    def __init__(self, position, num_words=1, type=INT):
+    def __init__(self, position, fp_offset, type=INT):
+        if type == FLOAT:
+            self.width = DOUBLE_WORD
+        else:
+            self.width = WORD
         self.position = position
-        self.width = num_words * WORD
+        self.value = fp_offset
         self.type = type
 
     def __repr__(self):

@@ -680,9 +680,7 @@ class AssemblerARM(ResOpAssembler):
                                 OverwritingBuilder.size_of_gen_load_int + WORD)
         # Note: the frame_depth is one less than the value stored in the frame
         # manager
-        if frame_depth == 1:
-            return
-        n = (frame_depth - 1) * WORD
+        n = frame_depth * WORD
 
         # ensure the sp is 8 byte aligned when patching it
         if n % 8 != 0:
@@ -840,7 +838,7 @@ class AssemblerARM(ResOpAssembler):
                 temp = r.lr
             else:
                 temp = r.ip
-            offset = loc.position * WORD
+            offset = loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([temp.value], cond=cond)
                 self.mc.gen_load_int(temp.value, -offset, cond=cond)
@@ -861,7 +859,7 @@ class AssemblerARM(ResOpAssembler):
             assert loc is not r.lr, 'lr is not supported as a target \
                 when moving from the stack'
             # unspill a core register
-            offset = prev_loc.position * WORD
+            offset = prev_loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.lr.value], cond=cond)
                 pushed = True
@@ -875,7 +873,7 @@ class AssemblerARM(ResOpAssembler):
             assert prev_loc.type == FLOAT, 'trying to load from an \
                 incompatible location into a float register'
             # load spilled value into vfp reg
-            offset = prev_loc.position * WORD
+            offset = prev_loc.value
             self.mc.PUSH([r.ip.value], cond=cond)
             pushed = True
             if not check_imm_arg(offset):
@@ -905,7 +903,7 @@ class AssemblerARM(ResOpAssembler):
                 incompatible location from a float register'
             # spill vfp register
             self.mc.PUSH([r.ip.value], cond=cond)
-            offset = loc.position * WORD
+            offset = loc.value
             if not check_imm_arg(offset):
                 self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
@@ -948,7 +946,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.POP([r.ip.value], cond=cond)
         elif vfp_loc.is_stack() and vfp_loc.type == FLOAT:
             # load spilled vfp value into two core registers
-            offset = vfp_loc.position * WORD
+            offset = vfp_loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
                 self.mc.gen_load_int(r.ip.value, -offset, cond=cond)
@@ -971,7 +969,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VMOV_cr(vfp_loc.value, reg1.value, reg2.value, cond=cond)
         elif vfp_loc.is_stack():
             # move from two core registers to a float stack location
-            offset = vfp_loc.position * WORD
+            offset = vfp_loc.value
             if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
                 self.mc.gen_load_int(r.ip.value, -offset, cond=cond)

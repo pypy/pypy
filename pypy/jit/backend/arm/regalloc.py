@@ -54,26 +54,28 @@ class TempFloat(TempBox):
         return "<TempFloat at %s>" % (id(self),)
 
 
+def get_fp_offset(i):
+    if i >= 0:
+        # Take the FORCE_TOKEN into account
+        return (1 + i) * WORD
+    else:
+        return i * WORD
+
+
 class ARMFrameManager(FrameManager):
 
     def __init__(self):
         FrameManager.__init__(self)
-        self.used = [True]  # keep first slot free
+        #self.used = [True]  # keep first slot free
         # XXX refactor frame to avoid this issue of keeping the first slot
         # reserved
 
     @staticmethod
-    def frame_pos(loc, type):
-        num_words = ARMFrameManager.frame_size(type)
-        if type == FLOAT:
-            if loc > 0:
-                # Make sure that loc is an even value
-                # the frame layout requires loc to be even if it is a spilled
-                # value!!
-                assert (loc & 1) == 0
-            return locations.StackLocation(loc + 1,
-                            num_words=num_words, type=type)
-        return locations.StackLocation(loc, num_words=num_words, type=type)
+    def frame_pos(i, box_type):
+        if box_type == FLOAT:
+            return locations.StackLocation(i, get_fp_offset(i + 1), box_type)
+        else:
+            return locations.StackLocation(i, get_fp_offset(i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -84,10 +86,7 @@ class ARMFrameManager(FrameManager):
     @staticmethod
     def get_loc_index(loc):
         assert loc.is_stack()
-        if loc.type == FLOAT:
-            return loc.position - 1
-        else:
-            return loc.position
+        return loc.position
 
 
 def void(self, op, fcond):
@@ -721,7 +720,6 @@ class Regalloc(object):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
-
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)
@@ -960,6 +958,7 @@ class Regalloc(object):
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
                 gcrootmap.add_frame_offset(shape, val.position * -WORD)
+                gcrootmap.add_frame_offset(shape, -val.value)
         for v, reg in self.rm.reg_bindings.items():
             if reg is r.r0:
                 continue
