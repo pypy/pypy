@@ -748,14 +748,14 @@ class VirtualSlice(VirtualArray):
 
 
 class Reduce(VirtualArray):
-    def __init__(self, ufunc, name, dim, res_dtype, values, identity=None):
+    def __init__(self, binfunc, name, dim, res_dtype, values, identity=None):
         shape = values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
         self.size = 1
         for s in shape:
             self.size *= s
-        self.ufunc = ufunc
+        self.binfunc = binfunc
         self.res_dtype = res_dtype
         self.dim = dim
         self.identity = identity
@@ -767,7 +767,7 @@ class Reduce(VirtualArray):
     def create_sig(self, res_shape):
         if self.forced_result is not None:
             return self.forced_result.create_sig(res_shape)
-        return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
+        return signature.ReduceSignature(self.binfunc, self.name, self.res_dtype,
                            signature.ViewSignature(self.res_dtype),
                            self.values.create_sig(res_shape))
 
@@ -778,13 +778,15 @@ class Reduce(VirtualArray):
         shapelen = len(result.shape)
         objlen = len(self.values.shape)
         target_len = self.values.shape[self.dim]
-        #sig = self.find_sig(result.shape) ##Don't do this, infinite recursion
-        sig = self.create_sig(result.shape)
+        sig = self.values.find_sig(result.shape)
+        #sig = self.create_sig(result.shape)
         ri = ArrayIterator(result.size)
         si = axis_iter_from_arr(self.values, self.dim)
         while not ri.done():
+            # explanation: we want to start the frame at the beginning of
+            # an axis: use si.indices to create a chunk (slice) 
+            # in self.values
             chunks = []
-            #for i in range(objlen - 1, -1, -1):
             for i in range(objlen):
                 if i == self.dim:
                     chunks.append((0, target_len, 1, target_len))
@@ -798,9 +800,9 @@ class Reduce(VirtualArray):
             else:
                 value = self.identity.convert_to(dtype)
             while not frame.done():
-                assert isinstance(sig, signature.ReduceSignature)
+                assert isinstance(sig, signature.ViewSignature)
                 nextval = sig.eval(frame, self.values).convert_to(dtype)
-                value = sig.binfunc(dtype, value, nextval)
+                value = self.binfunc(dtype, value, nextval)
                 frame.next(shapelen)
             result.dtype.setitem(result.storage, ri.offset, value)
             ri = ri.next(shapelen)
