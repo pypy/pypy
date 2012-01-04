@@ -185,7 +185,10 @@ class TraceForOpcode(object):
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
-        return self.getopcode().lineno
+        code = self.getopcode()
+        if code is None:
+            return None
+        return code.lineno
     lineno = property(getlineno)
 
     def getline_starts_here(self):
