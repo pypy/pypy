@@ -98,11 +98,13 @@ class PPCRegisterManager(RegisterManager):
 class PPCFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
-        self.frame_depth = 0
+        self.used = []
 
     @staticmethod
     def frame_pos(loc, type):
         num_words = PPCFrameManager.frame_size(type)
+        if type == FLOAT:
+            assert 0, "not implemented yet"
         return locations.StackLocation(loc, num_words=num_words, type=type)
 
     @staticmethod
@@ -112,31 +114,63 @@ class PPCFrameManager(FrameManager):
         return 1
 
 class Regalloc(object):
+
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.cpu = assembler.cpu
-        self.longevity = longevity
         self.frame_manager = frame_manager
         self.assembler = assembler
         self.rm = PPCRegisterManager(longevity, frame_manager, assembler)
+        self.jump_target_descr = None
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        loop_consts = compute_loop_consts(inputargs, operations[-1], looptoken)
-        inputlen = len(inputargs)
-        nonfloatlocs = [None] * len(inputargs)
-        for i in range(inputlen):
-            arg = inputargs[i]
-            assert not isinstance(arg, Const)
-            if arg not in loop_consts and self.longevity[arg][1] > -1:
-                self.try_allocate_reg(arg)
-            loc = self.loc(arg)
-            nonfloatlocs[i] = loc
-        self.possibly_free_vars(inputargs)
-        return nonfloatlocs
+    def _prepare(self,  inputargs, operations):
+        longevity, last_real_usage = compute_vars_longevity(
+                                                    inputargs, operations)
+        self.longevity = longevity
+        self.last_real_usage = last_real_usage
+        fm = self.frame_manager
+        asm = self.assembler
+        self.rm = PPCRegisterManager(longevity, fm, asm)
+
+    def prepare_loop(self, inputargs, operations):
+        self._prepare(inputargs, operations)
+        self._set_initial_bindings(inputargs)
+        self.possibly_free_vars(list(inputargs))
+
+    def prepare_bridge(self, inputargs, arglocs, ops):
+        self._prepare(inputargs, ops)
+        self._update_bindings(arglocs, inputargs)
+
+    def _set_initial_bindings(self, inputargs):
+        arg_index = 0
+        count = 0
+        n_register_args = len(r.PARAM_REGS)
+        cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD + 1
+        for box in inputargs:
+            assert isinstance(box, Box)
+            # handle inputargs in argument registers
+            if box.type == FLOAT and arg_index % 2 != 0:
+                assert 0, "not implemented yet"
+            if arg_index < n_register_args:
+                if box.type == FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    loc = r.PARAM_REGS[arg_index]
+                    self.try_allocate_reg(box, selected_reg=loc)
+                    arg_index += 1
+            else:
+                # treat stack args as stack locations with a negative offset
+                if box.type == FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    cur_frame_pos -= 1
+                    count += 1
+                loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
+                self.frame_manager.set_binding(box, loc)
 
     def update_bindings(self, locs, frame_depth, inputargs):
         used = {}
         i = 0
-        self.frame_manager.frame_depth = frame_depth
+        #self.frame_manager.frame_depth = frame_depth
         for loc in locs:
             arg = inputargs[i]
             i += 1
@@ -296,20 +330,20 @@ class Regalloc(object):
     prepare_int_is_zero = prepare_unary_cmp()
 
     def prepare_finish(self, op):
-        args = [locations.imm(self.frame_manager.frame_depth)]
+        args = [None] * (op.numargs() + 1)
         for i in range(op.numargs()):
             arg = op.getarg(i)
             if arg:
-                args.append(self.loc(arg))
+                args[i] = self.loc(arg)
                 self.possibly_free_var(arg)
-            else:
-                args.append(None)
+        n = self.cpu.get_fail_descr_number(op.getdescr())
+        args[-1] = imm(n)
         return args
 
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
-        args.append(imm(self.frame_manager.frame_depth))
+        args.append(imm(len(self.frame_manager.used)))
         for arg in op.getfailargs():
             if arg:
                 args.append(self.loc(arg))
@@ -404,6 +438,65 @@ class Regalloc(object):
         return arglocs
 
     prepare_guard_nonnull_class = prepare_guard_class
+
+    def compute_hint_frame_locations(self, operations):
+        # optimization only: fill in the 'hint_frame_locations' dictionary
+        # of rm and xrm based on the JUMP at the end of the loop, by looking
+        # at where we would like the boxes to be after the jump.
+        op = operations[-1]
+        if op.getopnum() != rop.JUMP:
+            return
+        self.final_jump_op = op
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        if descr._ppc_loop_code != 0:
+            # if the target LABEL was already compiled, i.e. if it belongs
+            # to some already-compiled piece of code
+            self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding prepare_op_label() to know where the
+        #   we would like the boxes to be after the jump.
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
+        arglocs = self.assembler.target_arglocs(descr)
+        jump_op = self.final_jump_op
+        assert len(arglocs) == jump_op.numargs()
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
+            if isinstance(box, Box):
+                loc = arglocs[i]
+                if loc is not None and loc.is_stack():
+                    self.frame_manager.hint_frame_locations[box] = loc
+
+    def prepare_op_jump(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        self.jump_target_descr = descr
+        arglocs = self.assembler.target_arglocs(descr)
+
+        # get temporary locs
+        tmploc = r.SCRATCH
+
+        # Part about non-floats
+        src_locations1 = []
+        dst_locations1 = []
+
+        # Build the two lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                assert 0, "not implemented yet"
+
+        remap_frame_layout(self.assembler, src_locations1, 
+            dst_locations1, tmploc)
+        return []
 
     def prepare_guard_call_release_gil(self, op, guard_op):
         # first, close the stack in the sense of the asmgcc GC root tracker

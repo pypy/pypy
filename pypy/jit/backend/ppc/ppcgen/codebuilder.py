@@ -997,11 +997,11 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.stdx(source_reg.value, 0, r.SCRATCH.value)
         self.free_scratch_reg()
 
-    def b_offset(self, offset):
+    def b_offset(self, target):
         curpos = self.currpos()
-        target_ofs = offset - curpos
-        assert target_ofs < (1 << 24)
-        self.b(target_ofs)
+        offset = target - curpos
+        assert offset < (1 << 24)
+        self.b(offset)
 
     def b_cond_offset(self, offset, condition):
         BI = condition[0]

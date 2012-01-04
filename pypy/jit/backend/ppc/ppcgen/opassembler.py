@@ -7,7 +7,7 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
                                               MAX_REG_PARAMS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, 
-                                         AbstractFailDescr, FLOAT, INT)
+                                         AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)
@@ -273,7 +273,52 @@ class MiscOpAssembler(object):
     _mixin_ = True
 
     def emit_finish(self, op, arglocs, regalloc):
-        self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
+        for i in range(len(arglocs) - 1):
+            loc = arglocs[i]
+            box = op.getarg(i)
+            if loc is None:
+                continue
+            if loc.is_reg():
+                if box.type == REF:
+                    adr = self.fail_boxes_ptr.get_addr_for_num(i)
+                elif box.type == INT:
+                    adr = self.fail_boxes_int.get_addr_for_num(i)
+                else:
+                    assert 0
+                self.mc.alloc_scratch_reg(adr)
+                self.mc.storex(loc.value, 0, r.SCRATCH.value)
+                self.mc.free_scratch_reg()
+            elif loc.is_vfp_reg():
+                assert box.type == FLOAT
+                assert 0, "not implemented yet"
+            elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
+                if box.type == FLOAT:
+                    assert 0, "not implemented yet"
+                elif box.type == REF or box.type == INT:
+                    if box.type == REF:
+                        adr = self.fail_boxes_ptr.get_addr_for_num(i)
+                    elif box.type == INT:
+                        adr = self.fail_boxes_int.get_addr_for_num(i)
+                    else:
+                        assert 0
+                    self.mc.alloc_scratch_reg()
+                    self.mov_loc_loc(loc, r.SCRATCH)
+                    # store content of r5 temporary in ENCODING AREA
+                    self.mc.store(r.r5.value, r.SPP.value, 0)
+                    self.mc.load_imm(r.r5, adr)
+                    self.mc.store(r.SCRATCH.value, r.r5.value, 0)
+                    self.mc.free_scratch_reg()
+                    # restore r5
+                    self.mc.load(r.r5.value, r.SPP.value, 0)
+            else:
+                assert 0
+        # note: no exception should currently be set in llop.get_exception_addr
+        # even if this finish may be an exit_frame_with_exception (in this case
+        # the exception instance is in arglocs[0]).
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        self.mc.call(addr)
+        self.mc.load_imm(r.RES, arglocs[-1].value)
+        self._gen_epilogue(self.mc)
 
     def emit_jump(self, op, arglocs, regalloc):
         descr = op.getdescr()

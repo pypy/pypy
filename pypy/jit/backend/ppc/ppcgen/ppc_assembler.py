@@ -88,6 +88,10 @@ class AssemblerPPC(OpAssembler):
     OFFSET_SPP_TO_OLD_BACKCHAIN = (OFFSET_SPP_TO_GPR_SAVE_AREA
                                    + GPR_SAVE_AREA + FPR_SAVE_AREA)
 
+    OFFSET_STACK_ARGS = OFFSET_SPP_TO_OLD_BACKCHAIN + BACKCHAIN_SIZE * WORD
+    if IS_PPC_64:
+        OFFSET_STACK_ARGS += MAX_REG_PARAMS * WORD
+
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
@@ -118,12 +122,6 @@ class AssemblerPPC(OpAssembler):
             mc.load(reg.value, spp_reg.value, 
                 self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
-    def _make_prologue(self, target_pos, frame_depth):
-        self._make_frame(frame_depth)
-        curpos = self.mc.currpos()
-        offset = target_pos - curpos
-        self.mc.b(offset)
-
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
     def _make_frame(self, frame_depth):
@@ -143,7 +141,10 @@ class AssemblerPPC(OpAssembler):
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, 
                 frame_depth - self.OFFSET_SPP_TO_OLD_BACKCHAIN)
+
+        # save nonvolatile registers
         self._save_nonvolatiles()
+
         # save r31, use r30 as scratch register
         # this is safe because r30 has been saved already
         assert NONVOLATILES[-1] == r.SPP
@@ -180,6 +181,7 @@ class AssemblerPPC(OpAssembler):
         regs = rffi.cast(rffi.CCHARP, spp_loc)
         i = -1
         fail_index = -1
+        import pdb; pdb.set_trace()
         while(True):
             i += 1
             fail_index += 1
@@ -347,117 +349,23 @@ class AssemblerPPC(OpAssembler):
             reg = r.MANAGED_REGS[i]
             mc.store(reg.value, r.SPP.value, i * WORD)
 
-    # Load parameters from fail args into locations (stack or registers)
-    def gen_bootstrap_code(self, nonfloatlocs, inputargs):
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            arg = inputargs[i]
-            assert arg.type != FLOAT
-            if arg.type == INT:
-                addr = self.fail_boxes_int.get_addr_for_num(i)
-            elif arg.type == REF:
-                addr = self.fail_boxes_ptr.get_addr_for_num(i)
-            else:
-                assert 0, "%s not supported" % arg.type
-            if loc.is_reg():
-                reg = loc
-            else:
-                reg = r.SCRATCH
-            self.mc.load_from_addr(reg, addr)
-            if loc.is_stack():
-                self.regalloc_mov(r.SCRATCH, loc)
-
-    def gen_direct_bootstrap_code(self, loophead, looptoken, inputargs, frame_depth):
-        self._make_frame(frame_depth)
-        nonfloatlocs = looptoken._ppc_arglocs[0]
-
-        reg_args = count_reg_args(inputargs)
-
-        stack_locs = len(inputargs) - reg_args
-
-        selected_reg = 0
-        count = 0
-        nonfloat_args = []
-        nonfloat_regs = []
-        # load reg args
-        for i in range(reg_args):
-            arg = inputargs[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                assert 0, "not implemented yet"
-            reg = r.PARAM_REGS[selected_reg]
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                nonfloat_args.append(reg)
-                nonfloat_regs.append(nonfloatlocs[i])
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                selected_reg += 1
-                count += 1
-
-        # remap values stored in core registers
-        self.mc.alloc_scratch_reg()
-        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.SCRATCH)
-        self.mc.free_scratch_reg()
-
-        # load values passed on the stack to the corresponding locations
-        if IS_PPC_32:
-            stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
-                             + BACKCHAIN_SIZE * WORD
-        else:
-            stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
-                             + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD
-
-        count = 0
-        for i in range(reg_args, len(inputargs)):
-            arg = inputargs[i]
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                loc = nonfloatlocs[i]
-            if loc.is_reg():
-                self.mc.load(loc.value, r.SPP.value, stack_position)
-                count += 1
-            elif loc.is_vfp_reg():
-                assert 0, "not implemented yet"
-            elif loc.is_stack():
-                if loc.type == FLOAT:
-                    assert 0, "not implemented yet"
-                elif loc.type == INT or loc.type == REF:
-                    count += 1
-                    self.mc.alloc_scratch_reg()
-                    self.mc.load(r.SCRATCH.value, r.SPP.value, stack_position)
-                    self.mov_loc_loc(r.SCRATCH, loc)
-                    self.mc.free_scratch_reg()
-                else:
-                    assert 0, 'invalid location'
-            else:
-                assert 0, 'invalid location'
-            if loc.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                size = 1
-            stack_position += size * WORD
-
-        #sp_patch_location = self._prepare_sp_patch_position()
+    def gen_bootstrap_code(self, loophead, spilling_area):
+        self._make_frame(spilling_area)
         self.mc.b_offset(loophead)
-        #self._patch_sp_offset(sp_patch_location, looptoken._ppc_frame_depth)
 
     def setup(self, looptoken, operations):
-        assert self.memcpy_addr != 0
         self.current_clt = looptoken.compiled_loop_token 
         operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
                 operations, self.current_clt.allgcrefs)
+        assert self.memcpy_addr != 0
         self.mc = PPCBuilder()
         self.pending_guards = []
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
-        self.stack_in_use = False
         self.max_stack_params = 0
+        self.target_tokens_currently_compiling = {}
+        return operations
 
     def setup_once(self):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -470,62 +378,62 @@ class AssemblerPPC(OpAssembler):
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
-
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
+        clt._debug_nbargs = len(inputargs)
 
-        self.setup(looptoken, operations)
+        if not we_are_translated():
+            assert len(set(inputargs)) == len(inputargs)
+
+        operations = self.setup(looptoken, operations)
         self.startpos = self.mc.currpos()
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self,
                             frame_manager=PPCFrameManager())
 
-        nonfloatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        regalloc.prepare_loop(inputargs, operations)
         regalloc_head = self.mc.currpos()
-        self.gen_bootstrap_code(nonfloatlocs, inputargs)
-
-        loophead = self.mc.currpos()            # address of actual loop
-        looptoken._ppc_loop_code = loophead
-        looptoken._ppc_arglocs = [nonfloatlocs]
-        looptoken._ppc_bootstrap_code = 0
-
-        self._walk_operations(operations, regalloc)
 
         start_pos = self.mc.currpos()
-        self.framesize = frame_depth = self.compute_frame_depth(regalloc)
-        looptoken._ppc_frame_manager_depth = regalloc.frame_manager.frame_depth
-        self._make_prologue(regalloc_head, frame_depth)
+        clt.frame_depth = -1
+        spilling_area = self._assemble(operations, regalloc)
+        clt.frame_depth = spilling_area
      
         direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
+        frame_depth = self.compute_frame_depth(spilling_area)
+        self.gen_bootstrap_code(start_pos, frame_depth)
 
         self.write_pending_failure_recoveries()
         if IS_PPC_64:
-            fdescrs = self.gen_64_bit_func_descrs()
-        loop_start = self.materialize_loop(looptoken, False)
-        looptoken._ppc_bootstrap_code = loop_start
+            fdescr = self.gen_64_bit_func_descr()
+
+        # write instructions to memory
+        loop_start = self.materialize_loop(looptoken, True)
 
         real_start = loop_start + direct_bootstrap_code
         if IS_PPC_32:
-            looptoken._ppc_direct_bootstrap_code = real_start
+            looptoken._ppc_func_addr = real_start
         else:
-            self.write_64_bit_func_descr(fdescrs[0], real_start)
-            looptoken._ppc_direct_bootstrap_code = fdescrs[0]
+            self.write_64_bit_func_descr(fdescr, real_start)
+            looptoken._ppc_func_addr = fdescr
 
-        real_start = loop_start + start_pos
-        if IS_PPC_32:
-            looptoken.ppc_code = real_start
-        else:
-            self.write_64_bit_func_descr(fdescrs[1], real_start)
-            looptoken.ppc_code = fdescrs[1]
         self.process_pending_guards(loop_start)
         if not we_are_translated():
             print 'Loop', inputargs, operations
             self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
-
         self._teardown()
+
+    def _assemble(self, operations, regalloc):
+        regalloc.compute_hint_frame_locations(operations)
+        self._walk_operations(operations, regalloc)
+        frame_depth = regalloc.frame_manager.get_frame_depth()
+        jump_target_descr = regalloc.jump_target_descr
+        if jump_target_descr is not None:
+            frame_depth = max(frame_depth,
+                              jump_target_descr._ppc_clt.frame_depth)
+        return frame_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
         self.setup(looptoken, operations)
@@ -598,7 +506,6 @@ class AssemblerPPC(OpAssembler):
             i += 1
 
         mem[j] = chr(0xFF)
-
         n = self.cpu.get_fail_descr_number(descr)
         encode32(mem, j+1, n)
         return memaddr
@@ -671,9 +578,7 @@ class AssemblerPPC(OpAssembler):
         return True
 
     def gen_64_bit_func_descrs(self):
-        d0 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
-        d1 = self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
-        return [d0, d1]
+        return self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
 
     def write_64_bit_func_descr(self, descr, start_addr):
         data = rffi.cast(rffi.CArrayPtr(lltype.Signed), descr)
@@ -681,11 +586,11 @@ class AssemblerPPC(OpAssembler):
         data[1] = 0
         data[2] = 0
 
-    def compute_frame_depth(self, regalloc):
+    def compute_frame_depth(self, spilling_area):
         PARAMETER_AREA = self.max_stack_params * WORD
         if IS_PPC_64:
             PARAMETER_AREA += MAX_REG_PARAMS * WORD
-        SPILLING_AREA = regalloc.frame_manager.frame_depth * WORD
+        SPILLING_AREA = spilling_area * WORD
 
         frame_depth = (  GPR_SAVE_AREA
                        + FPR_SAVE_AREA

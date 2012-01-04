@@ -43,7 +43,6 @@ class PPC_64_CPU(AbstractLLCPU):
         self.asm.setup_once()
 
     def compile_loop(self, inputargs, operations, looptoken, log=False):
-        self.saved_descr = {}
         self.asm.assemble_loop(inputargs, operations, looptoken, log)
 
     def compile_bridge(self, faildescr, inputargs, operations, 
@@ -66,24 +65,26 @@ class PPC_64_CPU(AbstractLLCPU):
             self.asm.fail_boxes_ptr.setitem(index, null)
 
     # executes the stored machine code in the token
-    def execute_token(self, looptoken):   
-        addr = looptoken.ppc_code
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        fail_index = self._execute_call(func)
-        return self.get_fail_descr_from_number(fail_index)
+    def make_execute_token(self, *ARGS):
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
 
-    def _execute_call(self, func):
-        prev_interpreter = None
-        if not self.translate_support_code:
-            prev_interpreter = LLInterpreter.current_interpreter
-            LLInterpreter.current_interpreter = self.debug_ll_interpreter
-        res = 0
-        try:
-            res = func()
-        finally:
+        def execute_token(executable_token, *args):
+            clt = executable_token.compiled_loop_token
+            assert len(args) == clt._debug_nbargs
+            #
+            addr = executable_token._ppc_func_addr
+            func = rffi.cast(FUNCPTR, addr)
+            prev_interpreter = None   # help flow space
             if not self.translate_support_code:
-                LLInterpreter.current_interpreter = prev_interpreter
-        return res
+                prev_interpreter = LLInterpreter.current_interpreter
+                LLInterpreter.current_interpreter = self.debug_ll_interpreter
+            try:
+                fail_index = func(*args)
+            finally:
+                if not self.translate_support_code:
+                    LLInterpreter.current_interpreter = prev_interpreter
+            return self.get_fail_descr_from_number(fail_index)
+        return execute_token
 
     @staticmethod
     def cast_ptr_to_int(x):
