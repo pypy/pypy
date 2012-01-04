@@ -2593,12 +2593,19 @@ class BasicTests:
 
         def f(n, limit):
             set_param(myjitdriver, 'retrace_limit', limit)
-            sa = i = a = 0
+            sa = i = 0
+            a = []
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
-                a = i/4
-                a = hint(a, promote=True)
-                sa += a
+                if i/4 == 0:
+                    a = [1, 2, 3]
+                elif i/4 == 1:
+                    a = [1, 2, 3, 4]
+                elif i/4 == 2:
+                    a = [1, 2, 3, 4, 5]
+                elif i/4 == 3:
+                    a = [1, 2, 3, 4, 5, 6]
+                sa += len(a)
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
@@ -2614,12 +2621,19 @@ class BasicTests:
         def f(n, limit):
             set_param(myjitdriver, 'retrace_limit', 3)
             set_param(myjitdriver, 'max_retrace_guards', limit)
-            sa = i = a = 0
+            sa = i = 0
+            a = []
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
-                a = i/4
-                a = hint(a, promote=True)
-                sa += a
+                if i/4 == 0:
+                    a = [1, 2, 3]
+                elif i/4 == 1:
+                    a = [1, 2, 3, 4]
+                elif i/4 == 2:
+                    a = [1, 2, 3, 4, 5]
+                elif i/4 == 3:
+                    a = [1, 2, 3, 4, 5, 6]
+                sa += len(a)
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 1]) == f(20, 1)
@@ -2634,16 +2648,23 @@ class BasicTests:
                                                      'node'])
         def f(n, limit):
             set_param(myjitdriver, 'retrace_limit', limit)
-            sa = i = a = 0
+            sa = i = 0
+            a = []
             node = [1, 2, 3]
             node[1] = n
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a, node=node)
-                a = i/4
-                a = hint(a, promote=True)
+                if i/4 == 0:
+                    a = [1, 2, 3]
+                elif i/4 == 1:
+                    a = [1, 2, 3, 4]
+                elif i/4 == 2:
+                    a = [1, 2, 3, 4, 5]
+                elif i/4 == 3:
+                    a = [1, 2, 3, 4, 5, 6]
                 if i&1 == 0:
                     sa += node[i%3]
-                sa += a
+                sa += len(a)
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
