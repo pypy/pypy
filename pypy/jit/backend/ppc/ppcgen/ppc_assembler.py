@@ -409,7 +409,7 @@ class AssemblerPPC(OpAssembler):
             fdescr = self.gen_64_bit_func_descr()
 
         # write instructions to memory
-        loop_start = self.materialize_loop(looptoken, True)
+        loop_start = self.materialize_loop(looptoken, False)
 
         real_start = loop_start + direct_bootstrap_code
         if IS_PPC_32:
