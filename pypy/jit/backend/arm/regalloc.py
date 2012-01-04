@@ -327,6 +327,7 @@ class Regalloc(object):
         count = 0
         n_register_args = len(r.argument_regs)
         cur_frame_pos = - (self.assembler.STACK_FIXED_AREA / WORD) + 1
+        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
         for box in inputargs:
             assert isinstance(box, Box)
             # handle inputargs in argument registers

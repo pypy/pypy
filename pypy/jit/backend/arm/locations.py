@@ -80,9 +80,6 @@ class ImmLocation(AssemblerLocation):
     def is_imm(self):
         return True
 
-    def as_key(self):
-        return self.value + 40
-
 
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
@@ -102,9 +99,6 @@ class ConstFloatLoc(AssemblerLocation):
 
     def is_imm_float(self):
         return True
-
-    def as_key(self):
-        return -1 * self.value
 
 
 class StackLocation(AssemblerLocation):
@@ -132,7 +126,7 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return -self.position
+        return self.position + 10000
 
 
 def imm(i):

@@ -11,6 +11,7 @@ from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     ARMv7RegisterManager, check_imm_arg,
                     operations as regalloc_operations,
+                    get_fp_offset,
                     operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
@@ -30,30 +31,6 @@ from pypy.jit.backend.x86.support import values_array, memcpy_fn
 
 
 class AssemblerARM(ResOpAssembler):
-    """
-    Encoding for locations in memory
-    types:
-    \xED = FLOAT
-    \xEE = REF
-    \xEF = INT
-    location:
-    \xFC = stack location
-    \xFD = imm location
-    emtpy = reg location
-    \xFE = Empty loc
-
-    \xFF = END_OF_LOCS
-    """
-    FLOAT_TYPE = '\xED'
-    REF_TYPE = '\xEE'
-    INT_TYPE = '\xEF'
-
-    STACK_LOC = '\xFC'
-    IMM_LOC = '\xFD'
-    # REG_LOC is empty
-    EMPTY_LOC = '\xFE'
-
-    END_OF_LOCS = '\xFF'
 
     STACK_FIXED_AREA = -1
 
@@ -183,132 +160,138 @@ class AssemblerARM(ResOpAssembler):
             """mem_loc is a structure in memory describing where the values for
             the failargs are stored.  frame loc is the address of the frame
             pointer for the frame to be decoded frame """
-            return self.decode_registers_and_descr(mem_loc,
-                                            frame_pointer, stack_pointer)
+            vfp_registers = rffi.cast(rffi.LONGLONGP, stack_pointer)
+            registers = rffi.ptradd(vfp_registers, len(r.all_vfp_regs))
+            registers = rffi.cast(rffi.LONGP, registers)
+            return self.decode_registers_and_descr(mem_loc, frame_pointer,
+                                                    registers, vfp_registers)
 
         self.failure_recovery_func = failure_recovery_func
 
-    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed,
-                                lltype.Signed, lltype.Signed], lltype.Signed))
+    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
+                                                        lltype.Signed))
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, frame_loc, regs_loc):
+    def decode_registers_and_descr(self, mem_loc, frame_pointer,
+                                                registers, vfp_registers):
         """Decode locations encoded in memory at mem_loc and write the values
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
-        # XXX check if units are correct here, when comparing words and bytes
-        # and stuff assert 0, 'check if units are correct here, when comparing
-        # words and bytes and stuff'
-
-        enc = rffi.cast(rffi.CCHARP, mem_loc)
-        frame_depth = frame_loc - (regs_loc + len(r.all_regs)
-                            * WORD + len(r.all_vfp_regs) * DOUBLE_WORD)
-        assert (frame_loc - frame_depth) % 4 == 0
-        stack = rffi.cast(rffi.CCHARP, frame_loc - frame_depth)
-        assert regs_loc % 4 == 0
-        vfp_regs = rffi.cast(rffi.CCHARP, regs_loc)
-        assert (regs_loc + len(r.all_vfp_regs) * DOUBLE_WORD) % 4 == 0
-        assert frame_depth >= 0
-
-        regs = rffi.cast(rffi.CCHARP,
-                    regs_loc + len(r.all_vfp_regs) * DOUBLE_WORD)
-        i = -1
-        fail_index = -1
-        while(True):
-            i += 1
-            fail_index += 1
-            res = enc[i]
-            if res == self.END_OF_LOCS:
-                break
-            if res == self.EMPTY_LOC:
-                continue
-
-            group = res
-            i += 1
-            res = enc[i]
-            if res == self.IMM_LOC:
-                # imm value
-                if group == self.INT_TYPE or group == self.REF_TYPE:
-                    value = decode32(enc, i + 1)
-                    i += 4
+        assert frame_pointer & 1 == 0
+        bytecode = rffi.cast(rffi.UCHARP, mem_loc)
+        num = 0
+        value = 0
+        fvalue = 0
+        code_inputarg = False
+        while True:
+            code = bytecode[0]
+            bytecode = rffi.ptradd(bytecode, 1)
+            if code >= self.CODE_FROMSTACK:
+                if code > 0x7F:
+                    shift = 7
+                    code &= 0x7F
+                    while True:
+                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
+                        bytecode = rffi.ptradd(bytecode, 1)
+                        code |= (nextcode & 0x7F) << shift
+                        shift += 7
+                        if nextcode <= 0x7F:
+                            break
+                # load the value from the stack
+                kind = code & 3
+                code = int((code - self.CODE_FROMSTACK) >> 2)
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
+                if kind == self.DESCR_FLOAT:
+                    # we use code + 1 to get the hi word of the double worded float
+                    stackloc = frame_pointer - get_fp_offset(int(code) + 1)
+                    assert stackloc & 3 == 0
+                    fvalue = rffi.cast(rffi.LONGLONGP, stackloc)[0]
                 else:
-                    assert group == self.FLOAT_TYPE
-                    adr = decode32(enc, i + 1)
-                    tp = rffi.CArrayPtr(longlong.FLOATSTORAGE)
-                    value = rffi.cast(tp, adr)[0]
-                    self.fail_boxes_float.setitem(fail_index, value)
-                    i += 4
-                    continue
-            elif res == self.STACK_LOC:
-                stack_loc = decode32(enc, i + 1)
-                i += 4
-                if group == self.FLOAT_TYPE:
-                    value = decode64(stack,
-                            frame_depth - (stack_loc + 1) * WORD)
-                    fvalue = rffi.cast(longlong.FLOATSTORAGE, value)
-                    self.fail_boxes_float.setitem(fail_index, fvalue)
-                    continue
-                else:
-                    value = decode32(stack, frame_depth - stack_loc * WORD)
-            else:  # REG_LOC
-                reg = ord(enc[i])
-                if group == self.FLOAT_TYPE:
-                    value = decode64(vfp_regs, reg * DOUBLE_WORD)
-                    self.fail_boxes_float.setitem(fail_index, value)
-                    continue
-                else:
-                    value = decode32(regs, reg * WORD)
-
-            if group == self.INT_TYPE:
-                self.fail_boxes_int.setitem(fail_index, value)
-            elif group == self.REF_TYPE:
-                assert (value & 3) == 0, "misaligned pointer"
-                tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
-                rffi.cast(rffi.LONGP, tgt)[0] = value
+                    stackloc = frame_pointer - get_fp_offset(int(code))
+                    assert stackloc & 1 == 0
+                    value = rffi.cast(rffi.LONGP, stackloc)[0]
             else:
-                assert 0, 'unknown type'
+                # 'code' identifies a register: load its value
+                kind = code & 3
+                if kind == self.DESCR_SPECIAL:
+                    if code == self.CODE_HOLE:
+                        num += 1
+                        continue
+                    if code == self.CODE_INPUTARG:
+                        code_inputarg = True
+                        continue
+                    assert code == self.CODE_STOP
+                    break
+                code >>= 2
+                if kind == self.DESCR_FLOAT:
+                    fvalue = vfp_registers[code]
+                else:
+                    value = registers[code]
+            # store the loaded value into fail_boxes_<type>
+            if kind == self.DESCR_FLOAT:
+                tgt = self.fail_boxes_float.get_addr_for_num(num)
+                rffi.cast(rffi.LONGLONGP, tgt)[0] = fvalue
+            else:
+                if kind == self.DESCR_INT:
+                    tgt = self.fail_boxes_int.get_addr_for_num(num)
+                elif kind == self.DESCR_REF:
+                    assert (value & 3) == 0, "misaligned pointer"
+                    tgt = self.fail_boxes_ptr.get_addr_for_num(num)
+                else:
+                    assert 0, "bogus kind"
+                rffi.cast(rffi.LONGP, tgt)[0] = value
+            num += 1
+        self.fail_boxes_count = num
+        fail_index = rffi.cast(rffi.INTP, bytecode)[0]
+        fail_index = rffi.cast(lltype.Signed, fail_index)
+        return fail_index
 
-        assert enc[i] == self.END_OF_LOCS
-        descr = decode32(enc, i + 1)
-        self.fail_boxes_count = fail_index
-        self.fail_force_index = frame_loc
-        return descr
-
-    def decode_inputargs(self, enc):
-        locs = []
-        j = 0
-        while enc[j] != self.END_OF_LOCS:
-            res = enc[j]
-            if res == self.EMPTY_LOC:
-                j += 1
+    def decode_inputargs(self, code):
+        descr_to_box_type = [REF, INT, FLOAT]
+        bytecode = rffi.cast(rffi.UCHARP, code)
+        arglocs = []
+        code_inputarg = False
+        while 1:
+            # decode the next instruction from the bytecode
+            code = rffi.cast(lltype.Signed, bytecode[0])
+            bytecode = rffi.ptradd(bytecode, 1)
+            if code >= self.CODE_FROMSTACK:
+                # 'code' identifies a stack location
+                if code > 0x7F:
+                    shift = 7
+                    code &= 0x7F
+                    while True:
+                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
+                        bytecode = rffi.ptradd(bytecode, 1)
+                        code |= (nextcode & 0x7F) << shift
+                        shift += 7
+                        if nextcode <= 0x7F:
+                            break
+                kind = code & 3
+                code = (code - self.CODE_FROMSTACK) >> 2
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
+                loc = ARMFrameManager.frame_pos(code, descr_to_box_type[kind])
+            elif code == self.CODE_STOP:
+                break
+            elif code == self.CODE_HOLE:
                 continue
-
-            assert res in [self.FLOAT_TYPE, self.INT_TYPE, self.REF_TYPE], \
-                        'location type is not supported'
-            res_type = res
-            j += 1
-            res = enc[j]
-            if res == self.IMM_LOC:
-                # XXX decode imm if necessary
-                assert 0, 'Imm Locations are not supported'
-            elif res == self.STACK_LOC:
-                if res_type == self.FLOAT_TYPE:
-                    t = FLOAT
-                elif res_type == self.INT_TYPE:
-                    t = INT
+            elif code == self.CODE_INPUTARG:
+                code_inputarg = True
+                continue
+            else:
+                # 'code' identifies a register
+                kind = code & 3
+                code >>= 2
+                if kind == self.DESCR_FLOAT:
+                    loc = r.all_vfp_regs[code]
                 else:
-                    t = REF
-                stack_loc = decode32(enc, j + 1)
-                loc = ARMFrameManager.frame_pos(stack_loc, t)
-                j += 4
-            else:  # REG_LOC
-                if res_type == self.FLOAT_TYPE:
-                    loc = r.all_vfp_regs[ord(res)]
-                else:
-                    loc = r.all_regs[ord(res)]
-            j += 1
-            locs.append(loc)
-        return locs
+                    loc = r.all_regs[code]
+            arglocs.append(loc)
+        return arglocs[:]
 
     def _build_malloc_slowpath(self):
         mc = ARMv7Builder()
@@ -364,85 +347,78 @@ class AssemblerARM(ResOpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def gen_descr_encoding(self, descr, args, arglocs):
-        # The size of the allocated memory is based on the following sizes
-        # first argloc is the frame depth and not considered for the memory
-        # allocation
-        # 4 bytes for the value
-        # 1 byte for the type
-        # 1 byte for the location
-        # 1 separator byte
-        # 4 bytes for the faildescr
-        # const floats are stored in memory and the box contains the address
-        memsize = (len(arglocs) - 1) * 6 + 5
+    DESCR_REF       = 0x00
+    DESCR_INT       = 0x01
+    DESCR_FLOAT     = 0x02
+    DESCR_SPECIAL   = 0x03
+    CODE_FROMSTACK  = 64
+    CODE_STOP       = 0 | DESCR_SPECIAL
+    CODE_HOLE       = 4 | DESCR_SPECIAL
+    CODE_INPUTARG   = 8 | DESCR_SPECIAL
+
+    def gen_descr_encoding(self, descr, failargs, locs):
+        buf = []
+        for i in range(len(failargs)):
+            arg = failargs[i]
+            if arg is not None:
+                if arg.type == REF:
+                    kind = self.DESCR_REF
+                elif arg.type == INT:
+                    kind = self.DESCR_INT
+                elif arg.type == FLOAT:
+                    kind = self.DESCR_FLOAT
+                else:
+                    raise AssertionError("bogus kind")
+                loc = locs[i]
+                if loc.is_stack():
+                    pos = loc.position
+                    if pos < 0:
+                        buf.append(chr(self.CODE_INPUTARG))
+                        pos = ~pos
+                    n = self.CODE_FROMSTACK // 4 + pos
+                else:
+                    assert loc.is_reg() or loc.is_vfp_reg()
+                    n = loc.value
+                n = kind + 4 * n
+                while n > 0x7F:
+                    buf.append(chr((n & 0x7F) | 0x80))
+                    n >>= 7
+            else:
+                n = self.CODE_HOLE
+            buf.append(chr(n))
+        buf.append(chr(self.CODE_STOP))
+
+        fdescr = self.cpu.get_fail_descr_number(descr)
+        buf.append(chr(fdescr & 0xFF))
+        buf.append(chr(fdescr >> 8 & 0xFF))
+        buf.append(chr(fdescr >> 16 & 0xFF))
+        buf.append(chr(fdescr >> 24 & 0xFF))
+
+        # assert that the fail_boxes lists are big enough
+        assert len(failargs) <= self.fail_boxes_int.SIZE
+
+        memsize = len(buf)
         memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
         mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
-        i = 0
-        j = 0
-        while i < len(args):
-            if arglocs[i + 1]:
-                arg = args[i]
-                loc = arglocs[i + 1]
-                if arg.type == INT:
-                    mem[j] = self.INT_TYPE
-                    j += 1
-                elif arg.type == REF:
-                    mem[j] = self.REF_TYPE
-                    j += 1
-                elif arg.type == FLOAT:
-                    mem[j] = self.FLOAT_TYPE
-                    j += 1
-                else:
-                    assert 0, 'unknown type'
-
-                if loc.is_reg() or loc.is_vfp_reg():
-                    mem[j] = chr(loc.value)
-                    j += 1
-                elif loc.is_imm() or loc.is_imm_float():
-                    assert (arg.type == INT or arg.type == REF
-                                or arg.type == FLOAT)
-                    mem[j] = self.IMM_LOC
-                    encode32(mem, j + 1, loc.getint())
-                    j += 5
-                else:
-                    assert loc.is_stack()
-                    mem[j] = self.STACK_LOC
-                    if arg.type == FLOAT:
-                        # Float locs store the location number with an offset
-                        # of 1 -.- so we need to take this into account here
-                        # when generating the encoding
-                        encode32(mem, j + 1, loc.position - 1)
-                    else:
-                        encode32(mem, j + 1, loc.position)
-                    j += 5
-            else:
-                mem[j] = self.EMPTY_LOC
-                j += 1
-            i += 1
-
-        mem[j] = chr(0xFF)
-
-        n = self.cpu.get_fail_descr_number(descr)
-        encode32(mem, j + 1, n)
+        for i in range(memsize):
+            mem[i] = buf[i]
         return memaddr
 
     def _gen_path_to_exit_path(self, descr, args, arglocs,
                                             save_exc, fcond=c.AL):
         assert isinstance(save_exc, bool)
-        memaddr = self.gen_descr_encoding(descr, args, arglocs)
+        memaddr = self.gen_descr_encoding(descr, args, arglocs[1:])
         self.gen_exit_code(self.mc, memaddr, save_exc, fcond)
         return memaddr
 
     def gen_exit_code(self, mc, memaddr, save_exc, fcond=c.AL):
         assert isinstance(save_exc, bool)
         self.mc.gen_load_int(r.ip.value, memaddr)
-        #mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
         mc.B(path)
-        #mc.write32(memaddr)
 
     def align(self):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
@@ -576,9 +552,8 @@ class AssemblerARM(ResOpAssembler):
         self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._arm_failure_recovery_code
-        enc = rffi.cast(rffi.CCHARP, code)
         frame_depth = faildescr._arm_current_frame_depth
-        arglocs = self.decode_inputargs(enc)
+        arglocs = self.decode_inputargs(code)
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
 
