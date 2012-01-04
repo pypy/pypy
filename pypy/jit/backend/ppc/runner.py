@@ -52,13 +52,6 @@ class PPC_64_CPU(AbstractLLCPU):
         self.asm.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
-    # set value in fail_boxes_int
-    def set_future_value_int(self, index, value_int):
-        self.asm.fail_boxes_int.setitem(index, value_int)
-
-    def set_future_value_ref(self, index, pointer):
-        self.asm.fail_boxes_ptr.setitem(index, pointer)
-
     def clear_latest_values(self, count):
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):

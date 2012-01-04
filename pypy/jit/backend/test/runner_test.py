@@ -121,10 +121,9 @@ class BaseBackendTest(Runner):
             prev_box = next_box
         operations.append(ResOperation(rop.FINISH, [prev_box], None, descr=BasicFailDescr(1)))
         inputargs = [i0]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        self.cpu.set_future_value_int(0, 20)
-        fail = self.cpu.execute_token(looptoken)
+        fail = self.cpu.execute_token(looptoken, 20)
         res = self.cpu.get_latest_value_int(0)
         assert res == 520
         assert fail.identifier == 1
@@ -197,7 +196,7 @@ class BaseBackendTest(Runner):
         i0_1 = BoxInt()
         i1_1 = BoxInt()
         i2_1 = BoxInt()
-        looptoken1 = LoopToken()
+        looptoken1 = JitCellToken()
         operations1 = [
             ResOperation(rop.INT_ADD, [i0_1, ConstInt(1)], i1_1),
             ResOperation(rop.INT_LE, [i1_1, ConstInt(9)], i2_1),
@@ -218,7 +217,7 @@ class BaseBackendTest(Runner):
         i0_2 = BoxInt()
         i1_2 = BoxInt()
         i2_2 = BoxInt()
-        looptoken2 = LoopToken()
+        looptoken2 = JitCellToken()
         operations2 = [
             ResOperation(rop.INT_ADD, [i0_2, ConstInt(1)], i1_2),
             ResOperation(rop.INT_LE, [i1_2, ConstInt(19)], i2_2),
@@ -533,7 +532,7 @@ class BaseBackendTest(Runner):
             ResOperation(rop.FINISH, [ptr], None, descr=BasicFailDescr(1))
             ]
         inputargs = [i0, ptr, i1]
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 10)
         self.cpu.set_future_value_ref(1, u_box.value)
@@ -549,7 +548,7 @@ class BaseBackendTest(Runner):
         finish(i0)
         '''
         loop = parse(ops, namespace=locals())
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         
         self.cpu.set_future_value_int(0, 42)
