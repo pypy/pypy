@@ -553,8 +553,7 @@ class BaseBackendTest(Runner):
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         
-        self.cpu.set_future_value_int(0, 42)
-        fail = self.cpu.execute_token(looptoken)
+        fail = self.cpu.execute_token(looptoken, 42)
         result = self.cpu.get_latest_value_int(0)
         assert result == 42
 
