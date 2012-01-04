@@ -8,10 +8,12 @@ from pypy.tool.udir import udir
 from pypy.tool import logparser
 from pypy.jit.tool.jitoutput import parse_prof
 from pypy.module.pypyjit.test_pypy_c.model import (Log, find_ids_range,
-                                                   find_ids, TraceWithIds,
+                                                   find_ids,
                                                    OpMatcher, InvalidMatch)
 
 class BaseTestPyPyC(object):
+    log_string = 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary'
+    
     def setup_class(cls):
         if '__pypy__' not in sys.builtin_module_names:
             py.test.skip("must run this test with pypy")
@@ -52,8 +54,7 @@ class BaseTestPyPyC(object):
             cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
-        print cmdline, logfile
-        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-log-virtualstate,jit-summary:' + str(logfile)}
+        env={'PYPYLOG': self.log_string + ':' + str(logfile)}
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,

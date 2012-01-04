@@ -98,7 +98,8 @@ class Test__ffi(BaseTestPyPyC):
             end = time.time()
             return end - start
         #
-        log = self.run(main, [get_libc_name(), 200], threshold=150)
+        log = self.run(main, [get_libc_name(), 200], threshold=150,
+                       import_site=True)
         assert 1 <= log.result <= 1.5 # at most 0.5 seconds of overhead
         loops = log.loops_by_id('sleep')
         assert len(loops) == 1 # make sure that we actually JITted the loop
@@ -121,7 +122,7 @@ class Test__ffi(BaseTestPyPyC):
             return fabs._ptr.getaddr(), x
 
         libm_name = get_libm_name(sys.platform)
-        log = self.run(main, [libm_name])
+        log = self.run(main, [libm_name], import_site=True)
         fabs_addr, res = log.result
         assert res == -4.0
         loop, = log.loops_by_filename(self.filepath)

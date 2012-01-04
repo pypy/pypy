@@ -442,6 +442,22 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         """
         self.optimize_loop(ops, expected)
 
+    def test_optimizer_renaming_boxes_not_imported(self):
+        ops = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1, i1)
+        i11 = same_as(i1)
+        jump(p1, i11)
+        """
+        self.optimize_loop(ops, expected)
+
         
 
 class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
