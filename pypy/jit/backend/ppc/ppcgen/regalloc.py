@@ -120,12 +120,12 @@ class PPCFrameManager(FrameManager):
 
 class Regalloc(object):
 
-    def __init__(self, longevity, frame_manager=None, assembler=None):
+    def __init__(self, frame_manager=None, assembler=None):
         self.cpu = assembler.cpu
         self.frame_manager = frame_manager
         self.assembler = assembler
-        self.rm = PPCRegisterManager(longevity, frame_manager, assembler)
         self.jump_target_descr = None
+        self.final_jump_op = None
 
     def _prepare(self,  inputargs, operations):
         longevity, last_real_usage = compute_vars_longevity(
@@ -172,20 +172,19 @@ class Regalloc(object):
                 loc = self.frame_manager.frame_pos(cur_frame_pos, box.type)
                 self.frame_manager.set_binding(box, loc)
 
-    def update_bindings(self, locs, frame_depth, inputargs):
+    def _update_bindings(self, locs, inputargs):
         used = {}
         i = 0
-        #self.frame_manager.frame_depth = frame_depth
         for loc in locs:
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
             elif loc.is_vfp_reg():
-                assert 0, "not implemented yet"
+                assert 0, "not supported"
             else:
                 assert loc.is_stack()
-                self.frame_manager.frame_bindings[arg] = loc
+                self.frame_manager.set_binding(arg, loc)
             used[loc] = None
 
         # XXX combine with x86 code and move to llsupport

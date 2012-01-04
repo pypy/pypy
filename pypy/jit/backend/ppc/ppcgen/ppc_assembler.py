@@ -237,16 +237,14 @@ class AssemblerPPC(OpAssembler):
         self.fail_force_index = spp_loc
         return descr
 
-    def decode_inputargs(self, enc, inputargs, regalloc):
+    def decode_inputargs(self, enc):
         locs = []
         j = 0
-        for i in range(len(inputargs)):
+        while enc[j] != self.END_OF_LOCS:
             res = enc[j]
-            if res == self.END_OF_LOCS:
-                assert 0, 'reached end of encoded area'
-            while res == self.EMPTY_LOC:
+            if res == self.EMPTY_LOC:
                 j += 1
-                res = enc[j]
+                continue
 
             assert res in [self.INT_TYPE, self.REF_TYPE],\
                     'location type is not supported'
@@ -257,12 +255,22 @@ class AssemblerPPC(OpAssembler):
                 # XXX decode imm if necessary
                 assert 0, 'Imm Locations are not supported'
             elif res == self.STACK_LOC:
+                if res_type == self.FLOAT_TYPE:
+                    t = FLOAT
+                elif res_type == self.INT_TYPE:
+                    t = INT
+                else:
+                    t = REF
+                assert t != FLOAT
                 stack_loc = decode32(enc, j+1)
-                loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
+                PPCFrameManager.frame_pos(stack_loc, t)
                 j += 4
             else: # REG_LOC
-                reg = ord(res)
-                loc = r.MANAGED_REGS[r.get_managed_reg_index(reg)]
+                if res_type == self.FLOAT_TYPE:
+                    assert 0, "not implemented yet"
+                else:
+                    reg = ord(res)
+                    loc = r.MANAGED_REGS[r.get_managed_reg_index(reg)]
             j += 1
             locs.append(loc)
         return locs
@@ -388,8 +396,7 @@ class AssemblerPPC(OpAssembler):
         operations = self.setup(looptoken, operations)
         self.startpos = self.mc.currpos()
         longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = Regalloc(longevity, assembler=self,
-                            frame_manager=PPCFrameManager())
+        regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
 
         regalloc.prepare_loop(inputargs, operations)
         regalloc_head = self.mc.currpos()
@@ -409,7 +416,8 @@ class AssemblerPPC(OpAssembler):
             fdescr = self.gen_64_bit_func_descr()
 
         # write instructions to memory
-        loop_start = self.materialize_loop(looptoken, False)
+        loop_start = self.materialize_loop(looptoken, True)
+        self.fixup_target_tokens(loop_start)
 
         real_start = loop_start + direct_bootstrap_code
         if IS_PPC_32:
@@ -435,28 +443,31 @@ class AssemblerPPC(OpAssembler):
                               jump_target_descr._ppc_clt.frame_depth)
         return frame_depth
 
+
+    # XXX stack needs to be moved if bridge needs to much space
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
-        self.setup(looptoken, operations)
+        operations = self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
         enc = rffi.cast(rffi.CCHARP, code)
-        longevity = compute_vars_longevity(inputargs, operations)
-        regalloc = Regalloc(longevity, assembler=self, 
-                            frame_manager=PPCFrameManager())
-
-        #sp_patch_location = self._prepare_sp_patch_position()
         frame_depth = faildescr._ppc_frame_depth
-        locs = self.decode_inputargs(enc, inputargs, regalloc)
-        regalloc.update_bindings(locs, frame_depth, inputargs)
+        arglocs = self.decode_inputargs(enc)
+        if not we_are_translated():
+            assert len(inputargs) == len(arglocs)
 
-        self._walk_operations(operations, regalloc)
+        regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
+        regalloc.prepare_bridge(inputargs, arglocs, operations)
 
-        #self._patch_sp_offset(sp_patch_location, 
-        #                      regalloc.frame_manager.frame_depth)
+        spilling_area = self._assemble(operations, regalloc)
         self.write_pending_failure_recoveries()
-        bridge_start = self.materialize_loop(looptoken, False)
-        self.process_pending_guards(bridge_start)
-        self.patch_trace(faildescr, looptoken, bridge_start, regalloc)
+
+        rawstart = self.materialize_loop(looptoken, True)
+        self.process_pending_guards(rawstart)
+        self.patch_trace(faildescr, looptoken, rawstart, regalloc)
+
+        self.fixup_target_tokens(rawstart)
+        self.current_clt.frame_depth = max(self.current_clt.frame_depth,
+                spilling_area)
         self._teardown()
 
     # For an explanation of the encoding, see
@@ -615,7 +626,7 @@ class AssemblerPPC(OpAssembler):
     def target_arglocs(self, looptoken):
         return looptoken._ppc_arglocs
 
-    def materialize_loop(self, looptoken, show):
+    def materialize_loop(self, looptoken, show=False):
         self.mc.prepare_insts_blocks(show)
         self.datablockwrapper.done()
         self.datablockwrapper = None

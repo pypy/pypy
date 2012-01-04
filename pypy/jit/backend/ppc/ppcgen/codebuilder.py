@@ -1158,6 +1158,17 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         assert self.r0_in_use
         self.r0_in_use = False
 
+    def _dump_trace(self, addr, name, formatter=-1):
+        if not we_are_translated():
+            if formatter != -1:
+                name = name % formatter
+            dir = udir.ensure('asm', dir=True)
+            f = dir.join(name).open('wb')
+            data = rffi.cast(rffi.CCHARP, addr)
+            for i in range(self.currpos()):
+                f.write(data[i])
+            f.close()
+
 class BranchUpdater(PPCAssembler):
     def __init__(self):
         PPCAssembler.__init__(self)
