@@ -577,7 +577,7 @@ class AssemblerPPC(OpAssembler):
             return False
         return True
 
-    def gen_64_bit_func_descrs(self):
+    def gen_64_bit_func_descr(self):
         return self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
 
     def write_64_bit_func_descr(self, descr, start_addr):
