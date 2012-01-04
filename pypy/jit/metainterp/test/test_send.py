@@ -377,10 +377,11 @@ class SendTests(object):
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        # we get four TargetTokens: one for each of the 3 getvalue functions,
-        # and one entering from the interpreter (the preamble)
+        # We get three TargetTokens: preamble, first loop specizlized to z=25
+        # and retraced loop not specialized. The retraced loop can be used for
+        # both z=2 and z=1001 as retraces are not specialized to constants.
         self.check_jitcell_token_count(1)
-        self.check_target_token_count(4)
+        self.check_target_token_count(3)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
