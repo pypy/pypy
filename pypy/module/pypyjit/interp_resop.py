@@ -6,6 +6,17 @@ from pypy.interpreter.pycode import PyCode
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.lltypesystem.rclass import OBJECT
+from pypy.jit.metainterp.resoperation import rop
+
+def wrap_oplist(space, logops, operations):
+    list_w = []
+    for op in operations:
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            list_w.append(space.wrap(debug_merge_point_from_boxes(
+                op.getarglist())))
+        else:
+            list_w.append(space.wrap(logops.repr_of_resop(op)))
+    return list_w
 
 class W_DebugMergePoint(Wrappable):
     """ A class representing debug_merge_point JIT operation

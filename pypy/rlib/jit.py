@@ -409,13 +409,16 @@ class JitDriver(object):
 
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
+    name = 'jitdriver'
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None, should_unroll_one_iteration=None):
+                 can_never_inline=None, should_unroll_one_iteration=None,
+                 name='jitdriver'):
         if greens is not None:
             self.greens = greens
+        self.name = name
         if reds is not None:
             self.reds = reds
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
