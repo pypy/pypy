@@ -42,6 +42,10 @@ def get_mock_model():
         class JitCellToken(object):
             I_am_a_descr = True
 
+        class TargetToken(object):
+            def __init__(self, jct):
+                pass
+
         class BasicFailDescr(object):
             I_am_a_descr = True
 
