@@ -161,6 +161,9 @@ class IntOpAssembler(object):
     emit_ptr_eq = emit_int_eq
     emit_ptr_ne = emit_int_ne
 
+    emit_instance_ptr_eq = emit_ptr_eq
+    emit_instance_ptr_ne = emit_ptr_ne
+
     def emit_int_neg(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.neg(res.value, l0.value)

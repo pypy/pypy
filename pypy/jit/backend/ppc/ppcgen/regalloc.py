@@ -336,6 +336,9 @@ class Regalloc(object):
     prepare_ptr_eq = prepare_int_eq
     prepare_ptr_ne = prepare_int_ne
 
+    prepare_instance_ptr_eq = prepare_ptr_eq
+    prepare_instance_ptr_ne = prepare_ptr_ne
+
     prepare_uint_lt = prepare_cmp_op()
     prepare_uint_le = prepare_cmp_op()
     prepare_uint_gt = prepare_cmp_op()
