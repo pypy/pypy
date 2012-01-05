@@ -358,6 +358,10 @@ class Regalloc(object):
         args[-1] = imm(n)
         return args
 
+    def prepare_call_malloc_gc(self, op):
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        return args
+
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
@@ -780,79 +784,6 @@ class Regalloc(object):
 
     prepare_cast_ptr_to_int = prepare_same_as
     prepare_cast_int_to_ptr = prepare_same_as
-
-    def prepare_new(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        # XXX introduce the fastpath for malloc
-        arglocs = self._prepare_args_for_new_op(op.getdescr())
-        force_index = self.assembler.write_new_force_index()
-        self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
-                                arglocs, self, result=op.result)
-        self.possibly_free_vars(arglocs)
-        self.possibly_free_var(op.result)
-        return []
-
-    def prepare_new_with_vtable(self, op):
-        classint = op.getarg(0).getint()
-        descrsize = heaptracker.vtable2descr(self.cpu, classint)
-        # XXX add fastpath for allocation
-        callargs = self._prepare_args_for_new_op(descrsize)
-        force_index = self.assembler.write_new_force_index()
-        self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
-                                    callargs, self, result=op.result)
-        self.possibly_free_vars(callargs)
-        self.possibly_free_var(op.result)
-        return [imm(classint)]
-
-    def prepare_new_array(self, op):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            # framework GC
-            box_num_elem = op.getarg(0)
-            if isinstance(box_num_elem, ConstInt):
-                num_elem = box_num_elem.value
-                # XXX implement fastpath for malloc
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-                op.getdescr())
-            argboxes = [ConstInt(x) for x in args]
-            argboxes.append(box_num_elem)
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index, self.assembler.malloc_array_func_addr,
-                                        argboxes, self, result=op.result)
-            return []
-        # boehm GC
-        itemsize, scale, basesize, ofs_length, _ = (
-            self._unpack_arraydescr(op.getdescr()))
-        return self._malloc_varsize(basesize, ofs_length, itemsize, op)
-
-    def prepare_newstr(self, op):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index,
-                    self.assembler.malloc_str_func_addr, [op.getarg(0)],
-                    self, op.result)
-            return []
-        # boehm GC
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
-                            self.cpu.translate_support_code)
-        assert itemsize == 1
-        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
-
-    def prepare_newunicode(self, op):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            force_index = self.assembler.write_new_force_index()
-            self.assembler._emit_call(force_index, 
-                    self.assembler.malloc_unicode_func_addr,
-                    [op.getarg(0)], self, op.result)
-            return []
-        # boehm GC
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                            self.cpu.translate_support_code)
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                            self.cpu.translate_support_code)
-        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
 
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()

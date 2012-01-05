@@ -799,6 +799,10 @@ class AllocOpAssembler(object):
 
     _mixin_ = True
 
+    def emit_call_malloc_gc(self, op, arglocs, regalloc):
+        self.emit_call(op, arglocs, regalloc)
+        self.propagate_memoryerror_if_r3_is_null()
+
     # from: ../x86/regalloc.py:750
     # called from regalloc
     # XXX kill this function at some point
@@ -817,29 +821,12 @@ class AllocOpAssembler(object):
         self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
                                     result=result)
 
-    def emit_new(self, op, arglocs, regalloc):
-        # XXX do exception handling here!
-        pass
-
-    def emit_new_with_vtable(self, op, arglocs, regalloc):
-        classint = arglocs[0].value
-        self.set_vtable(op.result, classint)
-
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
             self.mc.alloc_scratch_reg(adr)
             self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
             self.mc.free_scratch_reg()
-
-    def emit_new_array(self, op, arglocs, regalloc):
-        self.propagate_memoryerror_if_r3_is_null()
-        if len(arglocs) > 0:
-            value_loc, base_loc, ofs_length = arglocs
-            self.mc.store(value_loc.value, base_loc.value, ofs_length.value)
-
-    emit_newstr = emit_new_array
-    emit_newunicode = emit_new_array
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
