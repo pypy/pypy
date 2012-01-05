@@ -44,11 +44,13 @@ class AppTestJitHook(object):
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
 
         def interp_on_compile():
-            pypyjitdriver.on_compile(logger, JitCellToken(), oplist, 'loop',
-                                     0, False, ll_code)
+            pypy_portal.on_compile(pypyjitdriver, logger, JitCellToken(),
+                                   oplist, 'loop', greenkey, {}, 0, 0)
 
         def interp_on_compile_bridge():
-            pypyjitdriver.on_compile_bridge(logger, JitCellToken(), oplist, 0)
+            pypy_portal.on_compile_bridge(pypyjitdriver, logger,
+                                            JitCellToken(), oplist, 0,
+                                            {}, 0, 0)
 
         def interp_on_abort():
             pypy_portal.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
@@ -61,21 +63,21 @@ class AppTestJitHook(object):
         import pypyjit
         all = []
 
-        def hook(*args):
-            assert args[0] == 'main'
-            assert args[1] in ['loop', 'bridge']
-            all.append(args[2:])
+        def hook(name, looptype, tuple_or_guard_no, ops, asmstart, asmlen):
+            all.append((name, looptype, tuple_or_guard_no, ops))
         
         self.on_compile()
         pypyjit.set_compile_hook(hook)
         assert not all
         self.on_compile()
         assert len(all) == 1
-        assert all[0][0][0].co_name == 'f'
-        assert all[0][0][1] == 0
-        assert all[0][0][2] == False
-        assert len(all[0][1]) == 3
-        assert 'int_add' in all[0][1][0]
+        elem = all[0]
+        assert elem[0] == 'pypyjit'
+        assert elem[2][0].co_name == 'f'
+        assert elem[2][1] == 0
+        assert elem[2][2] == False
+        assert len(elem[3]) == 3
+        assert 'int_add' in elem[3][0]
         self.on_compile_bridge()
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
@@ -136,9 +138,9 @@ class AppTestJitHook(object):
         import pypyjit
         l = []
 
-        def hook(reason):
-            l.append(reason)
+        def hook(jitdriver_name, greenkey, reason):
+            l.append((jitdriver_name, reason))
         
         pypyjit.set_abort_hook(hook)
         self.on_abort()
-        assert l == ['ABORT_TOO_LONG']
+        assert l == [('pypyjit', 'ABORT_TOO_LONG')]

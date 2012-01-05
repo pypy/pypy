@@ -14,7 +14,6 @@ from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
 from opcode import opmap
-from pypy.rlib.nonconst import NonConstant
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'locals_stack_w[*]',
@@ -167,48 +166,3 @@ def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
-
-class Cache(object):
-    in_recursion = False
-
-    def __init__(self, space):
-        self.w_compile_hook = space.w_None
-        self.w_abort_hook = space.w_None
-
-def set_compile_hook(space, w_hook):
-    """ set_compile_hook(hook)
-
-    Set a compiling hook that will be called each time a loop is compiled.
-    The hook will be called with the following signature:
-    hook(merge_point_type, loop_type, greenkey or guard_number, operations)
-
-    for now merge point type is always `main`
-
-    loop_type can be either `loop` `entry_bridge` or `bridge`
-    in case loop is not `bridge`, greenkey will be a set of constants
-    for jit merge point. in case it's `main` it'll be a tuple
-    (code, offset, is_being_profiled)
-
-    Note that jit hook is not reentrant. It means that if the code
-    inside the jit hook is itself jitted, it will get compiled, but the
-    jit hook won't be called for that.
-
-    XXX write down what else
-    """
-    cache = space.fromcache(Cache)
-    cache.w_compile_hook = w_hook
-    cache.in_recursion = NonConstant(False)
-    return space.w_None
-
-def set_abort_hook(space, w_hook):
-    """ set_abort_hook(hook)
-
-    Set a hook (callable) that will be called each time there is tracing
-    aborted due to some reason. The hook will be called with string describing
-    the reason as an argument
-    """
-    cache = space.fromcache(Cache)
-    cache.w_abort_hook = w_hook
-    cache.in_recursion = NonConstant(False)
-    return space.w_None
-    

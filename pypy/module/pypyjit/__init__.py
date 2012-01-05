@@ -7,8 +7,8 @@ class Module(MixedModule):
     interpleveldefs = {
         'set_param':    'interp_jit.set_param',
         'residual_call': 'interp_jit.residual_call',
-        'set_compile_hook': 'interp_jit.set_compile_hook',
-        'set_abort_hook': 'interp_jit.set_abort_hook',
+        'set_compile_hook': 'interp_resop.set_compile_hook',
+        'set_abort_hook': 'interp_resop.set_abort_hook',
         'DebugMergePoint': 'interp_resop.W_DebugMergePoint',
     }
 

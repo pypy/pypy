@@ -1,10 +1,8 @@
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.rlib.jit import JitPortal
-from pypy.module.pypyjit.interp_jit import Cache
 from pypy.interpreter.error import OperationError
 from pypy.jit.metainterp.jitprof import counter_names
-from pypy.module.pypyjit.interp_resop import wrap_oplist
-from pypy.interpreter.pycode import PyCode
+from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey
 
 class PyPyPortal(JitPortal):
     def on_abort(self, reason, jitdriver, greenkey):
@@ -16,52 +14,43 @@ class PyPyPortal(JitPortal):
             cache.in_recursion = True
             try:
                 space.call_function(cache.w_abort_hook,
+                                    space.wrap(jitdriver.name),
+                                    wrap_greenkey(space, jitdriver, greenkey),
                                     space.wrap(counter_names[reason]))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             cache.in_recursion = False
 
     def on_compile(self, jitdriver, logger, looptoken, operations, type,
-                   greenkey, asmstart, asmlen):
-        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-
-        space = self.space
-        cache = space.fromcache(Cache)
-        if cache.in_recursion:
-            return
-        if space.is_true(cache.w_compile_hook):
-            logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations)
-            pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
-            cache.in_recursion = True
-            try:
-                space.call_function(cache.w_compile_hook,
-                                    space.wrap('main'),
-                                    space.wrap(type),
-                                    space.newtuple([pycode,
-                                    space.wrap(next_instr),
-                                    space.wrap(is_being_profiled)]),
-                                    space.newlist(list_w))
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            cache.in_recursion = False
+                   greenkey, ops_offset, asmstart, asmlen):
+        self._compile_hook(jitdriver, logger, operations, type,
+                           ops_offset, asmstart, asmlen,
+                           wrap_greenkey(self.space, jitdriver, greenkey))
 
     def on_compile_bridge(self, jitdriver, logger, orig_looptoken, operations,
-                          n, asm, asmlen):
+                          n, ops_offset, asmstart, asmlen):
+        self._compile_hook(jitdriver, logger, operations, 'bridge',
+                           ops_offset, asmstart, asmlen,
+                           self.space.wrap(n))
+
+    def _compile_hook(self, jitdriver, logger, operations, type,
+                      ops_offset, asmstart, asmlen, w_arg):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
             logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations)
+            list_w = wrap_oplist(space, logops, operations, ops_offset)
             cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
-                                    space.wrap('main'),
-                                    space.wrap('bridge'),
-                                    space.wrap(n),
-                                    space.newlist(list_w))
+                                    space.wrap(jitdriver.name),
+                                    space.wrap(type),
+                                    w_arg,
+                                    space.newlist(list_w),
+                                    space.wrap(asmstart),
+                                    space.wrap(asmlen))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             cache.in_recursion = False
