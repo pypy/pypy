@@ -382,11 +382,10 @@ class MiscOpAssembler(object):
         self._emit_call(force_index, adr, arglist, regalloc, op.result)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
-        if op.result and not we_are_translated() and not isinstance(descr,
-                LoopToken):
+        if op.result and not we_are_translated():
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size(False)
+            size = descr.get_result_size()
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
 
@@ -529,10 +528,8 @@ class FieldOpAssembler(object):
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
-            descr = op.getdescr()
-            size =  descr.get_field_size(False)
-            signed = descr.is_field_signed()
-            self._ensure_result_bit_extension(res, size, signed)
+            signed = op.getdescr().is_field_signed()
+            self._ensure_result_bit_extension(res, size.value, signed)
 
     emit_getfield_raw = emit_getfield_gc
     emit_getfield_raw_pure = emit_getfield_gc

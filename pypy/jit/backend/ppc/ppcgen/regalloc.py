@@ -20,6 +20,9 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.codewriter.effectinfo import EffectInfo
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.codewriter import heaptracker
+from pypy.jit.backend.llsupport.descr import unpack_arraydescr
+from pypy.jit.backend.llsupport.descr import unpack_fielddescr
+from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
@@ -565,7 +568,7 @@ class Regalloc(object):
     def prepare_setfield_gc(self, op):
         boxes = list(op.getarglist())
         b0, b1 = boxes
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs, size, ptr = unpack_fielddescr(op.getdescr())
         base_loc, base_box = self._ensure_value_is_boxed(b0, boxes)
         boxes.append(base_box)
         value_loc, value_box = self._ensure_value_is_boxed(b1, boxes)
@@ -583,7 +586,7 @@ class Regalloc(object):
 
     def prepare_getfield_gc(self, op):
         a0 = op.getarg(0)
-        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        ofs, size, ptr = unpack_fielddescr(op.getdescr())
         base_loc, base_box = self._ensure_value_is_boxed(a0)
         c_ofs = ConstInt(ofs)
         if _check_imm_arg(c_ofs):
