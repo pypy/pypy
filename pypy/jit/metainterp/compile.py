@@ -319,7 +319,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.end_backend() 
     portal.on_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
                       original_jitcell_token, loop.operations, type, greenkey,
-                      asmstart, asmlen)
+                      ops_offset, asmstart, asmlen)
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
@@ -352,8 +352,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
     portal.on_compile_bridge(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                             original_loop_token, operations, n, asmstart,
-                             asmlen)
+                             original_loop_token, operations, n, ops_offset,
+                             asmstart, asmlen)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")

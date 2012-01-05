@@ -43,7 +43,7 @@ class TestJitPortal(LLJitMixin):
         
         class MyJitPortal(JitPortal):
             def on_compile(self, jitdriver, logger, looptoken, operations,
-                           type, greenkey, asmaddr, asmlen):
+                           type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
                 assert asmlen == 0
                 called[(greenkey[1].getint(), greenkey[0].getint(), type)] = looptoken
@@ -70,13 +70,13 @@ class TestJitPortal(LLJitMixin):
         
         class MyJitPortal(JitPortal):
             def on_compile(self, jitdriver, logger, looptoken, operations,
-                           type, greenkey, asmaddr, asmlen):
+                           type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
                 assert asmlen == 0
                 called[(greenkey[1].getint(), greenkey[0].getint(), type)] = looptoken
 
             def on_compile_bridge(self, jitdriver, logger, orig_token,
-                                  operations, n, asmstart, asmlen):
+                                  operations, n, ops_offset, asmstart, asmlen):
                 assert 'bridge' not in called
                 called['bridge'] = orig_token
 
