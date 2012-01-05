@@ -745,7 +745,7 @@ class JitPortal(object):
         """
 
     def on_compile(self, jitdriver, logger, looptoken, operations, type,
-                   greenkey, asmaddr, asmlen):
+                   greenkey, ops_offset, asmaddr, asmlen):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
         call applevel code.
@@ -758,7 +758,7 @@ class JitPortal(object):
         """
 
     def on_compile_bridge(self, jitdriver, logger, orig_looptoken, operations,
-                          fail_descr_no, asmaddr, asmlen):
+                          fail_descr_no, ops_offset, asmaddr, asmlen):
         """ A hook called when a bridge is compiled. Overwrite
         for your own jitdriver if you want to do something special
         """
