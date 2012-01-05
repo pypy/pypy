@@ -411,6 +411,7 @@ class Assembler386(object):
         '''adds the following attributes to looptoken:
                _x86_function_addr   (address of the generated func, as an int)
                _x86_loop_code       (debug: addr of the start of the ResOps)
+               _x86_fullsize        (debug: full size including failure)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -476,7 +477,8 @@ class Assembler386(object):
             name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, full_size)
-        return ops_offset
+        return (ops_offset, rawstart + looppos,
+                size_excluding_failure_stuff - looppos)
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                         original_loop_token, log):
@@ -503,6 +505,7 @@ class Assembler386(object):
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         fail_depths = faildescr._x86_current_depths
+        startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
@@ -537,7 +540,7 @@ class Assembler386(object):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        return ops_offset
+        return ops_offset, startpos + rawstart, codeendpos - startpos
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub

@@ -17,6 +17,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
+from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -2973,6 +2974,53 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 3
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
+
+    def test_compile_asmlen(self):
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        import ctypes
+        ops = """
+        [i0]
+        label(i0, descr=1)
+        i1 = int_add(i0, i0)
+        guard_true(i1, descr=faildesr) [i1]
+        jump(i1, descr=1)
+        """
+        faildescr = BasicFailDescr(2)
+        loop = parse(ops, self.cpu, namespace=locals())
+        faildescr = loop.operations[-2].getdescr()
+        jumpdescr = loop.operations[-1].getdescr()
+        bridge_ops = """
+        [i0]
+        jump(i0, descr=jumpdescr)
+        """
+        bridge = parse(bridge_ops, self.cpu, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.assembler.set_debug(False)
+        _, asm, asmlen = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        _, basm, basmlen = self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                                   bridge.operations,
+                                                   looptoken)
+        self.cpu.assembler.set_debug(True) # always on untranslated
+        assert asmlen != 0
+        cpuname = autodetect_main_model_and_size()
+        if 'x86' in cpuname:
+            # XXX we have to check the precise assembler, otherwise
+            # we don't quite know if borders are correct
+            def checkops(mc, startline, ops):
+                for i in range(startline, len(mc)):
+                    assert mc[i].split("\t")[-1].startswith(ops[i - startline])
+            
+            data = ctypes.string_at(asm, asmlen)
+            mc = list(machine_code_dump(data, asm, cpuname))
+            assert len(mc) == 5
+            checkops(mc, 1, ['add', 'test', 'je', 'jmp'])
+            data = ctypes.string_at(basm, basmlen)
+            mc = list(machine_code_dump(data, basm, cpuname))
+            assert len(mc) == 4
+            checkops(mc, 1, ['lea', 'mov', 'jmp'])
+        else:
+            raise Exception("Implement this test for your CPU")
+
 
     def test_compile_bridge_with_target(self):
         # This test creates a loopy piece of code in a bridge, and builds another
