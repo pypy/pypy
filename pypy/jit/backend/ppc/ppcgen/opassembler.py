@@ -545,9 +545,10 @@ class ArrayOpAssembler(object):
         self.mc.load(res.value, base_loc.value, ofs.value)
 
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
         if scale.value > 0:
-            scale_loc = scratch_reg
+            scale_loc = r.SCRATCH
             if IS_PPC_32:
                 self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
@@ -557,9 +558,8 @@ class ArrayOpAssembler(object):
 
         # add the base offset
         if ofs.value > 0:
-            assert scale_loc is not r.r0
-            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
-            scale_loc = r.r0
+            self.mc.addi(r.SCRATCH.value, scale_loc.value, ofs.value)
+            scale_loc = r.SCRATCH
 
         if scale.value == 3:
             self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
@@ -575,9 +575,10 @@ class ArrayOpAssembler(object):
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
-        res, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
+        res, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
         if scale.value > 0:
-            scale_loc = scratch_reg
+            scale_loc = r.SCRATCH
             if IS_PPC_32:
                 self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
@@ -587,9 +588,8 @@ class ArrayOpAssembler(object):
 
         # add the base offset
         if ofs.value > 0:
-            assert scale_loc is not r.r0
-            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
-            scale_loc = r.r0
+            self.mc.addi(r.SCRATCH.value, scale_loc.value, ofs.value)
+            scale_loc = r.SCRATCH
 
         if scale.value == 3:
             self.mc.ldx(res.value, base_loc.value, scale_loc.value)
@@ -605,7 +605,7 @@ class ArrayOpAssembler(object):
         #XXX Hack, Hack, Hack
         if not we_are_translated():
             descr = op.getdescr()
-            size =  descr.get_item_size(False)
+            size =  descr.itemsize
             signed = descr.is_item_signed()
             self._ensure_result_bit_extension(res, size, signed)
 

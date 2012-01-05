@@ -1,14 +1,17 @@
 from pypy.jit.metainterp.history import ConstInt
+from pypy.rlib.objectmodel import we_are_translated
 
 def _check_imm_arg(arg, size=0xFF, allow_zero=True):
-    if isinstance(arg, ConstInt):
-        i = arg.getint()
-        if allow_zero:
-            lower_bound = i >= 0
-        else:
-            lower_bound = i > 0
-        return i <= size and lower_bound
-    return False
+    #assert not isinstance(arg, ConstInt)
+    #if not we_are_translated():
+    #    if not isinstance(arg, int):
+    #        import pdb; pdb.set_trace()
+    i = arg
+    if allow_zero:
+        lower_bound = i >= 0
+    else:
+        lower_bound = i > 0
+    return i <= size and lower_bound
 
 def prepare_cmp_op():
     def f(self, op):

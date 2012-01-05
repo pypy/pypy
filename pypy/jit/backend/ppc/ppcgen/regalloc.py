@@ -17,6 +17,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
 from pypy.rpython.lltypesystem import rffi, lltype, rstr
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.llsupport.descr import ArrayDescr
 from pypy.jit.codewriter.effectinfo import EffectInfo
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.codewriter import heaptracker
@@ -606,8 +607,8 @@ class Regalloc(object):
 
     def prepare_arraylen_gc(self, op):
         arraydescr = op.getdescr()
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         arg = op.getarg(0)
         base_loc, base_box = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars([arg, base_box])
@@ -617,42 +618,31 @@ class Regalloc(object):
         return [res, base_loc, imm(ofs)]
 
     def prepare_setarrayitem_gc(self, op):
-        b0, b1, b2 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
-
-        base_loc, base_box  = self._ensure_value_is_boxed(b0, boxes)
-        boxes.append(base_box)
-        ofs_loc, ofs_box = self._ensure_value_is_boxed(b1, boxes)
-        boxes.append(ofs_box)
-        #XXX check if imm would be fine here
-        value_loc, value_box = self._ensure_value_is_boxed(b2, boxes)
-        boxes.append(value_box)
-        if scale > 0:
-            tmp, box = self.allocate_scratch_reg(forbidden_vars=boxes)
-            boxes.append(box)
-        else:
-            tmp = None
-        self.possibly_free_vars(boxes)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs), tmp]
+        a0, a1, a2 = list(op.getarglist())
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
+        args = op.getarglist()
+        base_loc, _ = self._ensure_value_is_boxed(a0, args)
+        ofs_loc, _ = self._ensure_value_is_boxed(a1, args)
+        value_loc, _ = self._ensure_value_is_boxed(a2, args)
+        assert _check_imm_arg(ofs)
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
     def prepare_getarrayitem_gc(self, op):
         a0, a1 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        size, ofs, _ = unpack_arraydescr(op.getdescr())
+        scale = get_scale(size)
         base_loc, base_box  = self._ensure_value_is_boxed(a0, boxes)
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(ofs_box)
-        if scale > 0:
-            tmp, box = self.allocate_scratch_reg(forbidden_vars=boxes)
-            boxes.append(box)
-        else:
-            tmp = None
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs), tmp]
+        assert _check_imm_arg(ofs)
+        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc
@@ -1041,6 +1031,13 @@ def notimplemented_with_guard(self, op, guard_op):
 
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+
+def get_scale(size):
+    scale = 0
+    while (1 << scale) < size:
+        scale += 1
+    assert (1 << scale) == size
+    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()

@@ -416,7 +416,7 @@ class AssemblerPPC(OpAssembler):
             fdescr = self.gen_64_bit_func_descr()
 
         # write instructions to memory
-        loop_start = self.materialize_loop(looptoken, True)
+        loop_start = self.materialize_loop(looptoken, False)
         self.fixup_target_tokens(loop_start)
 
         real_start = loop_start + direct_bootstrap_code
@@ -461,7 +461,7 @@ class AssemblerPPC(OpAssembler):
         spilling_area = self._assemble(operations, regalloc)
         self.write_pending_failure_recoveries()
 
-        rawstart = self.materialize_loop(looptoken, True)
+        rawstart = self.materialize_loop(looptoken, False)
         self.process_pending_guards(rawstart)
         self.patch_trace(faildescr, looptoken, rawstart, regalloc)
 
