@@ -741,8 +741,8 @@ class JitPortal(object):
         greenkey where it started, reason is a string why it got aborted
         """
 
-    def on_compile(self, jitdriver, logger, looptoken, operations, greenkey,
-                   asmaddr, asmlen):
+    def on_compile(self, jitdriver, logger, looptoken, operations, type,
+                   greenkey, asmaddr, asmlen):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
         call applevel code.
@@ -751,6 +751,7 @@ class JitPortal(object):
         logger - an instance of jit.metainterp.logger.LogOperations
         asmaddr - (int) raw address of assembler block
         asmlen - assembler block length
+        type - either 'loop' or 'entry bridge'
         """
 
     def on_compile_bridge(self, jitdriver, logger, orig_looptoken, operations,
