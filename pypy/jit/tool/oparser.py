@@ -92,8 +92,14 @@ class OpParser(object):
     def get_descr(self, poss_descr):
         if poss_descr.startswith('<'):
             return None
-        else:
+        try:
             return self._consts[poss_descr]
+        except KeyError:
+            int(poss_descr)
+            token = self.model.JitCellToken()
+            tt = self.model.TargetToken(token)
+            self._consts[poss_descr] = tt
+            return tt
 
     def box_for_var(self, elem):
         try:
