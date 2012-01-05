@@ -44,6 +44,7 @@ class BaseTestPyPyC(object):
         #
         # run a child pypy-c with logging enabled
         logfile = self.filepath.new(ext='.log')
+        print logfile
         #
         cmdline = [sys.executable]
         if not import_site:
@@ -53,6 +54,7 @@ class BaseTestPyPyC(object):
                           for key, value in jitopts.items()]
             cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
+        print ' '.join(cmdline)
         #
         env={'PYPYLOG': self.log_string + ':' + str(logfile)}
         pipe = subprocess.Popen(cmdline,

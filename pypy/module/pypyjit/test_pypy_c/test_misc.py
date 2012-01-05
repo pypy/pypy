@@ -21,7 +21,7 @@ class TestMisc(BaseTestPyPyC):
         # not virtual, then "i" is written and thus we get a new loop where
         # "i" is virtual. However, in this specific case the two loops happen
         # to contain the very same operations
-        loop0, loop1 = log.loops_by_filename(self.filepath)
+        loop0, loop1, loop2 = log.loops_by_filename(self.filepath)
         
         expected = """
             i9 = int_le(i7, i8)
@@ -39,6 +39,7 @@ class TestMisc(BaseTestPyPyC):
         # becomes constant 0 after the bridge and constant 1 at the end of the
         # loop. A bridge back to the peramble is produced instead.        
         assert loop1.match(expected)
+        assert loop2.match(expected)
 
     def test_factorial(self):
         def fact(n):

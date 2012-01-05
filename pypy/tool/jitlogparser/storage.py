@@ -76,7 +76,12 @@ class LoopStorage(object):
                     op.percentage = ((getattr(loop, 'count', 1) * 100) /
                                      max(getattr(parent, 'count', 1), 1))
                     loop.no = no
-                    continue
+
+                    labels = [op for op in loop.operations if op.name == 'label']
+                    jumpop = loop.operations[-1]
+                    if not (labels and jumpop.name == 'jump' and 
+                            jumpop.getdescr() == labels[-1].getdescr()):
+                        continue
             res.append(loop)
         self.loops = res
         return res
