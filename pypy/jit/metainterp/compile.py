@@ -296,7 +296,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    portal = metainterp_sd.warmrunnerdesc.portal
     loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
@@ -316,10 +315,12 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         ops_offset, asmstart, asmlen = tp
     finally:
         debug_stop("jit-backend")
-    metainterp_sd.profiler.end_backend() 
-    portal.on_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                      original_jitcell_token, loop.operations, type, greenkey,
-                      ops_offset, asmstart, asmlen)
+    metainterp_sd.profiler.end_backend()
+    if metainterp_sd.warmrunnerdesc is not None:
+        portal = metainterp_sd.warmrunnerdesc.portal
+        portal.on_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
+                          original_jitcell_token, loop.operations, type,
+                          greenkey, ops_offset, asmstart, asmlen)
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
@@ -336,7 +337,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
     n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
-    portal = metainterp_sd.warmrunnerdesc.portal
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
@@ -351,9 +351,12 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
-    portal.on_compile_bridge(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                             original_loop_token, operations, n, ops_offset,
-                             asmstart, asmlen)
+    if metainterp_sd.warmrunnerdesc is not None:
+        portal = metainterp_sd.warmrunnerdesc.portal
+        portal.on_compile_bridge(jitdriver_sd.jitdriver,
+                                 metainterp_sd.logger_ops,
+                                 original_loop_token, operations, n, ops_offset,
+                                 asmstart, asmlen)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")
