@@ -2976,6 +2976,9 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res == -10
 
     def test_compile_asmlen(self):
+        from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("pointless test on non-asm")
         from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
         import ctypes
         ops = """
