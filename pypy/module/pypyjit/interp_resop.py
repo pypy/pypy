@@ -89,6 +89,7 @@ def new_resop(space, w_tp, no):
     if no:
         op = ResOperation(no, [AbstractValue()], AbstractValue(),
                           descr=AbstractDescr())
+        op.setdescr(None)
     else:
         op = ResOperation(no, [None], None, descr=None)
     return space.wrap(WrappedOp(op, NonConstant(13), NonConstant('repr')))
