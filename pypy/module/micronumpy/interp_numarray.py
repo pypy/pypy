@@ -764,7 +764,6 @@ class Reduce(VirtualArray):
 
     def _del_sources(self):
         self.values = None
-        pass
 
     def create_sig(self, res_shape):
         if self.forced_result is not None:
