@@ -77,7 +77,7 @@ def set_abort_hook(space, w_hook):
     return space.w_None
 
 def wrap_oplist(space, logops, operations, ops_offset):
-    return [WrappedOp(op, ops_offset, logops) for op in operations]
+    return [WrappedOp(op, ops_offset[op], logops) for op in operations]
 
 @unwrap_spec(no=int)
 def new_resop(space, w_tp, no):
@@ -85,14 +85,15 @@ def new_resop(space, w_tp, no):
     if NonConstant(True):
         raise OperationError(space.w_ValueError,
                              space.wrap("for annotation only"))
-    return space.wrap(WrappedOp(ResOperation(no, [], None), -1))
+    op = ResOperation(no, [], None)
+    return space.wrap(WrappedOp(op, 13))
 
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
     """
-    def __init__(self, op, ops_offset, logops=None):
+    def __init__(self, op, offset, logops=None):
         self.op = op
-        self.offset = ops_offset[op]
+        self.offset = offset
         if logops is not None:
             self.repr_of_resop = logops.repr_of_resop(op) # XXX fix this, horribly inefficient
         else:
