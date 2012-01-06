@@ -1,7 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     OneDimIterator, ConstantIterator
+     OneDimIterator, ConstantIterator, axis_iter_from_arr
 from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib.jit import hint, unroll_safe, promote
 
@@ -95,13 +95,13 @@ class Signature(object):
             allnumbers.append(no)
         self.iter_no = no
 
-    def create_frame(self, arr, res_shape=None, chunks=None):
+    def create_frame(self, arr, res_shape=None, chunks=None, dim=-1):
         if chunks is None:
             chunks = []
         res_shape = res_shape or arr.shape
         iterlist = []
         arraylist = []
-        self._create_iter(iterlist, arraylist, arr, res_shape, chunks)
+        self._create_iter(iterlist, arraylist, arr, res_shape, chunks, dim)
         return NumpyEvalFrame(iterlist, arraylist)
 
 
@@ -143,7 +143,7 @@ class ArraySignature(ConcreteSignature):
         assert isinstance(concr, ConcreteArray)
         self.array_no = _add_ptr_to_cache(concr.storage, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
         assert isinstance(concr, ConcreteArray)
@@ -171,7 +171,7 @@ class ScalarSignature(ConcreteSignature):
     def _invent_array_numbering(self, arr, cache):
         pass
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
         if self.iter_no >= len(iterlist):
             iter = ConstantIterator()
             iterlist.append(iter)
@@ -212,12 +212,12 @@ class VirtualSliceSignature(Signature):
         assert isinstance(other, VirtualSliceSignature)
         return self.child.eq(other.child, compare_array_no)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
         from pypy.module.micronumpy.interp_numarray import VirtualSlice
         assert isinstance(arr, VirtualSlice)
         chunklist.append(arr.chunks)
         self.child._create_iter(iterlist, arraylist, arr.child, res_shape,
-                                chunklist)
+                                chunklist, dim)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import VirtualSlice
@@ -253,11 +253,11 @@ class Call1(Signature):
         assert isinstance(arr, Call1)
         self.child._invent_array_numbering(arr.values, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
         self.child._create_iter(iterlist, arraylist, arr.values, res_shape,
-                                chunklist)
+                                chunklist, dim)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
@@ -298,14 +298,14 @@ class Call2(Signature):
         self.left._invent_numbering(cache, allnumbers)
         self.right._invent_numbering(cache, allnumbers)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
         from pypy.module.micronumpy.interp_numarray import Call2
 
         assert isinstance(arr, Call2)
         self.left._create_iter(iterlist, arraylist, arr.left, res_shape,
-                               chunklist)
+                               chunklist, dim)
         self.right._create_iter(iterlist, arraylist, arr.right, res_shape,
-                                chunklist)
+                                chunklist, dim)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call2
@@ -319,8 +319,21 @@ class Call2(Signature):
                                       self.right.debug_repr())
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
-        self.right._create_iter(iterlist, arraylist, arr, res_shape, chunklist)
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+        if dim<0:
+            self.right._create_iter(iterlist, arraylist, arr, res_shape, chunklist, dim)
+        else:
+            from pypy.module.micronumpy.interp_numarray import ConcreteArray
+            concr = arr.get_concrete()
+            assert isinstance(concr, ConcreteArray)
+            storage = concr.storage
+            if self.iter_no >= len(iterlist):
+                _iter = axis_iter_from_arr(concr, dim)
+                from interp_iter import AxisIterator
+                assert isinstance(_iter, AxisIterator) 
+                iterlist.append(_iter)
+            if self.array_no >= len(arraylist):
+                arraylist.append(storage)
 
     def _invent_numbering(self, cache, allnumbers):
         self.right._invent_numbering(cache, allnumbers)

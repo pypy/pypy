@@ -8,8 +8,8 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import ArrayIterator,\
-     view_iter_from_arr, OneDimIterator, axis_iter_from_arr
+from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
+     view_iter_from_arr, SkipLastAxisIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -603,11 +603,12 @@ class BaseArray(Wrappable):
     def getitem(self, item):
         raise NotImplementedError
 
-    def find_sig(self, res_shape=None):
+    def find_sig(self, res_shape=None, arr=None):
         """ find a correct signature for the array
         """
         res_shape = res_shape or self.shape
-        return signature.find_sig(self.create_sig(res_shape), self)
+        arr = arr or self
+        return signature.find_sig(self.create_sig(res_shape), arr)
 
     def descr_array_iface(self, space):
         if not self.shape:
@@ -756,9 +757,10 @@ class Reduce(VirtualArray):
         for s in shape:
             self.size *= s
         self.binfunc = binfunc
-        self.res_dtype = res_dtype
+        self.dtype = res_dtype
         self.dim = dim
         self.identity = identity
+        self.computing = False
 
     def _del_sources(self):
         self.values = None
@@ -767,46 +769,42 @@ class Reduce(VirtualArray):
     def create_sig(self, res_shape):
         if self.forced_result is not None:
             return self.forced_result.create_sig(res_shape)
-        return signature.ReduceSignature(self.binfunc, self.name, self.res_dtype,
-                           signature.ViewSignature(self.res_dtype),
-                           self.values.create_sig(res_shape))
+        return signature.ReduceSignature(self.binfunc, self.name, self.dtype,
+                                        signature.ScalarSignature(self.dtype),
+                                        self.values.create_sig(res_shape))
+
+    def get_identity(self, sig, frame, shapelen):
+        #XXX does this allocate? Yes :(
+        #XXX is this inlinable? Yes :)
+        if self.identity is None:
+            value = sig.eval(frame, self.values).convert_to(self.dtype)
+            frame.next(shapelen)
+        else:
+            value = self.identity.convert_to(self.dtype)
+        return value
 
     def compute(self):
-        dtype = self.res_dtype
+        self.computing = True
+        dtype = self.dtype
         result = W_NDimArray(self.size, self.shape, dtype)
         self.values = self.values.get_concrete()
         shapelen = len(result.shape)
         objlen = len(self.values.shape)
-        target_len = self.values.shape[self.dim]
-        sig = self.values.find_sig(result.shape)
-        #sig = self.create_sig(result.shape)
+        sig = self.find_sig(res_shape=result.shape,arr=self.values)
         ri = ArrayIterator(result.size)
-        si = axis_iter_from_arr(self.values, self.dim)
-        while not ri.done():
-            # explanation: we want to start the frame at the beginning of
-            # an axis: use si.indices to create a chunk (slice) 
-            # in self.values
-            chunks = []
-            for i in range(objlen):
-                if i == self.dim:
-                    chunks.append((0, target_len, 1, target_len))
-                else:
-                    chunks.append((si.indices[i], 0, 0, 1))
-            frame = sig.create_frame(self.values,
-                         res_shape=[target_len], chunks = [chunks, ])
-            if self.identity is None:
-                value = sig.eval(frame, self.values).convert_to(dtype)
-                frame.next(shapelen)
-            else:
-                value = self.identity.convert_to(dtype)
-            while not frame.done():
-                assert isinstance(sig, signature.ViewSignature)
-                nextval = sig.eval(frame, self.values).convert_to(dtype)
-                value = self.binfunc(dtype, value, nextval)
-                frame.next(shapelen)
+        frame = sig.create_frame(self.values, dim=self.dim)
+        value = self.get_identity(sig, frame, shapelen)
+        while not frame.done():
+            #XXX add jit_merge_point ? 
+            if frame.iterators[0].axis_done:
+                value = self.get_identity(sig, frame, shapelen)
+                ri = ri.next(shapelen)
+            assert isinstance(sig, signature.ReduceSignature)
+            nextval = sig.eval(frame, self.values).convert_to(dtype)
+            value = self.binfunc(dtype, value, nextval)
             result.dtype.setitem(result.storage, ri.offset, value)
-            ri = ri.next(shapelen)
-            si = si.next(shapelen)
+            frame.next(shapelen)
+        assert ri.done
         return result
 
 
@@ -1036,19 +1034,19 @@ class ConcreteArray(BaseArray):
                 self.size * itemsize
             )
         else:
-            dest = axis_iter_from_arr(self)
-            source = axis_iter_from_arr(w_value)
+            dest = SkipLastAxisIterator(self)
+            source = SkipLastAxisIterator(w_value)
             while not dest.done:
                 rffi.c_memcpy(
                     rffi.ptradd(self.storage, dest.offset * itemsize),
                     rffi.ptradd(w_value.storage, source.offset * itemsize),
                     self.shape[-1] * itemsize
                 )
-                source = source.next(shapelen)
-                dest = dest.next(shapelen)
+                source.next()
+                dest.next()
 
     def _sliceloop(self, source, res_shape):
-        sig = source.find_sig(res_shape)
+        sig = source.find_sig(res_shape=res_shape)
         frame = sig.create_frame(source, res_shape)
         res_iter = view_iter_from_arr(self)
         shapelen = len(res_shape)

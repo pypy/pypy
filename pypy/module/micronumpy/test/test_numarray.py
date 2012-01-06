@@ -246,6 +246,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = b.copy()
         assert (c == b).all()
 
+        a = arange(15).reshape(5,3)
+        b = a.copy()
+        assert (b == a).all()
+
     def test_iterator_init(self):
         from numpypy import array
         a = array(range(5))

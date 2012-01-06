@@ -103,60 +103,87 @@ class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
 
-def axis_iter_from_arr(arr, dim=-1, start=None):
-    if start is None:
-        start = []
+def axis_iter_from_arr(arr, dim=-1):
     # The assert is needed for zjit tests
     from pypy.module.micronumpy.interp_numarray import ConcreteArray
     assert isinstance(arr, ConcreteArray)
     return AxisIterator(arr.start, arr.strides, arr.backstrides, arr.shape,
-                        dim, start)
+                        dim)
 
 class AxisIterator(object):
-    """ This object will return offsets of each start of a stride on the
-        desired dimension, starting at "start" which is an index along
-        each axis
+    """ Accept an addition argument dim
+    Redorder the dimensions to iterate over dim most often.
+    Set a flag at the end of each run over dim.
     """
-    def __init__(self, arr_start, strides, backstrides, shape, dim, start):
+    def __init__(self, arr_start, strides, backstrides, shape, dim):
         self.shape = shape
         self.shapelen = len(shape)
         self.indices = [0] * len(shape)
-        self.done = False
+        self._done = False
+        self.axis_done = False
         self.offset = arr_start
-        self.dim = len(shape) - 1
+        self.dim = dim
+        self.dim_order = []
+        if self.dim >=0:
+            self.dim_order.append(self.dim)
+        for i in range(self.shapelen - 1, -1, -1):
+            if i == self.dim:
+                continue
+            self.dim_order.append(i)
         self.strides = strides
         self.backstrides = backstrides
-        if dim >= 0:
-            self.dim = dim
-        if len(start) == len(shape):
-            for i in range(len(start)):
-                self.offset += strides[i] * start[i]
+    
+    def done(self):
+        return self._done
 
     def next(self, shapelen):
         #shapelen will always be one less than self.shapelen
         offset = self.offset
+        axis_done = False
         indices = [0] * self.shapelen
         for i in range(self.shapelen):
             indices[i] = self.indices[i]
-        for i in range(self.shapelen - 1, -1, -1):
-            if i == self.dim:
-                continue
+        for i in self.dim_order:
             if indices[i] < self.shape[i] - 1:
                 indices[i] += 1
                 offset += self.strides[i]
                 break
             else:
+                if i == self.dim:
+                    axis_done = True
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:
-            self.done = True
+            self._done = True
         res = instantiate(AxisIterator)
+        res.axis_done = axis_done
         res.offset = offset
         res.indices = indices
         res.strides = self.strides
+        res.dim_order = self.dim_order
         res.backstrides = self.backstrides
         res.shape = self.shape
         res.shapelen = self.shapelen
         res.dim = self.dim
-        res.done = self.done
+        res._done = self._done
         return res
+
+# ------ other iterators that are not part of the computation frame ----------
+class SkipLastAxisIterator(object):
+    def __init__(self, arr):
+        self.arr = arr
+        self.indices = [0] * (len(arr.shape) - 1)
+        self.done = False
+        self.offset = arr.start
+    def next(self):
+        for i in range(len(self.arr.shape) - 2, -1, -1):
+            if self.indices[i] < self.arr.shape[i] - 1:
+                self.indices[i] += 1
+                self.offset += self.arr.strides[i]
+                break
+            else:
+                self.indices[i] = 0
+                self.offset -= self.arr.backstrides[i]
+        else:
+            self.done = True
+

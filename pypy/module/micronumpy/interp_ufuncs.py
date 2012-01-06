@@ -135,7 +135,7 @@ class W_Ufunc(Wrappable):
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)
-        frame = sig.create_frame(obj)
+        frame = sig.create_frame(obj,dim=-1)
         if self.identity is None:
             value = sig.eval(frame, obj).convert_to(dtype)
             frame.next(shapelen)
