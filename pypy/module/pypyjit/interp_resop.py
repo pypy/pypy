@@ -3,12 +3,12 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.nonconst import NonConstant
-
 
 class Cache(object):
     in_recursion = False
@@ -79,23 +79,27 @@ def set_abort_hook(space, w_hook):
 def wrap_oplist(space, logops, operations, ops_offset):
     return [WrappedOp(op, ops_offset, logops) for op in operations]
 
-# annotation hint
-
-def dummy_repr_for_resop(op):
-    return NonConstant('stuff')
+@unwrap_spec(no=int)
+def new_resop(space, w_tp, no):
+    # this is mostly an annotation hint
+    if NonConstant(True):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("for annotation only"))
+    return space.wrap(WrappedOp(ResOperation(no, [], None), -1))
 
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
     """
-    repr_for_resop = dummy_repr_for_resop
-    
-    def __init__(self, op, ops_offset, logops):
+    def __init__(self, op, ops_offset, logops=None):
         self.op = op
         self.offset = ops_offset[op]
-        self.repr_of_resop = logops.repr_of_resop
+        if logops is not None:
+            self.repr_of_resop = logops.repr_of_resop(op) # XXX fix this, horribly inefficient
+        else:
+            self.repr_of_resop = "repr"
 
     def descr_repr(self, space):
-        return space.wrap(self.repr_of_resop(self.op))
+        return space.wrap(self.repr_of_resop)
 
     def descr_num(self, space):
         return space.wrap(self.op.getopnum())
@@ -105,8 +109,10 @@ class WrappedOp(Wrappable):
 
 WrappedOp.typedef = TypeDef(
     'ResOperation',
+    __new__ = interp2app(new_resop),
     __doc__ = WrappedOp.__doc__,
     __repr__ = interp2app(WrappedOp.descr_repr),
     name = GetSetProperty(WrappedOp.descr_name),
     num = GetSetProperty(WrappedOp.descr_num),
 )
+WrappedOp.acceptable_as_base_class = False
