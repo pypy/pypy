@@ -86,8 +86,11 @@ def new_resop(space, w_tp, no):
     if NonConstant(True):
         raise OperationError(space.w_ValueError,
                              space.wrap("for annotation only"))
-    op = ResOperation(no, [AbstractValue()], AbstractValue(),
-                      descr=AbstractDescr())
+    if no:
+        op = ResOperation(no, [AbstractValue()], AbstractValue(),
+                          descr=AbstractDescr())
+    else:
+        op = ResOperation(no, [], None, descr=None)
     return space.wrap(WrappedOp(op, NonConstant(13), NonConstant('repr')))
 
 class WrappedOp(Wrappable):
