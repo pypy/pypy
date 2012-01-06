@@ -725,13 +725,6 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
-def record_known_class(value, cls):
-    """
-    Assure the JIT that value is an instance of cls. This is not a precise
-    class check, unlike a guard_class.
-    """
-    assert isinstance(value, cls)
-
 class JitPortal(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on portal will be invoked at various stages of JIT running
@@ -766,6 +759,13 @@ class JitPortal(object):
     def get_stats(self):
         """ Returns various statistics
         """
+
+def record_known_class(value, cls):
+    """
+    Assure the JIT that value is an instance of cls. This is not a precise
+    class check, unlike a guard_class.
+    """
+    assert isinstance(value, cls)
 
 class Entry(ExtRegistryEntry):
     _about_ = record_known_class
