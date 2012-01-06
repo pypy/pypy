@@ -81,11 +81,13 @@ def wrap_oplist(space, logops, operations, ops_offset):
 
 @unwrap_spec(no=int)
 def new_resop(space, w_tp, no):
+    from pypy.jit.metainterp.history import AbstractValue, AbstractDescr
     # this is mostly an annotation hint
     if NonConstant(True):
         raise OperationError(space.w_ValueError,
                              space.wrap("for annotation only"))
-    op = ResOperation(no, [], None)
+    op = ResOperation(no, [AbstractValue()], AbstractValue(),
+                      descr=AbstractDescr())
     return space.wrap(WrappedOp(op, NonConstant(13), NonConstant('repr')))
 
 class WrappedOp(Wrappable):
