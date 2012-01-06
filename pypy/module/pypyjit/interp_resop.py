@@ -25,7 +25,7 @@ def wrap_greenkey(space, jitdriver, greenkey):
                                          greenkey[2].getref_base())
         pycode = cast_base_ptr_to_instance(PyCode, ll_code)
         return space.newtuple([space.wrap(pycode), space.wrap(next_instr),
-                               space.newbool(is_being_profiled)])
+                               space.newbool(bool(is_being_profiled))])
     else:
         return space.wrap('who knows?')
 
