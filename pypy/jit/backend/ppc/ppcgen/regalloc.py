@@ -89,7 +89,8 @@ class PPCRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         if isinstance(c, ConstInt):
-            return locations.ImmLocation(c.value)
+            val = rffi.cast(lltype.Signed, c.value)
+            return locations.ImmLocation(val)
         else:
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
