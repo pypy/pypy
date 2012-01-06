@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.lltypesystem.rclass import OBJECT
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, AbstractResOp
 from pypy.rlib.nonconst import NonConstant
 
 class Cache(object):
@@ -79,23 +79,6 @@ def set_abort_hook(space, w_hook):
 def wrap_oplist(space, logops, operations, ops_offset):
     return [WrappedOp(op, ops_offset[op], logops.repr_of_resop(op)) for op in operations]
 
-@unwrap_spec(no=int)
-def new_resop(space, w_tp, no):
-    from pypy.jit.metainterp.history import AbstractValue, AbstractDescr
-    # this is mostly an annotation hint
-    if NonConstant(True):
-        raise OperationError(space.w_ValueError,
-                             space.wrap("for annotation only"))
-    if no:
-        op = ResOperation(no, [AbstractValue()], AbstractValue(),
-                          descr=AbstractDescr())
-        op.setdescr(None)
-    else:
-        op = ResOperation(no, [None], None, descr=None)
-    op.setarg(NonConstant(0), AbstractValue()) # list is mutated
-    op.setarg(NonConstant(0), None) # setarg arg can be None
-    return space.wrap(WrappedOp(op, NonConstant(13), NonConstant('repr')))
-
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
     """
@@ -115,10 +98,26 @@ class WrappedOp(Wrappable):
 
 WrappedOp.typedef = TypeDef(
     'ResOperation',
-    __new__ = interp2app(new_resop),
     __doc__ = WrappedOp.__doc__,
     __repr__ = interp2app(WrappedOp.descr_repr),
     name = GetSetProperty(WrappedOp.descr_name),
     num = GetSetProperty(WrappedOp.descr_num),
 )
 WrappedOp.acceptable_as_base_class = False
+
+from pypy.rpython.extregistry import ExtRegistryEntry
+
+class WrappedOpRegistry(ExtRegistryEntry):
+    _type_ = WrappedOp
+
+    def compute_annotation(self):
+        from pypy.annotation import model as annmodel
+        clsdef = self.bookkeeper.getuniqueclassdef(WrappedOp)
+        if not clsdef.attrs:
+            resopclsdef = self.bookkeeper.getuniqueclassdef(AbstractResOp)
+            attrs = {'offset': annmodel.SomeInteger(),
+                     'repr_of_resop': annmodel.SomeString(can_be_None=False),
+                     'op': annmodel.SomeInstance(resopclsdef)}
+            for attrname, s_v in attrs.iteritems():
+                clsdef.generalize_attr(attrname, s_v)
+        return annmodel.SomeInstance(clsdef, can_be_None=True)
