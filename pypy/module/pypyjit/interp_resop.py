@@ -77,44 +77,21 @@ def set_abort_hook(space, w_hook):
     return space.w_None
 
 def wrap_oplist(space, logops, operations, ops_offset):
-    list_w = []
-    for op in operations:
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
-            list_w.append(space.wrap(debug_merge_point_from_boxes(
-                op.getarglist())))
-        else:
-            list_w.append(space.wrap(logops.repr_of_resop(op)))
-    return list_w
+    return [WrappedOp(op, ops_offset, logops) for op in operations]
 
-class W_DebugMergePoint(Wrappable):
-    """ A class representing debug_merge_point JIT operation
+class WrappedOp(Wrappable):
+    """ A class representing a single ResOperation, wrapped nicely
     """
-
-    def __init__(self, mp_no, offset, pycode):
-        self.mp_no = mp_no
-        self.offset = offset
-        self.pycode = pycode
+    def __init__(self, op, ops_offset, logops):
+        self.op = op
+        self.offset = ops_offset[op]
+        self.logops = logops # for __repr__
 
     def descr_repr(self, space):
-        return space.wrap('DebugMergePoint()')
+        return space.wrap(self.logops.repr_of_resop(self.op))
 
-@unwrap_spec(mp_no=int, offset=int, pycode=PyCode)
-def new_debug_merge_point(space, w_tp, mp_no, offset, pycode):
-    return W_DebugMergePoint(mp_no, offset, pycode)
-
-def debug_merge_point_from_boxes(boxes):
-    mp_no = boxes[0].getint()
-    offset = boxes[2].getint()
-    llcode = lltype.cast_opaque_ptr(lltype.Ptr(OBJECT),
-                                    boxes[4].getref_base())
-    pycode = cast_base_ptr_to_instance(PyCode, llcode)
-    assert pycode is not None
-    return W_DebugMergePoint(mp_no, offset, pycode)
-
-W_DebugMergePoint.typedef = TypeDef(
-    'DebugMergePoint',
-    __new__ = interp2app(new_debug_merge_point),
-    __doc__ = W_DebugMergePoint.__doc__,
-    __repr__ = interp2app(W_DebugMergePoint.descr_repr),
-    code = interp_attrproperty('pycode', W_DebugMergePoint),
+WrappedOp.typedef = TypeDef(
+    'ResOperation',
+    __doc__ = WrappedOp.__doc__,
+    __repr__ = interp2app(WrappedOp.descr_repr),
 )

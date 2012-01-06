@@ -26,9 +26,9 @@ class AppTestJitHook(object):
         space = gettestobjspace(usemodules=('pypyjit',))
         cls.space = space
         w_f = space.appexec([], """():
-        def f():
+        def function():
             pass
-        return f
+        return function
         """)
         cls.w_f = w_f
         ll_code = cast_instance_to_base_ptr(w_f.code)
@@ -42,15 +42,19 @@ class AppTestJitHook(object):
         guard_true(i3) []
         """, namespace={'ptr0': code_gcref}).operations
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
+        offset = {}
+        for i, op in enumerate(oplist):
+            offset[op] = i
 
         def interp_on_compile():
             pypy_portal.on_compile(pypyjitdriver, logger, JitCellToken(),
-                                   oplist, 'loop', greenkey, {}, 0, 0)
+                                   oplist, 'loop', greenkey, offset,
+                                   0, 0)
 
         def interp_on_compile_bridge():
             pypy_portal.on_compile_bridge(pypyjitdriver, logger,
-                                            JitCellToken(), oplist, 0,
-                                            {}, 0, 0)
+                                          JitCellToken(), oplist, 0,
+                                          offset, 0, 0)
 
         def interp_on_abort():
             pypy_portal.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
@@ -73,7 +77,7 @@ class AppTestJitHook(object):
         assert len(all) == 1
         elem = all[0]
         assert elem[0] == 'pypyjit'
-        assert elem[2][0].co_name == 'f'
+        assert elem[2][0].co_name == 'function'
         assert elem[2][1] == 0
         assert elem[2][2] == False
         assert len(elem[3]) == 3
@@ -125,14 +129,9 @@ class AppTestJitHook(object):
 
         pypyjit.set_compile_hook(hook)
         self.on_compile()
-        dmp = l[0][3][1]
-        assert isinstance(dmp, pypyjit.DebugMergePoint)
-        assert dmp.code is self.f.func_code
-
-    def test_creation(self):
-        import pypyjit
-        dmp = pypyjit.DebugMergePoint(0, 0, self.f.func_code)
-        assert dmp.code is self.f.func_code 
+        op = l[0][3][1]
+        assert isinstance(op, pypyjit.ResOperation)
+        assert 'function' in repr(op)
 
     def test_on_abort(self):
         import pypyjit

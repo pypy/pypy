@@ -9,7 +9,7 @@ class Module(MixedModule):
         'residual_call': 'interp_jit.residual_call',
         'set_compile_hook': 'interp_resop.set_compile_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
-        'DebugMergePoint': 'interp_resop.W_DebugMergePoint',
+        'ResOperation': 'interp_resop.WrappedOp',
     }
 
     def setup_after_space_initialization(self):
