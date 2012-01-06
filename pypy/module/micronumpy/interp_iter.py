@@ -110,7 +110,7 @@ def axis_iter_from_arr(arr, dim=-1):
     return AxisIterator(arr.start, arr.strides, arr.backstrides, arr.shape,
                         dim)
 
-class AxisIterator(object):
+class AxisIterator(BaseIterator):
     """ Accept an addition argument dim
     Redorder the dimensions to iterate over dim most often.
     Set a flag at the end of each run over dim.
