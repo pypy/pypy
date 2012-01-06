@@ -1,5 +1,5 @@
 
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.pycode import PyCode
@@ -90,8 +90,16 @@ class WrappedOp(Wrappable):
     def descr_repr(self, space):
         return space.wrap(self.logops.repr_of_resop(self.op))
 
+    def descr_num(self, space):
+        return space.wrap(self.op.getopnum())
+
+    def descr_name(self, space):
+        return space.wrap(self.op.getopname())
+
 WrappedOp.typedef = TypeDef(
     'ResOperation',
     __doc__ = WrappedOp.__doc__,
     __repr__ = interp2app(WrappedOp.descr_repr),
+    name = GetSetProperty(WrappedOp.descr_name),
+    num = GetSetProperty(WrappedOp.descr_num),
 )

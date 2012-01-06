@@ -1,23 +1,35 @@
 
 import py
 from pypy.conftest import gettestobjspace, option
-from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.pycode import PyCode
 from pypy.jit.metainterp.history import JitCellToken, ConstInt, ConstPtr
-from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.logger import Logger
 from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
                                       cast_base_ptr_to_instance)
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
 from pypy.module.pypyjit.policy import pypy_portal
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
 
+class MockJitDriverSD(object):
+    class warmstate(object):
+        @staticmethod
+        def get_location_str(boxes):
+            ll_code = lltype.cast_opaque_ptr(lltype.Ptr(OBJECT),
+                                             boxes[2].getref_base())
+            pycode = cast_base_ptr_to_instance(PyCode, ll_code)
+            return pycode.co_name
+
 class MockSD(object):
     class cpu(object):
         ts = llhelper
+
+    jitdrivers_sd = [MockJitDriverSD]
 
 class AppTestJitHook(object):
     def setup_class(cls):
@@ -62,6 +74,7 @@ class AppTestJitHook(object):
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
+        cls.w_int_add_num = space.wrap(rop.INT_ADD)
 
     def test_on_compile(self):
         import pypyjit
@@ -81,7 +94,9 @@ class AppTestJitHook(object):
         assert elem[2][1] == 0
         assert elem[2][2] == False
         assert len(elem[3]) == 3
-        assert 'int_add' in elem[3][0]
+        int_add = elem[3][0]
+        assert int_add.name == 'int_add'
+        assert int_add.num == self.int_add_num
         self.on_compile_bridge()
         assert len(all) == 2
         pypyjit.set_compile_hook(None)
