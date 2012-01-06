@@ -92,7 +92,7 @@ def new_resop(space, w_tp, no):
         op.setdescr(None)
     else:
         op = ResOperation(no, [None], None, descr=None)
-    op.setarg(0, AbstractValue()) # list is mutated
+    op.setarg(NonConstant(0), AbstractValue()) # list is mutated
     return space.wrap(WrappedOp(op, NonConstant(13), NonConstant('repr')))
 
 class WrappedOp(Wrappable):
