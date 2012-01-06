@@ -297,7 +297,7 @@ class BaseArray(Wrappable):
     descr_min = _reduce_ufunc_impl("minimum")
 
     def _reduce_argmax_argmin_impl(op_name):
-        reduce_driver = jit.JitDriver(
+        axisreduce_driver = jit.JitDriver(
             greens=['shapelen', 'sig'],
             reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype'],
             get_printable_location=signature.new_printable_location(op_name),
@@ -312,7 +312,7 @@ class BaseArray(Wrappable):
             result = 0
             idx = 1
             while not frame.done():
-                reduce_driver.jit_merge_point(sig=sig,
+                axisreduce_driver.jit_merge_point(sig=sig,
                                               shapelen=shapelen,
                                               self=self, dtype=dtype,
                                               frame=frame, result=result,
@@ -783,18 +783,28 @@ class Reduce(VirtualArray):
         return value
 
     def compute(self):
+        reduce_driver = jit.JitDriver(
+            greens=['shapelen', 'sig', 'self'],
+            reds=['result', 'ri', 'frame', 'nextval', 'dtype', 'value'],
+            get_printable_location=\
+                              signature.new_printable_location(self.binfunc),
+        )
         self.computing = True
         dtype = self.dtype
         result = W_NDimArray(self.size, self.shape, dtype)
         self.values = self.values.get_concrete()
         shapelen = len(result.shape)
-        objlen = len(self.values.shape)
         sig = self.find_sig(res_shape=result.shape, arr=self.values)
         ri = ArrayIterator(result.size)
         frame = sig.create_frame(self.values, dim=self.dim)
         value = self.get_identity(sig, frame, shapelen)
+        nextval = 0.
         while not frame.done():
-            #XXX add jit_merge_point
+            reduce_driver.jit_merge_point(frame=frame, self=self,
+                                          value=value, sig=sig,
+                                          shapelen=shapelen, ri=ri,
+                                          nextval=nextval, dtype=dtype,
+                                          result=result)
             if frame.iterators[0].axis_done:
                 value = self.get_identity(sig, frame, shapelen)
                 ri = ri.next(shapelen)

@@ -115,6 +115,21 @@ class TestNumpyJIt(LLJitMixin):
                                 "int_add": 1, "int_ge": 1, "guard_false": 1,
                                 "jump": 1, 'arraylen_gc': 1})
 
+    def define_sum2d():
+        return """
+        a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+        b = sum(a,0)
+        b -> 1
+        """
+
+    def test_axissum(self):
+        py.test.skip("2dsum")
+        result = self.run("sum2d")
+        assert result == 30
+        self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 2,
+                                "int_add": 1, "int_ge": 1, "guard_false": 1,
+                                "jump": 1, 'arraylen_gc': 1})
+
     def define_prod():
         return """
         a = |30|
