@@ -567,7 +567,7 @@ class BaseArray(Wrappable):
     def descr_mean(self, space, w_dim=None):
         if space.is_w(w_dim, space.w_None):
             w_dim = space.wrap(-1)
-        return space.div(self.descr_sum_promote(space, w_dim), 
+        return space.div(self.descr_sum_promote(space, w_dim),
                                                       space.wrap(self.size))
 
     def descr_nonzero(self, space):
@@ -750,7 +750,7 @@ class VirtualSlice(VirtualArray):
 
 class Reduce(VirtualArray):
     def __init__(self, binfunc, name, dim, res_dtype, values, identity=None):
-        shape = values.shape[0:dim] + values.shape[dim+1:len(values.shape)]
+        shape = values.shape[0:dim] + values.shape[dim + 1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
         self.size = 1
@@ -789,12 +789,12 @@ class Reduce(VirtualArray):
         self.values = self.values.get_concrete()
         shapelen = len(result.shape)
         objlen = len(self.values.shape)
-        sig = self.find_sig(res_shape=result.shape,arr=self.values)
+        sig = self.find_sig(res_shape=result.shape, arr=self.values)
         ri = ArrayIterator(result.size)
         frame = sig.create_frame(self.values, dim=self.dim)
         value = self.get_identity(sig, frame, shapelen)
         while not frame.done():
-            #XXX add jit_merge_point ? 
+            #XXX add jit_merge_point
             if frame.iterators[0].axis_done:
                 value = self.get_identity(sig, frame, shapelen)
                 ri = ri.next(shapelen)
@@ -942,7 +942,7 @@ class ConcreteArray(BaseArray):
                     view.to_str(space, comma, builder, indent=indent + ' ',
                                                     use_ellipsis=use_ellipsis)
                 if i < self.shape[0] - 1:
-                    builder.append(ccomma +'\n' + indent + '...' + ncomma)
+                    builder.append(ccomma + '\n' + indent + '...' + ncomma)
                     i = self.shape[0] - 3
                 else:
                     i += 1

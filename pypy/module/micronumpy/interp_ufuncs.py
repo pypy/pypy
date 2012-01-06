@@ -135,7 +135,7 @@ class W_Ufunc(Wrappable):
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)
-        frame = sig.create_frame(obj,dim=-1)
+        frame = sig.create_frame(obj, dim=-1)
         if self.identity is None:
             value = sig.eval(frame, obj).convert_to(dtype)
             frame.next(shapelen)
@@ -408,7 +408,8 @@ class UfuncState(object):
 
         identity = extra_kwargs.get("identity")
         if identity is not None:
-            identity = interp_dtype.get_dtype_cache(space).w_longdtype.box(identity)
+            identity = \
+                 interp_dtype.get_dtype_cache(space).w_longdtype.box(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,

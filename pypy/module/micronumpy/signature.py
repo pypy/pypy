@@ -320,8 +320,9 @@ class Call2(Signature):
 
 class ReduceSignature(Call2):
     def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
-        if dim<0:
-            self.right._create_iter(iterlist, arraylist, arr, res_shape, chunklist, dim)
+        if dim < 0:
+            self.right._create_iter(iterlist, arraylist, arr, res_shape,
+                                    chunklist, dim)
         else:
             from pypy.module.micronumpy.interp_numarray import ConcreteArray
             concr = arr.get_concrete()
@@ -330,7 +331,7 @@ class ReduceSignature(Call2):
             if self.iter_no >= len(iterlist):
                 _iter = axis_iter_from_arr(concr, dim)
                 from interp_iter import AxisIterator
-                assert isinstance(_iter, AxisIterator) 
+                assert isinstance(_iter, AxisIterator)
                 iterlist.append(_iter)
             if self.array_no >= len(arraylist):
                 arraylist.append(storage)

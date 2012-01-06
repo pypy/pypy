@@ -124,7 +124,7 @@ class AxisIterator(object):
         self.offset = arr_start
         self.dim = dim
         self.dim_order = []
-        if self.dim >=0:
+        if self.dim >= 0:
             self.dim_order.append(self.dim)
         for i in range(self.shapelen - 1, -1, -1):
             if i == self.dim:
@@ -132,7 +132,7 @@ class AxisIterator(object):
             self.dim_order.append(i)
         self.strides = strides
         self.backstrides = backstrides
-    
+
     def done(self):
         return self._done
 
@@ -175,6 +175,7 @@ class SkipLastAxisIterator(object):
         self.indices = [0] * (len(arr.shape) - 1)
         self.done = False
         self.offset = arr.start
+
     def next(self):
         for i in range(len(self.arr.shape) - 2, -1, -1):
             if self.indices[i] < self.arr.shape[i] - 1:
@@ -186,4 +187,3 @@ class SkipLastAxisIterator(object):
                 self.offset -= self.arr.backstrides[i]
         else:
             self.done = True
-
