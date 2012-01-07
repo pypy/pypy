@@ -219,9 +219,9 @@ class WarmRunnerDesc(object):
         self.portal = policy.portal
 
         verbose = False # not self.cpu.translate_support_code
+        self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
-        self.rewrite_access_helpers()
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
