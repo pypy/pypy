@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr,\
      cast_base_ptr_to_instance
+from pypy.rlib.objectmodel import specialize
 
 def register_helper(helper, s_result):
     
@@ -36,6 +37,7 @@ def _cast_to_resop(llref):
     ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
     return cast_base_ptr_to_instance(AbstractResOp, ptr)
 
+@specialize.argtype(0)
 def _cast_to_gcref(obj):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(obj))
@@ -43,7 +45,7 @@ def _cast_to_gcref(obj):
 def resop_new(no, llargs, llres):
     from pypy.jit.metainterp.history import ResOperation
 
-    args = [_cast_to_box(llarg) for llarg in llargs]
+    args = [_cast_to_box(llargs[i]) for i in range(len(llargs))]
     res = _cast_to_box(llres)
     return _cast_to_gcref(ResOperation(no, args, res))
 

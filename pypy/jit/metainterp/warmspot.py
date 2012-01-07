@@ -1,4 +1,5 @@
 import sys, py
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
@@ -634,10 +635,14 @@ class WarmRunnerDesc(object):
     def rewrite_access_helper(self, op):
         ARGS = [arg.concretetype for arg in op.args[2:]]
         RESULT = op.result.concretetype
-        ptr = self.helper_func(lltype.Ptr(lltype.FuncType(ARGS, RESULT)),
-                               op.args[1].value)
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        # make sure we make a copy of function so it no longer belongs
+        # to extregistry
+        func = op.args[1].value
+        func = func_with_new_name(func, func.func_name + '_compiled')
+        ptr = self.helper_func(FUNCPTR, func)
         op.opname = 'direct_call'
-        op.args = [Constant(ptr, lltype.Void)] + op.args[2:]
+        op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
     def rewrite_jit_merge_points(self, policy):
         for jd in self.jitdrivers_sd:
