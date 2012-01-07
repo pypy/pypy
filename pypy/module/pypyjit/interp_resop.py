@@ -79,7 +79,7 @@ def set_abort_hook(space, w_hook):
 
 def wrap_oplist(space, logops, operations, ops_offset):
     return [WrappedOp(jit_hooks._cast_to_gcref(op),
-                      ops_offset[op],
+                      ops_offset.get(op, 0),
                       logops.repr_of_resop(op)) for op in operations]
 
 @unwrap_spec(num=int, offset=int, repr=str)

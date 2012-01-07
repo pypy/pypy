@@ -56,7 +56,8 @@ class AppTestJitHook(object):
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
         offset = {}
         for i, op in enumerate(oplist):
-            offset[op] = i
+            if i != 1:
+               offset[op] = i
 
         def interp_on_compile():
             pypy_portal.on_compile(pypyjitdriver, logger, JitCellToken(),
