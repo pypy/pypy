@@ -88,7 +88,7 @@ def descr_new_resop(space, w_tp, num, w_args, w_res=NoneNotWrapped, offset=-1,
     args = [jit_hooks.boxint_new(space.int_w(w_arg)) for w_arg in
             space.listview(w_args)]
     if w_res is None:
-        llres = lltype.nullptr(llmemory.GCREF)
+        llres = lltype.nullptr(llmemory.GCREF.TO)
     else:
         llres = jit_hooks.boxint_new(space.int_w(w_res))
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
