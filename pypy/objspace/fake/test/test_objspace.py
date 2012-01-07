@@ -40,7 +40,7 @@ class TestTranslate:
     def test_constants(self):
         space = self.space
         space.translates(lambda: (space.w_None, space.w_True, space.w_False,
-                                  space.w_int, space.w_str,
+                                  space.w_int, space.w_str, space.w_object,
                                   space.w_TypeError))
 
     def test_wrap(self):
@@ -72,3 +72,9 @@ class TestTranslate:
 
     def test_newlist(self):
         self.space.newlist([W_Root(), W_Root()])
+
+    def test_default_values(self):
+        # the __get__ method takes either 2 or 3 arguments
+        space = self.space
+        space.translates(lambda: (space.get(W_Root(), W_Root()),
+                                  space.get(W_Root(), W_Root(), W_Root())))

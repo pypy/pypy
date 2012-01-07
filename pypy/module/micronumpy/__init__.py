@@ -9,7 +9,7 @@ class PyPyModule(MixedModule):
     appleveldefs = {}
 
 class Module(MixedModule):
-    applevel_name = 'numpypy'
+    applevel_name = '_numpypy'
 
     submodules = {
         'pypy': PyPyModule
