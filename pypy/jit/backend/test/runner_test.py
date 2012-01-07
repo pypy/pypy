@@ -523,25 +523,6 @@ class BaseBackendTest(Runner):
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
-    
-    def test_return_pointer(self):
-        u_box, U_box = self.alloc_instance(self.U)
-        i0 = BoxInt()
-        i1 = BoxInt()
-        ptr = BoxPtr()
-
-        operations = [
-            ResOperation(rop.FINISH, [ptr], None, descr=BasicFailDescr(1))
-            ]
-        inputargs = [i0, ptr, i1]
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(inputargs, operations, looptoken)
-        self.cpu.set_future_value_int(0, 10)
-        self.cpu.set_future_value_ref(1, u_box.value)
-        self.cpu.set_future_value_int(2, 20)
-        fail = self.cpu.execute_token(looptoken)
-        result = self.cpu.get_latest_value_ref(0)
-        assert result == u_box.value
 
     def test_spilling(self):
         ops = '''
