@@ -69,12 +69,16 @@ class PyPyJitPolicy(JitPolicy):
                 modname == 'thread.os_thread'):
             return True
         if '.' in modname:
-            modname, _ = modname.split('.', 1)
+            modname, rest = modname.split('.', 1)
+        else:
+            rest = ''
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
                        'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
                        'mmap', 'marshal']:
+            if modname == 'pypyjit' and 'interp_resop' in rest:
+                return False
             return True
         return False
 
