@@ -492,7 +492,7 @@ class Assembler386(object):
         except ValueError:
             debug_print("Bridge out of guard", descr_number,
                         "was already compiled!")
-            return
+            raise
 
         self.setup(original_loop_token)
         if log:
