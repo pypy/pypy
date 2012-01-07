@@ -83,9 +83,10 @@ def wrap_oplist(space, logops, operations, ops_offset):
                       logops.repr_of_resop(op)) for op in operations]
 
 @unwrap_spec(num=int, offset=int, repr=str)
-def descr_new_resop(space, num, w_args, w_res=NoneNotWrapped, offset=-1,
+def descr_new_resop(space, w_tp, num, w_args, w_res=NoneNotWrapped, offset=-1,
                     repr=''):
-    args = [jit_hooks.boxint_new(space.int_w(w_arg)) for w_arg in w_args]
+    args = [jit_hooks.boxint_new(space.int_w(w_arg)) for w_arg in
+            space.listview(w_args)]
     if w_res is None:
         llres = lltype.nullptr(llmemory.GCREF)
     else:

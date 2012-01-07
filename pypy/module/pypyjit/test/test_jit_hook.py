@@ -158,3 +158,9 @@ class AppTestJitHook(object):
         pypyjit.set_abort_hook(hook)
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG')]
+
+    def test_creation(self):
+        import pypyjit
+
+        op = pypyjit.ResOperation(self.int_add_num, [1, 3], 4)
+        assert op.num == self.int_add_num
