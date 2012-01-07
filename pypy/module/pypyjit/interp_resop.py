@@ -104,20 +104,3 @@ WrappedOp.typedef = TypeDef(
     num = GetSetProperty(WrappedOp.descr_num),
 )
 WrappedOp.acceptable_as_base_class = False
-
-from pypy.rpython.extregistry import ExtRegistryEntry
-
-class WrappedOpRegistry(ExtRegistryEntry):
-    _type_ = WrappedOp
-
-    def compute_annotation(self):
-        from pypy.annotation import model as annmodel
-        clsdef = self.bookkeeper.getuniqueclassdef(WrappedOp)
-        if not clsdef.attrs:
-            resopclsdef = self.bookkeeper.getuniqueclassdef(AbstractResOp)
-            attrs = {'offset': annmodel.SomeInteger(),
-                     'repr_of_resop': annmodel.SomeString(can_be_None=False),
-                     'op': annmodel.SomeInstance(resopclsdef)}
-            for attrname, s_v in attrs.iteritems():
-                clsdef.generalize_attr(attrname, s_v)
-        return annmodel.SomeInstance(clsdef, can_be_None=True)

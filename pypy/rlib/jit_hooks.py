@@ -30,29 +30,32 @@ def _cast_to_box(llref):
     ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
     return cast_base_ptr_to_instance(AbstractValue, ptr)
 
+def _cast_to_resop(llref):
+    from pypy.jit.metainterp.resoperation import AbstractResOp
+
+    ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llref)
+    return cast_base_ptr_to_instance(AbstractResOp, ptr)
+
+def _cast_to_gcref(obj):
+    return lltype.cast_opaque_ptr(llmemory.GCREF,
+                                  cast_instance_to_base_ptr(obj))
+
 def resop_new(no, llargs, llres):
     from pypy.jit.metainterp.history import ResOperation
 
     args = [_cast_to_box(llarg) for llarg in llargs]
     res = _cast_to_box(llres)
-    rop = ResOperation(no, args, res)
-    return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                  cast_instance_to_base_ptr(rop))
+    return _cast_to_gcref(ResOperation(no, args, res))
 
 register_helper(resop_new, annmodel.SomePtr(llmemory.GCREF))
 
 def boxint_new(no):
     from pypy.jit.metainterp.history import BoxInt
-    return lltype.cast_opaque_ptr(llmemory.GCREF,
-                                  cast_instance_to_base_ptr(BoxInt(no)))
+    return _cast_to_gcref(BoxInt(no))
 
 register_helper(boxint_new, annmodel.SomePtr(llmemory.GCREF))
 
 def resop_opnum(llop):
-    from pypy.jit.metainterp.resoperation import AbstractResOp
-    
-    opptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, llop)
-    op = cast_base_ptr_to_instance(AbstractResOp, opptr)
-    return op.getopnum()
+    return _cast_to_resop(llop).getopnum()
 
 register_helper(resop_opnum, annmodel.SomeInteger())
