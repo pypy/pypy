@@ -344,3 +344,7 @@ class ReduceSignature(Call2):
 
     def eval(self, frame, arr):
         return self.right.eval(frame, arr)
+
+    def debug_repr(self):
+        return 'ReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),
+                                          self.right.debug_repr())

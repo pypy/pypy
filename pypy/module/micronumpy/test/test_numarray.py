@@ -743,6 +743,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_reduceND(self):
         from numpypy import arange
         a = arange(15).reshape(5, 3)
+        assert a.sum() == 105
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
         assert (a.max(0) == [12, 13, 14]).all()
