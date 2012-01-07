@@ -112,7 +112,7 @@ def rpython_ll_meta_interp(function, args, backendopt=True, **kwds):
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 
-def _find_jit_marker(graphs, marker_name):
+def _find_jit_marker(graphs, marker_name, check_driver=True):
     results = []
     for graph in graphs:
         for block in graph.iterblocks():
@@ -120,8 +120,8 @@ def _find_jit_marker(graphs, marker_name):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
                     op.args[0].value == marker_name and
-                    (op.args[1].value is None or
-                    op.args[1].value.active)):   # the jitdriver
+                    (not check_driver or op.args[1].value is None or
+                     op.args[1].value.active)):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -139,6 +139,9 @@ def find_jit_merge_points(graphs):
     assert len(seen) == len(results), (
         "found several jit_merge_points in the same graph")
     return results
+
+def find_access_helpers(graphs):
+    return _find_jit_marker(graphs, 'access_helper', False)
 
 def locate_jit_merge_point(graph):
     [(graph, block, pos)] = find_jit_merge_points([graph])
@@ -217,6 +220,7 @@ class WarmRunnerDesc(object):
         verbose = False # not self.cpu.translate_support_code
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
+        self.rewrite_access_helpers()
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
         self.rewrite_force_quasi_immutable()
@@ -620,6 +624,20 @@ class WarmRunnerDesc(object):
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
+
+    def rewrite_access_helpers(self):
+        ah = find_access_helpers(self.translator.graphs)
+        for graph, block, index in ah:
+            op = block.operations[index]
+            self.rewrite_access_helper(op)
+
+    def rewrite_access_helper(self, op):
+        ARGS = [arg.concretetype for arg in op.args[2:]]
+        RESULT = op.result.concretetype
+        ptr = self.helper_func(lltype.Ptr(lltype.FuncType(ARGS, RESULT)),
+                               op.args[1].value)
+        op.opname = 'direct_call'
+        op.args = [Constant(ptr, lltype.Void)] + op.args[2:]
 
     def rewrite_jit_merge_points(self, policy):
         for jd in self.jitdrivers_sd:

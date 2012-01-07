@@ -2,7 +2,6 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
-from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 

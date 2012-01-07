@@ -777,7 +777,8 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
-        from pypy.rpython.lltypesystem import lltype, rclass
+        from pypy.rpython.lltypesystem import rclass, lltype
+        
         classrepr = rclass.get_type_repr(hop.rtyper)
 
         hop.exception_cannot_occur()

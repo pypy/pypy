@@ -1,8 +1,10 @@
 
 from pypy.rlib.jit import JitDriver, JitPortal
+from pypy.rlib import jit_hooks
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
+from pypy.jit.metainterp.resoperation import rop
 
 class TestJitPortal(LLJitMixin):
     def test_abort_quasi_immut(self):
@@ -94,3 +96,21 @@ class TestJitPortal(LLJitMixin):
         self.meta_interp(loop, [1, 10], policy=JitPolicy(MyJitPortal()))
         assert sorted(called.keys()) == ['bridge', (10, 1, "loop")]
 
+    def test_resop_interface(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+
+        def loop(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                i -= 1
+
+        def main():
+            loop(1)
+            op = jit_hooks.resop_new(rop.INT_ADD,
+                                     [jit_hooks.boxint_new(3),
+                                      jit_hooks.boxint_new(4)],
+                                     jit_hooks.boxint_new(1))
+            return jit_hooks.resop_opnum(op)
+
+        res = self.meta_interp(main, [])
+        assert res == rop.INT_ADD
