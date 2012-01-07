@@ -47,6 +47,8 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             interp = InterpreterState(codes[i])
             interp.run(space)
+            if not len(interp.results):
+                raise Exception("need results")
             w_res = interp.results[-1]
             if isinstance(w_res, BaseArray):
                 concr = w_res.get_concrete_or_scalar()
