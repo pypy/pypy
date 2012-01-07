@@ -37,6 +37,7 @@ class TestThreadState(BaseApiTest):
     def test_thread_state_interp(self, space, api):
         ts = api.PyThreadState_Get()
         assert ts.c_interp == api.PyInterpreterState_Head()
+        assert ts.c_interp.c_next == nullptr(PyInterpreterState.TO)
 
     def test_basic_threadstate_dance(self, space, api):
         # Let extension modules call these functions,
