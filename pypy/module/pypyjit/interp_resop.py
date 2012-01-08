@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app, NoneNotWrapped
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, hlstr
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.jit.metainterp.resoperation import rop, AbstractResOp
 from pypy.rlib.nonconst import NonConstant
@@ -114,14 +114,12 @@ def wrap_oplist(space, logops, operations, ops_offset):
                       logops.repr_of_resop(op)) for op in operations]
 
 @unwrap_spec(num=int, offset=int, repr=str)
-def descr_new_resop(space, w_tp, num, w_args, w_res=NoneNotWrapped, offset=-1,
+def descr_new_resop(space, w_tp, num, w_args, w_res=None, offset=-1,
                     repr=''):
-    args = [jit_hooks.boxint_new(space.int_w(w_arg)) for w_arg in
+    args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
-    if w_res is None:
-        llres = lltype.nullptr(llmemory.GCREF.TO)
-    else:
-        llres = jit_hooks.boxint_new(space.int_w(w_res))
+    llres = space.interp_w(WrappedBox, w_res).llbox
+    # XXX None case
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
 class WrappedOp(Wrappable):
@@ -136,7 +134,14 @@ class WrappedOp(Wrappable):
         return space.wrap(self.repr_of_resop)
 
     def descr_num(self, space):
-        return space.wrap(jit_hooks.resop_opnum(self.op))
+        return space.wrap(jit_hooks.resop_getopnum(self.op))
+
+    def descr_name(self, space):
+        return space.wrap(hlstr(jit_hooks.resop_getopname(self.op)))
+
+    @unwrap_spec(no=int)
+    def descr_getarg(self, space, no):
+        return WrappedBox(jit_hooks.resop_getarg(self.op, no))
 
 WrappedOp.typedef = TypeDef(
     'ResOperation',
@@ -144,5 +149,26 @@ WrappedOp.typedef = TypeDef(
     __new__ = interp2app(descr_new_resop),
     __repr__ = interp2app(WrappedOp.descr_repr),
     num = GetSetProperty(WrappedOp.descr_num),
+    name = GetSetProperty(WrappedOp.descr_name),
+    getarg = interp2app(WrappedOp.descr_getarg),
 )
 WrappedOp.acceptable_as_base_class = False
+
+class WrappedBox(Wrappable):
+    """ A class representing a single box
+    """
+    def __init__(self, llbox):
+        self.llbox = llbox
+
+    def descr_getint(self, space):
+        return space.wrap(jit_hooks.box_getint(self.llbox))
+
+@unwrap_spec(no=int)
+def descr_new_box(space, w_tp, no):
+    return WrappedBox(jit_hooks.boxint_new(no))
+
+WrappedBox.typedef = TypeDef(
+    'Box',
+    __new__ = interp2app(descr_new_box),
+    getint = interp2app(WrappedBox.descr_getint),
+)

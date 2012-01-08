@@ -48,9 +48,10 @@ class AppTestJitHook(object):
         logger = Logger(MockSD())
 
         cls.origoplist = parse("""
-        [i1, i2]
+        [i1, i2, p2]
         i3 = int_add(i1, i2)
         debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
+        guard_nonnull(p2) []
         guard_true(i3) []
         """, namespace={'ptr0': code_gcref}).operations
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
@@ -102,7 +103,7 @@ class AppTestJitHook(object):
         assert elem[2][0].co_name == 'function'
         assert elem[2][1] == 0
         assert elem[2][2] == False
-        assert len(elem[3]) == 3
+        assert len(elem[3]) == 4
         int_add = elem[3][0]
         #assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
@@ -185,7 +186,10 @@ class AppTestJitHook(object):
         assert l == [[]]
 
     def test_creation(self):
-        import pypyjit
+        from pypyjit import Box, ResOperation
 
-        op = pypyjit.ResOperation(self.int_add_num, [1, 3], 4)
+        op = ResOperation(self.int_add_num, [Box(1), Box(3)], Box(4))
         assert op.num == self.int_add_num
+        assert op.name == 'int_add'
+        box = op.getarg(0)
+        assert box.getint() == 1
