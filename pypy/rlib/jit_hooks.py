@@ -72,3 +72,20 @@ def resop_getarg(llop, no):
 @register_helper(annmodel.SomeInteger())
 def box_getint(llbox):
     return _cast_to_box(llbox).getint()
+
+@register_helper(annmodel.SomePtr(llmemory.GCREF))
+def box_clone(llbox):
+    return _cast_to_gcref(_cast_to_box(llbox).clonebox())
+
+@register_helper(annmodel.SomePtr(llmemory.GCREF))
+def box_constbox(llbox):
+    return _cast_to_gcref(_cast_to_box(llbox).constbox())
+
+@register_helper(annmodel.SomePtr(llmemory.GCREF))
+def box_nonconstbox(llbox):
+    return _cast_to_gcref(_cast_to_box(llbox).nonconstbox())
+
+@register_helper(annmodel.SomeBool())
+def box_isconst(llbox):
+    from pypy.jit.metainterp.history import Const
+    return isinstance(_cast_to_box(llbox), Const)

@@ -135,5 +135,14 @@ class TestJitPortal(LLJitMixin):
             assert jit_hooks.resop_getopnum(op) == rop.INT_ADD
             box = jit_hooks.resop_getarg(op, 0)
             assert jit_hooks.box_getint(box) == 3
+            box2 = jit_hooks.box_clone(box)
+            assert box2 != box
+            assert jit_hooks.box_getint(box2) == 3
+            assert not jit_hooks.box_isconst(box2)
+            box3 = jit_hooks.box_constbox(box)
+            assert jit_hooks.box_getint(box) == 3
+            assert jit_hooks.box_isconst(box3)
+            box4 = jit_hooks.box_nonconstbox(box)
+            assert not jit_hooks.box_isconst(box4)
 
         self.meta_interp(main, [])
