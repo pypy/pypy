@@ -60,7 +60,6 @@ def set_compile_hook(space, w_hook):
     cache = space.fromcache(Cache)
     cache.w_compile_hook = w_hook
     cache.in_recursion = NonConstant(False)
-    return space.w_None
 
 def set_optimize_hook(space, w_hook):
     """ set_compile_hook(hook)
@@ -91,7 +90,6 @@ def set_optimize_hook(space, w_hook):
     cache = space.fromcache(Cache)
     cache.w_optimize_hook = w_hook
     cache.in_recursion = NonConstant(False)
-    return space.w_None
 
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)
@@ -107,7 +105,6 @@ def set_abort_hook(space, w_hook):
     cache = space.fromcache(Cache)
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
-    return space.w_None
 
 def wrap_oplist(space, logops, operations, ops_offset):
     return [WrappedOp(jit_hooks._cast_to_gcref(op),
@@ -168,16 +165,13 @@ class WrappedOp(Wrappable):
     @unwrap_spec(no=int, box=WrappedBox)
     def descr_setarg(self, space, no, box):
         jit_hooks.resop_setarg(self.op, no, box.llbox)
-        return space.w_None
 
     def descr_getresult(self, space):
         return WrappedBox(jit_hooks.resop_getresult(self.op))
 
-    @unwrap_spec(box=WrappedBox)
-    def descr_setresult(self, space, box):
-        assert isinstance(box, WrappedBox)
+    def descr_setresult(self, space, w_box):
+        box = space.interp_w(WrappedBox, w_box)
         jit_hooks.resop_setresult(self.op, box.llbox)
-        return space.w_None
 
 WrappedOp.typedef = TypeDef(
     'ResOperation',
