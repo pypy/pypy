@@ -83,6 +83,7 @@ class PyPyPortal(JitPortal):
                                             w_arg,
                                             space.newlist(list_w))
                 if space.is_w(w_res, space.w_None):
+                    cache.in_recursion = False
                     return
                 l = []
                 for w_item in space.listview(w_res):
