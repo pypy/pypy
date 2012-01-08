@@ -5,6 +5,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.resoperation import rop
+from pypy.rpython.annlowlevel import hlstr
 
 class TestJitPortal(LLJitMixin):
     def test_abort_quasi_immut(self):
@@ -130,7 +131,9 @@ class TestJitPortal(LLJitMixin):
                                      [jit_hooks.boxint_new(3),
                                       jit_hooks.boxint_new(4)],
                                      jit_hooks.boxint_new(1))
-            return jit_hooks.resop_opnum(op)
+            assert hlstr(jit_hooks.resop_getopname(op)) == 'int_add'
+            assert jit_hooks.resop_getopnum(op) == rop.INT_ADD
+            box = jit_hooks.resop_getarg(op, 0)
+            assert jit_hooks.box_getint(box) == 3
 
-        res = self.meta_interp(main, [])
-        assert res == rop.INT_ADD
+        self.meta_interp(main, [])
