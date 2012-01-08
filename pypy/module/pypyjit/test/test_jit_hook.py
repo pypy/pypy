@@ -193,3 +193,9 @@ class AppTestJitHook(object):
         assert op.name == 'int_add'
         box = op.getarg(0)
         assert box.getint() == 1
+        box2 = op.result
+        assert box2.getint() == 4
+        op.setarg(0, box2)
+        assert op.getarg(0).getint() == 4
+        op.result = box
+        assert op.result.getint() == 1

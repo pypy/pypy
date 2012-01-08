@@ -88,9 +88,11 @@ class PyPyPortal(JitPortal):
                 for w_item in space.listview(w_res):
                     item = space.interp_w(WrappedOp, w_item)
                     l.append(jit_hooks._cast_to_resop(item.op))
-                operations[:] = l # modifying operations above is probably not
+                del operations[:] # modifying operations above is probably not
                 # a great idea since types may not work and we'll end up with
                 # half-working list and a segfault/fatal RPython error
+                for elem in l:
+                    operations.append(elem)
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             cache.in_recursion = False

@@ -144,5 +144,12 @@ class TestJitPortal(LLJitMixin):
             assert jit_hooks.box_isconst(box3)
             box4 = jit_hooks.box_nonconstbox(box)
             assert not jit_hooks.box_isconst(box4)
+            box5 = jit_hooks.boxint_new(18)
+            jit_hooks.resop_setarg(op, 0, box5)
+            assert jit_hooks.resop_getarg(op, 0) == box5
+            box6 = jit_hooks.resop_getresult(op)
+            assert jit_hooks.box_getint(box6) == 1
+            jit_hooks.resop_setresult(op, box5)
+            assert jit_hooks.resop_getresult(op) == box5
 
         self.meta_interp(main, [])

@@ -44,6 +44,9 @@ def _cast_to_gcref(obj):
     return lltype.cast_opaque_ptr(llmemory.GCREF,
                                   cast_instance_to_base_ptr(obj))
 
+def emptyval():
+    return lltype.nullptr(llmemory.GCREF.TO)
+
 @register_helper(annmodel.SomePtr(llmemory.GCREF))
 def resop_new(no, llargs, llres):
     from pypy.jit.metainterp.history import ResOperation
@@ -68,6 +71,18 @@ def resop_getopname(llop):
 @register_helper(annmodel.SomePtr(llmemory.GCREF))
 def resop_getarg(llop, no):
     return _cast_to_gcref(_cast_to_resop(llop).getarg(no))
+
+@register_helper(annmodel.s_None)
+def resop_setarg(llop, no, llbox):
+    _cast_to_resop(llop).setarg(no, _cast_to_box(llbox))
+
+@register_helper(annmodel.SomePtr(llmemory.GCREF))
+def resop_getresult(llop):
+    return _cast_to_gcref(_cast_to_resop(llop).result)
+
+@register_helper(annmodel.s_None)
+def resop_setresult(llop, llbox):
+    _cast_to_resop(llop).result = _cast_to_box(llbox)
 
 @register_helper(annmodel.SomeInteger())
 def box_getint(llbox):
