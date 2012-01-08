@@ -61,6 +61,37 @@ def set_compile_hook(space, w_hook):
     cache.in_recursion = NonConstant(False)
     return space.w_None
 
+def set_optimize_hook(space, w_hook):
+    """ set_compile_hook(hook)
+
+    Set a compiling hook that will be called each time a loop is optimized,
+    but before assembler compilation. This allows to add additional
+    optimizations on Python level.
+    
+    The hook will be called with the following signature:
+    hook(jitdriver_name, loop_type, greenkey or guard_number, operations)
+
+    jitdriver_name is the name of this particular jitdriver, 'pypyjit' is
+    the main interpreter loop
+
+    loop_type can be either `loop` `entry_bridge` or `bridge`
+    in case loop is not `bridge`, greenkey will be a tuple of constants
+    or a string describing it.
+
+    for the interpreter loop` it'll be a tuple
+    (code, offset, is_being_profiled)
+
+    Note that jit hook is not reentrant. It means that if the code
+    inside the jit hook is itself jitted, it will get compiled, but the
+    jit hook won't be called for that.
+
+    Result value will be the resulting list of operations, or None
+    """
+    cache = space.fromcache(Cache)
+    cache.w_optimize_hook = w_hook
+    cache.in_recursion = NonConstant(False)
+    return space.w_None
+
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)
 

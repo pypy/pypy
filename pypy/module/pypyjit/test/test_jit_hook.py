@@ -47,7 +47,7 @@ class AppTestJitHook(object):
         code_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ll_code)
         logger = Logger(MockSD())
 
-        oplist = parse("""
+        cls.origoplist = parse("""
         [i1, i2]
         i3 = int_add(i1, i2)
         debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
@@ -55,19 +55,23 @@ class AppTestJitHook(object):
         """, namespace={'ptr0': code_gcref}).operations
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
         offset = {}
-        for i, op in enumerate(oplist):
+        for i, op in enumerate(cls.origoplist):
             if i != 1:
                offset[op] = i
 
         def interp_on_compile():
-            pypy_portal.on_compile(pypyjitdriver, logger, JitCellToken(),
-                                   oplist, 'loop', greenkey, offset,
-                                   0, 0)
+            pypy_portal.after_compile(pypyjitdriver, logger, JitCellToken(),
+                                      cls.oplist, 'loop', greenkey, offset,
+                                      0, 0)
 
         def interp_on_compile_bridge():
-            pypy_portal.on_compile_bridge(pypyjitdriver, logger,
-                                          JitCellToken(), oplist, 0,
-                                          offset, 0, 0)
+            pypy_portal.after_compile_bridge(pypyjitdriver, logger,
+                                             JitCellToken(), cls.oplist, 0,
+                                             offset, 0, 0)
+
+        def interp_on_optimize():
+            pypy_portal.before_compile(pypyjitdriver, logger, JitCellToken(),
+                                       cls.oplist, 'loop', greenkey)
 
         def interp_on_abort():
             pypy_portal.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
@@ -76,6 +80,10 @@ class AppTestJitHook(object):
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
         cls.w_int_add_num = space.wrap(rop.INT_ADD)
+        cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
+
+    def setup_method(self, meth):
+        self.__class__.oplist = self.origoplist
 
     def test_on_compile(self):
         import pypyjit
@@ -159,6 +167,22 @@ class AppTestJitHook(object):
         pypyjit.set_abort_hook(hook)
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG')]
+
+    def test_on_optimize(self):
+        import pypyjit
+        l = []
+
+        def hook(name, looptype, tuple_or_guard_no, ops, *args):
+            l.append(ops)
+
+        def optimize_hook(name, looptype, tuple_or_guard_no, ops):
+            return []
+
+        pypyjit.set_compile_hook(hook)
+        pypyjit.set_optimize_hook(optimize_hook)
+        self.on_optimize()
+        self.on_compile()
+        assert l == [[]]
 
     def test_creation(self):
         import pypyjit

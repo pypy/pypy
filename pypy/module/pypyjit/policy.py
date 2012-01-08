@@ -1,8 +1,10 @@
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.rlib.jit import JitPortal
+from pypy.rlib import jit_hooks
 from pypy.interpreter.error import OperationError
 from pypy.jit.metainterp.jitprof import counter_names
-from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey
+from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey,\
+     WrappedOp
 
 class PyPyPortal(JitPortal):
     def on_abort(self, reason, jitdriver, greenkey):
@@ -21,16 +23,26 @@ class PyPyPortal(JitPortal):
                 e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             cache.in_recursion = False
 
-    def on_compile(self, jitdriver, logger, looptoken, operations, type,
-                   greenkey, ops_offset, asmstart, asmlen):
+    def after_compile(self, jitdriver, logger, looptoken, operations, type,
+                      greenkey, ops_offset, asmstart, asmlen):
         self._compile_hook(jitdriver, logger, operations, type,
                            ops_offset, asmstart, asmlen,
                            wrap_greenkey(self.space, jitdriver, greenkey))
 
-    def on_compile_bridge(self, jitdriver, logger, orig_looptoken, operations,
-                          n, ops_offset, asmstart, asmlen):
+    def after_compile_bridge(self, jitdriver, logger, orig_looptoken,
+                             operations, n, ops_offset, asmstart, asmlen):
         self._compile_hook(jitdriver, logger, operations, 'bridge',
                            ops_offset, asmstart, asmlen,
+                           self.space.wrap(n))
+
+    def before_compile(self, jitdriver, logger, looptoken, operations, type,
+                      greenkey):
+        self._optimize_hook(jitdriver, logger, operations, type,
+                            wrap_greenkey(self.space, jitdriver, greenkey))
+
+    def before_compile_bridge(self, jitdriver, logger, orig_looptoken,
+                              operations, n):
+        self._optimize_hook(jitdriver, logger, operations, 'bridge',
                            self.space.wrap(n))
 
     def _compile_hook(self, jitdriver, logger, operations, type,
@@ -51,6 +63,34 @@ class PyPyPortal(JitPortal):
                                     space.newlist(list_w),
                                     space.wrap(asmstart),
                                     space.wrap(asmlen))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            cache.in_recursion = False
+
+    def _optimize_hook(self, jitdriver, logger, operations, type, w_arg):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
+        if space.is_true(cache.w_optimize_hook):
+            logops = logger._make_log_operations()
+            list_w = wrap_oplist(space, logops, operations, {})
+            cache.in_recursion = True
+            try:
+                w_res = space.call_function(cache.w_optimize_hook,
+                                            space.wrap(jitdriver.name),
+                                            space.wrap(type),
+                                            w_arg,
+                                            space.newlist(list_w))
+                if space.is_w(w_res, space.w_None):
+                    return
+                l = []
+                for w_item in space.listview(w_res):
+                    item = space.interp_w(WrappedOp, w_item)
+                    l.append(jit_hooks._cast_to_resop(item.op))
+                operations[:] = l # modifying operations above is probably not
+                # a great idea since types may not work and we'll end up with
+                # half-working list and a segfault/fatal RPython error
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             cache.in_recursion = False
