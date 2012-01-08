@@ -16,15 +16,13 @@ class AbstractResOp(object):
     # debug
     name = ""
     pc = 0
+    opnum = 0
 
     def __init__(self, result):
         self.result = result
 
-    # methods implemented by each concrete class
-    # ------------------------------------------
-
     def getopnum(self):
-        raise NotImplementedError
+        return self.opnum
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -590,12 +588,9 @@ def create_class_for_op(name, opnum, arity, withdescr):
         baseclass = PlainResOp
     mixin = arity2mixin.get(arity, N_aryOp)
 
-    def getopnum(self):
-        return opnum
-
     cls_name = '%s_OP' % name
     bases = (get_base_class(mixin, baseclass),)
-    dic = {'getopnum': getopnum}
+    dic = {'opnum': opnum}
     return type(cls_name, bases, dic)
 
 setup(__name__ == '__main__')   # print out the table when run directly
