@@ -17,6 +17,7 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
+        self.w_optimize_hook = space.w_None
 
 def wrap_greenkey(space, jitdriver, greenkey):
     if jitdriver.name == 'pypyjit':
@@ -174,6 +175,7 @@ class WrappedOp(Wrappable):
 
     @unwrap_spec(box=WrappedBox)
     def descr_setresult(self, space, box):
+        assert isinstance(box, WrappedBox)
         jit_hooks.resop_setresult(self.op, box.llbox)
         return space.w_None
 
