@@ -41,14 +41,25 @@ class TestJitPortal(LLJitMixin):
         assert reasons == [ABORT_FORCE_QUASIIMMUT] * 2
 
     def test_on_compile(self):
-        called = {}
+        called = []
         
         class MyJitPortal(JitPortal):
-            def on_compile(self, jitdriver, logger, looptoken, operations,
-                           type, greenkey, ops_offset, asmaddr, asmlen):
+            def after_compile(self, jitdriver, logger, looptoken, operations,
+                              type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
                 assert asmlen == 0
-                called[(greenkey[1].getint(), greenkey[0].getint(), type)] = looptoken
+                called.append(("compile", greenkey[1].getint(),
+                               greenkey[0].getint(), type))
+
+            def before_compile(self, jitdriver, logger, looptoken, oeprations,
+                               type, greenkey):
+                called.append(("optimize", greenkey[1].getint(),
+                               greenkey[0].getint(), type))
+
+            def before_optimize(self, jitdriver, logger, looptoken, oeprations,
+                               type, greenkey):
+                called.append(("trace", greenkey[1].getint(),
+                               greenkey[0].getint(), type))
 
         portal = MyJitPortal()
 
@@ -62,26 +73,35 @@ class TestJitPortal(LLJitMixin):
                 i += 1
 
         self.meta_interp(loop, [1, 4], policy=JitPolicy(portal))
-        assert sorted(called.keys()) == [(4, 1, "loop")]
+        assert called == [#("trace", 4, 1, "loop"),
+                          ("optimize", 4, 1, "loop"),
+                          ("compile", 4, 1, "loop")]
         self.meta_interp(loop, [2, 4], policy=JitPolicy(portal))
-        assert sorted(called.keys()) == [(4, 1, "loop"),
-                                         (4, 2, "loop")]
+        assert called == [#("trace", 4, 1, "loop"),
+                          ("optimize", 4, 1, "loop"),
+                          ("compile", 4, 1, "loop"),
+                          #("trace", 4, 2, "loop"),
+                          ("optimize", 4, 2, "loop"),
+                          ("compile", 4, 2, "loop")]
 
     def test_on_compile_bridge(self):
-        called = {}
+        called = []
         
         class MyJitPortal(JitPortal):
-            def on_compile(self, jitdriver, logger, looptoken, operations,
+            def after_compile(self, jitdriver, logger, looptoken, operations,
                            type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
                 assert asmlen == 0
-                called[(greenkey[1].getint(), greenkey[0].getint(), type)] = looptoken
+                called.append("compile")
 
-            def on_compile_bridge(self, jitdriver, logger, orig_token,
-                                  operations, n, ops_offset, asmstart, asmlen):
-                assert 'bridge' not in called
-                called['bridge'] = orig_token
+            def after_compile_bridge(self, jitdriver, logger, orig_token,
+                                     operations, n, ops_offset, asmstart, asmlen):
+                called.append("compile_bridge")
 
+            def before_compile_bridge(self, jitdriver, logger, orig_token,
+                                     operations, n):
+                called.append("before_compile_bridge")
+            
         driver = JitDriver(greens = ['n', 'm'], reds = ['i'])
 
         def loop(n, m):
@@ -94,7 +114,7 @@ class TestJitPortal(LLJitMixin):
                 i += 1
 
         self.meta_interp(loop, [1, 10], policy=JitPolicy(MyJitPortal()))
-        assert sorted(called.keys()) == ['bridge', (10, 1, "loop")]
+        assert called == ["compile", "before_compile_bridge", "compile_bridge"]
 
     def test_resop_interface(self):
         driver = JitDriver(greens = [], reds = ['i'])
