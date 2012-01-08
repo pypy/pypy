@@ -127,9 +127,17 @@ class TestNumpyJIt(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
-        self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 2,
-                                "int_add": 1, "int_ge": 1, "guard_false": 1,
-                                "jump": 1, 'arraylen_gc': 1})
+        self.check_simple_loop({'arraylen_gc': 1,
+                                'call': 1,
+                                'getfield_gc': 3,
+                                "getinteriorfield_raw": 1, 
+                                "guard_class": 1,
+                                "guard_false": 2,
+                                'guard_no_exception': 1,
+                                "float_add": 1,
+                                "jump": 1, 
+                                'setinteriorfield_raw': 1,
+                                })
 
     def define_prod():
         return """

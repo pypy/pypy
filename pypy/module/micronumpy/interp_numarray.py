@@ -39,8 +39,8 @@ slice_driver = jit.JitDriver(
 axisreduce_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self','result', 'ri', 'frame', 'nextval', 'dtype', 'value'],
-    get_printable_location=signature.new_printable_location('reduce'),
+    reds=['identity', 'self','result', 'ri', 'frame', 'nextval', 'dtype', 'value'],
+    get_printable_location=signature.new_printable_location('axisreduce'),
 )
 
 
@@ -692,6 +692,7 @@ class VirtualArray(BaseArray):
         # to allow garbage-collecting them
         raise NotImplementedError
 
+    @jit.unroll_safe
     def compute(self):
         result = W_NDimArray(self.size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
@@ -757,6 +758,8 @@ class VirtualSlice(VirtualArray):
 
 
 class Reduce(VirtualArray):
+    _immutable_fields_ = ['dim', 'binfunc', 'dtype', 'identity']
+
     def __init__(self, binfunc, name, dim, res_dtype, values, identity=None):
         shape = values.shape[0:dim] + values.shape[dim + 1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
@@ -789,11 +792,13 @@ class Reduce(VirtualArray):
             value = self.identity.convert_to(self.dtype)
         return value
 
+    @jit.unroll_safe
     def compute(self):
         dtype = self.dtype
         result = W_NDimArray(self.size, self.shape, dtype)
         self.values = self.values.get_concrete()
         shapelen = len(result.shape)
+        identity = self.identity
         sig = self.find_sig(res_shape=result.shape, arr=self.values)
         ri = ArrayIterator(result.size)
         frame = sig.create_frame(self.values, dim=self.dim)
@@ -804,9 +809,14 @@ class Reduce(VirtualArray):
                                           value=value, sig=sig,
                                           shapelen=shapelen, ri=ri,
                                           nextval=nextval, dtype=dtype,
+                                          identity=identity,
                                           result=result)
             if frame.iterators[0].axis_done:
-                value = self.get_identity(sig, frame, shapelen)
+                if identity is None:
+                    value = sig.eval(frame, self.values).convert_to(dtype)
+                    frame.next(shapelen)
+                else:
+                    value = identity.convert_to(dtype)
                 ri = ri.next(shapelen)
             assert isinstance(sig, signature.ReduceSignature)
             nextval = sig.eval(frame, self.values).convert_to(dtype)
