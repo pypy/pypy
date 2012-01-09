@@ -106,6 +106,7 @@ class ArmCPU(AbstractLLCPU):
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
+        bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
         # start of "no gc operation!" block
         frame_depth = faildescr._arm_current_frame_depth * WORD
         addr_end_of_frame = (addr_of_force_index -
@@ -113,7 +114,7 @@ class ArmCPU(AbstractLLCPU):
                             len(all_regs) * WORD +
                             len(all_vfp_regs) * DOUBLE_WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
-            faildescr._arm_failure_recovery_code,
+            bytecode,
             addr_of_force_index,
             addr_end_of_frame)
         self.assembler.leave_jitted_hook()

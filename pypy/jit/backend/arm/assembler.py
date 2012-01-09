@@ -129,7 +129,7 @@ class AssemblerARM(ResOpAssembler):
     def _gen_leave_jitted_hook_code(self, save_exc):
         mc = ARMv7Builder()
         # XXX add a check if cpu supports floats
-        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
+        with saved_registers(mc, r.caller_resp + [r.lr], r.caller_vfp_resp):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
             mc.BL(addr)
         assert self._exit_code_addr != 0
@@ -334,7 +334,7 @@ class AssemblerARM(ResOpAssembler):
         self._insert_checks(mc)
         with saved_registers(mc, r.all_regs, r.all_vfp_regs):
             # move mem block address, to r0 to pass as
-            mc.MOV_rr(r.r0.value, r.ip.value)
+            mc.MOV_rr(r.r0.value, r.lr.value)
             # pass the current frame pointer as second param
             mc.MOV_rr(r.r1.value, r.fp.value)
             # pass the current stack pointer as third param
@@ -357,7 +357,7 @@ class AssemblerARM(ResOpAssembler):
     CODE_INPUTARG   = 8 | DESCR_SPECIAL
 
     def gen_descr_encoding(self, descr, failargs, locs):
-        buf = []
+        assert self.mc is not None
         for i in range(len(failargs)):
             arg = failargs[i]
             if arg is not None:
@@ -373,7 +373,7 @@ class AssemblerARM(ResOpAssembler):
                 if loc.is_stack():
                     pos = loc.position
                     if pos < 0:
-                        buf.append(chr(self.CODE_INPUTARG))
+                        self.mc.writechar(chr(self.CODE_INPUTARG))
                         pos = ~pos
                     n = self.CODE_FROMSTACK // 4 + pos
                 else:
@@ -381,44 +381,33 @@ class AssemblerARM(ResOpAssembler):
                     n = loc.value
                 n = kind + 4 * n
                 while n > 0x7F:
-                    buf.append(chr((n & 0x7F) | 0x80))
+                    self.mc.writechar(chr((n & 0x7F) | 0x80))
                     n >>= 7
             else:
                 n = self.CODE_HOLE
-            buf.append(chr(n))
-        buf.append(chr(self.CODE_STOP))
+            self.mc.writechar(chr(n))
+        self.mc.writechar(chr(self.CODE_STOP))
 
         fdescr = self.cpu.get_fail_descr_number(descr)
-        buf.append(chr(fdescr & 0xFF))
-        buf.append(chr(fdescr >> 8 & 0xFF))
-        buf.append(chr(fdescr >> 16 & 0xFF))
-        buf.append(chr(fdescr >> 24 & 0xFF))
+        self.mc.write32(fdescr)
+        self.align()
 
         # assert that the fail_boxes lists are big enough
         assert len(failargs) <= self.fail_boxes_int.SIZE
 
-        memsize = len(buf)
-        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
-        mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
-        for i in range(memsize):
-            mem[i] = buf[i]
-        return memaddr
-
     def _gen_path_to_exit_path(self, descr, args, arglocs,
                                             save_exc, fcond=c.AL):
         assert isinstance(save_exc, bool)
-        memaddr = self.gen_descr_encoding(descr, args, arglocs[1:])
-        self.gen_exit_code(self.mc, memaddr, save_exc, fcond)
-        return memaddr
+        self.gen_exit_code(self.mc, save_exc, fcond)
+        self.gen_descr_encoding(descr, args, arglocs[1:])
 
-    def gen_exit_code(self, mc, memaddr, save_exc, fcond=c.AL):
+    def gen_exit_code(self, mc, save_exc, fcond=c.AL):
         assert isinstance(save_exc, bool)
-        self.mc.gen_load_int(r.ip.value, memaddr)
         if save_exc:
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
-        mc.B(path)
+        mc.BL(path)
 
     def align(self):
         while(self.mc.currpos() % FUNC_ALIGN != 0):
@@ -551,7 +540,7 @@ class AssemblerARM(ResOpAssembler):
         operations = self.setup(original_loop_token, operations)
         self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
-        code = faildescr._arm_failure_recovery_code
+        code = self._find_failure_recovery_bytecode(faildescr)
         frame_depth = faildescr._arm_current_frame_depth
         arglocs = self.decode_inputargs(code)
         if not we_are_translated():
@@ -585,6 +574,11 @@ class AssemblerARM(ResOpAssembler):
                                                                 frame_depth)
         self.teardown()
 
+    def _find_failure_recovery_bytecode(self, faildescr):
+        guard_addr = faildescr._arm_block_start + faildescr._arm_guard_pos
+        # a guard requires 3 words to encode the jump to the exit code.
+        return guard_addr + 3 * WORD
+
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._arm_loop_code += rawstart
@@ -607,11 +601,10 @@ class AssemblerARM(ResOpAssembler):
             pos = self.mc.currpos()
             tok.pos_recovery_stub = pos
 
-            memaddr = self._gen_path_to_exit_path(descr, tok.failargs,
+            self._gen_path_to_exit_path(descr, tok.failargs,
                                         tok.faillocs, save_exc=tok.save_exc)
             # store info on the descr
             descr._arm_current_frame_depth = tok.faillocs[0].getint()
-            descr._arm_failure_recovery_code = memaddr
             descr._arm_guard_pos = pos
 
     def process_pending_guards(self, block_start):
