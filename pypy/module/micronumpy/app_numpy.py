@@ -19,12 +19,12 @@ def identity(n, dtype=None):
         a[i][i] = 1
     return a
 
-def mean(a):
+def mean(a, axis=None):
     if not hasattr(a, "mean"):
         a = numpypy.array(a)
-    return a.mean()
+    return a.mean(axis)
 
-def sum(a):
+def sum(a,axis=None):
     '''sum(a, axis=None)
     Sum of array elements over a given axis.
     
@@ -51,12 +51,12 @@ def sum(a):
     # TODO: add to doc (once it's implemented): cumsum : Cumulative sum of array elements.
     if not hasattr(a, "sum"):
         a = numpypy.array(a)
-    return a.sum()
+    return a.sum(axis)
 
-def min(a):
+def min(a, axis=None):
     if not hasattr(a, "min"):
         a = numpypy.array(a)
-    return a.min()
+    return a.min(axis)
 
 def max(a, axis=None):
     if not hasattr(a, "max"):

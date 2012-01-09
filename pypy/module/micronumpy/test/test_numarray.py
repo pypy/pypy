@@ -724,10 +724,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from numpypy import array
+        from numpypy import array,mean
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
+        a = array(range(105)).reshape(3, 5, 7)
+        assert (mean(a, axis=0) == array(range(35, 70)).reshape(5, 7)).all()
+        assert (mean(a, 2) == array(range(0, 15)).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from numpypy import array, arange
