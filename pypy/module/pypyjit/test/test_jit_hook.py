@@ -11,7 +11,7 @@ from pypy.rpython.annlowlevel import (cast_instance_to_base_ptr,
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rclass import OBJECT
 from pypy.module.pypyjit.interp_jit import pypyjitdriver
-from pypy.module.pypyjit.policy import pypy_portal
+from pypy.module.pypyjit.policy import pypy_hooks
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
@@ -61,21 +61,21 @@ class AppTestJitHook(object):
                offset[op] = i
 
         def interp_on_compile():
-            pypy_portal.after_compile(pypyjitdriver, logger, JitCellToken(),
+            pypy_hooks.after_compile(pypyjitdriver, logger, JitCellToken(),
                                       cls.oplist, 'loop', greenkey, offset,
                                       0, 0)
 
         def interp_on_compile_bridge():
-            pypy_portal.after_compile_bridge(pypyjitdriver, logger,
+            pypy_hooks.after_compile_bridge(pypyjitdriver, logger,
                                              JitCellToken(), cls.oplist, 0,
                                              offset, 0, 0)
 
         def interp_on_optimize():
-            pypy_portal.before_compile(pypyjitdriver, logger, JitCellToken(),
+            pypy_hooks.before_compile(pypyjitdriver, logger, JitCellToken(),
                                        cls.oplist, 'loop', greenkey)
 
         def interp_on_abort():
-            pypy_portal.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
+            pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
         
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))

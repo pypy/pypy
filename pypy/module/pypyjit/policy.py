@@ -1,12 +1,12 @@
 from pypy.jit.codewriter.policy import JitPolicy
-from pypy.rlib.jit import JitPortal
+from pypy.rlib.jit import JitHookInterface
 from pypy.rlib import jit_hooks
 from pypy.interpreter.error import OperationError
 from pypy.jit.metainterp.jitprof import counter_names
 from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey,\
      WrappedOp
 
-class PyPyPortal(JitPortal):
+class PyPyJitIface(JitHookInterface):
     def on_abort(self, reason, jitdriver, greenkey):
         space = self.space
         cache = space.fromcache(Cache)
@@ -104,7 +104,7 @@ class PyPyPortal(JitPortal):
             finally:
                 cache.in_recursion = False
 
-pypy_portal = PyPyPortal()
+pypy_hooks = PyPyJitIface()
 
 class PyPyJitPolicy(JitPolicy):
 
