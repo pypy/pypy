@@ -729,8 +729,7 @@ class JitPortal(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on portal will be invoked at various stages of JIT running
     like JIT loops compiled, aborts etc.
-    An instance of this class might be returned by the policy.get_jit_portal
-    method in order to function.
+    An instance of this class will be available as policy.portal.
 
     each hook will accept some of the following args:
 

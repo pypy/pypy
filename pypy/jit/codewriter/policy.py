@@ -88,14 +88,6 @@ class JitPolicy(object):
             raise ValueError("access_directly on a function which we don't see %s" % graph)
         return res
 
-    def get_jit_portal(self):
-        """ Returns a None or an instance of pypy.rlib.jit.JitPortal
-        The portal methods are called for various special cases in the JIT
-        as a mean to give feedback to the user. Read JitPortal's docstring
-        for details.
-        """
-        return None
-
 def contains_unsupported_variable_type(graph, supports_floats,
                                               supports_longlong,
                                               supports_singlefloats):
