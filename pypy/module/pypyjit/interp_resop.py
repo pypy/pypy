@@ -63,7 +63,7 @@ def set_compile_hook(space, w_hook):
     cache.in_recursion = NonConstant(False)
 
 def set_optimize_hook(space, w_hook):
-    """ set_compile_hook(hook)
+    """ set_optimize_hook(hook)
 
     Set a compiling hook that will be called each time a loop is optimized,
     but before assembler compilation. This allows to add additional
