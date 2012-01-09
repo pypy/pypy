@@ -48,6 +48,7 @@ class Module(MixedModule):
         'int_': 'interp_boxes.W_LongBox',
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
+        'float_': 'interp_boxes.W_Float64Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
     }

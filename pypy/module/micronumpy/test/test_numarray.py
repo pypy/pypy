@@ -978,6 +978,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:, 0].tolist() == [17.1, 40.3]
         assert a[0].tolist() == [17.1, 27.2]
 
+    def test_var(self):
+        from _numpypy import array
+        a = array(range(10))
+        assert a.var() == 8.25
+        a = array([5.0])
+        assert a.var() == 0.0
+
+    def test_std(self):
+        from _numpypy import array
+        a = array(range(10))
+        assert a.std() == 2.8722813232690143
+        a = array([5.0])
+        assert a.std() == 0.0
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

@@ -568,6 +568,18 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.div(self.descr_sum(space), space.wrap(self.size))
 
+    def descr_var(self, space):
+        ''' var = mean( (values - mean(values))**2 ) '''
+        w_res = self.descr_sub(space, self.descr_mean(space))
+        assert isinstance(w_res, BaseArray) 
+        w_res = w_res.descr_pow(space, space.wrap(2))
+        assert isinstance(w_res, BaseArray)
+        return w_res.descr_mean(space)
+
+    def descr_std(self, space):
+        ''' std(v) = sqrt(var(v)) '''
+        return interp_ufuncs.get(space).sqrt.call(space, [self.descr_var(space)] )
+
     def descr_nonzero(self, space):
         if self.size > 1:
             raise OperationError(space.w_ValueError, space.wrap(
@@ -1209,6 +1221,8 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
+    var = interp2app(BaseArray.descr_var),
+    std = interp2app(BaseArray.descr_std),
 
     copy = interp2app(BaseArray.descr_copy),
     reshape = interp2app(BaseArray.descr_reshape),

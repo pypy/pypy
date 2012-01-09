@@ -166,6 +166,15 @@ class AppTestDtypes(BaseNumpyAppTest):
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
 
+    def test_new(self):
+        import _numpypy as np
+        assert np.int_(4) == 4
+        assert np.float_(3.4) == 3.4
+
+    def test_pow(self):
+        from _numpypy import int_
+        assert int_(4) ** 2 == 16
+
 class AppTestTypes(BaseNumpyAppTest):
     def test_abstract_types(self):
         import _numpypy as numpy

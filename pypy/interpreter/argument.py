@@ -428,8 +428,8 @@ class Arguments(object):
             return self._match_signature(w_firstarg,
                                          scope_w, signature, defaults_w, 0)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
 
     def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
@@ -450,8 +450,8 @@ class Arguments(object):
         try:
             return self._parse(w_firstarg, signature, defaults_w, blindargs)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -626,7 +626,7 @@ def rawshape(args, nextra=0):
 
 class ArgErr(Exception):
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         raise NotImplementedError
 
 class ArgErrCount(ArgErr):
@@ -642,11 +642,10 @@ class ArgErrCount(ArgErr):
         self.num_args = got_nargs
         self.num_kwds = nkwds
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         n = self.expected_nargs
         if n == 0:
-            msg = "%s() takes no arguments (%d given)" % (
-                fnname,
+            msg = "takes no arguments (%d given)" % (
                 self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
@@ -672,8 +671,7 @@ class ArgErrCount(ArgErr):
                 msg2 = " non-keyword"
             else:
                 msg2 = ""
-            msg = "%s() takes %s %d%s argument%s (%d given)" % (
-                fnname,
+            msg = "takes %s %d%s argument%s (%d given)" % (
                 msg1,
                 n,
                 msg2,
@@ -686,9 +684,8 @@ class ArgErrMultipleValues(ArgErr):
     def __init__(self, argname):
         self.argname = argname
 
-    def getmsg(self, fnname):
-        msg = "%s() got multiple values for keyword argument '%s'" % (
-            fnname,
+    def getmsg(self):
+        msg = "got multiple values for keyword argument '%s'" % (
             self.argname)
         return msg
 
@@ -722,13 +719,11 @@ class ArgErrUnknownKwds(ArgErr):
                     break
         self.kwd_name = name
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         if self.num_kwds == 1:
-            msg = "%s() got an unexpected keyword argument '%s'" % (
-                fnname,
+            msg = "got an unexpected keyword argument '%s'" % (
                 self.kwd_name)
         else:
-            msg = "%s() got %d unexpected keyword arguments" % (
-                fnname,
+            msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)
         return msg

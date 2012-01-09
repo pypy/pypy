@@ -78,6 +78,7 @@ class W_GenericBox(Wrappable):
     descr_sub = _binop_impl("subtract")
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
+    descr_pow = _binop_impl("power")
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
     descr_lt = _binop_impl("less")
@@ -103,7 +104,7 @@ class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("long")
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -170,6 +171,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __sub__ = interp2app(W_GenericBox.descr_sub),
     __mul__ = interp2app(W_GenericBox.descr_mul),
     __div__ = interp2app(W_GenericBox.descr_div),
+    __pow__ = interp2app(W_GenericBox.descr_pow),
 
     __radd__ = interp2app(W_GenericBox.descr_radd),
     __rsub__ = interp2app(W_GenericBox.descr_rsub),
@@ -198,6 +200,7 @@ W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
 )
 
 W_IntegerBox.typedef = TypeDef("integer", W_NumberBox.typedef,
+    __new__ = interp2app(W_IntegerBox.descr__new__.im_func),
     __module__ = "numpypy",
 )
 
