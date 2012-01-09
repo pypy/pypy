@@ -306,12 +306,12 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         loop.check_consistency()
 
     if metainterp_sd.warmrunnerdesc is not None:
-        portal = metainterp_sd.warmrunnerdesc.portal
-        portal.before_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                              original_jitcell_token, loop.operations, type,
-                              greenkey)
+        hooks = metainterp_sd.warmrunnerdesc.hooks
+        hooks.before_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
+                             original_jitcell_token, loop.operations, type,
+                             greenkey)
     else:
-        portal = None
+        hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
@@ -323,8 +323,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
-    if portal is not None:
-        portal.after_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
+    if hooks is not None:
+        hooks.after_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
                              original_jitcell_token, loop.operations, type,
                              greenkey, ops_offset, asmstart, asmlen)
     metainterp_sd.stats.add_new_loop(loop)
@@ -348,12 +348,12 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         seen = dict.fromkeys(inputargs)
         TreeLoop.check_consistency_of_branch(operations, seen)
     if metainterp_sd.warmrunnerdesc is not None:
-        portal = metainterp_sd.warmrunnerdesc.portal
-        portal.before_compile_bridge(jitdriver_sd.jitdriver,
+        hooks = metainterp_sd.warmrunnerdesc.hooks
+        hooks.before_compile_bridge(jitdriver_sd.jitdriver,
                                      metainterp_sd.logger_ops,
                                      original_loop_token, operations, n)
     else:
-        portal = None
+        hooks = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
@@ -364,12 +364,12 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
-    if portal is not None:
-        portal.after_compile_bridge(jitdriver_sd.jitdriver,
-                                    metainterp_sd.logger_ops,
-                                    original_loop_token, operations, n,
-                                    ops_offset,
-                                    asmstart, asmlen)
+    if hooks is not None:
+        hooks.after_compile_bridge(jitdriver_sd.jitdriver,
+                                   metainterp_sd.logger_ops,
+                                   original_loop_token, operations, n,
+                                   ops_offset,
+                                   asmstart, asmlen)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")

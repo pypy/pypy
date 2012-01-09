@@ -1,5 +1,5 @@
 
-from pypy.rlib.jit import JitDriver, JitPortal
+from pypy.rlib.jit import JitDriver, JitHookInterface
 from pypy.rlib import jit_hooks
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import JitPolicy
@@ -7,17 +7,17 @@ from pypy.jit.metainterp.jitprof import ABORT_FORCE_QUASIIMMUT
 from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.annlowlevel import hlstr
 
-class TestJitPortal(LLJitMixin):
+class TestJitHookInterface(LLJitMixin):
     def test_abort_quasi_immut(self):
         reasons = []
         
-        class MyJitPortal(JitPortal):
+        class MyJitIface(JitHookInterface):
             def on_abort(self, reason, jitdriver, greenkey):
                 assert jitdriver is myjitdriver
                 assert len(greenkey) == 1
                 reasons.append(reason)
 
-        portal = MyJitPortal()
+        iface = MyJitIface()
 
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
 
@@ -37,14 +37,14 @@ class TestJitPortal(LLJitMixin):
             return total
         #
         assert f(100, 7) == 721
-        res = self.meta_interp(f, [100, 7], policy=JitPolicy(portal))
+        res = self.meta_interp(f, [100, 7], policy=JitPolicy(iface))
         assert res == 721
         assert reasons == [ABORT_FORCE_QUASIIMMUT] * 2
 
     def test_on_compile(self):
         called = []
         
-        class MyJitPortal(JitPortal):
+        class MyJitIface(JitHookInterface):
             def after_compile(self, jitdriver, logger, looptoken, operations,
                               type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
@@ -62,7 +62,7 @@ class TestJitPortal(LLJitMixin):
                 called.append(("trace", greenkey[1].getint(),
                                greenkey[0].getint(), type))
 
-        portal = MyJitPortal()
+        iface = MyJitIface()
 
         driver = JitDriver(greens = ['n', 'm'], reds = ['i'])
 
@@ -73,11 +73,11 @@ class TestJitPortal(LLJitMixin):
                 driver.jit_merge_point(n=n, m=m, i=i)
                 i += 1
 
-        self.meta_interp(loop, [1, 4], policy=JitPolicy(portal))
+        self.meta_interp(loop, [1, 4], policy=JitPolicy(iface))
         assert called == [#("trace", 4, 1, "loop"),
                           ("optimize", 4, 1, "loop"),
                           ("compile", 4, 1, "loop")]
-        self.meta_interp(loop, [2, 4], policy=JitPolicy(portal))
+        self.meta_interp(loop, [2, 4], policy=JitPolicy(iface))
         assert called == [#("trace", 4, 1, "loop"),
                           ("optimize", 4, 1, "loop"),
                           ("compile", 4, 1, "loop"),
@@ -88,7 +88,7 @@ class TestJitPortal(LLJitMixin):
     def test_on_compile_bridge(self):
         called = []
         
-        class MyJitPortal(JitPortal):
+        class MyJitIface(JitHookInterface):
             def after_compile(self, jitdriver, logger, looptoken, operations,
                            type, greenkey, ops_offset, asmaddr, asmlen):
                 assert asmaddr == 0
@@ -114,7 +114,7 @@ class TestJitPortal(LLJitMixin):
                     i += 2
                 i += 1
 
-        self.meta_interp(loop, [1, 10], policy=JitPolicy(MyJitPortal()))
+        self.meta_interp(loop, [1, 10], policy=JitPolicy(MyJitIface()))
         assert called == ["compile", "before_compile_bridge", "compile_bridge"]
 
     def test_resop_interface(self):

@@ -210,13 +210,12 @@ class WarmRunnerDesc(object):
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
         #
-        self.portal = policy.portal
+        self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
         self.make_exception_classes()
         self.make_driverhook_graphs()
         self.make_enter_functions()
         self.rewrite_jit_merge_points(policy)
-        self.portal = policy.portal
 
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
