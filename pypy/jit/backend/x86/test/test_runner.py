@@ -33,6 +33,9 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
+    add_loop_instructions = ['add', 'test', 'je', 'jmp']
+    bridge_loop_instructions = ['lea', 'mov', 'jmp']
+
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()

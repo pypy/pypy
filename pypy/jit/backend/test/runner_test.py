@@ -28,6 +28,9 @@ def constfloat(x):
 
 class Runner(object):
 
+    add_loop_instruction = ['overload for a specific cpu']
+    bridge_loop_instruction = ['overload for a specific cpu']
+
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
                                                                 result_type,
@@ -3006,23 +3009,21 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.assembler.set_debug(True) # always on untranslated
         assert asmlen != 0
         cpuname = autodetect_main_model_and_size()
-        if 'x86' in cpuname:
-            # XXX we have to check the precise assembler, otherwise
-            # we don't quite know if borders are correct
-            def checkops(mc, startline, ops):
-                for i in range(startline, len(mc)):
-                    assert mc[i].split("\t")[-1].startswith(ops[i - startline])
+        # XXX we have to check the precise assembler, otherwise
+        # we don't quite know if borders are correct
+
+        def checkops(mc, startline, ops):
+            for i in range(startline, len(mc)):
+                assert mc[i].split("\t")[-1].startswith(ops[i - startline])
             
-            data = ctypes.string_at(asm, asmlen)
-            mc = list(machine_code_dump(data, asm, cpuname))
-            assert len(mc) == 5
-            checkops(mc, 1, ['add', 'test', 'je', 'jmp'])
-            data = ctypes.string_at(basm, basmlen)
-            mc = list(machine_code_dump(data, basm, cpuname))
-            assert len(mc) == 4
-            checkops(mc, 1, ['lea', 'mov', 'jmp'])
-        else:
-            raise Exception("Implement this test for your CPU")
+        data = ctypes.string_at(asm, asmlen)
+        mc = list(machine_code_dump(data, asm, cpuname))
+        assert len(mc) == 5
+        checkops(mc, 1, self.add_loop_instructions)
+        data = ctypes.string_at(basm, basmlen)
+        mc = list(machine_code_dump(data, basm, cpuname))
+        assert len(mc) == 4
+        checkops(mc, 1, self.bridge_loop_instructions)
 
 
     def test_compile_bridge_with_target(self):
