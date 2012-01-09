@@ -17,6 +17,8 @@ class AbstractResOp(object):
     name = ""
     pc = 0
 
+    _attrs_ = ('result',)
+
     def __init__(self, result):
         self.result = result
 
