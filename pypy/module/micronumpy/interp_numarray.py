@@ -39,7 +39,7 @@ slice_driver = jit.JitDriver(
 axisreduce_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['identity', 'self','result', 'ri', 'frame', 'nextval', 'dtype', 'value'],
+    reds=['identity', 'self','result', 'ri', 'frame', 'dtype', 'value'],
     get_printable_location=signature.new_printable_location('axisreduce'),
 )
 
@@ -758,8 +758,6 @@ class VirtualSlice(VirtualArray):
 
 
 class Reduce(VirtualArray):
-    _immutable_fields_ = ['dim', 'binfunc', 'dtype', 'identity']
-
     def __init__(self, binfunc, name, dim, res_dtype, values, identity=None):
         shape = values.shape[0:dim] + values.shape[dim + 1:len(values.shape)]
         VirtualArray.__init__(self, name, shape, res_dtype)
@@ -803,27 +801,27 @@ class Reduce(VirtualArray):
         ri = ArrayIterator(result.size)
         frame = sig.create_frame(self.values, dim=self.dim)
         value = self.get_identity(sig, frame, shapelen)
-        nextval = sig.eval(frame, self.values).convert_to(dtype)
+        assert isinstance(sig, signature.ReduceSignature)
         while not frame.done():
             axisreduce_driver.jit_merge_point(frame=frame, self=self,
                                           value=value, sig=sig,
                                           shapelen=shapelen, ri=ri,
-                                          nextval=nextval, dtype=dtype,
+                                          dtype=dtype,
                                           identity=identity,
                                           result=result)
-            if frame.iterators[0].axis_done:
+            if frame.axis_done():
+                result.dtype.setitem(result.storage, ri.offset, value)
                 if identity is None:
                     value = sig.eval(frame, self.values).convert_to(dtype)
                     frame.next(shapelen)
                 else:
                     value = identity.convert_to(dtype)
                 ri = ri.next(shapelen)
-            assert isinstance(sig, signature.ReduceSignature)
-            nextval = sig.eval(frame, self.values).convert_to(dtype)
-            value = self.binfunc(dtype, value, nextval)
-            result.dtype.setitem(result.storage, ri.offset, value)
+            value = self.binfunc(dtype, value, 
+                               sig.eval(frame, self.values).convert_to(dtype))
             frame.next(shapelen)
         assert ri.done
+        result.dtype.setitem(result.storage, ri.offset, value)
         return result
 
 

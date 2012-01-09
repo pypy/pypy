@@ -22,6 +22,9 @@ class BaseIterator(object):
     def done(self):
         raise NotImplementedError
 
+    def axis_done(self):
+        raise NotImplementedError
+
 class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
@@ -120,7 +123,7 @@ class AxisIterator(BaseIterator):
         self.shapelen = len(shape)
         self.indices = [0] * len(shape)
         self._done = False
-        self.axis_done = False
+        self._axis_done = False
         self.offset = arr_start
         self.dim = dim
         self.dim_order = []
@@ -136,13 +139,19 @@ class AxisIterator(BaseIterator):
     def done(self):
         return self._done
 
+    def axis_done(self):
+        return self._axis_done
+
+    @jit.unroll_safe
     def next(self, shapelen):
         #shapelen will always be one less than self.shapelen
         offset = self.offset
-        axis_done = False
-        indices = [0] * self.shapelen
-        for i in range(self.shapelen):
-            indices[i] = self.indices[i]
+        _axis_done = False
+        done = False
+        #indices = [0] * self.shapelen
+        #for i in range(self.shapelen):
+        #    indices[i] = self.indices[i]
+        indices = self.indices
         for i in self.dim_order:
             if indices[i] < self.shape[i] - 1:
                 indices[i] += 1
@@ -150,13 +159,13 @@ class AxisIterator(BaseIterator):
                 break
             else:
                 if i == self.dim:
-                    axis_done = True
+                    _axis_done = True
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:
-            self._done = True
+            done = True
         res = instantiate(AxisIterator)
-        res.axis_done = axis_done
+        res._axis_done = _axis_done
         res.offset = offset
         res.indices = indices
         res.strides = self.strides
@@ -165,7 +174,7 @@ class AxisIterator(BaseIterator):
         res.shape = self.shape
         res.shapelen = self.shapelen
         res.dim = self.dim
-        res._done = self._done
+        res._done = done
         return res
 
 # ------ other iterators that are not part of the computation frame ----------

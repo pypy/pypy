@@ -59,6 +59,12 @@ class NumpyEvalFrame(object):
         for i in range(len(self.iterators)):
             self.iterators[i] = self.iterators[i].next(shapelen)
 
+    def axis_done(self):
+        final_iter = promote(self.final_iter)
+        if final_iter < 0:
+            return False
+        return self.iterators[final_iter].axis_done()
+
 def _add_ptr_to_cache(ptr, cache):
     i = 0
     for p in cache:

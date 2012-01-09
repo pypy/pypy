@@ -127,16 +127,17 @@ class TestNumpyJIt(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
-        self.check_simple_loop({'arraylen_gc': 1,
-                                'call': 1,
-                                'getfield_gc': 3,
-                                "getinteriorfield_raw": 1, 
-                                "guard_class": 1,
-                                "guard_false": 2,
-                                'guard_no_exception': 1,
-                                "float_add": 1,
-                                "jump": 1, 
-                                'setinteriorfield_raw': 1,
+        self.check_simple_loop({\
+                                'setarrayitem_gc': 1,
+                                'getarrayitem_gc': 5,
+                                'getinteriorfield_raw': 1,
+                                'arraylen_gc': 2,
+                                'guard_true': 1,
+                                'int_sub': 1,
+                                'int_lt': 1,
+                                'jump': 1,
+                                'float_add': 1,
+                                'int_add': 2,
                                 })
 
     def define_prod():
@@ -236,7 +237,8 @@ class TestNumpyJIt(LLJitMixin):
     def test_ufunc(self):
         result = self.run("ufunc")
         assert result == -6
-        self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1, "float_neg": 1,
+        self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
+                                "float_neg": 1,
                                 "setinteriorfield_raw": 1, "int_add": 2,
                                 "int_ge": 1, "guard_false": 1, "jump": 1,
                                 'arraylen_gc': 1})
@@ -346,7 +348,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("setslice")
         assert result == 11.0
         self.check_trace_count(1)
-        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
                                 'int_lt': 1, 'guard_true': 1, 'jump': 1,
                                 'arraylen_gc': 3})
@@ -363,10 +365,11 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("virtual_slice")
         assert result == 4
         self.check_trace_count(1)
-        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
                                 'setinteriorfield_raw': 1, 'int_add': 2,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
+
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
@@ -401,4 +404,3 @@ class TestNumpyOld(LLJitMixin):
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         assert result == f(5)
-
