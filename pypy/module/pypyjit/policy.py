@@ -15,13 +15,15 @@ class PyPyPortal(JitPortal):
         if space.is_true(cache.w_abort_hook):
             cache.in_recursion = True
             try:
-                space.call_function(cache.w_abort_hook,
-                                    space.wrap(jitdriver.name),
-                                    wrap_greenkey(space, jitdriver, greenkey),
-                                    space.wrap(counter_names[reason]))
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
-            cache.in_recursion = False
+                try:
+                    space.call_function(cache.w_abort_hook,
+                                        space.wrap(jitdriver.name),
+                                        wrap_greenkey(space, jitdriver, greenkey),
+                                        space.wrap(counter_names[reason]))
+                except OperationError, e:
+                    e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
+            finally:
+                cache.in_recursion = False
 
     def after_compile(self, jitdriver, logger, looptoken, operations, type,
                       greenkey, ops_offset, asmstart, asmlen):
@@ -56,16 +58,18 @@ class PyPyPortal(JitPortal):
             list_w = wrap_oplist(space, logops, operations, ops_offset)
             cache.in_recursion = True
             try:
-                space.call_function(cache.w_compile_hook,
-                                    space.wrap(jitdriver.name),
-                                    space.wrap(type),
-                                    w_arg,
-                                    space.newlist(list_w),
-                                    space.wrap(asmstart),
-                                    space.wrap(asmlen))
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            cache.in_recursion = False
+                try:
+                    space.call_function(cache.w_compile_hook,
+                                        space.wrap(jitdriver.name),
+                                        space.wrap(type),
+                                        w_arg,
+                                        space.newlist(list_w),
+                                        space.wrap(asmstart),
+                                        space.wrap(asmlen))
+                except OperationError, e:
+                    e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            finally:
+                cache.in_recursion = False
 
     def _optimize_hook(self, jitdriver, logger, operations, type, w_arg):
         space = self.space
@@ -77,26 +81,28 @@ class PyPyPortal(JitPortal):
             list_w = wrap_oplist(space, logops, operations, {})
             cache.in_recursion = True
             try:
-                w_res = space.call_function(cache.w_optimize_hook,
-                                            space.wrap(jitdriver.name),
-                                            space.wrap(type),
-                                            w_arg,
-                                            space.newlist(list_w))
-                if space.is_w(w_res, space.w_None):
-                    cache.in_recursion = False
-                    return
-                l = []
-                for w_item in space.listview(w_res):
-                    item = space.interp_w(WrappedOp, w_item)
-                    l.append(jit_hooks._cast_to_resop(item.op))
-                del operations[:] # modifying operations above is probably not
-                # a great idea since types may not work and we'll end up with
-                # half-working list and a segfault/fatal RPython error
-                for elem in l:
-                    operations.append(elem)
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            cache.in_recursion = False
+                try:
+                    w_res = space.call_function(cache.w_optimize_hook,
+                                                space.wrap(jitdriver.name),
+                                                space.wrap(type),
+                                                w_arg,
+                                                space.newlist(list_w))
+                    if space.is_w(w_res, space.w_None):
+                        return
+                    l = []
+                    for w_item in space.listview(w_res):
+                        item = space.interp_w(WrappedOp, w_item)
+                        l.append(jit_hooks._cast_to_resop(item.op))
+                    del operations[:] # modifying operations above is
+                    # probably not a great idea since types may not work
+                    # and we'll end up with half-working list and
+                    # a segfault/fatal RPython error
+                    for elem in l:
+                        operations.append(elem)
+                except OperationError, e:
+                    e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            finally:
+                cache.in_recursion = False
 
 pypy_portal = PyPyPortal()
 
