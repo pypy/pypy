@@ -12,14 +12,16 @@ class TestJitHookInterface(LLJitMixin):
         reasons = []
         
         class MyJitIface(JitHookInterface):
-            def on_abort(self, reason, jitdriver, greenkey):
+            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
                 assert jitdriver is myjitdriver
                 assert len(greenkey) == 1
                 reasons.append(reason)
+                assert greenkey_repr == 'blah'
 
         iface = MyJitIface()
 
-        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'],
+                                get_printable_location=lambda *args: 'blah')
 
         class Foo:
             _immutable_fields_ = ['a?']

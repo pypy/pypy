@@ -15,6 +15,7 @@ from pypy.module.pypyjit.policy import pypy_hooks
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.typesystem import llhelper
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG
+from pypy.rlib.jit import JitDebugInfo, AsmInfo
 
 class MockJitDriverSD(object):
     class warmstate(object):
@@ -24,6 +25,9 @@ class MockJitDriverSD(object):
                                              boxes[2].getref_base())
             pycode = cast_base_ptr_to_instance(PyCode, ll_code)
             return pycode.co_name
+
+    jitdriver = pypyjitdriver
+
 
 class MockSD(object):
     class cpu(object):
@@ -47,7 +51,7 @@ class AppTestJitHook(object):
         code_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, ll_code)
         logger = Logger(MockSD())
 
-        cls.origoplist = parse("""
+        oplist = parse("""
         [i1, i2, p2]
         i3 = int_add(i1, i2)
         debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
@@ -56,35 +60,43 @@ class AppTestJitHook(object):
         """, namespace={'ptr0': code_gcref}).operations
         greenkey = [ConstInt(0), ConstInt(0), ConstPtr(code_gcref)]
         offset = {}
-        for i, op in enumerate(cls.origoplist):
+        for i, op in enumerate(oplist):
             if i != 1:
                offset[op] = i
 
+        di_loop = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
+                               oplist, 'loop', greenkey)
+        di_loop_optimize = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
+                                        oplist, 'loop', greenkey)
+        di_loop.asminfo = AsmInfo(offset, 0, 0)
+        di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
+                                 oplist, 'bridge', fail_descr_no=0)
+        di_bridge.asminfo = AsmInfo(offset, 0, 0)
+
         def interp_on_compile():
-            pypy_hooks.after_compile(pypyjitdriver, logger, JitCellToken(),
-                                      cls.oplist, 'loop', greenkey, offset,
-                                      0, 0)
+            di_loop.oplist = cls.oplist
+            pypy_hooks.after_compile(di_loop)
 
         def interp_on_compile_bridge():
-            pypy_hooks.after_compile_bridge(pypyjitdriver, logger,
-                                             JitCellToken(), cls.oplist, 0,
-                                             offset, 0, 0)
+            pypy_hooks.after_compile_bridge(di_bridge)
 
         def interp_on_optimize():
-            pypy_hooks.before_compile(pypyjitdriver, logger, JitCellToken(),
-                                       cls.oplist, 'loop', greenkey)
+            di_loop_optimize.oplist = cls.oplist
+            pypy_hooks.before_compile(di_loop_optimize)
 
         def interp_on_abort():
-            pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey)
+            pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey,
+                                'blah')
         
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
         cls.w_int_add_num = space.wrap(rop.INT_ADD)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
+        cls.orig_oplist = oplist
 
     def setup_method(self, meth):
-        self.__class__.oplist = self.origoplist
+        self.__class__.oplist = self.orig_oplist[:]
 
     def test_on_compile(self):
         import pypyjit

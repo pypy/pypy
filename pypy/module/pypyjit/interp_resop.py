@@ -19,8 +19,9 @@ class Cache(object):
         self.w_abort_hook = space.w_None
         self.w_optimize_hook = space.w_None
 
-def wrap_greenkey(space, jitdriver, greenkey):
-    if jitdriver.name == 'pypyjit':
+def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
+    jitdriver_name = jitdriver.name
+    if jitdriver_name == 'pypyjit':
         next_instr = greenkey[0].getint()
         is_being_profiled = greenkey[1].getint()
         ll_code = lltype.cast_opaque_ptr(lltype.Ptr(OBJECT),
@@ -29,7 +30,7 @@ def wrap_greenkey(space, jitdriver, greenkey):
         return space.newtuple([space.wrap(pycode), space.wrap(next_instr),
                                space.newbool(bool(is_being_profiled))])
     else:
-        return space.wrap('who knows?')
+        return space.wrap(greenkey_repr)
 
 def set_compile_hook(space, w_hook):
     """ set_compile_hook(hook)
@@ -106,7 +107,7 @@ def set_abort_hook(space, w_hook):
     cache.w_abort_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
-def wrap_oplist(space, logops, operations, ops_offset):
+def wrap_oplist(space, logops, operations, ops_offset=None):
     l_w = []
     for op in operations:
         if ops_offset is None:

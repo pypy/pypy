@@ -1796,7 +1796,7 @@ class MetaInterp(object):
         jd_sd = self.jitdriver_sd
         greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
         self.staticdata.warmrunnerdesc.hooks.on_abort(reason, jd_sd.jitdriver,
-                                                      greenkey)
+                           greenkey, jd_sd.warmstate.get_location_str(greenkey))
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):

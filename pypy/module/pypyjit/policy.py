@@ -7,7 +7,7 @@ from pypy.module.pypyjit.interp_resop import wrap_oplist, Cache, wrap_greenkey,\
      WrappedOp
 
 class PyPyJitIface(JitHookInterface):
-    def on_abort(self, reason, jitdriver, greenkey):
+    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
@@ -18,73 +18,75 @@ class PyPyJitIface(JitHookInterface):
                 try:
                     space.call_function(cache.w_abort_hook,
                                         space.wrap(jitdriver.name),
-                                        wrap_greenkey(space, jitdriver, greenkey),
+                                        wrap_greenkey(space, jitdriver,
+                                                      greenkey, greenkey_repr),
                                         space.wrap(counter_names[reason]))
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_abort_hook)
             finally:
                 cache.in_recursion = False
 
-    def after_compile(self, jitdriver, logger, looptoken, operations, type,
-                      greenkey, ops_offset, asmstart, asmlen):
-        self._compile_hook(jitdriver, logger, operations, type,
-                           ops_offset, asmstart, asmlen,
-                           wrap_greenkey(self.space, jitdriver, greenkey))
+    def after_compile(self, debug_info):
+        w_greenkey = wrap_greenkey(self.space, debug_info.get_jitdriver(),
+                                   debug_info.greenkey,
+                                   debug_info.get_greenkey_repr())
+        self._compile_hook(debug_info, w_greenkey)
 
-    def after_compile_bridge(self, jitdriver, logger, orig_looptoken,
-                             operations, n, ops_offset, asmstart, asmlen):
-        self._compile_hook(jitdriver, logger, operations, 'bridge',
-                           ops_offset, asmstart, asmlen,
-                           self.space.wrap(n))
+    def after_compile_bridge(self, debug_info):
+        self._compile_hook(debug_info,
+                           self.space.wrap(debug_info.fail_descr_no))
 
-    def before_compile(self, jitdriver, logger, looptoken, operations, type,
-                      greenkey):
-        self._optimize_hook(jitdriver, logger, operations, type,
-                            wrap_greenkey(self.space, jitdriver, greenkey))
+    def before_compile(self, debug_info):
+        w_greenkey = wrap_greenkey(self.space, debug_info.get_jitdriver(),
+                                   debug_info.greenkey,
+                                   debug_info.get_greenkey_repr())
+        self._optimize_hook(debug_info, w_greenkey)
 
-    def before_compile_bridge(self, jitdriver, logger, orig_looptoken,
-                              operations, n):
-        self._optimize_hook(jitdriver, logger, operations, 'bridge',
-                           self.space.wrap(n))
+    def before_compile_bridge(self, debug_info):
+        self._optimize_hook(debug_info,
+                            self.space.wrap(debug_info.fail_descr_no))
 
-    def _compile_hook(self, jitdriver, logger, operations, type,
-                      ops_offset, asmstart, asmlen, w_arg):
+    def _compile_hook(self, debug_info, w_arg):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
-            logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations, ops_offset)
+            logops = debug_info.logger._make_log_operations()
+            list_w = wrap_oplist(space, logops, debug_info.operations,
+                                 debug_info.asminfo.ops_offset)
             cache.in_recursion = True
             try:
                 try:
+                    jd_name = debug_info.get_jitdriver().name
+                    asminfo = debug_info.asminfo
                     space.call_function(cache.w_compile_hook,
-                                        space.wrap(jitdriver.name),
-                                        space.wrap(type),
+                                        space.wrap(jd_name),
+                                        space.wrap(debug_info.type),
                                         w_arg,
                                         space.newlist(list_w),
-                                        space.wrap(asmstart),
-                                        space.wrap(asmlen))
+                                        space.wrap(asminfo.asmaddr),
+                                        space.wrap(asminfo.asmlen))
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:
                 cache.in_recursion = False
 
-    def _optimize_hook(self, jitdriver, logger, operations, type, w_arg):
+    def _optimize_hook(self, debug_info, w_arg):
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
             return
         if space.is_true(cache.w_optimize_hook):
-            logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations, {})
+            logops = debug_info.logger._make_log_operations()
+            list_w = wrap_oplist(space, logops, debug_info.operations)
             cache.in_recursion = True
             try:
                 try:
+                    jd_name = debug_info.get_jitdriver().name
                     w_res = space.call_function(cache.w_optimize_hook,
-                                                space.wrap(jitdriver.name),
-                                                space.wrap(type),
+                                                space.wrap(jd_name),
+                                                space.wrap(debug_info.type),
                                                 w_arg,
                                                 space.newlist(list_w))
                     if space.is_w(w_res, space.w_None):
@@ -93,12 +95,12 @@ class PyPyJitIface(JitHookInterface):
                     for w_item in space.listview(w_res):
                         item = space.interp_w(WrappedOp, w_item)
                         l.append(jit_hooks._cast_to_resop(item.op))
-                    del operations[:] # modifying operations above is
+                    del debug_info.operations[:] # modifying operations above is
                     # probably not a great idea since types may not work
                     # and we'll end up with half-working list and
                     # a segfault/fatal RPython error
                     for elem in l:
-                        operations.append(elem)
+                        debug_info.operations.append(elem)
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:
