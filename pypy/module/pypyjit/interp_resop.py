@@ -107,9 +107,15 @@ def set_abort_hook(space, w_hook):
     cache.in_recursion = NonConstant(False)
 
 def wrap_oplist(space, logops, operations, ops_offset):
-    return [WrappedOp(jit_hooks._cast_to_gcref(op),
-                      ops_offset.get(op, 0),
-                      logops.repr_of_resop(op)) for op in operations]
+    l_w = []
+    for op in operations:
+        if ops_offset is None:
+            ofs = -1
+        else:
+            ofs = ops_offset.get(op, 0)
+        l_w.append(WrappedOp(jit_hooks._cast_to_gcref(op), ofs,
+                             logops.repr_of_resop(op)))
+    return l_w
 
 class WrappedBox(Wrappable):
     """ A class representing a single box

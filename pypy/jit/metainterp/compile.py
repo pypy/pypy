@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib import rstack
+from pypy.rlib.jit import JitDebugInfo
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -307,32 +308,36 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 
     if metainterp_sd.warmrunnerdesc is not None:
         hooks = metainterp_sd.warmrunnerdesc.hooks
-        hooks.before_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                             original_jitcell_token, loop.operations, type,
-                             greenkey)
+        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                  original_jitcell_token, loop.operations,
+                                  type, greenkey)
+        hooks.before_compile(debug_info)
     else:
+        debug_info = None
         hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        tp = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                            original_jitcell_token,
-                                            name=loopname)
-        ops_offset, asmstart, asmlen = tp
+        asminfo = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
+                                                  original_jitcell_token,
+                                                  name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
     if hooks is not None:
-        hooks.after_compile(jitdriver_sd.jitdriver, metainterp_sd.logger_ops,
-                             original_jitcell_token, loop.operations, type,
-                             greenkey, ops_offset, asmstart, asmlen)
+        debug_info.asminfo = asminfo
+        hooks.after_compile(debug_info)
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
     loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+    if asminfo is not None:
+        ops_offset = asminfo.ops_offset
+    else:
+        ops_offset = None
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
                                       type, ops_offset,
                                       name=loopname)
@@ -349,31 +354,34 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         TreeLoop.check_consistency_of_branch(operations, seen)
     if metainterp_sd.warmrunnerdesc is not None:
         hooks = metainterp_sd.warmrunnerdesc.hooks
-        hooks.before_compile_bridge(jitdriver_sd.jitdriver,
-                                     metainterp_sd.logger_ops,
-                                     original_loop_token, operations, n)
+        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                  original_loop_token, operations, 'bridge',
+                                  fail_descr_no=n)
+        hooks.before_compile_bridge(debug_info)
     else:
         hooks = None
+        debug_info = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        tp = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                              original_loop_token)
-        ops_offset, asmstart, asmlen = tp
+        asminfo = metainterp_sd.cpu.compile_bridge(faildescr, inputargs,
+                                                   operations,
+                                                   original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
     if hooks is not None:
-        hooks.after_compile_bridge(jitdriver_sd.jitdriver,
-                                   metainterp_sd.logger_ops,
-                                   original_loop_token, operations, n,
-                                   ops_offset,
-                                   asmstart, asmlen)
+        debug_info.asminfo = asminfo
+        hooks.after_compile_bridge(debug_info)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")
     #
+    if asminfo is not None:
+        ops_offset = asminfo.ops_offset
+    else:
+        ops_offset = None
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests

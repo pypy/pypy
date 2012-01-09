@@ -725,72 +725,104 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
+class AsmInfo(object):
+    """ An addition to JitDebugInfo concerning assembler. Attributes:
+    
+    ops_offset - dict of offsets of operations or None
+    asmaddr - (int) raw address of assembler block
+    asmlen - assembler block length
+    """
+    def __init__(self, ops_offset, asmaddr, asmlen):
+        self.ops_offset = ops_offset
+        self.asmaddr = asmaddr
+        self.asmlen = asmlen
+
+class JitDebugInfo(object):
+    """ An object representing debug info. Attributes meanings:
+
+    greenkey - a list of green boxes or None for bridge
+    logger - an instance of jit.metainterp.logger.LogOperations
+    type - either 'loop', 'entry bridge' or 'bridge'
+    looptoken - description of a loop
+    fail_descr_no - number of failing descr for bridges, -1 otherwise
+    asminfo - extra assembler information
+    """
+
+    asminfo = None
+    def __init__(self, jitdriver_sd, logger, looptoken, operations, type,
+                 greenkey=None, fail_descr_no=-1):
+        self.jitdriver_sd = jitdriver_sd
+        self.logger = logger
+        self.looptoken = looptoken
+        self.operations = operations
+        self.type = type
+        if type == 'bridge':
+            assert fail_descr_no != -1
+        else:
+            assert greenkey is not None
+        self.greenkey = greenkey
+        self.fail_descr_no = fail_descr_no
+
+    def get_jitdriver(self):
+        """ Return where the jitdriver on which the jitting started
+        """
+        return self.jitdriver_sd.jitdriver
+
+    def get_greenkey_repr(self):
+        """ Return the string repr of a greenkey
+        """
+        return self.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+
 class JitHookInterface(object):
     """ This is the main connector between the JIT and the interpreter.
     Several methods on this class will be invoked at various stages
     of JIT running like JIT loops compiled, aborts etc.
     An instance of this class will be available as policy.jithookiface.
-
-    each hook will accept some of the following args:
-
-    
-    greenkey - a list of green boxes
-    jitdriver - an instance of jitdriver where tracing started
-    logger - an instance of jit.metainterp.logger.LogOperations
-    ops_offset
-    asmaddr - (int) raw address of assembler block
-    asmlen - assembler block length
-    type - either 'loop' or 'entry bridge'    
     """
     def on_abort(self, reason, jitdriver, greenkey):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
         """
 
-    #def before_optimize(self, jitdriver, logger, looptoken, operations,
-    #                    type, greenkey):
-    #    """ A hook called before optimizer is run, args described in class
-    #    docstring. Overwrite for custom behavior
+    #def before_optimize(self, debug_info):
+    #    """ A hook called before optimizer is run, called with instance of
+    #    JitDebugInfo. Overwrite for custom behavior
     #    """
     # DISABLED
 
-    def before_compile(self, jitdriver, logger, looptoken, operations, type,
-                       greenkey):
+    def before_compile(self, debug_info):
         """ A hook called after a loop is optimized, before compiling assembler,
-        args described ni class docstring. Overwrite for custom behavior
+        called with JitDebugInfo instance. Overwrite for custom behavior
         """
 
-    def after_compile(self, jitdriver, logger, looptoken, operations, type,
-                      greenkey, ops_offset, asmaddr, asmlen):
+    def after_compile(self, debug_info):
         """ A hook called after a loop has compiled assembler,
-        args described in class docstring. Overwrite for custom behavior
+        called with JitDebugInfo instance. Overwrite for custom behavior
         """
 
-    #def before_optimize_bridge(self, jitdriver, logger, orig_looptoken,
+    #def before_optimize_bridge(self, debug_info):
     #                           operations, fail_descr_no):
     #    """ A hook called before a bridge is optimized.
-    #    Args described in class docstring, Overwrite for
+    #    Called with JitDebugInfo instance, overwrite for
     #    custom behavior
     #    """
     # DISABLED
 
-    def before_compile_bridge(self, jitdriver, logger, orig_looptoken,
-                              operations, fail_descr_no):
+    def before_compile_bridge(self, debug_info):
         """ A hook called before a bridge is compiled, but after optimizations
-        are performed. Args described in class docstring, Overwrite for
+        are performed. Called with instance of debug_info, overwrite for
         custom behavior
         """
 
-    def after_compile_bridge(self, jitdriver, logger, orig_looptoken,
-                             operations, fail_descr_no, ops_offset, asmaddr,
-                             asmlen):
-        """ A hook called after a bridge is compiled, args described in class
-        docstring, Overwrite for custom behavior
+    def after_compile_bridge(self, debug_info):
+        """ A hook called after a bridge is compiled, called with JitDebugInfo
+        instance, overwrite for custom behavior
         """
 
     def get_stats(self):
         """ Returns various statistics
         """
+        raise NotImplementedError
 
 def record_known_class(value, cls):
     """

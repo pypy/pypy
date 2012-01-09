@@ -141,7 +141,6 @@ class BaseCPU(model.AbstractCPU):
         self._compile_loop_or_bridge(c, inputargs, operations, clt)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
-        return None, 0, 0
 
     def compile_loop(self, inputargs, operations, jitcell_token,
                      log=True, name=''):
@@ -156,7 +155,6 @@ class BaseCPU(model.AbstractCPU):
         clt.compiled_version = c
         jitcell_token.compiled_loop_token = clt
         self._compile_loop_or_bridge(c, inputargs, operations, clt)
-        return None, 0, 0
 
     def free_loop_and_bridges(self, compiled_loop_token):
         for c in compiled_loop_token.loop_and_bridges:

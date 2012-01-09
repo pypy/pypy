@@ -45,22 +45,18 @@ class TestJitHookInterface(LLJitMixin):
         called = []
         
         class MyJitIface(JitHookInterface):
-            def after_compile(self, jitdriver, logger, looptoken, operations,
-                              type, greenkey, ops_offset, asmaddr, asmlen):
-                assert asmaddr == 0
-                assert asmlen == 0
-                called.append(("compile", greenkey[1].getint(),
-                               greenkey[0].getint(), type))
+            def after_compile(self, di):
+                called.append(("compile", di.greenkey[1].getint(),
+                               di.greenkey[0].getint(), di.type))
 
-            def before_compile(self, jitdriver, logger, looptoken, oeprations,
-                               type, greenkey):
-                called.append(("optimize", greenkey[1].getint(),
-                               greenkey[0].getint(), type))
+            def before_compile(self, di):
+                called.append(("optimize", di.greenkey[1].getint(),
+                               di.greenkey[0].getint(), di.type))
 
-            def before_optimize(self, jitdriver, logger, looptoken, oeprations,
-                               type, greenkey):
-                called.append(("trace", greenkey[1].getint(),
-                               greenkey[0].getint(), type))
+            #def before_optimize(self, jitdriver, logger, looptoken, oeprations,
+            #                   type, greenkey):
+            #    called.append(("trace", greenkey[1].getint(),
+            #                   greenkey[0].getint(), type))
 
         iface = MyJitIface()
 
@@ -89,18 +85,13 @@ class TestJitHookInterface(LLJitMixin):
         called = []
         
         class MyJitIface(JitHookInterface):
-            def after_compile(self, jitdriver, logger, looptoken, operations,
-                           type, greenkey, ops_offset, asmaddr, asmlen):
-                assert asmaddr == 0
-                assert asmlen == 0
+            def after_compile(self, di):
                 called.append("compile")
 
-            def after_compile_bridge(self, jitdriver, logger, orig_token,
-                                     operations, n, ops_offset, asmstart, asmlen):
+            def after_compile_bridge(self, di):
                 called.append("compile_bridge")
 
-            def before_compile_bridge(self, jitdriver, logger, orig_token,
-                                     operations, n):
+            def before_compile_bridge(self, di):
                 called.append("before_compile_bridge")
             
         driver = JitDriver(greens = ['n', 'm'], reds = ['i'])

@@ -7,6 +7,7 @@ from pypy.jit.metainterp.history import JitCellToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, _valid_addressing_size)
@@ -477,8 +478,8 @@ class Assembler386(object):
             name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, full_size)
-        return (ops_offset, rawstart + looppos,
-                size_excluding_failure_stuff - looppos)
+        return AsmInfo(ops_offset, rawstart + looppos,
+                       size_excluding_failure_stuff - looppos)
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                         original_loop_token, log):
@@ -492,7 +493,7 @@ class Assembler386(object):
         except ValueError:
             debug_print("Bridge out of guard", descr_number,
                         "was already compiled!")
-            raise
+            return
 
         self.setup(original_loop_token)
         if log:
@@ -540,7 +541,7 @@ class Assembler386(object):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        return ops_offset, startpos + rawstart, codeendpos - startpos
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
