@@ -63,6 +63,7 @@ class W_BaseSetObject(W_Object):
 
     # _____________ strategy methods ________________
 
+
     def clear(self):
         """ Removes all elements from the set. """
         self.strategy.clear(self)
@@ -86,6 +87,14 @@ class W_BaseSetObject(W_Object):
     def getdict_w(self):
         """ Returns a dict with all elements of the set. Needed only for switching to ObjectSetStrategy. """
         return self.strategy.getdict_w(self)
+
+    def listview_str(self):
+        """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
+        return self.strategy.listview_str(self)
+
+    def listview_int(self):
+        """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
+        return self.strategy.listview_int(self)
 
     def get_storage_copy(self):
         """ Returns a copy of the storage. Needed when we want to clone all elements from one set and
@@ -188,6 +197,12 @@ class SetStrategy(object):
     def get_empty_storage(self):
         """ Returns an empty storage (erased) object. Used to initialize an empty set."""
         raise NotImplementedError
+
+    def listview_str(self, w_set):
+        return None
+
+    def listview_int(self, w_set):
+        return None
 
     #def erase(self, storage):
     #    raise NotImplementedError
@@ -694,6 +709,9 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def get_empty_dict(self):
         return {}
 
+    def listview_str(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
+
     def is_correct_type(self, w_key):
         return type(w_key) is W_StringObject
 
@@ -723,6 +741,9 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def get_empty_dict(self):
         return {}
+
+    def listview_int(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
         from pypy.objspace.std.intobject import W_IntObject

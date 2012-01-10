@@ -438,11 +438,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def listview_str(self, w_obj):
         if isinstance(w_obj, W_ListObject):
             return w_obj.getitems_str()
+        if isinstance(w_obj, W_SetObject):
+            return w_obj.listview_str()
         return None
 
     def listview_int(self, w_obj):
         if isinstance(w_obj, W_ListObject):
             return w_obj.getitems_int()
+        if isinstance(w_obj, W_SetObject):
+            return w_obj.listview_int()
         return None
 
     def sliceindices(self, w_slice, w_length):
