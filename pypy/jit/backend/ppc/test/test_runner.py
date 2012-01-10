@@ -26,7 +26,7 @@ class TestPPC(LLtypeBackendTest):
         py.test.skip("unsure what to do here")
 
     def test_compile_loop_many_int_args(self):
-        for numargs in range(1, 16):
+        for numargs in range(2, 16):
             for _ in range(numargs):
                 self.cpu.reserve_some_free_fail_descr_number()
             ops = []
