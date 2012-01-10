@@ -691,6 +691,7 @@ class AbstractUnwrappedStrategy(object):
             for i in l:
                 if i == obj:
                     return True
+            return False
         return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
