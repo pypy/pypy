@@ -88,11 +88,11 @@ class StackLocation(AssemblerLocation):
 
     def __init__(self, position, num_words=1, type=INT):
         self.position = position
-        self.width = num_words * WORD
         self.type = type
+        self.value = get_spp_offset(position)
 
     def __repr__(self):
-        return 'FP(%s)+%d' % (self.type, self.position,)
+        return 'SPP(%s)+%d' % (self.type, self.value)
 
     def location_code(self):
         return 'b'
@@ -108,3 +108,9 @@ class StackLocation(AssemblerLocation):
 
 def imm(val):
     return ImmLocation(val)
+
+def get_spp_offset(pos):
+    if pos < 0:
+        return -pos * WORD
+    else:
+        return -(pos + 1) * WORD

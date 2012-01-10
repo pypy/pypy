@@ -711,14 +711,14 @@ class AssemblerPPC(OpAssembler):
             # move immediate value to memory
             elif loc.is_stack():
                 self.mc.alloc_scratch_reg()
-                offset = loc.as_key() * WORD
+                offset = loc.value
                 self.mc.load_imm(r.SCRATCH.value, value)
                 self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
                 self.mc.free_scratch_reg()
                 return
             assert 0, "not supported location"
         elif prev_loc.is_stack():
-            offset = prev_loc.as_key() * WORD
+            offset = prev_loc.value
             # move from memory to register
             if loc.is_reg():
                 reg = loc.as_key()
@@ -726,7 +726,7 @@ class AssemblerPPC(OpAssembler):
                 return
             # move in memory
             elif loc.is_stack():
-                target_offset = loc.as_key() * WORD
+                target_offset = loc.value
                 self.mc.alloc_scratch_reg()
                 self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
                 self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
@@ -742,7 +742,7 @@ class AssemblerPPC(OpAssembler):
                 return
             # move to memory
             elif loc.is_stack():
-                offset = loc.as_key() * WORD
+                offset = loc.value
                 self.mc.store(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
