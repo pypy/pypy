@@ -1,6 +1,6 @@
 import sys
 from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat
 from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -59,6 +59,11 @@ class TestFromAppLevel(object):
         space = self.space
         self.check(app_types.char, space.wrap('a'), ord('a'))
         self.check(app_types.unichar, space.wrap(u'\u1234'), 0x1234)
+
+    def test_float_and_double(self):
+        space = self.space
+        self.check(app_types.float, space.wrap(12.34), r_singlefloat(12.34))
+        self.check(app_types.double, space.wrap(12.34), 12.34)
 
     def test_pointer(self):
         # pointers are "unsigned" at applevel, but signed at interp-level (for
