@@ -39,6 +39,7 @@ from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.jit.backend.ppc.ppcgen.locations import StackLocation
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -757,7 +758,7 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert not self.stack_in_use
-            target = StackLocation(self.ENCODING_AREA) # write to force index field           
+            target = StackLocation(self.ENCODING_AREA // WORD) # write to ENCODING AREA           
             self.regalloc_mov(loc, target)
             self.stack_in_use = True
         elif loc.is_reg():
@@ -782,7 +783,7 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert self.stack_in_use
-            from_loc = StackLocation(self.ENCODING_AREA)
+            from_loc = StackLocation(self.ENCODING_AREA // WORD) # read from ENCODING AREA
             self.regalloc_mov(from_loc, loc)
             self.stack_in_use = False
         elif loc.is_reg():
