@@ -1035,26 +1035,26 @@ def init__List(space, w_list, __args__):
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
-    w_list.__init__(space, [])
     if w_iterable is not None:
-        # unfortunately this is duplicating space.unpackiterable to avoid
-        # assigning a new RPython list to 'wrappeditems', which defeats the
-        # W_FastListIterObject optimization.
         if isinstance(w_iterable, W_ListObject):
-            w_list.extend(w_iterable)
+            w_iterable.copy_into(w_list)
+            return
         elif isinstance(w_iterable, W_TupleObject):
-            w_list.extend(W_ListObject(space, w_iterable.wrappeditems[:]))
-        else:
-            _init_from_iterable(space, w_list, w_iterable)
+            W_ListObject(space, w_iterable.wrappeditems[:]).copy_into(w_list)
+            return
+        w_list.__init__(space, [])
+        # xxx special hack for speed
+        from pypy.interpreter.generator import GeneratorIterator
+        if isinstance(w_iterable, GeneratorIterator):
+            w_iterable.unpack_into_w(w_list)
+            return
+        # /xxx
+        _init_from_iterable(space, w_list, w_iterable)
+    else:
+        w_list.__init__(space, [])
 
 def _init_from_iterable(space, w_list, w_iterable):
     # in its own function to make the JIT look into init__List
-    # xxx special hack for speed
-    from pypy.interpreter.generator import GeneratorIterator
-    if isinstance(w_iterable, GeneratorIterator):
-        w_iterable.unpack_into_w(w_list)
-        return
-    # /xxx
     w_iterator = space.iter(w_iterable)
     while True:
         try:
