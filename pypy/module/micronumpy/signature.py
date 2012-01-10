@@ -147,6 +147,7 @@ class ArraySignature(ConcreteSignature):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
         assert isinstance(concr, ConcreteArray)
+        assert concr.dtype is self.dtype
         self.array_no = _add_ptr_to_cache(concr.storage, cache)
 
     def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
@@ -168,6 +169,7 @@ class ArraySignature(ConcreteSignature):
 
     def eval(self, frame, arr):
         iter = frame.iterators[self.iter_no]
+        assert arr.dtype is self.dtype
         return self.dtype.getitem(frame.arrays[self.array_no], iter.offset)
 
 class ScalarSignature(ConcreteSignature):
@@ -346,10 +348,20 @@ class ReduceSignature(Call2):
         self.right._invent_numbering(cache, allnumbers)
 
     def _invent_array_numbering(self, arr, cache):
-        self.right._invent_array_numbering(arr, cache)
+        #Could be called with arr as output or arr as input.
+        from pypy.module.micronumpy.interp_numarray import Reduce
+        if isinstance(arr, Reduce):
+            self.left._invent_array_numbering(arr, cache)
+        else:
+            self.right._invent_array_numbering(arr, cache)
 
     def eval(self, frame, arr):
-        return self.right.eval(frame, arr)
+        #Could be called with arr as output or arr as input.
+        from pypy.module.micronumpy.interp_numarray import Reduce
+        if isinstance(arr, Reduce):
+            return self.left.eval(frame, arr)
+        else: 
+            return self.right.eval(frame, arr)
 
     def debug_repr(self):
         return 'ReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),

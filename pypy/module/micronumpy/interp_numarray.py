@@ -575,8 +575,12 @@ class BaseArray(Wrappable):
     def descr_mean(self, space, w_dim=None):
         if space.is_w(w_dim, space.w_None):
             w_dim = space.wrap(-1)
-        return space.div(self.descr_sum_promote(space, w_dim),
-                                                      space.wrap(self.size))
+        dim = space.int_w(w_dim)
+        if dim < 0:
+            w_denom = space.wrap(self.size)
+        else:
+            w_denom = space.wrap(self.shape[dim])
+        return space.div(self.descr_sum_promote(space, w_dim), w_denom)
 
     def descr_nonzero(self, space):
         if self.size > 1:
@@ -777,7 +781,7 @@ class Reduce(VirtualArray):
         if self.forced_result is not None:
             return self.forced_result.create_sig(res_shape)
         return signature.ReduceSignature(self.binfunc, self.name, self.dtype,
-                                        signature.ScalarSignature(self.dtype),
+                                        signature.ViewSignature(self.dtype),
                                         self.values.create_sig(res_shape))
 
     def get_identity(self, sig, frame, shapelen):
