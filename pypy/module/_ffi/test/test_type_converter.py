@@ -1,6 +1,7 @@
 import sys
 from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong
+from pypy.rlib.libffi import IS_32_BIT
 from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -59,6 +60,16 @@ class TestFromAppLevel(object):
         space = self.space
         self.check(app_types.char, space.wrap('a'), ord('a'))
         self.check(app_types.unichar, space.wrap(u'\u1234'), 0x1234)
+
+    def test_signed_longlong(self):
+        space = self.space
+        maxint32 = 2147483647 # we cannot really go above maxint on 64 bits
+                              # (and we would not test anything, as there long
+                              # is the same as long long)
+        expected = maxint32+1
+        if IS_32_BIT:
+            expected = r_longlong(expected)
+        self.check(app_types.slonglong, space.wrap(maxint32+1), expected)
 
     def test_float_and_double(self):
         space = self.space
