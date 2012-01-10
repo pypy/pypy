@@ -1,6 +1,6 @@
 import sys
 from pypy.conftest import gettestobjspace
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.libffi import IS_32_BIT
 from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
@@ -70,6 +70,19 @@ class TestFromAppLevel(object):
         if IS_32_BIT:
             expected = r_longlong(expected)
         self.check(app_types.slonglong, space.wrap(maxint32+1), expected)
+
+    def test_unsigned_longlong(self):
+        space = self.space
+        maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
+                                       # longlong, but it does into a
+                                       # ulonglong
+        if IS_32_BIT:
+            # internally, the type converter always casts to signed longlongs
+            expected = r_longlong(-maxint64-1)
+        else:
+            # on 64 bit, ulonglong == uint (i.e., unsigned long in C terms)
+            expected = r_uint(maxint64+1)
+        self.check(app_types.ulonglong, space.wrap(maxint64+1), expected)
 
     def test_float_and_double(self):
         space = self.space
