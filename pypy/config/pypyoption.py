@@ -237,7 +237,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
 
         BoolOption("withstrbuf", "use strings optimized for addition (ver 2)",
-                   default=False),
+                   default=True),
 
         BoolOption("withprebuiltchar",
                    "use prebuilt single-character string objects",
