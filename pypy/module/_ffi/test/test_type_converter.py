@@ -45,11 +45,14 @@ class TestFromAppLevel(object):
         self.check(app_types.sint, self.space.wrap(sys.maxint+1), -sys.maxint-1)
         self.check(app_types.sint, self.space.wrap(sys.maxint*2), -2)
 
-    def test_uint(self):
-        self.check(app_types.uint, self.space.wrap(42), r_uint(42))
-        self.check(app_types.uint, self.space.wrap(-1), r_uint(sys.maxint*2 +1))
-        self.check(app_types.uint, self.space.wrap(sys.maxint*3),
+    def test_unsigned(self):
+        space = self.space
+        self.check(app_types.uint, space.wrap(42), r_uint(42))
+        self.check(app_types.uint, space.wrap(-1), r_uint(sys.maxint*2 +1))
+        self.check(app_types.uint, space.wrap(sys.maxint*3),
                    r_uint(sys.maxint - 2))
+        self.check(app_types.ulong, space.wrap(sys.maxint+12),
+                   r_uint(sys.maxint+12))
 
     def test_pointer(self):
         # pointers are "unsigned" at applevel, but signed at interp-level (for
