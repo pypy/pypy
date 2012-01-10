@@ -932,11 +932,11 @@ class ForceOpAssembler(object):
         self._write_fail_index(fail_index)
 
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         # XXX check this
-        assert op.numargs() == len(descr._ppc_arglocs[0])
+        #assert op.numargs() == len(descr._ppc_arglocs[0])
         resbox = TempInt()
-        self._emit_call(fail_index, descr._ppc_direct_bootstrap_code, op.getarglist(),
+        self._emit_call(fail_index, descr._ppc_func_addr, op.getarglist(),
                                 regalloc, result=resbox)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v

@@ -877,10 +877,11 @@ class Regalloc(object):
 
     def prepare_guard_call_assembler(self, op, guard_op):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        #size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        size = jd.portal_calldescr.get_result_size()
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self._sync_var(op.getarg(vable_index))
