@@ -282,7 +282,8 @@ class AssemblerPPC(OpAssembler):
 
         mc = PPCBuilder()
         with Saved_Volatiles(mc):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
+                    default_to_memoryerror=True)
             mc.call(addr)
 
         mc.load_imm(r.RES, self.cpu.propagate_exception_v)
