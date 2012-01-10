@@ -46,7 +46,8 @@ OPTIONS
     Print translation information about this PyPy executable.
 
 --jit *arg*
-    Low level JIT parameters. Format is *arg*\ ``=``\ *value*.
+    Low level JIT parameters. Format is
+    *arg*\ ``=``\ *value*\ [``,``\ *arg*\ ``=``\ *value*\ ...]
 
     ``off``
         Disable the JIT.
