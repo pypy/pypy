@@ -6,7 +6,7 @@ generates a contributor list
 import py
 
 # this file is useless, use the following commandline instead:
-# hg churn -c -t "{author}" | sed -e 's/ <.*//'
+# hg churn -c -t "{author}" | sed -e 's/ <.*//' | sed -e 's/[0-9]+//'
 
 try: 
     path = py.std.sys.argv[1]
