@@ -53,6 +53,12 @@ class TestFromAppLevel(object):
                    r_uint(sys.maxint - 2))
         self.check(app_types.ulong, space.wrap(sys.maxint+12),
                    r_uint(sys.maxint+12))
+        self.check(app_types.ulong, space.wrap(sys.maxint*2+3), r_uint(1))
+
+    def test_char(self):
+        space = self.space
+        self.check(app_types.char, space.wrap('a'), ord('a'))
+        self.check(app_types.unichar, space.wrap(u'\u1234'), 0x1234)
 
     def test_pointer(self):
         # pointers are "unsigned" at applevel, but signed at interp-level (for
