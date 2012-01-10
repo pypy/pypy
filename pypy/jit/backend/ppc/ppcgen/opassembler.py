@@ -466,7 +466,6 @@ class MiscOpAssembler(object):
         self.mc.call(adr)
 
         self.mark_gc_roots(force_index)
-        regalloc.possibly_free_vars(args)
 
         # restore the arguments stored on the stack
         if result is not None:
