@@ -91,7 +91,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             assert descr.exported_state is None 
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
-            op._descr = None    # clear reference to prevent the history.Stats
+            op.setdescr(None)    # clear reference to prevent the history.Stats
                                 # from keeping the loop alive during tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
