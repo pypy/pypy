@@ -169,7 +169,6 @@ class ArraySignature(ConcreteSignature):
 
     def eval(self, frame, arr):
         iter = frame.iterators[self.iter_no]
-        assert arr.dtype is self.dtype
         return self.dtype.getitem(frame.arrays[self.array_no], iter.offset)
 
 class ScalarSignature(ConcreteSignature):
@@ -326,43 +325,49 @@ class Call2(Signature):
         return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
                                       self.right.debug_repr())
 
+
 class ReduceSignature(Call2):
     def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
-        if dim < 0:
-            self.right._create_iter(iterlist, arraylist, arr, res_shape,
+        self.right._create_iter(iterlist, arraylist, arr, res_shape,
                                     chunklist, dim)
-        else:
-            from pypy.module.micronumpy.interp_numarray import ConcreteArray
-            concr = arr.get_concrete()
-            assert isinstance(concr, ConcreteArray)
-            storage = concr.storage
-            if self.iter_no >= len(iterlist):
-                _iter = axis_iter_from_arr(concr, dim)
-                from interp_iter import AxisIterator
-                assert isinstance(_iter, AxisIterator)
-                iterlist.append(_iter)
-            if self.array_no >= len(arraylist):
-                arraylist.append(storage)
 
     def _invent_numbering(self, cache, allnumbers):
         self.right._invent_numbering(cache, allnumbers)
 
     def _invent_array_numbering(self, arr, cache):
-        #Could be called with arr as output or arr as input.
-        from pypy.module.micronumpy.interp_numarray import Reduce
-        if isinstance(arr, Reduce):
-            self.left._invent_array_numbering(arr, cache)
-        else:
-            self.right._invent_array_numbering(arr, cache)
+        self.right._invent_array_numbering(arr, cache)
 
     def eval(self, frame, arr):
-        #Could be called with arr as output or arr as input.
-        from pypy.module.micronumpy.interp_numarray import Reduce
-        if isinstance(arr, Reduce):
-            return self.left.eval(frame, arr)
-        else: 
-            return self.right.eval(frame, arr)
+        return self.right.eval(frame, arr)
 
     def debug_repr(self):
         return 'ReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),
                                           self.right.debug_repr())
+
+class AxisReduceSignature(Call2):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+        from pypy.module.micronumpy.interp_numarray import ConcreteArray
+        concr = arr.get_concrete()
+        assert isinstance(concr, ConcreteArray)
+        storage = concr.storage
+        if self.iter_no >= len(iterlist):
+            _iter = axis_iter_from_arr(concr, dim)
+            from interp_iter import AxisIterator
+            assert isinstance(_iter, AxisIterator)
+            iterlist.append(_iter)
+        if self.array_no >= len(arraylist):
+            arraylist.append(storage)
+
+    def _invent_numbering(self, cache, allnumbers):
+        self.right._invent_numbering(cache, allnumbers)
+
+    def _invent_array_numbering(self, arr, cache):
+        self.right._invent_array_numbering(arr, cache)
+
+    def eval(self, frame, arr):
+        return self.right.eval(frame, arr)
+
+    def debug_repr(self):
+        return 'AxisReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),
+                                          self.right.debug_repr())
+
