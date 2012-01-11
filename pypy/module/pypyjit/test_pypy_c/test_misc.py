@@ -46,7 +46,7 @@ class TestMisc(BaseTestPyPyC):
                 r *= n
                 n -= 1
             return r
-        log = self.run(fact, [7], threshold=5)
+        log = self.run(fact, [7], threshold=4)
         assert log.result == 5040
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -204,18 +204,18 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i14 = getfield_gc(p12, descr=<SignedFieldDescr list.length .*>)
+            i14 = getfield_gc(p12, descr=<FieldS list.length .*>)
             i16 = uint_ge(i12, i14)
             guard_false(i16, descr=...)
-            p16 = getfield_gc(p12, descr=<GcPtrFieldDescr list.items .*>)
-            p17 = getarrayitem_gc(p16, i12, descr=<GcPtrArrayDescr>)
+            p16 = getfield_gc(p12, descr=<FieldP list.items .*>)
+            p17 = getarrayitem_gc(p16, i12, descr=<ArrayP .>)
             i19 = int_add(i12, 1)
-            setfield_gc(p9, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
+            setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, 146982464, descr=...)
-            i21 = getfield_gc(p17, descr=<SignedFieldDescr .*W_ArrayTypei.inst_len .*>)
+            i21 = getfield_gc(p17, descr=<FieldS .*W_ArrayTypei.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc(p17, descr=<NonGcPtrFieldDescr .*W_ArrayTypei.inst_buffer .*>)
+            i24 = getfield_gc(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
             i25 = getarrayitem_raw(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)

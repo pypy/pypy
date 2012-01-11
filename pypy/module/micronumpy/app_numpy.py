@@ -1,6 +1,6 @@
 import math
 
-import numpypy
+import _numpypy
 
 
 inf = float("inf")
@@ -14,29 +14,29 @@ def average(a):
     return mean(a)
 
 def identity(n, dtype=None):
-    a = numpypy.zeros((n,n), dtype=dtype)
+    a = _numpypy.zeros((n,n), dtype=dtype)
     for i in range(n):
         a[i][i] = 1
     return a
 
 def mean(a):
     if not hasattr(a, "mean"):
-        a = numpypy.array(a)
+        a = _numpypy.array(a)
     return a.mean()
 
 def sum(a):
     if not hasattr(a, "sum"):
-        a = numpypy.array(a)
+        a = _numpypy.array(a)
     return a.sum()
 
 def min(a):
     if not hasattr(a, "min"):
-        a = numpypy.array(a)
+        a = _numpypy.array(a)
     return a.min()
 
 def max(a):
     if not hasattr(a, "max"):
-        a = numpypy.array(a)
+        a = _numpypy.array(a)
     return a.max()
 
 def arange(start, stop=None, step=1, dtype=None):
@@ -47,13 +47,12 @@ def arange(start, stop=None, step=1, dtype=None):
         stop = start
         start = 0
     if dtype is None:
-        test = numpypy.array([start, stop, step, 0])
+        test = _numpypy.array([start, stop, step, 0])
         dtype = test.dtype
-    arr = numpypy.zeros(int(math.ceil((stop - start) / step)), dtype=dtype)
+    arr = _numpypy.zeros(int(math.ceil((stop - start) / step)), dtype=dtype)
     i = start
     for j in range(arr.size):
         arr[j] = i
-        j += 1
         i += step
     return arr
 
@@ -91,5 +90,5 @@ def reshape(a, shape):
     you should assign the new shape to the shape attribute of the array
 '''
     if not hasattr(a, 'reshape'):
-        a = numpypy.array(a)
+        a = _numpypy.array(a)
     return a.reshape(shape)

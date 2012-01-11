@@ -275,3 +275,52 @@ def test_make_jitdriver_callbacks_5():
     state.make_jitdriver_callbacks()
     res = state.can_never_inline(5, 42.5)
     assert res is True
+
+def test_cleanup_jitcell_dict():
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed]
+    #
+    # Test creating tons of jitcells that remain at 0
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell1 = get_jitcell(True, -1)
+    assert len(warmstate._jitcell_dict) == 1
+    #
+    for i in range(1, 20005):
+        get_jitcell(True, i)     # should trigger a clean-up at 20001
+        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
+    #
+    # Same test, with one jitcell that has a counter of BASE instead of 0
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell2 = get_jitcell(True, -2)
+    cell2.counter = BASE = warmstate.THRESHOLD_LIMIT // 2    # 50%
+    #
+    for i in range(0, 20005):
+        get_jitcell(True, i)
+        assert len(warmstate._jitcell_dict) == (i % 19999) + 2
+    #
+    assert cell2 in warmstate._jitcell_dict.values()
+    assert cell2.counter == int(BASE * 0.92)   # decayed once
+    #
+    # Same test, with jitcells that are compiled and freed by the memmgr
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    get_jitcell(True, -1)
+    #
+    for i in range(1, 20005):
+        cell = get_jitcell(True, i)
+        cell.counter = -1
+        cell.wref_procedure_token = None    # or a dead weakref, equivalently
+        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
+    #
+    # Same test, with counter == -2 (rare case, kept alive)
+    warmstate = WarmEnterState(None, FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell = get_jitcell(True, -1)
+    cell.counter = -2
+    #
+    for i in range(1, 20005):
+        cell = get_jitcell(True, i)
+        cell.counter = -2
+        assert len(warmstate._jitcell_dict) == i + 1

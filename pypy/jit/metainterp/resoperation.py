@@ -16,15 +16,13 @@ class AbstractResOp(object):
     # debug
     name = ""
     pc = 0
+    opnum = 0
 
     def __init__(self, result):
         self.result = result
 
-    # methods implemented by each concrete class
-    # ------------------------------------------
-
     def getopnum(self):
-        raise NotImplementedError
+        return self.opnum
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -508,6 +506,8 @@ _oplist = [
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
+    'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
+    'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
@@ -588,12 +588,9 @@ def create_class_for_op(name, opnum, arity, withdescr):
         baseclass = PlainResOp
     mixin = arity2mixin.get(arity, N_aryOp)
 
-    def getopnum(self):
-        return opnum
-
     cls_name = '%s_OP' % name
     bases = (get_base_class(mixin, baseclass),)
-    dic = {'getopnum': getopnum}
+    dic = {'opnum': opnum}
     return type(cls_name, bases, dic)
 
 setup(__name__ == '__main__')   # print out the table when run directly

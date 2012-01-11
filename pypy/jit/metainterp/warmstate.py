@@ -151,6 +151,7 @@ class JitCell(BaseJitCell):
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
     dont_trace_here = False
+    extra_delay = chr(0)
     wref_procedure_token = None
 
     def get_procedure_token(self):
@@ -172,7 +173,6 @@ class JitCell(BaseJitCell):
 
 class WarmEnterState(object):
     THRESHOLD_LIMIT = sys.maxint // 2
-    default_jitcell_dict = None
 
     def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
@@ -316,6 +316,36 @@ class WarmEnterState(object):
             #
             assert 0, "should have raised"
 
+        def bound_reached(cell, *args):
+            # bound reached, but we do a last check: if it is the first
+            # time we reach the bound, or if another loop or bridge was
+            # compiled since the last time we reached it, then decrease
+            # the counter by a few percents instead.  It should avoid
+            # sudden bursts of JIT-compilation, and also corner cases
+            # where we suddenly compile more than one loop because all
+            # counters reach the bound at the same time, but where
+            # compiling all but the first one is pointless.
+            curgen = warmrunnerdesc.memory_manager.current_generation
+            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
+            if we_are_translated() and curgen != cell.extra_delay:
+                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
+                cell.extra_delay = curgen
+                return
+            #
+            if not confirm_enter_jit(*args):
+                cell.counter = 0
+                return
+            # start tracing
+            from pypy.jit.metainterp.pyjitpl import MetaInterp
+            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+            # set counter to -2, to mean "tracing in effect"
+            cell.counter = -2
+            try:
+                metainterp.compile_and_run_once(jitdriver_sd, *args)
+            finally:
+                if cell.counter == -2:
+                    cell.counter = 0
+
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
@@ -330,19 +360,9 @@ class WarmEnterState(object):
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
-                if not confirm_enter_jit(*args):
-                    cell.counter = 0
+                else:
+                    bound_reached(cell, *args)
                     return
-                # bound reached; start tracing
-                from pypy.jit.metainterp.pyjitpl import MetaInterp
-                metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-                # set counter to -2, to mean "tracing in effect"
-                cell.counter = -2
-                try:
-                    metainterp.compile_and_run_once(jitdriver_sd, *args)
-                finally:
-                    if cell.counter == -2:
-                        cell.counter = 0
             else:
                 if cell.counter != -1:
                     assert cell.counter == -2
@@ -447,12 +467,40 @@ class WarmEnterState(object):
         except AttributeError:
             pass
         #
+        def _cleanup_dict():
+            minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
+            killme = []
+            for key, cell in jitcell_dict.iteritems():
+                if cell.counter >= 0:
+                    cell.counter = int(cell.counter * 0.92)
+                    if cell.counter < minimum:
+                        killme.append(key)
+                elif (cell.counter == -1
+                      and cell.get_procedure_token() is None):
+                    killme.append(key)
+            for key in killme:
+                del jitcell_dict[key]
+        #
+        def _maybe_cleanup_dict():
+            # Once in a while, rarely, when too many entries have
+            # been put in the jitdict_dict, we do a cleanup phase:
+            # we decay all counters and kill entries with a too
+            # low counter.
+            self._trigger_automatic_cleanup += 1
+            if self._trigger_automatic_cleanup > 20000:
+                self._trigger_automatic_cleanup = 0
+                _cleanup_dict()
+        #
+        self._trigger_automatic_cleanup = 0
+        self._jitcell_dict = jitcell_dict       # for tests
+        #
         def get_jitcell(build, *greenargs):
             try:
                 cell = jitcell_dict[greenargs]
             except KeyError:
                 if not build:
                     return None
+                _maybe_cleanup_dict()
                 cell = JitCell()
                 jitcell_dict[greenargs] = cell
             return cell
@@ -464,6 +512,10 @@ class WarmEnterState(object):
         get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
+        # note that there is no equivalent of _maybe_cleanup_dict()
+        # in the case of custom getters.  We assume that the interpreter
+        # stores the JitCells on some objects that can go away by GC,
+        # like the PyCode objects in PyPy.
         #
         def get_jitcell(build, *greenargs):
             fn = support.maybe_on_top_of_llinterp(rtyper, get_jitcell_at_ptr)

@@ -142,59 +142,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def get_arg_types(self):
-        """ Implement in call descr.
-        Must return a string of INT, REF and FLOAT ('i', 'r', 'f').
-        """
-        raise NotImplementedError
-
-    def get_return_type(self):
-        """ Implement in call descr.
-        Must return INT, REF, FLOAT, or 'v' for void.
-        On 32-bit (hack) it can also be 'L' for longlongs.
-        Additionally it can be 'S' for singlefloats.
-        """
-        raise NotImplementedError
-
-    def get_extra_info(self):
-        """ Implement in call descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_pointers(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_floats(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_structs(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_pointer_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def is_float_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def as_vtable_size_descr(self):
-        """ Implement for size descr representing objects with vtables.
-        Returns self.  (it's an annotation hack)
-        """
-        raise NotImplementedError
-
-    def count_fields_if_immutable(self):
-        return -1
-
     def _clone_if_mutable(self):
         return self
     def clone_if_mutable(self):
@@ -758,6 +705,9 @@ class TargetToken(AbstractDescr):
 
         self.virtual_state = None
         self.exported_state = None
+
+    def repr_of_descr(self):
+        return 'TargetToken(%d)' % compute_unique_id(self)
         
 class TreeLoop(object):
     inputargs = None
@@ -765,7 +715,7 @@ class TreeLoop(object):
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
-    start_resumedescr = None
+    resume_at_jump_descr = None
 
     def _token(*args):
         raise Exception("TreeLoop.token is killed")
@@ -1057,25 +1007,6 @@ class Stats(object):
         # a jump back to itself and possibly a few bridges ending with finnish.
         # Only the operations within the loop formed by that single jump will
         # be counted.
-
-        # XXX hacked version, ignore and remove me when jit-targets is merged.
-        loops = self.get_all_loops()
-        loops = [loop for loop in loops if 'Preamble' not in repr(loop)] #XXX
-        assert len(loops) == 1
-        loop, = loops
-        jumpop = loop.operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        insns = {}
-        for op in loop.operations:
-            opname = op.getopname()
-            insns[opname] = insns.get(opname, 0) + 1
-        return self._check_insns(insns, expected, check)
-
-    def check_simple_loop(self, expected=None, **check):
-        # Usefull in the simplest case when we have only one trace ending with
-        # a jump back to itself and possibly a few bridges ending with finnish.
-        # Only the operations within the loop formed by that single jump will
-        # be counted.
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
@@ -1134,7 +1065,7 @@ class Stats(object):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extraprocedures=[]):
+    def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
         from pypy.jit.metainterp.graphpage import display_procedures
         procedures = self.get_all_loops()[:]
         for procedure in extraprocedures:
@@ -1146,7 +1077,7 @@ class Stats(object):
             if hasattr(procedure, '_looptoken_number') and (
                procedure._looptoken_number in self.invalidated_token_numbers):
                 highlight_procedures.setdefault(procedure, 2)
-        display_procedures(procedures, errmsg, highlight_procedures)
+        display_procedures(procedures, errmsg, highlight_procedures, metainterp_sd)
 
 # ----------------------------------------------------------------
 

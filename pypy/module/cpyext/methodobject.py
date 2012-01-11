@@ -58,6 +58,7 @@ def cfunction_dealloc(space, py_obj):
 class W_PyCFunctionObject(Wrappable):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
+        self.name = rffi.charp2str(self.ml.c_ml_name)
         self.w_self = w_self
         self.w_module = w_module
 
@@ -69,7 +70,7 @@ class W_PyCFunctionObject(Wrappable):
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         if space.is_true(w_kw) and not flags & METH_KEYWORDS:
             raise OperationError(space.w_TypeError, space.wrap(
-                rffi.charp2str(self.ml.c_ml_name) + "() takes no keyword arguments"))
+                self.name + "() takes no keyword arguments"))
 
         func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
         length = space.int_w(space.len(w_args))
@@ -80,13 +81,12 @@ class W_PyCFunctionObject(Wrappable):
             if length == 0:
                 return generic_cpy_call(space, func, w_self, None)
             raise OperationError(space.w_TypeError, space.wrap(
-                rffi.charp2str(self.ml.c_ml_name) + "() takes no arguments"))
+                self.name + "() takes no arguments"))
         elif flags & METH_O:
             if length != 1:
                 raise OperationError(space.w_TypeError,
                         space.wrap("%s() takes exactly one argument (%d given)" %  (
-                        rffi.charp2str(self.ml.c_ml_name), 
-                        length)))
+                        self.name, length)))
             w_arg = space.getitem(w_args, space.wrap(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
@@ -199,6 +199,7 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(cfunction_descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 

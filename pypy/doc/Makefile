@@ -12,7 +12,7 @@ PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
 ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 
-.PHONY: help clean html dirhtml pickle json htmlhelp qthelp latex changes linkcheck doctest
+.PHONY: help clean html dirhtml pickle json htmlhelp qthelp latex man changes linkcheck doctest
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -23,6 +23,7 @@ help:
 	@echo "  htmlhelp  to make HTML files and a HTML help project"
 	@echo "  qthelp    to make HTML files and a qthelp project"
 	@echo "  latex     to make LaTeX files, you can set PAPER=a4 or PAPER=letter"
+	@echo "  man       to make manual pages"
 	@echo "  changes   to make an overview of all changed/added/deprecated items"
 	@echo "  linkcheck to check all external links for integrity"
 	@echo "  doctest   to run all doctests embedded in the documentation (if enabled)"
@@ -78,6 +79,11 @@ latex:
 	@echo "Build finished; the LaTeX files are in $(BUILDDIR)/latex."
 	@echo "Run \`make all-pdf' or \`make all-ps' in that directory to" \
 	      "run these through (pdf)latex."
+
+man:
+	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
+	@echo
+	@echo "Build finished. The manual pages are in $(BUILDDIR)/man"
 
 changes:
 	python config/generate.py

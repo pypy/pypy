@@ -386,6 +386,18 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
+PARAMETER_DOCS = {
+    'threshold': 'number of times a loop has to run for it to become hot',
+    'function_threshold': 'number of times a function must run for it to become traced from start',
+    'trace_eagerness': 'number of times a guard has to fail before we start compiling a bridge',
+    'trace_limit': 'number of recorded operations before we abort tracing with ABORT_TOO_LONG',
+    'inlining': 'inline python functions or not (1/0)',
+    'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
+    'retrace_limit': 'how many times we can try retracing before giving up',
+    'max_retrace_guards': 'number of extra guards a retrace can cause',
+    'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
+    }
+
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
@@ -528,6 +540,9 @@ def set_user_param(driver, text):
                         set_param(driver, name1, int(value))
                     except ValueError:
                         raise
+                    break
+            else:
+                raise ValueError
 set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
 

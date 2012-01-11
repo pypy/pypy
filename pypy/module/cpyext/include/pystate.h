@@ -5,7 +5,7 @@ struct _ts; /* Forward */
 struct _is; /* Forward */
 
 typedef struct _is {
-    int _foo;
+    struct _is *next;
 } PyInterpreterState;
 
 typedef struct _ts {
