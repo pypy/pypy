@@ -420,7 +420,7 @@ class TestW_ListStrategies(TestW_ListObject):
 
     def test_listview_str(self):
         space = self.space
-        assert space.listview_str(space.wrap("a")) == ["a"]
+        assert space.listview_str(space.wrap(1)) == None
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         assert space.listview_str(w_l) == ["a", "b"]
 
