@@ -91,7 +91,7 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear keys values \
                     items iter setdefault \
-                    popitem listview_str".split()
+                    popitem listview_str listview_int".split()
 
     def make_method(method):
         def f(self, *args):
@@ -151,6 +151,8 @@ class DictStrategy(object):
     def listview_str(self, w_dict):
         return None
 
+    def listview_int(self, w_dict):
+        return None
 
 class EmptyDictStrategy(DictStrategy):
 
@@ -527,6 +529,9 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def iter(self, w_dict):
         return IntIteratorImplementation(self.space, self, w_dict)
+
+    def listview_int(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
 
 class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
     pass

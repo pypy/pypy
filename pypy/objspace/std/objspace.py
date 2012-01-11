@@ -449,6 +449,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_int()
         if isinstance(w_obj, W_SetObject):
             return w_obj.listview_int()
+        if isinstance(w_obj, W_DictMultiObject):
+            return w_obj.listview_int()
         return None
 
     def sliceindices(self, w_slice, w_length):
