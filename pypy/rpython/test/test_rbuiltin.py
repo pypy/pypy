@@ -463,6 +463,20 @@ class BaseTestRbuiltin(BaseRtypingTest):
             assert x1 == intmask(x0)
             assert x3 == intmask(x2)
 
+    def test_id_on_builtins(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+        def fn():
+            return (compute_unique_id("foo"),
+                    compute_unique_id(u"bar"),
+                    compute_unique_id([1]),
+                    compute_unique_id({"foo": 3}),
+                    compute_unique_id(StringBuilder()),
+                    compute_unique_id(UnicodeBuilder()))
+        res = self.interpret(fn, [])
+        for id in self.ll_unpack_tuple(res, 6):
+            assert isinstance(id, (int, r_longlong))
+
     def test_cast_primitive(self):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         def llf(u):
