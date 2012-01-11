@@ -64,6 +64,9 @@ class AbstractResOp(object):
     def setdescr(self, descr):
         raise NotImplementedError
 
+    def cleardescr(self):
+        pass
+
     # common methods
     # --------------
 
@@ -195,6 +198,9 @@ class ResOpWithDescr(AbstractResOp):
         # cpu.calldescrof(), and cpu.typedescrof().
         self._check_descr(descr)
         self._descr = descr
+
+    def cleardescr(self):
+        self._descr = None
 
     def _check_descr(self, descr):
         if not we_are_translated() and getattr(descr, 'I_am_a_descr', False):

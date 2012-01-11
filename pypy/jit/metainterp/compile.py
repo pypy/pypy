@@ -76,7 +76,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
             descr.exported_state = None
-            op.setdescr(None)  # clear reference, mostly for tests
+            op.cleardescr()    # clear reference, mostly for tests
         elif isinstance(descr, TargetToken):
             # for a JUMP: record it as a potential jump.
             # (the following test is not enough to prevent more complicated
@@ -91,8 +91,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
             assert descr.exported_state is None 
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
-            op.setdescr(None)    # clear reference to prevent the history.Stats
-                                # from keeping the loop alive during tests
+            op.cleardescr()    # clear reference to prevent the history.Stats
+                               # from keeping the loop alive during tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
         for qmut in loop.quasi_immutable_deps:
