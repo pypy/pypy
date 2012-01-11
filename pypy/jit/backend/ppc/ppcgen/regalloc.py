@@ -493,34 +493,6 @@ class Regalloc(object):
                 if loc is not None and loc.is_stack():
                     self.frame_manager.hint_frame_locations[box] = loc
 
-    def prepare_op_jump(self, op):
-        descr = op.getdescr()
-        assert isinstance(descr, TargetToken)
-        self.jump_target_descr = descr
-        arglocs = self.assembler.target_arglocs(descr)
-
-        # get temporary locs
-        tmploc = r.SCRATCH
-
-        # Part about non-floats
-        src_locations1 = []
-        dst_locations1 = []
-
-        # Build the two lists
-        for i in range(op.numargs()):
-            box = op.getarg(i)
-            src_loc = self.loc(box)
-            dst_loc = arglocs[i]
-            if box.type != FLOAT:
-                src_locations1.append(src_loc)
-                dst_locations1.append(dst_loc)
-            else:
-                assert 0, "not implemented yet"
-
-        remap_frame_layout(self.assembler, src_locations1, 
-            dst_locations1, tmploc)
-        return []
-
     def prepare_guard_call_release_gil(self, op, guard_op):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
