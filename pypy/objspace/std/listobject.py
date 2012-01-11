@@ -1042,6 +1042,21 @@ def init__List(space, w_list, __args__):
         elif isinstance(w_iterable, W_TupleObject):
             W_ListObject(space, w_iterable.wrappeditems[:]).copy_into(w_list)
             return
+
+        intlist = space.listview_int(w_iterable)
+        if intlist is not None:
+            w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
+             # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(intlist[:])
+            return
+
+        strlist = space.listview_str(w_iterable)
+        if strlist is not None:
+            w_list.strategy = strategy = space.fromcache(StringListStrategy)
+             # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(strlist[:])
+            return
+
         w_list.__init__(space, [])
         # xxx special hack for speed
         from pypy.interpreter.generator import GeneratorIterator

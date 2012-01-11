@@ -463,6 +463,34 @@ class TestW_ListStrategies(TestW_ListObject):
         w_res = listobject.list_pop__List_ANY(space, w_l, space.w_None) # does not crash
         assert space.unwrap(w_res) == 3
 
+    def test_create_list_from_set(self):
+        from pypy.objspace.std.setobject import W_SetObject
+        from pypy.objspace.std.setobject import _initialize_set
+
+        space = self.space
+        w = space.wrap
+
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_l)
+        w_set.iter = None # make sure fast path is used
+
+        w_l2 = W_ListObject(space, [])
+        space.call_method(w_l2, "__init__", w_set)
+
+        w_l2.sort(False)
+        assert space.eq_w(w_l, w_l2)
+
+        w_l = W_ListObject(space, [space.wrap("a"), space.wrap("b"), space.wrap("c")])
+        _initialize_set(self.space, w_set, w_l)
+
+        space.call_method(w_l2, "__init__", w_set)
+
+        w_l2.sort(False)
+        assert space.eq_w(w_l, w_l2)
+
+
 
 class TestW_ListStrategiesDisabled:
     def setup_class(cls):
