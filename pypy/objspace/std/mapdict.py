@@ -694,6 +694,8 @@ class MapDictStrategy(DictStrategy):
         self.delitem(w_dict, w_key)
         return (w_key, w_value)
 
+    # XXX could implement a more efficient w_keys based on space.newlist_str
+
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()
     new_obj = map.materialize_r_dict(space, obj, dict_w)

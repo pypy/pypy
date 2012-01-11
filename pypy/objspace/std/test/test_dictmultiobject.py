@@ -157,6 +157,20 @@ class TestW_DictObject:
 
         assert self.space.listview_int(w_d) == [1, 2]
 
+    def test_keys_on_string_int_dict(self):
+        w = self.space.wrap
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
+
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_int(w_l)) == [1,2]
+
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(6))])
+
+        w_l = self.space.call_method(w_d, "keys")
+        assert sorted(self.space.listview_str(w_l)) == ["a", "b"]
+
 class AppTest_DictObject:
     def setup_class(cls):
         cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)
@@ -816,7 +830,9 @@ class FakeSpace:
         return x == y
     eq_w = eq
     def newlist(self, l):
-        return []
+        return l
+    def newlist_str(self, l):
+        return l
     DictObjectCls = W_DictMultiObject
     def type(self, w_obj):
         if isinstance(w_obj, FakeString):
@@ -956,7 +972,7 @@ class BaseTestRDictImplementation:
 
     def test_keys(self):
         self.fill_impl()
-        keys = self.impl.keys()
+        keys = self.impl.w_keys() # wrapped lists = lists in the fake space
         keys.sort()
         assert keys == [self.string, self.string2]
         self.check_not_devolved()
@@ -1034,8 +1050,8 @@ class BaseTestRDictImplementation:
         d.setitem("s", 12)
         d.delitem(F())
 
-        assert "s" not in d.keys()
-        assert F() not in d.keys()
+        assert "s" not in d.w_keys()
+        assert F() not in d.w_keys()
 
 class TestStrDictImplementation(BaseTestRDictImplementation):
     StrategyClass = StringDictStrategy
