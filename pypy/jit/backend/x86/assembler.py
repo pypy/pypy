@@ -623,8 +623,7 @@ class Assembler386(object):
             # This case should be prevented by the logic in compile.py:
             # look for CNT_BUSY_FLAG, which disables tracing from a guard
             # when another tracing from the same guard is already in progress.
-            raise AssertionError("bug: the front-end asks us to compile a "
-                                 "bridge from the same guard twice")
+            raise BridgeAlreadyCompiled
         # follow the JMP/Jcond
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
@@ -2556,3 +2555,6 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
+
+class BridgeAlreadyCompiled(Exception):
+    pass
