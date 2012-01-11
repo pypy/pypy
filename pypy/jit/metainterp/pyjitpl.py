@@ -1794,9 +1794,14 @@ class MetaInterp(object):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
         jd_sd = self.jitdriver_sd
-        greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
-        self.staticdata.warmrunnerdesc.hooks.on_abort(reason, jd_sd.jitdriver,
-                           greenkey, jd_sd.warmstate.get_location_str(greenkey))
+        if not self.current_merge_points:
+            greenkey = None # we're in the bridge
+        else:
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+                                                          jd_sd.jitdriver,
+                                                          greenkey,
+                                                          jd_sd.warmstate.get_location_str(greenkey))
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):

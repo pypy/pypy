@@ -20,6 +20,8 @@ class Cache(object):
         self.w_optimize_hook = space.w_None
 
 def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
+    if greenkey is None:
+        return space.wrap('UNKNOWN')
     jitdriver_name = jitdriver.name
     if jitdriver_name == 'pypyjit':
         next_instr = greenkey[0].getint()
