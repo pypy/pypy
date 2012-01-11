@@ -21,7 +21,7 @@ class Cache(object):
 
 def wrap_greenkey(space, jitdriver, greenkey, greenkey_repr):
     if greenkey is None:
-        return space.wrap('UNKNOWN')
+        return space.w_None
     jitdriver_name = jitdriver.name
     if jitdriver_name == 'pypyjit':
         next_instr = greenkey[0].getint()
