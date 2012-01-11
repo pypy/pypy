@@ -62,8 +62,14 @@ def descr_fromkeys(space, w_type, w_keys, w_fill=None):
         w_fill = space.w_None
     if space.is_w(w_type, space.w_dict):
         w_dict = W_DictMultiObject.allocate_and_init_instance(space, w_type)
-        for w_key in space.listview(w_keys):
-            w_dict.setitem(w_key, w_fill)
+
+        strlist = space.listview_str(w_keys)
+        if strlist is not None:
+            for key in strlist:
+                w_dict.setitem_str(key, w_fill)
+        else:
+            for w_key in space.listview(w_keys):
+                w_dict.setitem(w_key, w_fill)
     else:
         w_dict = space.call_function(w_type)
         for w_key in space.listview(w_keys):

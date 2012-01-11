@@ -131,6 +131,16 @@ class TestW_DictObject:
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
+    def test_fromkeys_fastpath(self):
+        space = self.space
+        w = space.wrap
+
+        w_l = self.space.newlist([w("a"),w("b")])
+        w_l.getitems = None
+        w_d = space.call_method(space.w_dict, "fromkeys", w_l)
+
+        assert space.eq_w(w_d.getitem_str("a"), space.w_None)
+        assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
 class AppTest_DictObject:
     def setup_class(cls):
