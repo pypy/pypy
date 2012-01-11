@@ -923,14 +923,14 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         return
 
     stringlist = space.listview_str(w_iterable)
-    if stringlist != None:
+    if stringlist is not None:
         strategy = space.fromcache(StringSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
         return
 
     intlist = space.listview_int(w_iterable)
-    if intlist != None:
+    if intlist is not None:
         strategy = space.fromcache(IntegerSetStrategy)
         w_set.strategy = strategy
         w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
