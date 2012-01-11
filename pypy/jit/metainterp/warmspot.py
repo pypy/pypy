@@ -1,4 +1,5 @@
 import sys, py
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
@@ -112,7 +113,7 @@ def rpython_ll_meta_interp(function, args, backendopt=True, **kwds):
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 
-def _find_jit_marker(graphs, marker_name):
+def _find_jit_marker(graphs, marker_name, check_driver=True):
     results = []
     for graph in graphs:
         for block in graph.iterblocks():
@@ -120,8 +121,8 @@ def _find_jit_marker(graphs, marker_name):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
                     op.args[0].value == marker_name and
-                    (op.args[1].value is None or
-                    op.args[1].value.active)):   # the jitdriver
+                    (not check_driver or op.args[1].value is None or
+                     op.args[1].value.active)):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -139,6 +140,9 @@ def find_jit_merge_points(graphs):
     assert len(seen) == len(results), (
         "found several jit_merge_points in the same graph")
     return results
+
+def find_access_helpers(graphs):
+    return _find_jit_marker(graphs, 'access_helper', False)
 
 def locate_jit_merge_point(graph):
     [(graph, block, pos)] = find_jit_merge_points([graph])
@@ -206,6 +210,7 @@ class WarmRunnerDesc(object):
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
         #
+        self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
         self.make_exception_classes()
         self.make_driverhook_graphs()
@@ -213,6 +218,7 @@ class WarmRunnerDesc(object):
         self.rewrite_jit_merge_points(policy)
 
         verbose = False # not self.cpu.translate_support_code
+        self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
@@ -618,6 +624,24 @@ class WarmRunnerDesc(object):
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
+
+    def rewrite_access_helpers(self):
+        ah = find_access_helpers(self.translator.graphs)
+        for graph, block, index in ah:
+            op = block.operations[index]
+            self.rewrite_access_helper(op)
+
+    def rewrite_access_helper(self, op):
+        ARGS = [arg.concretetype for arg in op.args[2:]]
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        # make sure we make a copy of function so it no longer belongs
+        # to extregistry
+        func = op.args[1].value
+        func = func_with_new_name(func, func.func_name + '_compiled')
+        ptr = self.helper_func(FUNCPTR, func)
+        op.opname = 'direct_call'
+        op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
     def rewrite_jit_merge_points(self, policy):
         for jd in self.jitdrivers_sd:

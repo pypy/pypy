@@ -5,7 +5,7 @@ class RSreJitDriver(JitDriver):
     active = True
 
     def __init__(self, name, debugprint, **kwds):
-        JitDriver.__init__(self, **kwds)
+        JitDriver.__init__(self, name='rsre_' + name, **kwds)
         #
         def get_printable_location(*args):
             # we print based on indices in 'args'.  We first print

@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib import rstack
+from pypy.rlib.jit import JitDebugInfo
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -75,7 +76,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
             descr.exported_state = None
-            op._descr = None    # clear reference, mostly for tests
+            op.cleardescr()    # clear reference, mostly for tests
         elif isinstance(descr, TargetToken):
             # for a JUMP: record it as a potential jump.
             # (the following test is not enough to prevent more complicated
@@ -90,8 +91,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
             assert descr.exported_state is None 
             if not we_are_translated():
                 op._descr_wref = weakref.ref(op._descr)
-            op._descr = None    # clear reference to prevent the history.Stats
-                                # from keeping the loop alive during tests
+            op.cleardescr()    # clear reference to prevent the history.Stats
+                               # from keeping the loop alive during tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
         for qmut in loop.quasi_immutable_deps:
@@ -296,8 +297,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    jitdriver_sd.on_compile(metainterp_sd.logger_ops, original_jitcell_token,
-                            loop.operations, type, greenkey)
     loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
@@ -307,21 +306,38 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         show_procedures(metainterp_sd, loop)
         loop.check_consistency()
 
+    if metainterp_sd.warmrunnerdesc is not None:
+        hooks = metainterp_sd.warmrunnerdesc.hooks
+        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                  original_jitcell_token, loop.operations,
+                                  type, greenkey)
+        hooks.before_compile(debug_info)
+    else:
+        debug_info = None
+        hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                    original_jitcell_token, name=loopname)
+        asminfo = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
+                                                  original_jitcell_token,
+                                                  name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
+    if hooks is not None:
+        debug_info.asminfo = asminfo
+        hooks.after_compile(debug_info)
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
     loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+    if asminfo is not None:
+        ops_offset = asminfo.ops_offset
+    else:
+        ops_offset = None
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
                                       type, ops_offset,
                                       name=loopname)
@@ -332,25 +348,40 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
     n = metainterp_sd.cpu.get_fail_descr_number(faildescr)
-    jitdriver_sd.on_compile_bridge(metainterp_sd.logger_ops,
-                                   original_loop_token, operations, n)
     if not we_are_translated():
         show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
         TreeLoop.check_consistency_of_branch(operations, seen)
-    metainterp_sd.profiler.start_backend()
+    if metainterp_sd.warmrunnerdesc is not None:
+        hooks = metainterp_sd.warmrunnerdesc.hooks
+        debug_info = JitDebugInfo(jitdriver_sd, metainterp_sd.logger_ops,
+                                  original_loop_token, operations, 'bridge',
+                                  fail_descr_no=n)
+        hooks.before_compile_bridge(debug_info)
+    else:
+        hooks = None
+        debug_info = None
     operations = get_deep_immutable_oplist(operations)
+    metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        ops_offset = metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
-                                                      original_loop_token)
+        asminfo = metainterp_sd.cpu.compile_bridge(faildescr, inputargs,
+                                                   operations,
+                                                   original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
+    if hooks is not None:
+        debug_info.asminfo = asminfo
+        hooks.after_compile_bridge(debug_info)
     if not we_are_translated():
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new bridge")
     #
+    if asminfo is not None:
+        ops_offset = asminfo.ops_offset
+    else:
+        ops_offset = None
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests

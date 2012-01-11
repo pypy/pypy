@@ -16,24 +16,28 @@ numpy_driver = jit.JitDriver(
     virtualizables=['frame'],
     reds=['result_size', 'frame', 'ri', 'self', 'result'],
     get_printable_location=signature.new_printable_location('numpy'),
+    name='numpy',
 )
 all_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['frame', 'self', 'dtype'],
     get_printable_location=signature.new_printable_location('all'),
+    name='numpy_all',
 )
 any_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['frame', 'self', 'dtype'],
     get_printable_location=signature.new_printable_location('any'),
+    name='numpy_any',
 )
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['self', 'frame', 'source', 'res_iter'],
     get_printable_location=signature.new_printable_location('slice'),
+    name='numpy_slice',
 )
 
 def _find_shape_and_elems(space, w_iterable):
@@ -297,6 +301,7 @@ class BaseArray(Wrappable):
             greens=['shapelen', 'sig'],
             reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype'],
             get_printable_location=signature.new_printable_location(op_name),
+            name='numpy_' + op_name,
         )
         def loop(self):
             sig = self.find_sig()

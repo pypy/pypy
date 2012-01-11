@@ -14,6 +14,7 @@ reduce_driver = jit.JitDriver(
     virtualizables = ["frame"],
     reds = ["frame", "self", "dtype", "value", "obj"],
     get_printable_location=new_printable_location('reduce'),
+    name='numpy_reduce',
 )
 
 class W_Ufunc(Wrappable):

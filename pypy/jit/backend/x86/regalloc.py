@@ -188,7 +188,10 @@ class RegAlloc(object):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
-        self.min_bytes_before_label = 13
+        if WORD == 4:       # see redirect_call_assembler()
+            self.min_bytes_before_label = 5
+        else:
+            self.min_bytes_before_label = 13
         return operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
