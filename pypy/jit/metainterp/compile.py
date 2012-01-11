@@ -76,7 +76,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr is not original_jitcell_token:
                 original_jitcell_token.record_jump_to(descr)
             descr.exported_state = None
-            op._descr = None    # clear reference, mostly for tests
+            op.setdescr(None)
         elif isinstance(descr, TargetToken):
             # for a JUMP: record it as a potential jump.
             # (the following test is not enough to prevent more complicated
