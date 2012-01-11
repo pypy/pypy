@@ -104,7 +104,7 @@ class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
-    descr__new__, get_dtype = new_dtype_getter("long")
+    pass
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -200,7 +200,6 @@ W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
 )
 
 W_IntegerBox.typedef = TypeDef("integer", W_NumberBox.typedef,
-    __new__ = interp2app(W_IntegerBox.descr__new__.im_func),
     __module__ = "numpypy",
 )
 
@@ -248,6 +247,7 @@ elif LONG_BIT == 64:
     long_name = "int64"
 W_LongBox.typedef = TypeDef(long_name, (W_SignedIntegerBox.typedef, int_typedef,),
     __module__ = "numpypy",
+   __new__ = interp2app(W_LongBox.descr__new__.im_func),
 )
 
 W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntegerBox.typedef,
