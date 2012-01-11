@@ -3002,28 +3002,30 @@ class LLtypeBackendTest(BaseBackendTest):
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
         self.cpu.assembler.set_debug(False)
-        _, asm, asmlen = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        _, basm, basmlen = self.cpu.compile_bridge(faildescr, bridge.inputargs,
-                                                   bridge.operations,
-                                                   looptoken)
+        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        bridge_info = self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                              bridge.operations,
+                                              looptoken)
         self.cpu.assembler.set_debug(True) # always on untranslated
-        assert asmlen != 0
+        assert info.asmlen != 0
         cpuname = autodetect_main_model_and_size()
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 
-        def checkops(mc, startline, ops):
-            for i in range(startline, len(mc)):
-                assert mc[i].split("\t")[-1].startswith(ops[i - startline])
+        def checkops(mc, ops):
+            for i in range(len(mc)):
+                assert mc[i].split("\t")[-1].startswith(ops[i])
             
-        data = ctypes.string_at(asm, asmlen)
-        mc = list(machine_code_dump(data, asm, cpuname))
-        assert len(mc) == 5
-        checkops(mc, 1, self.add_loop_instructions)
-        data = ctypes.string_at(basm, basmlen)
-        mc = list(machine_code_dump(data, basm, cpuname))
-        assert len(mc) == 4
-        checkops(mc, 1, self.bridge_loop_instructions)
+        data = ctypes.string_at(info.asmaddr, info.asmlen)
+        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+        lines = [line for line in mc if line.count('\t') == 2]
+        assert len(lines) == 4
+        checkops(lines, self.add_loop_instructions)
+        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+        lines = [line for line in mc if line.count('\t') == 2]
+        assert len(lines) == 3
+        checkops(lines, self.bridge_loop_instructions)
 
 
     def test_compile_bridge_with_target(self):

@@ -419,7 +419,8 @@ class TestX86(LLtypeBackendTest):
             ]
         inputargs = [i0]
         debug._log = dlog = debug.DebugLog()
-        ops_offset = self.cpu.compile_loop(inputargs, operations, looptoken)[0]
+        info = self.cpu.compile_loop(inputargs, operations, looptoken)
+        ops_offset = info.ops_offset
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset
