@@ -60,6 +60,9 @@ class W_StringObject(W_AbstractStringObject):
         from pypy.objspace.std.unicodetype import plain_str2unicode
         return plain_str2unicode(space, w_self._value)
 
+    def listview_str(w_self):
+        return list(w_self._value)
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
