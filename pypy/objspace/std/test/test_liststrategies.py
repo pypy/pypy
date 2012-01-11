@@ -491,6 +491,16 @@ class TestW_ListStrategies(TestW_ListObject):
         assert space.eq_w(w_l, w_l2)
 
 
+    def test_listview_str_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap("a"), space.wrap("b")])
+        assert self.space.listview_str(w_l) == ["a", "b"]
+
+    def test_listview_int_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+        assert self.space.listview_int(w_l) == [1, 2, 3]
+
 
 class TestW_ListStrategiesDisabled:
     def setup_class(cls):
