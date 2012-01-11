@@ -13,7 +13,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               FPR_SAVE_AREA,
-                                              FLOAT_INT_CONVERSION, FORCE_INDEX)
+                                              FLOAT_INT_CONVERSION, FORCE_INDEX,
+                                              SIZE_LOAD_IMM_PATCH_SP)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, encode64,
                                                           decode32, decode64,
@@ -405,12 +406,13 @@ class AssemblerPPC(OpAssembler):
 
         start_pos = self.mc.currpos()
         looptoken._ppc_loop_code = start_pos
-        clt.frame_depth = -1
-        spilling_area = self._assemble(operations, regalloc)
+        clt.frame_depth = clt.param_depth = -1
+        spilling_area, param_depth = self._assemble(operations, regalloc)
         clt.frame_depth = spilling_area
+        clt.param_depth = param_depth
      
         direct_bootstrap_code = self.mc.currpos()
-        frame_depth = self.compute_frame_depth(spilling_area)
+        frame_depth = self.compute_frame_depth(spilling_area, param_depth)
         self.gen_bootstrap_code(start_pos, frame_depth)
 
         self.write_pending_failure_recoveries()
@@ -439,14 +441,16 @@ class AssemblerPPC(OpAssembler):
         regalloc.compute_hint_frame_locations(operations)
         self._walk_operations(operations, regalloc)
         frame_depth = regalloc.frame_manager.get_frame_depth()
+        param_depth = self.max_stack_params
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
             frame_depth = max(frame_depth,
                               jump_target_descr._ppc_clt.frame_depth)
-        return frame_depth
+            param_depth = max(param_depth, 
+                              jump_target_descr._ppc_clt.param_depth)
+        return frame_depth, param_depth
 
 
-    # XXX stack needs to be moved if bridge needs to much space
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
         operations = self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
@@ -456,21 +460,38 @@ class AssemblerPPC(OpAssembler):
         arglocs = self.decode_inputargs(enc)
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
-
         regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
         regalloc.prepare_bridge(inputargs, arglocs, operations)
 
-        spilling_area = self._assemble(operations, regalloc)
+        sp_patch_location = self._prepare_sp_patch_position()
+
+        spilling_area, param_depth = self._assemble(operations, regalloc)
+
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(looptoken, False)
         self.process_pending_guards(rawstart)
         self.patch_trace(faildescr, looptoken, rawstart, regalloc)
-
         self.fixup_target_tokens(rawstart)
         self.current_clt.frame_depth = max(self.current_clt.frame_depth,
                 spilling_area)
+        self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
+	self._patch_sp_offset(sp_patch_location, rawstart)
+        if not we_are_translated():
+            print 'Loop', inputargs, operations
+            self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
+            print 'Done assembling bridge with token %r' % looptoken
         self._teardown()
+
+    def _patch_sp_offset(self, sp_patch_location, rawstart):
+        mc = PPCBuilder()
+        frame_depth = self.compute_frame_depth(self.current_clt.frame_depth,
+                                               self.current_clt.param_depth)
+        frame_depth -= self.OFFSET_SPP_TO_OLD_BACKCHAIN
+        mc.load_imm(r.SCRATCH, -frame_depth)
+        mc.add(r.SP.value, r.SPP.value, r.SCRATCH.value)
+        mc.prepare_insts_blocks()
+        mc.copy_to_raw_memory(rawstart + sp_patch_location)
 
     # For an explanation of the encoding, see
     # backend/arm/assembler.py
@@ -599,8 +620,8 @@ class AssemblerPPC(OpAssembler):
         data[1] = 0
         data[2] = 0
 
-    def compute_frame_depth(self, spilling_area):
-        PARAMETER_AREA = self.max_stack_params * WORD
+    def compute_frame_depth(self, spilling_area, param_depth):
+        PARAMETER_AREA = param_depth * WORD
         if IS_PPC_64:
             PARAMETER_AREA += MAX_REG_PARAMS * WORD
         SPILLING_AREA = spilling_area * WORD
@@ -700,6 +721,15 @@ class AssemblerPPC(OpAssembler):
         if clt.asmmemmgr_blocks is None:
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
+
+    def _prepare_sp_patch_position(self):
+        """Generate NOPs as placeholder to patch the instruction(s) to update
+        the sp according to the number of spilled variables"""
+        size = SIZE_LOAD_IMM_PATCH_SP
+        l = self.mc.currpos()
+        for _ in range(size):
+            self.mc.nop()
+        return l
 
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
