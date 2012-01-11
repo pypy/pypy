@@ -137,6 +137,9 @@ class ArraySignature(ConcreteSignature):
     def _invent_array_numbering(self, arr, cache):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
+        # this get_concrete never forces assembler. If we're here and array
+        # is not of a concrete class it means that we have a _forced_result,
+        # otherwise the signature would not match
         assert isinstance(concr, ConcreteArray)
         self.array_no = _add_ptr_to_cache(concr.storage, cache)
 
