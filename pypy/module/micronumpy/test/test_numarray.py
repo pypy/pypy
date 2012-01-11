@@ -729,8 +729,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
         a = array(range(105)).reshape(3, 5, 7)
-        assert (mean(a, axis=0) == array(range(35, 70)).reshape(5, 7)).all()
-        assert (mean(a, 2) == array(range(0, 15)).reshape(3, 5) * 7 + 3).all()
+        b = mean(a, axis=0)
+        b[0,0]==35.
+        assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
+        assert (mean(a, 2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from numpypy import array, arange

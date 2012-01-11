@@ -130,8 +130,9 @@ class W_Ufunc(Wrappable):
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
             from pypy.module.micronumpy.interp_numarray import Reduce
-            return space.wrap(Reduce(self.func, self.name, dim, dtype,
-                                                        obj, self.identity))
+            res = Reduce(self.func, self.name, dim, dtype, obj, self.identity)
+            obj.add_invalidates(res)
+            return space.wrap(res)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig(obj.shape)), obj)

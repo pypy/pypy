@@ -575,10 +575,9 @@ class BaseArray(Wrappable):
     def descr_mean(self, space, w_dim=None):
         if space.is_w(w_dim, space.w_None):
             w_dim = space.wrap(-1)
-        dim = space.int_w(w_dim)
-        if dim < 0:
             w_denom = space.wrap(self.size)
         else:
+            dim = space.int_w(w_dim)
             w_denom = space.wrap(self.shape[dim])
         return space.div(self.descr_sum_promote(space, w_dim), w_denom)
 
@@ -780,7 +779,7 @@ class Reduce(VirtualArray):
     def create_sig(self, res_shape):
         if self.forced_result is not None:
             return self.forced_result.create_sig(res_shape)
-        return signature.ReduceSignature(self.binfunc, self.name, self.dtype,
+        return signature.AxisReduceSignature(self.binfunc, self.name, self.dtype,
                                         signature.ViewSignature(self.dtype),
                                         self.values.create_sig(res_shape))
 
@@ -805,7 +804,7 @@ class Reduce(VirtualArray):
         ri = ArrayIterator(result.size)
         frame = sig.create_frame(self.values, dim=self.dim)
         value = self.get_identity(sig, frame, shapelen)
-        assert isinstance(sig, signature.ReduceSignature)
+        assert isinstance(sig, signature.AxisReduceSignature)
         while not frame.done():
             axisreduce_driver.jit_merge_point(frame=frame, self=self,
                                           value=value, sig=sig,
