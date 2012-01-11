@@ -2985,7 +2985,8 @@ class LLtypeBackendTest(BaseBackendTest):
         from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
         import ctypes
         ops = """
-        [i0]
+        [i2]
+        i0 = same_as(i2)    # but forced to be in a register
         label(i0, descr=1)
         i1 = int_add(i0, i0)
         guard_true(i1, descr=faildesr) [i1]
@@ -3013,18 +3014,17 @@ class LLtypeBackendTest(BaseBackendTest):
         # we don't quite know if borders are correct
 
         def checkops(mc, ops):
+            assert len(mc) == len(ops)
             for i in range(len(mc)):
                 assert mc[i].split("\t")[-1].startswith(ops[i])
             
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         mc = list(machine_code_dump(data, info.asmaddr, cpuname))
         lines = [line for line in mc if line.count('\t') == 2]
-        assert len(lines) == 4
         checkops(lines, self.add_loop_instructions)
         data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
         mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
         lines = [line for line in mc if line.count('\t') == 2]
-        assert len(lines) == 3
         checkops(lines, self.bridge_loop_instructions)
 
 

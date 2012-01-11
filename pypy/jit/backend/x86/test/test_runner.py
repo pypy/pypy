@@ -33,8 +33,12 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['add', 'test', 'je', 'jmp']
-    bridge_loop_instructions = ['lea', 'mov', 'jmp']
+    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
+    if WORD == 4:
+        bridge_loop_instructions = ['lea', 'jmp']
+    else:
+        # the 'mov' is part of the 'jmp' so far
+        bridge_loop_instructions = ['lea', 'mov', 'jmp']
 
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
