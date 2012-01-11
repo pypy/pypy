@@ -488,12 +488,7 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         descr_number = self.cpu.get_fail_descr_number(faildescr)
-        try:
-            failure_recovery = self._find_failure_recovery_bytecode(faildescr)
-        except ValueError:
-            debug_print("Bridge out of guard", descr_number,
-                        "was already compiled!")
-            return
+        failure_recovery = self._find_failure_recovery_bytecode(faildescr)
 
         self.setup(original_loop_token)
         if log:
@@ -625,7 +620,11 @@ class Assembler386(object):
     def _find_failure_recovery_bytecode(self, faildescr):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         if adr_jump_offset == 0:
-            raise ValueError
+            # This case should be prevented by the logic in compile.py:
+            # look for CNT_BUSY_FLAG, which disables tracing from a guard
+            # when another tracing from the same guard is already in progress.
+            raise AssertionError("bug: the front-end asks us to compile a "
+                                 "bridge from the same guard twice")
         # follow the JMP/Jcond
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
