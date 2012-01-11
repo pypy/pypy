@@ -814,7 +814,10 @@ class Assembler386(object):
         target = newlooptoken._x86_function_addr
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
-        assert mc.get_relative_pos() <= 13  # keep in sync with prepare_loop()
+        if WORD == 4:         # keep in sync with prepare_loop()
+            assert mc.get_relative_pos() == 5
+        else:
+            assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
 
     def dump(self, text):
