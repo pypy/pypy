@@ -440,6 +440,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_str()
         if isinstance(w_obj, W_SetObject):
             return w_obj.listview_str()
+        if isinstance(w_obj, W_DictMultiObject):
+            return w_obj.listview_str()
         return None
 
     def listview_int(self, w_obj):

@@ -142,6 +142,14 @@ class TestW_DictObject:
         assert space.eq_w(w_d.getitem_str("a"), space.w_None)
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
+    def test_listview_str_dict(self):
+        w = self.space.wrap
+
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w("a"), w(1)), (w("b"), w(2))])
+
+        assert self.space.listview_str(w_d) == ["a", "b"]
+
 class AppTest_DictObject:
     def setup_class(cls):
         cls.w_on_pypy = cls.space.wrap("__pypy__" in sys.builtin_module_names)

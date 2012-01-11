@@ -91,7 +91,7 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear keys values \
                     items iter setdefault \
-                    popitem".split()
+                    popitem listview_str".split()
 
     def make_method(method):
         def f(self, *args):
@@ -147,6 +147,9 @@ class DictStrategy(object):
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
+
+    def listview_str(self, w_dict):
+        return None
 
 
 class EmptyDictStrategy(DictStrategy):
@@ -457,6 +460,9 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.unerase(w_dict.dstorage).get(key, None)
 
+    def listview_str(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
     def iter(self, w_dict):
         return StrIteratorImplementation(self.space, self, w_dict)
 
@@ -676,6 +682,7 @@ def dict_items__DictMulti(space, w_self):
     return space.newlist(w_self.items())
 
 def dict_keys__DictMulti(space, w_self):
+    #XXX add fastpath for strategies here
     return space.newlist(w_self.keys())
 
 def dict_values__DictMulti(space, w_self):
