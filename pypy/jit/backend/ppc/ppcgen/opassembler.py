@@ -549,8 +549,15 @@ class ArrayOpAssembler(object):
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
+
+        # use r20 as scratch reg
+        SAVE_SCRATCH = r.r20
+        # save value temporarily
+        self.mc.mtctr(SAVE_SCRATCH.value)
+
         if scale.value > 0:
-            scale_loc = r.SCRATCH
+            #scale_loc = r.SCRATCH
+            scale_loc = SAVE_SCRATCH
             if IS_PPC_32:
                 self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
@@ -574,13 +581,23 @@ class ArrayOpAssembler(object):
         else:
             assert 0, "scale %s not supported" % (scale.value)
 
+        # restore value of SAVE_SCRATCH
+        self.mc.mfctr(SAVE_SCRATCH.value)
+
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         assert ofs_loc.is_reg()
+
+        # use r20 as scratch reg
+        SAVE_SCRATCH = r.r20
+        # save value temporarily
+        self.mc.mtctr(SAVE_SCRATCH.value)
+
         if scale.value > 0:
-            scale_loc = r.SCRATCH
+            #scale_loc = r.SCRATCH
+            scale_loc = SAVE_SCRATCH
             if IS_PPC_32:
                 self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
@@ -603,6 +620,9 @@ class ArrayOpAssembler(object):
             self.mc.lbzx(res.value, base_loc.value, scale_loc.value)
         else:
             assert 0
+
+        # restore value of SAVE_SCRATCH
+        self.mc.mfctr(SAVE_SCRATCH.value)
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
