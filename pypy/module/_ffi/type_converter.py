@@ -325,7 +325,7 @@ class ToAppLevelConverter(object):
         Return type: lltype.Unsigned
         (the address of the structure)
         """
-        return self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+        self.error(w_ffitype)
 
     def get_void(self, w_ffitype):
         """
