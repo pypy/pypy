@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     view_iter_from_arr, SkipLastAxisIterator
+     view_iter_from_arr, SkipLastAxisIterator, AxisIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -34,13 +34,6 @@ slice_driver = jit.JitDriver(
     virtualizables=['frame'],
     reds=['self', 'frame', 'source', 'res_iter'],
     get_printable_location=signature.new_printable_location('slice'),
-)
-
-axisreduce_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['identity', 'self','result', 'ri', 'frame', 'dtype', 'value'],
-    get_printable_location=signature.new_printable_location('axisreduce'),
 )
 
 
@@ -695,7 +688,6 @@ class VirtualArray(BaseArray):
         # to allow garbage-collecting them
         raise NotImplementedError
 
-    @jit.unroll_safe
     def compute(self):
         result = W_NDimArray(self.size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
@@ -760,74 +752,6 @@ class VirtualSlice(VirtualArray):
         self.child = None
 
 
-class Reduce(VirtualArray):
-    def __init__(self, binfunc, name, dim, res_dtype, values, identity=None):
-        shape = values.shape[0:dim] + values.shape[dim + 1:len(values.shape)]
-        VirtualArray.__init__(self, name, shape, res_dtype)
-        self.values = values
-        self.size = 1
-        for s in shape:
-            self.size *= s
-        self.binfunc = binfunc
-        self.dtype = res_dtype
-        self.dim = dim
-        self.identity = identity
-
-    def _del_sources(self):
-        self.values = None
-
-    def create_sig(self, res_shape):
-        if self.forced_result is not None:
-            return self.forced_result.create_sig(res_shape)
-        return signature.AxisReduceSignature(self.binfunc, self.name, self.dtype,
-                                        signature.ViewSignature(self.dtype),
-                                        self.values.create_sig(res_shape))
-
-    def get_identity(self, sig, frame, shapelen):
-        #XXX does this allocate? Yes :(
-        #XXX is this inlinable? Yes :)
-        if self.identity is None:
-            value = sig.eval(frame, self.values).convert_to(self.dtype)
-            frame.next(shapelen)
-        else:
-            value = self.identity.convert_to(self.dtype)
-        return value
-
-    @jit.unroll_safe
-    def compute(self):
-        dtype = self.dtype
-        result = W_NDimArray(self.size, self.shape, dtype)
-        self.values = self.values.get_concrete()
-        shapelen = len(result.shape)
-        identity = self.identity
-        sig = self.find_sig(res_shape=result.shape, arr=self.values)
-        ri = ArrayIterator(result.size)
-        frame = sig.create_frame(self.values, dim=self.dim)
-        value = self.get_identity(sig, frame, shapelen)
-        assert isinstance(sig, signature.AxisReduceSignature)
-        while not frame.done():
-            axisreduce_driver.jit_merge_point(frame=frame, self=self,
-                                          value=value, sig=sig,
-                                          shapelen=shapelen, ri=ri,
-                                          dtype=dtype,
-                                          identity=identity,
-                                          result=result)
-            if frame.axis_done():
-                result.dtype.setitem(result.storage, ri.offset, value)
-                if identity is None:
-                    value = sig.eval(frame, self.values).convert_to(dtype)
-                    frame.next(shapelen)
-                else:
-                    value = identity.convert_to(dtype)
-                ri = ri.next(shapelen)
-            value = self.binfunc(dtype, value, 
-                               sig.eval(frame, self.values).convert_to(dtype))
-            frame.next(shapelen)
-        assert ri.done
-        result.dtype.setitem(result.storage, ri.offset, value)
-        return result
-
-
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, res_dtype, values):
         VirtualArray.__init__(self, name, shape, res_dtype)
@@ -868,6 +792,16 @@ class Call2(VirtualArray):
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(res_shape),
                                self.right.create_sig(res_shape))
+
+class AxisReduce(Call2):
+    """ NOTE: this is only used as a container, you should never
+    encounter such things in the wild. Remove this comment
+    when we'll make AxisReduce lazy
+    """
+    def __init__(self, ufunc, name, shape, dtype, left, right, dim):
+        Call2.__init__(self, ufunc, name, shape, dtype, dtype,
+                       left, right)
+        self.dim = dim
 
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not

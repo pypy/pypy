@@ -1,7 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     OneDimIterator, ConstantIterator, axis_iter_from_arr
+     OneDimIterator, ConstantIterator, AxisIterator
 from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib.jit import hint, unroll_safe, promote
 
@@ -33,7 +33,8 @@ def find_sig(sig, arr):
         return sig
 
 class NumpyEvalFrame(object):
-    _virtualizable2_ = ['iterators[*]', 'final_iter', 'arraylist[*]']
+    _virtualizable2_ = ['iterators[*]', 'final_iter', 'arraylist[*]',
+                        'value', 'identity']
 
     @unroll_safe
     def __init__(self, iterators, arrays):
@@ -47,6 +48,8 @@ class NumpyEvalFrame(object):
                 break
         else:
             self.final_iter = -1
+        self.value = None
+        self.identity = None
 
     def done(self):
         final_iter = promote(self.final_iter)
@@ -57,13 +60,7 @@ class NumpyEvalFrame(object):
     @unroll_safe
     def next(self, shapelen):
         for i in range(len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)
-
-    def axis_done(self):
-        final_iter = promote(self.final_iter)
-        if final_iter < 0:
-            return False
-        return self.iterators[final_iter].axis_done()
+            self.iterators[i] = self.iterators[i].next(shapelen)    
 
 def _add_ptr_to_cache(ptr, cache):
     i = 0
@@ -101,13 +98,13 @@ class Signature(object):
             allnumbers.append(no)
         self.iter_no = no
 
-    def create_frame(self, arr, res_shape=None, chunks=None, dim=-1):
+    def create_frame(self, arr, res_shape=None, chunks=None):
         if chunks is None:
             chunks = []
         res_shape = res_shape or arr.shape
         iterlist = []
         arraylist = []
-        self._create_iter(iterlist, arraylist, arr, res_shape, chunks, dim)
+        self._create_iter(iterlist, arraylist, arr, res_shape, chunks)
         return NumpyEvalFrame(iterlist, arraylist)
 
 
@@ -150,7 +147,7 @@ class ArraySignature(ConcreteSignature):
         assert concr.dtype is self.dtype
         self.array_no = _add_ptr_to_cache(concr.storage, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
         assert isinstance(concr, ConcreteArray)
@@ -178,7 +175,7 @@ class ScalarSignature(ConcreteSignature):
     def _invent_array_numbering(self, arr, cache):
         pass
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         if self.iter_no >= len(iterlist):
             iter = ConstantIterator()
             iterlist.append(iter)
@@ -219,12 +216,12 @@ class VirtualSliceSignature(Signature):
         assert isinstance(other, VirtualSliceSignature)
         return self.child.eq(other.child, compare_array_no)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         from pypy.module.micronumpy.interp_numarray import VirtualSlice
         assert isinstance(arr, VirtualSlice)
         chunklist.append(arr.chunks)
         self.child._create_iter(iterlist, arraylist, arr.child, res_shape,
-                                chunklist, dim)
+                                chunklist)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import VirtualSlice
@@ -260,11 +257,11 @@ class Call1(Signature):
         assert isinstance(arr, Call1)
         self.child._invent_array_numbering(arr.values, cache)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
         self.child._create_iter(iterlist, arraylist, arr.values, res_shape,
-                                chunklist, dim)
+                                chunklist)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
@@ -305,14 +302,14 @@ class Call2(Signature):
         self.left._invent_numbering(cache, allnumbers)
         self.right._invent_numbering(cache, allnumbers)
 
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         from pypy.module.micronumpy.interp_numarray import Call2
 
         assert isinstance(arr, Call2)
         self.left._create_iter(iterlist, arraylist, arr.left, res_shape,
-                               chunklist, dim)
+                               chunklist)
         self.right._create_iter(iterlist, arraylist, arr.right, res_shape,
-                                chunklist, dim)
+                                chunklist)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call2
@@ -327,9 +324,9 @@ class Call2(Signature):
 
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
         self.right._create_iter(iterlist, arraylist, arr, res_shape,
-                                    chunklist, dim)
+                                chunklist)
 
     def _invent_numbering(self, cache, allnumbers):
         self.right._invent_numbering(cache, allnumbers)
@@ -341,33 +338,39 @@ class ReduceSignature(Call2):
         return self.right.eval(frame, arr)
 
     def debug_repr(self):
-        return 'ReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),
-                                          self.right.debug_repr())
+        return 'ReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
 
 class AxisReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist, dim):
-        from pypy.module.micronumpy.interp_numarray import ConcreteArray
-        concr = arr.get_concrete()
-        assert isinstance(concr, ConcreteArray)
-        storage = concr.storage
-        if self.iter_no >= len(iterlist):
-            _iter = axis_iter_from_arr(concr, dim)
-            from interp_iter import AxisIterator
-            assert isinstance(_iter, AxisIterator)
-            iterlist.append(_iter)
-        if self.array_no >= len(arraylist):
-            arraylist.append(storage)
+    def _create_iter(self, iterlist, arraylist, arr, res_shape, chunklist):
+        from pypy.module.micronumpy.interp_numarray import AxisReduce
+
+        assert isinstance(arr, AxisReduce)
+        assert not iterlist # we assume that later in eval
+        iterlist.append(AxisIterator(arr.dim, arr.right.shape,
+                                     arr.left.strides,
+                                     arr.left.backstrides))
+        self.right._create_iter(iterlist, arraylist, arr.right, arr.right.shape,
+                                chunklist)
 
     def _invent_numbering(self, cache, allnumbers):
+        no = len(allnumbers)
+        allnumbers.append(no)
         self.right._invent_numbering(cache, allnumbers)
 
     def _invent_array_numbering(self, arr, cache):
-        self.right._invent_array_numbering(arr, cache)
+        from pypy.module.micronumpy.interp_numarray import AxisReduce
+
+        assert isinstance(arr, AxisReduce)
+        self.right._invent_array_numbering(arr.right, cache)
 
     def eval(self, frame, arr):
-        return self.right.eval(frame, arr)
+        if frame.iterators[0].axis_done:
+            arr.left.setitem(frame.iterators[0].offset, frame.value)
+            frame.value = frame.identity
+        v = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        print v.value, frame.value.value
+        frame.value = self.binfunc(self.calc_dtype, frame.value, v)
+        return frame.value
 
     def debug_repr(self):
-        return 'AxisReduceSig(%s, %s, %s)' % (self.name, self.left.debug_repr(),
-                                          self.right.debug_repr())
-
+        return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())

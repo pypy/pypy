@@ -3,8 +3,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype
-from pypy.module.micronumpy.signature import ReduceSignature, ScalarSignature,\
-     find_sig, new_printable_location
+from pypy.module.micronumpy.signature import ReduceSignature,\
+     find_sig, new_printable_location, AxisReduceSignature, ScalarSignature
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -14,6 +14,14 @@ reduce_driver = jit.JitDriver(
     virtualizables=["frame"],
     reds=["frame", "self", "dtype", "value", "obj"],
     get_printable_location=new_printable_location('reduce'),
+)
+
+axisreduce_driver = jit.JitDriver(
+    greens=['shapelen', 'sig'],
+    virtualizables=['frame'],
+    reds=['self','arr', 'frame', 'shapelen'],
+#    name='axisreduce',
+    get_printable_location=new_printable_location('axisreduce'),
 )
 
 
@@ -129,20 +137,59 @@ class W_Ufunc(Wrappable):
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
-            from pypy.module.micronumpy.interp_numarray import Reduce
-            res = Reduce(self.func, self.name, dim, dtype, obj, self.identity)
-            obj.add_invalidates(res)
+            res = self.do_axis_reduce(obj, dtype, dim)
             return space.wrap(res)
+        scalarsig = ScalarSignature(dtype)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
-                                       ScalarSignature(dtype),
+                                       scalarsig,
                                        obj.create_sig(obj.shape)), obj)
-        frame = sig.create_frame(obj, dim=-1)
+        frame = sig.create_frame(obj)
         if self.identity is None:
             value = sig.eval(frame, obj).convert_to(dtype)
             frame.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
         return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
+
+    def do_axis_reduce(self, obj, dtype, dim):
+        from pypy.module.micronumpy.interp_numarray import AxisReduce,\
+             W_NDimArray
+        
+        shape = obj.shape[0:dim] + obj.shape[dim + 1:len(obj.shape)]
+        size = 1
+        for s in shape:
+            size *= s
+        result = W_NDimArray(size, shape, dtype)
+        rightsig = obj.create_sig(obj.shape)
+        # note - this is just a wrapper so signature can fetch
+        #        both left and right, nothing more, especially
+        #        this is not a true virtual array, because shapes
+        #        don't quite match
+        arr = AxisReduce(self.func, self.name, shape, dtype,
+                         result, obj, dim)
+        scalarsig = ScalarSignature(dtype)
+        sig = find_sig(AxisReduceSignature(self.func, self.name, dtype,
+                                           scalarsig, rightsig), arr)
+        frame = sig.create_frame(arr)
+        shapelen = len(obj.shape)
+        if self.identity is None:
+            frame.identity = sig.eval(frame, arr).convert_to(dtype)
+            frame.next(shapelen)
+        else:
+            frame.identity = self.identity.convert_to(dtype)
+        frame.value = frame.identity
+        self.reduce_axis_loop(frame, sig, shapelen, arr)
+        return result
+
+    def reduce_axis_loop(self, frame, sig, shapelen, arr):
+        while not frame.done():
+            axisreduce_driver.jit_merge_point(frame=frame, self=self,
+                                              sig=sig,
+                                              shapelen=shapelen, arr=arr)
+            sig.eval(frame, arr)
+            frame.next(shapelen)
+        # store the last value, when everything is done
+        arr.left.setitem(frame.iterators[0].offset, frame.value)
 
     def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
         while not frame.done():

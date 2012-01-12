@@ -22,9 +22,6 @@ class BaseIterator(object):
     def done(self):
         raise NotImplementedError
 
-    def axis_done(self):
-        raise NotImplementedError
-
 class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
@@ -106,74 +103,56 @@ class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
 
-def axis_iter_from_arr(arr, dim=-1):
-    # The assert is needed for zjit tests
-    from pypy.module.micronumpy.interp_numarray import ConcreteArray
-    assert isinstance(arr, ConcreteArray)
-    return AxisIterator(arr.start, arr.strides, arr.backstrides, arr.shape,
-                        dim)
-
 class AxisIterator(BaseIterator):
     """ Accept an addition argument dim
     Redorder the dimensions to iterate over dim most often.
     Set a flag at the end of each run over dim.
     """
-    def __init__(self, arr_start, strides, backstrides, shape, dim):
+    def __init__(self, dim, shape, strides, backstrides):
         self.shape = shape
-        self.shapelen = len(shape)
         self.indices = [0] * len(shape)
         self._done = False
-        self._axis_done = False
-        self.offset = arr_start
+        self.axis_done = False
+        self.offset = -1
         self.dim = dim
-        self.dim_order = []
-        if self.dim >= 0:
-            self.dim_order.append(self.dim)
-        for i in range(self.shapelen - 1, -1, -1):
-            if i == self.dim:
-                continue
-            self.dim_order.append(i)
-        self.strides = strides
-        self.backstrides = backstrides
+        self.strides = strides[:dim] + [0] + strides[dim:]
+        self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
+        self.dim_order = [dim]
+        for i in range(len(shape) - 1, -1, -1):
+            if i != self.dim:
+                self.dim_order.append(i)
 
     def done(self):
         return self._done
 
-    def axis_done(self):
-        return self._axis_done
-
     @jit.unroll_safe
     def next(self, shapelen):
-        #shapelen will always be one less than self.shapelen
         offset = self.offset
-        _axis_done = False
         done = False
-        #indices = [0] * self.shapelen
-        #for i in range(self.shapelen):
-        #    indices[i] = self.indices[i]
-        indices = self.indices
+        indices = [0] * shapelen
+        for i in range(shapelen):
+            indices[i] = self.indices[i]
+        axis_done = False        
         for i in self.dim_order:
             if indices[i] < self.shape[i] - 1:
                 indices[i] += 1
-                offset += self.strides[i]
                 break
             else:
                 if i == self.dim:
-                    _axis_done = True
+                    axis_done = True
+                    offset += 1
                 indices[i] = 0
-                offset -= self.backstrides[i]
         else:
             done = True
         res = instantiate(AxisIterator)
-        res._axis_done = _axis_done
+        res.axis_done = axis_done
+        res.strides = self.strides
+        res.backstrides = self.backstrides
         res.offset = offset
         res.indices = indices
-        res.strides = self.strides
-        res.dim_order = self.dim_order
-        res.backstrides = self.backstrides
         res.shape = self.shape
-        res.shapelen = self.shapelen
         res.dim = self.dim
+        res.dim_order = self.dim_order
         res._done = done
         return res
 

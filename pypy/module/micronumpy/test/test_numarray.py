@@ -745,7 +745,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         raises(TypeError, 'a.sum(2, 3)')
 
-    def test_reduceND(self):
+    def test_reduce_nd(self):
         from numpypy import arange
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
