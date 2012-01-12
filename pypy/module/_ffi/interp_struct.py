@@ -10,6 +10,8 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import operationerrfmt
 from pypy.objspace.std.typetype import type_typedef
 from pypy.module._ffi.interp_ffitype import W_FFIType, app_types
+from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
+
 
 class W_Field(Wrappable):
 
@@ -133,11 +135,9 @@ class W__StructInstance(Wrappable):
     @unwrap_spec(name=str)
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
+        converter = GetFieldConverter(space, self.rawmem, offset)
         if w_ffitype.is_longlong():
-            value = libffi.struct_getfield_longlong(w_ffitype.ffitype, self.rawmem, offset)
-            if w_ffitype is app_types.ulonglong:
-                return space.wrap(r_ulonglong(value))
-            return space.wrap(value)
+            return converter.do_and_wrap(w_ffitype)
         #
         if w_ffitype.is_signed() or w_ffitype.is_unsigned() or w_ffitype.is_pointer():
             value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
@@ -192,6 +192,29 @@ class W__StructInstance(Wrappable):
             return
         #
         raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
+
+
+class GetFieldConverter(ToAppLevelConverter):
+    """
+    A converter used by W__StructInstance to get a field from the struct and
+    wrap it to the correct app-level type.
+    """
+
+    def __init__(self, space, rawmem, offset):
+        self.space = space
+        self.rawmem = rawmem
+        self.offset = offset
+
+    def get_longlong(self, w_ffitype): 
+        return libffi.struct_getfield_longlong(libffi.types.slonglong,
+                                               self.rawmem, self.offset)
+
+    def get_ulonglong(self, w_ffitype):
+        longlongval = libffi.struct_getfield_longlong(libffi.types.ulonglong,
+                                                      self.rawmem, self.offset)
+        return r_ulonglong(longlongval)
+
+
 
 W__StructInstance.typedef = TypeDef(
     '_StructInstance',
