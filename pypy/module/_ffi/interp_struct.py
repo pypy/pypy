@@ -3,7 +3,7 @@ from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
 from pypy.rlib.rgc import must_be_light_finalizer
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat, intmask
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -135,38 +135,14 @@ class W__StructInstance(Wrappable):
     @unwrap_spec(name=str)
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        converter = GetFieldConverter(space, self.rawmem, offset)
-        return converter.do_and_wrap(w_ffitype)
+        field_getter = GetFieldConverter(space, self.rawmem, offset)
+        return field_getter.do_and_wrap(w_ffitype)
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        if w_ffitype.is_longlong():
-            value = space.truncatedlonglong_w(w_value)
-            libffi.struct_setfield_longlong(w_ffitype.ffitype, self.rawmem, offset, value)
-            return
-        #
-        if w_ffitype.is_signed() or w_ffitype.is_unsigned() or w_ffitype.is_pointer():
-            value = space.truncatedint_w(w_value)
-            libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
-            return
-        #
-        if w_ffitype.is_char() or w_ffitype.is_unichar():
-            value = space.int_w(space.ord(w_value))
-            libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
-            return
-        #
-        if w_ffitype.is_double():
-            value = space.float_w(w_value)
-            libffi.struct_setfield_float(w_ffitype.ffitype, self.rawmem, offset, value)
-            return
-        #
-        if w_ffitype.is_singlefloat():
-            value = r_singlefloat(space.float_w(w_value))
-            libffi.struct_setfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset, value)
-            return
-        #
-        raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
+        field_setter = SetFieldConverter(space, self.rawmem, offset)
+        field_setter.unwrap_and_do(w_ffitype, w_value)
 
 
 class GetFieldConverter(ToAppLevelConverter):
@@ -213,11 +189,55 @@ class GetFieldConverter(ToAppLevelConverter):
         return libffi.struct_getfield_singlefloat(w_ffitype.ffitype, self.rawmem,
                                                   self.offset)
 
-
     ## def get_struct(self, w_datashape):
     ##     ...
 
     ## def get_void(self, w_ffitype):
+    ##     ...
+
+
+class SetFieldConverter(FromAppLevelConverter):
+    """
+    A converter used by W__StructInstance to convert an app-level object to
+    the corresponding low-level value and set the field of a structure.
+    """
+
+    def __init__(self, space, rawmem, offset):
+        self.space = space
+        self.rawmem = rawmem
+        self.offset = offset
+
+    def handle_signed(self, w_ffitype, w_obj, intval):
+        libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, self.offset,
+                                   intval)
+
+    def handle_unsigned(self, w_ffitype, w_obj, uintval):
+        libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, self.offset,
+                                   intmask(uintval))
+
+    handle_pointer = handle_signed
+    handle_char = handle_signed
+    handle_unichar = handle_signed
+
+    def handle_longlong(self, w_ffitype, w_obj, longlongval):
+        libffi.struct_setfield_longlong(w_ffitype.ffitype, self.rawmem, self.offset,
+                                        longlongval)
+
+    def handle_float(self, w_ffitype, w_obj, floatval):
+        libffi.struct_setfield_float(w_ffitype.ffitype, self.rawmem, self.offset,
+                                     floatval)
+
+    def handle_singlefloat(self, w_ffitype, w_obj, singlefloatval):
+        libffi.struct_setfield_singlefloat(w_ffitype.ffitype, self.rawmem, self.offset,
+                                           singlefloatval)
+
+    ## def handle_struct(self, w_ffitype, w_structinstance):
+    ##     ...
+
+    ## def handle_char_p(self, w_ffitype, w_obj, strval):
+    ##     ...
+
+    ## def handle_unichar_p(self, w_ffitype, w_obj, unicodeval):
     ##     ...
 
 

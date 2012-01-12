@@ -33,7 +33,7 @@ class FromAppLevelConverter(object):
             pass
         elif w_ffitype.is_pointer():
             w_obj = self.convert_pointer_arg_maybe(w_obj, w_ffitype)
-            intval = intmask(space.uint_w(w_obj))
+            intval = space.truncatedint_w(w_obj)
             self.handle_pointer(w_ffitype, w_obj, intval)
         elif w_ffitype.is_unsigned():
             uintval = r_uint(space.truncatedint_w(w_obj))
@@ -58,7 +58,7 @@ class FromAppLevelConverter(object):
     def _longlong(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether longlongs are supported
-        bigval = self.space.bigint_w(w_obj)
+        bigval = self.space.bigint_w(w_obj) # XXX, use truncatedlonglong?
         ullval = bigval.ulonglongmask()
         llval = rffi.cast(rffi.LONGLONG, ullval)
         self.handle_longlong(w_ffitype, w_obj, llval)
