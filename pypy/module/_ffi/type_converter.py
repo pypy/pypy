@@ -58,10 +58,8 @@ class FromAppLevelConverter(object):
     def _longlong(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
         # depending on whether longlongs are supported
-        bigval = self.space.bigint_w(w_obj) # XXX, use truncatedlonglong?
-        ullval = bigval.ulonglongmask()
-        llval = rffi.cast(rffi.LONGLONG, ullval)
-        self.handle_longlong(w_ffitype, w_obj, llval)
+        longlongval = self.space.truncatedlonglong_w(w_obj)
+        self.handle_longlong(w_ffitype, w_obj, longlongval)
 
     def _float(self, w_ffitype, w_obj):
         # a separate function, which can be seen by the jit or not,
