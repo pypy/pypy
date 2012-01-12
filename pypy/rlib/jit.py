@@ -401,6 +401,7 @@ PARAMETER_DOCS = {
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
+    'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
     }
 
@@ -412,6 +413,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'max_retrace_guards': 15,
+              'max_unroll_loops': 4,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
