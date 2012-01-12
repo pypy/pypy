@@ -7,16 +7,17 @@ from pypy.jit.backend.ppc.ppcgen.register import (NONVOLATILES,
 import sys
 if sys.maxint == (2**31 - 1):
     WORD = 4
+    DWORD = 2 * WORD
     IS_PPC_32 = True
     BACKCHAIN_SIZE = 2
     FPR_SAVE_AREA = len(NONVOLATILES_FLOAT) * DWORD
 else:
     WORD = 8
+    DWORD = 2 * WORD
     IS_PPC_32 = False
     BACKCHAIN_SIZE = 6
     FPR_SAVE_AREA = len(NONVOLATILES_FLOAT) * WORD
 
-DWORD                   = 2 * WORD
 IS_PPC_64               = not IS_PPC_32
 MY_COPY_OF_REGS         = 0
 

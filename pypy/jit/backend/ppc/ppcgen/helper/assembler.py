@@ -5,7 +5,7 @@ from pypy.jit.backend.ppc.ppcgen.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
 from pypy.jit.metainterp.history import FLOAT
 from pypy.rlib.unroll import unrolling_iterable
 import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, lltype
 
 def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
@@ -68,7 +68,8 @@ def decode32(mem, index):
             | ord(mem[index]) << 24)
 
     rffi_value = rffi.cast(rffi.INT, value)
-    return int(rffi_value)
+    # do sign extension
+    return rffi.cast(lltype.Signed, rffi_value)
 
 def encode64(mem, i, n):
     mem[i+7] = chr(n & 0xFF)
