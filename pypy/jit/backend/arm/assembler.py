@@ -184,7 +184,7 @@ class AssemblerARM(ResOpAssembler):
         fvalue = 0
         code_inputarg = False
         while True:
-            code = bytecode[0]
+            code = rffi.cast(lltype.Signed, bytecode[0])
             bytecode = rffi.ptradd(bytecode, 1)
             if code >= self.CODE_FROMSTACK:
                 if code > 0x7F:
