@@ -194,8 +194,13 @@ class ToAppLevelConverter(object):
         elif w_ffitype.is_signed():
             intval = self.get_signed(w_ffitype)
             return space.wrap(intval)
-        elif w_ffitype is app_types.ulong:
-            # we need to be careful when the return type is ULONG, because the
+        elif w_ffitype is app_types.ulong or w_ffitype is app_types.ulonglong:
+            # Note that we the second check (for ulonglong) is meaningful only
+            # on 64 bit, because on 32 bit the ulonglong case would have been
+            # handled by the is_longlong() branch above. On 64 bit, ulonglong
+            # is essentially the same as ulong.
+            #
+            # We need to be careful when the return type is ULONG, because the
             # value might not fit into a signed LONG, and thus might require
             # and app-evel <long>.  This is why we need to treat it separately
             # than the other unsigned types.
