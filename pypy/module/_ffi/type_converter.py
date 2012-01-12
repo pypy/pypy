@@ -2,6 +2,7 @@ from pypy.rlib import libffi
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import rffi
+from pypy.interpreter.error import operationerrfmt
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
 
@@ -100,7 +101,7 @@ class FromAppLevelConverter(object):
             return w_arg
 
     def error(self, w_ffitype, w_obj):
-        raise operationerrfmt(space.w_TypeError,
+        raise operationerrfmt(self.space.w_TypeError,
                               'Unsupported ffi type to convert: %s',
                               w_ffitype.name)
 
@@ -253,7 +254,7 @@ class ToAppLevelConverter(object):
         return self.space.wrap(float(singlefloatval))
 
     def error(self, w_ffitype):
-        raise operationerrfmt(space.w_TypeError,
+        raise operationerrfmt(self.space.w_TypeError,
                               'Unsupported ffi type to convert: %s',
                               w_ffitype.name)
 
