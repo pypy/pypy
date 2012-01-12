@@ -140,10 +140,7 @@ class W__StructInstance(Wrappable):
             return converter.do_and_wrap(w_ffitype)
         #
         if w_ffitype.is_signed() or w_ffitype.is_unsigned() or w_ffitype.is_pointer():
-            value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
-            if w_ffitype.is_signed():
-                return space.wrap(value)
-            return space.wrap(r_uint(value))
+            return converter.do_and_wrap(w_ffitype)
         #
         if w_ffitype.is_char():
             value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
@@ -213,6 +210,36 @@ class GetFieldConverter(ToAppLevelConverter):
         longlongval = libffi.struct_getfield_longlong(libffi.types.ulonglong,
                                                       self.rawmem, self.offset)
         return r_ulonglong(longlongval)
+
+
+    def get_signed(self, w_ffitype):
+        return libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, self.offset)
+
+    def get_unsigned(self, w_ffitype):
+        value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, self.offset)
+        return r_uint(value)
+
+    get_unsigned_which_fits_into_a_signed = get_signed
+    get_pointer = get_unsigned
+
+    ## def get_char(self, w_ffitype):
+    ##     ...
+
+    ## def get_unichar(self, w_ffitype):
+    ##     ...
+
+    ## def get_float(self, w_ffitype):
+    ##     ...
+
+    ## def get_singlefloat(self, w_ffitype):
+    ##     ...
+
+    ## def get_struct(self, w_datashape):
+    ##     ...
+
+    ## def get_void(self, w_ffitype):
+    ##     ...
+
 
 
 
