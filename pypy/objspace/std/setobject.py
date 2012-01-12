@@ -943,8 +943,9 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_empty_storage()
         return
 
-    #XXX check ints and strings at once
+    _pick_correct_strategy(space, w_set, iterable_w)
 
+def _pick_correct_strategy(space, w_set, iterable_w):
     # check for integers
     for w_item in iterable_w:
         if type(w_item) is not W_IntObject:
