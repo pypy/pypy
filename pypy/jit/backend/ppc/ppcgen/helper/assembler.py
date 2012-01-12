@@ -5,6 +5,7 @@ from pypy.jit.backend.ppc.ppcgen.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
 from pypy.jit.metainterp.history import FLOAT
 from pypy.rlib.unroll import unrolling_iterable
 import pypy.jit.backend.ppc.ppcgen.register as r
+from pypy.rpython.lltypesystem import rffi
 
 def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
@@ -58,11 +59,16 @@ def encode32(mem, i, n):
     mem[i+1] = chr((n >> 16) & 0xFF)
     mem[i] = chr((n >> 24) & 0xFF)
 
+# XXX this sign extension looks a bit strange ...
+# It is important for PPC64.
 def decode32(mem, index):
-    return intmask(ord(mem[index+3])
+    value = ( ord(mem[index+3])
             | ord(mem[index+2]) << 8
             | ord(mem[index+1]) << 16
             | ord(mem[index]) << 24)
+
+    rffi_value = rffi.cast(rffi.INT, value)
+    return int(rffi_value)
 
 def encode64(mem, i, n):
     mem[i+7] = chr(n & 0xFF)
