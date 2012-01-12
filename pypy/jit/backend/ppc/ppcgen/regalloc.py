@@ -105,6 +105,14 @@ class PPCRegisterManager(RegisterManager):
                             forbidden_vars=forbidden_vars)
         return reg, box
 
+    def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
+        assert type == INT or type == REF
+        box = TempBox()
+        self.temp_boxes.append(box)
+        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
+                                                    selected_reg=selected_reg)
+        return reg
+
 class PPCFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
@@ -286,6 +294,15 @@ class Regalloc(object):
                     forbidden_vars=forbidden_vars)
             box = thing
         return loc, box
+
+    def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
+        if type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
+
+    def free_temp_vars(self):
+        self.rm.free_temp_vars()
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
@@ -606,7 +623,10 @@ class Regalloc(object):
         ofs_loc, _ = self._ensure_value_is_boxed(a1, args)
         value_loc, _ = self._ensure_value_is_boxed(a2, args)
         assert _check_imm_arg(ofs)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
+        assert scratch_loc not in [base_loc, ofs_loc]
+        return [value_loc, base_loc, ofs_loc,
+                scratch_loc, imm(scale), imm(ofs)]
 
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
@@ -618,11 +638,14 @@ class Regalloc(object):
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(ofs_box)
+        scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
+        assert scratch_loc not in [base_loc, ofs_loc]
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         assert _check_imm_arg(ofs)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        return [res, base_loc, ofs_loc, 
+                scratch_loc, imm(scale), imm(ofs)]
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc

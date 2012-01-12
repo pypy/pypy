@@ -585,6 +585,7 @@ class AssemblerPPC(OpAssembler):
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
+            regalloc.free_temp_vars()
             regalloc._check_invariants()
 
     def can_merge_with_next_guard(self, op, i, operations):
