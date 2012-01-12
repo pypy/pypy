@@ -1,25 +1,43 @@
 
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
-from pypy.module.micronumpy.strides import calculate_broadcast_strides
+from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
+     calculate_slice_strides
 
-# Iterators for arrays
-# --------------------
-# all those iterators with the exception of BroadcastIterator iterate over the
-# entire array in C order (the last index changes the fastest). This will
-# yield all elements. Views iterate over indices and look towards strides and
-# backstrides to find the correct position. Notably the offset between
-# x[..., i + 1] and x[..., i] will be strides[-1]. Offset between
-# x[..., k + 1, 0] and x[..., k, i_max] will be backstrides[-2] etc.
+class BaseTransform(object):
+    pass
 
-# BroadcastIterator works like that, but for indexes that don't change source
-# in the original array, strides[i] == backstrides[i] == 0
+class ViewTransform(BaseTransform):
+    def __init__(self, chunks):
+        # 4-tuple specifying slicing
+        self.chunks = chunks
+
+class BroadcastTransform(BaseTransform):
+    def __init__(self, res_shape):
+        self.res_shape = res_shape
+
+class ReduceTransform(BaseTransform):
+    """ A reduction from ``shape`` over ``dim``. This also changes the order
+    of iteration, because we iterate over dim the most often
+    """
+    def __init__(self, shape, dim):
+        self.shape = shape
+        self.dim = dim
 
 class BaseIterator(object):
     def next(self, shapelen):
         raise NotImplementedError
 
     def done(self):
+        raise NotImplementedError
+
+    def apply_transformations(self, arr, transformations):
+        v = self
+        for transform in transformations:
+            v = v.transform(arr, transform)
+        return v
+
+    def transform(self, arr, t):
         raise NotImplementedError
 
 class ArrayIterator(BaseIterator):
@@ -35,6 +53,10 @@ class ArrayIterator(BaseIterator):
 
     def done(self):
         return self.offset >= self.size
+
+    def transform(self, arr, t):
+        return ViewIterator(arr.start, arr.strides, arr.backstrides,
+                            arr.shape).transform(arr, t)
 
 class OneDimIterator(BaseIterator):
     def __init__(self, start, step, stop):
@@ -56,22 +78,30 @@ def view_iter_from_arr(arr):
     return ViewIterator(arr.start, arr.strides, arr.backstrides, arr.shape)
 
 class ViewIterator(BaseIterator):
-    def __init__(self, start, strides, backstrides, shape, res_shape=None):
+    def __init__(self, start, strides, backstrides, shape):
         self.offset  = start
         self._done   = False
-        if res_shape is not None and res_shape != shape:
-            r = calculate_broadcast_strides(strides, backstrides,
-                                            shape, res_shape)
-            self.strides, self.backstrides = r
-            self.res_shape = res_shape
-        else:
-            self.strides = strides
-            self.backstrides = backstrides
-            self.res_shape = shape
+        self.strides = strides
+        self.backstrides = backstrides
+        self.res_shape = shape
         self.indices = [0] * len(self.res_shape)
+
+    def transform(self, arr, t):
+        if isinstance(t, BroadcastTransform):
+            r = calculate_broadcast_strides(self.strides, self.backstrides,
+                                            self.res_shape, t.res_shape)
+            return ViewIterator(self.offset, r[0], r[1], t.res_shape)
+        elif isinstance(t, ViewTransform):
+            r = calculate_slice_strides(self.res_shape, self.offset,
+                                        self.strides,
+                                        self.backstrides, t.chunks)
+            return ViewIterator(r[1], r[2], r[3], r[0])
+        elif isinstance(t, ReduceTransform):
+            xxx
 
     @jit.unroll_safe
     def next(self, shapelen):
+        shapelen = jit.promote(len(self.res_shape))
         offset = self.offset
         indices = [0] * shapelen
         for i in range(shapelen):
@@ -96,12 +126,22 @@ class ViewIterator(BaseIterator):
         res._done = done
         return res
 
+    def apply_transformations(self, arr, transformations):
+        v = BaseIterator.apply_transformations(self, arr, transformations)
+        if len(v.res_shape) == 1:
+            return OneDimIterator(self.offset, self.strides[0],
+                                  self.res_shape[0])
+        return v
+
     def done(self):
         return self._done
 
 class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
+
+    def transform(self, arr, t):
+        pass
 
 class AxisIterator(BaseIterator):
     """ Accept an addition argument dim

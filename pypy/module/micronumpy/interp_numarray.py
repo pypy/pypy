@@ -32,7 +32,7 @@ any_driver = jit.JitDriver(
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self', 'frame', 'source', 'res_iter'],
+    reds=['self', 'frame', 'source'],
     get_printable_location=signature.new_printable_location('slice'),
 )
 
@@ -612,7 +612,7 @@ class BaseArray(Wrappable):
         """
         res_shape = res_shape or self.shape
         arr = arr or self
-        return signature.find_sig(self.create_sig(res_shape), arr)
+        return signature.find_sig(self.create_sig(), arr)
 
     def descr_array_iface(self, space):
         if not self.shape:
@@ -666,7 +666,7 @@ class Scalar(BaseArray):
     def copy(self, space):
         return Scalar(self.dtype, self.value)
 
-    def create_sig(self, res_shape):
+    def create_sig(self):
         return signature.ScalarSignature(self.dtype)
 
     def get_concrete_or_scalar(self):
@@ -737,11 +737,11 @@ class VirtualSlice(VirtualArray):
         self.size = size
         VirtualArray.__init__(self, 'slice', shape, child.find_dtype())
 
-    def create_sig(self, res_shape):
+    def create_sig(self):
         if self.forced_result is not None:
-            return self.forced_result.create_sig(res_shape)
+            return self.forced_result.create_sig()
         return signature.VirtualSliceSignature(
-            self.child.create_sig(res_shape))
+            self.child.create_sig())
 
     def force_if_needed(self):
         if self.forced_result is None:
@@ -762,11 +762,10 @@ class Call1(VirtualArray):
     def _del_sources(self):
         self.values = None
 
-    def create_sig(self, res_shape):
+    def create_sig(self):
         if self.forced_result is not None:
-            return self.forced_result.create_sig(res_shape)
-        return signature.Call1(self.ufunc, self.name,
-                               self.values.create_sig(res_shape))
+            return self.forced_result.create_sig()
+        return signature.Call1(self.ufunc, self.name, self.values.create_sig())
 
 class Call2(VirtualArray):
     """
@@ -786,12 +785,43 @@ class Call2(VirtualArray):
         self.left = None
         self.right = None
 
-    def create_sig(self, res_shape):
+    def create_sig(self):
         if self.forced_result is not None:
-            return self.forced_result.create_sig(res_shape)
+            return self.forced_result.create_sig()
+        if self.shape != self.left.shape and self.shape != self.right.shape:
+            return signature.BroadcastBoth(self.ufunc, self.name,
+                                           self.calc_dtype,
+                                           self.left.create_sig(),
+                                           self.right.create_sig())
+        elif self.shape != self.left.shape:
+            return signature.BroadcastLeft(self.ufunc, self.name,
+                                           self.calc_dtype,
+                                           self.left.create_sig(),
+                                           self.right.create_sig())
+        elif self.shape != self.right.shape:
+            return signature.BroadcastRight(self.ufunc, self.name,
+                                            self.calc_dtype,
+                                            self.left.create_sig(),
+                                            self.right.create_sig())
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
-                               self.left.create_sig(res_shape),
-                               self.right.create_sig(res_shape))
+                               self.left.create_sig(), self.right.create_sig())
+
+class SliceArray(Call2):
+    def __init__(self, shape, dtype, left, right):
+        Call2.__init__(self, None, 'sliceloop', shape, dtype, dtype, left,
+                       right)
+    
+    def create_sig(self):
+        lsig = self.left.create_sig()
+        rsig = self.right.create_sig()
+        if self.shape != self.right.shape:
+            return signature.SliceloopBroadcastSignature(self.ufunc,
+                                                         self.name,
+                                                         self.calc_dtype,
+                                                         lsig, rsig)
+        return signature.SliceloopSignature(self.ufunc, self.name,
+                                            self.calc_dtype,
+                                            lsig, rsig)
 
 class AxisReduce(Call2):
     """ NOTE: this is only used as a container, you should never
@@ -855,11 +885,6 @@ class ConcreteArray(BaseArray):
             backstrides.reverse()
         self.strides = strides
         self.backstrides = backstrides
-
-    def array_sig(self, res_shape):
-        if res_shape is not None and self.shape != res_shape:
-            return signature.ViewSignature(self.dtype)
-        return signature.ArraySignature(self.dtype)
 
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         '''Modifies builder with a representation of the array/slice
@@ -975,7 +1000,7 @@ class ConcreteArray(BaseArray):
             self.dtype is w_value.find_dtype()):
             self._fast_setslice(space, w_value)
         else:
-            self._sliceloop(w_value, res_shape)
+            self._sliceloop(w_value)
 
     def _fast_setslice(self, space, w_value):
         assert isinstance(w_value, ConcreteArray)
@@ -999,21 +1024,16 @@ class ConcreteArray(BaseArray):
                 source.next()
                 dest.next()
 
-    def _sliceloop(self, source, res_shape):
-        sig = source.find_sig(res_shape=res_shape)
-        frame = sig.create_frame(source, res_shape)
-        res_iter = view_iter_from_arr(self)
-        shapelen = len(res_shape)
-        while not res_iter.done():
-            slice_driver.jit_merge_point(sig=sig,
-                                         frame=frame,
-                                         shapelen=shapelen,
-                                         self=self, source=source,
-                                         res_iter=res_iter)
-            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
-                self.find_dtype()))
+    def _sliceloop(self, source):
+        arr = SliceArray(self.shape, self.dtype, self, source)
+        sig = arr.find_sig()
+        frame = sig.create_frame(arr)
+        shapelen = len(self.shape)
+        while not frame.done():
+            slice_driver.jit_merge_point(sig=sig, frame=frame, self=self,
+                                         shapelen=shapelen, source=source)
+            sig.eval(frame, arr)
             frame.next(shapelen)
-            res_iter = res_iter.next(shapelen)
 
     def copy(self, space):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
@@ -1022,7 +1042,7 @@ class ConcreteArray(BaseArray):
 
 
 class ViewArray(ConcreteArray):
-    def create_sig(self, res_shape):
+    def create_sig(self):
         return signature.ViewSignature(self.dtype)
 
 
@@ -1086,8 +1106,8 @@ class W_NDimArray(ConcreteArray):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
-    def create_sig(self, res_shape):
-        return self.array_sig(res_shape)
+    def create_sig(self):
+        return signature.ArraySignature(self.dtype)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)

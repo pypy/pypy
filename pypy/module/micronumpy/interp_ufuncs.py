@@ -142,7 +142,7 @@ class W_Ufunc(Wrappable):
         scalarsig = ScalarSignature(dtype)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        scalarsig,
-                                       obj.create_sig(obj.shape)), obj)
+                                       obj.create_sig()), obj)
         frame = sig.create_frame(obj)
         if self.identity is None:
             value = sig.eval(frame, obj).convert_to(dtype)
@@ -160,7 +160,7 @@ class W_Ufunc(Wrappable):
         for s in shape:
             size *= s
         result = W_NDimArray(size, shape, dtype)
-        rightsig = obj.create_sig(obj.shape)
+        rightsig = obj.create_sig()
         # note - this is just a wrapper so signature can fetch
         #        both left and right, nothing more, especially
         #        this is not a true virtual array, because shapes
