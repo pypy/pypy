@@ -11,12 +11,19 @@ DEBUG_ELIDABLE_FUNCTIONS = False
 
 
 def elidable(func):
-    """ Decorate a function as "trace-elidable". This means precisely that:
+    """ Decorate a function as "trace-elidable". Usually this means simply that
+    the function is constant-foldable, i.e. is pure and has no side-effects.
+
+    In some situations it is ok to use this decorator if the function *has*
+    side effects, as long as these side-effects are idempotent. A typical
+    example for this would be a cache.
+
+    To be totally precise:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
-    according to rule 1
+        according to rule 1
     (3) the function call can be moved around by optimizer,
         but only so it'll be called earlier and not later.
 
