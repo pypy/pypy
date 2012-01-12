@@ -136,25 +136,7 @@ class W__StructInstance(Wrappable):
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
         converter = GetFieldConverter(space, self.rawmem, offset)
-        if w_ffitype.is_longlong():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        if w_ffitype.is_signed() or w_ffitype.is_unsigned() or w_ffitype.is_pointer():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        if w_ffitype.is_char():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        if w_ffitype.is_unichar():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        if w_ffitype.is_double():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        if w_ffitype.is_singlefloat():
-            return converter.do_and_wrap(w_ffitype)
-        #
-        raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
+        return converter.do_and_wrap(w_ffitype)
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):

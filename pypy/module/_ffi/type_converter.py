@@ -232,7 +232,7 @@ class ToAppLevelConverter(object):
             assert voidval is None
             return space.w_None
         else:
-            assert False, "Return value shape '%s' not supported" % w_ffitype
+            self.error(w_ffitype)
 
     def _longlong(self, w_ffitype):
         # a separate function, which can be seen by the jit or not,
