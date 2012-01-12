@@ -743,7 +743,7 @@ class AssemblerPPC(OpAssembler):
             elif loc.is_stack():
                 self.mc.alloc_scratch_reg()
                 offset = loc.value
-                self.mc.load_imm(r.SCRATCH.value, value)
+                self.mc.load_imm(r.SCRATCH, value)
                 self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
                 self.mc.free_scratch_reg()
                 return
