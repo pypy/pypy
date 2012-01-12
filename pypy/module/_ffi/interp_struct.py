@@ -149,12 +149,10 @@ class W__StructInstance(Wrappable):
             return converter.do_and_wrap(w_ffitype)
         #
         if w_ffitype.is_double():
-            value = libffi.struct_getfield_float(w_ffitype.ffitype, self.rawmem, offset)
-            return space.wrap(value)
+            return converter.do_and_wrap(w_ffitype)
         #
         if w_ffitype.is_singlefloat():
-            value = libffi.struct_getfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset)
-            return space.wrap(float(value))
+            return converter.do_and_wrap(w_ffitype)
         #
         raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
 
@@ -226,11 +224,13 @@ class GetFieldConverter(ToAppLevelConverter):
     def get_unichar(self, w_ffitype):
         return libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, self.offset)
 
-    ## def get_float(self, w_ffitype):
-    ##     ...
+    def get_float(self, w_ffitype):
+        return libffi.struct_getfield_float(w_ffitype.ffitype, self.rawmem, self.offset)
 
-    ## def get_singlefloat(self, w_ffitype):
-    ##     ...
+    def get_singlefloat(self, w_ffitype):
+        return libffi.struct_getfield_singlefloat(w_ffitype.ffitype, self.rawmem,
+                                                  self.offset)
+
 
     ## def get_struct(self, w_datashape):
     ##     ...
