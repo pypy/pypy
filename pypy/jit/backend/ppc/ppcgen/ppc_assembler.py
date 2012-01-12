@@ -265,7 +265,7 @@ class AssemblerPPC(OpAssembler):
                     t = REF
                 assert t != FLOAT
                 stack_loc = decode32(enc, j+1)
-                PPCFrameManager.frame_pos(stack_loc, t)
+                loc = PPCFrameManager.frame_pos(stack_loc, t)
                 j += 4
             else: # REG_LOC
                 if res_type == self.FLOAT_TYPE:
