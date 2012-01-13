@@ -1,9 +1,8 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     OneDimIterator, ConstantIterator, AxisIterator, ViewTransform,\
-     BroadcastTransform, ReduceTransform
-from pypy.module.micronumpy.strides import calculate_slice_strides
+     ConstantIterator, AxisIterator, ViewTransform,\
+     BroadcastTransform
 from pypy.rlib.jit import hint, unroll_safe, promote
 
 """ Signature specifies both the numpy expression that has been constructed
@@ -71,8 +70,6 @@ class NumpyEvalFrame(object):
                 break
         else:
             self.final_iter = -1
-        self.value = None
-        self.identity = None
 
     def done(self):
         final_iter = promote(self.final_iter)
@@ -83,7 +80,10 @@ class NumpyEvalFrame(object):
     @unroll_safe
     def next(self, shapelen):
         for i in range(len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)    
+            self.iterators[i] = self.iterators[i].next(shapelen)
+
+    def get_final_iter(self):
+        return self.iterators[promote(self.final_iter)]
 
 def _add_ptr_to_cache(ptr, cache):
     i = 0
@@ -96,6 +96,9 @@ def _add_ptr_to_cache(ptr, cache):
         cache.append(ptr)
         return res
 
+def new_cache():
+    return r_dict(sigeq_no_numbering, sighash)
+
 class Signature(object):
     _attrs_ = ['iter_no', 'array_no']
     _immutable_fields_ = ['iter_no', 'array_no']
@@ -104,7 +107,7 @@ class Signature(object):
     iter_no = 0
 
     def invent_numbering(self):
-        cache = r_dict(sigeq_no_numbering, sighash)
+        cache = new_cache()
         allnumbers = []
         self._invent_numbering(cache, allnumbers)
 
@@ -215,7 +218,7 @@ class VirtualSliceSignature(Signature):
         self.child._invent_array_numbering(arr.child, cache)
 
     def _invent_numbering(self, cache, allnumbers):
-        self.child._invent_numbering({}, allnumbers)
+        self.child._invent_numbering(new_cache(), allnumbers)
 
     def hash(self):
         return intmask(self.child.hash() ^ 1234)
@@ -331,7 +334,7 @@ class Call2(Signature):
 
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):
-        self.left._invent_numbering({}, allnumbers)
+        self.left._invent_numbering(new_cache(), allnumbers)
         self.right._invent_numbering(cache, allnumbers)
     
     def _create_iter(self, iterlist, arraylist, arr, transforms):
@@ -345,7 +348,7 @@ class BroadcastLeft(Call2):
 class BroadcastRight(Call2):
     def _invent_numbering(self, cache, allnumbers):
         self.left._invent_numbering(cache, allnumbers)
-        self.right._invent_numbering({}, allnumbers)
+        self.right._invent_numbering(new_cache(), allnumbers)
 
     def _create_iter(self, iterlist, arraylist, arr, transforms):
         from pypy.module.micronumpy.interp_numarray import Call2
@@ -357,8 +360,8 @@ class BroadcastRight(Call2):
 
 class BroadcastBoth(Call2):
     def _invent_numbering(self, cache, allnumbers):
-        self.left._invent_numbering({}, allnumbers)
-        self.right._invent_numbering({}, allnumbers)
+        self.left._invent_numbering(new_cache(), allnumbers)
+        self.right._invent_numbering(new_cache(), allnumbers)
 
     def _create_iter(self, iterlist, arraylist, arr, transforms):
         from pypy.module.micronumpy.interp_numarray import Call2
@@ -387,6 +390,9 @@ class ReduceSignature(Call2):
 
 class SliceloopSignature(Call2):
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import Call2
+        
+        assert isinstance(arr, Call2)
         ofs = frame.iterators[0].offset
         arr.left.setitem(ofs, self.right.eval(frame, arr.right).convert_to(
             self.calc_dtype))
@@ -397,7 +403,7 @@ class SliceloopSignature(Call2):
 
 class SliceloopBroadcastSignature(SliceloopSignature):
     def _invent_numbering(self, cache, allnumbers):
-        self.left._invent_numbering({}, allnumbers)
+        self.left._invent_numbering(new_cache(), allnumbers)
         self.right._invent_numbering(cache, allnumbers)
 
     def _create_iter(self, iterlist, arraylist, arr, transforms):
@@ -410,20 +416,18 @@ class SliceloopBroadcastSignature(SliceloopSignature):
 
 class AxisReduceSignature(Call2):
     def _create_iter(self, iterlist, arraylist, arr, transforms):
-        from pypy.module.micronumpy.interp_numarray import AxisReduce
-
-        xxx
+        from pypy.module.micronumpy.interp_numarray import AxisReduce,\
+             ConcreteArray
 
         assert isinstance(arr, AxisReduce)
-        assert not iterlist # we assume that later in eval
-        iterlist.append(AxisIterator(arr.dim, arr.right.shape,
-                                     arr.left.strides,
-                                     arr.left.backstrides))
+        left = arr.left
+        assert isinstance(left, ConcreteArray)
+        iterlist.append(AxisIterator(left.start, arr.dim, arr.shape,
+                                     left.strides, left.backstrides))
         self.right._create_iter(iterlist, arraylist, arr.right, transforms)
 
     def _invent_numbering(self, cache, allnumbers):
-        no = len(allnumbers)
-        allnumbers.append(no)
+        allnumbers.append(0)
         self.right._invent_numbering(cache, allnumbers)
 
     def _invent_array_numbering(self, arr, cache):
@@ -433,13 +437,10 @@ class AxisReduceSignature(Call2):
         self.right._invent_array_numbering(arr.right, cache)
 
     def eval(self, frame, arr):
-        if frame.iterators[0].axis_done:
-            arr.left.setitem(frame.iterators[0].offset, frame.value)
-            frame.value = frame.identity
-        v = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
-        print v.value, frame.value.value
-        frame.value = self.binfunc(self.calc_dtype, frame.value, v)
-        return frame.value
+        from pypy.module.micronumpy.interp_numarray import AxisReduce
 
+        assert isinstance(arr, AxisReduce)
+        return self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+    
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())

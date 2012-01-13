@@ -16,14 +16,6 @@ class BroadcastTransform(BaseTransform):
     def __init__(self, res_shape):
         self.res_shape = res_shape
 
-class ReduceTransform(BaseTransform):
-    """ A reduction from ``shape`` over ``dim``. This also changes the order
-    of iteration, because we iterate over dim the most often
-    """
-    def __init__(self, shape, dim):
-        self.shape = shape
-        self.dim = dim
-
 class BaseIterator(object):
     def next(self, shapelen):
         raise NotImplementedError
@@ -96,8 +88,6 @@ class ViewIterator(BaseIterator):
                                         self.strides,
                                         self.backstrides, t.chunks)
             return ViewIterator(r[1], r[2], r[3], r[0])
-        elif isinstance(t, ReduceTransform):
-            xxx
 
     @jit.unroll_safe
     def next(self, shapelen):
@@ -144,59 +134,52 @@ class ConstantIterator(BaseIterator):
         pass
 
 class AxisIterator(BaseIterator):
-    """ Accept an addition argument dim
-    Redorder the dimensions to iterate over dim most often.
-    Set a flag at the end of each run over dim.
-    """
-    def __init__(self, dim, shape, strides, backstrides):
-        self.shape = shape
-        self.indices = [0] * len(shape)
-        self._done = False
-        self.axis_done = False
-        self.offset = -1
-        self.dim = dim
+    def __init__(self, start, dim, shape, strides, backstrides):
+        self.res_shape = shape[:]
         self.strides = strides[:dim] + [0] + strides[dim:]
         self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
-        self.dim_order = [dim]
-        for i in range(len(shape) - 1, -1, -1):
-            if i != self.dim:
-                self.dim_order.append(i)
-
-    def done(self):
-        return self._done
+        self.first_line = False
+        self.indices = [0] * len(shape)
+        self._done = False
+        self.offset = start
+        self.dim = dim
 
     @jit.unroll_safe
     def next(self, shapelen):
         offset = self.offset
-        done = False
+        first_line = self.first_line
         indices = [0] * shapelen
         for i in range(shapelen):
             indices[i] = self.indices[i]
-        axis_done = False        
-        for i in self.dim_order:
-            if indices[i] < self.shape[i] - 1:
+        done = False
+        for i in range(shapelen - 1, -1, -1):
+            if indices[i] < self.res_shape[i] - 1:
                 indices[i] += 1
+                offset += self.strides[i]
                 break
             else:
                 if i == self.dim:
-                    axis_done = True
-                    offset += 1
+                    first_line = False
                 indices[i] = 0
+                offset -= self.backstrides[i]
         else:
             done = True
         res = instantiate(AxisIterator)
-        res.axis_done = axis_done
-        res.strides = self.strides
-        res.backstrides = self.backstrides
         res.offset = offset
         res.indices = indices
-        res.shape = self.shape
-        res.dim = self.dim
-        res.dim_order = self.dim_order
+        res.strides = self.strides
+        res.backstrides = self.backstrides
+        res.res_shape = self.res_shape
         res._done = done
-        return res
+        res.first_line = first_line
+        res.dim = self.dim
+        return res        
+
+    def done(self):
+        return self._done
 
 # ------ other iterators that are not part of the computation frame ----------
+    
 class SkipLastAxisIterator(object):
     def __init__(self, arr):
         self.arr = arr

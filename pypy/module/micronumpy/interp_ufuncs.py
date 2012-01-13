@@ -19,7 +19,7 @@ reduce_driver = jit.JitDriver(
 axisreduce_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self','arr', 'frame', 'shapelen'],
+    reds=['self','arr', 'identity', 'frame'],
 #    name='axisreduce',
     get_printable_location=new_printable_location('axisreduce'),
 )
@@ -121,6 +121,8 @@ class W_Ufunc(Wrappable):
         dim = space.int_w(w_dim)
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
+        if dim >= len(obj.shape):
+            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % dim))
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
@@ -165,31 +167,38 @@ class W_Ufunc(Wrappable):
         #        both left and right, nothing more, especially
         #        this is not a true virtual array, because shapes
         #        don't quite match
-        arr = AxisReduce(self.func, self.name, shape, dtype,
+        arr = AxisReduce(self.func, self.name, obj.shape, dtype,
                          result, obj, dim)
         scalarsig = ScalarSignature(dtype)
         sig = find_sig(AxisReduceSignature(self.func, self.name, dtype,
                                            scalarsig, rightsig), arr)
+        assert isinstance(sig, AxisReduceSignature)
         frame = sig.create_frame(arr)
         shapelen = len(obj.shape)
-        if self.identity is None:
-            frame.identity = sig.eval(frame, arr).convert_to(dtype)
-            frame.next(shapelen)
-        else:
-            frame.identity = self.identity.convert_to(dtype)
-        frame.value = frame.identity
-        self.reduce_axis_loop(frame, sig, shapelen, arr)
+        self.reduce_axis_loop(frame, sig, shapelen, arr, self.identity)
         return result
 
-    def reduce_axis_loop(self, frame, sig, shapelen, arr):
+    def reduce_axis_loop(self, frame, sig, shapelen, arr, identity):
+        # note - we can be advanterous here, depending on the exact field
+        # layout. For now let's say we iterate the original way and
+        # simply follow the original iteration order
         while not frame.done():
             axisreduce_driver.jit_merge_point(frame=frame, self=self,
                                               sig=sig,
+                                              identity=identity,
                                               shapelen=shapelen, arr=arr)
-            sig.eval(frame, arr)
+            iter = frame.get_final_iter()
+            v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
+            if iter.first_line:
+                if identity is not None:
+                    value = self.func(sig.calc_dtype, identity, v)
+                else:
+                    value = v
+            else:
+                cur = arr.left.getitem(iter.offset)
+                value = self.func(sig.calc_dtype, cur, v)
+            arr.left.setitem(iter.offset, value)
             frame.next(shapelen)
-        # store the last value, when everything is done
-        arr.left.setitem(frame.iterators[0].offset, frame.value)
 
     def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
         while not frame.done():

@@ -336,7 +336,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(TypeError, add.reduce, 1)
+        raises(ValueError, add.reduce, 1)
 
     def test_reduce1D(self):
         from numpypy import add, maximum
@@ -346,7 +346,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, maximum.reduce, [])
 
     def test_reduceND(self):
-        skip("xxx")
         from numpypy import add, arange
         a = arange(12).reshape(3, 4)
         assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()

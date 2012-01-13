@@ -724,7 +724,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        skip("xxx")
         from numpypy import array,mean
         a = array(range(5))
         assert a.mean() == 2.0
@@ -747,25 +746,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(TypeError, 'a.sum(2, 3)')
 
     def test_reduce_nd(self):
-        skip("xxx")
         from numpypy import arange, array
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
         assert a.max() == 14
-        assert array([]).sum() = 0.0
-        raises(ValueError,'array([]).sum()')
+        assert array([]).sum() == 0.0
+        raises(ValueError, 'array([]).max()')
         assert (a.sum(0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
         assert (a.max(0) == [12, 13, 14]).all()
         assert (a.max(1) == [2, 5, 8, 11, 14]).all()
         assert ((a + a).max() == 28)
-        assert ((a + a).max(0) == [24, 26. 28]).all()
+        assert ((a + a).max(0) == [24, 26, 28]).all()
         assert ((a + a).sum(1) == [6, 24, 42, 60, 78]).all()
         a = array(range(105)).reshape(3, 5, 7)
         assert (a[:, 1, :].sum(0) == [126, 129, 132, 135, 138, 141, 144]).all()
         assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
         raises (ValueError, 'a[:, 1, :].sum(2)')
         assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
+        skip("Those are broken on reshape, fix!")
         assert (a.reshape(1,-1).sum(0) == range(105)).all()
         assert (a.reshape(1,-1).sum(1) == 5460)
 
