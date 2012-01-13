@@ -21,7 +21,7 @@ axisreduce_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['self','arr', 'identity', 'frame'],
-#    name='axisreduce',
+    name='numpy_axisreduce',
     get_printable_location=new_printable_location('axisreduce'),
 )
 

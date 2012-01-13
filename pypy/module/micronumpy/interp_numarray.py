@@ -581,11 +581,11 @@ class BaseArray(Wrappable):
 
     def descr_var(self, space):
         # var = mean((values - mean(values)) ** 2)
-        w_res = self.descr_sub(space, self.descr_mean(space))
+        w_res = self.descr_sub(space, self.descr_mean(space, space.w_None))
         assert isinstance(w_res, BaseArray) 
         w_res = w_res.descr_pow(space, space.wrap(2))
         assert isinstance(w_res, BaseArray)
-        return w_res.descr_mean(space)
+        return w_res.descr_mean(space, space.w_None)
 
     def descr_std(self, space):
         # std(v) = sqrt(var(v))
