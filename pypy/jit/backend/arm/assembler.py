@@ -856,12 +856,18 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'unsupported case'
 
     def _mov_imm_float_to_loc(self, prev_loc, loc, cond=c.AL):
-        if not loc.is_vfp_reg():
+        if loc.is_vfp_reg():
+            self.mc.PUSH([r.ip.value], cond=cond)
+            self.mc.gen_load_int(r.ip.value, prev_loc.getint(), cond=cond)
+            self.mc.VLDR(loc.value, r.ip.value, cond=cond)
+            self.mc.POP([r.ip.value], cond=cond)
+        elif loc.is_stack():
+            self.regalloc_push(r.vfp_ip)
+            self.regalloc_mov(prev_loc, r.vfp_ip, cond)
+            self.regalloc_mov(r.vfp_ip, loc, cond)
+            self.regalloc_pop(r.vfp_ip)
+        else:
             assert 0, 'unsupported case'
-        self.mc.PUSH([r.ip.value], cond=cond)
-        self.mc.gen_load_int(r.ip.value, prev_loc.getint(), cond=cond)
-        self.mc.VLDR(loc.value, r.ip.value, cond=cond)
-        self.mc.POP([r.ip.value], cond=cond)
 
     def _mov_vfp_reg_to_loc(self, prev_loc, loc, cond=c.AL):
         if loc.is_vfp_reg():
