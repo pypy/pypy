@@ -537,6 +537,54 @@ class FieldOpAssembler(object):
     emit_getfield_raw_pure = emit_getfield_gc
     emit_getfield_gc_pure = emit_getfield_gc
 
+    def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
+        (base_loc, index_loc, res_loc,
+            ofs_loc, ofs, itemsize, fieldsize) = arglocs
+        self.mc.load_imm(r.SCRATCH, itemsize.value)
+        self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+            else:
+                self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+
+        if fieldsize.value == 8:
+            self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 4:
+            self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 2:
+            self.mc.lhzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 1:
+            self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+        else:
+            assert 0
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            signed = op.getdescr().fielddescr.is_field_signed()
+            self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
+
+    def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
+        (base_loc, index_loc, value_loc,
+            ofs_loc, ofs, itemsize, fieldsize) = arglocs
+        self.mc.load_imm(r.SCRATCH, itemsize.value)
+        self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+            else:
+                self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+        if fieldsize.value == 8:
+            self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 4:
+            self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 2:
+            self.mc.sthx(value_loc.value, base_loc.value, r.SCRATCH.value)
+        elif fieldsize.value == 1:
+            self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
+        else:
+            assert 0
+
 
 class ArrayOpAssembler(object):
     

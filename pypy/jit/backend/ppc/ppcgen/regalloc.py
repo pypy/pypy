@@ -602,6 +602,46 @@ class Regalloc(object):
     prepare_getfield_raw_pure = prepare_getfield_gc
     prepare_getfield_gc_pure = prepare_getfield_gc
 
+    def prepare_getinteriorfield_gc(self, op):
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        args = op.getarglist()
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), args)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_vars_for_op(op)
+        self.possibly_free_var(base_box)
+        self.possibly_free_var(index_box)
+        self.free_temp_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
+                                    imm(itemsize), imm(fieldsize)]
+
+    def prepare_setinteriorfield_gc(self, op):
+        t = unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        args = op.getarglist()
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc, index_box  = self._ensure_value_is_boxed(op.getarg(1), args)
+        value_loc, value_box = self._ensure_value_is_boxed(op.getarg(2), args)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_var(base_box)
+        self.possibly_free_var(index_box)
+        self.possibly_free_var(value_box)
+        return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
+                                        imm(itemsize), imm(fieldsize)]
+
     def prepare_arraylen_gc(self, op):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
