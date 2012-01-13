@@ -16,24 +16,28 @@ numpy_driver = jit.JitDriver(
     virtualizables=['frame'],
     reds=['result_size', 'frame', 'ri', 'self', 'result'],
     get_printable_location=signature.new_printable_location('numpy'),
+    name='numpy',
 )
 all_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['frame', 'self', 'dtype'],
     get_printable_location=signature.new_printable_location('all'),
+    name='numpy_all',
 )
 any_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['frame', 'self', 'dtype'],
     get_printable_location=signature.new_printable_location('any'),
+    name='numpy_any',
 )
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['self', 'frame', 'arr'],
     get_printable_location=signature.new_printable_location('slice'),
+    name='numpy_slice',
 )
 
 
@@ -302,6 +306,7 @@ class BaseArray(Wrappable):
             greens=['shapelen', 'sig'],
             reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype'],
             get_printable_location=signature.new_printable_location(op_name),
+            name='numpy_' + op_name,
         )
         def loop(self):
             sig = self.find_sig()
@@ -573,6 +578,18 @@ class BaseArray(Wrappable):
             dim = space.int_w(w_dim)
             w_denom = space.wrap(self.shape[dim])
         return space.div(self.descr_sum_promote(space, w_dim), w_denom)
+
+    def descr_var(self, space):
+        # var = mean((values - mean(values)) ** 2)
+        w_res = self.descr_sub(space, self.descr_mean(space))
+        assert isinstance(w_res, BaseArray) 
+        w_res = w_res.descr_pow(space, space.wrap(2))
+        assert isinstance(w_res, BaseArray)
+        return w_res.descr_mean(space)
+
+    def descr_std(self, space):
+        # std(v) = sqrt(var(v))
+        return interp_ufuncs.get(space).sqrt.call(space, [self.descr_var(space)])
 
     def descr_nonzero(self, space):
         if self.size > 1:
@@ -1254,6 +1271,8 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
+    var = interp2app(BaseArray.descr_var),
+    std = interp2app(BaseArray.descr_std),
 
     copy = interp2app(BaseArray.descr_copy),
     reshape = interp2app(BaseArray.descr_reshape),
