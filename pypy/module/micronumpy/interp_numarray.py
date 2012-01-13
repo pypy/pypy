@@ -32,7 +32,7 @@ any_driver = jit.JitDriver(
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['self', 'frame', 'source'],
+    reds=['self', 'frame', 'arr'],
     get_printable_location=signature.new_printable_location('slice'),
 )
 
@@ -1000,7 +1000,8 @@ class ConcreteArray(BaseArray):
             self.dtype is w_value.find_dtype()):
             self._fast_setslice(space, w_value)
         else:
-            self._sliceloop(w_value)
+            arr = SliceArray(self.shape, self.dtype, self, w_value)
+            self._sliceloop(arr)
 
     def _fast_setslice(self, space, w_value):
         assert isinstance(w_value, ConcreteArray)
@@ -1024,14 +1025,14 @@ class ConcreteArray(BaseArray):
                 source.next()
                 dest.next()
 
-    def _sliceloop(self, source):
-        arr = SliceArray(self.shape, self.dtype, self, source)
+    def _sliceloop(self, arr):
         sig = arr.find_sig()
         frame = sig.create_frame(arr)
         shapelen = len(self.shape)
         while not frame.done():
             slice_driver.jit_merge_point(sig=sig, frame=frame, self=self,
-                                         shapelen=shapelen, source=source)
+                                         arr=arr,
+                                         shapelen=shapelen)
             sig.eval(frame, arr)
             frame.next(shapelen)
 

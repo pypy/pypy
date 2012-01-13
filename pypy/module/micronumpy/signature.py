@@ -74,7 +74,7 @@ class NumpyEvalFrame(object):
     def done(self):
         final_iter = promote(self.final_iter)
         if final_iter < 0:
-            return False
+            assert False
         return self.iterators[final_iter].done()
 
     @unroll_safe
@@ -83,7 +83,10 @@ class NumpyEvalFrame(object):
             self.iterators[i] = self.iterators[i].next(shapelen)
 
     def get_final_iter(self):
-        return self.iterators[promote(self.final_iter)]
+        final_iter = promote(self.final_iter)
+        if final_iter < 0:
+            assert False
+        return self.iterators[final_iter]
 
 def _add_ptr_to_cache(ptr, cache):
     i = 0
