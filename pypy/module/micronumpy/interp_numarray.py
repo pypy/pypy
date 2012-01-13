@@ -771,6 +771,8 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
+    _immutable_fields_ = ['left', 'right']
+    
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.ufunc = ufunc
@@ -828,6 +830,8 @@ class AxisReduce(Call2):
     encounter such things in the wild. Remove this comment
     when we'll make AxisReduce lazy
     """
+    _immutable_fields_ = ['left', 'right']
+    
     def __init__(self, ufunc, name, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
