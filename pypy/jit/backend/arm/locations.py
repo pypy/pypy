@@ -100,6 +100,9 @@ class ConstFloatLoc(AssemblerLocation):
     def is_imm_float(self):
         return True
 
+    def as_key(self):
+        return self.value
+
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True
