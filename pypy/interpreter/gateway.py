@@ -619,7 +619,8 @@ class BuiltinCode(eval.Code):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -655,7 +656,8 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -674,7 +676,8 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -690,7 +693,8 @@ class BuiltinCode0(BuiltinCode):
             raise OperationError(space.w_SystemError,
                                  space.wrap("unexpected DescrMismatch error"))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -708,7 +712,8 @@ class BuiltinCode1(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -726,7 +731,8 @@ class BuiltinCode2(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -744,7 +750,8 @@ class BuiltinCode3(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2, w3]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -763,7 +770,8 @@ class BuiltinCode4(BuiltinCode):
                                            Arguments(space,
                                                      [w1, w2, w3, w4]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result

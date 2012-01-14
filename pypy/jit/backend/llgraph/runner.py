@@ -37,7 +37,7 @@ class Descr(history.AbstractDescr):
     def get_arg_types(self):
         return self.arg_types
 
-    def get_return_type(self):
+    def get_result_type(self):
         return self.typeinfo
 
     def get_extra_info(self):

@@ -19,8 +19,9 @@ import time, sys
 # cpu affinity settings
 
 srcdir = py.path.local(pypydir).join('translator', 'c', 'src')
-eci = ExternalCompilationInfo(separate_module_files=
-                              [srcdir.join('profiling.c')])
+eci = ExternalCompilationInfo(
+    separate_module_files=[srcdir.join('profiling.c')],
+    export_symbols=['pypy_setup_profiling', 'pypy_teardown_profiling'])
                                                      
 c_setup_profiling = rffi.llexternal('pypy_setup_profiling',
                                   [], lltype.Void,

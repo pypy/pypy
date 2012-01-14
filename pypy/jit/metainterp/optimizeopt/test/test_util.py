@@ -430,18 +430,18 @@ class BaseTest(object):
 
         preamble = TreeLoop('preamble')
         preamble.inputargs = inputargs
-        preamble.start_resumedescr = FakeDescrWithSnapshot()
+        preamble.resume_at_jump_descr = FakeDescrWithSnapshot()
 
         token = JitCellToken() 
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
-                              [ResOperation(rop.JUMP, jump_args, None, descr=token)]
+                              [ResOperation(rop.LABEL, jump_args, None, descr=token)]
         self._do_optimize_loop(preamble, call_pure_results)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
 
         inliner = Inliner(inputargs, jump_args)
-        loop.start_resumedescr = preamble.start_resumedescr
+        loop.resume_at_jump_descr = preamble.resume_at_jump_descr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],

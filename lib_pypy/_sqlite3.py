@@ -231,8 +231,10 @@ sqlite.sqlite3_result_error.restype = None
 sqlite.sqlite3_result_text.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
 sqlite.sqlite3_result_text.restype = None
 
-sqlite.sqlite3_enable_load_extension.argtypes = [c_void_p, c_int]
-sqlite.sqlite3_enable_load_extension.restype = c_int
+HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
+if HAS_LOAD_EXTENSION:
+    sqlite.sqlite3_enable_load_extension.argtypes = [c_void_p, c_int]
+    sqlite.sqlite3_enable_load_extension.restype = c_int
 
 ##########################################
 # END Wrapped SQLite C API and constants
@@ -708,13 +710,14 @@ class Connection(object):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
 
-    def enable_load_extension(self, enabled):
-        self._check_thread()
-        self._check_closed()
+    if HAS_LOAD_EXTENSION:
+        def enable_load_extension(self, enabled):
+            self._check_thread()
+            self._check_closed()
 
-        rc = sqlite.sqlite3_enable_load_extension(self.db, int(enabled))
-        if rc != SQLITE_OK:
-            raise OperationalError("Error enabling load extension")
+            rc = sqlite.sqlite3_enable_load_extension(self.db, int(enabled))
+            if rc != SQLITE_OK:
+                raise OperationalError("Error enabling load extension")
 
 DML, DQL, DDL = range(3)
 

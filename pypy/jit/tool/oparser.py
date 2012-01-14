@@ -89,11 +89,18 @@ class OpParser(object):
                 assert typ == 'class'
                 return self.model.ConstObj(ootype.cast_to_object(obj))
 
-    def get_descr(self, poss_descr):
+    def get_descr(self, poss_descr, allow_invent):
         if poss_descr.startswith('<'):
             return None
-        else:
+        try:
             return self._consts[poss_descr]
+        except KeyError:
+            if allow_invent:
+                int(poss_descr)
+                token = self.model.JitCellToken()
+                tt = self.model.TargetToken(token)
+                self._consts[poss_descr] = tt
+                return tt
 
     def box_for_var(self, elem):
         try:
@@ -186,7 +193,8 @@ class OpParser(object):
 
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
-                descr = self.get_descr(poss_descr[len('descr='):])
+                descr = self.get_descr(poss_descr[len('descr='):],
+                                       opname == 'label')
                 allargs = allargs[:-1]
             for arg in allargs:
                 arg = arg.strip()

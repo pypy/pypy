@@ -20,6 +20,11 @@ class MockAssembler:
     def regalloc_pop(self, loc):
         self.ops.append(('pop', loc))
 
+    def regalloc_immedmem2mem(self, from_loc, to_loc):
+        assert isinstance(from_loc, ConstFloatLoc)
+        assert isinstance(to_loc,   StackLoc)
+        self.ops.append(('immedmem2mem', from_loc, to_loc))
+
     def got(self, expected):
         print '------------------------ comparing ---------------------------'
         for op1, op2 in zip(self.ops, expected):
@@ -244,6 +249,13 @@ def test_random_mixed():
         else:
             return pick1()
     #
+    def pick2c():
+        n = random.randrange(-2000, 500)
+        if n >= 0:
+            return ConstFloatLoc(n)    # n is the address, not really used here
+        else:
+            return pick2()
+    #
     def pick_dst(fn, count, seen):
         result = []
         while len(result) < count:
@@ -280,12 +292,12 @@ def test_random_mixed():
                 if loc.get_width() > WORD:
                     stack[loc.value+WORD] = 'value-hiword-%d' % i
             else:
-                assert isinstance(loc, ImmedLoc)
+                assert isinstance(loc, (ImmedLoc, ConstFloatLoc))
         return regs1, regs2, stack
     #
     for i in range(500):
         seen = {}
-        src_locations2 = [pick2() for i in range(4)]
+        src_locations2 = [pick2c() for i in range(4)]
         dst_locations2 = pick_dst(pick2, 4, seen)
         src_locations1 = [pick1c() for i in range(5)]
         dst_locations1 = pick_dst(pick1, 5, seen)
@@ -312,9 +324,15 @@ def test_random_mixed():
                 return got
             if isinstance(loc, ImmedLoc):
                 return 'const-%d' % loc.value
+            if isinstance(loc, ConstFloatLoc):
+                got = 'constfloat-@%d' % loc.value
+                if loc.get_width() > WORD:
+                    got = (got, 'constfloat-next-@%d' % loc.value)
+                return got
             assert 0, loc
         #
         def write(loc, newvalue):
+            assert (type(newvalue) is tuple) == (loc.get_width() > WORD)
             if isinstance(loc, RegLoc):
                 if loc.is_xmm:
                     regs2[loc.value] = newvalue
@@ -337,10 +355,14 @@ def test_random_mixed():
         for op in assembler.ops:
             if op[0] == 'mov':
                 src, dst = op[1:]
-                assert isinstance(src, (RegLoc, StackLoc, ImmedLoc))
-                assert isinstance(dst, (RegLoc, StackLoc))
-                assert not (isinstance(src, StackLoc) and
-                            isinstance(dst, StackLoc))
+                if isinstance(src, ConstFloatLoc):
+                    assert isinstance(dst, RegLoc)
+                    assert dst.is_xmm
+                else:
+                    assert isinstance(src, (RegLoc, StackLoc, ImmedLoc))
+                    assert isinstance(dst, (RegLoc, StackLoc))
+                    assert not (isinstance(src, StackLoc) and
+                                isinstance(dst, StackLoc))
                 write(dst, read(src))
             elif op[0] == 'push':
                 src, = op[1:]
@@ -350,6 +372,11 @@ def test_random_mixed():
                 dst, = op[1:]
                 assert isinstance(dst, (RegLoc, StackLoc))
                 write(dst, extrapushes.pop())
+            elif op[0] == 'immedmem2mem':
+                src, dst = op[1:]
+                assert isinstance(src, ConstFloatLoc)
+                assert isinstance(dst, StackLoc)
+                write(dst, read(src, 8))
             else:
                 assert 0, "unknown op: %r" % (op,)
         assert not extrapushes
@@ -358,3 +385,32 @@ def test_random_mixed():
             assert read(loc, WORD) == src_values1[i]
         for i, loc in enumerate(dst_locations2):
             assert read(loc, 8) == src_values2[i]
+
+
+def test_overflow_bug():
+    CASE = [
+        (-144, -248),   # \ cycle
+        (-248, -144),   # /
+        (-488, -416),   # \ two usages of -488
+        (-488, -480),   # /
+        (-488, -488),   # - one self-application of -488
+        ]
+    class FakeAssembler:
+        def regalloc_mov(self, src, dst):
+            print "mov", src, dst
+        def regalloc_push(self, x):
+            print "push", x
+        def regalloc_pop(self, x):
+            print "pop", x
+        def regalloc_immedmem2mem(self, x, y):
+            print "?????????????????????????"
+    def main():
+        srclocs = [StackLoc(9999, x, 'i') for x,y in CASE]
+        dstlocs = [StackLoc(9999, y, 'i') for x,y in CASE]
+        remap_frame_layout(FakeAssembler(), srclocs, dstlocs, eax)
+    # it works when run directly
+    main()
+    # but it used to crash when translated,
+    # because of a -sys.maxint-2 overflowing to sys.maxint
+    from pypy.rpython.test.test_llinterp import interpret
+    interpret(main, [])

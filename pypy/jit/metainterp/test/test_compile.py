@@ -18,7 +18,7 @@ class FakeCPU(object):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         pass
 
     def repr_of_resop(self, op):
@@ -53,8 +53,6 @@ class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
-        on_compile = staticmethod(lambda *args: None)
-        on_compile_bridge = staticmethod(lambda *args: None)
         virtualizable_info = None
 
 def test_compile_loop():

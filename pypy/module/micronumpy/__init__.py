@@ -4,11 +4,12 @@ from pypy.interpreter.mixedmodule import MixedModule
 class PyPyModule(MixedModule):
     interpleveldefs = {
         'debug_repr': 'interp_extras.debug_repr',
+        'remove_invalidates': 'interp_extras.remove_invalidates',
     }
     appleveldefs = {}
 
 class Module(MixedModule):
-    applevel_name = 'numpypy'
+    applevel_name = '_numpypy'
 
     submodules = {
         'pypy': PyPyModule
@@ -47,6 +48,7 @@ class Module(MixedModule):
         'int_': 'interp_boxes.W_LongBox',
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
+        'float_': 'interp_boxes.W_Float64Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
     }

@@ -162,7 +162,8 @@ return next yielded value or raise StopIteration."""
     # generate 2 versions of the function and 2 jit drivers.
     def _create_unpack_into():
         jitdriver = jit.JitDriver(greens=['pycode'],
-                                  reds=['self', 'frame', 'results'])
+                                  reds=['self', 'frame', 'results'],
+                                  name='unpack_into')
         def unpack_into(self, results):
             """This is a hack for performance: runs the generator and collects
             all produced items in a list."""

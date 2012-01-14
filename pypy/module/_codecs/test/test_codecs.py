@@ -597,10 +597,18 @@ class AppTestPartialEvaluation:
         raises(UnicodeDecodeError, b'+3ADYAA-'.decode, 'utf-7')
 
     def test_utf_16_encode_decode(self):
-        import codecs
+        import codecs, sys
         x = u'123abc'
-        assert codecs.getencoder('utf-16')(x) == (b'\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
-        assert codecs.getdecoder('utf-16')(b'\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
+        if sys.byteorder == 'big':
+            assert codecs.getencoder('utf-16')(x) == (
+                    b'\xfe\xff\x001\x002\x003\x00a\x00b\x00c', 6)
+            assert codecs.getdecoder('utf-16')(
+                    b'\xfe\xff\x001\x002\x003\x00a\x00b\x00c') == (x, 14)
+        else:
+            assert codecs.getencoder('utf-16')(x) == (
+                    b'\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
+            assert codecs.getdecoder('utf-16')(
+                    b'\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
     def test_unicode_escape(self):        
         assert u'\\'.encode('unicode-escape') == b'\\\\'

@@ -12,7 +12,7 @@ class SubGraph:
     def get_display_text(self):
         return None
 
-def display_procedures(procedures, errmsg=None, highlight_procedures={}):
+def display_procedures(procedures, errmsg=None, highlight_procedures={}, metainterp_sd=None):
     graphs = [(procedure, highlight_procedures.get(procedure, 0))
               for procedure in procedures]
     for graph, highlight in graphs:
@@ -20,7 +20,7 @@ def display_procedures(procedures, errmsg=None, highlight_procedures={}):
             if is_interesting_guard(op):
                 graphs.append((SubGraph(op.getdescr()._debug_suboperations),
                                highlight))
-    graphpage = ResOpGraphPage(graphs, errmsg)
+    graphpage = ResOpGraphPage(graphs, errmsg, metainterp_sd)
     graphpage.display()
 
 def is_interesting_guard(op):
@@ -36,8 +36,8 @@ def getdescr(op):
 
 class ResOpGraphPage(GraphPage):
 
-    def compute(self, graphs, errmsg=None):
-        resopgen = ResOpGen()
+    def compute(self, graphs, errmsg=None, metainterp_sd=None):
+        resopgen = ResOpGen(metainterp_sd)
         for graph, highlight in graphs:
             resopgen.add_graph(graph, highlight)
         if errmsg:
@@ -50,13 +50,14 @@ class ResOpGen(object):
     CLUSTERING = True
     BOX_COLOR = (128, 0, 96)
 
-    def __init__(self):
+    def __init__(self, metainterp_sd=None):
         self.graphs = []
         self.highlight_graphs = {}
         self.block_starters = {}    # {graphindex: {set-of-operation-indices}}
         self.all_operations = {}
         self.errmsg = None
         self.target_tokens = {}
+        self.metainterp_sd = metainterp_sd
 
     def op_name(self, graphindex, opindex):
         return 'g%dop%d' % (graphindex, opindex)
@@ -164,7 +165,14 @@ class ResOpGen(object):
         opindex = opstartindex
         while True:
             op = operations[opindex]
-            lines.append(op.repr(graytext=True))
+            op_repr = op.repr(graytext=True)
+            if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
+                if jd_sd._get_printable_location_ptr:
+                    s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+                    s = s.replace(',', '.') # we use comma for argument splitting
+                    op_repr = "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
+            lines.append(op_repr)
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]
                 tgt_g, tgt_i = self.all_operations[tgt]

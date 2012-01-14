@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.tool.oparser import parse, OpParser
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken,\
+     TargetToken
 
 class BaseTestOparser(object):
 
@@ -242,6 +243,16 @@ class TestOpParser(BaseTestOparser):
         loop = self.parse(x, None, {}, boxkinds={'sum': BoxInt})
         b = loop.getboxes()
         assert isinstance(b.sum0, BoxInt)
+
+    def test_label(self):
+        x = """
+        [i0]
+        label(i0, descr=1)
+        jump(i0, descr=1)
+        """
+        loop = self.parse(x)
+        assert loop.operations[0].getdescr() is loop.operations[1].getdescr()
+        assert isinstance(loop.operations[0].getdescr(), TargetToken)
 
 
 class ForbiddenModule(object):

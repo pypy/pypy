@@ -742,13 +742,6 @@ class AppTestStringObject:
         iterable = b"hello"
         raises(TypeError, len, iter(iterable))
 
-    def test_overflow_replace(self):
-        import sys
-        if sys.maxint > 2**31-1:
-            skip("Wrong platform")
-        x = b"A" * (2**16)
-        raises(OverflowError, x.replace, b'', x)
-
     def test_compatibility(self):
         #a whole bunch of methods should accept bytearray/memoryview without complaining...
         #I don't know how slavishly we should follow the cpython spec here, since it appears
