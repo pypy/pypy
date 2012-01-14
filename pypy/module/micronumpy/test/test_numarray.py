@@ -246,6 +246,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = b.copy()
         assert (c == b).all()
 
+        a = arange(15).reshape(5,3)
+        b = a.copy()
+        assert (b == a).all()
+
     def test_iterator_init(self):
         from _numpypy import array
         a = array(range(5))
@@ -720,10 +724,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from _numpypy import array
+        from _numpypy import array, mean
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
+        a = array(range(105)).reshape(3, 5, 7)
+        b = mean(a, axis=0)
+        b[0,0]==35.
+        assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
+        assert (mean(a, 2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from _numpypy import array
@@ -733,6 +742,32 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
+
+        raises(TypeError, 'a.sum(2, 3)')
+
+    def test_reduce_nd(self):
+        from numpypy import arange, array, multiply
+        a = arange(15).reshape(5, 3)
+        assert a.sum() == 105
+        assert a.max() == 14
+        assert array([]).sum() == 0.0
+        raises(ValueError, 'array([]).max()')
+        assert (a.sum(0) == [30, 35, 40]).all()
+        assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
+        assert (a.max(0) == [12, 13, 14]).all()
+        assert (a.max(1) == [2, 5, 8, 11, 14]).all()
+        assert ((a + a).max() == 28)
+        assert ((a + a).max(0) == [24, 26, 28]).all()
+        assert ((a + a).sum(1) == [6, 24, 42, 60, 78]).all()
+        assert (multiply.reduce(a) == array([0, 3640, 12320])).all()
+        a = array(range(105)).reshape(3, 5, 7)
+        assert (a[:, 1, :].sum(0) == [126, 129, 132, 135, 138, 141, 144]).all()
+        assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
+        raises (ValueError, 'a[:, 1, :].sum(2)')
+        assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
+        skip("Those are broken on reshape, fix!")
+        assert (a.reshape(1,-1).sum(0) == range(105)).all()
+        assert (a.reshape(1,-1).sum(1) == 5460)
 
     def test_identity(self):
         from _numpypy import identity, array

@@ -298,7 +298,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.atan(a[i])
 
-        a  = array([float('nan')])
+        a = array([float('nan')])
         b = arctan(a)
         assert math.isnan(b[0])
 
@@ -336,15 +336,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from _numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(TypeError, add.reduce, 1)
+        raises(ValueError, add.reduce, 1)
 
-    def test_reduce(self):
+    def test_reduce_1d(self):
         from _numpypy import add, maximum
 
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+
+    def test_reduceND(self):
+        from numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
+        assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
 
     def test_comparisons(self):
         import operator
