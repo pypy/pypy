@@ -157,6 +157,8 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
         assert calc_new_strides([24], [2, 4, 3], [48, 6, 1]) is None
         assert calc_new_strides([24], [2, 4, 3], [24, 6, 2]) == [2]
+        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1]) == [1, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1]) == [105, 1]
 
 
 class AppTestNumArray(BaseNumpyAppTest):
@@ -765,7 +767,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
         raises (ValueError, 'a[:, 1, :].sum(2)')
         assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
-        skip("Those are broken on reshape, fix!")
         assert (a.reshape(1,-1).sum(0) == range(105)).all()
         assert (a.reshape(1,-1).sum(1) == 5460)
 
@@ -1556,3 +1557,7 @@ class AppTestRanges(BaseNumpyAppTest):
         a = range(12)
         b = reshape(a, (3, 4))
         assert b.shape == (3, 4)
+        a = array(range(105)).reshape(3, 5, 7)
+        assert a.reshape(1, -1).shape == (1, 105)
+        assert a.reshape(1, 1, -1).shape == (1, 1, 105)
+        assert a.reshape(-1, 1, 1).shape == (105, 1, 1)

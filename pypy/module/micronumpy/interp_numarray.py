@@ -157,9 +157,6 @@ def get_shape_from_iterable(space, old_size, w_iterable):
 # (meaning that the realignment of elements crosses from one step into another)
 # return None so that the caller can raise an exception.
 def calc_new_strides(new_shape, old_shape, old_strides):
-    # Return the proper strides for new_shape, or None if the mapping crosses
-    # stepping boundaries
-
     # Assumes that prod(old_shape) == prod(new_shape), len(old_shape) > 1, and
     # len(new_shape) > 0
     steps = []
@@ -167,6 +164,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
     oldI = 0
     new_strides = []
     if old_strides[0] < old_strides[-1]:
+        #Start at old_shape[0], old_stides[0]
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -184,10 +182,11 @@ def calc_new_strides(new_shape, old_shape, old_strides):
             if n_new_elems_used == n_old_elems_to_use:
                 oldI += 1
                 if oldI >= len(old_shape):
-                    break
+                    continue
                 cur_step = steps[oldI]
                 n_old_elems_to_use *= old_shape[oldI]
     else:
+        #Start at old_shape[-1], old_strides[-1]
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -207,7 +206,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
             if n_new_elems_used == n_old_elems_to_use:
                 oldI -= 1
                 if oldI < -len(old_shape):
-                    break
+                    continue
                 cur_step = steps[oldI]
                 n_old_elems_to_use *= old_shape[oldI]
     return new_strides
