@@ -892,7 +892,7 @@ class StrOpAssembler(object):
         # need the box here
         if isinstance(args[4], Box):
             length_box = args[4]
-            length_loc = regalloc.make_sure_var_in_reg(args[4], forbidden_vars)
+            length_loc = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
         else:
             length_box = TempInt()
             length_loc = regalloc.force_allocate_reg(length_box,
