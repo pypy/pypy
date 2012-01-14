@@ -127,6 +127,8 @@ class TestNumpyJIt(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
+        # XXX note - the bridge here is fairly crucial and yet it's pretty
+        #            bogus. We need to improve the situation somehow.
         self.check_simple_loop({'getinteriorfield_raw': 2,
                                 'setinteriorfield_raw': 1,
                                 'arraylen_gc': 1,
