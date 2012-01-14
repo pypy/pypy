@@ -176,7 +176,11 @@ class W_Ufunc(Wrappable):
         assert isinstance(sig, AxisReduceSignature)
         frame = sig.create_frame(arr)
         shapelen = len(obj.shape)
-        self.reduce_axis_loop(frame, sig, shapelen, arr, self.identity)
+        if self.identity is not None:
+            identity = self.identity.convert_to(dtype)
+        else:
+            identity = None
+        self.reduce_axis_loop(frame, sig, shapelen, arr, identity)
         return result
 
     def reduce_axis_loop(self, frame, sig, shapelen, arr, identity):

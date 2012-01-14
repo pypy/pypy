@@ -135,7 +135,7 @@ class AxisIterator(BaseIterator):
         self.res_shape = shape[:]
         self.strides = strides[:dim] + [0] + strides[dim:]
         self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
-        self.first_line = False
+        self.first_line = True
         self.indices = [0] * len(shape)
         self._done = False
         self.offset = start
@@ -151,12 +151,12 @@ class AxisIterator(BaseIterator):
         done = False
         for i in range(shapelen - 1, -1, -1):
             if indices[i] < self.res_shape[i] - 1:
+                if i == self.dim:
+                    first_line = False
                 indices[i] += 1
                 offset += self.strides[i]
                 break
             else:
-                if i == self.dim:
-                    first_line = False
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:

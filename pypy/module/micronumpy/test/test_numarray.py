@@ -746,7 +746,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(TypeError, 'a.sum(2, 3)')
 
     def test_reduce_nd(self):
-        from numpypy import arange, array
+        from numpypy import arange, array, multiply
         a = arange(15).reshape(5, 3)
         assert a.sum() == 105
         assert a.max() == 14
@@ -759,6 +759,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).max() == 28)
         assert ((a + a).max(0) == [24, 26, 28]).all()
         assert ((a + a).sum(1) == [6, 24, 42, 60, 78]).all()
+        assert (multiply.reduce(a) == array([0, 3640, 12320])).all()
         a = array(range(105)).reshape(3, 5, 7)
         assert (a[:, 1, :].sum(0) == [126, 129, 132, 135, 138, 141, 144]).all()
         assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
