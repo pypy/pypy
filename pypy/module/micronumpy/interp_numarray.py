@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     view_iter_from_arr, SkipLastAxisIterator, AxisIterator
+     SkipLastAxisIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],

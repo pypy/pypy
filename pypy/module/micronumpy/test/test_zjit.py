@@ -127,17 +127,14 @@ class TestNumpyJIt(LLJitMixin):
     def test_axissum(self):
         result = self.run("axissum")
         assert result == 30
-        self.check_simple_loop({\
-                                'setarrayitem_gc': 1,
-                                'getarrayitem_gc': 5,
-                                'getinteriorfield_raw': 1,
-                                'arraylen_gc': 2,
+        self.check_simple_loop({'getinteriorfield_raw': 2,
+                                'setinteriorfield_raw': 1,
+                                'arraylen_gc': 1,
                                 'guard_true': 1,
-                                'int_sub': 1,
                                 'int_lt': 1,
                                 'jump': 1,
                                 'float_add': 1,
-                                'int_add': 2,
+                                'int_add': 3,
                                 })
 
     def define_prod():
@@ -218,9 +215,9 @@ class TestNumpyJIt(LLJitMixin):
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
-        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 26,
+        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 22,
                            'getarrayitem_gc': 4, 'getarrayitem_gc_pure': 2,
-                           'getfield_gc_pure': 4,
+                           'getfield_gc_pure': 8,
                            'guard_class': 8, 'int_add': 8, 'float_mul': 2,
                            'jump': 2, 'int_ge': 4,
                            'getinteriorfield_raw': 4, 'float_add': 2,
@@ -349,9 +346,8 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 11.0
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1,
-                                'arraylen_gc': 3})
+                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'int_eq': 1, 'guard_false': 1, 'jump': 1})
 
     def define_virtual_slice():
         return """

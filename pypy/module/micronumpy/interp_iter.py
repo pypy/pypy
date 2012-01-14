@@ -66,9 +66,6 @@ class OneDimIterator(BaseIterator):
     def done(self):
         return self.offset == self.size
 
-def view_iter_from_arr(arr):
-    return ViewIterator(arr.start, arr.strides, arr.backstrides, arr.shape)
-
 class ViewIterator(BaseIterator):
     def __init__(self, start, strides, backstrides, shape):
         self.offset  = start
