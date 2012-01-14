@@ -659,11 +659,14 @@ class Regalloc(object):
         size, ofs, _ = unpack_arraydescr(op.getdescr())
         scale = get_scale(size)
         args = op.getarglist()
-        base_loc, _ = self._ensure_value_is_boxed(a0, args)
-        ofs_loc, _ = self._ensure_value_is_boxed(a1, args)
-        value_loc, _ = self._ensure_value_is_boxed(a2, args)
+        base_loc, base_box = self._ensure_value_is_boxed(a0, args)
+        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, args)
+        value_loc, value_box = self._ensure_value_is_boxed(a2, args)
         assert _check_imm_arg(ofs)
         scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
+        self.possibly_free_var(base_box)
+        self.possibly_free_var(ofs_box)
+        self.possibly_free_var(value_box)
         assert scratch_loc not in [base_loc, ofs_loc]
         return [value_loc, base_loc, ofs_loc,
                 scratch_loc, imm(scale), imm(ofs)]
