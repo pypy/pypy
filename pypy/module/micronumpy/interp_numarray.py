@@ -194,7 +194,8 @@ def calc_new_strides(new_shape, old_shape, old_strides):
         n_new_elems_used = 1
         oldI = -1
         n_old_elems_to_use = old_shape[-1]
-        for s in new_shape[::-1]:
+        for i in range(len(new_shape) - 1, -1, -1):
+            s = new_shape[i]
             new_strides.insert(0, cur_step * n_new_elems_used)
             n_new_elems_used *= s
             while n_new_elems_used > n_old_elems_to_use:
@@ -383,7 +384,6 @@ class BaseArray(Wrappable):
     the second-to-last of `b`::
 
         dot(a, b)[i,j,k,m] = sum(a[i,j,:] * b[k,:,m])'''
-        #numpy's doc string :)
         w_other = convert_to_array(space, w_other)
         if isinstance(w_other, Scalar):
             return self.descr_mul(space, w_other)
@@ -420,10 +420,13 @@ class BaseArray(Wrappable):
         for os in out_shape:
             out_size *= os
         out_ndims = len(out_shape)
-        #TODO: what should the order be? C or F?
+        # TODO: what should the order be? C or F?
         arr = W_NDimArray(out_size, out_shape, dtype=dtype)
-        out_iter = view_iter_from_arr(arr)
-        #TODO: invalidate self, w_other with arr ?
+        # TODO: this is all a bogus mess of previous work, 
+        # rework within the context of transformations
+        '''
+        out_iter = ViewIterator(arr.start, arr.strides, arr.backstrides, arr.shape)
+        # TODO: invalidate self, w_other with arr ?
         while not out_iter.done():
             my_index = self.start
             other_index = w_other.start
@@ -443,6 +446,7 @@ class BaseArray(Wrappable):
             value = w_res.descr_sum(space)
             arr.setitem(out_iter.get_offset(), value)
             out_iter = out_iter.next(out_ndims)
+        '''
         return arr
 
     def get_concrete(self):
