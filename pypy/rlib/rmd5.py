@@ -51,7 +51,7 @@ static unsigned long pypy__rotateLeft(unsigned long x, long n) {
     _rotateLeft = rffi.llexternal(
         "pypy__rotateLeft", [lltype.Unsigned, lltype.Signed], lltype.Unsigned,
         _callable=_rotateLeft_emulator, compilation_info=eci,
-        _nowrapper=True, elidable_function=True)
+        _nowrapper=True, elidable_function=True, oo_primitive='pypy__rotateLeft') # TODO implement the oo_primitive
     # we expect the function _rotateLeft to be actually inlined
 
 
