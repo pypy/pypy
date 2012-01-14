@@ -976,10 +976,13 @@ class MIFrame(object):
         self.verify_green_args(jitdriver_sd, greenboxes)
         self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.in_recursion,
                                greenboxes)
-
+        
         if self.metainterp.seen_loop_header_for_jdindex < 0:
-            if not jitdriver_sd.no_loop_header or not any_operation:
+            if not any_operation:
                 return
+            if self.metainterp.in_recursion or not self.metainterp.get_procedure_token(greenboxes, True):
+                if not jitdriver_sd.no_loop_header:
+                    return
             # automatically add a loop_header if there is none
             self.metainterp.seen_loop_header_for_jdindex = jdindex
         #
@@ -1550,6 +1553,7 @@ class MetaInterpGlobalData(object):
 
 class MetaInterp(object):
     in_recursion = 0
+    cancel_count = 0
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1790,6 +1794,15 @@ class MetaInterp(object):
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
+        jd_sd = self.jitdriver_sd
+        if not self.current_merge_points:
+            greenkey = None # we're in the bridge
+        else:
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+                                                          jd_sd.jitdriver,
+                                                          greenkey,
+                                                          jd_sd.warmstate.get_location_str(greenkey))
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
@@ -1963,9 +1976,14 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.staticdata.warmrunnerdesc:
+                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
+                    if memmgr:
+                        if self.cancel_count > memmgr.max_unroll_loops:
+                            self.staticdata.log('cancelled too many times!')
+                            raise SwitchToBlackhole(ABORT_BAD_LOOP)
                 self.staticdata.log('cancelled, tracing more...')
-                #self.staticdata.log('cancelled, stopping tracing')
-                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -2053,9 +2071,15 @@ class MetaInterp(object):
             from pypy.jit.metainterp.resoperation import opname
             raise NotImplementedError(opname[opnum])
 
-    def get_procedure_token(self, greenkey):
+    def get_procedure_token(self, greenkey, with_compiled_targets=False):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        return cell.get_procedure_token()
+        token = cell.get_procedure_token()
+        if with_compiled_targets:
+            if not token:
+                return None
+            if not token.target_tokens:
+                return None
+        return token
         
     def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -2088,10 +2112,8 @@ class MetaInterp(object):
     def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        target_jitcell_token = self.get_procedure_token(greenkey)
+        target_jitcell_token = self.get_procedure_token(greenkey, True)
         if not target_jitcell_token:
-            return
-        if not target_jitcell_token.target_tokens:
             return
 
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,

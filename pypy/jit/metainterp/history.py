@@ -1003,35 +1003,16 @@ class Stats(object):
         return insns
 
     def check_simple_loop(self, expected=None, **check):
-        # Usefull in the simplest case when we have only one trace ending with
-        # a jump back to itself and possibly a few bridges ending with finnish.
-        # Only the operations within the loop formed by that single jump will
-        # be counted.
-
-        # XXX hacked version, ignore and remove me when jit-targets is merged.
-        loops = self.get_all_loops()
-        loops = [loop for loop in loops if 'Preamble' not in repr(loop)] #XXX
-        assert len(loops) == 1
-        loop, = loops
-        jumpop = loop.operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        insns = {}
-        for op in loop.operations:
-            opname = op.getopname()
-            insns[opname] = insns.get(opname, 0) + 1
-        return self._check_insns(insns, expected, check)
-
-    def check_simple_loop(self, expected=None, **check):
-        # Usefull in the simplest case when we have only one trace ending with
-        # a jump back to itself and possibly a few bridges ending with finnish.
-        # Only the operations within the loop formed by that single jump will
-        # be counted.
+        """ Usefull in the simplest case when we have only one trace ending with
+        a jump back to itself and possibly a few bridges.
+        Only the operations within the loop formed by that single jump will
+        be counted.
+        """
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
         jumpop = loop.operations[-1]
         assert jumpop.getopnum() == rop.JUMP
-        assert self.check_resops(jump=1)
         labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
         targets = [op._descr_wref() for op in labels]
         assert None not in targets # TargetToken was freed, give up

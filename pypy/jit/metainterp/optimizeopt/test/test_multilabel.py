@@ -1,10 +1,13 @@
 from __future__ import with_statement
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, Storage, _sortboxes, FakeDescrWithSnapshot)
+    LLtypeMixin, BaseTest, Storage, _sortboxes, FakeDescrWithSnapshot,
+    FakeMetaInterpStaticData)
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.jit.metainterp.optimize import InvalidLoop
 from py.test import raises
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 
 class BaseTestMultiLabel(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
@@ -83,6 +86,8 @@ class BaseTestMultiLabel(BaseTest):
 
         
         return optimized
+
+class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
 
     def test_simple(self):
         ops = """
@@ -381,6 +386,82 @@ class BaseTestMultiLabel(BaseTest):
         """
         self.optimize_loop(ops, expected)
 
-class TestLLtype(BaseTestMultiLabel, LLtypeMixin):
+    def test_virtual_as_field_of_forced_box(self):
+        ops = """
+        [p0]
+        pv1 = new_with_vtable(ConstClass(node_vtable))
+        label(pv1, p0)
+        pv2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(pv2, pv1, descr=valuedescr)
+        jump(pv1, pv2)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
+class OptRenameStrlen(Optimization):
+    def propagate_forward(self, op):
+        dispatch_opt(self, op)
+
+    def optimize_STRLEN(self, op):
+        newop = op.clone()
+        newop.result = op.result.clonebox()
+        self.emit_operation(newop)
+        self.make_equal_to(op.result, self.getvalue(newop.result))
+    
+dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
+                                      default=OptRenameStrlen.emit_operation)
+
+class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
+
+    def _do_optimize_loop(self, loop, call_pure_results):
+        from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
+        from pypy.jit.metainterp.optimizeopt.util import args_dict
+        from pypy.jit.metainterp.optimizeopt.pure import OptPure
+
+        self.loop = loop
+        loop.call_pure_results = args_dict()
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        optimize_unroll(metainterp_sd, loop, [OptRenameStrlen(), OptPure()], True)
+
+    def test_optimizer_renaming_boxes(self):
+        ops = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1)
+        i2 = strlen(p1)
+        i3 = int_add(i2, 7)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1, i1)
+        i11 = same_as(i1)
+        i2 = int_add(i11, 7)
+        jump(p1, i11)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_optimizer_renaming_boxes_not_imported(self):
+        ops = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        i1 = strlen(p1)
+        label(p1, i1)
+        i11 = same_as(i1)
+        jump(p1, i11)
+        """
+        self.optimize_loop(ops, expected)
+
+        
+
+class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
     pass
 
+class TestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
+    pass

@@ -23,6 +23,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
@@ -387,6 +388,8 @@ def build_exported_objects():
         "Float": "space.w_float",
         "Long": "space.w_long",
         "Complex": "space.w_complex",
+        "ByteArray": "space.w_bytearray",
+        "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',

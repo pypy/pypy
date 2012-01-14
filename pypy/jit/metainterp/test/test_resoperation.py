@@ -30,17 +30,17 @@ def test_concrete_classes():
     cls = rop.opclasses[rop.rop.INT_ADD]
     assert issubclass(cls, rop.PlainResOp)
     assert issubclass(cls, rop.BinaryOp)
-    assert cls.getopnum.im_func(None) == rop.rop.INT_ADD
+    assert cls.getopnum.im_func(cls) == rop.rop.INT_ADD
 
     cls = rop.opclasses[rop.rop.CALL]
     assert issubclass(cls, rop.ResOpWithDescr)
     assert issubclass(cls, rop.N_aryOp)
-    assert cls.getopnum.im_func(None) == rop.rop.CALL
+    assert cls.getopnum.im_func(cls) == rop.rop.CALL
 
     cls = rop.opclasses[rop.rop.GUARD_TRUE]
     assert issubclass(cls, rop.GuardResOp)
     assert issubclass(cls, rop.UnaryOp)
-    assert cls.getopnum.im_func(None) == rop.rop.GUARD_TRUE
+    assert cls.getopnum.im_func(cls) == rop.rop.GUARD_TRUE
 
 def test_mixins_in_common_base():
     INT_ADD = rop.opclasses[rop.rop.INT_ADD]

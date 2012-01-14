@@ -197,3 +197,10 @@ latex_use_modindex = False
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://docs.python.org/': None}
 
+# -- Options for manpage output-------------------------------------------------
+
+man_pages = [
+  ('man/pypy.1', 'pypy',
+   u'fast, compliant alternative implementation of the Python language',
+   u'The PyPy Project', 1)
+]
