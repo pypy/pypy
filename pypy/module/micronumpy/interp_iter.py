@@ -4,6 +4,30 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
      calculate_slice_strides
 
+# structures to describe slicing
+
+class BaseChunk(object):
+    pass
+
+class Chunk(BaseChunk):
+    def __init__(self, start, stop, step, lgt):
+        self.start = start
+        self.stop = stop
+        self.step = step
+        self.lgt = lgt
+
+    def extend_shape(self, shape):
+        if self.step != 0:
+            shape.append(self.lgt)
+
+class IntArrayChunk(BaseChunk):
+    def __init__(self, arr):
+        self.arr = arr.get_concrete()
+
+class BoolArrayChunk(BaseChunk):
+    def __init__(self, arr):
+        self.arr = arr.get_concrete()
+
 class BaseTransform(object):
     pass
 

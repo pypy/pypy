@@ -2,14 +2,15 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
+from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
+     interp_boxes
 from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     SkipLastAxisIterator
+     SkipLastAxisIterator, Chunk
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -39,7 +40,6 @@ slice_driver = jit.JitDriver(
     get_printable_location=signature.new_printable_location('slice'),
     name='numpy_slice',
 )
-
 
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
@@ -479,8 +479,8 @@ class BaseArray(Wrappable):
     def _prepare_slice_args(self, space, w_idx):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
-            return [space.decode_index4(w_idx, self.shape[0])]
-        return [space.decode_index4(w_item, self.shape[i]) for i, w_item in
+            return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
+        return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
                 enumerate(space.fixedview(w_idx))]
 
     def descr_getitem(self, space, w_idx):
@@ -509,9 +509,8 @@ class BaseArray(Wrappable):
     def create_slice(self, chunks):
         shape = []
         i = -1
-        for i, (start_, stop, step, lgt) in enumerate(chunks):
-            if step != 0:
-                shape.append(lgt)
+        for i, chunk in enumerate(chunks):
+            chunk.extend_shape(shape)
         s = i + 1
         assert s >= 0
         shape += self.shape[s:]
@@ -938,7 +937,7 @@ class ConcreteArray(BaseArray):
                             builder.append('\n' + indent)
                         else:
                             builder.append(indent)
-                    view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
+                    view = self.create_slice([Chunk(i, 0, 0, 1)]).get_concrete()
                     view.to_str(space, comma, builder, indent=indent + ' ',
                                                     use_ellipsis=use_ellipsis)
                 if i < self.shape[0] - 1:
@@ -955,7 +954,7 @@ class ConcreteArray(BaseArray):
                         builder.append(indent)
                 # create_slice requires len(chunks) > 1 in order to reduce
                 # shape
-                view = self.create_slice([(i, 0, 0, 1)]).get_concrete()
+                view = self.create_slice([Chunk(i, 0, 0, 1)]).get_concrete()
                 view.to_str(space, comma, builder, indent=indent + ' ',
                                                     use_ellipsis=use_ellipsis)
                 i += 1

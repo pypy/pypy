@@ -84,6 +84,12 @@ class W_Dtype(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([])
 
+    def is_int_type(self):
+        return self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR
+
+    def is_bool_type(self):
+        return self.kind == BOOLLTR
+
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
