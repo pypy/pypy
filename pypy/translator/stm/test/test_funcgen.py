@@ -219,21 +219,21 @@ def _play_with_getinteriorfield(dummy_arg):
     return NULL
 
 
-def do_stm_setinteriorfield(argv):
+def _play_with_setinteriorfield_1(dummy_arg):
     change2(prebuilt_array_signed_signed, [500000, -10000000], [102101202])
     check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
                                          [102101202, 20, -30])
     change2(prebuilt_array_char_char, ['a'], ['b'])
     check2(prebuilt_array_char_char, ['a', chr(255), chr(206)],
                                      ['b', chr(20), chr(226)])
-    #
-    rstm.transaction_boundary()
-    #
+    return NULL
+
+def _play_with_setinteriorfield_2(dummy_arg):
     check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
                                          [102101202, 20, -30])
     check2(prebuilt_array_char_char, ['a', chr(255), chr(206)],
                                      ['b', chr(20), chr(226)])
-    return 0
+    return NULL
 
 
 # ____________________________________________________________
@@ -339,5 +339,22 @@ class TestFuncGen(CompiledSTMTests):
 
 
     def test_setinteriorfield_all_sizes(self):
+        def do_stm_setinteriorfield(argv):
+            _play_with_setinteriorfield_1(None)
+            _play_with_setinteriorfield_2(None)
+            return 0
+        t, cbuilder = self.compile(do_stm_setinteriorfield)
+        cbuilder.cmdexec('')
+
+    def test_setinteriorfield_all_sizes_inside_transaction(self):
+        def do_stm_setinteriorfield(argv):
+            callback1 = llhelper(CALLBACK, _play_with_setinteriorfield_1)
+            callback2 = llhelper(CALLBACK, _play_with_setinteriorfield_2)
+            #
+            descriptor_init()
+            perform_transaction(callback1, NULL)
+            perform_transaction(callback2, NULL)
+            descriptor_done()
+            return 0
         t, cbuilder = self.compile(do_stm_setinteriorfield)
         cbuilder.cmdexec('')
