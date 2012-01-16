@@ -46,3 +46,4 @@ stm_perform_transaction = llexternal('stm_perform_transaction',
                                      [CALLBACK, rffi.VOIDP], rffi.VOIDP)
 
 stm_abort_and_retry = llexternal('stm_abort_and_retry', [], lltype.Void)
+stm_debug_get_state = llexternal('stm_debug_get_state', [], lltype.Signed)

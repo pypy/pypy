@@ -36,3 +36,4 @@ def perform_transaction(func, argcls, arg):
 
 descriptor_init = _rffi_stm.stm_descriptor_init
 descriptor_done = _rffi_stm.stm_descriptor_done
+debug_get_state = _rffi_stm.stm_debug_get_state

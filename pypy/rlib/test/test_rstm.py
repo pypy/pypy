@@ -9,18 +9,24 @@ class Arg(object):
 
 def setx(arg):
     debug_print(arg.x)
+    assert rstm.debug_get_state() == 1
     if arg.x == 303:
         # this will trigger stm_become_inevitable()
         os.write(1, "hello\n")
+        assert rstm.debug_get_state() == 2
     arg.x = 42
 
 
 def test_stm_perform_transaction(initial_x=202):
     arg = Arg()
     arg.x = initial_x
+    assert rstm.debug_get_state() == -1
     rstm.descriptor_init()
+    assert rstm.debug_get_state() == 0
     rstm.perform_transaction(setx, Arg, arg)
+    assert rstm.debug_get_state() == 0
     rstm.descriptor_done()
+    assert rstm.debug_get_state() == -1
     assert arg.x == 42
 
 

@@ -37,6 +37,10 @@ void stm_begin_inevitable_transaction(void);
 void stm_abort_and_retry(void);
 void stm_descriptor_init_and_being_inevitable_transaction(void);
 void stm_commit_transaction_and_descriptor_done(void);
+long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
+                                     0: not in a transaction
+                                     1: in a regular transaction
+                                     2: in an inevitable transaction */
 
 /* for testing only: */
 #define STM_begin_transaction()         ; \

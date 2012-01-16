@@ -50,6 +50,19 @@ def test_stm_abort_and_retry_transactionally():
             return lltype.nullptr(rffi.VOIDP.TO)
     stm_descriptor_init()
     stm_perform_transaction(llhelper(CALLBACK, callback1),
-                        lltype.nullptr(rffi.VOIDP.TO))
+                            lltype.nullptr(rffi.VOIDP.TO))
     stm_descriptor_done()
     assert a.x == 420
+
+def test_stm_debug_get_state():
+    def callback1(x):
+        assert stm_debug_get_state() == 1
+        stm_try_inevitable()
+        assert stm_debug_get_state() == 2
+        return lltype.nullptr(rffi.VOIDP.TO)
+    assert stm_debug_get_state() == -1
+    stm_descriptor_init()
+    assert stm_debug_get_state() == 0
+    stm_perform_transaction(llhelper(CALLBACK, callback1),
+                            lltype.nullptr(rffi.VOIDP.TO))
+    stm_descriptor_done()

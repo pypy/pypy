@@ -82,9 +82,7 @@ struct tx_descriptor {
   owner_version_t my_lock_word;
   unsigned init_counter;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
-#ifdef RPY_STM_ASSERT
   int transaction_active;
-#endif
 };
 
 /* global_timestamp contains in its lowest bit a flag equal to 1
@@ -148,9 +146,7 @@ static _Bool is_inevitable_or_inactive(struct tx_descriptor *d)
 
 static _Bool is_inevitable(struct tx_descriptor *d)
 {
-#ifdef RPY_STM_ASSERT
   assert(d->transaction_active);
-#endif
   return is_inevitable_or_inactive(d);
 }
 
@@ -254,10 +250,8 @@ static void common_cleanup(struct tx_descriptor *d)
 {
   d->reads.size = 0;
   redolog_clear(&d->redolog);
-#ifdef RPY_STM_ASSERT
   assert(d->transaction_active);
   d->transaction_active = 0;
-#endif
   d->setjmp_buf = NULL;
 }
 
@@ -687,10 +681,8 @@ void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 void stm_begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
-#ifdef RPY_STM_ASSERT
   assert(!d->transaction_active);
   d->transaction_active = 1;
-#endif
   d->setjmp_buf = buf;
   d->start_time = d->last_known_global_timestamp & ~1;
 }
@@ -842,9 +834,7 @@ void stm_begin_inevitable_transaction(void)
   struct tx_descriptor *d = thread_descriptor;
   unsigned long curtime;
 
-#ifdef RPY_STM_ASSERT
   assert(!d->transaction_active);
-#endif
 
  retry:
   mutex_lock();   /* possibly waiting here */
@@ -861,10 +851,8 @@ void stm_begin_inevitable_transaction(void)
       if (bool_cas(&global_timestamp, curtime, curtime + 1))
         break;
     }
-#ifdef RPY_STM_ASSERT
   assert(!d->transaction_active);
   d->transaction_active = 1;
-#endif
   d->setjmp_buf = NULL;
   d->start_time = curtime;
 #ifdef COMMIT_OTHER_INEV
@@ -972,6 +960,19 @@ void stm_write_float(long *addr, float val)
 #else
   stm_write_partial_word(4, (char *)addr, ii);   /* 64 bits */
 #endif
+}
+
+long stm_debug_get_state(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  if (!d)
+    return -1;
+  if (!d->transaction_active)
+    return 0;
+  if (!is_inevitable(d))
+    return 1;
+  else
+    return 2;
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */
