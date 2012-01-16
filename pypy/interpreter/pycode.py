@@ -143,7 +143,7 @@ class PyCode(eval.Code):
             elif opcode == opcodedesc.LOAD_NAME.index:
                 self.co_flags |= CO_CONTAINSGLOBALS
 
-    co_names = property(lambda self: [self.space.unwrap(w_name) for w_name in self.co_names_w]) # for trace
+    co_names = property(lambda self: [self.space.str_w(w_name) for w_name in self.co_names_w]) # for trace
 
     def signature(self):
         return self._signature
