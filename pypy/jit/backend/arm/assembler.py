@@ -1071,10 +1071,13 @@ def not_implemented(msg):
 
 
 def notimplemented_op(self, op, arglocs, regalloc, fcond):
+    print "[ARM/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 
 def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
+    print "[ARM/asm] %s with guard %s not implemented" % \
+                        (op.getopname(), guard_op.getopname())
     raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)

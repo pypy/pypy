@@ -1166,10 +1166,13 @@ def add_none_argument(fn):
 
 
 def notimplemented(self, op, fcond):
+    print "[ARM/regalloc] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 
 def notimplemented_with_guard(self, op, guard_op, fcond):
+    print "[ARM/regalloc] %s with guard %s not implemented" % \
+                        (op.getopname(), guard_op.getopname())
     raise NotImplementedError(op)
 
 operations = [notimplemented] * (rop._LAST + 1)
