@@ -146,13 +146,13 @@ pass"""
     def test_new_octal_literal(self):
         self.parse('0777')
         self.parse('0o777')
-        self.parse('0o777L')
+        py.test.raises(SyntaxError, self.parse, '0o777L')
         py.test.raises(SyntaxError, self.parse, "0o778")
 
     def test_new_binary_literal(self):
         self.parse('0b1101')
-        self.parse('0b0l')
+        py.test.raises(SyntaxError, self.parse, '0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
 
-    def test_new_extended_unpacking(self):
+    def test_py3k_extended_unpacking(self):
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
