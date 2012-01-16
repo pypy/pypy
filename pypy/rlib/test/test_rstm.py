@@ -10,9 +10,9 @@ def test_stm_perform_transaction():
         arg.x = 42
 
     arg = Arg()
-    rstm.stm_descriptor_init()
-    rstm.stm_perform_transaction(setx, Arg, arg)
-    rstm.stm_descriptor_done()
+    rstm.descriptor_init()
+    rstm.perform_transaction(setx, Arg, arg)
+    rstm.descriptor_done()
     assert arg.x == 42
 
 

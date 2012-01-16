@@ -23,14 +23,14 @@ def llexternal(name, args, result, **kwds):
 SignedP = rffi.CArrayPtr(lltype.Signed)
 
 
-descriptor_init = llexternal('stm_descriptor_init', [], lltype.Void)
-descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
+stm_descriptor_init = llexternal('stm_descriptor_init', [], lltype.Void)
+stm_descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
 
 ##begin_transaction = llexternal('STM_begin_transaction', [], lltype.Void)
 ##begin_inevitable_transaction = llexternal('stm_begin_inevitable_transaction',
 ##                                          [], lltype.Void)
 ##commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
-try_inevitable = llexternal('stm_try_inevitable', [], lltype.Void)
+stm_try_inevitable = llexternal('stm_try_inevitable', [], lltype.Void)
 
 ##descriptor_init_and_being_inevitable_transaction = llexternal(
 ##    'stm_descriptor_init_and_being_inevitable_transaction', [], lltype.Void)
@@ -42,7 +42,7 @@ stm_write_word = llexternal('stm_write_word', [SignedP, lltype.Signed],
                             lltype.Void)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
-perform_transaction = llexternal('stm_perform_transaction',
-                                 [CALLBACK, rffi.VOIDP], rffi.VOIDP)
+stm_perform_transaction = llexternal('stm_perform_transaction',
+                                     [CALLBACK, rffi.VOIDP], rffi.VOIDP)
 
-abort_and_retry = llexternal('stm_abort_and_retry', [], lltype.Void)
+stm_abort_and_retry = llexternal('stm_abort_and_retry', [], lltype.Void)

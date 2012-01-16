@@ -44,7 +44,7 @@ def callback1(a):
     assert a.x == -611 # xxx still the old value when reading non-transact.
     if a.y < 10:
         a.y += 1    # non-transactionally
-        abort_and_retry()
+        stm_abort_and_retry()
     return lltype.nullptr(rffi.VOIDP.TO)
 
 def test_stm_getfield():
@@ -58,10 +58,10 @@ def test_stm_getfield():
     a.f = rf1
     a.sa = rs1a
     a.sb = rs1b
-    descriptor_init()
-    perform_transaction(llhelper(CALLBACK, callback1),
+    stm_descriptor_init()
+    stm_perform_transaction(llhelper(CALLBACK, callback1),
                         rffi.cast(rffi.VOIDP, a))
-    descriptor_done()
+    stm_descriptor_done()
     assert a.x == 420
     assert a.c1 == '/'
     assert a.c2 == '\\'
@@ -117,7 +117,7 @@ def callback2(a):
     assert float(a.sb) == float(rs1b)
     if a.y < 10:
         a.y += 1    # non-transactionally
-        abort_and_retry()
+        stm_abort_and_retry()
     return lltype.nullptr(rffi.VOIDP.TO)
 
 def test_stm_setfield():
@@ -131,10 +131,10 @@ def test_stm_setfield():
     a.f = rf1
     a.sa = rs1a
     a.sb = rs1b
-    descriptor_init()
-    perform_transaction(llhelper(CALLBACK, callback2),
+    stm_descriptor_init()
+    stm_perform_transaction(llhelper(CALLBACK, callback2),
                         rffi.cast(rffi.VOIDP, a))
-    descriptor_done()
+    stm_descriptor_done()
     assert a.x == 420
     assert a.c1 == '('
     assert a.c2 == '?'

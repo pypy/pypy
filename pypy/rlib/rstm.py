@@ -19,7 +19,7 @@ def _get_stm_callback(func, argcls):
     return _stm_callback
 
 @specialize.arg(0, 1)
-def stm_perform_transaction(func, argcls, arg):
+def perform_transaction(func, argcls, arg):
     assert isinstance(arg, argcls)
     assert argcls._alloc_nonmovable_
     if we_are_translated():
@@ -31,8 +31,8 @@ def stm_perform_transaction(func, argcls, arg):
         llarg = lltype.nullptr(rffi.VOIDP.TO)
     callback = _get_stm_callback(func, argcls)
     llcallback = llhelper(_rffi_stm.CALLBACK, callback)
-    _rffi_stm.perform_transaction(llcallback, llarg)
+    _rffi_stm.stm_perform_transaction(llcallback, llarg)
     keepalive_until_here(arg)
 
-stm_descriptor_init = _rffi_stm.descriptor_init
-stm_descriptor_done = _rffi_stm.descriptor_done
+descriptor_init = _rffi_stm.stm_descriptor_init
+descriptor_done = _rffi_stm.stm_descriptor_done

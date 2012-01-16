@@ -1,9 +1,9 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
-from pypy.translator.stm.test.test_transform import CompiledSTMTests
+from pypy.rlib.test.test_rstm import CompiledSTMTests
 #from pypy.rlib import rstm
-from pypy.translator.stm._rffi_stm import (CALLBACK, perform_transaction,
-                                           descriptor_init, descriptor_done)
+from pypy.translator.stm._rffi_stm import (CALLBACK, stm_perform_transaction,
+                                           stm_descriptor_init, stm_descriptor_done)
 from pypy.translator.c.test.test_standalone import StandaloneTests
 from pypy.rlib.debug import debug_print
 from pypy.rpython.annlowlevel import llhelper
@@ -251,9 +251,9 @@ class TestFuncGen(CompiledSTMTests):
     def test_getfield_all_sizes_inside_transaction(self):
         def do_stm_getfield(argv):
             callback = llhelper(CALLBACK, _play_with_getfield)
-            descriptor_init()
-            perform_transaction(callback, NULL)
-            descriptor_done()
+            stm_descriptor_init()
+            stm_perform_transaction(callback, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_getfield)
         cbuilder.cmdexec('')
@@ -269,11 +269,11 @@ class TestFuncGen(CompiledSTMTests):
         def do_stm_setfield(argv):
             callback1 = llhelper(CALLBACK, _play_with_setfields)
             callback2 = llhelper(CALLBACK, _check_values_of_fields)
-            descriptor_init()
-            perform_transaction(callback1, NULL)
+            stm_descriptor_init()
+            stm_perform_transaction(callback1, NULL)
             # read values which aren't local to the transaction
-            perform_transaction(callback2, NULL)
-            descriptor_done()
+            stm_perform_transaction(callback2, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_setfield)
         cbuilder.cmdexec('')
@@ -288,9 +288,9 @@ class TestFuncGen(CompiledSTMTests):
     def test_getarrayitem_all_sizes_inside_transaction(self):
         def do_stm_getarrayitem(argv):
             callback = llhelper(CALLBACK, _play_with_getarrayitem)
-            descriptor_init()
-            perform_transaction(callback, NULL)
-            descriptor_done()
+            stm_descriptor_init()
+            stm_perform_transaction(callback, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_getarrayitem)
         cbuilder.cmdexec('')
@@ -311,11 +311,11 @@ class TestFuncGen(CompiledSTMTests):
             callback2 = llhelper(CALLBACK, _play_with_setarrayitem_2)
             callback3 = llhelper(CALLBACK, _play_with_setarrayitem_3)
             #
-            descriptor_init()
-            perform_transaction(callback1, NULL)
-            perform_transaction(callback2, NULL)
-            perform_transaction(callback3, NULL)
-            descriptor_done()
+            stm_descriptor_init()
+            stm_perform_transaction(callback1, NULL)
+            stm_perform_transaction(callback2, NULL)
+            stm_perform_transaction(callback3, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_setarrayitem)
         cbuilder.cmdexec('')
@@ -330,9 +330,9 @@ class TestFuncGen(CompiledSTMTests):
     def test_getinteriorfield_all_sizes_inside_transaction(self):
         def do_stm_getinteriorfield(argv):
             callback = llhelper(CALLBACK, _play_with_getinteriorfield)
-            descriptor_init()
-            perform_transaction(callback, NULL)
-            descriptor_done()
+            stm_descriptor_init()
+            stm_perform_transaction(callback, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_getinteriorfield)
         cbuilder.cmdexec('')
@@ -351,10 +351,10 @@ class TestFuncGen(CompiledSTMTests):
             callback1 = llhelper(CALLBACK, _play_with_setinteriorfield_1)
             callback2 = llhelper(CALLBACK, _play_with_setinteriorfield_2)
             #
-            descriptor_init()
-            perform_transaction(callback1, NULL)
-            perform_transaction(callback2, NULL)
-            descriptor_done()
+            stm_descriptor_init()
+            stm_perform_transaction(callback1, NULL)
+            stm_perform_transaction(callback2, NULL)
+            stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_setinteriorfield)
         cbuilder.cmdexec('')
