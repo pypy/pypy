@@ -67,6 +67,8 @@ rs2a = r_singlefloat(0.017634)
 rs1b = r_singlefloat(40.121)
 rs2b = r_singlefloat(-9e9)
 
+NULL = lltype.nullptr(rffi.VOIDP.TO)
+
 def make_a_1():
     a = lltype.malloc(A, immortal=True)
     a.x = -611
@@ -92,9 +94,9 @@ def _play_with_getfield(dummy_arg):
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
-    return lltype.nullptr(rffi.VOIDP.TO)
-
-def do_stm_setfield(argv):
+    return NULL
+    
+def _play_with_setfields(dummy_arg):
     a = a_prebuilt
     #
     a.x = 12871981
@@ -111,7 +113,13 @@ def do_stm_setfield(argv):
     a.f = rf2
     a.sa = rs2a
     a.sb = rs2b
-    #
+    # read the values which have not been commited yet, but are local to the
+    # transaction
+    _check_values_of_fields(dummy_arg)
+    return NULL
+
+def _check_values_of_fields(dummy_arg):
+    a = a_prebuilt
     assert a.x == 12871981
     assert a.c1 == '('
     assert a.c2 == '?'
@@ -120,19 +128,7 @@ def do_stm_setfield(argv):
     assert a.f == rf2
     assert float(a.sa) == float(rs2a)
     assert float(a.sb) == float(rs2b)
-    #
-    rstm.transaction_boundary()
-    #
-    assert a.x == 12871981
-    assert a.c1 == '('
-    assert a.c2 == '?'
-    assert a.c3 == ')'
-    assert a.l == rll2
-    assert a.f == rf2
-    assert float(a.sa) == float(rs2a)
-    assert float(a.sb) == float(rs2b)
-    #
-    return 0
+    return NULL
 
 
 def make_array(OF):
@@ -254,13 +250,29 @@ class TestFuncGen(CompiledSTMTests):
         def do_stm_getfield(argv):
             callback = llhelper(CALLBACK, _play_with_getfield)
             descriptor_init()
-            perform_transaction(callback, lltype.nullptr(rffi.VOIDP.TO))
+            perform_transaction(callback, NULL)
             descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_getfield)
         cbuilder.cmdexec('')
 
     def test_setfield_all_sizes(self):
+        def do_stm_setfield(argv):
+            _play_with_setfields(None)
+            return 0
+        t, cbuilder = self.compile(do_stm_setfield)
+        cbuilder.cmdexec('')
+
+    def test_setfield_all_sizes_inside_transaction(self):
+        def do_stm_setfield(argv):
+            callback1 = llhelper(CALLBACK, _play_with_setfields)
+            callback2 = llhelper(CALLBACK, _check_values_of_fields)
+            descriptor_init()
+            perform_transaction(callback1, NULL)
+            # read values which aren't local to the transaction
+            perform_transaction(callback2, NULL)
+            descriptor_done()
+            return 0
         t, cbuilder = self.compile(do_stm_setfield)
         cbuilder.cmdexec('')
 
