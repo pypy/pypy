@@ -153,3 +153,6 @@ pass"""
         self.parse('0b1101')
         self.parse('0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
+
+    def test_new_extended_unpacking(self):
+        self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
