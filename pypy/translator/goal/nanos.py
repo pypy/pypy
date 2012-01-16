@@ -85,7 +85,7 @@ if os.name == 'posix':
                 st = posix.stat(path)
             except posix.error:
                 return False
-            return (st.st_mode & 0170000) == 0100000      # S_ISREG
+            return (st.st_mode & 0o170000) == 0o100000      # S_ISREG
 
         def islink(path):
             import posix
@@ -93,7 +93,7 @@ if os.name == 'posix':
                 st = posix.lstat(path)
             except posix.error:
                 return False
-            return (st.st_mode & 0170000) == 0120000      # S_ISLNK
+            return (st.st_mode & 0o170000) == 0o120000      # S_ISLNK
 
     """, filename=__file__)
 
@@ -249,7 +249,7 @@ elif os.name == 'nt':
                 st = nt.stat(path)
             except nt.error:
                 return False
-            return (st.st_mode & 0170000) == 0100000      # S_ISREG
+            return (st.st_mode & 0o170000) == 0o100000      # S_ISREG
 
         def islink(path):
             return False
