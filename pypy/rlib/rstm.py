@@ -1,5 +1,5 @@
 from pypy.rlib.objectmodel import specialize, we_are_translated, keepalive_until_here
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, rclass
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       cast_instance_to_base_ptr,
                                       llhelper)

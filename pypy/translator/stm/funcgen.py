@@ -118,49 +118,7 @@ def stm_setinteriorfield(funcgen, op):
     return _stm_generic_set(funcgen, op, expr, T)
 
 
-def stm_begin_transaction(funcgen, op):
-    return 'STM_begin_transaction();'
-
-def stm_commit_transaction(funcgen, op):
-    return 'stm_commit_transaction();'
-
-def stm_begin_inevitable_transaction(funcgen, op):
-    return 'stm_begin_inevitable_transaction();'
-
-def stm_declare_variable(funcgen, op):
-    # this operation occurs only once at the start of a function if
-    # it uses stm_transaction_boundary
-    assert funcgen.exception_policy is None
-    funcgen.exception_policy = 'stm'
-    return 'STM_DECLARE_VARIABLE();'
-
-def stm_transaction_boundary(funcgen, op):
-    assert funcgen.exception_policy == 'stm'
-    # make code looking like this:
-    #
-    #     stm_commit_transaction();
-    #     {
-    #         volatile long tmp_123 = l_123;
-    #         setjmp(jmpbuf);
-    #         l_123 = tmp_123;
-    #     }
-    #     stm_begin_transaction(&jmpbuf);
-    #
-    lines = ['\tsetjmp(jmpbuf);']
-    TMPVAR = 'tmp_%s'
-    for v in op.args:
-        tmpname = TMPVAR % v.name
-        cdeclname = cdecl(funcgen.lltypename(v), 'volatile ' + tmpname)
-        realname = funcgen.expr(v)
-        lines.insert(0, '\t%s = %s;' % (cdeclname, realname))
-        lines.append('\t%s = %s;' % (realname, tmpname))
-    lines.insert(0, '{')
-    lines.insert(0, 'stm_commit_transaction();')
-    lines.append('}')
-    lines.append('stm_begin_transaction(&jmpbuf);')
-    return '\n'.join(lines)
-
-def stm_try_inevitable(funcgen, op):
+def stm_become_inevitable(funcgen, op):
     info = op.args[0].value
     string_literal = c_string_constant(info)
     return 'stm_try_inevitable(STM_EXPLAIN1(%s));' % (string_literal,)

@@ -2,14 +2,18 @@ from pypy.rlib.debug import debug_print
 from pypy.rlib import rstm
 from pypy.translator.stm.test.support import CompiledSTMTests
 
+
+class Arg(object):
+    _alloc_nonmovable_ = True
+
+def setx(arg):
+    debug_print(arg.x)
+    arg.x = 42
+
+
 def test_stm_perform_transaction():
-    class Arg(object):
-        _alloc_nonmovable_ = True
-
-    def setx(arg):
-        arg.x = 42
-
     arg = Arg()
+    arg.x = 202
     rstm.descriptor_init()
     rstm.perform_transaction(setx, Arg, arg)
     rstm.descriptor_done()
@@ -29,3 +33,12 @@ class TestTransformSingleThread(CompiledSTMTests):
         dataout, dataerr = cbuilder.cmdexec('', err=True)
         assert dataout == ''
         assert '102' in dataerr.splitlines()
+
+    def test_perform_transaction(self):
+        def f(argv):
+            test_stm_perform_transaction()
+            return 0
+        t, cbuilder = self.compile(f)
+        dataout, dataerr = cbuilder.cmdexec('', err=True)
+        assert dataout == ''
+        assert '202' in dataerr.splitlines()

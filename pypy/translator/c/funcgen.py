@@ -226,9 +226,7 @@ class FunctionCodeGenerator(object):
                     yield '\tRPyConvertExceptionToCPython();'
                     yield '\treturn NULL;'
                     yield '}'
-                if self.exception_policy == "stm":
-                    xxxx
-                    yield 'STM_MAKE_INEVITABLE();'
+                assert self.exception_policy != "stm", "old code"
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
                     yield 'RPY_DEBUG_RETURN();'
@@ -609,6 +607,7 @@ class FunctionCodeGenerator(object):
     OP_STM_SETARRAYITEM = _OP_STM
     OP_STM_GETINTERIORFIELD = _OP_STM
     OP_STM_SETINTERIORFIELD = _OP_STM
+    OP_STM_BECOME_INEVITABLE = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):
