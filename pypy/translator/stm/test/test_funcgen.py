@@ -159,7 +159,7 @@ def _play_with_getarrayitem(dummy_arg):
     return NULL
 
 
-def do_stm_setarrayitem(argv):
+def _play_with_setarrayitem_1(dummy_arg):
     change(prebuilt_array_signed, [500000, -10000000, 3])
     check(prebuilt_array_signed,  [500000, -10000000, 3, -10, 42])
     prebuilt_array_char[0] = 'A'
@@ -168,19 +168,19 @@ def do_stm_setarrayitem(argv):
     check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', chr(42)])
     prebuilt_array_char[4] = 'C'
     check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
-    #
-    rstm.transaction_boundary()
-    #
+    return NULL
+
+def _play_with_setarrayitem_2(dummy_arg):
     check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
     prebuilt_array_char[1] = 'D'
     check(prebuilt_array_char,    ['A', 'D', chr(255), 'B', 'C'])
     prebuilt_array_char[2] = 'E'
     check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
-    #
-    rstm.transaction_boundary()
-    #
+    return NULL
+
+def _play_with_setarrayitem_3(dummy_arg):
     check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
-    return 0
+    return NULL
 
 
 def make_array_of_structs(T1, T2):
@@ -296,6 +296,26 @@ class TestFuncGen(CompiledSTMTests):
 
 
     def test_setarrayitem_all_sizes(self):
+        def do_stm_setarrayitem(argv):
+            _play_with_setarrayitem_1(None)
+            _play_with_setarrayitem_2(None)
+            _play_with_setarrayitem_3(None)
+            return 0
+        t, cbuilder = self.compile(do_stm_setarrayitem)
+        cbuilder.cmdexec('')
+
+    def test_setarrayitem_all_sizes_inside_transaction(self):
+        def do_stm_setarrayitem(argv):
+            callback1 = llhelper(CALLBACK, _play_with_setarrayitem_1)
+            callback2 = llhelper(CALLBACK, _play_with_setarrayitem_2)
+            callback3 = llhelper(CALLBACK, _play_with_setarrayitem_3)
+            #
+            descriptor_init()
+            perform_transaction(callback1, NULL)
+            perform_transaction(callback2, NULL)
+            perform_transaction(callback3, NULL)
+            descriptor_done()
+            return 0
         t, cbuilder = self.compile(do_stm_setarrayitem)
         cbuilder.cmdexec('')
 
