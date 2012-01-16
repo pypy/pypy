@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
-from pypy.rlib.test.test_rstm import CompiledSTMTests
-#from pypy.rlib import rstm
+from pypy.translator.stm.test.support import CompiledSTMTests
 from pypy.translator.stm._rffi_stm import (CALLBACK, stm_perform_transaction,
                                            stm_descriptor_init, stm_descriptor_done)
 from pypy.translator.c.test.test_standalone import StandaloneTests

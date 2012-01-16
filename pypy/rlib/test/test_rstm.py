@@ -1,6 +1,6 @@
 from pypy.rlib.debug import debug_print
 from pypy.rlib import rstm
-from pypy.translator.c.test.test_standalone import StandaloneTests
+from pypy.translator.stm.test.support import CompiledSTMTests
 
 def test_stm_perform_transaction():
     class Arg(object):
@@ -14,26 +14,6 @@ def test_stm_perform_transaction():
     rstm.perform_transaction(setx, Arg, arg)
     rstm.descriptor_done()
     assert arg.x == 42
-
-
-class CompiledSTMTests(StandaloneTests):
-    gc = "none"
-
-    def compile(self, entry_point):
-        from pypy.config.pypyoption import get_pypy_config
-        self.config = get_pypy_config(translating=True)
-        self.config.translation.stm = True
-        self.config.translation.gc = self.gc
-        #
-        # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
-        # operation".  We want instead it to crash.
-        from pypy.translator.backendopt.canraise import RaiseAnalyzer
-        RaiseAnalyzer.fail_on_unknown_operation = True
-        try:
-            res = StandaloneTests.compile(self, entry_point, debug=True)
-        finally:
-            RaiseAnalyzer.fail_on_unknown_operation = False
-        return res
 
 
 class TestTransformSingleThread(CompiledSTMTests):

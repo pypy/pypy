@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.test.test_rstm import CompiledSTMTests
+from pypy.translator.stm.test.support import CompiledSTMTests
 from pypy.translator.stm.test import targetdemo
 
 
