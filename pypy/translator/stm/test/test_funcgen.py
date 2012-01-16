@@ -152,11 +152,12 @@ def change(array, newvalues):
         array[i] = rffi.cast(lltype.typeOf(array).TO.OF, newvalues[i])
 change._annspecialcase_ = 'specialize:ll'
 
-def do_stm_getarrayitem(argv):
+def _play_with_getarrayitem(dummy_arg):
     check(prebuilt_array_signed, [1, 10, -1, -10, 42])
     check(prebuilt_array_char,   [chr(1), chr(10), chr(255),
                                   chr(246), chr(42)])
-    return 0
+    return NULL
+
 
 def do_stm_setarrayitem(argv):
     change(prebuilt_array_signed, [500000, -10000000, 3])
@@ -277,8 +278,22 @@ class TestFuncGen(CompiledSTMTests):
         cbuilder.cmdexec('')
 
     def test_getarrayitem_all_sizes(self):
+        def do_stm_getarrayitem(argv):
+            _play_with_getarrayitem(None)
+            return 0
         t, cbuilder = self.compile(do_stm_getarrayitem)
         cbuilder.cmdexec('')
+
+    def test_getarrayitem_all_sizes_inside_transaction(self):
+        def do_stm_getarrayitem(argv):
+            callback = llhelper(CALLBACK, _play_with_getarrayitem)
+            descriptor_init()
+            perform_transaction(callback, NULL)
+            descriptor_done()
+            return 0
+        t, cbuilder = self.compile(do_stm_getarrayitem)
+        cbuilder.cmdexec('')
+
 
     def test_setarrayitem_all_sizes(self):
         t, cbuilder = self.compile(do_stm_setarrayitem)
