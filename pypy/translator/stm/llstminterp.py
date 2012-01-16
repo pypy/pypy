@@ -146,44 +146,38 @@ class LLSTMFrame(LLFrame):
             raise ForbiddenInstructionInSTMMode(stm_mode, self.graph)
 
     def opstm_stm_getfield(self, struct, fieldname):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         return LLFrame.op_getfield(self, struct, fieldname)
 
     def opstm_stm_setfield(self, struct, fieldname, value):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setfield(self, struct, fieldname, value)
 
     def opstm_stm_getarrayitem(self, array, index):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         return LLFrame.op_getarrayitem(self, array, index)
 
     def opstm_stm_setarrayitem(self, array, index, value):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setarrayitem(self, array, index, value)
 
     def opstm_stm_getinteriorfield(self, obj, *offsets):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         return LLFrame.op_getinteriorfield(self, obj, *offsets)
 
     def opstm_stm_setinteriorfield(self, obj, *fieldnamesval):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setinteriorfield(self, obj, *fieldnamesval)
 
-    def opstm_stm_begin_transaction(self):
-        self.check_stm_mode(lambda m: m == "not_in_transaction")
-        self.llinterpreter.stm_mode = "regular_transaction"
-        self.llinterpreter.last_transaction_started_in_frame = self
+##    def opstm_stm_begin_transaction(self):
+##        self.check_stm_mode(lambda m: m == "not_in_transaction")
+##        self.llinterpreter.stm_mode = "regular_transaction"
+##        self.llinterpreter.last_transaction_started_in_frame = self
 
-    def opstm_stm_commit_transaction(self):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
-        self.llinterpreter.stm_mode = "not_in_transaction"
+##    def opstm_stm_commit_transaction(self):
+##        self.check_stm_mode(lambda m: m != "not_in_transaction")
+##        self.llinterpreter.stm_mode = "not_in_transaction"
 
-    def opstm_stm_transaction_boundary(self):
-        self.check_stm_mode(lambda m: m != "not_in_transaction")
-        self.llinterpreter.stm_mode = "regular_transaction"
-        self.llinterpreter.last_transaction_started_in_frame = self
+##    def opstm_stm_transaction_boundary(self):
+##        self.check_stm_mode(lambda m: m != "not_in_transaction")
+##        self.llinterpreter.stm_mode = "regular_transaction"
+##        self.llinterpreter.last_transaction_started_in_frame = self
 
-    def opstm_stm_try_inevitable(self, why):
+    def opstm_stm_become_inevitable(self, why):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "inevitable_transaction"
         print why

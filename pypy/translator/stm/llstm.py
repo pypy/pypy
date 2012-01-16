@@ -92,9 +92,13 @@ def stm_getarrayitem(arrayptr, index):
     "NOT_RPYTHON"
     raise NotImplementedError("sorry")
 
-##def stm_setarrayitem(arrayptr, index, value):
-##    "NOT_RPYTHON"
-##    raise NotImplementedError("sorry")
+def stm_setarrayitem(arrayptr, index, value):
+    "NOT_RPYTHON"
+    raise NotImplementedError("sorry")
+
+def stm_become_inevitable(why):
+    "NOT_RPYTHON"
+    raise NotImplementedError("sorry")
 
 # ____________________________________________________________
 
@@ -146,13 +150,28 @@ class ExtEntry(ExtRegistryEntry):
                          resulttype = hop.r_result)
 
 
-##class ExtEntry(ExtRegistryEntry):
-##    _about_ = (begin_transaction, commit_transaction,
-##               begin_inevitable_transaction, transaction_boundary)
+class ExtEntry(ExtRegistryEntry):
+    _about_ = stm_setarrayitem
 
-##    def compute_result_annotation(self):
-##        return None
+    def compute_result_annotation(self, s_arrayptr, s_index, s_newvalue):
+        return None
 
-##    def specialize_call(self, hop):
-##        hop.exception_cannot_occur()
-##        hop.genop("stm_" + self.instance.__name__, [])
+    def specialize_call(self, hop):
+        r_arrayptr = hop.args_r[0]
+        v_arrayptr, v_index, v_newvalue = hop.inputargs(r_arrayptr,
+                                                        lltype.Signed,
+                                                        hop.args_r[2])
+        hop.exception_cannot_occur()
+        hop.genop('stm_setarrayitem', [v_arrayptr, v_index, v_newvalue])
+
+
+class ExtEntry(ExtRegistryEntry):
+    _about_ = stm_become_inevitable
+
+    def compute_result_annotation(self, s_why):
+        return None
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        c_why = hop.inputconst(lltype.Signed, 42)    # XXX
+        hop.genop("stm_become_inevitable", [c_why])

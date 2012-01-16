@@ -1,0 +1,9 @@
+
+
+* turn calls to stm_read_word() to:
+    if (d) x = stm_read_word(a); else x = *a;
+
+  this way, gcc will optimize:
+    if (d) x = stm_read_word(a); else x = *a;
+    if (d) y = stm_read_word(b); else y = *b;
+  to check !d only once if it is null
