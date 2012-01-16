@@ -1,6 +1,6 @@
 import time
 from pypy.module.thread import ll_thread
-from pypy.translator.stm import rstm
+#from pypy.translator.stm import rstm
 
 
 class Node:

@@ -2,8 +2,11 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
 from pypy.translator.stm.test.test_transform import CompiledSTMTests
 #from pypy.rlib import rstm
+from pypy.translator.stm._rffi_stm import (CALLBACK, perform_transaction,
+                                           descriptor_init, descriptor_done)
 from pypy.translator.c.test.test_standalone import StandaloneTests
 from pypy.rlib.debug import debug_print
+from pypy.rpython.annlowlevel import llhelper
 
 
 class TestRStm(object):
@@ -78,7 +81,7 @@ def make_a_1():
     return a
 a_prebuilt = make_a_1()
 
-def do_stm_getfield(argv):
+def _play_with_getfield(dummy_arg):
     a = a_prebuilt
     assert a.x == -611
     assert a.c1 == '/'
@@ -89,7 +92,7 @@ def do_stm_getfield(argv):
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
-    return 0
+    return lltype.nullptr(rffi.VOIDP.TO)
 
 def do_stm_setfield(argv):
     a = a_prebuilt
@@ -241,6 +244,19 @@ def do_stm_setinteriorfield(argv):
 class TestFuncGen(CompiledSTMTests):
 
     def test_getfield_all_sizes(self):
+        def do_stm_getfield(argv):
+            _play_with_getfield(None)
+            return 0
+        t, cbuilder = self.compile(do_stm_getfield)
+        cbuilder.cmdexec('')
+
+    def test_getfield_all_sizes_inside_transaction(self):
+        def do_stm_getfield(argv):
+            callback = llhelper(CALLBACK, _play_with_getfield)
+            descriptor_init()
+            perform_transaction(callback, lltype.nullptr(rffi.VOIDP.TO))
+            descriptor_done()
+            return 0
         t, cbuilder = self.compile(do_stm_getfield)
         cbuilder.cmdexec('')
 

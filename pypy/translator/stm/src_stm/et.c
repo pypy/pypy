@@ -676,6 +676,10 @@ void stm_descriptor_done(void)
 void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 {
   void *result;
+#ifdef RPY_STM_ASSERT
+  /* you need to call descriptor_init() before calling stm_perform_transaction */
+  assert(thread_descriptor != NULL);
+#endif
   STM_begin_transaction();
   result = callback(arg);
   stm_commit_transaction();
