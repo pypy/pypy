@@ -212,11 +212,12 @@ def change2(array, newvalues1, newvalues2):
         array[i].y = rffi.cast(lltype.typeOf(array).TO.OF.y, newvalues2[i])
 change2._annspecialcase_ = 'specialize:ll'
 
-def do_stm_getinteriorfield(argv):
+def _play_with_getinteriorfield(dummy_arg):
     check2(prebuilt_array_signed_signed, [1, -1, -50], [10, 20, -30])
     check2(prebuilt_array_char_char, [chr(1), chr(255), chr(206)],
                                      [chr(10), chr(20), chr(226)])
-    return 0
+    return NULL
+
 
 def do_stm_setinteriorfield(argv):
     change2(prebuilt_array_signed_signed, [500000, -10000000], [102101202])
@@ -320,8 +321,22 @@ class TestFuncGen(CompiledSTMTests):
         cbuilder.cmdexec('')
 
     def test_getinteriorfield_all_sizes(self):
+        def do_stm_getinteriorfield(argv):
+            _play_with_getinteriorfield(None)
+            return 0
         t, cbuilder = self.compile(do_stm_getinteriorfield)
         cbuilder.cmdexec('')
+
+    def test_getinteriorfield_all_sizes_inside_transaction(self):
+        def do_stm_getinteriorfield(argv):
+            callback = llhelper(CALLBACK, _play_with_getinteriorfield)
+            descriptor_init()
+            perform_transaction(callback, NULL)
+            descriptor_done()
+            return 0
+        t, cbuilder = self.compile(do_stm_getinteriorfield)
+        cbuilder.cmdexec('')
+
 
     def test_setinteriorfield_all_sizes(self):
         t, cbuilder = self.compile(do_stm_setinteriorfield)
