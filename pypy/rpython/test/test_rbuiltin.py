@@ -477,6 +477,17 @@ class BaseTestRbuiltin(BaseRtypingTest):
         for id in self.ll_unpack_tuple(res, 6):
             assert isinstance(id, (int, r_longlong))
 
+    def test_uniqueness_of_id_on_strings(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        def fn(s1, s2):
+            return (compute_unique_id(s1), compute_unique_id(s2))
+
+        s1 = "foo"
+        s2 = ''.join(['f','oo'])
+        res = self.interpret(fn, [self.string_to_ll(s1), self.string_to_ll(s2)])
+        i1, i2 = self.ll_unpack_tuple(res, 2)
+        assert i1 != i2
+
     def test_cast_primitive(self):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         def llf(u):

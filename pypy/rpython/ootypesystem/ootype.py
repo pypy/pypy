@@ -1378,7 +1378,7 @@ class _builtin_type(object):
         return make_object(self)
 
     def _identityhash(self):
-        return hash(self)
+        return object.__hash__(self)
 
 class _string(_builtin_type):
 
