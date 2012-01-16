@@ -144,7 +144,6 @@ pass"""
         py.test.raises(SyntaxError, self.parse, "b'a\\n")
 
     def test_new_octal_literal(self):
-        self.parse('0777')
         self.parse('0o777')
         py.test.raises(SyntaxError, self.parse, '0o777L')
         py.test.raises(SyntaxError, self.parse, "0o778")
@@ -153,6 +152,9 @@ pass"""
         self.parse('0b1101')
         py.test.raises(SyntaxError, self.parse, '0b0l')
         py.test.raises(SyntaxError, self.parse, "0b112")
+
+    def test_py3k_reject_old_binary_literal(self):
+        py.test.raises(SyntaxError, self.parse, '0777')
 
     def test_py3k_extended_unpacking(self):
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
