@@ -7,4 +7,3 @@ branch can be merged::
     e23ab2c195c1  Added a number of "# XXX --- custom version for STM ---"
     31f2ed861176  One more
 
-    0782958b144f  Hard-coded the STM logic in rffi.aroundstate
