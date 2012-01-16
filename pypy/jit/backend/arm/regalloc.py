@@ -772,6 +772,7 @@ class Regalloc(object):
         result_loc = self.force_allocate_reg(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
+    prepare_op_getinteriorfield_raw = prepare_op_getinteriorfield_gc
 
     def prepare_op_setinteriorfield_gc(self, op, fcond):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -788,6 +789,7 @@ class Regalloc(object):
             self.assembler.load(ofs_loc, immofs)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
+    prepare_op_setinteriorfield_raw = prepare_op_setinteriorfield_gc
 
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()

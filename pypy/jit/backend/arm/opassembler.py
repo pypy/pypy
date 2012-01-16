@@ -688,6 +688,7 @@ class FieldOpAssembler(object):
             signed = op.getdescr().fielddescr.is_field_signed()
             self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
         return fcond
+    emit_op_getinteriorfield_raw = emit_op_getinteriorfield_gc
 
     def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
         (base_loc, index_loc, value_loc,
@@ -715,6 +716,7 @@ class FieldOpAssembler(object):
         else:
             assert 0
         return fcond
+    emit_op_setinteriorfield_raw = emit_op_setinteriorfield_gc
 
 
 class ArrayOpAssember(object):
