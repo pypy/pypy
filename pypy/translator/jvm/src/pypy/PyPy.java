@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.text.DecimalFormat;
 import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
 
 /**
  * Class with a number of utility routines.  One instance of this is
@@ -285,17 +284,11 @@ public class PyPy implements Constants {
     }
 
     public double pypy__longlong2float(long l) {
-        ByteBuffer buf = ByteBuffer.allocate(8);
-        buf.putLong(l);
-        buf.flip();
-        return buf.getDouble();
+        return Double.longBitsToDouble(l);
     }
 
     public long pypy__float2longlong(double d) {
-        ByteBuffer buf = ByteBuffer.allocate(8);
-        buf.putDouble(d);
-        buf.flip();
-        return buf.getLong();
+        return Double.doubleToRawLongBits(d);
     }
 
     public double ooparse_float(String s) {
