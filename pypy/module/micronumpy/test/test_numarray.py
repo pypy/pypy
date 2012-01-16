@@ -771,6 +771,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
         assert (a.reshape(1,-1).sum(0) == range(105)).all()
         assert (a.reshape(1,-1).sum(1) == 5460)
+        assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
+        assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_identity(self):
         from _numpypy import identity, array
