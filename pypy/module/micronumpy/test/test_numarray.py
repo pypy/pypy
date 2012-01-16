@@ -733,6 +733,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(105)).reshape(3, 5, 7)
         b = mean(a, axis=0)
         b[0,0]==35.
+        assert a.mean(axis=0)[0, 0] == 35
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
         assert (mean(a, 2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
@@ -755,6 +756,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([]).sum() == 0.0
         raises(ValueError, 'array([]).max()')
         assert (a.sum(0) == [30, 35, 40]).all()
+        assert (a.sum(axis=0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
         assert (a.max(0) == [12, 13, 14]).all()
         assert (a.max(1) == [2, 5, 8, 11, 14]).all()
@@ -769,6 +771,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
         assert (a.reshape(1,-1).sum(0) == range(105)).all()
         assert (a.reshape(1,-1).sum(1) == 5460)
+        assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
+        assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_identity(self):
         from _numpypy import identity, array
