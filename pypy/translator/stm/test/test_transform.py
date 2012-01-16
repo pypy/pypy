@@ -3,7 +3,7 @@ from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.objspace.flow.model import summary
 from pypy.translator.stm.llstminterp import eval_stm_graph
 from pypy.translator.stm.transform import transform_graph
-from pypy.translator.stm import rstm
+##from pypy.translator.stm import rstm
 from pypy.translator.c.test.test_standalone import StandaloneTests
 from pypy.rlib.debug import debug_print
 from pypy.conftest import option
@@ -198,7 +198,7 @@ class CompiledSTMTests(StandaloneTests):
         try:
             res = StandaloneTests.compile(self, entry_point, debug=True)
         finally:
-            del RaiseAnalyzer.fail_on_unknown_operation
+            RaiseAnalyzer.fail_on_unknown_operation = False
         return res
 
 

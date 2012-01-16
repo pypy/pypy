@@ -515,6 +515,8 @@ void commitInevitableTransaction(struct tx_descriptor *d)
 long stm_read_word(long* addr)
 {
   struct tx_descriptor *d = thread_descriptor;
+  if (!d)
+    return *addr;
 #ifdef RPY_STM_ASSERT
   assert(d->transaction_active);
 #endif
@@ -579,6 +581,11 @@ long stm_read_word(long* addr)
 void stm_write_word(long* addr, long val)
 {
   struct tx_descriptor *d = thread_descriptor;
+  if (!d)
+    {
+      *addr = val;
+      return;
+    }
 #ifdef RPY_STM_ASSERT
   assert(d->transaction_active);
 #endif

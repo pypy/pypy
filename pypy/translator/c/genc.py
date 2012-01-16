@@ -134,7 +134,7 @@ class CBuilder(object):
         if self.config.translation.stm:
             from pypy.translator.stm import transform
             transformer = transform.STMTransformer(self.translator)
-            transformer.transform(self.getentrypointptr())
+            transformer.transform()
             log.info("Software Transactional Memory transformation applied")
 
         gcpolicyclass = self.get_gcpolicyclass()

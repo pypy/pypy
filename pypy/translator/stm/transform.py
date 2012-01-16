@@ -23,18 +23,18 @@ class STMTransformer(object):
     def __init__(self, translator=None):
         self.translator = translator
 
-    def transform(self, entrypointptr):
+    def transform(self):  ##, entrypointptr):
         assert not hasattr(self.translator, 'stm_transformation_applied')
-        entrypointgraph = entrypointptr._obj.graph
+##        entrypointgraph = entrypointptr._obj.graph
         for graph in self.translator.graphs:
-            self.seen_transaction_boundary = False
-            self.seen_gc_stack_bottom = False
+##            self.seen_transaction_boundary = False
+##            self.seen_gc_stack_bottom = False
             self.transform_graph(graph)
-            if self.seen_transaction_boundary:
-                self.add_stm_declare_variable(graph)
-            if self.seen_gc_stack_bottom:
-                self.add_descriptor_init_stuff(graph)
-        self.add_descriptor_init_stuff(entrypointgraph, main=True)
+##            if self.seen_transaction_boundary:
+##                self.add_stm_declare_variable(graph)
+##            if self.seen_gc_stack_bottom:
+##                self.add_descriptor_init_stuff(graph)
+##        self.add_descriptor_init_stuff(entrypointgraph, main=True)
         self.translator.stm_transformation_applied = True
 
     def transform_block(self, block):
@@ -68,42 +68,42 @@ class STMTransformer(object):
         for block in graph.iterblocks():
             self.transform_block(block)
 
-    def add_descriptor_init_stuff(self, graph, main=False):
-        if main:
-            self._add_calls_around(graph,
-                                   _rffi_stm.begin_inevitable_transaction,
-                                   _rffi_stm.commit_transaction)
-        self._add_calls_around(graph,
-                               _rffi_stm.descriptor_init,
-                               _rffi_stm.descriptor_done)
+##    def add_descriptor_init_stuff(self, graph, main=False):
+##        if main:
+##            self._add_calls_around(graph,
+##                                   _rffi_stm.begin_inevitable_transaction,
+##                                   _rffi_stm.commit_transaction)
+##        self._add_calls_around(graph,
+##                               _rffi_stm.descriptor_init,
+##                               _rffi_stm.descriptor_done)
 
-    def _add_calls_around(self, graph, f_init, f_done):
-        c_init = Constant(f_init, lltype.typeOf(f_init))
-        c_done = Constant(f_done, lltype.typeOf(f_done))
-        #
-        block = graph.startblock
-        v = varoftype(lltype.Void)
-        op = SpaceOperation('direct_call', [c_init], v)
-        block.operations.insert(0, op)
-        #
-        v = copyvar(self.translator.annotator, graph.getreturnvar())
-        extrablock = Block([v])
-        v_none = varoftype(lltype.Void)
-        newop = SpaceOperation('direct_call', [c_done], v_none)
-        extrablock.operations = [newop]
-        extrablock.closeblock(Link([v], graph.returnblock))
-        for block in graph.iterblocks():
-            if block is not extrablock:
-                for link in block.exits:
-                    if link.target is graph.returnblock:
-                        link.target = extrablock
-        checkgraph(graph)
+##    def _add_calls_around(self, graph, f_init, f_done):
+##        c_init = Constant(f_init, lltype.typeOf(f_init))
+##        c_done = Constant(f_done, lltype.typeOf(f_done))
+##        #
+##        block = graph.startblock
+##        v = varoftype(lltype.Void)
+##        op = SpaceOperation('direct_call', [c_init], v)
+##        block.operations.insert(0, op)
+##        #
+##        v = copyvar(self.translator.annotator, graph.getreturnvar())
+##        extrablock = Block([v])
+##        v_none = varoftype(lltype.Void)
+##        newop = SpaceOperation('direct_call', [c_done], v_none)
+##        extrablock.operations = [newop]
+##        extrablock.closeblock(Link([v], graph.returnblock))
+##        for block in graph.iterblocks():
+##            if block is not extrablock:
+##                for link in block.exits:
+##                    if link.target is graph.returnblock:
+##                        link.target = extrablock
+##        checkgraph(graph)
 
-    def add_stm_declare_variable(self, graph):
-        block = graph.startblock
-        v = varoftype(lltype.Void)
-        op = SpaceOperation('stm_declare_variable', [], v)
-        block.operations.insert(0, op)
+##    def add_stm_declare_variable(self, graph):
+##        block = graph.startblock
+##        v = varoftype(lltype.Void)
+##        op = SpaceOperation('stm_declare_variable', [], v)
+##        block.operations.insert(0, op)
 
     # ----------
 
@@ -173,22 +173,22 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_setinteriorfield', op.args, op.result)
         newoperations.append(op1)
 
-    def stt_stm_transaction_boundary(self, newoperations, op):
-        self.seen_transaction_boundary = True
-        v_result = op.result
-        # record in op.args the list of variables that are alive across
-        # this call
-        block = self.current_block
-        vars = set()
-        for op in block.operations[:self.current_op_index:-1]:
-            vars.discard(op.result)
-            vars.update(op.args)
-        for link in block.exits:
-            vars.update(link.args)
-            vars.update(link.getextravars())
-        livevars = [v for v in vars if isinstance(v, Variable)]
-        newop = SpaceOperation('stm_transaction_boundary', livevars, v_result)
-        newoperations.append(newop)
+##    def stt_stm_transaction_boundary(self, newoperations, op):
+##        self.seen_transaction_boundary = True
+##        v_result = op.result
+##        # record in op.args the list of variables that are alive across
+##        # this call
+##        block = self.current_block
+##        vars = set()
+##        for op in block.operations[:self.current_op_index:-1]:
+##            vars.discard(op.result)
+##            vars.update(op.args)
+##        for link in block.exits:
+##            vars.update(link.args)
+##            vars.update(link.getextravars())
+##        livevars = [v for v in vars if isinstance(v, Variable)]
+##        newop = SpaceOperation('stm_transaction_boundary', livevars, v_result)
+##        newoperations.append(newop)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
@@ -199,7 +199,7 @@ class STMTransformer(object):
         return flags['flavor'] == 'gc'
 
     def stt_gc_stack_bottom(self, newoperations, op):
-        self.seen_gc_stack_bottom = True
+##        self.seen_gc_stack_bottom = True
         newoperations.append(op)
 
 
@@ -210,7 +210,7 @@ def transform_graph(graph):
 
 def turn_inevitable(newoperations, info):
     c_info = Constant(info, lltype.Void)
-    op1 = SpaceOperation('stm_try_inevitable', [c_info],
+    op1 = SpaceOperation('stm_become_inevitable', [c_info],
                          varoftype(lltype.Void))
     newoperations.append(op1)
 

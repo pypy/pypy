@@ -1,11 +1,20 @@
+"""
+This file is mostly here for testing.  Usually, transform.py will transform
+the getfields (etc) that occur in the graphs directly into stm_getfields,
+which are operations that are recognized by the C backend.  See funcgen.py
+which contains similar logic, which is run by the C backend.
+"""
 import sys
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, rclass
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.translator.stm import _rffi_stm
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.rlib import longlong2float
+from pypy.rlib.objectmodel import specialize
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
 size_of_voidp = rffi.sizeof(rffi.VOIDP)
 assert size_of_voidp & (size_of_voidp - 1) == 0
@@ -83,21 +92,9 @@ def stm_getarrayitem(arrayptr, index):
     "NOT_RPYTHON"
     raise NotImplementedError("sorry")
 
-def begin_transaction():
-    "NOT_RPYTHON.  For tests only"
-    raise NotImplementedError("hard to really emulate")
-
-def commit_transaction():
-    "NOT_RPYTHON.  For tests only"
-    raise NotImplementedError("hard to really emulate")
-
-def begin_inevitable_transaction():
-    "NOT_RPYTHON.  For tests only, and at start up, but not in normal code."
-    raise NotImplementedError("hard to really emulate")
-
-def transaction_boundary():
-    "NOT_RPYTHON.  This is the one normally used"
-    raise NotImplementedError("hard to really emulate")
+##def stm_setarrayitem(arrayptr, index, value):
+##    "NOT_RPYTHON"
+##    raise NotImplementedError("sorry")
 
 # ____________________________________________________________
 
@@ -149,13 +146,13 @@ class ExtEntry(ExtRegistryEntry):
                          resulttype = hop.r_result)
 
 
-class ExtEntry(ExtRegistryEntry):
-    _about_ = (begin_transaction, commit_transaction,
-               begin_inevitable_transaction, transaction_boundary)
+##class ExtEntry(ExtRegistryEntry):
+##    _about_ = (begin_transaction, commit_transaction,
+##               begin_inevitable_transaction, transaction_boundary)
 
-    def compute_result_annotation(self):
-        return None
+##    def compute_result_annotation(self):
+##        return None
 
-    def specialize_call(self, hop):
-        hop.exception_cannot_occur()
-        hop.genop("stm_" + self.instance.__name__, [])
+##    def specialize_call(self, hop):
+##        hop.exception_cannot_occur()
+##        hop.genop("stm_" + self.instance.__name__, [])

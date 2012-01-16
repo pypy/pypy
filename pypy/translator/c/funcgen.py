@@ -227,6 +227,7 @@ class FunctionCodeGenerator(object):
                     yield '\treturn NULL;'
                     yield '}'
                 if self.exception_policy == "stm":
+                    xxxx
                     yield 'STM_MAKE_INEVITABLE();'
                 retval = self.expr(block.inputargs[0])
                 if self.exception_policy != "exc_helper":
@@ -608,12 +609,6 @@ class FunctionCodeGenerator(object):
     OP_STM_SETARRAYITEM = _OP_STM
     OP_STM_GETINTERIORFIELD = _OP_STM
     OP_STM_SETINTERIORFIELD = _OP_STM
-    OP_STM_BEGIN_TRANSACTION = _OP_STM
-    OP_STM_COMMIT_TRANSACTION = _OP_STM
-    OP_STM_BEGIN_INEVITABLE_TRANSACTION = _OP_STM
-    OP_STM_TRANSACTION_BOUNDARY = _OP_STM
-    OP_STM_DECLARE_VARIABLE = _OP_STM
-    OP_STM_TRY_INEVITABLE = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

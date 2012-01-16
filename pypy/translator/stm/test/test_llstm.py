@@ -1,9 +1,8 @@
 import py
 from pypy.translator.stm._rffi_stm import *
-from pypy.translator.stm.rstm import *
+from pypy.translator.stm.llstm import *
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
-from pypy.rlib.debug import debug_print
 
 
 A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed),
@@ -146,50 +145,3 @@ def test_stm_setfield():
     assert float(a.sb) == float(rs2b)
     assert a.y == 10
     lltype.free(a, flavor='raw')
-
-# ____________________________________________________________
-
-from pypy.translator.translator import TranslationContext
-from pypy.annotation.listdef import s_list_of_strings
-from pypy.translator.c.genc import CStandaloneBuilder
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
-
-class StmTests(object):
-    config = None
-
-    def compile(self, entry_point):
-        t = TranslationContext(self.config)
-        t.config.translation.gc = 'boehm'
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-        t.stm_transformation_applied = True   # not really, but for these tests
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        force_debug = ExternalCompilationInfo(pre_include_bits=[
-            "#define RPY_ASSERT 1\n"
-            "#define RPY_LL_ASSERT 1\n"
-            ])
-        cbuilder.eci = cbuilder.eci.merge(force_debug)
-        cbuilder.generate_source()
-        cbuilder.compile()
-        return t, cbuilder
-
-
-class TestRStm(StmTests):
-
-    def test_compiled_stm_getfield(self):
-        def entry_point(argv):
-            test_stm_getfield()
-            debug_print('ok!')
-            return 0
-        t, cbuilder = self.compile(entry_point)
-        _, data = cbuilder.cmdexec('', err=True)
-        assert data.endswith('ok!\n')
-
-    def test_compiled_stm_setfield(self):
-        def entry_point(argv):
-            test_stm_setfield()
-            debug_print('ok!')
-            return 0
-        t, cbuilder = self.compile(entry_point)
-        _, data = cbuilder.cmdexec('', err=True)
-        assert data.endswith('ok!\n')

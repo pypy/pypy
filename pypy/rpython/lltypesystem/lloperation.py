@@ -401,13 +401,7 @@ LL_OPERATIONS = {
     'stm_setarrayitem':     LLOp(),
     'stm_getinteriorfield': LLOp(sideeffects=False, canrun=True),
     'stm_setinteriorfield': LLOp(),
-
-    'stm_begin_transaction':            LLOp(),
-    'stm_commit_transaction':           LLOp(),
-    'stm_begin_inevitable_transaction': LLOp(),
-    'stm_transaction_boundary':         LLOp(),
-    'stm_declare_variable':             LLOp(),
-    'stm_try_inevitable':               LLOp(),
+    'stm_become_inevitable':LLOp(),
 
     # __________ address operations __________
 

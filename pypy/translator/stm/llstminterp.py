@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLFrame, LLException
-from pypy.translator.stm import rstm
+##from pypy.translator.stm import rstm
 from pypy.translator.stm.transform import op_in_set, ALWAYS_ALLOW_OPERATIONS
 
 
