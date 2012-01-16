@@ -183,12 +183,13 @@ def test_unsupported_getarrayitem_raw():
 # ____________________________________________________________
 
 class CompiledSTMTests(StandaloneTests):
+    gc = "none"
 
     def compile(self, entry_point):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
         self.config.translation.stm = True
-        self.config.translation.gc = "none"
+        self.config.translation.gc = self.gc
         #
         # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
         # operation".  We want instead it to crash.

@@ -3,29 +3,35 @@ from pypy.module.thread import ll_thread
 from pypy.translator.stm import rstm
 
 
-NUM_THREADS = 4
-LENGTH      = 5000
-
-
 class Node:
     def __init__(self, value):
         self.value = value
         self.next = None
 
+class Global:
+    NUM_THREADS = 4
+    LENGTH      = 5000
+    USE_MEMORY  = False
+    anchor      = Node(-1)
+glob = Global()
+
 
 def add_at_end_of_chained_list(node, value):
+    x = Node(value)
     while node.next:
         node = node.next
-    newnode = Node(value)
+        if glob.USE_MEMORY:
+            x = Node(value)
+    newnode = x
     node.next = newnode
 
 def check_chained_list(node):
-    seen = [0] * (LENGTH+1)
-    seen[-1] = NUM_THREADS
+    seen = [0] * (glob.LENGTH+1)
+    seen[-1] = glob.NUM_THREADS
     while node is not None:
         value = node.value
         #print value
-        if not (0 <= value < LENGTH):
+        if not (0 <= value < glob.LENGTH):
             print "node.value out of bounds:", value
             raise AssertionError
         seen[value] += 1
@@ -34,19 +40,15 @@ def check_chained_list(node):
                                                     value, seen[value])
             raise AssertionError
         node = node.next
-    if seen[LENGTH-1] != NUM_THREADS:
+    if seen[glob.LENGTH-1] != glob.NUM_THREADS:
         print "seen[LENGTH-1] != NUM_THREADS"
         raise AssertionError
     print "check ok!"
 
 
-class Global:
-    anchor = Node(-1)
-glob = Global()
-
 def run_me():
     print "thread starting..."
-    for i in range(LENGTH):
+    for i in range(glob.LENGTH):
         add_at_end_of_chained_list(glob.anchor, i)
         rstm.transaction_boundary()
     print "thread done."
@@ -57,11 +59,17 @@ def run_me():
 
 def entry_point(argv):
     print "hello world"
+    if len(argv) > 1:
+        glob.NUM_THREADS = int(argv[1])
+        if len(argv) > 2:
+            glob.LENGTH = int(argv[2])
+            if len(argv) > 3:
+                glob.USE_MEMORY = bool(int(argv[3]))
     glob.done = 0
-    for i in range(NUM_THREADS):
+    for i in range(glob.NUM_THREADS):
         ll_thread.start_new_thread(run_me, ())
     print "sleeping..."
-    while glob.done < NUM_THREADS:    # poor man's lock
+    while glob.done < glob.NUM_THREADS:    # poor man's lock
         time.sleep(1)
     print "done sleeping."
     check_chained_list(glob.anchor.next)
