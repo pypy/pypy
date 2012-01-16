@@ -70,7 +70,7 @@ class OpParser(object):
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
         self.model = get_model(self.use_mock_model)
-        self.looptoken = self.model.LoopToken()
+        self.original_jitcell_token = self.model.JitCellToken()
 
     def get_const(self, name, typ):
         if self._consts is None:
@@ -89,11 +89,18 @@ class OpParser(object):
                 assert typ == 'class'
                 return self.model.ConstObj(ootype.cast_to_object(obj))
 
-    def get_descr(self, poss_descr):
+    def get_descr(self, poss_descr, allow_invent):
         if poss_descr.startswith('<'):
             return None
-        else:
+        try:
             return self._consts[poss_descr]
+        except KeyError:
+            if allow_invent:
+                int(poss_descr)
+                token = self.model.JitCellToken()
+                tt = self.model.TargetToken(token)
+                self._consts[poss_descr] = tt
+                return tt
 
     def box_for_var(self, elem):
         try:
@@ -186,7 +193,8 @@ class OpParser(object):
 
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
-                descr = self.get_descr(poss_descr[len('descr='):])
+                descr = self.get_descr(poss_descr[len('descr='):],
+                                       opname == 'label')
                 allargs = allargs[:-1]
             for arg in allargs:
                 arg = arg.strip()
@@ -243,7 +251,8 @@ class OpParser(object):
                     descr = self.invent_fail_descr(self.model, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.looptoken
+                    descr = self.original_jitcell_token
+
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, result, descr):
@@ -307,7 +316,7 @@ class OpParser(object):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = self.model.ExtendedTreeLoop("loop")
         loop.comment = first_comment
-        loop.token = self.looptoken
+        loop.original_jitcell_token = self.original_jitcell_token
         loop.operations = ops
         loop.inputargs = inpargs
         loop.last_offset = last_offset

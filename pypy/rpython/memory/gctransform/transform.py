@@ -263,9 +263,7 @@ class BaseGCTransformer(object):
         # still be empty (but let's check)
         if starts_with_empty_block(graph) and inserted_empty_startblock:
             old_startblock = graph.startblock
-            graph.startblock.isstartblock = False
             graph.startblock = graph.startblock.exits[0].target
-            graph.startblock.isstartblock = True
 
         checkgraph(graph)
 

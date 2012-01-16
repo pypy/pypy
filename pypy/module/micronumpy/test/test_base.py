@@ -1,9 +1,8 @@
 from pypy.conftest import gettestobjspace
-from pypy.module.micronumpy import interp_dtype
-from pypy.module.micronumpy.interp_numarray import NDimArray, Scalar
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
-
 
 class BaseNumpyAppTest(object):
     def setup_class(cls):
@@ -11,40 +10,63 @@ class BaseNumpyAppTest(object):
 
 class TestSignature(object):
     def test_binop_signature(self, space):
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+        float64_dtype = get_dtype_cache(space).w_float64dtype
+        bool_dtype = get_dtype_cache(space).w_booldtype
 
-        ar = NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar2 = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
-        assert v1.signature is not v2.signature
+        sig1 = v1.find_sig()
+        sig2 = v2.find_sig()
+        assert v1 is not v2
+        assert sig1.left.iter_no == sig1.right.iter_no
+        assert sig2.left.iter_no != sig2.right.iter_no
+        assert sig1.left.array_no == sig1.right.array_no
+        sig1b = ar2.descr_add(space, ar).find_sig()
+        assert sig1b.left.array_no != sig1b.right.array_no
+        assert sig1b is not sig1
         v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
-        assert v2.signature is v3.signature
+        sig3 = v3.find_sig()
+        assert sig2 is sig3
         v4 = ar.descr_add(space, ar)
-        assert v1.signature is v4.signature
+        assert v1.find_sig() is v4.find_sig()
 
-        bool_ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_BoolDtype))
+        bool_ar = W_NDimArray(10, [10], dtype=bool_dtype)
         v5 = ar.descr_add(space, bool_ar)
-        assert v5.signature is not v1.signature
-        assert v5.signature is not v2.signature
+        assert v5.find_sig() is not v1.find_sig()
+        assert v5.find_sig() is not v2.find_sig()
         v6 = ar.descr_add(space, bool_ar)
-        assert v5.signature is v6.signature
+        assert v5.find_sig() is v6.find_sig()
+        v7 = v6.descr_add(space, v6)
+        sig7 = v7.find_sig()
+        assert sig7.left.left.iter_no == sig7.right.left.iter_no
+        assert sig7.left.left.iter_no != sig7.right.right.iter_no
+        assert sig7.left.right.iter_no == sig7.right.right.iter_no
+        v1.forced_result = ar
+        assert v1.find_sig() is not sig1
 
     def test_slice_signature(self, space):
-        ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_Float64Dtype))
+        float64_dtype = get_dtype_cache(space).w_float64dtype
+
+        ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
-        assert v1.signature is v2.signature
+        assert v1.find_sig() is v2.find_sig()
 
         v3 = v2.descr_add(space, v1)
         v4 = v1.descr_add(space, v2)
-        assert v3.signature is v4.signature
+        assert v3.find_sig() is v4.find_sig()
+        v5 = ar.descr_add(space, ar).descr_getitem(space, space.wrap(slice(1, 3, 1)))
+        v6 = ar.descr_add(space, ar).descr_getitem(space, space.wrap(slice(1, 4, 1)))
+        assert v5.find_sig() is v6.find_sig()
 
 class TestUfuncCoerscion(object):
     def test_binops(self, space):
-        bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-        int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
-        int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
 
         # Basic pairing
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype) is bool_dtype
@@ -62,19 +84,19 @@ class TestUfuncCoerscion(object):
         assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
 
     def test_unaryops(self, space):
-        bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-        int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
-        uint8_dtype = space.fromcache(interp_dtype.W_UInt8Dtype)
-        int16_dtype = space.fromcache(interp_dtype.W_Int16Dtype)
-        uint16_dtype = space.fromcache(interp_dtype.W_UInt16Dtype)
-        int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
-        uint32_dtype = space.fromcache(interp_dtype.W_UInt32Dtype)
-        long_dtype = space.fromcache(interp_dtype.W_LongDtype)
-        ulong_dtype = space.fromcache(interp_dtype.W_ULongDtype)
-        int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
-        uint64_dtype = space.fromcache(interp_dtype.W_UInt64Dtype)
-        float32_dtype = space.fromcache(interp_dtype.W_Float32Dtype)
-        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+        bool_dtype = get_dtype_cache(space).w_booldtype
+        int8_dtype = get_dtype_cache(space).w_int8dtype
+        uint8_dtype = get_dtype_cache(space).w_uint8dtype
+        int16_dtype = get_dtype_cache(space).w_int16dtype
+        uint16_dtype = get_dtype_cache(space).w_uint16dtype
+        int32_dtype = get_dtype_cache(space).w_int32dtype
+        uint32_dtype = get_dtype_cache(space).w_uint32dtype
+        long_dtype = get_dtype_cache(space).w_longdtype
+        ulong_dtype = get_dtype_cache(space).w_ulongdtype
+        int64_dtype = get_dtype_cache(space).w_int64dtype
+        uint64_dtype = get_dtype_cache(space).w_uint64dtype
+        float32_dtype = get_dtype_cache(space).w_float32dtype
+        float64_dtype = get_dtype_cache(space).w_float64dtype
 
         # Normal rules, everything returns itself
         assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype

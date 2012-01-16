@@ -1,6 +1,9 @@
-
 import py
-from pypy.module.micronumpy.compile import *
+
+from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
+    ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
+    FunctionCall, FakeSpace)
+
 
 class TestCompiler(object):
     def compile(self, code):
@@ -106,7 +109,7 @@ class TestRunner(object):
         c -> 3
         """
         interp = self.run(code)
-        assert interp.results[-1].value.val == 9
+        assert interp.results[-1].value == 9
 
     def test_array_getitem(self):
         code = """
@@ -115,7 +118,7 @@ class TestRunner(object):
         a + b -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 3 + 6
+        assert interp.results[0].value == 3 + 6
 
     def test_range_getitem(self):
         code = """
@@ -123,7 +126,7 @@ class TestRunner(object):
         r -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 6
+        assert interp.results[0].value == 6
 
     def test_sum(self):
         code = """
@@ -132,7 +135,17 @@ class TestRunner(object):
         r
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 15
+        assert interp.results[0].value.value == 15
+
+    def test_sum2(self):
+        code = """
+        a = |30|
+        b = a + a
+        sum(b)
+        """
+        interp = self.run(code)
+        assert interp.results[0].value.value == 30 * (30 - 1)
+
 
     def test_array_write(self):
         code = """
@@ -141,7 +154,7 @@ class TestRunner(object):
         a -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 15
+        assert interp.results[0].value == 15
 
     def test_min(self):
         interp = self.run("""
@@ -150,7 +163,7 @@ class TestRunner(object):
         b = a + a
         min(b)
         """)
-        assert interp.results[0].value.val == -24
+        assert interp.results[0].value.value == -24
 
     def test_max(self):
         interp = self.run("""
@@ -159,7 +172,7 @@ class TestRunner(object):
         b = a + a
         max(b)
         """)
-        assert interp.results[0].value.val == 256
+        assert interp.results[0].value.value == 256
 
     def test_slice(self):
         interp = self.run("""
@@ -167,7 +180,7 @@ class TestRunner(object):
         b = a -> :
         b -> 3
         """)
-        assert interp.results[0].value.val == 4
+        assert interp.results[0].value == 4
 
     def test_slice_step(self):
         interp = self.run("""
@@ -175,14 +188,35 @@ class TestRunner(object):
         b = a -> ::2
         b -> 3
         """)
-        assert interp.results[0].value.val == 6
+        assert interp.results[0].value == 6
+
+    def test_setslice(self):
+        interp = self.run("""
+        a = |30|
+        b = |10|
+        b[1] = 5
+        a[::3] = b
+        a -> 3
+        """)
+        assert interp.results[0].value == 5
+
+
+    def test_slice2(self):
+        interp = self.run("""
+        a = |30|
+        s1 = a -> 0:20:2
+        s2 = a -> 0:30:3
+        b = s1 + s2
+        b -> 3
+        """)
+        assert interp.results[0].value == 15
 
     def test_multidim_getitem(self):
         interp = self.run("""
         a = [[1,2]]
         a -> 0 -> 1
         """)
-        assert interp.results[0].value.val == 2
+        assert interp.results[0].value == 2
 
     def test_multidim_getitem_2(self):
         interp = self.run("""
@@ -190,4 +224,24 @@ class TestRunner(object):
         b = a + a
         b -> 1 -> 1
         """)
-        assert interp.results[0].value.val == 8
+        assert interp.results[0].value == 8
+
+    def test_set_slice(self):
+        interp = self.run("""
+        a = |30|
+        b = |30|
+        b[:] = a + a
+        b -> 3
+        """)
+        assert interp.results[0].value == 6
+
+    def test_set_slice2(self):
+        interp = self.run("""
+        a = |30|
+        b = |10|
+        b[1] = 5.5
+        c = b + b
+        a[0:30:3] = c
+        a -> 3
+        """)
+        assert interp.results[0].value == 11

@@ -5,10 +5,11 @@ class TestRecompilation(BaseTestRegalloc):
     def test_compile_bridge_not_deeper(self):
         ops = '''
         [i0]
+        label(i0, descr=targettoken)
         i1 = int_add(i0, 1)
         i2 = int_lt(i1, 20)
         guard_true(i2, descr=fdescr1) [i1]
-        jump(i1)
+        jump(i1, descr=targettoken)
         '''
         loop = self.interpret(ops, [0])
         assert self.getint(0) == 20
@@ -18,22 +19,22 @@ class TestRecompilation(BaseTestRegalloc):
         finish(i3, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
-        self.cpu.set_future_value_int(0, 0)
-        fail = self.run(loop)
+        fail = self.run(loop, 0)
         assert fail.identifier == 2
         assert self.getint(0) == 21
     
     def test_compile_bridge_deeper(self):
         ops = '''
         [i0]
+        label(i0, descr=targettoken)
         i1 = int_add(i0, 1)
         i2 = int_lt(i1, 20)
         guard_true(i2, descr=fdescr1) [i1]
-        jump(i1)
+        jump(i1, descr=targettoken)
         '''
         loop = self.interpret(ops, [0])
-        previous = loop.token._x86_frame_depth
-        assert loop.token._x86_param_depth == 0
+        previous = loop._jitcelltoken.compiled_loop_token.frame_depth
+        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         assert self.getint(0) == 20
         ops = '''
         [i1]
@@ -42,19 +43,18 @@ class TestRecompilation(BaseTestRegalloc):
         i5 = int_add(i4, 1)
         i6 = int_add(i5, 1)
         i7 = int_add(i5, i4)
+        force_spill(i5)
         i8 = int_add(i7, 1)
         i9 = int_add(i8, 1)
         finish(i3, i4, i5, i6, i7, i8, i9, descr=fdescr2)
         '''
         bridge = self.attach_bridge(ops, loop, -2)
-        descr = loop.operations[2].getdescr()
+        descr = loop.operations[3].getdescr()
         new = descr._x86_bridge_frame_depth
-        assert descr._x86_bridge_param_depth == 0        
-        # XXX: Maybe add enough ops to force stack on 64-bit as well?
-        if IS_X86_32:
-            assert new > previous
-        self.cpu.set_future_value_int(0, 0)
-        fail = self.run(loop)
+        assert descr._x86_bridge_param_depth == 0
+        # the force_spill() forces the stack to grow
+        assert new > previous
+        fail = self.run(loop, 0)
         assert fail.identifier == 2
         assert self.getint(0) == 21
         assert self.getint(1) == 22
@@ -64,28 +64,30 @@ class TestRecompilation(BaseTestRegalloc):
     def test_bridge_jump_to_other_loop(self):
         loop = self.interpret('''
         [i0, i10, i11, i12, i13, i14, i15, i16]
+        label(i0, i10, i11, i12, i13, i14, i15, i16, descr=targettoken)
         i1 = int_add(i0, 1)
         i2 = int_lt(i1, 20)
         guard_true(i2, descr=fdescr1) [i1]
-        jump(i1, i10, i11, i12, i13, i14, i15, i16)
-        ''', [0])
+        jump(i1, i10, i11, i12, i13, i14, i15, i16, descr=targettoken)
+        ''', [0, 0, 0, 0, 0, 0, 0, 0])
         other_loop = self.interpret('''
-        [i3]
+        [i3, i10, i11, i12, i13, i14, i15, i16]
+        label(i3, descr=targettoken2)
         guard_false(i3, descr=fdescr2) [i3]
-        jump(i3)
-        ''', [1])
+        jump(i3, descr=targettoken2)
+        ''', [1, 0, 0, 0, 0, 0, 0, 0])
         ops = '''
         [i3]
-        jump(i3, 1, 2, 3, 4, 5, 6, 7, descr=looptoken)
+        jump(i3, 1, 2, 3, 4, 5, 6, 7, descr=targettoken)
         '''
-        bridge = self.attach_bridge(ops, other_loop, 0, looptoken=loop.token)
-        self.cpu.set_future_value_int(0, 1)
-        fail = self.run(other_loop)
+        bridge = self.attach_bridge(ops, other_loop, 1)
+        fail = self.run(other_loop, 1, 0, 0, 0, 0, 0, 0, 0)
         assert fail.identifier == 1
 
     def test_bridge_jumps_to_self_deeper(self):
         loop = self.interpret('''
         [i0, i1, i2, i31, i32, i33]
+        label(i0, i1, i2, i31, i32, i33, descr=targettoken)
         i98 = same_as(0)
         i99 = same_as(1)
         i30 = int_add(i1, i2)
@@ -94,8 +96,8 @@ class TestRecompilation(BaseTestRegalloc):
         guard_false(i4) [i98, i3]
         i5 = int_lt(i3, 20)
         guard_true(i5) [i99, i3]
-        jump(i3, i30, 1, i30, i30, i30)
-        ''', [0])
+        jump(i3, i30, 1, i30, i30, i30, descr=targettoken)
+        ''', [0, 0, 0, 0, 0, 0])
         assert self.getint(0) == 0
         assert self.getint(1) == 1
         ops = '''
@@ -104,28 +106,28 @@ class TestRecompilation(BaseTestRegalloc):
         i8 = int_add(i3, 1)
         i6 = int_add(i8, i10)
         i7 = int_add(i3, i6)
+        force_spill(i6)
+        force_spill(i7)
+        force_spill(i8)
         i12 = int_add(i7, i8)
         i11 = int_add(i12, i6)
-        jump(i3, i12, i11, i10, i6, i7, descr=looptoken)
+        jump(i3, i12, i11, i10, i6, i7, descr=targettoken)
         '''
-        bridge = self.attach_bridge(ops, loop, 5, looptoken=loop.token)
-        guard_op = loop.operations[5]
-        loop_frame_depth = loop.token._x86_frame_depth
-        assert loop.token._x86_param_depth == 0
-        # XXX: Maybe add enough ops to force stack on 64-bit as well?
-        if IS_X86_32:
-            assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
+        loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
+        bridge = self.attach_bridge(ops, loop, 6)
+        guard_op = loop.operations[6]
+        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
+        # the force_spill() forces the stack to grow
+        assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
         assert guard_op.getdescr()._x86_bridge_param_depth == 0
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 0)
-        self.cpu.set_future_value_int(2, 0)
-        self.run(loop)
+        self.run(loop, 0, 0, 0, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
 
     def test_bridge_jumps_to_self_shallower(self):
         loop = self.interpret('''
         [i0, i1, i2]
+        label(i0, i1, i2, descr=targettoken)
         i98 = same_as(0)
         i99 = same_as(1)
         i3 = int_add(i0, 1)
@@ -133,19 +135,16 @@ class TestRecompilation(BaseTestRegalloc):
         guard_false(i4) [i98, i3]
         i5 = int_lt(i3, 20)
         guard_true(i5) [i99, i3]
-        jump(i3, i1, i2)
-        ''', [0])
+        jump(i3, i1, i2, descr=targettoken)
+        ''', [0, 0, 0])
         assert self.getint(0) == 0
         assert self.getint(1) == 1
         ops = '''
         [i97, i3]
-        jump(i3, 0, 1, descr=looptoken)
+        jump(i3, 0, 1, descr=targettoken)
         '''
-        bridge = self.attach_bridge(ops, loop, 4, looptoken=loop.token)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.set_future_value_int(1, 0)
-        self.cpu.set_future_value_int(2, 0)
-        self.run(loop)
+        bridge = self.attach_bridge(ops, loop, 5)
+        self.run(loop, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
         

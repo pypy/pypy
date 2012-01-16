@@ -307,7 +307,7 @@ class ShadowStackPool(object):
                   "restore_state_from: broken shadowstack")
         self.gcdata.root_stack_base = shadowstackref.base
         self.gcdata.root_stack_top  = shadowstackref.top
-        self.destroy(shadowstackref)
+        self._cleanup(shadowstackref)
 
     def start_fresh_new_state(self):
         self.gcdata.root_stack_base = self.unused_full_stack
@@ -315,6 +315,10 @@ class ShadowStackPool(object):
         self.unused_full_stack = llmemory.NULL
 
     def destroy(self, shadowstackref):
+        llmemory.raw_free(shadowstackref.base)
+        self._cleanup(shadowstackref)
+
+    def _cleanup(self, shadowstackref):
         shadowstackref.base = llmemory.NULL
         shadowstackref.top = llmemory.NULL
         shadowstackref.context = llmemory.NULL

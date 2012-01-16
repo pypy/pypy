@@ -33,9 +33,6 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for lists, accessing
     directly their RPython-level list of wrapped objects.
     """
-    def __init__(w_self, w_seq):
-        W_AbstractSeqIterObject.__init__(w_self, w_seq)
-        w_self.w_seq = w_seq
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
    """Sequence iterator specialized for tuples, accessing

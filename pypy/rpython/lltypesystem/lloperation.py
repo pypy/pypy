@@ -449,6 +449,7 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
+    'jit_record_known_class'  : LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),

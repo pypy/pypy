@@ -126,13 +126,18 @@ class Test_r_uint:
             cmp = f(r_uint(arg))
             assert res == cmp
         
-    def binary_test(self, f, rargs = None):
+    def binary_test(self, f, rargs = None, translated=False):
         mask = maxint_mask 
         if not rargs:
             rargs = (1, 3, 55)
+        # when translated merging different int types is not allowed
+        if translated:
+            alltypes = [(r_uint, r_uint)]
+        else:
+            alltypes = [(int, r_uint), (r_uint, int), (r_uint, r_uint)]
         for larg in (0, 1, 2, 3, 1234):
             for rarg in rargs:
-                for types in ((int, r_uint), (r_uint, int), (r_uint, r_uint)):
+                for types in alltypes:
                     res = f(larg, rarg)
                     left, right = types
                     cmp = f(left(larg), right(rarg))
@@ -334,6 +339,14 @@ class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
 def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
     assert compute_restype(r_int_real, r_int_real) is r_int_real
+
+def test_compute_restype_incompatible():
+    from pypy.rpython.lltypesystem.rffi import r_int_real, r_short, r_ushort
+    testcases = [(r_uint, r_longlong), (r_int_real, r_uint),
+                (r_short, r_ushort)]
+    for t1, t2 in testcases:
+        py.test.raises(AssertionError, compute_restype, t1, t2)
+        py.test.raises(AssertionError, compute_restype, t2, t1)
 
 def test_most_neg_value_of():
     assert most_neg_value_of_same_type(123) == -sys.maxint-1

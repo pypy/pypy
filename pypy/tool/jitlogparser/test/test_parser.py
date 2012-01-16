@@ -1,6 +1,7 @@
 from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            Function, adjust_bridges,
-                                           import_log, Op)
+                                           import_log, split_trace, Op,
+                                           parse_log_counts)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 
@@ -32,23 +33,26 @@ def test_parse_non_code():
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 1
-    assert res.chunks[0].repr()
+    assert 'SomeRandomStuff' in res.chunks[0].repr()
 
 def test_split():
     ops = parse('''
     [i0]
+    label()
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i1 = int_add(i0, 1)
     debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i2 = int_add(i1, 1)
     ''')
-    res = Function.from_operations(ops.operations, LoopStorage())
-    assert len(res.chunks) == 3
+    res = Function.from_operations(ops.operations, LoopStorage(), loopname='<loopname>')
+    assert len(res.chunks) == 4
     assert len(res.chunks[0].operations) == 1
-    assert len(res.chunks[1].operations) == 2
+    assert len(res.chunks[1].operations) == 1
     assert len(res.chunks[2].operations) == 2
-    assert res.chunks[2].bytecode_no == 11
+    assert len(res.chunks[3].operations) == 2
+    assert res.chunks[3].bytecode_no == 11
+    assert res.chunks[0].bytecode_name == '<loopname>'
 
 def test_inlined_call():
     ops = parse("""
@@ -231,3 +235,51 @@ def test_Op_repr_is_pure():
     myrepr = 'c = foobar(a, b, descr=mydescr)'
     assert op.repr() == myrepr
     assert op.repr() == myrepr # do it twice
+
+def test_split_trace():
+    loop = parse('''
+    [i7]
+    i9 = int_lt(i7, 1003)
+    label(i9, descr=grrr)
+    guard_true(i9, descr=<Guard2>) []
+    i13 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    label(i13, descr=asb)
+    i19 = int_lt(i13, 1003)
+    guard_true(i19, descr=<Guard2>) []
+    i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    ''')
+    loop.comment = 'Loop 0'
+    parts = split_trace(loop)
+    assert len(parts) == 3
+    assert len(parts[0].operations) == 2
+    assert len(parts[1].operations) == 4
+    assert len(parts[2].operations) == 4
+    assert parts[1].descr == 'grrr'
+    assert parts[2].descr == 'asb'
+
+def test_parse_log_counts():
+    loop = parse('''
+    [i7]
+    i9 = int_lt(i7, 1003)
+    label(i9, descr=grrr)
+    guard_true(i9, descr=<Guard2>) []
+    i13 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    label(i13, descr=asb)
+    i19 = int_lt(i13, 1003)
+    guard_true(i19, descr=<Guard3>) []
+    i113 = getfield_raw(151937600, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
+    ''')
+    bridge = parse('''
+    # bridge out of Guard 2 with 1 ops
+    []
+    i0 = int_lt(1, 2)
+    finish(i0)
+    ''')
+    bridge.comment = 'bridge out of Guard 2 with 1 ops'
+    loop.comment = 'Loop 0'
+    loops = split_trace(loop) + split_trace(bridge)
+    input = ['grrr:123\nasb:12\nbridge 2:1234']
+    parse_log_counts(input, loops)
+    assert loops[-1].count == 1234
+    assert loops[1].count == 123
+    assert loops[2].count == 12
