@@ -150,7 +150,7 @@ def test_unsupported_getfield_raw():
         return p.x
     interp, graph = get_interpreter(func, [p])
     transform_graph(graph)
-    assert summary(graph) == {'stm_try_inevitable': 1, 'getfield': 1}
+    assert summary(graph) == {'stm_become_inevitable': 1, 'getfield': 1}
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
                          final_stm_mode="inevitable_transaction")
     assert res == 42
@@ -163,7 +163,7 @@ def test_unsupported_setfield_raw():
         p.x = 43
     interp, graph = get_interpreter(func, [p])
     transform_graph(graph)
-    assert summary(graph) == {'stm_try_inevitable': 1, 'setfield': 1}
+    assert summary(graph) == {'stm_become_inevitable': 1, 'setfield': 1}
     eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
                    final_stm_mode="inevitable_transaction")
 
@@ -175,7 +175,7 @@ def test_unsupported_getarrayitem_raw():
         return p[3]
     interp, graph = get_interpreter(func, [p])
     transform_graph(graph)
-    assert summary(graph) == {'stm_try_inevitable': 1, 'getarrayitem': 1}
+    assert summary(graph) == {'stm_become_inevitable': 1, 'getarrayitem': 1}
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
                          final_stm_mode="inevitable_transaction")
     assert res == 42
