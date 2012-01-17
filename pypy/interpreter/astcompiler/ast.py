@@ -1507,11 +1507,6 @@ class Compare(expr):
             for node in self.comparators:
                 node.sync_app_attrs(space)
 
-class Starred(expr):
-    def __init__(self, value, ctx, lineno, col_offset):
-        self.value = value
-        self.ctx = ctx
-        expr.__init__(self, lineno, col_offset)
 
 class Call(expr):
 
@@ -1664,6 +1659,29 @@ class Subscript(expr):
             pass
         self.value.sync_app_attrs(space)
         self.slice.sync_app_attrs(space)
+
+
+class Starred(expr):
+
+    def __init__(self, value, ctx, lineno, col_offset):
+        self.value = value
+        self.ctx = ctx
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 15
+
+    def walkabout(self, visitor):
+        visitor.visit_Starred(self)
+
+    def mutate_over(self, visitor):
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_Starred(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 15:
+            self.missing_field(space, ['lineno', 'col_offset', 'value', 'ctx'], 'Starred')
+        else:
+            pass
+        self.value.sync_app_attrs(space)
 
 
 class Name(expr):
@@ -2453,6 +2471,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
         return self.default_visitor(node)
+    def visit_Starred(self, node):
+        return self.default_visitor(node)
     def visit_Name(self, node):
         return self.default_visitor(node)
     def visit_List(self, node):
@@ -2662,6 +2682,9 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Subscript(self, node):
         node.value.walkabout(self)
         node.slice.walkabout(self)
+
+    def visit_Starred(self, node):
+        node.value.walkabout(self)
 
     def visit_Name(self, node):
         pass
@@ -5812,6 +5835,77 @@ Subscript.typedef = typedef.TypeDef("Subscript",
     ctx=typedef.GetSetProperty(Subscript_get_ctx, Subscript_set_ctx, cls=Subscript),
     __new__=interp2app(get_AST_new(Subscript)),
     __init__=interp2app(Subscript_init),
+)
+
+def Starred_get_value(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'value')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 4:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
+    return space.wrap(w_self.value)
+
+def Starred_set_value(space, w_self, w_new_value):
+    try:
+        w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'value', w_new_value)
+        return
+    w_self.deldictvalue(space, 'value')
+    w_self.initialization_state |= 4
+
+def Starred_get_ctx(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'ctx')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 8:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
+    return expr_context_to_class[w_self.ctx - 1]()
+
+def Starred_set_ctx(space, w_self, w_new_value):
+    try:
+        obj = space.interp_w(expr_context, w_new_value)
+        w_self.ctx = obj.to_simple_int(space)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'ctx', w_new_value)
+        return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
+    w_self.initialization_state |= 8
+
+_Starred_field_unroller = unrolling_iterable(['value', 'ctx'])
+def Starred_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(Starred, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        if len(args_w) != 2:
+            w_err = space.wrap("Starred constructor takes either 0 or 2 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _Starred_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+Starred.typedef = typedef.TypeDef("Starred",
+    expr.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper(['value', 'ctx']),
+    value=typedef.GetSetProperty(Starred_get_value, Starred_set_value, cls=Starred),
+    ctx=typedef.GetSetProperty(Starred_get_ctx, Starred_set_ctx, cls=Starred),
+    __new__=interp2app(get_AST_new(Starred)),
+    __init__=interp2app(Starred_init),
 )
 
 def Name_get_id(space, w_self):
