@@ -118,6 +118,9 @@ class AppTestJitHook(object):
         assert elem[2][2] == False
         assert len(elem[3]) == 4
         int_add = elem[3][0]
+        dmp = elem[3][1]
+        assert isinstance(dmp, pypyjit.DebugMergePoint)
+        assert dmp.pycode is self.f.func_code
         #assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
@@ -219,7 +222,11 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], '', f.func_code, 0)
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
+        assert repr(op) == 'repr'
+        assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num
+        op = DebugMergePoint([Box(0)], 'repr', 'notmain', ('str',))
+        raises(AttributeError, 'op.pycode')
