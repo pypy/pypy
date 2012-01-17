@@ -726,16 +726,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from _numpypy import array, mean
+        from _numpypy import array
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
         a = array(range(105)).reshape(3, 5, 7)
-        b = mean(a, axis=0)
-        b[0,0]==35.
+        b = a.mean(axis=0)
+        b[0, 0]==35.
         assert a.mean(axis=0)[0, 0] == 35
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
-        assert (mean(a, 2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
+        assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from _numpypy import array
@@ -1550,18 +1550,3 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
-
-
-class AppTestRanges(BaseNumpyAppTest):
-    def test_app_reshape(self):
-        from _numpypy import arange, array, dtype, reshape
-        a = arange(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
-        a = range(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
-        a = array(range(105)).reshape(3, 5, 7)
-        assert a.reshape(1, -1).shape == (1, 105)
-        assert a.reshape(1, 1, -1).shape == (1, 1, 105)
-        assert a.reshape(-1, 1, 1).shape == (105, 1, 1)
