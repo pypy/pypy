@@ -133,6 +133,13 @@ class __extend__(ast.Compare):
 
     _description = "comparison"
 
+class __extend__(ast.Starred):
+
+    _description = "starred expression"
+
+    def set_context(self, ctx):
+        self.ctx = ctx
+        self.value.set_context(ctx)
 
 class __extend__(ast.IfExp):
 

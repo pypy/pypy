@@ -680,7 +680,7 @@ class ASTBuilder(object):
                 self.set_context(target_expr, ast.Store)
                 targets.append(target_expr)
             value_child = stmt.children[-1]
-            if value_child.type == syms.testlist or value_child.type == syms.testlist_star_expr:
+            if value_child.type == syms.testlist_star_expr:
                 value_expr = self.handle_testlist(value_child)
             else:
                 value_expr = self.handle_expr(value_child)
@@ -740,6 +740,8 @@ class ASTBuilder(object):
                     operands.append(self.handle_expr(expr_node.children[i + 1]))
                 return ast.Compare(expr, operators, operands, expr_node.lineno,
                                    expr_node.column)
+            elif expr_node_type == syms.star_expr:
+                return self.handle_star_expr(expr_node)
             elif expr_node_type == syms.expr or \
                     expr_node_type == syms.xor_expr or \
                     expr_node_type == syms.and_expr or \
@@ -765,6 +767,10 @@ class ASTBuilder(object):
                 return self.handle_power(expr_node)
             else:
                 raise AssertionError("unknown expr")
+
+    def handle_star_expr(self, star_expr_node):
+        expr = self.handle_expr(star_expr_node.children[1])
+        return ast.Starred(expr, ast.Load, star_expr_node.lineno, star_expr_node.column)
 
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.children[-1])
@@ -1229,8 +1235,8 @@ class ASTBuilder(object):
         elt = self.handle_expr(listcomp_node.children[0])
         comps = self.comprehension_helper(listcomp_node.children[1],
                                           "handle_testlist",
-                                          syms.list_for, syms.list_if,
-                                          syms.list_iter,
+                                          syms.comp_for, syms.comp_if,
+                                          syms.comp_iter,
                                           comp_fix_unamed_tuple_location=True)
         return ast.ListComp(elt, comps, listcomp_node.lineno,
                             listcomp_node.column)

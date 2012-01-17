@@ -600,6 +600,17 @@ class TestAstBuilder:
         assert isinstance(tup.elts[0], ast.Name)
         assert tup.elts[0].ctx == ast.Store
 
+    def test_assign_starred(self):
+        assign = self.get_first_stmt("*a, b = x")
+        assert isinstance(assign, ast.Assign)
+        assert len(assign.targets) == 1
+        names = assign.targets[0]
+        assert len(names.elts) == 2
+        assert isinstance(names.elts[0], ast.Starred)
+        assert isinstance(names.elts[1], ast.Name)
+        assert isinstance(names.elts[0].value, ast.Name)
+        assert names.elts[0].value.id == "a"
+
     def test_name(self):
         name = self.get_first_expr("hi")
         assert isinstance(name, ast.Name)

@@ -1507,6 +1507,11 @@ class Compare(expr):
             for node in self.comparators:
                 node.sync_app_attrs(space)
 
+class Starred(expr):
+    def __init__(self, value, ctx, lineno, col_offset):
+        self.value = value
+        self.ctx = ctx
+        expr.__init__(self, lineno, col_offset)
 
 class Call(expr):
 
