@@ -38,7 +38,7 @@ stuff = "nothing"
 """, info=info)
         assert tree.type == syms.file_input
         assert info.encoding == "iso-8859-1"
-        sentence = u"u'Die Männer ärgen sich!'"
+        sentence = u"'Die Männer ärgen sich!'"
         input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
         tree = self.parse(input, info=info)
         assert info.encoding == "utf-7"
