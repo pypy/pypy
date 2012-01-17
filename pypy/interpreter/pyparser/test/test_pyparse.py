@@ -128,10 +128,15 @@ pass"""
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
 
 
-class TestPythonParserWithSpace(TestPythonParserWithoutSpace):
+class TestPythonParserWithSpace:
 
     def setup_class(self):
         self.parser = pyparse.PythonParser(self.space)
+
+    def parse(self, source, mode="exec", info=None):
+        if info is None:
+            info = pyparse.CompileInfo("<test>", mode)
+        return self.parser.parse_source(source, info)
 
     def test_encoding(self):
         info = pyparse.CompileInfo("<test>", "exec")
