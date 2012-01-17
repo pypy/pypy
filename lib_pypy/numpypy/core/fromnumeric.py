@@ -451,8 +451,11 @@ def transpose(a, axes=None):
     (2, 1, 3)
 
     """
-    raise NotImplemented('Waiting on interp level method')
-
+    if axes is not None:
+        raise NotImplementedError('No "axes" arg yet.')
+    if not hasattr(a, 'T'):
+        a = numpypy.array(a)
+    return a.T
 
 def sort(a, axis=-1, kind='quicksort', order=None):
     """
