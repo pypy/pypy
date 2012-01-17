@@ -157,6 +157,10 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
+    def wrapbytes(self, x):
+        assert isinstance(x, str)
+        return w_some_obj()
+
     def _see_interp2app(self, interp2app):
         "NOT_RPYTHON"
         activation = interp2app._code.activation
@@ -278,7 +282,7 @@ def setup():
     for name in (ObjSpace.ConstantTable +
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
-                  'dict', 'unicode', 'complex', 'slice', 'bool',
+                  'dict', 'bytes', 'complex', 'slice', 'bool',
                   'type', 'text', 'object']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #

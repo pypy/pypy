@@ -23,7 +23,7 @@ class TestTermios(object):
 
     def _spawn(self, *args, **kwds):
         print 'SPAWN:', args, kwds
-        child = self.pexpect.spawn(*args, **kwds)
+        child = self.pexpect.spawn(timeout=600, *args, **kwds)
         child.logfile = sys.stdout
         return child
 
@@ -53,7 +53,7 @@ class TestTermios(object):
         termios.tcdrain(2)
         termios.tcflush(2, termios.TCIOFLUSH)
         termios.tcflow(2, termios.TCOON)
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_tcall.py")
         f.write(source)
@@ -65,7 +65,7 @@ class TestTermios(object):
         import sys
         import termios
         termios.tcsetattr(sys.stdin, 1, [16640, 4, 191, 2608, 15, 15, ['\x03', '\x1c', '\x7f', '\x15', '\x04', 0, 1, '\x00', '\x11', '\x13', '\x1a', '\x00', '\x12', '\x0f', '\x17', '\x16', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00']])
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_tcsetattr.py")
         f.write(source)
@@ -76,9 +76,9 @@ class TestTermios(object):
         source = py.code.Source("""
         import termios
         import fcntl
-        lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, '\000'*8))
+        lgt = len(fcntl.ioctl(2, termios.TIOCGWINSZ, b'\000'*8))
         assert lgt == 8
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_ioctl_termios.py")
         f.write(source)
@@ -97,7 +97,7 @@ class TestTermios(object):
         assert len([i for i in f[-1] if isinstance(i, int)]) == 2
         assert isinstance(f[-1][termios.VMIN], int)
         assert isinstance(f[-1][termios.VTIME], int)
-        print 'ok!'
+        print('ok!')
         """)
         f = udir.join("test_ioctl_termios.py")
         f.write(source)

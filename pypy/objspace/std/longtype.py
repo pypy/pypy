@@ -40,6 +40,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
                 w_obj = space.int(w_obj)
             else:
                 w_obj = space.trunc(w_obj)
+                w_obj = space.int(w_obj)
             return w_obj
     else:
         base = space.int_w(w_base)

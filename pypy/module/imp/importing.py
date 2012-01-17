@@ -34,6 +34,8 @@ else:
 DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 CHECK_FOR_PYW = sys.platform == 'win32'
 
+PYC_TAG = 'pypy-%d%d' % PYPY_VERSION[:2]
+
 @specialize.memo()
 def get_so_extension(space):
     if space.config.objspace.soabi is not None:
@@ -91,10 +93,7 @@ if sys.platform.startswith('linux') or 'freebsd' in sys.platform:
 else:
     # XXX that's slow
     def case_ok(filename):
-        index = filename.rfind(os.sep)
-        if os.altsep is not None:
-            index2 = filename.rfind(os.altsep)
-            index = max(index, index2)
+        index = rightmost_sep(filename)
         if index < 0:
             directory = os.curdir
         else:
@@ -862,17 +861,63 @@ def exec_code_module(space, w_mod, code_w):
                       space.wrap(space.builtin))
     code_w.exec_code(space, w_dict, w_dict)
 
+def rightmost_sep(filename):
+    "Like filename.rfind('/'), but also search for \\."
+    index = filename.rfind(os.sep)
+    if os.altsep is not None:
+        index2 = filename.rfind(os.altsep)
+        index = max(index, index2)
+    return index
+
 def make_compiled_pathname(pathname):
     "Given the path to a .py file, return the path to its .pyc file."
-    return pathname + 'c'
+    # foo.py -> __pycache__/foo.<tag>.pyc
+
+    lastpos = rightmost_sep(pathname) + 1
+    assert lastpos >= 0  # zero when slash, takes the full name
+    fname = pathname[lastpos:]
+    if lastpos > 0:
+        # Windows: re-use the last separator character (/ or \\) when
+        # appending the __pycache__ path.
+        lastsep = pathname[lastpos-1]
+    else:
+        lastsep = os.sep
+    ext = fname
+    for i in range(len(fname)):
+        if fname[i] == '.':
+            ext = fname[:i + 1]
+    
+    result = (pathname[:lastpos] + "__pycache__" + lastsep +
+              ext + PYC_TAG + '.pyc')
+    return result
 
 def make_source_pathname(pathname):
-    pos_extension = len(pathname) - 4  # len('.pyc')
-    if pos_extension < 0:
-        raise ValueError("path is too short")
-    if pathname[pos_extension:] != '.pyc':
-        raise ValueError("not a .pyc path name")
-    return pathname[:pos_extension + 3]
+    "Given the path to a .pyc file, return the path to its .py file."
+    # (...)/__pycache__/foo.<tag>.pyc -> (...)/foo.py
+
+    right = rightmost_sep(pathname)
+    if right < 0:
+        raise ValueError()
+    left = rightmost_sep(pathname[:right]) + 1
+    assert left >= 0
+    if pathname[left:right] != '__pycache__':
+        raise ValueError()
+
+    # Now verify that the path component to the right of the last
+    # slash has two dots in it.
+    rightpart = pathname[right + 1:]
+    dot0 = rightpart.find('.') + 1
+    if dot0 <= 0:
+        raise ValueError
+    dot1 = rightpart[dot0:].find('.') + 1
+    if dot1 <= 0:
+        raise ValueError
+    # Too many dots?
+    if rightpart[dot0 + dot1:].find('.') >= 0:
+        raise ValueError
+
+    result = pathname[:left] + rightpart[:dot0] + 'py'
+    return result
 
 @jit.dont_look_inside
 def load_source_module(space, w_modulename, w_mod, pathname, source,
@@ -1027,6 +1072,17 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     Errors are ignored, if a write error occurs an attempt is made to
     remove the file.
     """
+    # Ensure that the __pycache__ directory exists
+    dirsep = rightmost_sep(cpathname)
+    if dirsep < 0:
+        return
+    dirname = cpathname[:dirsep]
+    mode = src_mode | 0333  # +wx
+    try:
+        os.mkdir(dirname, mode)
+    except OSError:
+        pass
+
     w_marshal = space.getbuiltinmodule('marshal')
     try:
         w_bytes = space.call_method(w_marshal, 'dumps', space.wrap(co),
