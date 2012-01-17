@@ -94,10 +94,8 @@ class Primitive(object):
             width, storage, i, offset
         ))
 
-    @specialize.arg(5)
-    def read_raw(self, storage, width, i, offset, tp):
-        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                    width, storage, i, offset)
+    def read_bool(self, storage, width, i, offset):
+        raise NotImplementedError
 
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
@@ -198,6 +196,11 @@ class Bool(BaseType, Primitive):
             return self.True
         else:
             return self.False
+
+
+    def read_bool(self, storage, width, i, offset):
+        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                    width, storage, i, offset)
 
     def coerce_subtype(self, space, w_subtype, w_item):
         # Doesn't return subclasses so it can return the constants.

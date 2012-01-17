@@ -43,13 +43,13 @@ slice_driver = jit.JitDriver(
 count_driver = jit.JitDriver(
     greens=['shapelen'],
     virtualizables=['frame'],
-    reds=['frame', 's', 'iter', 'arr'],
+    reds=['s', 'frame', 'iter', 'arr'],
     name='numpy_count'
 )
 filter_driver = jit.JitDriver(
-    greens=['sig', 'shapelen'],
+    greens=['shapelen', 'sig'],
     virtualizables=['frame'],
-    reds=['concr', 'argi', 'ri', 'frame', 'v', 'res'],
+    reds=['concr', 'argi', 'ri', 'frame', 'v', 'res', 'self'],
     name='numpy_filter',
 )
 
@@ -525,7 +525,7 @@ class BaseArray(Wrappable):
         while not frame.done():
             filter_driver.jit_merge_point(concr=concr, argi=argi, ri=ri,
                                           frame=frame, v=v, res=res, sig=sig,
-                                          shapelen=shapelen)
+                                          shapelen=shapelen, self=self)
             if concr.dtype.getitem_bool(concr.storage, argi.offset):
                 v = sig.eval(frame, self)
                 res.setitem(ri.offset, v)
