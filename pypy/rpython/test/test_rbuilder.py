@@ -124,9 +124,5 @@ class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestStringBuilder, OORtypeMixin):
-    def test_string_getlength(self):
-        py.test.skip("getlength(): not implemented on ootype")
-    def test_unicode_getlength(self):
-        py.test.skip("getlength(): not implemented on ootype")
     def test_append_charpsize(self):
         py.test.skip("append_charpsize(): not implemented on ootype")

@@ -157,6 +157,8 @@ class AxisIterator(BaseIterator):
                 offset += self.strides[i]
                 break
             else:
+                if i == self.dim:
+                    first_line = True
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:
