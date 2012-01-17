@@ -234,7 +234,7 @@ class W_RLock(Wrappable):
         self.acquire_w(space)
         return self
 
-    def descr__exit__(self, space, *args):
+    def descr__exit__(self, space, __args__):
         self.release_w(space)
 
 W_RLock.typedef = TypeDef(

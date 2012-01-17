@@ -122,3 +122,9 @@ class AppTestRLock(GenericTestThread):
         lock.release()
         assert lock._is_owned() is False
 
+    def test_context_manager(self):
+        import _thread
+        lock = _thread.RLock()
+        with lock:
+            assert lock._is_owned() is True
+
