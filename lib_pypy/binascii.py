@@ -68,7 +68,7 @@ def b2a_uu(s):
          chr(0x20 + (((B << 2) | ((C >> 6) & 0x3)) & 0x3F)),
          chr(0x20 + (( C                         ) & 0x3F))])
               for A, B, C in triples_gen(s)]
-    return chr(ord(' ') + (length & 077)) + ''.join(result) + '\n'
+    return chr(ord(' ') + (length & 0o77)) + ''.join(result) + '\n'
 
 
 table_a2b_base64 = {
