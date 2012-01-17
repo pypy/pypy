@@ -306,8 +306,11 @@ class Regalloc(object):
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
-        return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                selected_reg, need_lower_byte)
+        if var.type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            return self.rm.make_sure_var_in_reg(var, forbidden_vars,
+                    selected_reg, need_lower_byte)
 
     def _sync_var(self, v):
         if v.type == FLOAT:
