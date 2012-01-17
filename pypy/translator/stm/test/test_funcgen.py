@@ -257,6 +257,16 @@ class TestFuncGen(CompiledSTMTests):
         t, cbuilder = self.compile(do_stm_getfield)
         cbuilder.cmdexec('')
 
+    def test_getfield_all_sizes_outside_transaction(self):
+        def do_stm_getfield(argv):
+            stm_descriptor_init()
+            # we have a descriptor, but we don't call it in a transaction
+            _play_with_getfield(None)
+            stm_descriptor_done()
+            return 0
+        t, cbuilder = self.compile(do_stm_getfield)
+        cbuilder.cmdexec('')
+
     def test_setfield_all_sizes(self):
         def do_stm_setfield(argv):
             _play_with_setfields(None)
@@ -272,6 +282,15 @@ class TestFuncGen(CompiledSTMTests):
             stm_perform_transaction(callback1, NULL)
             # read values which aren't local to the transaction
             stm_perform_transaction(callback2, NULL)
+            stm_descriptor_done()
+            return 0
+        t, cbuilder = self.compile(do_stm_setfield)
+        cbuilder.cmdexec('')
+
+    def test_setfield_all_sizes_outside_transaction(self):
+        def do_stm_setfield(argv):
+            stm_descriptor_init()
+            _play_with_setfields(None)
             stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_setfield)

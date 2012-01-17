@@ -80,15 +80,19 @@ struct tx_descriptor {
 #endif
   unsigned int spinloop_counter;
   owner_version_t my_lock_word;
-  unsigned init_counter;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
   int transaction_active;
 };
 
+static const struct tx_descriptor null_tx = {
+  .transaction_active = 0
+};
+#define NULL_TX  ((struct tx_descriptor *)(&null_tx))
+
 /* global_timestamp contains in its lowest bit a flag equal to 1
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
-static __thread struct tx_descriptor *thread_descriptor = NULL;
+static __thread struct tx_descriptor *thread_descriptor = NULL_TX;
 #ifdef COMMIT_OTHER_INEV
 static struct tx_descriptor *volatile thread_descriptor_inev;
 static volatile unsigned long d_inev_checking = 0;
@@ -509,11 +513,8 @@ void commitInevitableTransaction(struct tx_descriptor *d)
 long stm_read_word(long* addr)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (!d)
+  if (!d->transaction_active)
     return *addr;
-#ifdef RPY_STM_ASSERT
-  assert(d->transaction_active);
-#endif
 
   // check writeset first
   wlog_t* found;
@@ -575,23 +576,18 @@ long stm_read_word(long* addr)
 void stm_write_word(long* addr, long val)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (!d)
-    {
-      *addr = val;
-      return;
-    }
-#ifdef RPY_STM_ASSERT
-  assert(d->transaction_active);
-#endif
+  if (!d->transaction_active) {
+    *addr = val;
+    return;
+  }
   redolog_insert(&d->redolog, addr, val);
 }
 
 
 void stm_descriptor_init(void)
 {
-  if (thread_descriptor != NULL)
-    thread_descriptor->init_counter++;
-  else
+  assert(thread_descriptor == NULL_TX);
+  if (1)  /* for hg diff */
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
@@ -606,7 +602,6 @@ void stm_descriptor_init(void)
         d->my_lock_word = ~d->my_lock_word;
       assert(IS_LOCKED(d->my_lock_word));
       d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);
-      d->init_counter = 1;
 
       thread_descriptor = d;
 
@@ -621,11 +616,9 @@ void stm_descriptor_init(void)
 void stm_descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  d->init_counter--;
-  if (d->init_counter > 0)
-    return;
+  assert(d != NULL_TX);
 
-  thread_descriptor = NULL;
+  thread_descriptor = NULL_TX;
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-done");
@@ -671,7 +664,7 @@ void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 {
   void *result;
   /* you need to call descriptor_init() before calling stm_perform_transaction */
-  assert(thread_descriptor != NULL);
+  assert(thread_descriptor != NULL_TX);
   STM_begin_transaction();
   result = callback(arg);
   stm_commit_transaction();
@@ -767,7 +760,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
-  if (!d)
+  if (!d->transaction_active)
     return;
 
 #ifdef RPY_STM_ASSERT
@@ -965,7 +958,7 @@ void stm_write_float(long *addr, float val)
 long stm_debug_get_state(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (!d)
+  if (d == NULL_TX)
     return -1;
   if (!d->transaction_active)
     return 0;
