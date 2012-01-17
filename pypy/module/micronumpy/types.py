@@ -174,6 +174,15 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return v1 & v2
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return v1 | v2
+    
+
 class Bool(BaseType, Primitive):
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox

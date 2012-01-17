@@ -1318,6 +1318,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
         a = arange(10).reshape(5, 2)
         assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
+        assert (a[a & 1] == [0, 2, 4, 6, 8]).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

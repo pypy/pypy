@@ -425,6 +425,8 @@ class UfuncState(object):
             ("add", "add", 2, {"identity": 0}),
             ("subtract", "sub", 2),
             ("multiply", "mul", 2, {"identity": 1}),
+            ("bitwise_and", "bitwise_and", 2, {"identity": 1}),
+            ("bitwise_or", "bitwise_or", 2, {"identity": 0}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),

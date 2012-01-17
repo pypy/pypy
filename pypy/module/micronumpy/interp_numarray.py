@@ -270,6 +270,9 @@ class BaseArray(Wrappable):
     descr_gt = _binop_impl("greater")
     descr_ge = _binop_impl("greater_equal")
 
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
             w_other = scalar_w(space,
@@ -1278,6 +1281,9 @@ BaseArray.typedef = TypeDef(
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
+
+    __and__ = interp2app(BaseArray.descr_and),
+    __or__ = interp2app(BaseArray.descr_or),
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
