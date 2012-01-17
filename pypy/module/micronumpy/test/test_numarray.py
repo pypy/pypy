@@ -1327,7 +1327,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a == [0, 1, 2, 3, 15, 15]).all()
         a = arange(6).reshape(3, 2)
         a[a & 1 == 1] = array([8, 9, 10])
-        assert (a == [[0, 8], [3, 9], [5, 10]]).all()
+        assert (a == [[0, 8], [2, 9], [4, 10]]).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

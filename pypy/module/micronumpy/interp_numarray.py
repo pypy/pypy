@@ -537,16 +537,18 @@ class BaseArray(Wrappable):
         return res
 
     def setitem_filter(self, space, idx, val):
-        arr = SliceArray(self.shape, self.dtype, self, val)
-        shapelen = len(arr.shape)
+        size = self.count_all_true(idx)
+        arr = SliceArray([size], self.dtype, self, val)
         sig = arr.find_sig()
+        shapelen = len(self.shape)
         frame = sig.create_frame(arr)
         idxi = idx.create_iter()
         while not frame.done():
             if idx.dtype.getitem_bool(idx.storage, idxi.offset):
                 sig.eval(frame, arr)
+                frame.next_from_second(1)
+            frame.next_first(shapelen)
             idxi = idxi.next(shapelen)
-            frame.next(shapelen)
 
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
