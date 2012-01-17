@@ -1320,6 +1320,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
         assert (a[a & 1 == 1] == [1, 3, 5, 7, 9]).all()
 
+    def test_array_indexing_bool_setitem(self):
+        from _numpypy import arange, array
+        a = arange(6)
+        a[a > 3] = 15
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = array([8, 9, 10])
+        assert (a == [[0, 8], [3, 9], [5, 10]]).all()
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct

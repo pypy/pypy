@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     SkipLastAxisIterator, Chunk
+     SkipLastAxisIterator, Chunk, ViewIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -518,7 +518,7 @@ class BaseArray(Wrappable):
         res = W_NDimArray(size, [size], self.find_dtype())
         ri = ArrayIterator(size)
         shapelen = len(self.shape)
-        argi = ArrayIterator(concr.size)
+        argi = concr.create_iter()
         sig = self.find_sig()
         frame = sig.create_frame(self)
         v = None
@@ -536,6 +536,18 @@ class BaseArray(Wrappable):
             frame.next(shapelen)
         return res
 
+    def setitem_filter(self, space, idx, val):
+        arr = SliceArray(self.shape, self.dtype, self, val)
+        shapelen = len(arr.shape)
+        sig = arr.find_sig()
+        frame = sig.create_frame(arr)
+        idxi = idx.create_iter()
+        while not frame.done():
+            if idx.dtype.getitem_bool(idx.storage, idxi.offset):
+                sig.eval(frame, arr)
+            idxi = idxi.next(shapelen)
+            frame.next(shapelen)
+
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
             w_idx.find_dtype().is_bool_type()):
@@ -549,6 +561,11 @@ class BaseArray(Wrappable):
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
+        if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
+            w_idx.find_dtype().is_bool_type()):
+            return self.get_concrete().setitem_filter(space,
+                                                      w_idx.get_concrete(),
+                                             convert_to_array(space, w_value))
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
             item = concrete._index_of_single_item(space, w_idx)
@@ -1135,6 +1152,10 @@ class W_NDimSlice(ViewArray):
                                parent)
         self.start = start
 
+    def create_iter(self):
+        return ViewIterator(self.start, self.strides, self.backstrides,
+                            self.shape)
+
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
@@ -1180,6 +1201,9 @@ class W_NDimArray(ConcreteArray):
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
+
+    def create_iter(self):
+        return ArrayIterator(self.size)
 
     def create_sig(self):
         return signature.ArraySignature(self.dtype)
@@ -1235,6 +1259,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
     arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
     arr_iter = ArrayIterator(arr.size)
+    # XXX we might want to have a jitdriver here
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
         dtype.setitem(arr.storage, arr_iter.offset,
