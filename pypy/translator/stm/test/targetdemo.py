@@ -1,6 +1,7 @@
 import time
 from pypy.module.thread import ll_thread
-#from pypy.translator.stm import rstm
+from pypy.rlib import rstm
+from pypy.rlib.debug import debug_print
 
 
 class Node:
@@ -15,8 +16,13 @@ class Global:
     anchor      = Node(-1)
 glob = Global()
 
+class Arg:
+    _alloc_nonmovable_ = True
 
-def add_at_end_of_chained_list(node, value):
+
+def add_at_end_of_chained_list(arg):
+    node = arg.anchor
+    value = arg.value
     x = Node(value)
     while node.next:
         node = node.next
@@ -46,13 +52,22 @@ def check_chained_list(node):
     print "check ok!"
 
 
-def run_me():
-    print "thread starting..."
-    for i in range(glob.LENGTH):
-        add_at_end_of_chained_list(glob.anchor, i)
-        rstm.transaction_boundary()
+def increment_done(arg):
     print "thread done."
     glob.done += 1
+
+def run_me():
+    debug_print("thread starting...")
+    arg = Arg()
+    rstm.descriptor_init()
+    try:
+        for i in range(glob.LENGTH):
+            arg.anchor = glob.anchor
+            arg.value = i
+            rstm.perform_transaction(add_at_end_of_chained_list, Arg, arg)
+        rstm.perform_transaction(increment_done, Arg, arg)
+    finally:
+        rstm.descriptor_done()
 
 
 # __________  Entry point  __________
