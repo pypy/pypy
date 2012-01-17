@@ -90,7 +90,6 @@ class Module(MixedModule):
 
     appleveldefs = {
         'average': 'app_numpy.average',
-        'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
@@ -99,5 +98,4 @@ class Module(MixedModule):
         'e': 'app_numpy.e',
         'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
-        'reshape': 'app_numpy.reshape',
     }

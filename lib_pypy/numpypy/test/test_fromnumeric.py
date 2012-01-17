@@ -1,7 +1,7 @@
-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-class AppTestFromNumeric(BaseNumpyAppTest):     
+
+class AppTestFromNumeric(BaseNumpyAppTest):
     def test_argmax(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, arange, argmax
@@ -23,7 +23,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         b = arange(6)
         b[1] = 0
         assert argmin(b) == 0
-   
+
     def test_shape(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, identity, shape
@@ -44,7 +44,7 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         # assert (sum([[0, 1], [0, 5]], axis=1) == array([1, 5])).all()
         # If the accumulator is too small, overflow occurs:
         # assert ones(128, dtype=int8).sum(dtype=int8) == -128
-                                 
+
     def test_amin(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, arange, amin
@@ -86,14 +86,14 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         assert ndim([[1,2,3],[4,5,6]]) == 2
         assert ndim(array([[1,2,3],[4,5,6]])) == 2
         assert ndim(1) == 0
-    
+
     def test_rank(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, rank
         assert rank([[1,2,3],[4,5,6]]) == 2
         assert rank(array([[1,2,3],[4,5,6]])) == 2
         assert rank(1) == 0
-    
+
     def test_var(self):
         from numpypy import array, var
         a = array([[1,2],[3,4]])
@@ -107,3 +107,21 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         assert std(a) ==  1.1180339887498949
         # assert (std(a, axis=0) == array([ 1.,  1.])).all()
         # assert (std(a, axis=1) == array([ 0.5,  0.5]).all()
+
+    def test_mean(self):
+        from numpypy import array, mean
+        assert mean(array(range(5))) == 2.0
+        assert mean(range(5)) == 2.0
+
+    def test_reshape(self):
+        from numpypy import arange, array, dtype, reshape
+        a = arange(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)
+        a = range(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)
+        a = array(range(105)).reshape(3, 5, 7)
+        assert reshape(a, 1, -1).shape == (1, 105)
+        assert reshape(a, 1, 1, -1).shape == (1, 1, 105)
+        assert reshape(a, -1, 1, 1).shape == (105, 1, 1)
