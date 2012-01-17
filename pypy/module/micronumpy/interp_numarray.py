@@ -40,6 +40,18 @@ slice_driver = jit.JitDriver(
     get_printable_location=signature.new_printable_location('slice'),
     name='numpy_slice',
 )
+count_driver = jit.JitDriver(
+    greens=['shapelen'],
+    virtualizables=['frame'],
+    reds=['frame', 's', 'iter', 'arr'],
+    name='numpy_count'
+)
+filter_driver = jit.JitDriver(
+    greens=['sig', 'shapelen'],
+    virtualizables=['frame'],
+    reds=['concr', 'argi', 'ri', 'frame', 'v', 'res'],
+    name='numpy_filter',
+)
 
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
@@ -491,7 +503,10 @@ class BaseArray(Wrappable):
         frame = sig.create_frame(self)
         shapelen = len(arr.shape)
         s = 0
+        iter = None
         while not frame.done():
+            count_driver.jit_merge_point(arr=arr, frame=frame, iter=iter, s=s,
+                                         shapelen=shapelen)
             iter = frame.get_final_iter()
             s += arr.dtype.getitem_bool(arr.storage, iter.offset)
             frame.next(shapelen)
@@ -506,7 +521,11 @@ class BaseArray(Wrappable):
         argi = ArrayIterator(concr.size)
         sig = self.find_sig()
         frame = sig.create_frame(self)
+        v = None
         while not frame.done():
+            filter_driver.jit_merge_point(concr=concr, argi=argi, ri=ri,
+                                          frame=frame, v=v, res=res, sig=sig,
+                                          shapelen=shapelen)
             if concr.dtype.getitem_bool(concr.storage, argi.offset):
                 v = sig.eval(frame, self)
                 res.setitem(ri.offset, v)
