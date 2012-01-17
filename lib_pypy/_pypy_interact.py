@@ -36,6 +36,9 @@ def interactive_console(mainmodule=None):
         from pyrepl.simple_interact import run_multiline_interactive_console
     except ImportError:
         run_simple_interactive_console(mainmodule)
+    except SyntaxError:
+        print("Warning: 'import pyrepl' failed with SyntaxError")
+        run_simple_interactive_console(mainmodule)
     else:
         run_multiline_interactive_console(mainmodule)
 
