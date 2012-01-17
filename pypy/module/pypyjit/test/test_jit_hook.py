@@ -121,6 +121,7 @@ class AppTestJitHook(object):
         dmp = elem[3][1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.pycode is self.f.func_code
+        assert dmp.greenkey == (self.f.func_code, 0, False)
         #assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()

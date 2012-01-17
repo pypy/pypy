@@ -1,6 +1,6 @@
 
-from pypy.interpreter.typedef import TypeDef, GetSetProperty,\
-     interp_attrproperty
+from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
+     interp_attrproperty, interp_attrproperty_w)
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app, NoneNotWrapped
 from pypy.interpreter.pycode import PyCode
@@ -123,11 +123,11 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             jd_sd = jitdrivers_sd[op.getarg(0).getint()]
             greenkey = op.getarglist()[2:]
             repr = jd_sd.warmstate.get_location_str(greenkey)
-            w_descr = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
+            w_greenkey = wrap_greenkey(space, jd_sd.jitdriver, greenkey, repr)
             l_w.append(DebugMergePoint(space, jit_hooks._cast_to_gcref(op),
                                        logops.repr_of_resop(op),
                                        jd_sd.jitdriver.name,
-                                       w_descr))
+                                       w_greenkey))
         else:
             l_w.append(WrappedOp(jit_hooks._cast_to_gcref(op), ofs,
                                  logops.repr_of_resop(op)))
@@ -164,13 +164,13 @@ def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
 @unwrap_spec(repr=str, jd_name=str)
-def descr_new_dmp(space, w_tp, w_args, repr, jd_name, w_descr):
+def descr_new_dmp(space, w_tp, w_args, repr, jd_name, w_greenkey):
     args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
     num = rop.DEBUG_MERGE_POINT
     return DebugMergePoint(space,
                            jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
-                           repr, jd_name, w_descr)
+                           repr, jd_name, w_greenkey)
 
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
@@ -205,22 +205,19 @@ class WrappedOp(Wrappable):
         jit_hooks.resop_setresult(self.op, box.llbox)
 
 class DebugMergePoint(WrappedOp):
-    def __init__(self, space, op, repr_of_resop, jd_name, w_descr):
+    def __init__(self, space, op, repr_of_resop, jd_name, w_greenkey):
         WrappedOp.__init__(self, op, -1, repr_of_resop)
-        self.w_descr = w_descr
+        self.w_greenkey = w_greenkey
         self.jd_name = jd_name
-
-    def get_descr(self, space):
-        return self.w_descr
 
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
-            return space.getitem(self.w_descr, space.wrap(0))
+            return space.getitem(self.w_greenkey, space.wrap(0))
         raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
 
     def get_bytecode_no(self, space):
         if self.jd_name == pypyjitdriver.name:
-            return space.getitem(self.w_descr, space.wrap(1))
+            return space.getitem(self.w_greenkey, space.wrap(1))
         raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
 
     def get_jitdriver_name(self, space):
@@ -243,11 +240,11 @@ WrappedOp.acceptable_as_base_class = False
 DebugMergePoint.typedef = TypeDef(
     'DebugMergePoint', WrappedOp.typedef,
     __new__ = interp2app(descr_new_dmp),
-    descr = GetSetProperty(DebugMergePoint.get_descr),
+    greenkey = interp_attrproperty_w("w_greenkey", cls=DebugMergePoint),
     pycode = GetSetProperty(DebugMergePoint.get_pycode),
     bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no),
     jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name),
 )
 DebugMergePoint.acceptable_as_base_class = False
 
-                   
+
