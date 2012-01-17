@@ -1312,6 +1312,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError,'arange(3)[array([-15])]')
         assert arange(3)[array(1)] == 1
 
+    def test_array_indexing_bool(self):
+        from _numpypy import arange
+        a = arange(10)
+        assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
+        a = arange(10).reshape(5, 2)
+        assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct

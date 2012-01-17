@@ -483,7 +483,41 @@ class BaseArray(Wrappable):
         return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
                 enumerate(space.fixedview(w_idx))]
 
+    def count_all_true(self, arr):
+        sig = arr.find_sig()
+        frame = sig.create_frame(self)
+        shapelen = len(arr.shape)
+        s = 0
+        while not frame.done():
+            iter = frame.get_final_iter()
+            s += arr.dtype.getitem_bool(arr.storage, iter.offset)
+            frame.next(shapelen)
+        return s
+
+    def getitem_filter(self, space, arr):
+        concr = arr.get_concrete()
+        size = self.count_all_true(concr)
+        res = W_NDimArray(size, [size], self.find_dtype())
+        ri = ArrayIterator(size)
+        shapelen = len(self.shape)
+        argi = ArrayIterator(concr.size)
+        sig = self.find_sig()
+        frame = sig.create_frame(self)
+        while not frame.done():
+            if concr.dtype.getitem_bool(concr.storage, argi.offset):
+                v = sig.eval(frame, self)
+                res.setitem(ri.offset, v)
+                ri = ri.next(1)
+            else:
+                ri = ri.next_no_increase(1)
+            argi = argi.next(shapelen)
+            frame.next(shapelen)
+        return res
+
     def descr_getitem(self, space, w_idx):
+        if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
+            w_idx.find_dtype().is_bool_type()):
+            return self.getitem_filter(space, w_idx)
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
             item = concrete._index_of_single_item(space, w_idx)
@@ -716,8 +750,7 @@ class VirtualArray(BaseArray):
                                          frame=frame,
                                          ri=ri,
                                          self=self, result=result)
-            result.dtype.setitem(result.storage, ri.offset,
-                                 sig.eval(frame, self))
+            result.setitem(ri.offset, sig.eval(frame, self))
             frame.next(shapelen)
             ri = ri.next(shapelen)
         return result

@@ -62,10 +62,17 @@ class ArrayIterator(BaseIterator):
         self.size = size
 
     def next(self, shapelen):
+        return self._next(1)
+
+    def _next(self, ofs):
         arr = instantiate(ArrayIterator)
         arr.size = self.size
-        arr.offset = self.offset + 1
+        arr.offset = self.offset + ofs
         return arr
+
+    def next_no_increase(self, shapelen):
+        # a hack to make JIT believe this is always virtual
+        return self._next(0)
 
     def done(self):
         return self.offset >= self.size

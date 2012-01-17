@@ -94,6 +94,11 @@ class Primitive(object):
             width, storage, i, offset
         ))
 
+    @specialize.arg(5)
+    def read_raw(self, storage, width, i, offset, tp):
+        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                    width, storage, i, offset)
+
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
         libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
