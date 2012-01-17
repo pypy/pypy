@@ -2,6 +2,9 @@ syntax: glob
 *.py[co]
 *~
 .*.swp
+.idea
+.project
+.pydevproject
 
 syntax: regexp
 ^testresult$
