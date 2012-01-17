@@ -104,11 +104,10 @@ term: factor (('*'|'/'|'%'|'//') factor)*
 factor: ('+'|'-'|'~') factor | power
 power: atom trailer* ['**' factor]
 atom: ('(' [yield_expr|testlist_comp] ')' |
-       '[' [listmaker] ']' |
+       '[' [testlist_comp] ']' |
        '{' [dictorsetmaker] '}' |
        NAME | NUMBER | STRING+)
-listmaker: test ( list_for | (',' test)* [','] )
-testlist_comp: test ( comp_for | (',' test)* [','] )
+testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] )
 lambdef: 'lambda' [varargslist] ':' test
 trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
 subscriptlist: subscript (',' subscript)* [',']
