@@ -85,7 +85,7 @@ def take(a, indices, axis=None, out=None, mode='raise'):
     array([4, 3, 6])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 # not deprecated --- copy if necessary, view otherwise
@@ -273,7 +273,7 @@ def choose(a, choices, out=None, mode='raise'):
             [-1, -2, -3, -4, -5]]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def repeat(a, repeats, axis=None):
@@ -315,7 +315,7 @@ def repeat(a, repeats, axis=None):
            [3, 4]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def put(a, ind, v, mode='raise'):
@@ -366,7 +366,7 @@ def put(a, ind, v, mode='raise'):
     array([ 0,  1,  2,  3, -5])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def swapaxes(a, axis1, axis2):
@@ -410,7 +410,7 @@ def swapaxes(a, axis1, axis2):
             [3, 7]]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def transpose(a, axes=None):
@@ -556,7 +556,7 @@ def sort(a, axis=-1, kind='quicksort', order=None):
           dtype=[('name', '|S10'), ('height', '<f8'), ('age', '<i4')])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def argsort(a, axis=-1, kind='quicksort', order=None):
@@ -637,7 +637,7 @@ def argsort(a, axis=-1, kind='quicksort', order=None):
     array([0, 1])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def argmax(a, axis=None):
@@ -756,7 +756,7 @@ def searchsorted(a, v, side='left'):
     array([0, 5, 1, 2])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def resize(a, new_shape):
@@ -797,7 +797,7 @@ def resize(a, new_shape):
            [0, 1, 2, 3]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def squeeze(a):
@@ -824,7 +824,7 @@ def squeeze(a):
     (3,)
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def diagonal(a, offset=0, axis1=0, axis2=1):
@@ -908,7 +908,7 @@ def diagonal(a, offset=0, axis1=0, axis2=1):
            [5, 7]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def trace(a, offset=0, axis1=0, axis2=1, dtype=None, out=None):
@@ -967,7 +967,7 @@ def trace(a, offset=0, axis1=0, axis2=1, dtype=None, out=None):
     (2, 3)
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 def ravel(a, order='C'):
     """
@@ -1051,7 +1051,7 @@ def ravel(a, order='C'):
     array([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def nonzero(a):
@@ -1127,7 +1127,7 @@ def nonzero(a):
     (array([1, 1, 1, 2, 2, 2]), array([0, 1, 2, 0, 1, 2]))
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def shape(a):
@@ -1232,7 +1232,7 @@ def compress(condition, a, axis=None, out=None):
     array([2])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def clip(a, a_min, a_max, out=None):
@@ -1285,7 +1285,7 @@ def clip(a, a_min, a_max, out=None):
     array([3, 4, 2, 3, 4, 5, 6, 7, 8, 8])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def sum(a, axis=None, dtype=None, out=None):
@@ -1368,7 +1368,7 @@ def product (a, axis=None, dtype=None, out=None):
     prod : equivalent function; see for details.
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def sometrue(a, axis=None, out=None):
@@ -1593,7 +1593,7 @@ def cumsum (a, axis=None, dtype=None, out=None):
            [ 4,  9, 15]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def cumproduct(a, axis=None, dtype=None, out=None):
@@ -1606,7 +1606,7 @@ def cumproduct(a, axis=None, dtype=None, out=None):
     cumprod : equivalent function; see for details.
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def ptp(a, axis=None, out=None):
@@ -1647,7 +1647,7 @@ def ptp(a, axis=None, out=None):
     array([1, 1])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def amax(a, axis=None, out=None):
@@ -1876,7 +1876,7 @@ def prod(a, axis=None, dtype=None, out=None):
     True
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def cumprod(a, axis=None, dtype=None, out=None):
@@ -1939,7 +1939,7 @@ def cumprod(a, axis=None, dtype=None, out=None):
            [  4,  20, 120]])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def ndim(a):
@@ -2057,7 +2057,7 @@ def size(a, axis=None):
     2
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def around(a, decimals=0, out=None):
@@ -2126,7 +2126,7 @@ def around(a, decimals=0, out=None):
     array([ 0,  0,  0, 10])
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def round_(a, decimals=0, out=None):
@@ -2140,7 +2140,7 @@ def round_(a, decimals=0, out=None):
     around : equivalent function
 
     """
-    raise NotImplemented('Waiting on interp level method')
+    raise NotImplementedError('Waiting on interp level method')
 
 
 def mean(a, axis=None, dtype=None, out=None):
