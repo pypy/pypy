@@ -216,14 +216,14 @@ class DebugMergePoint(WrappedOp):
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_descr, space.wrap(0))
-        raise OperationError(space.w_AttributeError, space.wrap('DebugMergePoint is not the main jitdriver DMP'))
+        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
 
     def get_bytecode_no(self, space):
         if self.jd_name == pypyjitdriver.name:
             return space.getitem(self.w_descr, space.wrap(1))
-        raise OperationError(space.w_AttributeError, space.wrap('DebugMergePoint is not the main jitdriver DMP'))
+        raise OperationError(space.w_AttributeError, space.wrap("This DebugMergePoint doesn't belong to the main Python JitDriver"))
 
-    def get_jitdriver(self, space):
+    def get_jitdriver_name(self, space):
         return space.wrap(self.jd_name)
 
 WrappedOp.typedef = TypeDef(
@@ -246,7 +246,7 @@ DebugMergePoint.typedef = TypeDef(
     descr = GetSetProperty(DebugMergePoint.get_descr),
     pycode = GetSetProperty(DebugMergePoint.get_pycode),
     bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no),
-    jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver),
+    jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name),
 )
 DebugMergePoint.acceptable_as_base_class = False
 
