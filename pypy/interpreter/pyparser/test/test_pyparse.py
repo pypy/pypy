@@ -6,10 +6,10 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 from pypy.interpreter.astcompiler import consts
 
 
-class TestPythonParser:
+class TestPythonParserWithoutSpace:
 
     def setup_class(self):
-        self.parser = pyparse.PythonParser(self.space)
+        self.parser = pyparse.PythonParser(None)
 
     def parse(self, source, mode="exec", info=None):
         if info is None:
@@ -30,39 +30,6 @@ class TestPythonParser:
         assert self.parser.root is None
         tree = self.parse("name = 32")
         assert self.parser.root is None
-
-    def test_encoding(self):
-        info = pyparse.CompileInfo("<test>", "exec")
-        tree = self.parse("""# coding: latin-1
-stuff = "nothing"
-""", info=info)
-        assert tree.type == syms.file_input
-        assert info.encoding == "iso-8859-1"
-        sentence = u"'Die Männer ärgen sich!'"
-        input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
-        tree = self.parse(input, info=info)
-        assert info.encoding == "utf-7"
-        input = "# coding: iso-8859-15\nx"
-        self.parse(input, info=info)
-        assert info.encoding == "iso-8859-15"
-        input = "\xEF\xBB\xBF# coding: utf-8\nx"
-        self.parse(input, info=info)
-        assert info.encoding == "utf-8"
-        input = "# coding: utf-8\nx"
-        info.flags |= consts.PyCF_SOURCE_IS_UTF8
-        exc = py.test.raises(SyntaxError, self.parse, input, info=info).value
-        info.flags &= ~consts.PyCF_SOURCE_IS_UTF8
-        assert exc.msg == "coding declaration in unicode string"
-        input = "\xEF\xBB\xBF# coding: latin-1\nx"
-        exc = py.test.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == "UTF-8 BOM with non-utf8 coding cookie"
-        input = "# coding: not-here"
-        exc = py.test.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == "Unknown encoding: not-here"
-        input = u"# coding: ascii\n\xe2".encode('utf-8')
-        exc = py.test.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
-                           "in position 16: ordinal not in range(128)")
 
     def test_encoding_pep3120(self):
         info = pyparse.CompileInfo("<test>", "exec")
@@ -159,3 +126,43 @@ pass"""
     def test_py3k_extended_unpacking(self):
         self.parse('a, *rest, b = 1, 2, 3, 4, 5')
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')
+
+
+class TestPythonParserWithSpace(TestPythonParserWithoutSpace):
+
+    def setup_class(self):
+        self.parser = pyparse.PythonParser(self.space)
+
+    def test_encoding(self):
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parse("""# coding: latin-1
+stuff = "nothing"
+""", info=info)
+        assert tree.type == syms.file_input
+        assert info.encoding == "iso-8859-1"
+        sentence = u"'Die Männer ärgen sich!'"
+        input = (u"# coding: utf-7\nstuff = %s" % (sentence,)).encode("utf-7")
+        tree = self.parse(input, info=info)
+        assert info.encoding == "utf-7"
+        input = "# coding: iso-8859-15\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "iso-8859-15"
+        input = "\xEF\xBB\xBF# coding: utf-8\nx"
+        self.parse(input, info=info)
+        assert info.encoding == "utf-8"
+        input = "# coding: utf-8\nx"
+        info.flags |= consts.PyCF_SOURCE_IS_UTF8
+        exc = py.test.raises(SyntaxError, self.parse, input, info=info).value
+        info.flags &= ~consts.PyCF_SOURCE_IS_UTF8
+        assert exc.msg == "coding declaration in unicode string"
+        input = "\xEF\xBB\xBF# coding: latin-1\nx"
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == "UTF-8 BOM with non-utf8 coding cookie"
+        input = "# coding: not-here"
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == "Unknown encoding: not-here"
+        input = u"# coding: ascii\n\xe2".encode('utf-8')
+        exc = py.test.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
+                           "in position 16: ordinal not in range(128)")
+
