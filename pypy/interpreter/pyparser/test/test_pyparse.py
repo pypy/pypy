@@ -157,4 +157,5 @@ pass"""
         py.test.raises(SyntaxError, self.parse, '0777')
 
     def test_py3k_extended_unpacking(self):
+        self.parse('a, *rest, b = 1, 2, 3, 4, 5')
         self.parse('(a, *rest, b) = 1, 2, 3, 4, 5')

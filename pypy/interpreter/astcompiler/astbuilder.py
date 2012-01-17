@@ -680,7 +680,7 @@ class ASTBuilder(object):
                 self.set_context(target_expr, ast.Store)
                 targets.append(target_expr)
             value_child = stmt.children[-1]
-            if value_child.type == syms.testlist:
+            if value_child.type == syms.testlist or value_child.type == syms.testlist_star_expr:
                 value_expr = self.handle_testlist(value_child)
             else:
                 value_expr = self.handle_expr(value_child)

@@ -37,8 +37,9 @@ stmt: simple_stmt | compound_stmt
 simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE
 small_stmt: (expr_stmt | del_stmt | pass_stmt | flow_stmt |
              import_stmt | global_stmt | nonlocal_stmt | assert_stmt)
-expr_stmt: testlist (augassign (yield_expr|testlist) |
-                     ('=' (yield_expr|testlist))*)
+expr_stmt: testlist_star_expr (augassign (yield_expr|testlist) |
+                     ('=' (yield_expr|testlist_star_expr))*)
+testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [',']
 augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
             '<<=' | '>>=' | '**=' | '//=')
 # For normal assignments, additional restrictions enforced by the interpreter
@@ -93,6 +94,7 @@ and_test: not_test ('and' not_test)*
 not_test: 'not' not_test | comparison
 comparison: expr (comp_op expr)*
 comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
+star_expr: '*' expr
 expr: xor_expr ('|' xor_expr)*
 xor_expr: and_expr ('^' and_expr)*
 and_expr: shift_expr ('&' shift_expr)*
