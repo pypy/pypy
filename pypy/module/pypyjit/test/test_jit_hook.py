@@ -92,6 +92,7 @@ class AppTestJitHook(object):
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
         cls.w_int_add_num = space.wrap(rop.INT_ADD)
+        cls.w_dmp_num = space.wrap(rop.DEBUG_MERGE_POINT)
         cls.w_on_optimize = space.wrap(interp2app(interp_on_optimize))
         cls.orig_oplist = oplist
 
@@ -211,3 +212,14 @@ class AppTestJitHook(object):
         assert op.getarg(0).getint() == 4
         op.result = box
         assert op.result.getint() == 1
+
+    def test_creation_dmp(self):
+        from pypyjit import DebugMergePoint, Box
+
+        def f():
+            pass
+
+        op = DebugMergePoint([Box(0)], '', f.func_code, 0)
+        assert op.bytecode_no == 0
+        assert op.pycode is f.func_code
+        assert op.num == self.dmp_num

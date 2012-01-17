@@ -1,5 +1,6 @@
 
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty,\
+     interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import unwrap_spec, interp2app, NoneNotWrapped
 from pypy.interpreter.pycode import PyCode
@@ -150,6 +151,14 @@ def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
         llres = res.llbox
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
+@unwrap_spec(repr=str, pycode=PyCode, bytecode_no=int)
+def descr_new_dmp(space, w_tp, w_args, repr, pycode, bytecode_no):
+    args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
+            space.listview(w_args)]
+    num = rop.DEBUG_MERGE_POINT
+    return DebugMergePoint(jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
+                           repr, pycode, bytecode_no)
+
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
     """
@@ -182,6 +191,17 @@ class WrappedOp(Wrappable):
         box = space.interp_w(WrappedBox, w_box)
         jit_hooks.resop_setresult(self.op, box.llbox)
 
+class DebugMergePoint(WrappedOp):
+    def __init__(self, op, repr_of_resop, pycode, bytecode_no):
+        WrappedOp.__init__(self, op, -1, repr_of_resop)
+        self.pycode = pycode
+        self.bytecode_no = bytecode_no
+
+    def get_bytecode_no(self, space):
+        if self.pycode is None:
+            return space.w_None
+        return space.wrap(self.bytecode_no)
+
 WrappedOp.typedef = TypeDef(
     'ResOperation',
     __doc__ = WrappedOp.__doc__,
@@ -195,3 +215,13 @@ WrappedOp.typedef = TypeDef(
                             WrappedOp.descr_setresult)
 )
 WrappedOp.acceptable_as_base_class = False
+
+DebugMergePoint.typedef = TypeDef(
+    'DebugMergePoint', WrappedOp.typedef,
+    __new__ = interp2app(descr_new_dmp),
+    pycode = interp_attrproperty('pycode', cls=DebugMergePoint),
+    bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no),
+)
+DebugMergePoint.acceptable_as_base_class = False
+
+                   
