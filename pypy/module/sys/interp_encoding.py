@@ -33,6 +33,8 @@ if sys.platform == "win32":
     base_encoding = "mbcs"
 elif sys.platform == "darwin":
     base_encoding = "utf-8"
+elif sys.platform == "linux2":
+    base_encoding = "ascii"
 else:
     base_encoding = None
 
