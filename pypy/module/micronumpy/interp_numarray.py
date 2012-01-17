@@ -52,6 +52,12 @@ filter_driver = jit.JitDriver(
     reds=['concr', 'argi', 'ri', 'frame', 'v', 'res', 'self'],
     name='numpy_filter',
 )
+filter_set_driver = jit.JitDriver(
+    greens=['shapelen', 'sig'],
+    virtualizables=['frame'],
+    reds=['idx', 'idxi', 'frame', 'arr'],
+    name='numpy_filterset',
+)
 
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
@@ -544,6 +550,9 @@ class BaseArray(Wrappable):
         frame = sig.create_frame(arr)
         idxi = idx.create_iter()
         while not frame.done():
+            filter_set_driver.jit_merge_point(idx=idx, idxi=idxi, sig=sig,
+                                              frame=frame, arr=arr,
+                                              shapelen=shapelen)
             if idx.dtype.getitem_bool(idx.storage, idxi.offset):
                 sig.eval(frame, arr)
                 frame.next_from_second(1)
