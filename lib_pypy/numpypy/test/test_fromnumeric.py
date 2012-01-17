@@ -18,8 +18,8 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         from numpypy import array, arange, argmin
         a = arange(6).reshape((2,3))
         assert argmin(a) == 0
-        # assert (argmax(a, axis=0) == array([0, 0, 0])).all()
-        # assert (argmax(a, axis=1) == array([0, 0])).all()
+        assert (argmin(a, axis=0) == array([0, 0, 0])).all()
+        assert (argmin(a, axis=1) == array([0, 0])).all()
         b = arange(6)
         b[1] = 0
         assert argmin(b) == 0
