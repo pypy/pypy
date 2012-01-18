@@ -420,7 +420,7 @@ class Entry(ExtRegistryEntry):
                   vobj.concretetype.TO._gckind == 'gc')
         else:
             from pypy.rpython.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.Instance)
+            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
         if not ok:
             from pypy.rpython.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"

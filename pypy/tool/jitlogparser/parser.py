@@ -140,13 +140,15 @@ class TraceForOpcode(object):
     bytecode_name = None
     is_bytecode = True
     inline_level = None
+    has_dmp = False
 
     def parse_code_data(self, arg):
         m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
                       arg)
         if m is None:
             # a non-code loop, like StrLiteralSearch or something
-            self.bytecode_name = arg
+            if arg:
+                self.bytecode_name = arg
         else:
             self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
             self.startlineno = int(lineno)
@@ -185,7 +187,10 @@ class TraceForOpcode(object):
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
-        return self.getopcode().lineno
+        code = self.getopcode()
+        if code is None:
+            return None
+        return code.lineno
     lineno = property(getlineno)
 
     def getline_starts_here(self):
@@ -215,7 +220,7 @@ class Function(object):
         self.inputargs = inputargs
         self.chunks = chunks
         for chunk in self.chunks:
-            if chunk.filename is not None:
+            if chunk.bytecode_name is not None:
                 self.startlineno = chunk.startlineno
                 self.filename = chunk.filename
                 self.name = chunk.name
