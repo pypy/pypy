@@ -51,7 +51,7 @@ def unpack_int(data,index,size,le):
     bytes = [b for b in data[index:index+size]]
     if le == 'little':
         bytes.reverse()
-    number = 0L
+    number = 0
     for b in bytes:
         number = number << 8 | b
     return int(number)
@@ -415,3 +415,7 @@ def unpack_from(fmt, buf, offset=0):
         raise error("unpack_from requires a buffer of at least %d bytes"
                     % (size,))
     return unpack(fmt, data)
+
+def _clearcache():
+    "Clear the internal cache."
+    # No cache in this implementation

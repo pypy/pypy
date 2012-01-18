@@ -1280,11 +1280,14 @@ class ObjSpace(object):
         return self.str_w(w_obj)
 
     def str_w(self, w_obj):
-        try:
-            return self.unicode_w(w_obj).encode('ascii')
-        except UnicodeEncodeError:
-            w_bytes = self.call_method(w_obj, 'encode', self.wrap('utf-8'))
-            return self.bytes_w(w_bytes)
+        if self.isinstance_w(w_obj, self.w_unicode):
+            try:
+                return self.unicode_w(w_obj).encode('ascii')
+            except UnicodeEncodeError:
+                w_bytes = self.call_method(w_obj, 'encode', self.wrap('utf-8'))
+                return self.bytes_w(w_bytes)
+        else:
+            return w_obj.bytes_w(self)
 
     def bytes_w(self, w_obj):
         return w_obj.bytes_w(self)

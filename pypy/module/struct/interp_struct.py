@@ -33,3 +33,7 @@ def unpack(space, format, input):
     except StructError, e:
         raise e.at_applevel(space)
     return space.newtuple(fmtiter.result_w[:])
+
+def clearcache(space):
+    "Clear the internal cache."
+    # No cache in this implementation
