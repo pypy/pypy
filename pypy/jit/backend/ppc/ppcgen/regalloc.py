@@ -597,17 +597,14 @@ class Regalloc(object):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t
         args = op.getarglist()
-        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
-        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), args)
+        base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
         c_ofs = ConstInt(ofs)
         if _check_imm_arg(c_ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
-            self.possibly_free_var(ofs_box)
+            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
         self.possibly_free_vars_for_op(op)
-        self.possibly_free_var(base_box)
-        self.possibly_free_var(index_box)
         self.free_temp_vars()
         result_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
@@ -618,18 +615,14 @@ class Regalloc(object):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t
         args = op.getarglist()
-        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
-        index_loc, index_box  = self._ensure_value_is_boxed(op.getarg(1), args)
-        value_loc, value_box = self._ensure_value_is_boxed(op.getarg(2), args)
+        base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
+        value_loc = self._ensure_value_is_boxed(op.getarg(2), args)
         c_ofs = ConstInt(ofs)
         if _check_imm_arg(c_ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
-            self.possibly_free_var(ofs_box)
-        self.possibly_free_var(base_box)
-        self.possibly_free_var(index_box)
-        self.possibly_free_var(value_box)
+            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
 
