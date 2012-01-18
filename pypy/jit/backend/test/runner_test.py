@@ -3233,7 +3233,7 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert res.getfloat() == expected
 
-    def test_some_issue(self):
+    def test_wrong_guard_nonnull_class(self):
         t_box, T_box = self.alloc_instance(self.T)
         null_box = self.null_instance()
         faildescr = BasicFailDescr(42)
