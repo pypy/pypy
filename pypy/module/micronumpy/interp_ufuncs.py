@@ -192,17 +192,17 @@ class W_Ufunc(Wrappable):
                                               sig=sig,
                                               identity=identity,
                                               shapelen=shapelen, arr=arr)
-            iter = frame.get_final_iter()
+            iterator = frame.get_final_iter()
             v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            if iter.first_line:
+            if iterator.first_line:
                 if identity is not None:
                     value = self.func(sig.calc_dtype, identity, v)
                 else:
                     value = v
             else:
-                cur = arr.left.getitem(iter.offset)
+                cur = arr.left.getitem(iterator.offset)
                 value = self.func(sig.calc_dtype, cur, v)
-            arr.left.setitem(iter.offset, value)
+            arr.left.setitem(iterator.offset, value)
             frame.next(shapelen)
 
     def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):

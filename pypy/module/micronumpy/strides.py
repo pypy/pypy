@@ -37,3 +37,17 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
     rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
+
+def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
+    rstrides = []
+    rbackstrides = []
+    j=0
+    for i in range(len(res_shape)):
+        if i in skip_dims:
+            rstrides.append(0)
+            rbackstrides.append(0)
+        else:
+            rstrides.append(strides[j])
+            rbackstrides.append(backstrides[j])
+            j += 1
+    return rstrides, rbackstrides
