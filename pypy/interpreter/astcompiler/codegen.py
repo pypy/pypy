@@ -833,10 +833,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(tup.lineno)
         elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
-            self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+            star_pos = -1
+            if elt_count > 0:
+                for i, elt in enumerate(tup.elts):
+                    if isinstance(elt, ast.Starred):
+                        star_pos = i
+            if star_pos > -1:
+                self.emit_op_arg(ops.UNPACK_EX, star_pos | (elt_count-star_pos-1)<<8)
+            else:
+                self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
         self.visit_sequence(tup.elts)
         if tup.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
+
+    def visit_Starred(self, star):
+        star.value.walkabout(self)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
