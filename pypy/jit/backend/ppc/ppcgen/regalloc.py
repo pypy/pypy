@@ -186,7 +186,7 @@ class Regalloc(object):
         arg_index = 0
         count = 0
         n_register_args = len(r.PARAM_REGS)
-        cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD + 1
+        cur_frame_pos = -self.assembler.OFFSET_STACK_ARGS // WORD
         for box in inputargs:
             assert isinstance(box, Box)
             # handle inputargs in argument registers
