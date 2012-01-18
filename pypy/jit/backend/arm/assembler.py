@@ -674,7 +674,7 @@ class AssemblerARM(ResOpAssembler):
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _find_failure_recovery_bytecode(self, faildescr):
-        guard_stub_addr = faildescr._arm_recovery_stub_offset
+        guard_stub_addr = faildescr._arm_failure_recovery_block
         if guard_stub_addr == 0:
             # This case should be prevented by the logic in compile.py:
             # look for CNT_BUSY_FLAG, which disables tracing from a guard
@@ -709,34 +709,25 @@ class AssemblerARM(ResOpAssembler):
                                         tok.faillocs, save_exc=tok.save_exc)
             # store info on the descr
             descr._arm_current_frame_depth = tok.faillocs[0].getint()
-            descr._arm_guard_pos = pos
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt
         for tok in self.pending_guards:
             descr = tok.descr
             assert isinstance(descr, AbstractFailDescr)
-            jump_target = tok.pos_recovery_stub
-            relative_target = jump_target - tok.offset
-
-            addr = block_start + tok.offset
-            stub_addr = block_start + jump_target
-
-            descr._arm_recovery_stub_offset = stub_addr
-
+            failure_recovery_pos = block_start + tok.pos_recovery_stub
+            descr._arm_failure_recovery_block = failure_recovery_pos
+            relative_offset = tok.pos_recovery_stub - tok.offset
+            guard_pos = block_start + tok.offset
             if not tok.is_invalidate:
-                #patch the guard jumpt to the stub
+                # patch the guard jumpt to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
                 mc = ARMv7Builder()
-                mc.B_offs(relative_target, c.get_opposite_of(tok.fcond))
-                mc.copy_to_raw_memory(addr)
+                mc.B_offs(relative_offset, c.get_opposite_of(tok.fcond))
+                mc.copy_to_raw_memory(guard_pos)
             else:
-                # GUARD_NOT_INVALIDATED, record an entry in
-                # clt.invalidate_positions of the form:
-                #     (addr-in-the-code-of-the-not-yet-written-jump-target,
-                #      relative-target-to-use)
-                clt.invalidate_positions.append((addr, relative_target))
+                clt.invalidate_positions.append((guard_pos, relative_offset))
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -875,14 +866,12 @@ class AssemblerARM(ResOpAssembler):
                 self.mc.ASR_ri(resloc.value, resloc.value, 16)
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
-        # The first instruction (word) is not overwritten, because it is the
-        # one that actually checks the condition
         b = ARMv7Builder()
-        adr_jump_offset = faildescr._arm_recovery_stub_offset
-        assert adr_jump_offset != 0
+        patch_addr = faildescr._arm_failure_recovery_block
+        assert patch_addr != 0
         b.B(bridge_addr)
-        b.copy_to_raw_memory(adr_jump_offset)
-        faildescr._arm_recovery_stub_offset = 0
+        b.copy_to_raw_memory(patch_addr)
+        faildescr._arm_failure_recovery_block = 0
 
     # regalloc support
     def load(self, loc, value):
