@@ -1302,6 +1302,28 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
         raises(TypeError, getattr, array(3), '__array_interface__')
 
+    def test_fill(self):
+        from _numpypy import array
+
+        a = array([1, 2, 3])
+        a.fill(10)
+        assert (a == [10, 10, 10]).all()
+        a.fill(False)
+        assert (a == [0, 0, 0]).all()
+
+        b = a[:1]
+        b.fill(4)
+        assert (b == [4]).all()
+        assert (a == [4, 0, 0]).all()
+
+        c = b + b
+        c.fill(27)
+        assert (c == [27]).all()
+
+        d = array(10)
+        d.fill(100)
+        assert d == 100
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
