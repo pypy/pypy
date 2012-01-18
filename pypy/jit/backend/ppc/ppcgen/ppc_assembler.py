@@ -40,7 +40,7 @@ from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.backend.ppc.ppcgen.locations import StackLocation
+from pypy.jit.backend.ppc.ppcgen.locations import StackLocation, get_spp_offset
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -212,7 +212,7 @@ class AssemblerPPC(OpAssembler):
                 if group == self.FLOAT_TYPE:
                     assert 0, "not implemented yet"
                 else:
-                    start = spp_loc - (stack_location + 1) * WORD
+                    start = spp_loc + get_spp_offset(stack_location)
                     value = rffi.cast(rffi.LONGP, start)[0]
             else: # REG_LOC
                 reg = ord(enc[i])
