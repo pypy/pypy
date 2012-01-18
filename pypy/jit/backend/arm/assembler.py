@@ -14,18 +14,27 @@ from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.codewriter import longlong
-from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT)
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib import rgc
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.arm.opassembler import ResOpAssembler
-from pypy.rlib.debug import debug_print, debug_start, debug_stop
+from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
+                             have_debug_prints)
+from pypy.rlib.jit import AsmInfo
+from pypy.rlib.objectmodel import compute_unique_id
 
 # XXX Move to llsupport
 from pypy.jit.backend.x86.support import values_array, memcpy_fn
+
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
+                                                     # 'e'ntry point
+                              ('number', lltype.Signed))
 
 
 class AssemblerARM(ResOpAssembler):
@@ -53,6 +62,12 @@ class AssemblerARM(ResOpAssembler):
         self.datablockwrapper = None
         self.propagate_exception_path = 0
         self._compute_stack_size()
+        self._debug = False
+        self.loop_run_counters = []
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+
+    def set_debug(self, v):
+        self._debug = v
 
     def _compute_stack_size(self):
         self.STACK_FIXED_AREA = len(r.callee_saved_registers) * WORD
@@ -100,6 +115,72 @@ class AssemblerARM(ResOpAssembler):
         self._leave_jitted_hook_save_exc = \
                                     self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
+        debug_start('jit-backend-counts')
+        self.set_debug(have_debug_prints())
+        debug_stop('jit-backend-counts')
+
+    def finish_once(self):
+        if self._debug:
+            debug_start('jit-backend-counts')
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
+
+    # XXX: merge with x86
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
+            struct.number = number
+        else:
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)
+        return struct
+
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
+        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+        box = BoxInt()
+        box2 = BoxInt()
+        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
+                            box, descr=self.debug_counter_descr),
+               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
+                            None, descr=self.debug_counter_descr)]
+        operations.extend(ops)
+
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
+        if self._debug:
+            # before doing anything, let's increase a counter
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+            looptoken._arm_debug_checksum = s
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
+        return operations
 
     @staticmethod
     def _release_gil_shadowstack():
@@ -491,7 +572,10 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         operations = self.setup(looptoken, operations)
-        self._dump(operations)
+        if log:
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
+            self._dump(operations)
 
         self._call_header()
         sp_patch_location = self._prepare_sp_patch_position()
@@ -536,7 +620,11 @@ class AssemblerARM(ResOpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
         operations = self.setup(original_loop_token, operations)
-        self._dump(operations, 'bridge')
+        descr_number = self.cpu.get_fail_descr_number(faildescr)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
+            self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
         code = self._find_failure_recovery_bytecode(faildescr)
         frame_depth = faildescr._arm_current_frame_depth
@@ -736,7 +824,7 @@ class AssemblerARM(ResOpAssembler):
         return True
 
     def _insert_checks(self, mc=None):
-        if not we_are_translated():
+        if self._debug:
             if mc is None:
                 mc = self.mc
             mc.CMP_rr(r.fp.value, r.sp.value)

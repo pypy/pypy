@@ -202,3 +202,44 @@ class TestARM(LLtypeBackendTest):
             args = [i+1 for i in range(numargs)]
             res = self.cpu.execute_token(looptoken, *args)
             assert self.cpu.get_latest_value_int(0) == sum(args)
+
+    def test_debugger_on(self):
+        from pypy.rlib import debug
+
+        targettoken, preambletoken = TargetToken(), TargetToken()
+        loop = """
+        [i0]
+        label(i0, descr=preambletoken)
+        debug_merge_point('xyz', 0)
+        i1 = int_add(i0, 1)
+        i2 = int_ge(i1, 10)
+        guard_false(i2) []
+        label(i1, descr=targettoken)
+        debug_merge_point('xyz', 0)
+        i11 = int_add(i1, 1)
+        i12 = int_ge(i11, 10)
+        guard_false(i12) []
+        jump(i11, descr=targettoken)
+        """
+        ops = parse(loop, namespace={'targettoken': targettoken,
+                                     'preambletoken': preambletoken})
+        debug._log = dlog = debug.DebugLog()
+        try:
+            self.cpu.assembler.set_debug(True)
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
+            self.cpu.execute_token(looptoken, 0)
+            # check debugging info
+            struct = self.cpu.assembler.loop_run_counters[0]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[1]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
+            assert struct.i == 9
+            self.cpu.finish_once()
+        finally:
+            debug._log = None
+        l0 = ('debug_print', 'entry -1:1')
+        l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
+        l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
+        assert ('jit-backend-counts', [l0, l1, l2]) in dlog
