@@ -3188,55 +3188,6 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
 
-    def test_compile_asmlen(self):
-        from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
-        if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("pointless test on non-asm")
-        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
-        import ctypes
-        ops = """
-        [i2]
-        i0 = same_as(i2)    # but forced to be in a register
-        label(i0, descr=1)
-        i1 = int_add(i0, i0)
-        guard_true(i1, descr=faildesr) [i1]
-        jump(i1, descr=1)
-        """
-        faildescr = BasicFailDescr(2)
-        loop = parse(ops, self.cpu, namespace=locals())
-        faildescr = loop.operations[-2].getdescr()
-        jumpdescr = loop.operations[-1].getdescr()
-        bridge_ops = """
-        [i0]
-        jump(i0, descr=jumpdescr)
-        """
-        bridge = parse(bridge_ops, self.cpu, namespace=locals())
-        looptoken = JitCellToken()
-        self.cpu.assembler.set_debug(False)
-        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        bridge_info = self.cpu.compile_bridge(faildescr, bridge.inputargs,
-                                              bridge.operations,
-                                              looptoken)
-        self.cpu.assembler.set_debug(True) # always on untranslated
-        assert info.asmlen != 0
-        cpuname = autodetect_main_model_and_size()
-        # XXX we have to check the precise assembler, otherwise
-        # we don't quite know if borders are correct
-
-        def checkops(mc, ops):
-            assert len(mc) == len(ops)
-            for i in range(len(mc)):
-                assert mc[i].split("\t")[-1].startswith(ops[i])
-            
-        data = ctypes.string_at(info.asmaddr, info.asmlen)
-        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') == 2]
-        checkops(lines, self.add_loop_instructions)
-        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
-        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') == 2]
-        checkops(lines, self.bridge_loop_instructions)
-
 
     def test_compile_bridge_with_target(self):
         # This test creates a loopy piece of code in a bridge, and builds another
