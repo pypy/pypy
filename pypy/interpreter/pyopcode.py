@@ -582,7 +582,25 @@ class __extend__(pyframe.PyFrame):
         self.pushrevvalues(itemcount, items)
 
     def UNPACK_EX(self, oparg, next_instr):
-        raise NotImplementedError
+        left = oparg & 0xFF
+        right = (oparg & 0xFF00) >> 8
+        w_iterable = self.popvalue()
+
+        items = self.space.fixedview(w_iterable)
+        itemcount = len(items)
+
+        i = itemcount - 1
+        while i >= itemcount-right:
+            self.pushvalue(items[i])
+            i -= 1
+
+        self.pushvalue(self.space.newlist(items[left:itemcount-right]))
+
+        i = left - 1
+        while i >= 0:
+            self.pushvalue(items[i])
+            i -= 1
+
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
