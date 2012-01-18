@@ -837,6 +837,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if elt_count > 0:
                 for i, elt in enumerate(tup.elts):
                     if isinstance(elt, ast.Starred):
+                        if star_pos != -1:
+                            self.error("two starred expressions in assignment", tup)
                         star_pos = i
             if star_pos > -1:
                 self.emit_op_arg(ops.UNPACK_EX, star_pos | (elt_count-star_pos-1)<<8)
