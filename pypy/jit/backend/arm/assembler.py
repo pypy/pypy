@@ -1,12 +1,10 @@
 from __future__ import with_statement
 import os
-from pypy.jit.backend.arm.helper.assembler import saved_registers, \
-                                                    decode32, encode32, \
-                                                    decode64
+from pypy.jit.backend.arm.helper.assembler import saved_registers
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
-                                    PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
+                                    N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     ARMv7RegisterManager, check_imm_arg,
