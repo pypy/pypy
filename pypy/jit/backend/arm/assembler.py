@@ -596,6 +596,7 @@ class AssemblerARM(ResOpAssembler):
         rawstart = self.materialize_loop(looptoken)
         looptoken._arm_func_addr = rawstart
 
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.process_pending_guards(rawstart)
         self.fixup_target_tokens(rawstart)
 
@@ -604,7 +605,12 @@ class AssemblerARM(ResOpAssembler):
             self.mc._dump_trace(rawstart,
                     'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
+
+        ops_offset = self.mc.ops_offset
         self.teardown()
+
+        return AsmInfo(ops_offset, rawstart + loop_head,
+                       size_excluding_failure_stuff - loop_head)
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
@@ -632,6 +638,7 @@ class AssemblerARM(ResOpAssembler):
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
 
+        startpos = self.mc.get_relative_pos()
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
         regalloc.prepare_bridge(inputargs, arglocs, operations)
 
@@ -639,15 +646,19 @@ class AssemblerARM(ResOpAssembler):
 
         frame_depth = self._assemble(operations, regalloc)
 
+        codeendpos = self.mc.get_relative_pos()
+
         self._patch_sp_offset(sp_patch_location, frame_depth)
 
         self.write_pending_failure_recoveries()
+
         rawstart = self.materialize_loop(original_loop_token)
+
         self.process_pending_guards(rawstart)
+        self.fixup_target_tokens(rawstart)
 
         self.patch_trace(faildescr, original_loop_token,
                                     rawstart, regalloc)
-        self.fixup_target_tokens(rawstart)
 
         if not we_are_translated():
             # for the benefit of tests
@@ -658,12 +669,19 @@ class AssemblerARM(ResOpAssembler):
                 self.cpu.total_compiled_bridges)
         self.current_clt.frame_depth = max(self.current_clt.frame_depth,
                                                                 frame_depth)
+        ops_offset = self.mc.ops_offset
         self.teardown()
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _find_failure_recovery_bytecode(self, faildescr):
-        guard_addr = faildescr._arm_block_start + faildescr._arm_guard_pos
+        guard_stub_addr = faildescr._arm_recovery_stub_offset
+        if guard_stub_addr == 0:
+            # This case should be prevented by the logic in compile.py:
+            # look for CNT_BUSY_FLAG, which disables tracing from a guard
+            # when another tracing from the same guard is already in progress.
+            raise BridgeAlreadyCompiled
         # a guard requires 3 words to encode the jump to the exit code.
-        return guard_addr + 3 * WORD
+        return guard_stub_addr + 3 * WORD
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -698,21 +716,27 @@ class AssemblerARM(ResOpAssembler):
         for tok in self.pending_guards:
             descr = tok.descr
             assert isinstance(descr, AbstractFailDescr)
+            jump_target = tok.pos_recovery_stub
+            relative_target = jump_target - tok.offset
 
-            #XXX _arm_block_start should go in the looptoken
-            descr._arm_block_start = block_start
+            addr = block_start + tok.offset
+            stub_addr = block_start + jump_target
+
+            descr._arm_recovery_stub_offset = stub_addr
 
             if not tok.is_invalidate:
                 #patch the guard jumpt to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
                 mc = ARMv7Builder()
-                mc.B_offs(descr._arm_guard_pos - tok.offset,
-                                    c.get_opposite_of(tok.fcond))
-                mc.copy_to_raw_memory(block_start + tok.offset)
+                mc.B_offs(relative_target, c.get_opposite_of(tok.fcond))
+                mc.copy_to_raw_memory(addr)
             else:
-                clt.invalidate_positions.append(
-                (block_start + tok.offset, descr._arm_guard_pos - tok.offset))
+                # GUARD_NOT_INVALIDATED, record an entry in
+                # clt.invalidate_positions of the form:
+                #     (addr-in-the-code-of-the-not-yet-written-jump-target,
+                #      relative-target-to-use)
+                clt.invalidate_positions.append((addr, relative_target))
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -770,6 +794,7 @@ class AssemblerARM(ResOpAssembler):
             regalloc.next_instruction()
             i = regalloc.position()
             op = operations[i]
+            self.mc.mark_op(op)
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
@@ -797,6 +822,7 @@ class AssemblerARM(ResOpAssembler):
             regalloc.possibly_free_vars_for_op(op)
             regalloc.free_temp_vars()
             regalloc._check_invariants()
+        self.mc.mark_op(None)  # end of the loop
 
     # from ../x86/regalloc.py
     def can_merge_with_next_guard(self, op, i, operations):
@@ -852,9 +878,11 @@ class AssemblerARM(ResOpAssembler):
         # The first instruction (word) is not overwritten, because it is the
         # one that actually checks the condition
         b = ARMv7Builder()
-        patch_addr = faildescr._arm_block_start + faildescr._arm_guard_pos
+        adr_jump_offset = faildescr._arm_recovery_stub_offset
+        assert adr_jump_offset != 0
         b.B(bridge_addr)
-        b.copy_to_raw_memory(patch_addr)
+        b.copy_to_raw_memory(adr_jump_offset)
+        faildescr._arm_recovery_stub_offset = 0
 
     # regalloc support
     def load(self, loc, value):
@@ -1186,3 +1214,7 @@ for key, value in rop.__dict__.items():
     if hasattr(AssemblerARM, methname):
         func = getattr(AssemblerARM, methname).im_func
         asm_operations_with_guard[value] = func
+
+
+class BridgeAlreadyCompiled(Exception):
+    pass

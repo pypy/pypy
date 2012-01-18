@@ -265,6 +265,15 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
     def __init__(self):
         AbstractARMv7Builder.__init__(self)
         self.init_block_builder()
+        #
+        # ResOperation --> offset in the assembly.
+        # ops_offset[None] represents the beginning of the code after the last op
+        # (i.e., the tail of the loop)
+        self.ops_offset = {}
+
+    def mark_op(self, op):
+        pos = self.get_relative_pos()
+        self.ops_offset[op] = pos
 
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():

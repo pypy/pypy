@@ -32,19 +32,19 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.setup_once()
 
     def finish_once(self):
-        pass
+        self.assembler.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken,
                                                     log=True, name=''):
-        self.assembler.assemble_loop(inputargs, operations,
+        return self.assembler.assemble_loop(inputargs, operations,
                                                     looptoken, log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                                        original_loop_token, log=True):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                       original_loop_token, log=log)
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                                original_loop_token, log=log)
 
     def get_latest_value_float(self, index):
         return self.assembler.fail_boxes_float.getitem(index)
