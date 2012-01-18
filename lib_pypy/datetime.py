@@ -13,7 +13,7 @@ ftp://elsie.nci.nih.gov/pub/
 Sources for time zone and DST data: http://www.twinsun.com/tz/tz-link.htm
 
 This was originally copied from the sandbox of the CPython CVS repository.
-Thanks to Tim Peters for suggesting using it. 
+Thanks to Tim Peters for suggesting using it.
 """
 
 import time as _time
@@ -271,6 +271,8 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_date_fields(year, month, day):
+    if not isinstance(year, (int, long)):
+        raise TypeError('int expected')
     if not MINYEAR <= year <= MAXYEAR:
         raise ValueError('year must be in %d..%d' % (MINYEAR, MAXYEAR), year)
     if not 1 <= month <= 12:
@@ -280,6 +282,8 @@ def _check_date_fields(year, month, day):
         raise ValueError('day must be in 1..%d' % dim, day)
 
 def _check_time_fields(hour, minute, second, microsecond):
+    if not isinstance(hour, (int, long)):
+        raise TypeError('int expected')
     if not 0 <= hour <= 23:
         raise ValueError('hour must be in 0..23', hour)
     if not 0 <= minute <= 59:
@@ -575,14 +579,25 @@ class timedelta(object):
             s = s + ".%06d" % self.__microseconds
         return s
 
-    days = property(lambda self: self.__days, doc="days")
-    seconds = property(lambda self: self.__seconds, doc="seconds")
-    microseconds = property(lambda self: self.__microseconds,
-                            doc="microseconds")
-
     def total_seconds(self):
         return ((self.days * 86400 + self.seconds) * 10**6
                 + self.microseconds) / 1e6
+
+    # Read-only field accessors
+    @property
+    def days(self):
+        """days"""
+        return self.__days
+
+    @property
+    def seconds(self):
+        """seconds"""
+        return self.__seconds
+
+    @property
+    def microseconds(self):
+        """microseconds"""
+        return self.__microseconds
 
     def __add__(self, other):
         if isinstance(other, timedelta):
@@ -756,18 +771,19 @@ class date(object):
 
     # Additional constructors
 
+    @classmethod
     def fromtimestamp(cls, t):
         "Construct a date from a POSIX timestamp (like time.time())."
         y, m, d, hh, mm, ss, weekday, jday, dst = _time.localtime(t)
         return cls(y, m, d)
-    fromtimestamp = classmethod(fromtimestamp)
 
+    @classmethod
     def today(cls):
         "Construct a date from time.time()."
         t = _time.time()
         return cls.fromtimestamp(t)
-    today = classmethod(today)
 
+    @classmethod
     def fromordinal(cls, n):
         """Contruct a date from a proleptic Gregorian ordinal.
 
@@ -776,7 +792,6 @@ class date(object):
         """
         y, m, d = _ord2ymd(n)
         return cls(y, m, d)
-    fromordinal = classmethod(fromordinal)
 
     # Conversions to string
 
@@ -799,6 +814,14 @@ class date(object):
         "Format using strftime()."
         return _wrap_strftime(self, fmt, self.timetuple())
 
+    def __format__(self, format):
+        if not isinstance(format, (str, unicode)):
+            raise ValueError("__format__ excepts str or unicode, not %s" %
+                             format.__class__.__name__)
+        if not format:
+            return str(self)
+        return self.strftime(format)
+
     def isoformat(self):
         """Return the date formatted according to ISO.
 
@@ -812,19 +835,21 @@ class date(object):
 
     __str__ = isoformat
 
-    def __format__(self, format):
-        if not isinstance(format, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
-                             format.__class__.__name__)
-        if not format:
-            return str(self)
-        return self.strftime(format)
-
     # Read-only field accessors
-    year = property(lambda self: self.__year,
-                    doc="year (%d-%d)" % (MINYEAR, MAXYEAR))
-    month = property(lambda self: self.__month, doc="month (1-12)")
-    day = property(lambda self: self.__day, doc="day (1-31)")
+    @property
+    def year(self):
+        """year (1-9999)"""
+        return self.__year
+
+    @property
+    def month(self):
+        """month (1-12)"""
+        return self.__month
+
+    @property
+    def day(self):
+        """day (1-31)"""
+        return self.__day
 
     # Standard conversions, __cmp__, __hash__ (and helpers)
 
@@ -852,7 +877,7 @@ class date(object):
         _check_date_fields(year, month, day)
         return date(year, month, day)
 
-    # Comparisons.
+    # Comparisons of date objects with other.
 
     def __eq__(self, other):
         if isinstance(other, date):
@@ -1126,16 +1151,34 @@ class time(object):
         return self
 
     # Read-only field accessors
-    hour = property(lambda self: self.__hour, doc="hour (0-23)")
-    minute = property(lambda self: self.__minute, doc="minute (0-59)")
-    second = property(lambda self: self.__second, doc="second (0-59)")
-    microsecond = property(lambda self: self.__microsecond,
-                           doc="microsecond (0-999999)")
-    tzinfo = property(lambda self: self._tzinfo, doc="timezone info object")
+    @property
+    def hour(self):
+        """hour (0-23)"""
+        return self.__hour
+
+    @property
+    def minute(self):
+        """minute (0-59)"""
+        return self.__minute
+
+    @property
+    def second(self):
+        """second (0-59)"""
+        return self.__second
+
+    @property
+    def microsecond(self):
+        """microsecond (0-999999)"""
+        return self.__microsecond
+
+    @property
+    def tzinfo(self):
+        """timezone info object"""
+        return self._tzinfo
 
     # Standard conversions, __hash__ (and helpers)
 
-    # Comparisons.
+    # Comparisons of time objects with other.
 
     def __eq__(self, other):
         if isinstance(other, time):
@@ -1255,14 +1298,6 @@ class time(object):
 
     __str__ = isoformat
 
-    def __format__(self, format):
-        if not isinstance(format, (str, unicode)):
-            raise ValueError("__format__ excepts str or unicode, not %s" %
-                             format.__class__.__name__)
-        if not format:
-            return str(self)
-        return self.strftime(format)
-
     def strftime(self, fmt):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
@@ -1273,6 +1308,14 @@ class time(object):
                      self.__hour, self.__minute, self.__second,
                      0, 1, -1)
         return _wrap_strftime(self, fmt, timetuple)
+
+    def __format__(self, format):
+        if not isinstance(format, (str, unicode)):
+            raise ValueError("__format__ excepts str or unicode, not %s" %
+                             format.__class__.__name__)
+        if not format:
+            return str(self)
+        return self.strftime(format)
 
     # Timezone functions
 
@@ -1378,9 +1421,11 @@ time.max = time(23, 59, 59, 999999)
 time.resolution = timedelta(microseconds=1)
 
 class datetime(date):
+    """datetime(year, month, day[, hour[, minute[, second[, microsecond[,tzinfo]]]]])
 
-    # XXX needs docstrings
-    # See http://www.zope.org/Members/fdrake/DateTimeWiki/TimeZoneInfo
+    The year, month and day arguments are required. tzinfo may be None, or an
+    instance of a tzinfo subclass. The remaining arguments may be ints or longs.
+    """
 
     def __new__(cls, year, month=None, day=None, hour=0, minute=0, second=0,
                 microsecond=0, tzinfo=None):
@@ -1404,13 +1449,32 @@ class datetime(date):
         return self
 
     # Read-only field accessors
-    hour = property(lambda self: self.__hour, doc="hour (0-23)")
-    minute = property(lambda self: self.__minute, doc="minute (0-59)")
-    second = property(lambda self: self.__second, doc="second (0-59)")
-    microsecond = property(lambda self: self.__microsecond,
-                           doc="microsecond (0-999999)")
-    tzinfo = property(lambda self: self._tzinfo, doc="timezone info object")
+    @property
+    def hour(self):
+        """hour (0-23)"""
+        return self.__hour
 
+    @property
+    def minute(self):
+        """minute (0-59)"""
+        return self.__minute
+
+    @property
+    def second(self):
+        """second (0-59)"""
+        return self.__second
+
+    @property
+    def microsecond(self):
+        """microsecond (0-999999)"""
+        return self.__microsecond
+
+    @property
+    def tzinfo(self):
+        """timezone info object"""
+        return self._tzinfo
+
+    @classmethod
     def fromtimestamp(cls, t, tz=None):
         """Construct a datetime from a POSIX timestamp (like time.time()).
 
@@ -1438,8 +1502,8 @@ class datetime(date):
         if tz is not None:
             result = tz.fromutc(result)
         return result
-    fromtimestamp = classmethod(fromtimestamp)
 
+    @classmethod
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         if 1 - (t % 1.0) < 0.0000005:
@@ -1450,25 +1514,25 @@ class datetime(date):
         us = int((t % 1.0) * 1000000)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
         return cls(y, m, d, hh, mm, ss, us)
-    utcfromtimestamp = classmethod(utcfromtimestamp)
 
     # XXX This is supposed to do better than we *can* do by using time.time(),
     # XXX if the platform supports a more accurate way.  The C implementation
     # XXX uses gettimeofday on platforms that have it, but that isn't
     # XXX available from Python.  So now() may return different results
     # XXX across the implementations.
+    @classmethod
     def now(cls, tz=None):
         "Construct a datetime from time.time() and optional time zone info."
         t = _time.time()
         return cls.fromtimestamp(t, tz)
-    now = classmethod(now)
 
+    @classmethod
     def utcnow(cls):
         "Construct a UTC datetime from time.time()."
         t = _time.time()
         return cls.utcfromtimestamp(t)
-    utcnow = classmethod(utcnow)
 
+    @classmethod
     def combine(cls, date, time):
         "Construct a datetime from a given date and a given time."
         if not isinstance(date, _date_class):
@@ -1478,7 +1542,6 @@ class datetime(date):
         return cls(date.year, date.month, date.day,
                    time.hour, time.minute, time.second, time.microsecond,
                    time.tzinfo)
-    combine = classmethod(combine)
 
     def timetuple(self):
         "Return local time tuple compatible with time.localtime()."
@@ -1596,13 +1659,13 @@ class datetime(date):
         return s
 
     def __repr__(self):
-        "Convert to formal string, for repr()."
+        """Convert to formal string, for repr()."""
         L = [self.__year, self.__month, self.__day, # These are never zero
              self.__hour, self.__minute, self.__second, self.__microsecond]
         if L[-1] == 0:
             del L[-1]
         if L[-1] == 0:
-            del L[-1]            
+            del L[-1]
         s = ", ".join(map(str, L))
         s = "%s(%s)" % ('datetime.' + self.__class__.__name__, s)
         if self._tzinfo is not None:
@@ -2009,7 +2072,7 @@ z' = z + z.d = 1:MM then, and z'.d=0, and z'.d - z.d = -60 != 0 so [8]
 
 Because we know z.d said z was in daylight time (else [5] would have held and
 we would have stopped then), and we know z.d != z'.d (else [8] would have held
-and we we have stopped then), and there are only 2 possible values dst() can
+and we have stopped then), and there are only 2 possible values dst() can
 return in Eastern, it follows that z'.d must be 0 (which it is in the example,
 but the reasoning doesn't depend on the example -- it depends on there being
 two possible dst() outcomes, one zero and the other non-zero).  Therefore
