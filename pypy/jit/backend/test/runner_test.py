@@ -3359,6 +3359,27 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken2, -9)
         assert fail.identifier == 42
 
+    def test_finish_with_long_arglist(self):
+        boxes = [BoxInt(i) for i in range(30)]
+        ops = [ResOperation(rop.FINISH, boxes, None, descr=BasicFailDescr(1))]
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(boxes, ops, looptoken)
+        fail = self.cpu.execute_token(looptoken, *range(30))
+        assert fail.identifier == 1
+        for i in range(30):
+            assert self.cpu.get_latest_value_int(i) == i
+
+    def test_guard_with_long_arglist(self):
+        boxes = [BoxInt(i) for i in range(30)]
+        ops = [ResOperation(rop.GUARD_FALSE, [boxes[1]], None, descr=BasicFailDescr(1)),
+		ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(2))]
+	ops[0].setfailargs(boxes)
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(boxes, ops, looptoken)
+        fail = self.cpu.execute_token(looptoken, *range(30))
+        assert fail.identifier == 1
+        for i in range(30):
+            assert self.cpu.get_latest_value_int(i) == i
 
 class OOtypeBackendTest(BaseBackendTest):
 
