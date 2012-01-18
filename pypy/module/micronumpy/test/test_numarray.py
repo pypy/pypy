@@ -1300,7 +1300,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a + a).flat[3] == 6
         assert a[::2].flat[3] == 6
         assert a.reshape(2,5).flat[3] == 3
-        b = a.flat
+        b = a.reshape(2,5).flat
         b.next()
         b.next()
         b.next()
@@ -1309,6 +1309,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
         assert b.index == 3
+        assert b.coords == (0,3)
+
+    def test_flatiter_setitem(self):
+        from _numpypy import arange, array
+        a = arange(12).reshape(3,4)
+        b = a.T.flat
+        b[6::2] = [-1, -2]
+        assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
+        b[1:2] = [[[100]]]
+        assert(a[0,0] == 100)
+        assert(a[1,0] == 100)
+        b[array([10, 11])] == [-20, -40]
+        
 
     def test_flatiter_view(self):
         from _numpypy import arange
@@ -1323,8 +1336,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_flatiter_transpose(self):
         from _numpypy import arange
-        a = arange(10)
-        assert a.reshape(2,5).T.flat[3] == 6
+        a = arange(10).reshape(2,5).T
+        b = a.flat
+        assert (b[:5] == [0, 5, 1, 6, 2]).all()
+        b.next()
+        b.next()
+        b.next()
+        assert b.index == 3
+        assert b.coords == (1,1)
 
     def test_slice_copy(self):
         from _numpypy import zeros
