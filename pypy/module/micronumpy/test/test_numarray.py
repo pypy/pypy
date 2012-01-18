@@ -276,6 +276,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == b[i]
 
+    def test_getitem_nd(self):
+        from _numpypy import arange
+        a = arange(15).reshape(3, 5)
+        assert a[1, 3] == 8
+        assert a.T[1, 2] == 11 
+
     def test_setitem(self):
         from _numpypy import array
         a = array(range(5))
@@ -1285,6 +1291,29 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from _numpypy import ones
         a = ones((2, 2))
         assert list(((a + a).flat)) == [2, 2, 2, 2]
+
+    def test_flatiter_getitem(self):
+        from _numpypy import arange
+        a = arange(10)
+        assert a.flat[3] == 3
+        assert a[2:].flat[3] == 5
+        assert (a + a).flat[3] == 6
+        assert a[::2].flat[3] == 6
+        assert a.reshape(2,5).flat[3] == 3
+        b = a.flat
+        b.next()
+        b.next()
+        b.next()
+        assert b[3] == 3
+        assert b[-2] == 8
+        raises(IndexError, "b[11]")
+        raises(IndexError, "b[-11]")
+
+    def test_flatiter_transpose(self):
+        from _numpypy import arange
+        a = arange(10)
+        skip('out-of-order transformations do not work yet')
+        assert a.reshape(2,5).T.flat[3] == 6
 
     def test_slice_copy(self):
         from _numpypy import zeros

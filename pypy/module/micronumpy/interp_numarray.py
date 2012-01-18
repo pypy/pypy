@@ -1299,13 +1299,18 @@ class W_FlatIterator(ViewArray):
         size = 1
         for sh in arr.shape:
             size *= sh
-        self.strides = [arr.strides[-1]]
-        self.backstrides = [arr.backstrides[-1]]
-        ViewArray.__init__(self, size, [size], arr.dtype, arr.order,
-                               arr)
+        if arr.strides[-1] < arr.strides[0]:
+            self.strides = [arr.strides[-1]]
+            self.backstrides = [arr.backstrides[-1]]
+        else:
+            self.strides = [arr.strides[0]]
+            self.backstrides = [arr.backstrides[0]]
+        ViewArray.__init__(self, size, [size], arr.dtype, order=arr.order,
+                               parent=arr)
         self.shapelen = len(arr.shape)
         self.iter = OneDimIterator(arr.start, self.strides[0],
                                    self.shape[0])
+        self.base = arr
 
     def descr_next(self, space):
         if self.iter.done():
@@ -1317,9 +1322,42 @@ class W_FlatIterator(ViewArray):
     def descr_iter(self):
         return self
 
+    def descr_getitem(self, space, w_idx):
+        if not space.isinstance_w(w_idx, space.w_int):
+            raise OperationError(space.w_ValueError, space.wrap(
+                        "non-integer indexing not supported yet"))
+        _i = space.int_w(w_idx)
+        if _i<0:
+            i = self.size + _i
+        else:
+            i = _i
+        if i >= self.size or i < 0:
+            raise operationerrfmt(space.w_IndexError,
+                            "index (%d) out of range (%d<=index<%d", 
+                                _i, -self.size, self.size)
+        result = self.getitem(self.base.start + i * self.strides[0])
+        return result
+
+    def descr_setitem(self, space, w_idx, w_value):
+        if not space.isinstance_w(w_idx, space.w_int):
+            raise OperationError(space.w_ValueError, space.wrap(
+                        "non-integer indexing not supported yet"))
+        _i = space.int_w(w_idx)
+        if _i<0:
+            i = self.size + _i
+        else:
+            i = _i
+        if i >= self.size or i < 0:
+            raise operationerrfmt(space.w_IndexError,
+                            "index (%d) out of range (%d<=index<%d", 
+                                _i, -self.size, self.size)
+        self.setitem(self.base.start + i * self.strides[0], w_value)
+
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     next = interp2app(W_FlatIterator.descr_next),
     __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
+    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
 )
 W_FlatIterator.acceptable_as_base_class = False
