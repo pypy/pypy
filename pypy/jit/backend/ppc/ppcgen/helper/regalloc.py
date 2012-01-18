@@ -37,7 +37,6 @@ def prepare_cmp_op():
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
-        #self.possibly_free_var(op.result)
         return [l0, l1, res]
     return f
 
