@@ -183,10 +183,9 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI += 1
-                if oldI >= len(old_shape):
-                    break
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
+                if oldI < len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
     elif order == 'C':
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
@@ -206,10 +205,10 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI -= 1
-                if oldI < -len(old_shape):
-                    break
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
+                if oldI >= -len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
+    assert len(new_strides) == len(new_shape)
     return new_strides
 
 class BaseArray(Wrappable):
