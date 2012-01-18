@@ -3233,6 +3233,24 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert res.getfloat() == expected
 
+    def test_some_issue(self):
+        t_box, T_box = self.alloc_instance(self.T)
+        null_box = self.null_instance()
+        faildescr = BasicFailDescr(42)
+        operations = [
+            ResOperation(rop.GUARD_NONNULL_CLASS, [t_box, T_box], None,
+                                                        descr=faildescr),
+            ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(1))]
+        operations[0].setfailargs([])
+        looptoken = JitCellToken()
+        inputargs = [t_box]
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        operations = [
+            ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(99))
+        ]
+        self.cpu.compile_bridge(faildescr, [], operations, looptoken)
+        fail = self.cpu.execute_token(looptoken, null_box.getref_base())
+        assert fail.identifier == 99
 
     def test_compile_loop_with_target(self):
         i0 = BoxInt()
