@@ -23,12 +23,9 @@ class FakeStats(object):
 
 class TestARM(LLtypeBackendTest):
 
-    def setup_class(cls):
-        cls.cpu = ArmCPU(rtyper=None, stats=FakeStats())
-        cls.cpu.setup_once()
-
-    def teardown_method(self, method):
-        self.cpu.assembler.teardown()
+    def setup_method(self, meth):
+        self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
+        self.cpu.setup_once()
 
     # for the individual tests see
     # ====> ../../test/runner_test.py
