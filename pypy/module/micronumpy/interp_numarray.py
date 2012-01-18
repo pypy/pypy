@@ -919,14 +919,14 @@ class ConcreteArray(BaseArray):
         if size < 1:
             builder.append('[]')
             return
-        elif size == 1:
-            builder.append(dtype.itemtype.str_format(self.getitem(0)))
-            return
         if size > 1000:
             # Once this goes True it does not go back to False for recursive
             # calls
             use_ellipsis = True
         ndims = len(self.shape)
+        if ndims == 0:
+            builder.append(dtype.itemtype.str_format(self.getitem(0)))
+            return
         i = 0
         builder.append('[')
         if ndims > 1:
