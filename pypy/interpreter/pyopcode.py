@@ -582,25 +582,33 @@ class __extend__(pyframe.PyFrame):
         self.pushrevvalues(itemcount, items)
 
     def UNPACK_EX(self, oparg, next_instr):
+        "a, *b, c = range(10)"
         left = oparg & 0xFF
         right = (oparg & 0xFF00) >> 8
         w_iterable = self.popvalue()
-
         items = self.space.fixedview(w_iterable)
         itemcount = len(items)
-
+        if right < itemcount:
+            count = left + right
+            if count == 1:
+                plural = ''
+            else:
+                plural = 's'
+            raise operationerrfmt(self.space.w_ValueError,
+                                  "need more than %d value%s to unpack",
+                                  left + right, plural)
+        right = itemcount - right
+        assert right >= 0
+        # push values in reverse order
         i = itemcount - 1
-        while i >= itemcount-right:
+        while i >= right:
             self.pushvalue(items[i])
             i -= 1
-
-        self.pushvalue(self.space.newlist(items[left:itemcount-right]))
-
+        self.pushvalue(self.space.newlist(items[left:right]))
         i = left - 1
         while i >= 0:
             self.pushvalue(items[i])
             i -= 1
-
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
