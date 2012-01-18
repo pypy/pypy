@@ -2,13 +2,14 @@ from pypy.jit.metainterp.history import ConstInt
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.history import Box
 
+IMM_SIZE = 2 ** 15 - 1
 
-def check_imm_box(arg, size=0xFF, allow_zero=True):
+def check_imm_box(arg, size=IMM_SIZE, allow_zero=True):
     if isinstance(arg, ConstInt):
         return _check_imm_arg(arg.getint(), size, allow_zero)
     return False
 
-def _check_imm_arg(arg, size=0xFF, allow_zero=True):
+def _check_imm_arg(arg, size=IMM_SIZE, allow_zero=True):
     #assert not isinstance(arg, ConstInt)
     #if not we_are_translated():
     #    if not isinstance(arg, int):
