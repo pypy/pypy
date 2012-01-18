@@ -798,6 +798,13 @@ class TestCompiler:
         yield self.st, test, "f()", 42
     # This line is needed for py.code to find the source.
 
+    def test_tuple_unpacking(self):
+        func = """def f():
+            (a, *b, c) = 1, 2, 3, 4, 5
+            return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3, 4], 5)
+
 
 class AppTestCompiler:
 
