@@ -6,7 +6,7 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               MAX_REG_PARAMS)
 
-from pypy.jit.metainterp.history import (JitCellToken, TargetToken, 
+from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
@@ -704,11 +704,9 @@ class StrOpAssembler(object):
 
     def _emit_copystrcontent(self, op, regalloc, is_unicode):
         # compute the source address
-        args = list(op.getarglist())
-        base_loc, box = regalloc._ensure_value_is_boxed(args[0], args)
-        args.append(box)
-        ofs_loc, box = regalloc._ensure_value_is_boxed(args[2], args)
-        args.append(box)
+        args = op.getarglist()
+        base_loc = regalloc._ensure_value_is_boxed(args[0], args)
+        ofs_loc = regalloc._ensure_value_is_boxed(args[2], args)
         assert args[0] is not args[1]    # forbidden case of aliasing
         regalloc.possibly_free_var(args[0])
         if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
@@ -724,41 +722,44 @@ class StrOpAssembler(object):
         dstaddr_box = TempPtr()
         dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box)
         forbidden_vars.append(dstaddr_box)
-        base_loc, box = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
-        args.append(box)
-        forbidden_vars.append(box)
-        ofs_loc, box = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
-        args.append(box)
+        base_loc = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
+        ofs_loc = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
         assert base_loc.is_reg()
         assert ofs_loc.is_reg()
         regalloc.possibly_free_var(args[1])
         if args[3] is not args[4]:     # more of the MESS described above
             regalloc.possibly_free_var(args[3])
+        regalloc.free_temp_vars()
         self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
                                         is_unicode=is_unicode)
 
         # compute the length in bytes
         forbidden_vars = [srcaddr_box, dstaddr_box]
-        length_loc, length_box = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
-        args.append(length_box)
+        if isinstance(args[4], Box):
+            length_box = args[4]
+            length_loc = regalloc.make_sure_var_in_reg(args[4], forbidden_vars)
+        else:
+            length_box = TempInt()
+            length_loc = regalloc.force_allocate_reg(length_box, forbidden_vars)
+            imm = regalloc.convert_to_imm(args[4])
+            self.load(length_loc, imm)
         if is_unicode:
-            forbidden_vars = [srcaddr_box, dstaddr_box]
             bytes_box = TempPtr()
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()
-            self.mc.li(r.r0.value, 1<<scale)
+            self.mc.alloc_scratch_reg(1 << scale)
             if IS_PPC_32:
-                self.mc.mullw(bytes_loc.value, r.r0.value, length_loc.value)
+                self.mc.mullw(bytes_loc.value, r.SCRATCH.value, length_loc.value)
             else:
-                self.mc.mulld(bytes_loc.value, r.r0.value, length_loc.value)
+                self.mc.mulld(bytes_loc.value, r.SCRATCH.value, length_loc.value)
+            self.mc.free_scratch_reg()
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
         self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, 
                 [dstaddr_box, srcaddr_box, length_box], regalloc)
 
-        regalloc.possibly_free_vars(args)
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)
         regalloc.possibly_free_var(srcaddr_box)

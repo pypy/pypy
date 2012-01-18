@@ -582,6 +582,8 @@ class AssemblerPPC(OpAssembler):
                 arglocs = regalloc.operations[opnum](regalloc, op)
                 if arglocs is not None:
                     self.operations[opnum](self, op, arglocs, regalloc)
+            if op.is_guard():
+                regalloc.possibly_free_vars(op.getfailargs())
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
