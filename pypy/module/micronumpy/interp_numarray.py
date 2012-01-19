@@ -1484,8 +1484,7 @@ class W_FlatIterator(ViewArray):
         basei = ViewIterator(self.base.start, self.base.strides,
                                self.base.backstrides,self.base.shape)
         shapelen = len(self.base.shape)
-        if start > 0:
-            basei = basei.next_skip_x(shapelen, start)
+        basei = basei.next_skip_x(shapelen, start)
         ri = ArrayIterator(lngth)
         while not ri.done():
             # TODO: add a jit_merge_point
@@ -1502,8 +1501,7 @@ class W_FlatIterator(ViewArray):
         basei = ViewIterator(self.base.start, self.base.strides,
                                self.base.backstrides,self.base.shape)
         shapelen = len(self.base.shape)
-        if start > 0:
-            basei = basei.next_skip_x(shapelen, start)
+        basei = basei.next_skip_x(shapelen, start)
         for i in range(lngth):
             # TODO: add jit_merge_point
             v = arr.getitem(ai).convert_to(self.base.dtype)

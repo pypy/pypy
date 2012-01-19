@@ -51,9 +51,9 @@ class ArrayIterator(BaseIterator):
         self.size = size
 
     def next(self, shapelen):
-        return self._next(1)
+        return self.next_skip_x(1)
 
-    def _next(self, ofs):
+    def next_skip_x(self, ofs):
         arr = instantiate(ArrayIterator)
         arr.size = self.size
         arr.offset = self.offset + ofs
@@ -61,7 +61,7 @@ class ArrayIterator(BaseIterator):
 
     def next_no_increase(self, shapelen):
         # a hack to make JIT believe this is always virtual
-        return self._next(0)
+        return self.next_skip_x(0)
 
     def done(self):
         return self.offset >= self.size
@@ -133,11 +133,34 @@ class ViewIterator(BaseIterator):
         res._done = done
         return res
 
-    @jit.unroll_safe
+    #@jit.unroll_safe
     def next_skip_x(self, shapelen, step):
-        res = self.next(shapelen)
-        for x in range(step-1):
-            res = res.next(shapelen)
+        shapelen = jit.promote(len(self.res_shape))
+        offset = self.offset
+        indices = [0] * shapelen
+        for i in range(shapelen):
+            indices[i] = self.indices[i]
+        done = False
+        for i in range(shapelen - 1, -1, -1):
+            if indices[i] < self.res_shape[i] - step:
+                indices[i] += step
+                offset += self.strides[i] * step
+                break
+            else:
+                remaining_step = (indices[i] + step) // self.res_shape[i]
+                this_i_step = step - remaining_step * self.res_shape[i]
+                offset += self.strides[i] * this_i_step
+                indices[i] = indices[i] +  this_i_step
+                step = remaining_step
+        else:
+            done = True
+        res = instantiate(ViewIterator)
+        res.offset = offset
+        res.indices = indices
+        res.strides = self.strides
+        res.backstrides = self.backstrides
+        res.res_shape = self.res_shape
+        res._done = done
         return res
 
     def apply_transformations(self, arr, transformations):
