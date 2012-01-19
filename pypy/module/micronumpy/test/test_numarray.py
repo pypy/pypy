@@ -1308,16 +1308,22 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[-2] == 8
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
+        assert b.index == 3
 
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
-        assert (a[::2].flat == [0, 1, 4, 5, 8, 9])
+        #no == yet.
+        # a[::2].flat == [0, 1, 4, 5, 8, 9]
+        isequal = True
+        for y,z in zip(a[::2].flat, [0, 1, 4, 5, 8, 9]):
+            if y != z:
+                isequal = False
+        assert isequal == True
 
     def test_flatiter_transpose(self):
         from _numpypy import arange
         a = arange(10)
-        skip('out-of-order transformations do not work yet')
         assert a.reshape(2,5).T.flat[3] == 6
 
     def test_slice_copy(self):

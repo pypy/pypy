@@ -1,10 +1,9 @@
 * I think we should wait for indexing-by-arrays-2, since this would clean up
   the iterator interface
 
-* I commited a failing test, it seems the entire approach is pretty doomed.
-  Instead we should keep the parent iterator (and not create a OneDim one)
-
 * For getitem, we need to reuse parent getitem, but with some hook
   that recomputes indexes. That hook would be used for any sort of access,
   be it slices or be it integers, but in general I would like to avoid code
   duplication, since the indexing is getting slowly fairly complex.
+
+* iterating over a transposed array still fails.

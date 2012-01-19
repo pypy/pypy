@@ -1325,11 +1325,15 @@ class W_FlatIterator(ViewArray):
     def descr_iter(self):
         return self
 
+    def descr_index(self, space):
+        return space.wrap(self.iter.offset)
+
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     next = interp2app(W_FlatIterator.descr_next),
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(BaseArray.descr_getitem),
     __setitem__ = interp2app(BaseArray.descr_setitem),
+    index = GetSetProperty(W_FlatIterator.descr_index),
 )
 W_FlatIterator.acceptable_as_base_class = False
