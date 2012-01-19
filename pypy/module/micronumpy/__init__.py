@@ -70,6 +70,7 @@ class Module(MixedModule):
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("ceil", "ceil"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
