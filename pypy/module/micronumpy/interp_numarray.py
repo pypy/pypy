@@ -1308,8 +1308,10 @@ class W_FlatIterator(ViewArray):
         ViewArray.__init__(self, size, [size], arr.dtype, order=arr.order,
                                parent=arr)
         self.shapelen = len(arr.shape)
-        self.iter = OneDimIterator(arr.start, self.strides[0],
-                                   self.shape[0])
+        sig = arr.find_sig()
+        #self.iter = OneDimIterator(arr.start, self.strides[0],
+        #                           self.shape[0])
+        self.iter = sig.create_frame(arr).get_final_iter()
         self.start = arr.start
         self.base = arr
 
