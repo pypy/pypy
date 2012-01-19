@@ -810,16 +810,14 @@ def getimportlock(space):
    a .pyc file in text mode the magic number will be wrong; also, the
    Apple MPW compiler swaps their values, botching string constants.
 
-   CPython uses values between 20121 - 62xxx
+   CPython 2 uses values between 20121 - 62xxx
+   CPython 3 uses values greater than 3000
+   PyPy uses values under 3000
 
 """
 
-# picking a magic number is a mess.  So far it works because we
-# have only one extra opcode, which bumps the magic number by +2, and CPython
-# leaves a gap of 10 when it increases
-# its own magic number.  To avoid assigning exactly the same numbers
-# as CPython we always add a +2.  We'll have to think again when we
-# get three more new opcodes
+# Depending on which opcodes are enabled, eg. CALL_METHOD we bump the version
+# number by some constant
 #
 #  * CALL_METHOD            +2
 #

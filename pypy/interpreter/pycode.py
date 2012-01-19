@@ -24,12 +24,19 @@ from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 def unpack_str_tuple(space,w_str_tuple):
     return [space.str_w(w_el) for w_el in space.unpackiterable(w_str_tuple)]
 
-
 # Magic numbers for the bytecode version in code objects.
 # See comments in pypy/module/imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
-default_magic = (168686339+2) | 0x0a0d0000              # this PyPy's magic
-                                                        # (from CPython 2.7.0)
+
+# we compute the magic number in a similar way to CPython, but we use a
+# different value for the highest 16 bits. Bump pypy_incremental_magic every
+# time you make pyc files incompatible
+
+pypy_incremental_magic = 0 # bump it by 16
+assert pypy_incremental_magic % 16 == 0
+assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
+                                     # no known magic numbers below this value
+default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 
 # cpython_code_signature helper
 def cpython_code_signature(code):
