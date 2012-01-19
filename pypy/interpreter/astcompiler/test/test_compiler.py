@@ -5,6 +5,7 @@ from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.interpreter.error import OperationError
 from pypy.tool import stdlib_opcode as ops
 
 def compile_with_astcompiler(expr, mode, space):
@@ -41,9 +42,11 @@ class TestCompiler:
         source = str(py.code.Source(source))
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
-        # 2.7 bytecode is too different, the standard `dis` module crashes
+        # 3.2 bytecode is too different, the standard `dis` module crashes
         # on older cpython versions
-        if sys.version_info >= (2, 7):
+        if sys.version_info >= (3, 2):
+            # this will only (maybe) work in the far future, when we run pypy
+            # on top of Python 3. For now, it's just disabled
             print
             code.dump()
         w_dict = space.newdict()
@@ -242,7 +245,9 @@ class TestCompiler:
                 return a, b
         """)
         decl = str(decl) + '\n'
-        yield self.st, decl + "x=f(1, b=2)", "x", (1, 2)
+        self.st(decl + "x=f(1, b=2)", "x", (1, 2))
+        operr = py.test.raises(OperationError, 'self.st(decl + "x=f(1, 2)", "x", (1, 2))')
+        assert operr.value.w_type is self.space.w_TypeError
 
     def test_listmakers(self):
         yield (self.st,

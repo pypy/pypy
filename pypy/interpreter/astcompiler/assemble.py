@@ -147,6 +147,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.free_vars = _list_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
         self.argcount = 0
+        self.kwonlyargcount = 0
         self.lineno_set = False
         self.lineno = 0
         self.add_none_to_final_return = True
@@ -459,6 +460,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         bytecode = ''.join([block.get_code() for block in blocks])
         return pycode.PyCode(self.space,
                              self.argcount,
+                             self.kwonlyargcount,
                              len(self.var_names),
                              stack_depth,
                              flags,

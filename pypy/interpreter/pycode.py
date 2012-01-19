@@ -16,7 +16,7 @@ from pypy.interpreter.astcompiler.consts import (
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
-from pypy.rlib.objectmodel import compute_hash
+from pypy.rlib.objectmodel import compute_hash, we_are_translated
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 
 # helper
@@ -42,8 +42,16 @@ default_magic = pypy_incremental_magic | (ord('\r')<<16) | (ord('\n')<<24)
 def cpython_code_signature(code):
     "([list-of-arg-names], vararg-name-or-None, kwarg-name-or-None)."
     argcount = code.co_argcount
+    if we_are_translated():
+        kwonlyargcount = code.co_kwonlyargcount
+    else:
+        # for compatibility with CPython 2.7 code objects
+        kwonlyargcount = getattr(code, 'co_kwonlyargcount', 0)
     assert argcount >= 0     # annotator hint
+    assert kwonlyargcount >= 0
     argnames = list(code.co_varnames[:argcount])
+    n = argcount + kwonlyargcount
+    kwonlyargs = list(code.co_varnames[argcount:n])
     if code.co_flags & CO_VARARGS:
         varargname = code.co_varnames[argcount]
         argcount += 1
@@ -54,7 +62,7 @@ def cpython_code_signature(code):
         argcount += 1
     else:
         kwargname = None
-    return Signature(argnames, varargname, kwargname)
+    return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -62,7 +70,7 @@ class PyCode(eval.Code):
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]"]
 
-    def __init__(self, space,  argcount, nlocals, stacksize, flags,
+    def __init__(self, space,  argcount, kwonlyargcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
                      hidden_applevel=False, magic = default_magic):
@@ -72,6 +80,7 @@ class PyCode(eval.Code):
         eval.Code.__init__(self, name)
         assert nlocals >= 0
         self.co_argcount = argcount
+        self.co_kwonlyargcount = kwonlyargcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
         self.co_flags = flags
@@ -175,6 +184,7 @@ class PyCode(eval.Code):
         # stick the underlying CPython magic value, if the code object
         # comes from there
         return cls(space, code.co_argcount,
+                      getattr(code, 'co_kwonlyargcount', 0),
                       code.co_nlocals,
                       code.co_stacksize,
                       code.co_flags,
@@ -250,6 +260,7 @@ class PyCode(eval.Code):
                 consts[num] = self.space.unwrap(w)
             num += 1
         return new.code( self.co_argcount,
+                         self.co_kwonlyargcount,
                          self.co_nlocals,
                          self.co_stacksize,
                          self.co_flags,
@@ -297,6 +308,7 @@ class PyCode(eval.Code):
             return space.w_False
         areEqual = (self.co_name == other.co_name and
                     self.co_argcount == other.co_argcount and
+                    self.co_kwonlyargcount == other.co_kwonlyargcount and
                     self.co_nlocals == other.co_nlocals and
                     self.co_flags == other.co_flags and
                     self.co_firstlineno == other.co_firstlineno and
@@ -323,6 +335,7 @@ class PyCode(eval.Code):
         space = self.space
         result =  compute_hash(self.co_name)
         result ^= self.co_argcount
+        result ^= self.co_kwonlyargcount
         result ^= self.co_nlocals
         result ^= self.co_flags
         result ^= self.co_firstlineno
@@ -337,12 +350,12 @@ class PyCode(eval.Code):
             w_result = space.xor(w_result, space.hash(w_const))
         return w_result
 
-    @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
+    @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring=str,
                  filename=str, name=str, firstlineno=int,
                  lnotab=str, magic=int)
     def descr_code__new__(space, w_subtype,
-                          argcount, nlocals, stacksize, flags,
+                          argcount, kwonlyargcount, nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, firstlineno,
                           lnotab, w_freevars=NoneNotWrapped,
@@ -351,6 +364,9 @@ class PyCode(eval.Code):
         if argcount < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: argcount must not be negative"))
+        if kwonlyargcount < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("code: kwonlyargcount must not be negative"))
         if nlocals < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("code: nlocals must not be negative"))
@@ -369,7 +385,7 @@ class PyCode(eval.Code):
         else:
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
-        PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
+        PyCode.__init__(code, space, argcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
         return space.wrap(code)
 
@@ -381,6 +397,7 @@ class PyCode(eval.Code):
         w        = space.wrap
         tup      = [
             w(self.co_argcount),
+            w(self.co_kwonlyargcount),
             w(self.co_nlocals),
             w(self.co_stacksize),
             w(self.co_flags),

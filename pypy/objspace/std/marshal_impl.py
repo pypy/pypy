@@ -313,6 +313,7 @@ def marshal_w_pycode(space, w_pycode, m):
     # see pypy.interpreter.pycode for the layout
     x = space.interp_w(PyCode, w_pycode)
     m.put_int(x.co_argcount)
+    m.put_int(x.co_kwonlyargcount)
     m.put_int(x.co_nlocals)
     m.put_int(x.co_stacksize)
     m.put_int(x.co_flags)
@@ -355,6 +356,7 @@ def unmarshal_strlist(u, tc):
 
 def unmarshal_pycode(space, u, tc):
     argcount    = u.get_int()
+    kwonlyargcount = u.get_int()
     nlocals     = u.get_int()
     stacksize   = u.get_int()
     flags       = u.get_int()
@@ -370,7 +372,7 @@ def unmarshal_pycode(space, u, tc):
     name        = unmarshal_str(u)
     firstlineno = u.get_int()
     lnotab      = unmarshal_str(u)
-    code = PyCode(space, argcount, nlocals, stacksize, flags,
+    code = PyCode(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
                   name, firstlineno, lnotab, freevars, cellvars)
     return space.wrap(code)

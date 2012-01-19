@@ -1173,6 +1173,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         if args.args:
             self._handle_nested_args(args.args)
             self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self._handle_nested_args(args.kwonlyargs)
+            self.kwonlyargcount = len(args.kwonlyargs)
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)

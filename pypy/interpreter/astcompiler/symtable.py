@@ -495,6 +495,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(scope, FunctionScope) # Annotator hint.
         if arguments.args:
             self._handle_params(arguments.args, True)
+        if arguments.kwonlyargs:
+            self._handle_params(arguments.kwonlyargs, True)
         if arguments.vararg:
             self.note_symbol(arguments.vararg, SYM_PARAM)
             scope.note_variable_arg(arguments.vararg)
