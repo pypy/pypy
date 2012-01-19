@@ -55,6 +55,17 @@ class AppTestMarshalMore:
         z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
 
+    def test_marshal_code_object(self):
+        def foo(a, b):
+            pass
+
+        import marshal
+        s = marshal.dumps(foo.__code__)
+        code2 = marshal.loads(s)
+        for attr_name in dir(code2):
+            if attr_name.startswith("co_"):
+                assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
+
 
 class AppTestMarshalSmallLong(AppTestMarshalMore):
     def setup_class(cls):
