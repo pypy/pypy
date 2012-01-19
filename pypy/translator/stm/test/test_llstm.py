@@ -97,7 +97,13 @@ def callback2(a):
     assert float(stm_getfield(a, 'sb')) == float(rs1b)
     stm_setfield(a, 'x', 42 * a.y)
     stm_setfield(a, 'c1', '(')
+    assert stm_getfield(a, 'c1') == '('
+    assert stm_getfield(a, 'c2') == '*'
+    assert stm_getfield(a, 'c3') == '#'
     stm_setfield(a, 'c2', '?')
+    assert stm_getfield(a, 'c1') == '('
+    assert stm_getfield(a, 'c2') == '?'
+    assert stm_getfield(a, 'c3') == '#'
     stm_setfield(a, 'c3', ')')
     stm_setfield(a, 'l', rll2)
     stm_setfield(a, 'f', rf2)

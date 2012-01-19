@@ -19,7 +19,7 @@
 #include <stddef.h>
 
 
-#ifdef __GNUC__       /* other platforms too, probably */
+#if 0 //def __GNUC__       /* other platforms too, probably */  XXX FIX ME
 typedef _Bool bool_t;
 #else
 typedef unsigned char bool_t;

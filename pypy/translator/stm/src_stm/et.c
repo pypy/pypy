@@ -513,6 +513,9 @@ void commitInevitableTransaction(struct tx_descriptor *d)
 long stm_read_word(long* addr)
 {
   struct tx_descriptor *d = thread_descriptor;
+#ifdef RPY_STM_ASSERT
+  assert((((long)addr) & (sizeof(void*)-1)) == 0);
+#endif
   if (!d->transaction_active)
     return *addr;
 
@@ -576,6 +579,7 @@ long stm_read_word(long* addr)
 void stm_write_word(long* addr, long val)
 {
   struct tx_descriptor *d = thread_descriptor;
+  assert((((long)addr) & (sizeof(void*)-1)) == 0);
   if (!d->transaction_active) {
     *addr = val;
     return;
@@ -864,7 +868,7 @@ void stm_abort_and_retry(void)
 unsigned long stm_read_partial_word(int fieldsize, void *addr)
 {
   int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)((char *)addr - misalignment);
+  long *p = (long*)(((char *)addr) - misalignment);
   unsigned long word = stm_read_word(p);
   return word >> (misalignment * 8);
 }
@@ -873,7 +877,7 @@ unsigned long stm_read_partial_word(int fieldsize, void *addr)
 void stm_write_partial_word(int fieldsize, void *addr, unsigned long nval)
 {
   int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)((char *)addr - misalignment);
+  long *p = (long*)(((char *)addr) - misalignment);
   long val = nval << (misalignment * 8);
   long word = stm_read_word(p);
   long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);
