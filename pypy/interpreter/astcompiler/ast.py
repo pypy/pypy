@@ -2280,18 +2280,22 @@ class ExceptHandler(excepthandler):
 
 class arguments(AST):
 
-    def __init__(self, args, vararg, kwarg, defaults):
+    def __init__(self, args, vararg, kwonlyargs, kwarg, defaults):
         self.args = args
         self.w_args = None
         self.vararg = vararg
+        self.kwonlyargs = kwonlyargs
+        self.w_kwonlyargs = None
         self.kwarg = kwarg
         self.defaults = defaults
         self.w_defaults = None
-        self.initialization_state = 15
+        self.initialization_state = 31
 
     def mutate_over(self, visitor):
         if self.args:
             visitor._mutate_sequence(self.args)
+        if self.kwonlyargs:
+            visitor._mutate_sequence(self.kwonlyargs)
         if self.defaults:
             visitor._mutate_sequence(self.defaults)
         return visitor.visit_arguments(self)
@@ -2300,12 +2304,12 @@ class arguments(AST):
         visitor.visit_arguments(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~6) ^ 9:
-            self.missing_field(space, ['args', None, None, 'defaults'], 'arguments')
+        if (self.initialization_state & ~10) ^ 21:
+            self.missing_field(space, ['args', None, 'kwonlyargs', None, 'defaults'], 'arguments')
         else:
             if not self.initialization_state & 2:
                 self.vararg = None
-            if not self.initialization_state & 4:
+            if not self.initialization_state & 8:
                 self.kwarg = None
         w_list = self.w_args
         if w_list is not None:
@@ -2316,6 +2320,16 @@ class arguments(AST):
                 self.args = None
         if self.args is not None:
             for node in self.args:
+                node.sync_app_attrs(space)
+        w_list = self.w_kwonlyargs
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.kwonlyargs = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.kwonlyargs = None
+        if self.kwonlyargs is not None:
+            for node in self.kwonlyargs:
                 node.sync_app_attrs(space)
         w_list = self.w_defaults
         if w_list is not None:
@@ -2727,6 +2741,7 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_arguments(self, node):
         self.visit_sequence(node.args)
+        self.visit_sequence(node.kwonlyargs)
         self.visit_sequence(node.defaults)
 
     def visit_keyword(self, node):
@@ -6908,12 +6923,29 @@ def arguments_set_vararg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'vararg')
     w_self.initialization_state |= 2
 
+def arguments_get_kwonlyargs(space, w_self):
+    if not w_self.initialization_state & 4:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwonlyargs')
+    if w_self.w_kwonlyargs is None:
+        if w_self.kwonlyargs is None:
+            list_w = []
+        else:
+            list_w = [space.wrap(node) for node in w_self.kwonlyargs]
+        w_list = space.newlist(list_w)
+        w_self.w_kwonlyargs = w_list
+    return w_self.w_kwonlyargs
+
+def arguments_set_kwonlyargs(space, w_self, w_new_value):
+    w_self.w_kwonlyargs = w_new_value
+    w_self.initialization_state |= 4
+
 def arguments_get_kwarg(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwarg')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwarg')
     return space.wrap(w_self.kwarg)
@@ -6930,10 +6962,10 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'kwarg', w_new_value)
         return
     w_self.deldictvalue(space, 'kwarg')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 8
 
 def arguments_get_defaults(space, w_self):
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'defaults')
     if w_self.w_defaults is None:
@@ -6947,17 +6979,18 @@ def arguments_get_defaults(space, w_self):
 
 def arguments_set_defaults(space, w_self, w_new_value):
     w_self.w_defaults = w_new_value
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 16
 
-_arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'kwarg', 'defaults'])
+_arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'kwonlyargs', 'kwarg', 'defaults'])
 def arguments_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(arguments, w_self)
     w_self.w_args = None
+    w_self.w_kwonlyargs = None
     w_self.w_defaults = None
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 4:
-            w_err = space.wrap("arguments constructor takes either 0 or 4 positional arguments")
+        if len(args_w) != 5:
+            w_err = space.wrap("arguments constructor takes either 0 or 5 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _arguments_field_unroller:
@@ -6969,9 +7002,10 @@ def arguments_init(space, w_self, __args__):
 arguments.typedef = typedef.TypeDef("arguments",
     AST.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['args', 'vararg', 'kwarg', 'defaults']),
+    _fields=_FieldsWrapper(['args', 'vararg', 'kwonlyargs', 'kwarg', 'defaults']),
     args=typedef.GetSetProperty(arguments_get_args, arguments_set_args, cls=arguments),
     vararg=typedef.GetSetProperty(arguments_get_vararg, arguments_set_vararg, cls=arguments),
+    kwonlyargs=typedef.GetSetProperty(arguments_get_kwonlyargs, arguments_set_kwonlyargs, cls=arguments),
     kwarg=typedef.GetSetProperty(arguments_get_kwarg, arguments_set_kwarg, cls=arguments),
     defaults=typedef.GetSetProperty(arguments_get_defaults, arguments_set_defaults, cls=arguments),
     __new__=interp2app(get_AST_new(arguments)),

@@ -1185,3 +1185,17 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
+
+    def test_kwonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, *, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.expr)
+        assert fn.args.kwonlyargs[0].id == "kwarg"
+
+    def test_kwonly_arguments_2(self):
+        fn = self.get_first_stmt("def f(a, b, c, *args, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.expr)
+        assert fn.args.kwonlyargs[0].id == "kwarg"

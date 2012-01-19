@@ -105,7 +105,7 @@ module Python version "$Revision: 43614 $"
 	excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
 	                attributes(int lineno, int col_offset)
 
-	arguments = (expr* args, identifier? vararg, 
+	arguments = (expr* args, identifier? vararg, expr* kwonlyargs, 
 		     identifier? kwarg, expr* defaults)
 
         -- keyword arguments supplied to call

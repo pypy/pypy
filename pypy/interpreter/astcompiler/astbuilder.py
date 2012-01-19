@@ -508,13 +508,14 @@ class ASTBuilder(object):
         # and varargslist (lambda definition).
         if arguments_node.type == syms.parameters:
             if len(arguments_node.children) == 2:
-                return ast.arguments(None, None, None, None)
+                return ast.arguments(None, None, None, None, None)
             arguments_node = arguments_node.children[1]
         i = 0
         child_count = len(arguments_node.children)
         defaults = []
         args = []
         variable_arg = None
+        keywordonly_args = None
         keywords_arg = None
         have_default = False
         while i < child_count:
@@ -552,13 +553,16 @@ class ASTBuilder(object):
                         self.check_forbidden_name(arg_name, name_node)
                         name = ast.Name(arg_name, ast.Param, name_node.lineno,
                                         name_node.column)
-                        args.append(name)
+                        if keywordonly_args is None:
+                            args.append(name)
+                        else:
+                            keywordonly_args.append(name)
                     i += 2
                     break
             elif arg_type == tokens.STAR:
                 name_node = arguments_node.children[i + 1]
+                keywordonly_args = []
                 if name_node.type == tokens.COMMA:
-                    # XXX for now
                     i += 2
                 else:
                     variable_arg = name_node.children[0].value
@@ -575,7 +579,7 @@ class ASTBuilder(object):
             defaults = None
         if not args:
             args = None
-        return ast.arguments(args, variable_arg, keywords_arg, defaults)
+        return ast.arguments(args, variable_arg, keywordonly_args, keywords_arg, defaults)
 
     def handle_arg_unpacking(self, fplist_node):
         args = []
@@ -775,7 +779,7 @@ class ASTBuilder(object):
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.children[-1])
         if len(lambdef_node.children) == 3:
-            args = ast.arguments(None, None, None, None)
+            args = ast.arguments(None, None, None, None, None)
         else:
             args = self.handle_arguments(lambdef_node.children[1])
         return ast.Lambda(args, expr, lambdef_node.lineno, lambdef_node.column)
