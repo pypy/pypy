@@ -1309,6 +1309,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
 
+    def test_flatiter_view(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        assert (a[::2].flat == [0, 1, 4, 5, 8, 9])
+
     def test_flatiter_transpose(self):
         from _numpypy import arange
         a = arange(10)
