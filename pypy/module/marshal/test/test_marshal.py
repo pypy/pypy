@@ -7,12 +7,13 @@ class AppTestMarshal:
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
     def w_marshal_check(self, case):
-        import marshal, StringIO
+        import marshal
+        from io import StringIO
         s = marshal.dumps(case)
-        print repr(s)
+        print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
-        f = StringIO.StringIO()
+        f = StringIO()
         marshal.dump(case, f)
         f.seek(0)
         x = marshal.load(f)
