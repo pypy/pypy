@@ -109,7 +109,9 @@ class STMTransformer(object):
 
     def stt_getfield(self, newoperations, op):
         STRUCT = op.args[0].concretetype.TO
-        if STRUCT._immutable_field(op.args[1].value):
+        if op.result.concretetype is lltype.Void:
+            op1 = op
+        elif STRUCT._immutable_field(op.args[1].value):
             op1 = op
         elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "getfield-raw")
@@ -120,7 +122,9 @@ class STMTransformer(object):
 
     def stt_setfield(self, newoperations, op):
         STRUCT = op.args[0].concretetype.TO
-        if STRUCT._immutable_field(op.args[1].value):
+        if op.args[2].concretetype is lltype.Void:
+            op1 = op
+        elif STRUCT._immutable_field(op.args[1].value):
             op1 = op
         elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "setfield-raw")
@@ -131,7 +135,9 @@ class STMTransformer(object):
 
     def stt_getarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
-        if ARRAY._immutable_field():
+        if op.result.concretetype is lltype.Void:
+            op1 = op
+        elif ARRAY._immutable_field():
             op1 = op
         elif ARRAY._gckind == 'raw':
             turn_inevitable(newoperations, "getarrayitem-raw")
@@ -142,7 +148,9 @@ class STMTransformer(object):
 
     def stt_setarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
-        if ARRAY._immutable_field():
+        if op.args[2].concretetype is lltype.Void:
+            op1 = op
+        elif ARRAY._immutable_field():
             op1 = op
         elif ARRAY._gckind == 'raw':
             turn_inevitable(newoperations, "setarrayitem-raw")
@@ -153,7 +161,9 @@ class STMTransformer(object):
 
     def stt_getinteriorfield(self, newoperations, op):
         OUTER = op.args[0].concretetype.TO
-        if OUTER._hints.get('immutable'):
+        if op.result.concretetype is lltype.Void:
+            op1 = op
+        elif OUTER._hints.get('immutable'):
             op1 = op
         elif OUTER._gckind == 'raw':
             turn_inevitable(newoperations, "getinteriorfield-raw")
@@ -164,7 +174,9 @@ class STMTransformer(object):
 
     def stt_setinteriorfield(self, newoperations, op):
         OUTER = op.args[0].concretetype.TO
-        if OUTER._hints.get('immutable'):
+        if op.args[-1].concretetype is lltype.Void:
+            op1 = op
+        elif OUTER._hints.get('immutable'):
             op1 = op
         elif OUTER._gckind == 'raw':
             turn_inevitable(newoperations, "setinteriorfield-raw")

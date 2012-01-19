@@ -9,7 +9,7 @@ A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed),
                        ('c1', lltype.Char), ('c2', lltype.Char),
                        ('c3', lltype.Char), ('l', lltype.SignedLongLong),
                        ('f', lltype.Float), ('sa', lltype.SingleFloat),
-                       ('sb', lltype.SingleFloat))
+                       ('sb', lltype.SingleFloat), ('v', lltype.Void))
 rll1 = r_longlong(-10000000000003)
 rll2 = r_longlong(-300400500600700)
 rf1 = -12.38976129
@@ -29,6 +29,7 @@ def callback1(a):
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
+    assert a.v == None
     assert stm_getfield(a, 'x') == -611
     assert stm_getfield(a, 'c2') == '\\'
     assert stm_getfield(a, 'c1') == '/'
@@ -58,6 +59,7 @@ def test_stm_getfield():
     a.f = rf1
     a.sa = rs1a
     a.sb = rs1b
+    a.v = None
     stm_descriptor_init()
     stm_perform_transaction(llhelper(CALLBACK, callback1),
                         rffi.cast(rffi.VOIDP, a))
@@ -70,6 +72,7 @@ def test_stm_getfield():
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
+    assert a.v == None
     assert a.y == 10
     lltype.free(a, flavor='raw')
 
@@ -83,6 +86,7 @@ def callback2(a):
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
+    assert a.v == None
     assert stm_getfield(a, 'x') == -611
     assert stm_getfield(a, 'c1') == '&'
     assert stm_getfield(a, 'c2') == '*'
@@ -115,6 +119,7 @@ def callback2(a):
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
+    assert a.v == None
     if a.y < 10:
         a.y += 1    # non-transactionally
         stm_abort_and_retry()
@@ -131,6 +136,7 @@ def test_stm_setfield():
     a.f = rf1
     a.sa = rs1a
     a.sb = rs1b
+    a.v = None
     stm_descriptor_init()
     stm_perform_transaction(llhelper(CALLBACK, callback2),
                         rffi.cast(rffi.VOIDP, a))
@@ -143,5 +149,6 @@ def test_stm_setfield():
     assert a.f == rf2
     assert float(a.sa) == float(rs2a)
     assert float(a.sb) == float(rs2b)
+    assert a.v == None
     assert a.y == 10
     lltype.free(a, flavor='raw')
