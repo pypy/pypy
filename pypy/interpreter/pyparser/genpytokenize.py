@@ -73,7 +73,9 @@ def makePyPseudoDFA ():
     decNumber = chain(states,
                       groupStr(states, "123456789"),
                       any(states, makeDigits()))
-    zero = newArcPair(states, "0")
+    zero = chain(states,
+                 newArcPair(states, "0"),
+                 any(states, newArcPair(states, "0")))
     intNumber = group(states, hexNumber, octNumber, binNumber, decNumber, zero)
     # ____________________________________________________________
     # Exponents
