@@ -1391,6 +1391,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[-2] == 8
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
+        raises(IndexError, 'b[0, 1]')
         assert b.index == 3
         assert b.coords == (0,3)
 

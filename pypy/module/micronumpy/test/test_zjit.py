@@ -12,7 +12,7 @@ from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.compile import (FakeSpace,
     IntObject, Parser, InterpreterState)
 from pypy.module.micronumpy.interp_numarray import (W_NDimArray,
-     BaseArray)
+     BaseArray, W_FlatIterator)
 from pypy.rlib.nonconst import NonConstant
 
 
@@ -50,6 +50,8 @@ class TestNumpyJIt(LLJitMixin):
             if not len(interp.results):
                 raise Exception("need results")
             w_res = interp.results[-1]
+            if isinstance(w_res, W_FlatIterator):
+                w_res = w_res.next()
             if isinstance(w_res, BaseArray):
                 concr = w_res.get_concrete_or_scalar()
                 sig = concr.find_sig()
@@ -369,7 +371,28 @@ class TestNumpyJIt(LLJitMixin):
                                 'setinteriorfield_raw': 1, 'int_add': 2,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
+    def define_flat_iter():
+        return '''
+        a = |30|
+        a -> flat
+        '''
 
+    def test_flat_iter(self):
+        result = self.run("flat_iter")
+        assert result == 0
+
+    def define_flat_getitem():
+        return '''
+        a = |30|
+        b = a -> flat
+        b -> 6
+        '''
+
+    def test_flat_getitem(self):
+        result = self.run("flat_getitem")
+        assert result == 4
+        self.check_trace_count(1)
+        self.check_simple_loop({})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
