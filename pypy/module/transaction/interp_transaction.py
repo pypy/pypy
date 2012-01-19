@@ -13,15 +13,20 @@ class State(object):
         self.__dict__.clear()
         self.running = False
         self.num_threads = NUM_THREADS_DEFAULT
+        self.pending = []
+        self.pending_lists = {0: self.pending}
+        self.ll_lock = threadintf.null_ll_lock
+        self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
+        self.ll_unfinished_lock = threadintf.null_ll_lock
 
     def startup(self, space):
         self.space = space
-        self.pending = []
+        w_module = space.getbuiltinmodule('transaction')
+        self.w_error = space.getattr(w_module, space.wrap('TransactionError'))
+        #
         self.ll_lock = threadintf.allocate_lock()
         self.ll_no_tasks_pending_lock = threadintf.allocate_lock()
         self.ll_unfinished_lock = threadintf.allocate_lock()
-        self.w_error = space.new_exception_class(
-            "transaction.TransactionError")
         self.lock_unfinished()
         self.main_thread_id = threadintf.thread_id()
         self.pending_lists = {self.main_thread_id: self.pending}
@@ -33,7 +38,7 @@ class State(object):
                                  space.wrap("cannot change the number of "
                                             "threads when transaction.run() "
                                             "is active"))
-        self.num_threads = num_threads
+        self.num_threads = num
 
     def lock(self):
         # XXX think about the interaction between locks and the GC

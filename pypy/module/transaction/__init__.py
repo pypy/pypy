@@ -9,10 +9,10 @@ class Module(MixedModule):
         'set_num_threads': 'interp_transaction.set_num_threads',
         'add': 'interp_transaction.add',
         'run': 'interp_transaction.run',
-        'TransactionError': 'interp_transaction.state.w_error',
     }
 
     appleveldefs = {
+        'TransactionError': 'app_transaction.TransactionError',
     }
 
     def startup(self, space):

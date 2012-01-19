@@ -6,6 +6,10 @@ class AppTestTransaction:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['transaction'])
 
+    def test_set_num_threads(self):
+        import transaction
+        transaction.set_num_threads(4)
+
     def test_simple(self):
         import transaction
         lst = []
