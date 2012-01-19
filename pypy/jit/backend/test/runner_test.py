@@ -2032,6 +2032,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 values.append(descr)
                 values.append(self.cpu.get_latest_value_int(0))
                 values.append(self.cpu.get_latest_value_int(1))
+                values.append(token)
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
@@ -2062,7 +2063,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 1
         assert self.cpu.get_latest_value_int(0) == 1
         assert self.cpu.get_latest_value_int(1) == 10
-        assert values == [faildescr, 1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [faildescr, 1, 10, token]
 
     def test_force_operations_returning_int(self):
         values = []
@@ -2071,6 +2073,7 @@ class LLtypeBackendTest(BaseBackendTest):
                self.cpu.force(token)
                values.append(self.cpu.get_latest_value_int(0))
                values.append(self.cpu.get_latest_value_int(2))
+               values.append(token)
             return 42
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
@@ -2104,7 +2107,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_int(0) == 1
         assert self.cpu.get_latest_value_int(1) == 42
         assert self.cpu.get_latest_value_int(2) == 10
-        assert values == [1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [1, 10, token]
 
     def test_force_operations_returning_float(self):
         if not self.cpu.supports_floats:
@@ -2115,6 +2119,7 @@ class LLtypeBackendTest(BaseBackendTest):
                self.cpu.force(token)
                values.append(self.cpu.get_latest_value_int(0))
                values.append(self.cpu.get_latest_value_int(2))
+               values.append(token)
             return 42.5
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
@@ -2150,7 +2155,8 @@ class LLtypeBackendTest(BaseBackendTest):
         x = self.cpu.get_latest_value_float(1)
         assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
-        assert values == [1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [1, 10, token]
 
     def test_call_to_c_function(self):
         from pypy.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL

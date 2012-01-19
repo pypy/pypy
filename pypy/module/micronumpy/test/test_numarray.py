@@ -1302,6 +1302,28 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
         raises(TypeError, getattr, array(3), '__array_interface__')
 
+    def test_fill(self):
+        from _numpypy import array
+
+        a = array([1, 2, 3])
+        a.fill(10)
+        assert (a == [10, 10, 10]).all()
+        a.fill(False)
+        assert (a == [0, 0, 0]).all()
+
+        b = a[:1]
+        b.fill(4)
+        assert (b == [4]).all()
+        assert (a == [4, 0, 0]).all()
+
+        c = b + b
+        c.fill(27)
+        assert (c == [27]).all()
+
+        d = array(10)
+        d.fill(100)
+        assert d == 100
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
@@ -1441,9 +1463,11 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array(0.0)"
         a = array(0.2)
         assert repr(a) == "array(0.2)"
+        a = array([2])
+        assert repr(a) == "array([2])"
 
     def test_repr_multi(self):
-        from _numpypy import arange, zeros
+        from _numpypy import arange, zeros, array
         a = zeros((3, 4))
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
@@ -1466,6 +1490,9 @@ class AppTestRepr(BaseNumpyAppTest):
        [498, 999],
        [499, 1000],
        [500, 1001]])'''
+        a = arange(2).reshape((2,1))
+        assert repr(a) == '''array([[0],
+       [1]])'''
 
     def test_repr_slice(self):
         from _numpypy import array, zeros
