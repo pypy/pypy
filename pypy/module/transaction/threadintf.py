@@ -7,7 +7,7 @@ def allocate_lock():
 
 def acquire(lock, wait):
     "NOT_RPYTHON"
-    lock.acquire(wait)
+    return lock.acquire(wait)
 
 def release(lock):
     "NOT_RPYTHON"
@@ -17,3 +17,6 @@ def start_new_thread(callback, args):
     "NOT_RPYTHON"
     thread.start_new_thread(callback, args)
 
+def thread_id():
+    "NOT_RPYTHON"
+    return thread.get_ident()

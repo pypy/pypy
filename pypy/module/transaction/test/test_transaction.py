@@ -4,7 +4,6 @@ from pypy.conftest import gettestobjspace
 
 class AppTestTransaction: 
     def setup_class(cls):
-        py.test.skip("XXX not transactional!")
         cls.space = gettestobjspace(usemodules=['transaction'])
 
     def test_simple(self):
@@ -34,7 +33,7 @@ class AppTestTransaction:
         assert len(lst) == 7 * 3
         seen = set()
         for start in range(0, 21, 7):
-            seen.append(lst[start])
+            seen.add(lst[start])
             for index in range(7):
                 assert lst[start + index] == lst[start] + index
         assert seen == set([10, 20, 30])
