@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
+from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.translator.stm.test.support import CompiledSTMTests
 from pypy.translator.stm._rffi_stm import (CALLBACK, stm_perform_transaction,
                                            stm_descriptor_init, stm_descriptor_done)
@@ -49,6 +50,16 @@ class TestRStm(object):
         t, cbuilder = self.compile(entry_point)
         _, data = cbuilder.cmdexec('', err=True)
         assert data.endswith('ok!\n')
+
+    def test_compile_identity_hash(self):
+        class A:
+            pass
+        def entry_point(argv):
+            a = A()
+            debug_print(compute_identity_hash(a))
+            return 0
+        t, cbuilder = self.compile(entry_point)
+        _, data = cbuilder.cmdexec('', err=True)
 
 # ____________________________________________________________
 

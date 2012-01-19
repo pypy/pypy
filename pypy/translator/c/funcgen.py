@@ -686,9 +686,9 @@ class FunctionCodeGenerator(object):
 
     def OP_CAST_PTR_TO_ADR(self, op):
         if self.lltypemap(op.args[0]).TO._gckind == 'gc' and self._is_stm():
-            raise AssertionError("cast_ptr_to_adr(gcref) is a bad idea "
-                                 "with STM.  Consider checking config.stm "
-                                 "in %r" % (self.graph,))
+            from pypy.translator.c.support import log
+            log.WARNING("cast_ptr_to_adr(gcref) might be a bad idea with STM:")
+            log.WARNING("  %r" % (self.graph,))
         return self.OP_CAST_POINTER(op)
 
     def OP_CAST_INT_TO_PTR(self, op):
