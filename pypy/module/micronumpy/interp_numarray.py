@@ -458,7 +458,6 @@ class BaseArray(Wrappable):
         ri = ViewIterator(0, _r[0], _r[1], arr.broadcast_shape)
         while not frame.done():
             v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            z = result.getitem(ri.offset)
             value = add(sig.calc_dtype, v, result.getitem(ri.offset))
             result.setitem(ri.offset, value)
             frame.next(shapelen)
