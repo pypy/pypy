@@ -27,6 +27,8 @@ class Module(MixedModule):
         'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
+        'isna': 'interp_numarray.isna',
+        'concatenate': 'interp_numarray.concatenate',
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',

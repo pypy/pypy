@@ -167,6 +167,24 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
                                     [1, 1, 1, 105, 105]
 
+    def test_to_coords(self):
+        from pypy.module.micronumpy.strides import to_coords
+
+        def _to_coords(index, order):
+            return to_coords(self.space, [2, 3, 4], 24, order,
+                             self.space.wrap(index))[0]
+        
+        assert _to_coords(0, 'C') == [0, 0, 0]
+        assert _to_coords(1, 'C') == [0, 0, 1]
+        assert _to_coords(-1, 'C') == [1, 2, 3]
+        assert _to_coords(5, 'C') == [0, 1, 1]
+        assert _to_coords(13, 'C') == [1, 0, 1]
+        assert _to_coords(0, 'F') == [0, 0, 0]
+        assert _to_coords(1, 'F') == [1, 0, 0]
+        assert _to_coords(-1, 'F') == [1, 2, 3]
+        assert _to_coords(5, 'F') == [1, 2, 0]
+        assert _to_coords(13, 'F') == [1, 0, 2]
+        
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_ndarray(self):
@@ -1045,6 +1063,40 @@ class AppTestNumArray(BaseNumpyAppTest):
         #assert (a.var(0) == [8, 8]).all()
         #assert (a.var(1) == [.25] * 5).all()
 
+    def test_concatenate(self):
+        from numpypy import array, concatenate, dtype
+        a1 = array([0,1,2])
+        a2 = array([3,4,5])
+        a = concatenate((a1, a2))
+        assert len(a) == 6
+        assert (a == [0,1,2,3,4,5]).all()
+        assert a.dtype is dtype(int)
+        b1 = array([[1, 2], [3, 4]])
+        b2 = array([[5, 6]])
+        b = concatenate((b1, b2), axis=0)
+        assert (b == [[1, 2],[3, 4],[5, 6]]).all()
+        c = concatenate((b1, b2.T), axis=1)
+        assert (c == [[1, 2, 5],[3, 4, 6]]).all()
+        d = concatenate(([0],[1]))
+        assert (d == [0,1]).all()
+        e1 = array([[0,1],[2,3]])
+        e = concatenate(e1)
+        assert (e == [0,1,2,3]).all()
+        f1 = array([0,1])
+        f = concatenate((f1, [2], f1, [7]))
+        assert (f == [0,1,2,0,1,7]).all()
+        
+        bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
+        assert str(bad_axis.value) == "bad axis argument"
+        
+        concat_zero = raises(ValueError, concatenate, ())
+        assert str(concat_zero.value) == \
+            "concatenation of zero-length sequences is impossible"
+        
+        dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
+        assert str(dims_disagree.value) == \
+            "array dimensions must agree except for axis being concatenated"
+
     def test_std(self):
         from _numpypy import array
         a = array(range(10))
@@ -1067,7 +1119,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.flatten() == [2]).all()
         a = array([[1, 2], [3, 4]])
         assert (a.T.flatten() == [1, 3, 2, 4]).all()
-
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -1455,6 +1506,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
 
+    def test_isna(self):
+        from _numpypy import isna, array
+        # XXX for now
+        assert not isna(3)
+        assert (isna(array([1, 2, 3, 4])) == [False, False, False, False]).all()
 
 
 class AppTestSupport(BaseNumpyAppTest):
