@@ -137,7 +137,7 @@ class ViewIterator(BaseIterator):
         res._done = done
         return res
 
-    #@jit.unroll_safe
+    @jit.unroll_safe
     def next_skip_x(self, shapelen, step):
         shapelen = jit.promote(len(self.res_shape))
         offset = self.offset

@@ -50,8 +50,6 @@ class TestNumpyJIt(LLJitMixin):
             if not len(interp.results):
                 raise Exception("need results")
             w_res = interp.results[-1]
-            if isinstance(w_res, W_FlatIterator):
-                w_res = w_res.next()
             if isinstance(w_res, BaseArray):
                 concr = w_res.get_concrete_or_scalar()
                 sig = concr.find_sig()
@@ -373,8 +371,7 @@ class TestNumpyJIt(LLJitMixin):
                                 'arraylen_gc': 1})
     def define_flat_iter():
         return '''
-        a = |30|
-        a -> flat
+        !30!
         '''
 
     def test_flat_iter(self):
@@ -383,16 +380,14 @@ class TestNumpyJIt(LLJitMixin):
 
     def define_flat_getitem():
         return '''
-        a = |30|
-        b = a -> flat
-        b -> 6
+        a = !30!
+        a -> 6
         '''
 
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
-        assert result == 4
-        self.check_trace_count(1)
-        self.check_simple_loop({})
+        assert result == 6.0
+        self.check_trace_count(0)
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
