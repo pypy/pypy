@@ -861,19 +861,19 @@ void stm_abort_and_retry(void)
 }
 
 // XXX little-endian only!
-unsigned long stm_read_partial_word(int fieldsize, char *addr)
+unsigned long stm_read_partial_word(int fieldsize, void *addr)
 {
   int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)(addr - misalignment);
+  long *p = (long*)((char *)addr - misalignment);
   unsigned long word = stm_read_word(p);
   return word >> (misalignment * 8);
 }
 
 // XXX little-endian only!
-void stm_write_partial_word(int fieldsize, char *addr, unsigned long nval)
+void stm_write_partial_word(int fieldsize, void *addr, unsigned long nval)
 {
   int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)(addr - misalignment);
+  long *p = (long*)((char *)addr - misalignment);
   long val = nval << (misalignment * 8);
   long word = stm_read_word(p);
   long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);
@@ -951,7 +951,7 @@ void stm_write_float(long *addr, float val)
 #if PYPY_LONG_BIT == 32
   stm_write_word(addr, ii);         /* 32 bits */
 #else
-  stm_write_partial_word(4, (char *)addr, ii);   /* 64 bits */
+  stm_write_partial_word(4, addr, ii);   /* 64 bits */
 #endif
 }
 
