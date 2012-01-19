@@ -311,13 +311,15 @@ class TestAstBuilder:
         assert isinstance(fr.orelse[0].value, ast.Num)
 
     def test_try(self):
-        tr = self.get_first_stmt("try: x\nfinally: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "finally: pass")
         assert isinstance(tr, ast.TryFinally)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: pass")
         assert isinstance(tr, ast.TryExcept)
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
@@ -329,7 +331,8 @@ class TestAstBuilder:
         assert len(handler.body) == 1
         assert isinstance(handler.body[0], ast.Pass)
         assert tr.orelse is None
-        tr = self.get_first_stmt("try: x\nexcept Exception: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exception: pass")
         assert len(tr.handlers) == 1
         handler = tr.handlers[0]
         assert isinstance(handler.type, ast.Name)
@@ -337,40 +340,48 @@ class TestAstBuilder:
         assert handler.name is None
         assert len(handler.body) == 1
         assert tr.orelse is None
-        tr = self.get_first_stmt("try: x\nexcept Exception, e: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exception as e: pass")
         assert len(tr.handlers) == 1
         handler = tr.handlers[0]
         assert isinstance(handler.type, ast.Name)
-        assert isinstance(handler.name, ast.Name)
-        assert handler.name.ctx == ast.Store
-        assert handler.name.id == "e"
+        assert handler.type.id == "Exception"
+        assert handler.name == "e"
         assert len(handler.body) == 1
-        tr = self.get_first_stmt("try: x\nexcept: pass\nelse: 4")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: pass" + "\n" +
+                                 "else: 4")
         assert len(tr.body) == 1
         assert isinstance(tr.body[0].value, ast.Name)
         assert len(tr.handlers) == 1
         assert isinstance(tr.handlers[0].body[0], ast.Pass)
         assert len(tr.orelse) == 1
         assert isinstance(tr.orelse[0].value, ast.Num)
-        tr = self.get_first_stmt("try: x\nexcept Exc, a: 5\nexcept F: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exc as a: 5" + "\n" +
+                                 "except F: pass")
         assert len(tr.handlers) == 2
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
-        assert isinstance(h1.name, ast.Name)
+        assert h1.name == "a"
         assert isinstance(h1.body[0].value, ast.Num)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept Exc as a: 5\nexcept F: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except Exc as a: 5" + "\n" +
+                                 "except F: pass")
         assert len(tr.handlers) == 2
         h1, h2 = tr.handlers
         assert isinstance(h1.type, ast.Name)
-        assert isinstance(h1.name, ast.Name)
+        assert h1.name == "a"
         assert isinstance(h1.body[0].value, ast.Num)
         assert isinstance(h2.type, ast.Name)
         assert h2.name is None
         assert isinstance(h2.body[0], ast.Pass)
-        tr = self.get_first_stmt("try: x\nexcept: 4\nfinally: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: 4" + "\n" +
+                                 "finally: pass")
         assert isinstance(tr, ast.TryFinally)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
@@ -382,7 +393,10 @@ class TestAstBuilder:
         assert isinstance(exc.handlers[0].body[0].value, ast.Num)
         assert len(exc.body) == 1
         assert isinstance(exc.body[0].value, ast.Name)
-        tr = self.get_first_stmt("try: x\nexcept: 4\nelse: 'hi'\nfinally: pass")
+        tr = self.get_first_stmt("try: x" + "\n" +
+                                 "except: 4" + "\n" +
+                                 "else: 'hi'" + "\n" +
+                                 "finally: pass")
         assert isinstance(tr, ast.TryFinally)
         assert len(tr.finalbody) == 1
         assert isinstance(tr.finalbody[0], ast.Pass)
