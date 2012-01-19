@@ -97,7 +97,6 @@ def _run_thread():
             state.num_waiting_threads += 1
             if state.num_waiting_threads == state.num_threads:
                 state.finished = True
-                state.unlock_unfinished()
                 state.unlock_no_tasks_pending()
             state.unlock()
             #
@@ -105,9 +104,9 @@ def _run_thread():
             state.unlock_no_tasks_pending()
             #
             state.lock()
+            state.num_waiting_threads -= 1
             if state.finished:
                 break
-            state.num_waiting_threads -= 1
         else:
             pending = state.pending.pop(0)
             if len(state.pending) == 0:
@@ -116,6 +115,8 @@ def _run_thread():
             pending.run()
             state.lock()
     #
+    if state.num_waiting_threads == 0:    # only the last thread to leave
+        state.unlock_unfinished()
     state.unlock()
 
 
@@ -132,7 +133,7 @@ def run(space):
         threadintf.start_new_thread(_run_thread, ())
     #
     state.lock_unfinished()
-    assert state.num_waiting_threads == state.num_threads
+    assert state.num_waiting_threads == 0
     assert len(state.pending) == 0
     state.lock_no_tasks_pending()
     state.running = False
