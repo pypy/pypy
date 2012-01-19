@@ -193,11 +193,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_floorceil(self):
         from _numpypy import array, floor, ceil
         import math
-        reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
-        a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
+        reference = [-2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
         b = floor(a)
         for i in range(5):
             assert b[i] == reference[i]
+        reference = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
+        b = ceil(a)
+        assert (reference == b).all()
         inf = float("inf")
         data = [1.5, 2.9999, -1.999, inf]
         results = [math.floor(x) for x in data]
