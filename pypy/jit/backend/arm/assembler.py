@@ -257,6 +257,7 @@ class AssemblerARM(ResOpAssembler):
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
         assert frame_pointer & 1 == 0
+        self.fail_force_index = frame_pointer
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         num = 0
         value = 0
