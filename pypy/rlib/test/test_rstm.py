@@ -1,4 +1,4 @@
-import os
+import os, thread, time
 from pypy.rlib.debug import debug_print
 from pypy.rlib import rstm
 from pypy.translator.stm.test.support import CompiledSTMTests
@@ -28,6 +28,20 @@ def test_stm_perform_transaction(initial_x=202):
     rstm.descriptor_done()
     assert rstm.debug_get_state() == -1
     assert arg.x == 42
+
+def test_stm_multiple_threads():
+    ok = []
+    def f(i):
+        test_stm_perform_transaction()
+        ok.append(i)
+    for i in range(10):
+        thread.start_new_thread(f, (i,))
+    timeout = 10
+    while len(ok) < 10:
+        time.sleep(0.1)
+        timeout -= 0.1
+        assert timeout >= 0.0, "timeout!"
+    assert sorted(ok) == range(10)
 
 
 class TestTransformSingleThread(CompiledSTMTests):
