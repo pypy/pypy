@@ -1084,14 +1084,11 @@ class TestAstBuilder:
         space = self.space
         assert space.eq_w(get_num("32"), space.wrap(32))
         assert space.eq_w(get_num("32.5"), space.wrap(32.5))
-        assert space.eq_w(get_num("32L"), space.newlong(32))
-        assert space.eq_w(get_num("32l"), space.newlong(32))
-        assert space.eq_w(get_num("0L"), space.newlong(0))
         assert space.eq_w(get_num("2"), space.wrap(2))
         assert space.eq_w(get_num("13j"), space.wrap(13j))
         assert space.eq_w(get_num("13J"), space.wrap(13J))
-        assert space.eq_w(get_num("053"), space.wrap(053))
-        assert space.eq_w(get_num("00053"), space.wrap(053))
+        assert space.eq_w(get_num("0o53"), space.wrap(053))
+        assert space.eq_w(get_num("0o0053"), space.wrap(053))
         for num in ("0x53", "0X53", "0x0000053", "0X00053"):
             assert space.eq_w(get_num(num), space.wrap(0x53))
         assert space.eq_w(get_num("0Xb0d2"), space.wrap(0xb0d2))
@@ -1100,7 +1097,7 @@ class TestAstBuilder:
         assert space.eq_w(get_num("00000"), space.wrap(0))
         assert space.eq_w(get_num("-3"), space.wrap(-3))
         assert space.eq_w(get_num("-0"), space.wrap(0))
-        assert space.eq_w(get_num("-0xAAAAAAL"), space.wrap(-0xAAAAAAL))
+        assert space.eq_w(get_num("-0xAAAAAA"), space.wrap(-0xAAAAAAL))
         n = get_num(str(-sys.maxint - 1))
         assert space.is_true(space.isinstance(n, space.w_int))
         for num in ("0o53", "0O53", "0o0000053", "0O00053"):
@@ -1111,6 +1108,12 @@ class TestAstBuilder:
         py.test.raises(SyntaxError, self.get_ast, "0x")
         py.test.raises(SyntaxError, self.get_ast, "0b")
         py.test.raises(SyntaxError, self.get_ast, "0o")
+        py.test.raises(SyntaxError, self.get_ast, "32L")
+        py.test.raises(SyntaxError, self.get_ast, "32l")
+        py.test.raises(SyntaxError, self.get_ast, "0L")
+        py.test.raises(SyntaxError, self.get_ast, "-0xAAAAAAL")
+        py.test.raises(SyntaxError, self.get_ast, "053")
+        py.test.raises(SyntaxError, self.get_ast, "00053")
 
     def check_comprehension(self, brackets, ast_type):
         def brack(s):
