@@ -41,3 +41,21 @@ class AppTestTransaction:
             for index in range(7):
                 assert lst[start + index] == lst[start] + index
         assert seen == set([10, 20, 30])
+
+    def test_propagate_exception(self):
+        import transaction, time
+        lst = []
+        def f(n):
+            lst.append(n)
+            time.sleep(0.5)
+            raise ValueError(n)
+        transaction.add(f, 10)
+        transaction.add(f, 20)
+        transaction.add(f, 30)
+        try:
+            transaction.run()
+            assert 0, "should have raised ValueError"
+        except ValueError, e:
+            pass
+        assert len(lst) == 1
+        assert lst[0] == e.args[0]

@@ -89,9 +89,13 @@ class Pending:
 
     @staticmethod
     def _run_in_transaction(pending):
-        space = state.space
-        space.call_args(pending.w_callback, pending.args)
-        # xxx exceptions?
+        if state.got_exception is not None:
+            return   # return early if there is already a 'got_exception'
+        try:
+            space = state.space
+            space.call_args(pending.w_callback, pending.args)
+        except Exception, e:
+            state.got_exception = e
 
 
 def add(space, w_callback, __args__):
@@ -159,6 +163,7 @@ def run(space):
     state.num_waiting_threads = 0
     state.finished = False
     state.running = True
+    state.got_exception = None
     #
     for i in range(state.num_threads):
         threadintf.start_new_thread(_run_thread, ())
@@ -170,3 +175,9 @@ def run(space):
     assert state.pending_lists.keys() == [state.main_thread_id]
     assert not state.is_locked_no_tasks_pending()
     state.running = False
+    #
+    # now re-raise the exception that we got in a transaction
+    if state.got_exception is not None:
+        e = state.got_exception
+        state.got_exception = None
+        raise e
