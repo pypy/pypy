@@ -573,6 +573,28 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.CALL, [funcbox] + map(BoxInt, args), 'int', descr=calldescr)
         assert res.value == func(*args)
 
+    def test_call_box_func(self):
+        def a(a1, a2):
+            return a1 + a2
+        def b(b1, b2):
+            return b1 * b2
+
+        arg1 = 40
+        arg2 = 2
+        for f in [a, b]:
+            TP = lltype.Signed
+            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+            func_ptr = llhelper(FPTR, f)
+            FUNC = deref(FPTR)
+            funcconst = self.get_funcbox(self.cpu, func_ptr)
+            funcbox = funcconst.clonebox()
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(arg1), BoxInt(arg2)],
+                                         'int', descr=calldescr)
+            assert res.getint() == f(arg1, arg2)
+        
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
         # also test the ordering of the arguments.
