@@ -52,7 +52,10 @@ def resop_new(no, llargs, llres):
     from pypy.jit.metainterp.history import ResOperation
 
     args = [_cast_to_box(llargs[i]) for i in range(len(llargs))]
-    res = _cast_to_box(llres)
+    if llres:
+        res = _cast_to_box(llres)
+    else:
+        res = None
     return _cast_to_gcref(ResOperation(no, args, res))
 
 @register_helper(annmodel.SomePtr(llmemory.GCREF))

@@ -70,6 +70,7 @@ class Module(MixedModule):
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("ceil", "ceil"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
@@ -85,12 +86,13 @@ class Module(MixedModule):
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
         ("tan", "tan"),
+        ('bitwise_and', 'bitwise_and'),
+        ('bitwise_or', 'bitwise_or'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
         'average': 'app_numpy.average',
-        'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
@@ -99,5 +101,4 @@ class Module(MixedModule):
         'e': 'app_numpy.e',
         'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
-        'reshape': 'app_numpy.reshape',
     }

@@ -94,6 +94,9 @@ class Primitive(object):
             width, storage, i, offset
         ))
 
+    def read_bool(self, storage, width, i, offset):
+        raise NotImplementedError
+
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
         libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
@@ -168,6 +171,7 @@ class Primitive(object):
     @simple_binary_op
     def min(self, v1, v2):
         return min(v1, v2)
+    
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
@@ -184,6 +188,11 @@ class Bool(BaseType, Primitive):
             return self.True
         else:
             return self.False
+
+
+    def read_bool(self, storage, width, i, offset):
+        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                    width, storage, i, offset)
 
     def coerce_subtype(self, space, w_subtype, w_item):
         # Doesn't return subclasses so it can return the constants.
@@ -252,6 +261,14 @@ class Integer(Primitive):
         else:
             assert v == 0
             return 0
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return v1 & v2
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return v1 | v2
 
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
@@ -372,6 +389,10 @@ class Float(Primitive):
     @simple_unary_op
     def floor(self, v):
         return math.floor(v)
+
+    @simple_unary_op
+    def ceil(self, v):
+        return math.ceil(v)
 
     @simple_unary_op
     def exp(self, v):
