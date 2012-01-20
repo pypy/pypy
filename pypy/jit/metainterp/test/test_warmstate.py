@@ -324,3 +324,12 @@ def test_cleanup_jitcell_dict():
         cell = get_jitcell(True, i)
         cell.counter = -2
         assert len(warmstate._jitcell_dict) == i + 1
+
+def test_set_params():
+    warmstate = WarmEnterState(None, None)
+    assert warmstate.inlining == 1
+    assert warmstate.jitmode == 'full'
+    warmstate.set_param_jitmode('core-only')
+    assert warmstate.inlining == 0
+    assert warmstate.jitmode == 'core-only'
+    
