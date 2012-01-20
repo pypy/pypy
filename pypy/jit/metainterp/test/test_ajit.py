@@ -2962,7 +2962,7 @@ class BasicTests:
                 res = a(x) + b(x, res) + c(x, -x, -x) # at the end, it's like doing x+res :-)
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='fast') # fast == trace only core graphs
+        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='core-only')
         assert res == 42
         self.check_trace_count(1)
         # this is suboptimal because we get a call_may_force instead of a
@@ -2996,7 +2996,7 @@ class BasicTests:
                 y -= 1
                 res += f(x)
             return res
-        res = self.meta_interp(f, [5, 7], policy=MyPolicy(), jitmode='fast') # fast == trace only core graphs
+        res = self.meta_interp(f, [5, 7], policy=MyPolicy(), jitmode='core-only')
         assert res == 43
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 2, 'int_sub': 2,
@@ -3021,7 +3021,7 @@ class BasicTests:
                 res = a(res, x)
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='fast') # fast == trace only core graphs
+        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='core-only')
         assert res == 42
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 2, 'int_sub': 2,

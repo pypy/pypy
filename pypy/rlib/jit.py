@@ -402,7 +402,7 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'jitmode': '"full" (default) or "fast"',
+    'jitmode': '"full" (default) or "core-only"',
     'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
     }
 
