@@ -890,7 +890,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = dot(a, b)
         assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
                    [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
-        c = dot(a, b[:, :, 2])
+        c = dot(a, b[:, 2])
         assert (c == [[38, 126, 214], [302, 390, 478]]).all()
 
     def test_dot_constant(self):
