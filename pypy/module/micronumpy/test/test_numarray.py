@@ -2,6 +2,7 @@
 import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.interp_iter import Chunk
 from pypy.module.micronumpy import signature
 from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
@@ -37,53 +38,54 @@ class TestNumArrayDirect(object):
 
     def test_create_slice_f(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([(3, 0, 0, 1)])
+        s = a.create_slice([Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
         assert s.backstrides == [40, 100]
-        s = a.create_slice([(1, 9, 2, 4)])
+        s = a.create_slice([Chunk(1, 9, 2, 4)])
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = a.create_slice([(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
+        s = a.create_slice([Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
-        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
-        s = a.create_slice([(3, 0, 0, 1)])
+        s = a.create_slice([Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
         assert s.backstrides == [12, 2]
-        s = a.create_slice([(1, 9, 2, 4)])
+        s = a.create_slice([Chunk(1, 9, 2, 4)])
         assert s.start == 15
         assert s.strides == [30, 3, 1]
         assert s.backstrides == [90, 12, 2]
-        s = a.create_slice([(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
+        s = a.create_slice([Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+                            Chunk(1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.strides == [45, 3]
         assert s.backstrides == [45, 0]
-        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([(5, 0, 0, 1)])
+        s = a.create_slice([Chunk(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = s.create_slice([(3, 0, 0, 1)])
+        s2 = s.create_slice([Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [50]
         assert s2.parent is a
         assert s2.backstrides == [100]
         assert s2.start == 35
-        s = a.create_slice([(1, 5, 3, 2)])
-        s2 = s.create_slice([(0, 2, 1, 2), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(1, 5, 3, 2)])
+        s2 = s.create_slice([Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [3, 50]
         assert s2.backstrides == [3, 100]
@@ -91,16 +93,16 @@ class TestNumArrayDirect(object):
 
     def test_slice_of_slice_c(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice([(5, 0, 0, 1)])
+        s = a.create_slice([Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
-        s2 = s.create_slice([(3, 0, 0, 1)])
+        s2 = s.create_slice([Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [1]
         assert s2.parent is a
         assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
-        s = a.create_slice([(1, 5, 3, 2)])
-        s2 = s.create_slice([(0, 2, 1, 2), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(1, 5, 3, 2)])
+        s2 = s.create_slice([Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [45, 1]
         assert s2.backstrides == [45, 2]
@@ -108,14 +110,14 @@ class TestNumArrayDirect(object):
 
     def test_negative_step_f(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([(9, -1, -2, 5)])
+        s = a.create_slice([Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice([(9, -1, -2, 5)])
+        s = a.create_slice([Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
@@ -124,7 +126,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
-        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -134,7 +136,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
-        s = a.create_slice([(0, 10, 1, 10), (2, 0, 0, 1)])
+        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -1302,15 +1304,25 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
         raises(TypeError, getattr, array(3), '__array_interface__')
 
+    def test_array_indexing_one_elem(self):
+        skip("not yet")
+        from _numpypy import array, arange
+        raises(IndexError, 'arange(3)[array([3.5])]')
+        a = arange(3)[array([1])]
+        assert a == 1
+        assert a[0] == 1
+        raises(IndexError,'arange(3)[array([15])]')
+        assert arange(3)[array([-3])] == 0
+        raises(IndexError,'arange(3)[array([-15])]')
+        assert arange(3)[array(1)] == 1
+
     def test_fill(self):
         from _numpypy import array
-
         a = array([1, 2, 3])
         a.fill(10)
         assert (a == [10, 10, 10]).all()
         a.fill(False)
         assert (a == [0, 0, 0]).all()
-
         b = a[:1]
         b.fill(4)
         assert (b == [4]).all()
@@ -1323,6 +1335,24 @@ class AppTestMultiDim(BaseNumpyAppTest):
         d = array(10)
         d.fill(100)
         assert d == 100
+
+    def test_array_indexing_bool(self):
+        from _numpypy import arange
+        a = arange(10)
+        assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
+        a = arange(10).reshape(5, 2)
+        assert (a[a > 3] == [4, 5, 6, 7, 8, 9]).all()
+        assert (a[a & 1 == 1] == [1, 3, 5, 7, 9]).all()
+
+    def test_array_indexing_bool_setitem(self):
+        from _numpypy import arange, array
+        a = arange(6)
+        a[a > 3] = 15
+        assert (a == [0, 1, 2, 3, 15, 15]).all()
+        a = arange(6).reshape(3, 2)
+        a[a & 1 == 1] = array([8, 9, 10])
+        assert (a == [[0, 8], [2, 9], [4, 10]]).all()
+
 
 
 class AppTestSupport(BaseNumpyAppTest):
