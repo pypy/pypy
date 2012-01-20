@@ -59,9 +59,6 @@ inline static volatile orec_t* get_orec(void* addr)
 
 /************************************************************/
 
-/* Uncomment the line to try this extra code.  Doesn't work reliably so far */
-/*#define COMMIT_OTHER_INEV*/
-
 #define ABORT_REASONS 8
 #define SPINLOOP_REASONS 10
 #define OTHERINEV_REASONS 5
@@ -75,9 +72,6 @@ struct tx_descriptor {
   unsigned num_commits;
   unsigned num_aborts[ABORT_REASONS];
   unsigned num_spinloops[SPINLOOP_REASONS];
-#ifdef COMMIT_OTHER_INEV
-  unsigned num_otherinev[OTHERINEV_REASONS];
-#endif
   unsigned int spinloop_counter;
   owner_version_t my_lock_word;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
@@ -93,10 +87,6 @@ static const struct tx_descriptor null_tx = {
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
 static __thread struct tx_descriptor *thread_descriptor = NULL_TX;
-#ifdef COMMIT_OTHER_INEV
-static struct tx_descriptor *volatile thread_descriptor_inev;
-static volatile unsigned long d_inev_checking = 0;
-#endif
 
 /************************************************************/
 
@@ -352,7 +342,7 @@ static void validate(struct tx_descriptor *d)
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
 # ifdef RPY_STM_ASSERT
 unsigned long locked_by = 0;
-void mutex_lock(void)
+static void mutex_lock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
@@ -363,7 +353,7 @@ void mutex_lock(void)
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev locked\n", pself);
 }
-void mutex_unlock(void)
+static void mutex_unlock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
   locked_by = 0;
@@ -380,85 +370,7 @@ void mutex_unlock(void)
 # define mutex_unlock()   /* nothing */
 #endif
 
-#ifdef COMMIT_OTHER_INEV
-unsigned long can_commit_with_other_inevitable(struct tx_descriptor *d,
-                                               unsigned long expected)
-{
-  int i;
-  owner_version_t ovt;
-  unsigned long result = 0;
-  struct tx_descriptor *d_inev;
-
-  // 'd_inev_checking' is 1 or 2 when an inevitable transaction is running
-  // and didn't start committing yet; otherwise it is 0.  It is normally 1
-  // except in this function.
-  if (!bool_cas(&d_inev_checking, 1, 2))
-    {
-      d->num_otherinev[4]++;
-      return 0;
-    }
-
-  // optimization only: did the inevitable thread 'd_inev' read any data
-  // that we are about to commit?  If we are sure that the answer is
-  // negative, then commit anyway, because it cannot make the inevitable
-  // thread fail.  We can safely check an approximation of this, because
-  // we hold a lock on all orecs that we would like to write.  So if all
-  // orecs read by d_inev are not locked now, then no conflict.  This
-  // function is allowed to "fail" and give up rather than spinloop
-  // waiting for a condition to be true, which is potentially dangerous
-  // here, because we acquired all the locks.
-
-  // Note that if the inevitable thread itself adds in parallel an extra
-  // orec to d_inev->reads, *and* if this new orec is locked, then we
-  // will miss it here; but the d_inev thread will spinloop waiting for
-  // us to be done.  So even if we commit, the d_inev thread will just
-  // wait and load the new committed value.
-
-  // while we are in this function, the d_inev thread is prevented from
-  // going too far with the commitTransaction() code because d_inev_checking
-  // is greater than 1; it will just tx_spinloop(9).  (And of course it
-  // cannot abort.)
-
-  d_inev = thread_descriptor_inev;
-  if (!bool_cas(&d_inev->reads.locked, 0, 1))
-    {
-      d->num_otherinev[1]++;
-      goto give_up_1;
-    }
-
-  for (i=d_inev->reads.size; i--; )
-    {
-      ovt = d_inev->reads.items[i]->v;     // read this orec
-      if (ovt == d->my_lock_word)
-        {
-          d->num_otherinev[2]++;
-          goto give_up_2;
-        }
-    }
-  assert(expected & 1);
-  if (!change_global_timestamp(d, expected, expected + 2))
-    {
-      d->num_otherinev[3]++;
-      goto give_up_2;
-    }
-
-  /* success: scale d_inet forward */
-  d->num_otherinev[0]++;
-  result = expected + 1;
-  assert(d_inev->start_time == result - 2);
-  d_inev->start_time = result;
-  CFENCE;
-
- give_up_2:
-  d_inev->reads.locked = 0;
-
- give_up_1:
-  d_inev_checking = 1;
-  return result;
-}
-#endif
-
-void wait_end_inevitability(struct tx_descriptor *d)
+static void wait_end_inevitability(struct tx_descriptor *d)
 {
   unsigned long curts;
   releaseLocksForRetry(d);
@@ -485,16 +397,11 @@ void wait_end_inevitability(struct tx_descriptor *d)
   acquireLocks(d);
 }
 
-void commitInevitableTransaction(struct tx_descriptor *d)
+static void commitInevitableTransaction(struct tx_descriptor *d)
 {
   unsigned long ts;
   _Bool ok;
 
-#ifdef COMMIT_OTHER_INEV
-  // reset d_inev_checking back from 1 to 0
-  while (!bool_cas(&d_inev_checking, 1, 0))
-    tx_spinloop(9);
-#endif
   // no-one else can modify global_timestamp if I'm inevitable
   // and d_inev_checking is 0
   ts = get_global_timestamp(d);
@@ -529,12 +436,6 @@ long stm_read_word(long* addr)
   volatile orec_t* o = get_orec((void*)addr);
   owner_version_t ovt;
 
-#ifdef COMMIT_OTHER_INEV
-  // log orec BEFORE we spinloop waiting for the orec lock to be released,
-  // for can_commit_with_other_inevitable()
-  oreclist_insert(&d->reads, (orec_t*)o);
-#endif
-
  retry:
   // read the orec BEFORE we read anything else
   ovt = o->v;
@@ -551,13 +452,7 @@ long stm_read_word(long* addr)
       }
       // else this location is too new, scale forward
       owner_version_t newts = get_global_timestamp(d) & ~1;
-#ifdef COMMIT_OTHER_INEV
-      d->reads.size--;   // ignore the newly logged orec
-#endif
       validate_fast(d, 1);
-#ifdef COMMIT_OTHER_INEV
-      d->reads.size++;
-#endif
       d->start_time = newts;
     }
 
@@ -569,9 +464,7 @@ long stm_read_word(long* addr)
   if (o->v != ovt)
     goto retry;       /* oups, try again */
 
-#ifndef COMMIT_OTHER_INEV
   oreclist_insert(&d->reads, (orec_t*)o);
-#endif
 
   return tmp;
 }
@@ -649,12 +542,6 @@ void stm_descriptor_done(void)
       p += sprintf(p, "%c%d", i == 1 ? '|' : ',',
                    d->num_spinloops[i]);
 
-#ifdef COMMIT_OTHER_INEV
-    for (i=0; i<OTHERINEV_REASONS; i++)
-      p += sprintf(p, "%c%d", i == 0 ? '|' : ',',
-                   d->num_otherinev[i]);
-#endif
-
     p += sprintf(p, "]\n");
     fwrite(line, 1, p - line, PYPY_DEBUG_FILE);
   }
@@ -664,18 +551,7 @@ void stm_descriptor_done(void)
   free(d);
 }
 
-void* stm_perform_transaction(void*(*callback)(void*), void *arg)
-{
-  void *result;
-  /* you need to call descriptor_init() before calling stm_perform_transaction */
-  assert(thread_descriptor != NULL_TX);
-  STM_begin_transaction();
-  result = callback(arg);
-  stm_commit_transaction();
-  return result;
-}
-
-void stm_begin_transaction(jmp_buf* buf)
+static void begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
   assert(!d->transaction_active);
@@ -684,7 +560,7 @@ void stm_begin_transaction(jmp_buf* buf)
   d->start_time = d->last_known_global_timestamp & ~1;
 }
 
-long stm_commit_transaction(void)
+static long commit_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
 
@@ -720,15 +596,6 @@ long stm_commit_transaction(void)
           unsigned long expected = get_global_timestamp(d);
           if (expected & 1)
             {
-#ifdef COMMIT_OTHER_INEV
-              // there is another inevitable transaction running.
-              expected = can_commit_with_other_inevitable(d, expected);
-              if (expected != 0)
-                {
-                  d->end_time = expected;
-                  break;
-                }
-#endif
               // wait until it is done.  hopefully we can then proceed
               // without conflicts.
               wait_end_inevitability(d);
@@ -755,6 +622,20 @@ long stm_commit_transaction(void)
   // reset all lists
   common_cleanup(d);
   return d->end_time;
+}
+
+void* stm_perform_transaction(void*(*callback)(void*), void *arg)
+{
+  void *result;
+  jmp_buf _jmpbuf;
+  /* you need to call descriptor_init() before calling
+     stm_perform_transaction() */
+  assert(thread_descriptor != NULL_TX);
+  setjmp(_jmpbuf);
+  begin_transaction(&_jmpbuf);
+  result = callback(arg);
+  commit_transaction();
+  return result;
 }
 
 void stm_try_inevitable(STM_CCHARP1(why))
@@ -809,53 +690,8 @@ void stm_try_inevitable(STM_CCHARP1(why))
       mutex_unlock();
     }
   d->setjmp_buf = NULL;   /* inevitable from now on */
-#ifdef COMMIT_OTHER_INEV
-  thread_descriptor_inev = d;
-  CFENCE;
-  d_inev_checking = 1;
-#endif
 #ifdef RPY_STM_ASSERT
   PYPY_DEBUG_STOP("stm-inevitable");
-#endif
-}
-
-void stm_try_inevitable_if(jmp_buf *buf  STM_CCHARP(why))
-{
-  struct tx_descriptor *d = thread_descriptor;
-  if (d->setjmp_buf == buf)
-    stm_try_inevitable(STM_EXPLAIN1(why));
-}
-
-void stm_begin_inevitable_transaction(void)
-{
-  struct tx_descriptor *d = thread_descriptor;
-  unsigned long curtime;
-
-  assert(!d->transaction_active);
-
- retry:
-  mutex_lock();   /* possibly waiting here */
-
-  while (1)
-    {
-      curtime = global_timestamp;
-      if (curtime & 1)
-        {
-          mutex_unlock();
-          tx_spinloop(5);
-          goto retry;
-        }
-      if (bool_cas(&global_timestamp, curtime, curtime + 1))
-        break;
-    }
-  assert(!d->transaction_active);
-  d->transaction_active = 1;
-  d->setjmp_buf = NULL;
-  d->start_time = curtime;
-#ifdef COMMIT_OTHER_INEV
-  thread_descriptor_inev = d;
-  CFENCE;
-  d_inev_checking = 1;
 #endif
 }
 
