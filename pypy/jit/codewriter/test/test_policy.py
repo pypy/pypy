@@ -130,3 +130,23 @@ def test_access_directly_but_not_seen():
     h_graph = rtyper.annotator.translator.graphs[1]
     assert h_graph.func is h
     py.test.raises(ValueError, JitPolicy().look_inside_graph, h_graph)
+
+
+def test_access_directly_but_not_core():
+    class MyPolicy(JitPolicy):
+        def is_core_graph(self, graph):
+            assert graph.name.startswith('h__AccessDirect')
+            return False
+    
+    class X:
+        _virtualizable2_ = ["a"]
+    def h(x, y):
+        return x.a + y
+    def f(y):
+        x = jit.hint(X(), access_directly=True)
+        x.a = 4
+        h(x, y)
+    rtyper = support.annotate(f, [3])
+    h_graph = rtyper.annotator.translator.graphs[1]
+    assert h_graph.func is h
+    py.test.raises(ValueError, MyPolicy().look_inside_graph, h_graph)

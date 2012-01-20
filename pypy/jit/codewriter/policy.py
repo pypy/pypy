@@ -76,19 +76,22 @@ class JitPolicy(object):
         if res and contains_loop:
             self.unsafe_loopy_graphs.add(graph)
         res = res and not contains_loop
-        if (see_function and not res and
-            getattr(graph, "access_directly", False)):
-            # This happens when we have a function which has an argument with
-            # the access_directly flag, and the annotator has determined we will
-            # see the function. (See
-            # pypy/annotation/specialize.py:default_specialize) However,
-            # look_inside_graph just decided that we will not see it. (It has a
-            # loop or unsupported variables.) If we return False, the call will
-            # be turned into a residual call, but the graph is access_directly!
-            # If such a function is called and accesses a virtualizable, the JIT
-            # will not notice, and the virtualizable will fall out of sync. So,
-            # we fail loudly now.
-            raise ValueError("access_directly on a function which we don't see %s" % graph)
+        if getattr(graph, "access_directly", False):
+            if (see_function and not res):
+                # This happens when we have a function which has an argument with
+                # the access_directly flag, and the annotator has determined we will
+                # see the function. (See
+                # pypy/annotation/specialize.py:default_specialize) However,
+                # look_inside_graph just decided that we will not see it. (It has a
+                # loop or unsupported variables.) If we return False, the call will
+                # be turned into a residual call, but the graph is access_directly!
+                # If such a function is called and accesses a virtualizable, the JIT
+                # will not notice, and the virtualizable will fall out of sync. So,
+                # we fail loudly now.
+                raise ValueError("access_directly on a function which we don't see %s" % graph)
+            if not self.is_core_graph(graph):
+                # the same comment as above applies when we run in core-only tracing mode
+                raise ValueError("access_directly on a function which is not core: %s" % graph)
         return res
 
 def contains_unsupported_variable_type(graph, supports_floats,
