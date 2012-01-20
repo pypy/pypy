@@ -179,7 +179,7 @@ class AbstractARMv7Builder(object):
     def BL(self, addr, c=cond.AL):
         target = rffi.cast(rffi.INT, addr)
         self.gen_load_int(reg.ip.value, target, cond=c)
-        self.BLX(reg.ip.value)
+        self.BLX(reg.ip.value, c)
 
     def BLX(self, reg, c=cond.AL):
         self.write32(c << 28 | 0x12FFF3 << 4 | (reg & 0xF))
