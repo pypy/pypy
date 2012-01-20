@@ -153,5 +153,10 @@ class PyPyJitPolicy(JitPolicy):
 
     def is_core_function(self, func):
         mod = func.__module__ or '?'
-        is_interpreter = mod.startswith('pypy.interpreter.')
-        return is_interpreter or mod.startswith('pypy.module.pypyjit.')
+        fname = func.func_name
+        is_interpreter = (mod.startswith('pypy.interpreter.') or
+                          mod.startswith('pypy.objspace.std.frame') or
+                          mod.startswith('pypy.objspace.std.callmethod') or
+                          (mod.startswith('pypy.objspace.std.mapdict') and
+                           (fname.startswith('LOOKUP') or fname.startswith('LOAD'))))
+        return is_interpreter or mod.startswith('pypy.module.pypyjit')
