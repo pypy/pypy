@@ -2974,36 +2974,45 @@ class BasicTests:
                            'guard_no_exception': 6,
                            'guard_not_forced': 6})
 
-    def test_dont_inline_residual_call_from_core_graph(self):
+    def test_dont_inline_indirect_call_from_core_graph_to_non_core_graph(self):
         class MyPolicy(JitPolicy):
             def is_core_graph(self, graph):
-                return graph.name == 'f'
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+                return graph.name in ('f', 'a')
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'z', 'res'])
 
         def a(x):
             return x+2
         def b(x):
             return x+1
-        def f(x, y):
+        def f(x, y, z):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
-                if y == 5:
+                myjitdriver.can_enter_jit(x=x, y=y, z=z, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, z=z, res=res)
+                if z:
                     f = a
                 else:
                     f = b
                 y -= 1
                 res += f(x)
             return res
-        res = self.meta_interp(f, [5, 7], policy=MyPolicy(), jitmode='core-only')
-        assert res == 43
+        # indirect call to b (non-core)
+        res = self.meta_interp(f, [5, 7, 0], policy=MyPolicy(), jitmode='core-only')
+        assert res == 42
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 2, 'int_sub': 2,
-                           'int_eq': 2, 'int_add': 2, 'guard_false': 2,
+                           'int_is_true': 1, 'int_add': 2, 'guard_false': 1,
                            'call_may_force': 2,
                            'guard_no_exception': 2,
                            'guard_not_forced': 2})
+        #
+        # indirect call to a (core)
+        res = self.meta_interp(f, [5, 7, 1], policy=MyPolicy(), jitmode='core-only')
+        assert res == 49
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 3, 'int_sub': 2,
+                           'int_is_true': 1, 'int_add': 3})
+
 
     def test_inline_core_to_core_calls(self):
         class MyPolicy(JitPolicy):
