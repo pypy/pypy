@@ -6,10 +6,7 @@ from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
 
 # structures to describe slicing
 
-class BaseChunk(object):
-    pass
-
-class Chunk(BaseChunk):
+class Chunk(object):
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
@@ -19,14 +16,6 @@ class Chunk(BaseChunk):
     def extend_shape(self, shape):
         if self.step != 0:
             shape.append(self.lgt)
-
-class IntArrayChunk(BaseChunk):
-    def __init__(self, arr):
-        self.arr = arr.get_concrete()
-
-class BoolArrayChunk(BaseChunk):
-    def __init__(self, arr):
-        self.arr = arr.get_concrete()
 
 class BaseTransform(object):
     pass
