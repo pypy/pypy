@@ -7,8 +7,8 @@ from pypy.rlib import jit
 
 
 dot_driver = jit.JitDriver(
-    greens=['shapelen', 'left', 'right'],
-    reds=['lefti', 'righti', 'outi', 'result'],
+    greens=['shape_len', 'left'],
+    reds=['lefti', 'righti', 'outi', 'result', 'right'],
     get_printable_location=new_printable_location('dot'),
     name='dot',
 )
@@ -55,7 +55,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                          if i != right_critical_dim]
     right_skip = range(len(left.shape) - 1)
     result_skip = [len(result.shape) - 1]
-    shapelen = len(broadcast_shape)
+    shape_len = len(broadcast_shape)
     _r = calculate_dot_strides(result.strides, result.backstrides,
                                   broadcast_shape, result_skip)
     outi = ViewIterator(0, _r[0], _r[1], broadcast_shape)
@@ -78,9 +78,9 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                        right.getitem(righti.offset))
         value = add(dtype, v, result.getitem(outi.offset))
         result.setitem(outi.offset, value)
-        outi = outi.next(shapelen)
-        righti = righti.next(shapelen)
-        lefti = lefti.next(shapelen)
+        outi = outi.next(shape_len)
+        righti = righti.next(shape_len)
+        lefti = lefti.next(shape_len)
     assert lefti.done()
     assert righti.done()
     return result
