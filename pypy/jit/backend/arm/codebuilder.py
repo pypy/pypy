@@ -178,14 +178,11 @@ class AbstractARMv7Builder(object):
 
     def BL(self, addr, c=cond.AL):
         target = rffi.cast(rffi.INT, addr)
-        if c == cond.AL:
-            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET / 2)
-            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET / 2)
-            self.write32(target)
-        else:
-            self.gen_load_int(reg.ip.value, target, cond=c)
-            self.MOV_rr(reg.lr.value, reg.pc.value, cond=c)
-            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
+        self.gen_load_int(reg.ip.value, target, cond=c)
+        self.BLX(reg.ip.value)
+
+    def BLX(self, reg, c=cond.AL):
+        self.write32(c << 28 | 0x12FFF3 << 4 | (reg & 0xF))
 
     def MOVT_ri(self, rd, imm16, c=cond.AL):
         """Move Top writes an immediate value to the top halfword of the
