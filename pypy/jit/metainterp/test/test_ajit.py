@@ -3005,6 +3005,27 @@ class BasicTests:
                            'guard_no_exception': 2,
                            'guard_not_forced': 2})
 
+    def test_inline_core_to_core_calls(self):
+        class MyPolicy(JitPolicy):
+            def is_core_graph(self, graph):
+                return graph.name in ('f', 'a')
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+
+        def a(x, y):
+            return x+y
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res = a(res, x)
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='fast') # fast == trace only core graphs
+        assert res == 42
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 2, 'int_sub': 2,
+                           'int_add': 2})
 
 
 class TestOOtype(BasicTests, OOJitMixin):
