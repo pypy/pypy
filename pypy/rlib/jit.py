@@ -527,8 +527,8 @@ def set_user_param(driver, text):
             raise ValueError
         name = parts[0]
         value = parts[1]
-        if name == 'enable_opts':
-            set_param(driver, 'enable_opts', value)
+        if name == 'enable_opts' or name == 'jitmode':
+            set_param(driver, name, value)
         else:
             for name1, _ in unroll_parameters:
                 if name1 == name and name1 != 'enable_opts':
