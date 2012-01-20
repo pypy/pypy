@@ -3298,6 +3298,43 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken, null_box.getref_base())
         assert fail.identifier == 99
 
+    def test_forcing_op_with_fail_arg_in_reg(self):
+        values = []
+        def maybe_force(token, flag):
+            self.cpu.force(token)
+            values.append(self.cpu.get_latest_value_int(0))
+            values.append(token)
+            return 42
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(23)
+        ops = [
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.CALL_MAY_FORCE, [funcbox, tok, i1], i2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(0))
+        ]
+        ops[2].setfailargs([i2])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+        fail = self.cpu.execute_token(looptoken, 20, 0)
+        assert fail.identifier == 23
+        assert self.cpu.get_latest_value_int(0) == 42
+        # make sure that force reads the registers from a zeroed piece of
+        # memory
+        assert values[0] == 0
+        token = self.cpu.get_latest_force_token()
+        assert values[1] == token
+
 class OOtypeBackendTest(BaseBackendTest):
 
     type_system = 'ootype'
