@@ -34,9 +34,7 @@
     (((unsigned long)(num)) > ((unsigned long)(max_age)))
 typedef long owner_version_t;
 
-typedef struct {
-  owner_version_t v;   // the current version number
-} orec_t;
+typedef volatile owner_version_t orec_t;
 
 /*** Specify the number of orecs in the global array. */
 #define NUM_STRIPES  1048576
@@ -45,14 +43,14 @@ typedef struct {
 static char orecs[NUM_STRIPES * sizeof(orec_t)];
 
 /*** map addresses to orec table entries */
-inline static volatile orec_t* get_orec(void* addr)
+inline static orec_t *get_orec(void* addr)
 {
   unsigned long index = (unsigned long)addr;
 #ifdef RPY_STM_ASSERT
   assert(!(index & (sizeof(orec_t)-1)));
 #endif
   char *p = orecs + (index & ((NUM_STRIPES-1) * sizeof(orec_t)));
-  return (volatile orec_t *)p;
+  return (orec_t *)p;
 }
 
 #include "src_stm/lists.c"
@@ -158,9 +156,9 @@ static void tx_redo(struct tx_descriptor *d)
          appears in the redolog list.  If it's not, then p == -1. */
       if (item->p != -1)
         {
-          volatile orec_t* o = get_orec(item->addr);
+          orec_t* o = get_orec(item->addr);
           CFENCE;
-          o->v = newver;
+          *o = newver;
         }
     } REDOLOG_LOOP_END;
 }
@@ -173,8 +171,8 @@ static void releaseAndRevertLocks(struct tx_descriptor *d)
     {
       if (item->p != -1)
         {
-          volatile orec_t* o = get_orec(item->addr);
-          o->v = item->p;
+          orec_t* o = get_orec(item->addr);
+          *o = item->p;
         }
     } REDOLOG_LOOP_END;
 }
@@ -187,8 +185,8 @@ static void releaseLocksForRetry(struct tx_descriptor *d)
     {
       if (item->p != -1)
         {
-          volatile orec_t* o = get_orec(item->addr);
-          o->v = item->p;
+          orec_t* o = get_orec(item->addr);
+          *o = item->p;
           item->p = -1;
         }
     } REDOLOG_LOOP_END;
@@ -202,11 +200,11 @@ static void acquireLocks(struct tx_descriptor *d)
   REDOLOG_LOOP_BACKWARD(d->redolog, item)
     {
       // get orec, read its version#
-      volatile orec_t* o = get_orec(item->addr);
+      orec_t* o = get_orec(item->addr);
       owner_version_t ovt;
 
     retry:
-      ovt = o->v;
+      ovt = *o;
 
       // if orec not locked, lock it
       //
@@ -214,7 +212,7 @@ static void acquireLocks(struct tx_descriptor *d)
       // reads.  Since most writes are also reads, we'll just abort under this
       // condition.  This can introduce false conflicts
       if (!IS_LOCKED_OR_NEWER(ovt, d->start_time)) {
-        if (!bool_cas(&o->v, ovt, d->my_lock_word))
+        if (!bool_cas(o, ovt, d->my_lock_word))
           goto retry;
         // save old version to item->p.  Now we hold the lock.
         // in case of duplicate orecs, only the last one has p != -1.
@@ -291,7 +289,7 @@ static void validate_fast(struct tx_descriptor *d, int lognum)
   for (i=0; i<d->reads.size; i++)
     {
     retry:
-      ovt = d->reads.items[i]->v;
+      ovt = *(d->reads.items[i]);
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           // If locked, we wait until it becomes unlocked.  The chances are
@@ -321,7 +319,7 @@ static void validate(struct tx_descriptor *d)
   assert(!is_inevitable(d));
   for (i=0; i<d->reads.size; i++)
     {
-      ovt = d->reads.items[i]->v;      // read this orec
+      ovt = *(d->reads.items[i]);      // read this orec
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           if (!IS_LOCKED(ovt))
@@ -433,12 +431,12 @@ long stm_read_word(long* addr)
 
  not_found:;
   // get the orec addr
-  volatile orec_t* o = get_orec((void*)addr);
+  orec_t* o = get_orec((void*)addr);
   owner_version_t ovt;
 
  retry:
   // read the orec BEFORE we read anything else
-  ovt = o->v;
+  ovt = *o;
   CFENCE;
 
   // this tx doesn't hold any locks, so if the lock for this addr is held,
@@ -461,10 +459,10 @@ long stm_read_word(long* addr)
 
   // postvalidate AFTER reading addr:
   CFENCE;
-  if (o->v != ovt)
+  if (*o != ovt)
     goto retry;       /* oups, try again */
 
-  oreclist_insert(&d->reads, (orec_t*)o);
+  oreclist_insert(&d->reads, o);
 
   return tmp;
 }
