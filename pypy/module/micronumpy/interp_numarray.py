@@ -3,14 +3,15 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
-from pypy.module.micronumpy.strides import calculate_slice_strides,\
-                                           calculate_dot_strides
+from pypy.module.micronumpy.strides import calculate_slice_strides
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     SkipLastAxisIterator, ViewIterator
+     SkipLastAxisIterator
+from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes, dot_docstring
+
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -212,28 +213,6 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                 n_old_elems_to_use *= old_shape[oldI]
     return new_strides
 
-def match_dot_shapes(space, self, other):
-    my_critical_dim_size = self.shape[-1]
-    other_critical_dim_size = other.shape[0]
-    other_critical_dim = 0
-    other_critical_dim_stride = other.strides[0]
-    out_shape = []
-    if len(other.shape) > 1:
-        other_critical_dim = len(other.shape) - 2
-        other_critical_dim_size = other.shape[other_critical_dim]
-        other_critical_dim_stride = other.strides[other_critical_dim]
-        assert other_critical_dim >= 0
-        out_shape += self.shape[:-1] + \
-                     other.shape[0:other_critical_dim] + \
-                     other.shape[other_critical_dim + 1:]
-    elif len(other.shape) > 0:
-        #dot does not reduce for scalars
-        out_shape += self.shape[:-1]
-    if my_critical_dim_size != other_critical_dim_size:
-        raise OperationError(space.w_ValueError, space.wrap(
-                                        "objects are not aligned"))
-    return out_shape, other_critical_dim
-
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "shape", 'size']
 
@@ -399,14 +378,6 @@ class BaseArray(Wrappable):
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_dot(self, space, w_other):
-        '''Dot product of two arrays.
-
-    For 2-D arrays it is equivalent to matrix multiplication, and for 1-D
-    arrays to inner product of vectors (without complex conjugation). For
-    N dimensions it is a sum product over the last axis of `a` and
-    the second-to-last of `b`::
-
-        dot(a, b)[i,j,k,m] = sum(a[i,j,:] * b[k,:,m])'''
         other = convert_to_array(space, w_other)
         if isinstance(other, Scalar):
             return self.descr_mul(space, other)
@@ -425,43 +396,10 @@ class BaseArray(Wrappable):
         for o in out_shape:
             out_size *= o
         result = W_NDimArray(out_size, out_shape, dtype)
-        # given a.shape == [3, 5, 7],
-        #       b.shape == [2, 7, 4]
-        #  result.shape == [3, 5, 2, 4]
-        # all iterators shapes should be [3, 5, 2, 7, 4]
-        # result should skip dims 3 which is results.ndims - 1
-        # a should skip 2, 4 which is a.ndims-1 + range(b.ndims) 
-        #       except where it==(b.ndims-2)
-        # b should skip 0, 1
-        mul = interp_ufuncs.get(space).multiply.func
-        add = interp_ufuncs.get(space).add.func
-        broadcast_shape = self.shape[:-1] + other.shape
-        #Aww, cmon, this is the product of a warped mind.
-        left_skip = [len(self.shape) - 1 + i for i in range(len(other.shape)) if i != other_critical_dim]
-        right_skip = range(len(self.shape) - 1)
-        arr = DotArray(mul, 'DotName', out_shape, dtype, self, other,
-                                        left_skip, right_skip)
-        arr.broadcast_shape = broadcast_shape
-        arr.result_skip = [len(out_shape) - 1]
-        #Make this lazy someday...
-        sig = signature.find_sig(signature.DotSignature(mul, 'dot', dtype,
-                                  self.create_sig(), other.create_sig()), arr)
-        assert isinstance(sig, signature.DotSignature)
-        self.do_dot_loop(sig, result, arr, add)
-        return result
-
-    def do_dot_loop(self, sig, result, arr, add):
-        frame = sig.create_frame(arr)
-        shapelen = len(arr.broadcast_shape)
-        _r = calculate_dot_strides(result.strides, result.backstrides,
-                                      arr.broadcast_shape, arr.result_skip)
-        ri = ViewIterator(0, _r[0], _r[1], arr.broadcast_shape)
-        while not frame.done():
-            v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            value = add(sig.calc_dtype, v, result.getitem(ri.offset))
-            result.setitem(ri.offset, value)
-            frame.next(shapelen)
-            ri = ri.next(shapelen)
+        # This is the place to add fpypy and blas
+        return multidim_dot(space, self.get_concrete(), 
+                            other.get_concrete(), result, dtype,
+                            other_critical_dim)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -933,23 +871,6 @@ class AxisReduce(Call2):
                        left, right)
         self.dim = dim
 
-class DotArray(Call2):
-    """ NOTE: this is only used as a container, you should never
-    encounter such things in the wild. Remove this comment
-    when we'll make Dot lazy
-    """
-    _immutable_fields_ = ['left', 'right']
-    
-    def __init__(self, ufunc, name, shape, dtype, left, right, left_skip, right_skip):
-        Call2.__init__(self, ufunc, name, shape, dtype, dtype,
-                       left, right)
-        self.left_skip = left_skip
-        self.right_skip = right_skip
-    def create_sig(self):
-        #if self.forced_result is not None:
-        #    return self.forced_result.create_sig()
-        assert NotImplementedError 
-
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not
     """
@@ -1304,6 +1225,8 @@ def ones(space, w_size, w_dtype=None):
     return space.wrap(arr)
 
 def dot(space, w_obj, w_obj2):
+    '''see numpypy.dot. Does not exist as an ndarray method in numpy.
+    '''
     w_arr = convert_to_array(space, w_obj)
     if isinstance(w_arr, Scalar):
         return convert_to_array(space, w_obj2).descr_dot(space, w_arr)

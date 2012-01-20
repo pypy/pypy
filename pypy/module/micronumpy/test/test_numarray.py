@@ -869,7 +869,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_dot(self):
         from _numpypy import array, dot, arange
         a = array(range(5))
-        assert a.dot(a) == 30.0
+        assert dot(a, a) == 30.0
 
         a = array(range(5))
         assert a.dot(range(5)) == 30
@@ -887,9 +887,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         #Superfluous shape test makes the intention of the test clearer
         assert a.shape == (2, 3, 4)
         assert b.shape == (4, 3)
-        c = a.dot(b)
+        c = dot(a, b)
         assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
                    [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+        c = dot(a, b[:, :, 2])
+        assert (c == [[38, 126, 214], [302, 390, 478]]).all()
 
     def test_dot_constant(self):
         from _numpypy import array

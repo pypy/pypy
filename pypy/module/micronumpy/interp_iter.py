@@ -16,10 +16,6 @@ class BroadcastTransform(BaseTransform):
     def __init__(self, res_shape):
         self.res_shape = res_shape
 
-class DotTransform(BaseTransform):
-    def __init__(self, res_shape, skip_dims):
-        self.res_shape = res_shape
-        self.skip_dims = skip_dims
 
 class BaseIterator(object):
     def next(self, shapelen):
@@ -90,10 +86,6 @@ class ViewIterator(BaseIterator):
                                         self.strides,
                                         self.backstrides, t.chunks)
             return ViewIterator(r[1], r[2], r[3], r[0])
-        elif isinstance(t, DotTransform):
-            r = calculate_dot_strides(self.strides, self.backstrides,
-                                     t.res_shape, t.skip_dims)
-            return ViewIterator(self.offset, r[0], r[1], t.res_shape)
 
     @jit.unroll_safe
     def next(self, shapelen):

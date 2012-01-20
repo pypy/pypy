@@ -2,7 +2,7 @@ from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
      ConstantIterator, AxisIterator, ViewTransform,\
-     BroadcastTransform, DotTransform
+     BroadcastTransform
 from pypy.rlib.jit import hint, unroll_safe, promote
 
 """ Signature specifies both the numpy expression that has been constructed
@@ -449,21 +449,3 @@ class AxisReduceSignature(Call2):
     
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
-
-class DotSignature(Call2):
-    def _invent_numbering(self, cache, allnumbers):
-        self.left._invent_numbering(new_cache(), allnumbers)
-        self.right._invent_numbering(new_cache(), allnumbers)
-
-    def _create_iter(self, iterlist, arraylist, arr, transforms):
-        from pypy.module.micronumpy.interp_numarray import DotArray
-
-        assert isinstance(arr, DotArray)
-        rtransforms = transforms + [DotTransform(arr.broadcast_shape, arr.right_skip)]
-        ltransforms = transforms + [DotTransform(arr.broadcast_shape, arr.left_skip)]
-        self.left._create_iter(iterlist, arraylist, arr.left, ltransforms)
-        self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
-
-    def debug_repr(self):
-        return 'DotSig(%s, %s %s)' % (self.name, self.right.debug_repr(),
-						 self.left.debug_repr())
