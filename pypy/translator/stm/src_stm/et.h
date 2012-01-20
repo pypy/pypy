@@ -33,13 +33,21 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
                                      2: in an inevitable transaction */
 
 // XXX little-endian only!
-#define STM_read_partial_word(T, base, offset)                          \
-    (T)(stm_read_word(                                                  \
+/* this macro is used if 'base' is a word-aligned pointer and 'offset'
+   is a compile-time constant */
+#define stm_fx_read_partial(base, offset)                               \
+       (stm_read_word(                                                  \
            (long*)(((char*)(base)) + ((offset) & ~(sizeof(void*)-1))))  \
         >> (8 * ((offset) & (sizeof(void*)-1))))
 
-unsigned long stm_read_partial_word(int fieldsize, void *addr);
-void stm_write_partial_word(int fieldsize, void *addr, unsigned long nval);
+unsigned char stm_read_partial_1(void *addr);
+unsigned short stm_read_partial_2(void *addr);
+void stm_write_partial_1(void *addr, unsigned char nval);
+void stm_write_partial_2(void *addr, unsigned short nval);
+#if PYPY_LONG_BIT == 64
+unsigned int stm_read_partial_4(void *addr);
+void stm_write_partial_4(void *addr, unsigned int nval);
+#endif
 
 double stm_read_double(long *addr);
 void stm_write_double(long *addr, double val);

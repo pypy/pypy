@@ -701,25 +701,47 @@ void stm_abort_and_retry(void)
 }
 
 // XXX little-endian only!
-unsigned long stm_read_partial_word(int fieldsize, void *addr)
-{
-  int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)(((char *)addr) - misalignment);
-  unsigned long word = stm_read_word(p);
-  return word >> (misalignment * 8);
+#define READ_PARTIAL_WORD(T, fieldsize, addr)           \
+  int misalignment = ((long)addr) & (sizeof(void*)-1);  \
+  long *p = (long*)(((char *)addr) - misalignment);     \
+  unsigned long word = stm_read_word(p);                \
+  assert(sizeof(T) == fieldsize);                       \
+  return (T)(word >> (misalignment * 8));
+
+unsigned char stm_read_partial_1(void *addr) {
+  READ_PARTIAL_WORD(unsigned char, 1, addr)
 }
+unsigned short stm_read_partial_2(void *addr) {
+  READ_PARTIAL_WORD(unsigned short, 2, addr)
+}
+#if PYPY_LONG_BIT == 64
+unsigned int stm_read_partial_4(void *addr) {
+  READ_PARTIAL_WORD(unsigned int, 4, addr)
+}
+#endif
 
 // XXX little-endian only!
-void stm_write_partial_word(int fieldsize, void *addr, unsigned long nval)
-{
-  int misalignment = ((long)addr) & (sizeof(void*)-1);
-  long *p = (long*)(((char *)addr) - misalignment);
-  long val = nval << (misalignment * 8);
-  long word = stm_read_word(p);
-  long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);
-  val = (val & mask) | (word & ~mask);
+#define WRITE_PARTIAL_WORD(fieldsize, addr, nval)                       \
+  int misalignment = ((long)addr) & (sizeof(void*)-1);                  \
+  long *p = (long*)(((char *)addr) - misalignment);                     \
+  long val = ((long)nval) << (misalignment * 8);                        \
+  long word = stm_read_word(p);                                         \
+  long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);      \
+  val = (val & mask) | (word & ~mask);                                  \
   stm_write_word(p, val);
+
+void stm_write_partial_1(void *addr, unsigned char nval) {
+  WRITE_PARTIAL_WORD(1, addr, nval)
 }
+void stm_write_partial_2(void *addr, unsigned short nval) {
+  WRITE_PARTIAL_WORD(2, addr, nval)
+}
+#if PYPY_LONG_BIT == 64
+void stm_write_partial_4(void *addr, unsigned int nval) {
+  WRITE_PARTIAL_WORD(4, addr, nval)
+}
+#endif
+
 
 #if PYPY_LONG_BIT == 32
 long long stm_read_doubleword(long *addr)
@@ -791,7 +813,7 @@ void stm_write_float(long *addr, float val)
 #if PYPY_LONG_BIT == 32
   stm_write_word(addr, ii);         /* 32 bits */
 #else
-  stm_write_partial_word(4, addr, ii);   /* 64 bits */
+  stm_write_partial_4(addr, ii);    /* 64 bits */
 #endif
 }
 

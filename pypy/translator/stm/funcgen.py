@@ -27,6 +27,7 @@ def _stm_generic_get(funcgen, op, expr, simple_struct=False):
         return '%s = (%s)%s((long*)&%s);' % (
             newvalue, cresulttypename, funcname, expr)
     else:
+        assert fieldsize in (1, 2, 4)
         if simple_struct:
             # assume that the object is aligned, and any possible misalignment
             # comes from the field offset, so that it can be resolved at
@@ -35,14 +36,20 @@ def _stm_generic_get(funcgen, op, expr, simple_struct=False):
             structdef = funcgen.db.gettypedefnode(STRUCT)
             basename = funcgen.expr(op.args[0])
             fieldname = op.args[1].value
-            return '%s = STM_read_partial_word(%s, %s, offsetof(%s, %s));' % (
+            trailing = ''
+            if T == lltype.Bool:
+                trailing = ' & 1'    # needed in this case, otherwise casting
+                                     # a several-bytes value to bool_t would
+                                     # take into account all the several bytes
+            return '%s = (%s)(stm_fx_read_partial(%s, offsetof(%s, %s))%s);'% (
                 newvalue, cresulttypename, basename,
                 cdecl(funcgen.db.gettype(STRUCT), ''),
-                structdef.c_struct_field_name(fieldname))
+                structdef.c_struct_field_name(fieldname),
+                trailing)
         #
         else:
-            return '%s = stm_read_partial_word(sizeof(%s), &%s);' % (
-                newvalue, cresulttypename, expr)
+            return '%s = (%s)stm_read_partial_%d(&%s);' % (
+                newvalue, cresulttypename, fieldsize, expr)
 
 def _stm_generic_set(funcgen, op, targetexpr, T):
     basename = funcgen.expr(op.args[0])
@@ -69,10 +76,9 @@ def _stm_generic_set(funcgen, op, targetexpr, T):
         return '%s((long*)&%s, (%s)%s);' % (
             funcname, targetexpr, newtype, newvalue)
     else:
-        itemtypename = funcgen.db.gettype(T)
-        citemtypename = cdecl(itemtypename, '')
-        return ('stm_write_partial_word(sizeof(%s), &%s, %s);' % (
-            citemtypename, targetexpr, newvalue))
+        assert fieldsize in (1, 2, 4)
+        return ('stm_write_partial_%d(&%s, (unsigned long)%s);' % (
+            fieldsize, targetexpr, newvalue))
 
 
 def field_expr(funcgen, args):
