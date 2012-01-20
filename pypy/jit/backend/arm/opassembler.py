@@ -437,10 +437,14 @@ class OpAssembler(object):
             else:
                 num += 1
                 count += 1
-
-        # spill variables that need to be saved around calls
-        regalloc.before_call(save_all_regs=2)
-
+        # Check that the address of the function we want to call is not
+        # currently stored in one of the registers used to pass the arguments.
+        # If this happens to be the case we remap the register to r4 and use r4
+        # to call the function
+        if adr in non_float_regs:
+            non_float_locs.append(adr)
+            non_float_regs.append(r.r4)
+            adr = r.r4
         # remap values stored in core registers
         remap_frame_layout(self, non_float_locs, non_float_regs, r.ip)
 
@@ -448,7 +452,15 @@ class OpAssembler(object):
             self.mov_from_vfp_loc(loc, reg, r.all_regs[reg.value + 1])
 
         #the actual call
-        self.mc.BL(adr)
+        if adr.is_imm():
+            self.mc.BL(adr.value)
+        elif adr.is_stack():
+            self.mov_loc_loc(adr, r.ip)
+            adr = r.ip
+        else:
+            assert adr.is_reg()
+        if adr.is_reg():
+            self.mc.BLX(adr.value)
         self.mark_gc_roots(force_index)
         # readjust the sp in case we passed some args on the stack
         if n > 0:
