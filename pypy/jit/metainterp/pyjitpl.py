@@ -1388,7 +1388,7 @@ class MIFrame(object):
         jitcode = sd.bytecode_for_address(key)
         if jitcode is not None:
             # we should follow calls to this graph
-            return self.metainterp.perform_call(jitcode, argboxes)
+            return self.perform_call_maybe(jitcode, argboxes)
         else:
             # but we should not follow calls to that graph
             return self.do_residual_call(funcbox, calldescr, argboxes)
