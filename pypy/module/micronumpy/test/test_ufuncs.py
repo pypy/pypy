@@ -355,10 +355,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, maximum.reduce, [])
 
     def test_reduceND(self):
-        from numpypy import add, arange
+        from _numpypy import add, arange
         a = arange(12).reshape(3, 4)
         assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
         assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
+
+    def test_bitwise(self):
+        from _numpypy import bitwise_and, bitwise_or, arange, array
+        a = arange(6).reshape(2, 3)
+        assert (a & 1 == [[0, 1, 0], [1, 0, 1]]).all()
+        assert (a & 1 == bitwise_and(a, 1)).all()
+        assert (a | 1 == [[1, 1, 3], [3, 5, 5]]).all()
+        assert (a | 1 == bitwise_or(a, 1)).all()
+        raises(TypeError, 'array([1.0]) & 1')
 
     def test_comparisons(self):
         import operator

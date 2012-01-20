@@ -86,6 +86,8 @@ class Module(MixedModule):
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
         ("tan", "tan"),
+        ('bitwise_and', 'bitwise_and'),
+        ('bitwise_or', 'bitwise_or'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
