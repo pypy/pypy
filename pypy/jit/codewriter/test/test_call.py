@@ -10,6 +10,9 @@ class FakePolicy:
     def look_inside_graph(self, graph):
         return True
 
+    def is_core_graph(self, graph):
+        return True
+
 
 def test_graphs_from_direct_call():
     cc = CallControl()
@@ -159,6 +162,7 @@ def test_get_jitcode():
                 return lltype.functionptr(F, 'bar')
     #
     cc = CallControl(FakeCPU(FakeRTyper()))
+    cc.core_candidate_graphs = set()
     class somegraph:
         name = "foo"
     jitcode = cc.get_jitcode(somegraph)
@@ -210,3 +214,33 @@ def test_random_effects_on_stacklet_switch():
     op = block.operations[-1]
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
+
+
+def test_mark_jitcode_as_core():
+    from pypy.jit.codewriter.test.test_flatten import FakeCPU
+
+    class MyPolicy:
+        def look_inside_graph(self, graph):
+            return graph.name in ('f', 'g')
+        
+        def is_core_graph(self, graph):
+            if graph.name == 'f':
+                return True
+            return False
+
+    def g(x):
+        return x + 2
+    def f(x):
+        return g(x) + 1
+    rtyper = support.annotate(f, [7])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(MyPolicy())
+    # hack hack hack
+    cc.cpu = FakeCPU(rtyper)
+    cc.rtyper = rtyper
+    graphs = dict([(graph.name, graph) for graph in res])
+    jitcode_f = cc.get_jitcode(graphs['f'])
+    jitcode_g = cc.get_jitcode(graphs['g'])
+    assert jitcode_f.is_core
+    assert not jitcode_g.is_core

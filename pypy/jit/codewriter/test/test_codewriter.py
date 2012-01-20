@@ -40,6 +40,9 @@ class FakePolicy:
     def look_inside_graph(self, graph):
         return graph.name != 'dont_look'
 
+    def is_core_graph(self, graph):
+        return True
+
 class FakeJitDriverSD:
     def __init__(self, portal_graph):
         self.portal_graph = portal_graph
@@ -162,6 +165,9 @@ def test_instantiate_with_unreasonable_attr():
             name = graph.name
             return not (name.startswith('instantiate_') and
                         name.endswith('A2'))
+
+        def is_core_graph(self, graph):
+            return True
     class A1:
         pass
     class A2(A1):

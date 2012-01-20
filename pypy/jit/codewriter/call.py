@@ -53,6 +53,7 @@ class CallControl(object):
                                                           ll_args, ll_res)
                 todo.append(c_func.value._obj.graph)
         candidate_graphs = set(todo)
+        core_candidate_graphs = set(todo)
 
         def callers():
             graph = top_graph
@@ -77,8 +78,11 @@ class CallControl(object):
                     assert is_candidate(graph)
                     todo.append(graph)
                     candidate_graphs.add(graph)
+                    if policy.is_core_graph(graph):
+                        core_candidate_graphs.add(graph)
                     coming_from[graph] = top_graph
         self.candidate_graphs = candidate_graphs
+        self.core_candidate_graphs = core_candidate_graphs
         return candidate_graphs
 
     def graphs_from(self, op, is_candidate=None):
@@ -148,6 +152,9 @@ class CallControl(object):
         # used only after find_all_graphs()
         return graph in self.candidate_graphs
 
+    def is_core(self, graph):
+        return graph in self.core_candidate_graphs
+
     def grab_initial_jitcodes(self):
         for jd in self.jitdrivers_sd:
             jd.mainjitcode = self.get_jitcode(jd.portal_graph)
@@ -164,8 +171,9 @@ class CallControl(object):
             return self.jitcodes[graph]
         except KeyError:
             fnaddr, calldescr = self.get_jitcode_calldescr(graph)
+            is_core = self.is_core(graph)
             jitcode = JitCode(graph.name, fnaddr, calldescr,
-                              called_from=called_from)
+                              called_from=called_from, is_core=is_core)
             self.jitcodes[graph] = jitcode
             self.unfinished_graphs.append(graph)
             return jitcode

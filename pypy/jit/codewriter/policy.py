@@ -38,6 +38,9 @@ class JitPolicy(object):
     def look_inside_function(self, func):
         return True # look into everything by default
 
+    def is_core_graph(self, graph):
+        return True
+
     def _reject_function(self, func):
         if hasattr(func, '_jit_look_inside_'):
             return not func._jit_look_inside_
