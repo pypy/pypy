@@ -361,14 +361,13 @@ class OpAssembler(object):
         self.gen_func_epilog()
         return fcond
 
-    def emit_op_call(self, op, args, regalloc, fcond,
-                                force_index=NO_FORCE_INDEX):
-        adr = args[0].value
-        arglist = op.getarglist()[1:]
+    def emit_op_call(self, op, arglocs, regalloc, fcond, force_index=NO_FORCE_INDEX):
         if force_index == NO_FORCE_INDEX:
             force_index = self.write_new_force_index()
-        cond = self._emit_call(force_index, adr, arglist,
-                                    regalloc, fcond, op.result)
+        resloc = arglocs[0]
+        adr = arglocs[1]
+        arglist = arglocs[2:]
+        cond = self._emit_call(force_index, adr, arglist, fcond, resloc)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
         if (op.result and not we_are_translated()):
@@ -379,15 +378,10 @@ class OpAssembler(object):
             self._ensure_result_bit_extension(loc, size, signed)
         return cond
 
-    # XXX improve this interface
-    # emit_op_call_may_force
-    # XXX improve freeing of stuff here
-    # XXX add an interface that takes locations instead of boxes
-    def _emit_call(self, force_index, adr, args, regalloc, fcond=c.AL,
-                                                            result=None):
-        n_args = len(args)
-        reg_args = count_reg_args(args)
-
+    def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, resloc=None):
+        assert self._regalloc.before_call_called
+        n_args = len(arglocs)
+        reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
         n = 0   # used to count the number of words pushed on the stack, so we
                 #can later modify the SP back to its original value
@@ -396,7 +390,7 @@ class OpAssembler(object):
             stack_args = []
             count = 0
             for i in range(reg_args, n_args):
-                arg = args[i]
+                arg = arglocs[i]
                 if arg.type != FLOAT:
                     count += 1
                     n += WORD
@@ -417,8 +411,7 @@ class OpAssembler(object):
                 if arg is None:
                     self.mc.PUSH([r.ip.value])
                 else:
-                    self.regalloc_push(regalloc.loc(arg))
-
+                    self.regalloc_push(arg)
         # collect variables that need to go in registers and the registers they
         # will be stored in
         num = 0
@@ -427,16 +420,16 @@ class OpAssembler(object):
         non_float_regs = []
         float_locs = []
         for i in range(reg_args):
-            arg = args[i]
+            arg = arglocs[i]
             if arg.type == FLOAT and count % 2 != 0:
                     num += 1
                     count = 0
             reg = r.caller_resp[num]
 
             if arg.type == FLOAT:
-                float_locs.append((regalloc.loc(arg), reg))
+                float_locs.append((arg, reg))
             else:
-                non_float_locs.append(regalloc.loc(arg))
+                non_float_locs.append(arg)
                 non_float_regs.append(reg)
 
             if arg.type == FLOAT:
@@ -457,14 +450,12 @@ class OpAssembler(object):
         #the actual call
         self.mc.BL(adr)
         self.mark_gc_roots(force_index)
-        regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
         if n > 0:
             self._adjust_sp(-n, fcond=fcond)
 
         # restore the argumets stored on the stack
-        if result is not None:
-            resloc = regalloc.after_call(result)
+        if resloc is not None:
             if resloc.is_vfp_reg():
                 # move result to the allocated register
                 self.mov_to_vfp_loc(r.r0, r.r1, resloc)
@@ -889,8 +880,8 @@ class StrOpAssembler(object):
             length_box = TempInt()
             length_loc = regalloc.force_allocate_reg(length_box,
                                         forbidden_vars, selected_reg=r.r2)
-            imm = regalloc.convert_to_imm(args[4])
-            self.load(length_loc, imm)
+            immloc = regalloc.convert_to_imm(args[4])
+            self.load(length_loc, immloc)
         if is_unicode:
             bytes_box = TempPtr()
             bytes_loc = regalloc.force_allocate_reg(bytes_box,
@@ -902,8 +893,9 @@ class StrOpAssembler(object):
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
-        self._emit_call(NO_FORCE_INDEX, self.memcpy_addr,
-                            [dstaddr_box, srcaddr_box, length_box], regalloc)
+        regalloc.before_call()
+        self._emit_call(NO_FORCE_INDEX, imm(self.memcpy_addr),
+                            [dstaddr_loc, srcaddr_loc, length_loc])
 
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)
@@ -993,17 +985,19 @@ class ForceOpAssembler(object):
     # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
+        tmploc = arglocs[1]
+        resloc = arglocs[2]
+        callargs = arglocs[3:]
+
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
-
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        # XXX check this
-        # assert len(arglocs) - 2 == descr.compiled_loop_token._debug_nbargs
-        resbox = TempInt()
-        self._emit_call(fail_index, descr._arm_func_addr,
-                        op.getarglist(), regalloc, fcond, result=resbox)
+        # check value
+        assert tmploc is r.r0
+        self._emit_call(fail_index, imm(descr._arm_func_addr),
+                                callargs, fcond, resloc=tmploc)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
         else:
@@ -1016,12 +1010,8 @@ class ForceOpAssembler(object):
                 value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        # check value
-        resloc = regalloc.try_allocate_reg(resbox)
-        assert resloc is r.r0
         self.mc.gen_load_int(r.ip.value, value)
-        self.mc.CMP_rr(resloc.value, r.ip.value)
-        regalloc.possibly_free_var(resbox)
+        self.mc.CMP_rr(tmploc.value, r.ip.value)
 
         fast_jmp_pos = self.mc.currpos()
         self.mc.BKPT()
@@ -1035,14 +1025,12 @@ class ForceOpAssembler(object):
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         with saved_registers(self.mc, r.caller_resp[1:] + [r.ip],
                                     r.caller_vfp_resp):
-            # resbox is allready in r0
-            self.mov_loc_loc(arglocs[1], r.r1)
+            # result of previous call is in r0
+            self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)
-            if op.result:
-                resloc = regalloc.after_call(op.result)
-                if resloc.is_vfp_reg():
-                    # move result to the allocated register
-                    self.mov_to_vfp_loc(r.r0, r.r1, resloc)
+            if op.result and resloc.is_vfp_reg():
+                # move result to the allocated register
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
         # jump to merge point
         jmp_pos = self.mc.currpos()
@@ -1063,11 +1051,10 @@ class ForceOpAssembler(object):
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
-            resloc = regalloc.force_allocate_reg(resbox)
-            self.mov_loc_loc(arglocs[1], r.ip)
-            self.mc.MOV_ri(resloc.value, 0)
-            self.mc.STR_ri(resloc.value, r.ip.value, ofs)
-            regalloc.possibly_free_var(resbox)
+            tmploc = regalloc.get_scratch_reg(INT)
+            self.mov_loc_loc(arglocs[0], r.ip)
+            self.mc.MOV_ri(tmploc.value, 0)
+            self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
@@ -1080,8 +1067,6 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
-            resloc = regalloc.force_allocate_reg(op.result)
-            regalloc.possibly_free_var(resbox)
             self.mc.gen_load_int(r.ip.value, adr)
             if op.result.type == FLOAT:
                 self.mc.VLDR(resloc.value, r.ip.value)
@@ -1118,13 +1103,47 @@ class ForceOpAssembler(object):
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc,
                                                                     fcond):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+        numargs = op.numargs()
+        callargs = arglocs[2:numargs]
+        adr = arglocs[1]
+        resloc = arglocs[0]
+        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+
+        self.mc.LDR_ri(r.ip.value, r.fp.value)
+        self.mc.CMP_ri(r.ip.value, 0)
+        self._emit_guard(guard_op, arglocs[1 + numargs:], c.GE, save_exc=True)
+        return fcond
+
+    def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc,
+                                                                    fcond):
+
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        numargs = op.numargs()
+        resloc = arglocs[0]
+        adr = arglocs[1]
+        callargs = arglocs[2:numargs]
+
+        if gcrootmap:
+            self.call_release_gil(gcrootmap, arglocs, fcond)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+
+        self._emit_call(fail_index, adr, callargs, fcond, resloc)
+        # then reopen the stack
+        if gcrootmap:
+            self.call_reacquire_gil(gcrootmap, resloc, fcond)
+
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
 
-        self._emit_guard(guard_op, arglocs, c.GE, save_exc=True)
+        self._emit_guard(guard_op, arglocs[1 + numargs:], c.GE, save_exc=True)
         return fcond
-
-    emit_guard_call_release_gil = emit_guard_call_may_force
 
     def call_release_gil(self, gcrootmap, save_registers, fcond):
         # First, we need to save away the registers listed in
@@ -1136,8 +1155,7 @@ class ForceOpAssembler(object):
                 regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, [],
-                                                    self._regalloc, fcond)
+            self._emit_call(NO_FORCE_INDEX, imm(self.releasegil_addr), [], fcond)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
@@ -1154,8 +1172,7 @@ class ForceOpAssembler(object):
             regs_to_save.append(r.ip)  # for alingment
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save, vfp_regs_to_save):
-            self._emit_call(NO_FORCE_INDEX, self.reacqgil_addr, [],
-                                                    self._regalloc, fcond)
+            self._emit_call(NO_FORCE_INDEX, imm(self.reacqgil_addr), [], fcond)
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and

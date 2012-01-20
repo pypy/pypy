@@ -553,12 +553,28 @@ class Regalloc(object):
                 args = self.prepare_op_math_sqrt(op, fcond)
                 self.assembler.emit_op_math_sqrt(op, args, self, fcond)
                 return
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        return self._prepare_call(op)
+
+    def _prepare_call(self, op, force_store=[], save_all_regs=False):
+        args = []
+        args.append(None)
+        for i in range(op.numargs()):
+            args.append(self.loc(op.getarg(i)))
+        # spill variables that need to be saved around calls
+        self.vfprm.before_call(save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
+        if op.result:
+            resloc = self.after_call(op.result)
+            args[0] = resloc
+        self.before_call_called = True
         return args
 
     def prepare_op_call_malloc_gc(self, op, fcond):
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        return args
+        return self._prepare_call(op)
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -1033,58 +1049,25 @@ class Regalloc(object):
             self._compute_hint_frame_locations_from_descr(descr)
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        for v in guard_op.getfailargs():
-            if v in self.rm.reg_bindings or v in self.vfprm.reg_bindings:
-                self.force_spill_var(v)
-        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
-        locs = self._prepare_guard(guard_op)
-        self.possibly_free_vars(guard_op.getfailargs())
-        return locs
-
-    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap:
-            arglocs = []
-            args = op.getarglist()
-            for i in range(op.numargs()):
-                loc = self._ensure_value_is_boxed(op.getarg(i), args)
-                arglocs.append(loc)
-            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
-        # do the call
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
-        # then reopen the stack
-        if gcrootmap:
-            if op.result:
-                result_loc = self.call_result_location(op.result)
-            else:
-                result_loc = None
-            self.assembler.call_reacquire_gil(gcrootmap, result_loc, fcond)
-        locs = self._prepare_guard(guard_op)
-        return locs
+        args = self._prepare_call(op, save_all_regs=True)
+        return self._prepare_guard(guard_op, args)
+    prepare_guard_call_release_gil = prepare_guard_call_may_force
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        size = jd.portal_calldescr.get_result_size()
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self._sync_var(op.getarg(vable_index))
             vable = self.frame_manager.loc(op.getarg(vable_index))
         else:
             vable = imm(0)
+        # make sure the call result location is free
+        tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         self.possibly_free_vars(guard_op.getfailargs())
-        return [imm(size), vable]
+        return [vable, tmploc] + self._prepare_call(op, save_all_regs=True)
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
