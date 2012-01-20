@@ -781,7 +781,8 @@ class MIFrame(object):
     def perform_call_maybe(self, jitcode, argboxes):
         core_only_mode = (self.metainterp.jitdriver_sd.warmstate.jitmode == 'core-only')
         # in core_only_mode, don't inline calls from core to non-core graphs
-        if core_only_mode and self.jitcode.is_core and not jitcode.is_core:
+        if core_only_mode and not jitcode.is_core:
+            assert self.jitcode.is_core
             funcbox = ConstInt(jitcode.get_fnaddr_as_int())
             # jitcode always has a calldescr, but it might not have the
             # correct effectinfo. The result is that we might generate a
