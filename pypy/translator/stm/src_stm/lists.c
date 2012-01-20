@@ -102,7 +102,7 @@ static int redolog_any_entry(struct RedoLog *redolog)
   unsigned long _key = (unsigned long)(addr1);                  \
   char *_p = (char *)((redolog).toplevel.items);                \
   char *_entry = *(char **)(_p + (_key & TREE_MASK));           \
-  if (_entry == NULL)                                           \
+  if (__builtin_expect(_entry == NULL, 1))                      \
     goto_not_found;    /* common case, hopefully */             \
   result = _redolog_find(_entry, addr1);                        \
   if (result == NULL || result->addr != (addr1))                \

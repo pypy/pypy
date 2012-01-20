@@ -31,7 +31,7 @@
 
 #define IS_LOCKED(num)  ((num) < 0)
 #define IS_LOCKED_OR_NEWER(num, max_age) \
-    (((unsigned long)(num)) > ((unsigned long)(max_age)))
+  __builtin_expect(((unsigned long)(num)) > ((unsigned long)(max_age)), 0)
 typedef long owner_version_t;
 
 typedef volatile owner_version_t orec_t;
