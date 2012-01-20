@@ -39,6 +39,14 @@ class JitPolicy(object):
         return True # look into everything by default
 
     def is_core_graph(self, graph):
+        try:
+            func = graph.func
+        except AttributeError:
+            return True
+        else:
+            return self.is_core_function(func)
+
+    def is_core_function(self, func):
         return True
 
     def _reject_function(self, func):

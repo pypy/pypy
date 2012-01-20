@@ -150,3 +150,8 @@ class PyPyJitPolicy(JitPolicy):
                 return False
 
         return True
+
+    def is_core_function(self, func):
+        mod = func.__module__ or '?'
+        is_interpreter = mod.startswith('pypy.interpreter.')
+        return is_interpreter or mod.startswith('pypy.module.pypyjit.')
