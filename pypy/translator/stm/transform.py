@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem import lltype, lloperation
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'direct_call', 'force_cast', 'keepalive', 'cast_ptr_to_adr',
-    'debug_print', 'debug_assert',
+    'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
+    'indirect_call', 'stack_current',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -209,6 +210,8 @@ class STMTransformer(object):
     def stt_malloc_varsize(self, newoperations, op):
         flags = op.args[1].value
         return flags['flavor'] == 'gc'
+
+    stt_malloc_nonmovable = stt_malloc
 
     def stt_gc_stack_bottom(self, newoperations, op):
 ##        self.seen_gc_stack_bottom = True
