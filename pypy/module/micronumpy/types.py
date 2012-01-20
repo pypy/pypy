@@ -374,6 +374,10 @@ class Float(Primitive):
         return math.floor(v)
 
     @simple_unary_op
+    def ceil(self, v):
+        return math.ceil(v)
+
+    @simple_unary_op
     def exp(self, v):
         try:
             return math.exp(v)

@@ -157,6 +157,8 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
         assert calc_new_strides([24], [2, 4, 3], [48, 6, 1]) is None
         assert calc_new_strides([24], [2, 4, 3], [24, 6, 2]) == [2]
+        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1]) == [1, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1]) == [105, 1]
 
 
 class AppTestNumArray(BaseNumpyAppTest):
@@ -245,6 +247,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a[::2]
         c = b.copy()
         assert (c == b).all()
+
+        a = arange(15).reshape(5,3)
+        b = a.copy()
+        assert (b == a).all()
 
     def test_iterator_init(self):
         from _numpypy import array
@@ -724,6 +730,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
+        a = array(range(105)).reshape(3, 5, 7)
+        b = a.mean(axis=0)
+        b[0, 0]==35.
+        assert a.mean(axis=0)[0, 0] == 35
+        assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
+        assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from _numpypy import array
@@ -733,6 +745,34 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
+
+        raises(TypeError, 'a.sum(2, 3)')
+
+    def test_reduce_nd(self):
+        from numpypy import arange, array, multiply
+        a = arange(15).reshape(5, 3)
+        assert a.sum() == 105
+        assert a.max() == 14
+        assert array([]).sum() == 0.0
+        raises(ValueError, 'array([]).max()')
+        assert (a.sum(0) == [30, 35, 40]).all()
+        assert (a.sum(axis=0) == [30, 35, 40]).all()
+        assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
+        assert (a.max(0) == [12, 13, 14]).all()
+        assert (a.max(1) == [2, 5, 8, 11, 14]).all()
+        assert ((a + a).max() == 28)
+        assert ((a + a).max(0) == [24, 26, 28]).all()
+        assert ((a + a).sum(1) == [6, 24, 42, 60, 78]).all()
+        assert (multiply.reduce(a) == array([0, 3640, 12320])).all()
+        a = array(range(105)).reshape(3, 5, 7)
+        assert (a[:, 1, :].sum(0) == [126, 129, 132, 135, 138, 141, 144]).all()
+        assert (a[:, 1, :].sum(1) == [70, 315, 560]).all()
+        raises (ValueError, 'a[:, 1, :].sum(2)')
+        assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
+        assert (a.reshape(1,-1).sum(0) == range(105)).all()
+        assert (a.reshape(1,-1).sum(1) == 5460)
+        assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
+        assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_identity(self):
         from _numpypy import identity, array
@@ -1262,6 +1302,28 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert isinstance(i['data'][0], int)
         raises(TypeError, getattr, array(3), '__array_interface__')
 
+    def test_fill(self):
+        from _numpypy import array
+
+        a = array([1, 2, 3])
+        a.fill(10)
+        assert (a == [10, 10, 10]).all()
+        a.fill(False)
+        assert (a == [0, 0, 0]).all()
+
+        b = a[:1]
+        b.fill(4)
+        assert (b == [4]).all()
+        assert (a == [4, 0, 0]).all()
+
+        c = b + b
+        c.fill(27)
+        assert (c == [27]).all()
+
+        d = array(10)
+        d.fill(100)
+        assert d == 100
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
@@ -1401,9 +1463,11 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array(0.0)"
         a = array(0.2)
         assert repr(a) == "array(0.2)"
+        a = array([2])
+        assert repr(a) == "array([2])"
 
     def test_repr_multi(self):
-        from _numpypy import arange, zeros
+        from _numpypy import arange, zeros, array
         a = zeros((3, 4))
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
@@ -1426,6 +1490,9 @@ class AppTestRepr(BaseNumpyAppTest):
        [498, 999],
        [499, 1000],
        [500, 1001]])'''
+        a = arange(2).reshape((2,1))
+        assert repr(a) == '''array([[0],
+       [1]])'''
 
     def test_repr_slice(self):
         from _numpypy import array, zeros
@@ -1510,14 +1577,3 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
-
-
-class AppTestRanges(BaseNumpyAppTest):
-    def test_app_reshape(self):
-        from _numpypy import arange, array, dtype, reshape
-        a = arange(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
-        a = range(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
