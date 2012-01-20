@@ -1,5 +1,4 @@
 from pypy.jit.backend.arm.assembler import AssemblerARM
-from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD
 from pypy.jit.backend.arm.registers import all_regs, all_vfp_regs
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.rpython.llinterp import LLInterpreter
@@ -100,6 +99,10 @@ class ArmCPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
+    all_null_registers = lltype.malloc(rffi.LONGP.TO,
+                        len(all_vfp_regs) * 2 + len(all_regs),
+                        flavor='raw', zero=True, immortal=True)
+
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
@@ -107,16 +110,12 @@ class ArmCPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
+        addr_all_null_regsiters = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
-        frame_depth = faildescr._arm_current_frame_depth * WORD
-        addr_end_of_frame = (addr_of_force_index -
-                            (frame_depth +
-                            len(all_regs) * WORD +
-                            len(all_vfp_regs) * DOUBLE_WORD))
         fail_index_2 = self.assembler.failure_recovery_func(
             bytecode,
             addr_of_force_index,
-            addr_end_of_frame)
+            addr_all_null_regsiters)
         self.assembler.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2
