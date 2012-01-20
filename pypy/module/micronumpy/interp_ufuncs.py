@@ -457,6 +457,7 @@ class UfuncState(object):
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
+            ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),

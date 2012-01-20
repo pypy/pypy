@@ -350,7 +350,8 @@ class TestNumpyJIt(LLJitMixin):
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
                                 'setinteriorfield_raw': 1, 'int_add': 2,
-                                'int_eq': 1, 'guard_false': 1, 'jump': 1})
+                                'int_eq': 1, 'guard_false': 1, 'jump': 1,
+                                'arraylen_gc': 1})
 
     def define_virtual_slice():
         return """

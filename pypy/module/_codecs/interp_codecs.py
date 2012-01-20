@@ -108,6 +108,10 @@ def lookup_codec(space, encoding):
     w_result = state.codec_search_cache.get(normalized_encoding, None)
     if w_result is not None:
         return w_result
+    return _lookup_codec_loop(space, encoding, normalized_encoding)
+
+def _lookup_codec_loop(space, encoding, normalized_encoding):
+    state = space.fromcache(CodecState)
     if state.codec_need_encodings:
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
         # registers new codecs

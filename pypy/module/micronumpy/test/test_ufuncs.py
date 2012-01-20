@@ -190,14 +190,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] - b[i]
 
-    def test_floor(self):
-        from _numpypy import array, floor
-
-        reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
-        a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
+    def test_floorceil(self):
+        from _numpypy import array, floor, ceil
+        import math
+        reference = [-2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
         b = floor(a)
         for i in range(5):
             assert b[i] == reference[i]
+        reference = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
+        b = ceil(a)
+        assert (reference == b).all()
+        inf = float("inf")
+        data = [1.5, 2.9999, -1.999, inf]
+        results = [math.floor(x) for x in data]
+        assert (floor(data) == results).all()
+        results = [math.ceil(x) for x in data]
+        assert (ceil(data) == results).all()
 
     def test_copysign(self):
         from _numpypy import array, copysign
@@ -238,7 +248,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
         a = sin(array([True, False], dtype=bool))
-        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
+        assert abs(a[0] - sin(1)) < 1e-7  # a[0] will be less precise
         assert a[1] == 0.0
 
     def test_cos(self):
@@ -258,7 +268,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = tan(a)
         for i in range(len(a)):
             assert b[i] == math.tan(a[i])
-
 
     def test_arcsin(self):
         import math
@@ -282,7 +291,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arccos(a)
         for i in range(len(a)):
             assert b[i] == math.acos(a[i])
-
 
         a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
         b = arccos(a)

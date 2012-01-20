@@ -728,15 +728,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from _numpypy import array, mean
+        from _numpypy import array
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
         a = array(range(105)).reshape(3, 5, 7)
-        b = mean(a, axis=0)
-        b[0,0]==35.
+        b = a.mean(axis=0)
+        b[0, 0]==35.
+        assert a.mean(axis=0)[0, 0] == 35
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
-        assert (mean(a, 2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
+        assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
 
     def test_sum(self):
         from _numpypy import array
@@ -757,6 +758,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([]).sum() == 0.0
         raises(ValueError, 'array([]).max()')
         assert (a.sum(0) == [30, 35, 40]).all()
+        assert (a.sum(axis=0) == [30, 35, 40]).all()
         assert (a.sum(1) == [3, 12, 21, 30, 39]).all()
         assert (a.max(0) == [12, 13, 14]).all()
         assert (a.max(1) == [2, 5, 8, 11, 14]).all()
@@ -771,6 +773,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).T.sum(2).T == (a + a).sum(0)).all()
         assert (a.reshape(1,-1).sum(0) == range(105)).all()
         assert (a.reshape(1,-1).sum(1) == 5460)
+        assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
+        assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_identity(self):
         from _numpypy import identity, array
@@ -1312,6 +1316,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError,'arange(3)[array([-15])]')
         assert arange(3)[array(1)] == 1
 
+    def test_fill(self):
+        from _numpypy import array
+        a = array([1, 2, 3])
+        a.fill(10)
+        assert (a == [10, 10, 10]).all()
+        a.fill(False)
+        assert (a == [0, 0, 0]).all()
+        b = a[:1]
+        b.fill(4)
+        assert (b == [4]).all()
+        assert (a == [4, 0, 0]).all()
+
+        c = b + b
+        c.fill(27)
+        assert (c == [27]).all()
+
+        d = array(10)
+        d.fill(100)
+        assert d == 100
+
     def test_array_indexing_bool(self):
         from _numpypy import arange
         a = arange(10)
@@ -1328,6 +1352,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(6).reshape(3, 2)
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
+
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
@@ -1467,9 +1493,11 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array(0.0)"
         a = array(0.2)
         assert repr(a) == "array(0.2)"
+        a = array([2])
+        assert repr(a) == "array([2])"
 
     def test_repr_multi(self):
-        from _numpypy import arange, zeros
+        from _numpypy import arange, zeros, array
         a = zeros((3, 4))
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
@@ -1492,6 +1520,9 @@ class AppTestRepr(BaseNumpyAppTest):
        [498, 999],
        [499, 1000],
        [500, 1001]])'''
+        a = arange(2).reshape((2,1))
+        assert repr(a) == '''array([[0],
+       [1]])'''
 
     def test_repr_slice(self):
         from _numpypy import array, zeros
@@ -1576,18 +1607,3 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
-
-
-class AppTestRanges(BaseNumpyAppTest):
-    def test_app_reshape(self):
-        from _numpypy import arange, array, dtype, reshape
-        a = arange(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
-        a = range(12)
-        b = reshape(a, (3, 4))
-        assert b.shape == (3, 4)
-        a = array(range(105)).reshape(3, 5, 7)
-        assert a.reshape(1, -1).shape == (1, 105)
-        assert a.reshape(1, 1, -1).shape == (1, 1, 105)
-        assert a.reshape(-1, 1, 1).shape == (105, 1, 1)
