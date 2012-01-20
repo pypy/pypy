@@ -779,7 +779,7 @@ class MIFrame(object):
         return ConstInt(result)
 
     def perform_call_maybe(self, jitcode, argboxes):
-        core_only_mode = (self.metainterp.jitdriver_sd.warmstate.jitmode == 'core-only')
+        core_only_mode = (self.metainterp.jitdriver_sd.warmstate.jitmode_core_only)
         # in core_only_mode, don't inline calls from core to non-core graphs
         if core_only_mode and not jitcode.is_core:
             assert self.jitcode.is_core

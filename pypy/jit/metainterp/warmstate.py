@@ -214,9 +214,7 @@ class WarmEnterState(object):
         self.inlining = value
 
     def set_param_jitmode(self, value):
-        self.jitmode = value
-        if value == 'core-only':
-            self.set_param_inlining(0)
+        self.jitmode_core_only = (value == 'core-only')
 
     def set_param_enable_opts(self, value):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES

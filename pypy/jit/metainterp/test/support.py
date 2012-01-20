@@ -40,7 +40,7 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         _cell = FakeJitCell()
 
         trace_limit = sys.maxint
-        jitmode = 'full'
+        jitmode_core_only = False
         enable_opts = ALL_OPTS_DICT
 
     func._jit_unroll_safe_ = True
