@@ -151,10 +151,12 @@ def set_param(space, __args__):
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
             jit.set_param(None, 'enable_opts', space.str_w(w_value))
+        elif key == 'jitmode':
+            jit.set_param(None, 'jitmode', space.str_w(w_value))        
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
-                if name == key and name != 'enable_opts':
+                if name == key and name != 'enable_opts' and name != 'jitmode':
                     jit.set_param(None, name, intval)
                     break
             else:

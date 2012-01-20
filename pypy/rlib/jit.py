@@ -527,11 +527,13 @@ def set_user_param(driver, text):
             raise ValueError
         name = parts[0]
         value = parts[1]
-        if name == 'enable_opts' or name == 'jitmode':
-            set_param(driver, name, value)
+        if name == 'enable_opts':
+            set_param(driver, 'enable_opts', value)
+        elif name == 'jitmode':
+            set_param(driver, 'jitmode', value)
         else:
             for name1, _ in unroll_parameters:
-                if name1 == name and name1 != 'enable_opts':
+                if name1 == name and name1 != 'enable_opts' and name1 != 'jitmode':
                     try:
                         set_param(driver, name1, int(value))
                     except ValueError:
@@ -717,7 +719,7 @@ class ExtSetParam(ExtRegistryEntry):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
         if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
-            if s_name.const == 'enable_opts':
+            if s_name.const in ('enable_opts', 'jitmode'):
                 assert annmodel.SomeString(can_be_None=True).contains(s_value)
             else:
                 assert annmodel.SomeInteger().contains(s_value)
@@ -731,7 +733,7 @@ class ExtSetParam(ExtRegistryEntry):
         hop.exception_cannot_occur()
         driver = hop.inputarg(lltype.Void, arg=0)
         name = hop.args_s[1].const
-        if name == 'enable_opts':
+        if name in ('enable_opts', 'jitmode'):
             repr = string_repr
         else:
             repr = lltype.Signed

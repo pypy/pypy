@@ -904,8 +904,9 @@ class WarmRunnerDesc(object):
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:
+                is_string = funcname in ('enable_opts', 'jitmode')
                 closures[key] = make_closure(jd, 'set_param_' + funcname,
-                                             funcname == 'enable_opts')
+                                             is_string)
             op.opname = 'direct_call'
             op.args[:3] = [closures[key]]
 
