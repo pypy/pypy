@@ -10,7 +10,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
      SkipLastAxisIterator
-from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes, dot_docstring
+from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 
 
 numpy_driver = jit.JitDriver(

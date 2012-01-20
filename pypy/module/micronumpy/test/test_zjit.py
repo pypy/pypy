@@ -368,6 +368,20 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
 
+    def ddefine_dot():
+        return """
+        a = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
+        b=[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
+        c = a.dot(b)
+        c -> 1 -> 2
+        """
+
+    def test_dot(self):
+        py.test.skip("not yet")
+        result = self.run("dot")
+        assert result == 184
+        self.check_simple_loop({})
+
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

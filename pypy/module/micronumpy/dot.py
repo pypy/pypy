@@ -2,7 +2,16 @@ from pypy.module.micronumpy import interp_ufuncs
 from pypy.module.micronumpy.strides import calculate_dot_strides
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.module.micronumpy.interp_iter import ViewIterator
+from pypy.module.micronumpy.signature import new_printable_location
+from pypy.rlib import jit
 
+
+dot_driver = jit.JitDriver(
+    greens=['shapelen', 'left', 'right'],
+    reds=['lefti', 'righti', 'outi', 'result'],
+    get_printable_location=new_printable_location('dot'),
+    name='dot',
+)
 
 def match_dot_shapes(space, left, right):
     my_critical_dim_size = left.shape[-1]
@@ -27,6 +36,7 @@ def match_dot_shapes(space, left, right):
     return out_shape, right_critical_dim
 
 
+@jit.unroll_safe
 def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     ''' assumes left, right are concrete arrays
     given left.shape == [3, 5, 7],
@@ -56,6 +66,14 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                   broadcast_shape, right_skip)
     righti = ViewIterator(0, _r[0], _r[1], broadcast_shape)
     while not outi.done():
+        dot_driver.jit_merge_point(left=left,
+                                   right=right,
+                                   shape_len=shape_len,
+                                   lefti=lefti,
+                                   righti=righti,
+                                   outi=outi,
+                                   result=result,
+                                  )
         v = mul(dtype, left.getitem(lefti.offset),
                        right.getitem(righti.offset))
         value = add(dtype, v, result.getitem(outi.offset))
