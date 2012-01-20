@@ -2942,6 +2942,39 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_residual_call_from_core_graph(self):
+        class MyPolicy(JitPolicy):
+            def is_core_graph(self, graph):
+                return graph.name == 'f'
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+
+        def a(x):
+            return x
+        def b(x, y):
+            return x+y
+        def c(x, y, z):
+            return x+y+z
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res = a(x) + b(x, res) + c(x, -x, -x) # at the end, it's like doing x+res :-)
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 7], policy=MyPolicy(), jitmode='fast') # fast == trace only core graphs
+        assert res == 42
+        self.check_trace_count(1)
+        # this is suboptimal because we get a call_may_force instead of a
+        # call. Look at the comment inside pyjitpl...perform_call_maybe for
+        # details
+        self.check_resops({'jump': 1, 'int_gt': 2, 'guard_true': 2, 'int_sub': 2,
+                           'int_neg': 1, 'int_add': 4,
+                           'call_may_force': 6,
+                           'guard_no_exception': 6,
+                           'guard_not_forced': 6})
+
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 

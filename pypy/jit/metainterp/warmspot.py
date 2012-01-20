@@ -67,7 +67,8 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
+                    jitmode='full', **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -92,6 +93,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
+        jd.warmstate.set_param_jitmode(jitmode)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     if graph_and_interp_only:

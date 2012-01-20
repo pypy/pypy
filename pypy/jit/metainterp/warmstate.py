@@ -213,6 +213,9 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
+    def set_param_jitmode(self, value):
+        self.jitmode = value
+
     def set_param_enable_opts(self, value):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 

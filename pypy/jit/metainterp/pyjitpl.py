@@ -778,15 +778,30 @@ class MIFrame(object):
         result = vinfo.get_array_length(virtualizable, arrayindex)
         return ConstInt(result)
 
+    def perform_call_maybe(self, jitcode, argboxes):
+        core_only_mode = (self.metainterp.jitdriver_sd.warmstate.jitmode == 'fast')
+        if core_only_mode and self.jitcode.is_core:
+            # never inline in this mode
+            funcbox = ConstInt(jitcode.get_fnaddr_as_int())
+            # jitcode always has a calldescr, but it might not have the
+            # correct effectinfo. The result is that we might generate a
+            # call_may_force when a call might suffice; however, we don't care
+            # too much because for the PyPy interpreter most calls are to
+            # space.*, so they would be call_may_force anyway.
+            calldescr = jitcode.calldescr
+            return self.do_residual_call(funcbox, calldescr, argboxes)
+        # normal mode
+        return self.metainterp.perform_call(jitcode, argboxes)
+
     @arguments("jitcode", "boxes")
     def _opimpl_inline_call1(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
+        return self.perform_call_maybe(jitcode, argboxes)
     @arguments("jitcode", "boxes2")
     def _opimpl_inline_call2(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
+        return self.perform_call_maybe(jitcode, argboxes)
     @arguments("jitcode", "boxes3")
     def _opimpl_inline_call3(self, jitcode, argboxes):
-        return self.metainterp.perform_call(jitcode, argboxes)
+        return self.perform_call_maybe(jitcode, argboxes)
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
