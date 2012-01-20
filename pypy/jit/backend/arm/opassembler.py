@@ -379,7 +379,6 @@ class OpAssembler(object):
         return cond
 
     def _emit_call(self, force_index, adr, arglocs, fcond=c.AL, resloc=None):
-        assert self._regalloc.before_call_called
         n_args = len(arglocs)
         reg_args = count_reg_args(arglocs)
         # all arguments past the 4th go on the stack
