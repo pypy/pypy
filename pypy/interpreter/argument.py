@@ -9,7 +9,7 @@ from pypy.rlib import jit
 
 class Signature(object):
     _immutable_ = True
-    _immutable_fields_ = ["argnames[*]"]
+    _immutable_fields_ = ["argnames[*]", "kwonlyargnames[*]"]
     __slots__ = ("argnames", "kwonlyargnames", "varargname", "kwargname")
 
     def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None):
@@ -51,7 +51,7 @@ class Signature(object):
         argnames = self.argnames
         if self.varargname is not None:
             argnames = argnames + [self.varargname]
-        argnames += self.kwonlyargnames
+        argnames = argnames + self.kwonlyargnames
         if self.kwargname is not None:
             argnames = argnames + [self.kwargname]
         return argnames
