@@ -36,7 +36,7 @@ def _mean(a, axis=None, dtype=None, out=None, skipna=False, keepdims=False):
                             skipna=skipna, keepdims=keepdims)
     if isinstance(ret, mu.ndarray):
         ret = um.true_divide(ret, rcount,
-                        out=ret, casting='unsafe', subok=False)
+                        casting='unsafe', subok=False)
     else:
         ret = ret / float(rcount)
     return ret
@@ -79,7 +79,7 @@ def _var(a, axis=None, dtype=None, out=None, ddof=0,
     rcount -= ddof
     if isinstance(ret, mu.ndarray):
         ret = um.true_divide(ret, rcount,
-                        out=ret, casting='unsafe', subok=False)
+                        casting='unsafe', subok=False)
     else:
         ret = ret / float(rcount)
 
@@ -91,7 +91,7 @@ def _std(a, axis=None, dtype=None, out=None, ddof=0,
                                 skipna=skipna, keepdims=keepdims)
 
     if isinstance(ret, mu.ndarray):
-        ret = um.sqrt(ret, out=ret)
+        ret = um.sqrt(ret)
     else:
         ret = um.sqrt(ret)
 

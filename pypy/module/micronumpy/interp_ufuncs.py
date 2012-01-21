@@ -46,18 +46,27 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        # XXX do something with strange keywords
-        if len(__args__.arguments_w) < self.argcount:
+        args_w, kwds_w = __args__.unpack()
+        # it occurs to me that we don't support any datatypes that
+        # require casting, change it later when we do
+        kwds_w.pop('casting', None)
+        w_subok = kwds_w.pop('subok', None)
+        w_out = kwds_w.pop('out', space.w_None)
+        if ((w_subok is not None and space.is_true(w_subok)) or
+            not space.is_w(w_out, space.w_None)):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("parameters unsupported"))
+        if kwds_w or len(args_w) < self.argcount:
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
-        elif len(__args__.arguments_w) > self.argcount:
+        elif len(args_w) > self.argcount:
             # The extra arguments should actually be the output array, but we
             # don't support that yet.
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
-        return self.call(space, __args__.arguments_w)
+        return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
