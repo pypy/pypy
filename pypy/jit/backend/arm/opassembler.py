@@ -1118,7 +1118,7 @@ class ForceOpAssembler(object):
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
         numargs = op.numargs()
-        callargs = arglocs[2:numargs]
+        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
         resloc = arglocs[0]
         self._emit_call(fail_index, adr, callargs, fcond, resloc)
@@ -1134,9 +1134,9 @@ class ForceOpAssembler(object):
         # first, close the stack in the sense of the asmgcc GC root tracker
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         numargs = op.numargs()
-        resloc = arglocs[0]
+        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
         adr = arglocs[1]
-        callargs = arglocs[2:numargs]
+        resloc = arglocs[0]
 
         if gcrootmap:
             self.call_release_gil(gcrootmap, arglocs, fcond)
