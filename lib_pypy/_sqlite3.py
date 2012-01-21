@@ -605,7 +605,7 @@ class Connection(object):
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
                     return int(callback(action, arg1, arg2, dbname, source))
-                except Exception, e:
+                except Exception:
                     return SQLITE_DENY
             c_authorizer = AUTHORIZER(authorizer)
 
@@ -652,7 +652,7 @@ class Connection(object):
                 if not aggregate_ptr[0]:
                     try:
                         aggregate = cls()
-                    except Exception, e:
+                    except Exception:
                         msg = ("user-defined aggregate's '__init__' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -666,7 +666,7 @@ class Connection(object):
                 params = _convert_params(context, argc, c_params)
                 try:
                     aggregate.step(*params)
-                except Exception, e:
+                except Exception:
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
                     sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -682,7 +682,7 @@ class Connection(object):
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
                     try:
                         val = aggregate.finalize()
-                    except Exception, e:
+                    except Exception:
                         msg = ("user-defined aggregate's 'finalize' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -1046,7 +1046,7 @@ class Statement(object):
                 param_name = param_name[1:]
                 try:
                     param = params[param_name]
-                except KeyError, e:
+                except KeyError:
                     raise ProgrammingError("missing parameter '%s'" %param)
                 self.set_param(idx, param)
 
@@ -1257,7 +1257,7 @@ def function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
     try:
         val = real_cb(*params)
-    except Exception, e:
+    except Exception:
         msg = "user-defined function raised exception"
         sqlite.sqlite3_result_error(context, msg, len(msg))
     else:
