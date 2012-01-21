@@ -402,3 +402,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert count_reduce_items(a, 1) == 3
         assert count_reduce_items(a, (1, 2)) == 3 * 4
         
+    def test_true_divide(self):
+        from _numpypy import arange, array, true_divide
+        assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()

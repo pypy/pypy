@@ -68,6 +68,7 @@ class Module(MixedModule):
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),
+        ("true_divide", "true_divide"),
         ("equal", "equal"),
         ("exp", "exp"),
         ("fabs", "fabs"),

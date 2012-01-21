@@ -442,6 +442,7 @@ class UfuncState(object):
             ("bitwise_or", "bitwise_or", 2, {"identity": 0,
                                              'int_only': True}),
             ("divide", "div", 2, {"promote_bools": True}),
+            ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),
 
