@@ -27,7 +27,6 @@ from ctypes import sizeof, c_ssize_t
 from collections import OrderedDict
 import datetime
 import sys
-import time
 import weakref
 from threading import _get_ident as thread_get_ident
 
