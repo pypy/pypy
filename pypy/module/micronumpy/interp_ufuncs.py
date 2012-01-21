@@ -60,7 +60,7 @@ class W_Ufunc(Wrappable):
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
-                     skipna=False, keepdims=True):
+                     skipna=False, keepdims=True, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
 
@@ -113,6 +113,9 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
+        if not space.is_w(w_out, space.w_None):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "out not supported"))
         if space.is_w(w_axis, space.w_None):
             axis = -1
         else:

@@ -55,23 +55,23 @@ def _var(a, axis=None, dtype=None, out=None, ddof=0,
     rcount = mu.count_reduce_items(arr, axis=axis,
                             skipna=skipna, keepdims=True)
     if isinstance(arrmean, mu.ndarray):
-        arrmean = um.true_divide(arrmean, rcount,
-                            out=arrmean, casting='unsafe', subok=False)
+        arrmean2 = um.true_divide(arrmean, rcount,
+                                  casting='unsafe', subok=False)
     else:
-        arrmean = arrmean / float(rcount)
+        arrmean2 = arrmean / float(rcount)
 
     # arr - arrmean
-    x = arr - arrmean
+    x = arr - arrmean2
 
     # (arr - arrmean) ** 2
     if arr.dtype.kind == 'c':
-        x = um.multiply(x, um.conjugate(x), out=x).real
+        y = um.multiply(x, um.conjugate(x)).real
     else:
-        x = um.multiply(x, x, out=x)
+        y = um.multiply(x, x)
 
     # add.reduce((arr - arrmean) ** 2, axis)
-    ret = um.add.reduce(x, axis=axis, dtype=dtype, out=out,
-                                skipna=skipna, keepdims=keepdims)
+    ret = um.add.reduce(y, axis=axis, dtype=dtype, out=out,
+                        skipna=skipna, keepdims=keepdims)
 
     # add.reduce((arr - arrmean) ** 2, axis) / (n - ddof)
     if not keepdims and isinstance(rcount, mu.ndarray):
