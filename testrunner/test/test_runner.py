@@ -117,6 +117,7 @@ class TestExecuteTest(object):
 
         expected = ['INTERP', 'IARG',
                     'driver', 'darg',
+                    '-p', 'resultlog',
                     '--resultlog=LOGFILE',
                     'test_one']
 
@@ -133,6 +134,7 @@ class TestExecuteTest(object):
 
         expected = ['/wd' + os.sep + './INTERP', 'IARG',
                     'driver', 'darg',
+                    '-p', 'resultlog',
                     '--resultlog=LOGFILE',
                     'test_one']
 
@@ -246,7 +248,7 @@ class RunnerTests(object):
         assert '\n' in log        
         log_lines = log.splitlines()
 
-        assert log_lines[0] == ". test_normal/test_example.py:test_one"
+        assert ". test_normal/test_example.py::test_one" in log_lines
         nfailures = 0
         noutcomes = 0
         for line in log_lines:
