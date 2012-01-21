@@ -1039,6 +1039,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([5.0])
         assert a.std() == 0.0
 
+    def test_flatten(self):
+        from _numpypy import array
+
+        a = array([[1, 2, 3], [4, 5, 6]])
+        assert (a.flatten() == [1, 2, 3, 4, 5, 6]).all()
+        a = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        assert (a.flatten() == [1, 2, 3, 4, 5, 6, 7, 8]).all()
+        a = array([1, 2, 3, 4, 5, 6, 7, 8])
+        assert (a[::2].flatten() == [1, 3, 5, 7]).all()
+        a = array([1, 2, 3])
+        assert ((a + a).flatten() == [2, 4, 6]).all()
+        a = array(2)
+        assert (a.flatten() == [2]).all()
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

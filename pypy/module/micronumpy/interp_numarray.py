@@ -430,8 +430,14 @@ class BaseArray(Wrappable):
     def descr_copy(self, space):
         return self.copy(space)
 
+    def descr_flatten(self, space):
+        return self.flatten(space)
+
     def copy(self, space):
         return self.get_concrete().copy(space)
+
+    def flatten(self, space):
+        return self.get_concrete().flatten(space)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -768,6 +774,11 @@ class Scalar(BaseArray):
 
     def copy(self, space):
         return Scalar(self.dtype, self.value)
+
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype)
+        array.setitem(0, self.value)
+        return array
 
     def fill(self, space, w_value):
         self.value = self.dtype.coerce(space, w_value)
@@ -1150,6 +1161,15 @@ class ConcreteArray(BaseArray):
         array.setslice(space, self)
         return array
 
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype, self.order)
+        if self.supports_fast_slicing():
+            array._fast_setslice(space, self)
+        else:
+            arr = SliceArray(array.shape, array.dtype, array, self)
+            array._sliceloop(arr)
+        return array
+
     def fill(self, space, w_value):
         self.setslice(space, scalar_w(space, self.dtype, w_value))
 
@@ -1379,6 +1399,7 @@ BaseArray.typedef = TypeDef(
     fill = interp2app(BaseArray.descr_fill),
 
     copy = interp2app(BaseArray.descr_copy),
+    flatten = interp2app(BaseArray.descr_flatten),
     reshape = interp2app(BaseArray.descr_reshape),
     tolist = interp2app(BaseArray.descr_tolist),
 )
