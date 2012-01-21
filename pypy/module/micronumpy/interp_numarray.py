@@ -1299,10 +1299,13 @@ class W_FlatIterator(ViewArray):
         size = 1
         for sh in arr.shape:
             size *= sh
-        if arr.strides[-1] < arr.strides[0]:
+        if arr.strides[-1] <= arr.strides[0]:
             self.strides = [arr.strides[-1]]
             self.backstrides = [arr.backstrides[-1]]
         else:
+            XXX
+            # This will not work: getitem and setitem will
+            # fail. Need to be smarter: calculate the indices from the int
             self.strides = [arr.strides[0]]
             self.backstrides = [arr.backstrides[0]]
         ViewArray.__init__(self, size, [size], arr.dtype, order=arr.order,
