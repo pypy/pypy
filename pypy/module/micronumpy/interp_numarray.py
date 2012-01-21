@@ -303,6 +303,12 @@ class BaseArray(Wrappable):
         return space.wrap(res.build())
 
     def descr_str(self, space):
+        cache = get_appbridge_cache(space)
+        if cache.w_array_str is None:
+            raise OperationError(space.w_RuntimeError, space.wrap(
+                "str function not set"))
+        return space.call_function(cache.w_array_str, self)
+        
         ret = StringBuilder()
         concrete = self.get_concrete_or_scalar()
         concrete.to_str(space, 0, ret, ' ')

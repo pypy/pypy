@@ -5,6 +5,8 @@ class AppBridgeCache(object):
     w__var = None
     w__std = None
     w_module = None
+    w_array_repr = None
+    w_array_str = None
 
     def __init__(self, space):
         self.w_import = space.appexec([], """():
@@ -23,6 +25,13 @@ class AppBridgeCache(object):
             w_meth = space.getattr(self.w_module, space.wrap(name))
             setattr(self, 'w_' + name, w_meth)
         return space.call_function(w_meth, *args)
+
+def set_string_function(space, w_f, w_repr):
+    cache = get_appbridge_cache(space)
+    if space.is_true(w_repr):
+        cache.w_array_repr = w_f
+    else:
+        cache.w_array_str = w_f
 
 def get_appbridge_cache(space):
     return space.fromcache(AppBridgeCache)

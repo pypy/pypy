@@ -28,6 +28,8 @@ class Module(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
 
+        'set_string_function': 'appbridge.set_string_function',
+        
         'count_reduce_items': 'interp_numarray.count_reduce_items',
 
         'True_': 'types.Bool.True',

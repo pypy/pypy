@@ -1,5 +1,8 @@
 
-from _numpypy import array
+from _numpypy import array, ndarray, int_, float_ #, complex_# , longlong
+import sys
+import _numpypy as multiarray # ARGH
+from numpypy.core.arrayprint import array2string
 
 def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     """
@@ -60,3 +63,245 @@ def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     """
     return array(a, dtype, copy=False, order=order, subok=True,
                                 maskna=maskna, ownmaskna=ownmaskna)
+
+def base_repr(number, base=2, padding=0):
+    """
+    Return a string representation of a number in the given base system.
+
+    Parameters
+    ----------
+    number : int
+        The value to convert. Only positive values are handled.
+    base : int, optional
+        Convert `number` to the `base` number system. The valid range is 2-36,
+        the default value is 2.
+    padding : int, optional
+        Number of zeros padded on the left. Default is 0 (no padding).
+
+    Returns
+    -------
+    out : str
+        String representation of `number` in `base` system.
+
+    See Also
+    --------
+    binary_repr : Faster version of `base_repr` for base 2.
+
+    Examples
+    --------
+    >>> np.base_repr(5)
+    '101'
+    >>> np.base_repr(6, 5)
+    '11'
+    >>> np.base_repr(7, base=5, padding=3)
+    '00012'
+
+    >>> np.base_repr(10, base=16)
+    'A'
+    >>> np.base_repr(32, base=16)
+    '20'
+
+    """
+    digits = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    if base > len(digits):
+        raise ValueError("Bases greater than 36 not handled in base_repr.")
+
+    num = abs(number)
+    res = []
+    while num:
+        res.append(digits[num % base])
+        num //= base
+    if padding:
+        res.append('0' * padding)
+    if number < 0:
+        res.append('-')
+    return ''.join(reversed(res or '0'))
+
+_typelessdata = [int_, float_]#, complex_]
+# XXX
+#if issubclass(intc, int):
+#    _typelessdata.append(intc)
+
+#if issubclass(longlong, int):
+#    _typelessdata.append(longlong)
+
+def array_repr(arr, max_line_width=None, precision=None, suppress_small=None):
+    """
+    Return the string representation of an array.
+
+    Parameters
+    ----------
+    arr : ndarray
+        Input array.
+    max_line_width : int, optional
+        The maximum number of columns the string should span. Newline
+        characters split the string appropriately after array elements.
+    precision : int, optional
+        Floating point precision. Default is the current printing precision
+        (usually 8), which can be altered using `set_printoptions`.
+    suppress_small : bool, optional
+        Represent very small numbers as zero, default is False. Very small
+        is defined by `precision`, if the precision is 8 then
+        numbers smaller than 5e-9 are represented as zero.
+
+    Returns
+    -------
+    string : str
+      The string representation of an array.
+
+    See Also
+    --------
+    array_str, array2string, set_printoptions
+
+    Examples
+    --------
+    >>> np.array_repr(np.array([1,2]))
+    'array([1, 2])'
+    >>> np.array_repr(np.ma.array([0.]))
+    'MaskedArray([ 0.])'
+    >>> np.array_repr(np.array([], np.int32))
+    'array([], dtype=int32)'
+
+    >>> x = np.array([1e-6, 4e-7, 2, 3])
+    >>> np.array_repr(x, precision=6, suppress_small=True)
+    'array([ 0.000001,  0.      ,  2.      ,  3.      ])'
+
+    """
+    if arr.size > 0 or arr.shape==(0,):
+        lst = array2string(arr, max_line_width, precision, suppress_small,
+                           ', ', "array(")
+    else: # show zero-length shape unless it is (0,)
+        lst = "[], shape=%s" % (repr(arr.shape),)
+
+    if arr.__class__ is not ndarray:
+        cName= arr.__class__.__name__
+    else:
+        cName = "array"
+
+    skipdtype = (arr.dtype.type in _typelessdata) and arr.size > 0
+
+    if arr.flags.maskna:
+        whichna = isna(arr)
+        # If nothing is NA, explicitly signal the NA-mask
+        if not any(whichna):
+            lst += ", maskna=True"
+        # If everything is NA, can't skip the dtype
+        if skipdtype and all(whichna):
+            skipdtype = False
+
+    if skipdtype:
+        return "%s(%s)" % (cName, lst)
+    else:
+        typename = arr.dtype.name
+        # Quote typename in the output if it is "complex".
+        if typename and not (typename[0].isalpha() and typename.isalnum()):
+            typename = "'%s'" % typename
+
+        lf = ''
+        if 0 or issubclass(arr.dtype.type, flexible):
+            if arr.dtype.names:
+                typename = "%s" % str(arr.dtype)
+            else:
+                typename = "'%s'" % str(arr.dtype)
+            lf = '\n'+' '*len("array(")
+        return cName + "(%s, %sdtype=%s)" % (lst, lf, typename)
+
+def array_str(a, max_line_width=None, precision=None, suppress_small=None):
+    """
+    Return a string representation of the data in an array.
+
+    The data in the array is returned as a single string.  This function is
+    similar to `array_repr`, the difference being that `array_repr` also
+    returns information on the kind of array and its data type.
+
+    Parameters
+    ----------
+    a : ndarray
+        Input array.
+    max_line_width : int, optional
+        Inserts newlines if text is longer than `max_line_width`.  The
+        default is, indirectly, 75.
+    precision : int, optional
+        Floating point precision.  Default is the current printing precision
+        (usually 8), which can be altered using `set_printoptions`.
+    suppress_small : bool, optional
+        Represent numbers "very close" to zero as zero; default is False.
+        Very close is defined by precision: if the precision is 8, e.g.,
+        numbers smaller (in absolute value) than 5e-9 are represented as
+        zero.
+
+    See Also
+    --------
+    array2string, array_repr, set_printoptions
+
+    Examples
+    --------
+    >>> np.array_str(np.arange(3))
+    '[0 1 2]'
+
+    """
+    return array2string(a, max_line_width, precision, suppress_small, ' ', "", str)
+
+def set_string_function(f, repr=True):
+    """
+    Set a Python function to be used when pretty printing arrays.
+
+    Parameters
+    ----------
+    f : function or None
+        Function to be used to pretty print arrays. The function should expect
+        a single array argument and return a string of the representation of
+        the array. If None, the function is reset to the default NumPy function
+        to print arrays.
+    repr : bool, optional
+        If True (default), the function for pretty printing (``__repr__``)
+        is set, if False the function that returns the default string
+        representation (``__str__``) is set.
+
+    See Also
+    --------
+    set_printoptions, get_printoptions
+
+    Examples
+    --------
+    >>> def pprint(arr):
+    ...     return 'HA! - What are you going to do now?'
+    ...
+    >>> np.set_string_function(pprint)
+    >>> a = np.arange(10)
+    >>> a
+    HA! - What are you going to do now?
+    >>> print a
+    [0 1 2 3 4 5 6 7 8 9]
+
+    We can reset the function to the default:
+
+    >>> np.set_string_function(None)
+    >>> a
+    array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+    `repr` affects either pretty printing or normal string representation.
+    Note that ``__repr__`` is still affected by setting ``__str__``
+    because the width of each array element in the returned string becomes
+    equal to the length of the result of ``__str__()``.
+
+    >>> x = np.arange(4)
+    >>> np.set_string_function(lambda x:'random', repr=False)
+    >>> x.__str__()
+    'random'
+    >>> x.__repr__()
+    'array([     0,      1,      2,      3])'
+
+    """
+    if f is None:
+        if repr:
+            return multiarray.set_string_function(array_repr, 1)
+        else:
+            return multiarray.set_string_function(array_str, 0)
+    else:
+        return multiarray.set_string_function(f, repr)
+
+set_string_function(array_str, 0)
+set_string_function(array_repr, 1)
+
+little_endian = (sys.byteorder == 'little')
