@@ -280,6 +280,11 @@ class BaseArray(Wrappable):
             "len() of unsized object"))
 
     def descr_repr(self, space):
+        cache = get_appbridge_cache(space)
+        if cache.w_array_repr is None:
+            return space.wrap(self.dump_data())
+        return space.call_function(cache.w_array_repr, self)
+
         res = StringBuilder()
         res.append("array(")
         concrete = self.get_concrete_or_scalar()
@@ -302,11 +307,26 @@ class BaseArray(Wrappable):
         res.append(")")
         return space.wrap(res.build())
 
+    def dump_data(self):
+        concr = self.get_concrete()
+        i = concr.create_iter()
+        first = True
+        s = StringBuilder()
+        s.append('array([')
+        while not i.done():
+            if first:
+                first = False
+            else:
+                s.append(', ')
+            s.append(concr.dtype.itemtype.str_format(concr.getitem(i.offset)))
+            i = i.next(len(concr.shape))
+        s.append('])')
+        return s.build()
+
     def descr_str(self, space):
         cache = get_appbridge_cache(space)
         if cache.w_array_str is None:
-            raise OperationError(space.w_RuntimeError, space.wrap(
-                "str function not set"))
+            return space.wrap(self.dump_data())
         return space.call_function(cache.w_array_str, self)
         
         ret = StringBuilder()
@@ -545,6 +565,12 @@ class BaseArray(Wrappable):
             shape.append(concrete.shape[i])
         return space.wrap(W_NDimSlice(concrete.start, strides,
                                       backstrides, shape, concrete))
+
+    def descr_ravel(self, space, w_order=None):
+        if not space.is_w(w_order, space.w_None):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "order not implemented"))
+        return self.descr_reshape(space, [space.wrap(-1)])
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
@@ -1251,6 +1277,7 @@ BaseArray.typedef = TypeDef(
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
     flat = GetSetProperty(BaseArray.descr_get_flatiter),
+    ravel = interp2app(BaseArray.descr_ravel),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),

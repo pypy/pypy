@@ -1054,8 +1054,9 @@ def ravel(a, order='C'):
     array([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
-
+    if not hasattr(a, 'ravel'):
+        a = numpypy.array(a)
+    return a.ravel(order=order)
 
 def nonzero(a):
     """

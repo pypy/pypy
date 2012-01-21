@@ -137,3 +137,6 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
 
+    def test_ravel(self):
+        from numpypy import ravel
+        

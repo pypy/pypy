@@ -19,3 +19,8 @@ class AppTestBaseRepr(BaseNumpyAppTest):
         assert base_repr(-12, 10) == '-12'
         assert base_repr(-12, 10, 4) == '-000012'
         assert base_repr(-12, 4) == '-30'
+
+class AppTestRepr(BaseNumpyAppTest):
+    def test_repr(self):
+        from numpypy import array
+        assert repr(array([1, 2, 3, 4])) == 'array([1, 2, 3, 4])'

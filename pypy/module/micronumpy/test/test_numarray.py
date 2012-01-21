@@ -1382,6 +1382,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array(x, copy=False) is x
         assert array(x, copy=True) is not x
 
+    def test_ravel(self):
+        from _numpypy import arange
+        assert (arange(3).ravel() == arange(3)).all()
+        assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
+        print arange(6).reshape(2, 3).T.ravel()
+        assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
+        
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct
