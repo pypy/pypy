@@ -810,15 +810,6 @@ class TestCompiler:
         """
         yield self.st, func, "f()", (1, [2, 3, 4], 5)
 
-    def test_kwonlyargs_default_parameters(self):
-        """ This actually test an interpreter bug, but since we can't parse
-        py3k only code in the interpreter tests right now, it's there waiting
-        for this feature"""
-        func = """ def f(a, b, c=3, *, d=4):
-            return a, b, c, d
-        """
-        yield self.st, func, "f(1, 2)", (1, 2, 3, 4)
-
 class AppTestCompiler:
 
     def test_docstring_not_loaded(self):

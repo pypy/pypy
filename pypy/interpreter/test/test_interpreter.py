@@ -240,6 +240,12 @@ class TestInterpreter:
             '''
         assert self.codetest(code, 'f', []) == os.name
 
+    def test_kwonlyargs_default_parameters(self):
+        code = """ def f(a, b, c=3, *, d=4):
+            return a, b, c, d
+        """
+        assert self.codetest(code, "f", [1, 2]) == (1, 2, 3, 4)
+
 
 class AppTestInterpreter: 
     def test_trivial(self):
