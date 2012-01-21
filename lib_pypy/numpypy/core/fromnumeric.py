@@ -149,6 +149,7 @@ def reshape(a, newshape, order='C'):
            [5, 6]])
 
     """
+    assert order == 'C'
     if not hasattr(a, 'reshape'):
        a = numpypy.array(a)
     return a.reshape(newshape)
@@ -690,6 +691,7 @@ def argmax(a, axis=None):
     1
 
     """
+    assert axis is None
     if not hasattr(a, 'argmax'):
         a = numpypy.array(a)
     return a.argmax()
@@ -705,6 +707,7 @@ def argmin(a, axis=None):
         documentation.
 
     """
+    assert axis is None
     if not hasattr(a, 'argmin'):
         a = numpypy.array(a)
     return a.argmin()
@@ -1354,9 +1357,11 @@ def sum(a, axis=None, dtype=None, out=None):
     -128
 
     """
+    assert dtype is None
+    assert out is None
     if not hasattr(a, "sum"):
         a = numpypy.array(a)
-    return a.sum()
+    return a.sum(axis=axis)
 
 
 def product (a, axis=None, dtype=None, out=None):
@@ -1382,6 +1387,8 @@ def sometrue(a, axis=None, out=None):
     any : equivalent function
 
     """
+    assert axis is None
+    assert out is None
     if not hasattr(a, 'any'):
         a = numpypy.array(a)
     return a.any()
@@ -1396,6 +1403,8 @@ def alltrue (a, axis=None, out=None):
     numpy.all : Equivalent function; see for details.
 
     """
+    assert axis is None
+    assert out is None
     if not hasattr(a, 'all'):
         a = numpypy.array(a)
     return a.all()
@@ -1464,6 +1473,8 @@ def any(a,axis=None, out=None):
     (191614240, 191614240)
 
     """
+    assert axis is None
+    assert out is None
     if not hasattr(a, 'any'):
         a = numpypy.array(a)
     return a.any()
@@ -1526,6 +1537,8 @@ def all(a,axis=None, out=None):
     (28293632, 28293632, array([ True], dtype=bool))
 
     """
+    assert axis is None
+    assert out is None
     if not hasattr(a, 'all'):
         a = numpypy.array(a)
     return a.all()
@@ -1705,6 +1718,8 @@ def amax(a, axis=None, out=None):
     4.0
 
     """
+    assert axis is None
+    assert out is None
     if not hasattr(a, "max"):
         a = numpypy.array(a)
     return a.max()
@@ -1766,6 +1781,8 @@ def amin(a, axis=None, out=None):
 
     """
     # amin() is equivalent to min()
+    assert axis is None
+    assert out is None
     if not hasattr(a, 'min'):
         a = numpypy.array(a)
     return a.min()
@@ -2214,9 +2231,11 @@ def mean(a, axis=None, dtype=None, out=None):
     0.55000000074505806
 
     """
+    assert dtype is None
+    assert out is None
     if not hasattr(a, "mean"):
         a = numpypy.array(a)
-    return a.mean()
+    return a.mean(axis=axis)
 
 
 def std(a, axis=None, dtype=None, out=None, ddof=0):
@@ -2305,6 +2324,10 @@ def std(a, axis=None, dtype=None, out=None, ddof=0):
     0.44999999925552653
 
     """
+    assert axis is None
+    assert dtype is None
+    assert out is None
+    assert ddof == 0
     if not hasattr(a, "std"):
         a = numpypy.array(a)
     return a.std()
@@ -2398,6 +2421,10 @@ def var(a, axis=None, dtype=None, out=None, ddof=0):
     0.20250000000000001
 
     """
+    assert axis is None
+    assert dtype is None
+    assert out is None
+    assert ddof == 0
     if not hasattr(a, "var"):
         a = numpypy.array(a)
     return a.var()
