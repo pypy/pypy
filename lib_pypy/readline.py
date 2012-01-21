@@ -6,4 +6,7 @@ Note that some of the functions present in the CPython module 'readline'
 are only stubs at the moment.
 """
 
-from pyrepl.readline import *
+try:
+    from pyrepl.readline import *
+except SyntaxError:
+    raise ImportError
