@@ -226,8 +226,7 @@ class TestCompiler:
     def test_funccalls(self):
         decl = py.code.Source("""
             def f(*args, **kwds):
-                kwds = kwds.items()
-                kwds.sort()
+                kwds = sorted(kwds.items())
                 return list(args) + kwds
         """)
         decl = str(decl) + '\n'
@@ -328,7 +327,7 @@ class TestCompiler:
                     from __foo__.bar import x
             try:
                 A().m()
-            except ImportError, e:
+            except ImportError as e:
                 msg = str(e)
             ''', "msg", "No module named __foo__")
 
@@ -519,8 +518,8 @@ class TestCompiler:
         """, 'x', [True, 3, 4, 6]
 
     def test_type_of_constants(self):
-        yield self.simple_test, "x=[0, 0L]", 'type(x[1])', long
-        yield self.simple_test, "x=[(1,0), (1,0L)]", 'type(x[1][1])', long
+        yield self.simple_test, "x=[0, 0.]", 'type(x[1])', float
+        yield self.simple_test, "x=[(1,0), (1,0.)]", 'type(x[1][1])', float
         yield self.simple_test, "x=['2?-', '2?-']", 'id(x[0])==id(x[1])', True
 
     def test_pprint(self):
@@ -646,17 +645,15 @@ class TestCompiler:
                 #Indexing
                 for key, value in self.reference.items():
                     self.assertEqual(d[key], value)
-                knownkey = self.other.keys()[0]
+                knownkey = next(iter(self.other))
                 self.failUnlessRaises(KeyError, lambda:d[knownkey])
                 #len
                 self.assertEqual(len(p), 0)
                 self.assertEqual(len(d), len(self.reference))
                 #has_key
                 for k in self.reference:
-                    self.assert_(d.has_key(k))
                     self.assert_(k in d)
                 for k in self.other:
-                    self.failIf(d.has_key(k))
                     self.failIf(k in d)
                 #cmp
                 self.assertEqual(cmp(p,p), 0)
