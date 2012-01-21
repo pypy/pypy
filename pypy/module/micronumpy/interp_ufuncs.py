@@ -46,7 +46,8 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        if __args__.keywords or len(__args__.arguments_w) < self.argcount:
+        # XXX do something with strange keywords
+        if len(__args__.arguments_w) < self.argcount:
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
@@ -60,7 +61,7 @@ class W_Ufunc(Wrappable):
 
     @unwrap_spec(skipna=bool, keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
-                     skipna=False, keepdims=True, w_out=None):
+                     skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
 
@@ -120,9 +121,9 @@ class W_Ufunc(Wrappable):
             axis = -1
         else:
             axis = space.int_w(w_axis)
-        return self.reduce(space, w_obj, False, False, axis)
+        return self.reduce(space, w_obj, False, False, axis, keepdims)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, dim):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                                            Scalar
         if self.argcount != 2:
@@ -148,7 +149,7 @@ class W_Ufunc(Wrappable):
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
-            res = self.do_axis_reduce(obj, dtype, dim)
+            res = self.do_axis_reduce(obj, dtype, dim, keepdims)
             return space.wrap(res)
         scalarsig = ScalarSignature(dtype)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
@@ -162,11 +163,14 @@ class W_Ufunc(Wrappable):
             value = self.identity.convert_to(dtype)
         return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
 
-    def do_axis_reduce(self, obj, dtype, dim):
+    def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
              W_NDimArray
-        
-        shape = obj.shape[0:dim] + obj.shape[dim + 1:len(obj.shape)]
+
+        if keepdims:
+            shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
+        else:
+            shape = obj.shape[:dim] + obj.shape[dim + 1:]
         size = 1
         for s in shape:
             size *= s

@@ -1077,6 +1077,8 @@ def _find_size_and_shape(space, w_size):
 def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
           subok=True, copy=False, w_maskna=None, ownmaskna=False):
     # find scalar
+    if w_maskna is None:
+        w_maskna = space.w_None
     if (not subok or copy or not space.is_w(w_maskna, space.w_None) or
         ownmaskna):
         raise OperationError(space.w_NotImplementedError, space.wrap("Unsupported args"))
@@ -1088,7 +1090,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
         return scalar_w(space, dtype, w_item_or_iterable)
-    if space.is_w(w_order, space.w_None):
+    if space.is_w(w_order, space.w_None) or w_order is None:
         order = 'C'
     else:
         order = space.str_w(w_order)

@@ -1,5 +1,5 @@
 from pypy.rlib import jit
-
+from pypy.interpreter.error import OperationError
 
 @jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
     jit.isconstant(len(chunks))

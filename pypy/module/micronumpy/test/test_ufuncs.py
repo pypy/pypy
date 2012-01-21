@@ -344,7 +344,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from _numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(ValueError, add.reduce, 1)
+        raises(TypeError, add.reduce, 1)
 
     def test_reduce_1d(self):
         from _numpypy import add, maximum
@@ -359,6 +359,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = arange(12).reshape(3, 4)
         assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
         assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
+
+    def test_reduce_keepdims(self):
+        from _numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        b = add.reduce(a, 0, keepdims=True)
+        assert b.shape == (1, 4)
+        assert (add.reduce(a, 0, keepdims=True) == [12, 15, 18, 21]).all()
+        
 
     def test_bitwise(self):
         from _numpypy import bitwise_and, bitwise_or, arange, array
