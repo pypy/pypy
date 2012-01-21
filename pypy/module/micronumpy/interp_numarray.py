@@ -1308,6 +1308,23 @@ def ones(space, w_size, w_dtype=None):
     arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 
+@unwrap_spec(arr=BaseArray, skipna=bool, keepdims=bool)
+def count_reduce_items(space, arr, w_axis=None, skipna=False, keepdims=True):
+    if not keepdims:
+        raise OperationError(space.w_NotImplementedError, space.wrap("unsupported"))
+    if space.is_w(w_axis, space.w_None):
+        s = 1
+        for elem in arr.shape:
+            s *= elem
+        return space.wrap(s)
+    if space.isinstance_w(w_axis, space.w_int):
+        return space.wrap(arr.shape[space.int_w(w_axis)])
+    s = 1
+    elems = space.fixedview(w_axis)
+    for w_elem in elems:
+        s *= arr.shape[space.int_w(w_elem)]
+    return space.wrap(s)
+
 def dot(space, w_obj, w_obj2):
     w_arr = convert_to_array(space, w_obj)
     if isinstance(w_arr, Scalar):

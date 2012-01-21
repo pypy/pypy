@@ -394,3 +394,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3, 3.5),
             ]:
                 assert ufunc(a, b) == func(a, b)
+
+    def test_count_reduce_items(self):
+        from _numpypy import count_reduce_items, arange
+        a = arange(24).reshape(2, 3, 4)
+        assert count_reduce_items(a) == 24
+        assert count_reduce_items(a, 1) == 3
+        assert count_reduce_items(a, (1, 2)) == 3 * 4
+        

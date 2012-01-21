@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype
 from pypy.module.micronumpy.signature import ReduceSignature,\
@@ -58,7 +58,9 @@ class W_Ufunc(Wrappable):
             )
         return self.call(space, __args__.arguments_w)
 
-    def descr_reduce(self, space, w_obj, w_dim=0):
+    @unwrap_spec(skipna=bool, keepdims=bool)
+    def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
+                     skipna=False, keepdims=True):
         """reduce(...)
         reduce(a, axis=0)
 
@@ -111,15 +113,18 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
-        return self.reduce(space, w_obj, False, False, w_dim)
+        if space.is_w(w_axis, space.w_None):
+            axis = -1
+        else:
+            axis = space.int_w(w_axis)
+        return self.reduce(space, w_obj, False, False, axis)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, w_dim):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, dim):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                                            Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
-        dim = space.int_w(w_dim)
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if dim >= len(obj.shape):
@@ -494,3 +499,4 @@ class UfuncState(object):
 
 def get(space):
     return space.fromcache(UfuncState)
+
