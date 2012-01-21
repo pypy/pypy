@@ -156,7 +156,7 @@ def get_shape_from_iterable(space, old_size, w_iterable):
 # fits the new shape, using those steps. If there is a shape/step mismatch
 # (meaning that the realignment of elements crosses from one step into another)
 # return None so that the caller can raise an exception.
-def calc_new_strides(new_shape, old_shape, old_strides):
+def calc_new_strides(new_shape, old_shape, old_strides, order):
     # Return the proper strides for new_shape, or None if the mapping crosses
     # stepping boundaries
 
@@ -166,7 +166,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
     last_step = 1
     oldI = 0
     new_strides = []
-    if old_strides[0] < old_strides[-1]:
+    if order == 'F':
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -187,7 +187,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                     break
                 cur_step = steps[oldI]
                 n_old_elems_to_use *= old_shape[oldI]
-    else:
+    elif order == 'C':
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -543,8 +543,8 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space, concrete.size, w_shape)
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape,
-                                       concrete.shape, concrete.strides)
+        new_strides = calc_new_strides(new_shape, concrete.shape,
+                                     concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
             ndims = len(new_shape)
@@ -1105,7 +1105,8 @@ class W_NDimSlice(ViewArray):
             self.backstrides = backstrides
             self.shape = new_shape
             return
-        new_strides = calc_new_strides(new_shape, self.shape, self.strides)
+        new_strides = calc_new_strides(new_shape, self.shape, self.strides,
+                                                   self.order)
         if new_strides is None:
             raise OperationError(space.w_AttributeError, space.wrap(
                           "incompatible shape for a non-contiguous array"))
