@@ -11,21 +11,21 @@ class AppTestItertools:
 
         it = itertools.count()
         for x in range(10):
-            assert it.next() == x
+            assert next(it) == x
 
     def test_count_firstval(self):
         import itertools
 
         it = itertools.count(3)
         for x in range(10):
-            assert it.next() == x + 3
+            assert next(it) == x + 3
 
     def test_count_repr(self):
         import itertools
 
         it = itertools.count(123)
         assert repr(it) == 'count(123)'
-        it.next()
+        next(it)
         assert repr(it) == 'count(124)'
         it = itertools.count(12.1, 1.0)
         assert repr(it) == 'count(12.1, 1.0)'
@@ -43,7 +43,7 @@ class AppTestItertools:
         it = itertools.repeat(o)
 
         for x in range(10):
-            assert o is it.next()
+            assert o is next(it)
 
     def test_repeat_times(self):
         import itertools
@@ -51,8 +51,8 @@ class AppTestItertools:
         times = 10
         it = itertools.repeat(None, times)
         for i in range(times):
-            it.next()
-        raises(StopIteration, it.next)
+            next(it)
+        raises(StopIteration, next, it)
 
         #---does not work in CPython 2.5
         #it = itertools.repeat(None, None)
@@ -60,12 +60,12 @@ class AppTestItertools:
         #    it.next()    # Should be no StopIteration
 
         it = itertools.repeat(None, 0)
-        raises(StopIteration, it.next)
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
+        raises(StopIteration, next, it)
 
         it = itertools.repeat(None, -1)
-        raises(StopIteration, it.next)
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
+        raises(StopIteration, next, it)
 
     def test_repeat_overflow(self):
         import itertools
@@ -78,12 +78,12 @@ class AppTestItertools:
 
         it = itertools.repeat('foobar')
         assert repr(it) == "repeat('foobar')"
-        it.next()
+        next(it)
         assert repr(it) == "repeat('foobar')"
 
         it = itertools.repeat('foobar', 10)
         assert repr(it) == "repeat('foobar', 10)"
-        it.next()
+        next(it)
         assert repr(it) == "repeat('foobar', 9)"
         list(it)
         assert repr(it) == "repeat('foobar', 0)"
@@ -92,22 +92,22 @@ class AppTestItertools:
         import itertools
 
         it = itertools.takewhile(bool, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.takewhile(bool, [False, True, True])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.takewhile(bool, [1, 2, 3, 0, 1, 1])
         for x in [1, 2, 3]:
-            assert it.next() == x
+            assert next(it) == x
 
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
     def test_takewhile_wrongargs(self):
         import itertools
 
         it = itertools.takewhile(None, [1])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
         raises(TypeError, itertools.takewhile, bool, None)
 
@@ -115,25 +115,25 @@ class AppTestItertools:
         import itertools
 
         it = itertools.dropwhile(bool, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.dropwhile(bool, [True, True, True])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         def is_odd(arg):
             return (arg % 2 == 1)
 
         it = itertools.dropwhile(is_odd, [1, 3, 5, 2, 4, 6])
         for x in [2, 4, 6]:
-            assert it.next() == x
+            assert next(it) == x
 
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
     def test_dropwhile_wrongargs(self):
         import itertools
 
         it = itertools.dropwhile(None, [1])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
         raises(TypeError, itertools.dropwhile, bool, None)
 
@@ -141,26 +141,26 @@ class AppTestItertools:
         import itertools
 
         it = itertools.ifilter(None, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.ifilter(None, [1, 0, 2, 3, 0])
         for x in [1, 2, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         def is_odd(arg):
             return (arg % 2 == 1)
 
         it = itertools.ifilter(is_odd, [1, 2, 3, 4, 5, 6])
         for x in [1, 3, 5]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_ifilter_wrongargs(self):
         import itertools
 
         it = itertools.ifilter(0, [1])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
         raises(TypeError, itertools.ifilter, bool, None)
 
@@ -168,26 +168,26 @@ class AppTestItertools:
         import itertools
 
         it = itertools.ifilterfalse(None, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.ifilterfalse(None, [1, 0, 2, 3, 0])
         for x in [0, 0]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         def is_odd(arg):
             return (arg % 2 == 1)
 
         it = itertools.ifilterfalse(is_odd, [1, 2, 3, 4, 5, 6])
         for x in [2, 4, 6]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_ifilterfalse_wrongargs(self):
         import itertools
 
         it = itertools.ifilterfalse(0, [1])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
         raises(TypeError, itertools.ifilterfalse, bool, None)
 
@@ -195,83 +195,83 @@ class AppTestItertools:
         import itertools
 
         it = itertools.islice([], 0)
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.islice([1, 2, 3], 0)
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.islice([1, 2, 3, 4, 5], 3)
         for x in [1, 2, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         it = itertools.islice([1, 2, 3, 4, 5], 1, 3)
         for x in [2, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         it = itertools.islice([1, 2, 3, 4, 5], 0, 3, 2)
         for x in [1, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         it = itertools.islice([1, 2, 3], 0, None)
         for x in [1, 2, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
-        assert list(itertools.islice(xrange(100), 10, 3)) == []
+        assert list(itertools.islice(range(100), 10, 3)) == []
 
         # new in 2.5: start=None or step=None
-        assert list(itertools.islice(xrange(10), None)) == range(10)
-        assert list(itertools.islice(xrange(10), None,None)) == range(10)
-        assert list(itertools.islice(xrange(10), None,None,None)) == range(10)
+        assert list(itertools.islice(range(10), None)) == range(10)
+        assert list(itertools.islice(range(10), None,None)) == range(10)
+        assert list(itertools.islice(range(10), None,None,None)) == range(10)
 
     def test_islice_dropitems_exact(self):
         import itertools
 
         it = iter("abcdefghij")
         itertools.islice(it, 2, 2)    # doesn't eagerly drop anything
-        assert it.next() == "a"
+        assert next(it) == "a"
         itertools.islice(it, 3, 8, 2)    # doesn't eagerly drop anything
-        assert it.next() == "b"
-        assert it.next() == "c"
+        assert next(it) == "b"
+        assert next(it) == "c"
 
         it = iter("abcdefghij")
         x = next(itertools.islice(it, 2, 3), None)    # drops 2 items
         assert x == "c"
-        assert it.next() == "d"
+        assert next(it) == "d"
 
         it = iter("abcdefghij")
         x = next(itertools.islice(it, 3, 8, 2), None)    # drops 3 items
         assert x == "d"
-        assert it.next() == "e"
+        assert next(it) == "e"
 
         it = iter("abcdefghij")
         x = next(itertools.islice(it, None, 8), None)    # drops 0 items
         assert x == "a"
-        assert it.next() == "b"
+        assert next(it) == "b"
 
         it = iter("abcdefghij")
         x = next(itertools.islice(it, 3, 2), None)    # drops 3 items
         assert x is None
-        assert it.next() == "d"
+        assert next(it) == "d"
 
         it = iter("abcdefghij")
         islc = itertools.islice(it, 3, 7, 2)
-        assert islc.next() == "d"    # drops 0, 1, 2, returns item #3
-        assert it.next() == "e"
-        assert islc.next() == "g"    # drops the 4th and return item #5
-        assert it.next() == "h"
-        raises(StopIteration, islc.next)  # drops the 6th and raise
-        assert it.next() == "j"
+        assert next(islc) == "d"    # drops 0, 1, 2, returns item #3
+        assert next(it) == "e"
+        assert next(islc) == "g"    # drops the 4th and return item #5
+        assert next(it) == "h"
+        raises(StopIteration, next, islc)  # drops the 6th and raise
+        assert next(it) == "j"
 
         it = iter("abcdefghij")
         islc = itertools.islice(it, 3, 4, 3)
-        assert islc.next() == "d"    # drops 0, 1, 2, returns item #3
-        assert it.next() == "e"
-        raises(StopIteration, islc.next)  # item #4 is 'stop', so just raise
-        assert it.next() == "f"
+        assert next(islc) == "d"    # drops 0, 1, 2, returns item #3
+        assert next(it) == "e"
+        raises(StopIteration, next, islc)  # item #4 is 'stop', so just raise
+        assert next(it) == "f"
 
     def test_islice_overflow(self):
         import itertools
@@ -298,22 +298,22 @@ class AppTestItertools:
         import itertools
         
         it = itertools.chain()
-        raises(StopIteration, it.next)
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
+        raises(StopIteration, next, it)
         
         it = itertools.chain([1, 2, 3])
         for x in [1, 2, 3]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         it = itertools.chain([1, 2, 3], [4], [5, 6])
         for x in [1, 2, 3, 4, 5, 6]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         it = itertools.chain([], [], [1], [])
-        assert it.next() == 1
-        raises(StopIteration, it.next)
+        assert next(it) == 1
+        raises(StopIteration, next, it)
 
     def test_imap(self):
         import itertools
@@ -321,35 +321,35 @@ class AppTestItertools:
         obj_list = [object(), object(), object()]
         it = itertools.imap(None, obj_list)
         for x in obj_list:
-            assert it.next() == (x, )
-        raises(StopIteration, it.next)
+            assert next(it) == (x, )
+        raises(StopIteration, next, it)
 
         it = itertools.imap(None, [1, 2, 3], [4], [5, 6])
-        assert it.next() == (1, 4, 5)
-        raises(StopIteration, it.next)
+        assert next(it) == (1, 4, 5)
+        raises(StopIteration, next, it)
 
         it = itertools.imap(None, [], [], [1], [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.imap(str, [0, 1, 0, 1])
         for x in ['0', '1', '0', '1']:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         import operator
         it = itertools.imap(operator.add, [1, 2, 3], [4, 5, 6])
         for x in [5, 7, 9]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_imap_wrongargs(self):
         import itertools
         
         # Duplicate python 2.4 behaviour for invalid arguments
         it = itertools.imap(0, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
         it = itertools.imap(0, [0])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
         raises(TypeError, itertools.imap, None, 0)
 
         raises(TypeError, itertools.imap, None)
@@ -360,29 +360,29 @@ class AppTestItertools:
         import itertools
 
         it = itertools.izip()
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         obj_list = [object(), object(), object()]
         it = itertools.izip(obj_list)
         for x in obj_list:
-            assert it.next() == (x, )
-        raises(StopIteration, it.next)
+            assert next(it) == (x, )
+        raises(StopIteration, next, it)
         
         it = itertools.izip([1, 2, 3], [4], [5, 6])
-        assert it.next() == (1, 4, 5)
-        raises(StopIteration, it.next)
+        assert next(it) == (1, 4, 5)
+        raises(StopIteration, next, it)
         
         it = itertools.izip([], [], [1], [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         # Up to one additional item may be consumed per iterable, as per python docs
         it1 = iter([1, 2, 3, 4, 5, 6])
         it2 = iter([5, 6])
         it = itertools.izip(it1, it2)
         for x in [(1, 5), (2, 6)]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
-        assert it1.next() in [3, 4]
+            assert next(it) == x
+        raises(StopIteration, next, it)
+        assert next(it1) in [3, 4]
         #---does not work in CPython 2.5
         #raises(StopIteration, it.next)
         #assert it1.next() in [4, 5]
@@ -398,7 +398,7 @@ class AppTestItertools:
             args = [()] * x + [None] + [()] * (9 - x)
             try:
                 itertools.izip(*args)
-            except TypeError, e:
+            except TypeError as e:
                 assert str(e).find("#" + str(x + 1) + " ") >= 0
             else:
                 fail("TypeError expected")
@@ -407,22 +407,22 @@ class AppTestItertools:
         import itertools
 
         it = itertools.cycle([])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
         
         it = itertools.cycle([1, 2, 3])
         for x in [1, 2, 3, 1, 2, 3, 1, 2, 3]:
-            assert it.next() == x
+            assert next(it) == x
 
     def test_starmap(self):
         import itertools, operator
 
         it = itertools.starmap(operator.add, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.starmap(operator.add, [(0, 1), (2, 3), (4, 5)])
         for x in [1, 5, 9]:
-            assert it.next() == x
-        raises(StopIteration, it.next)
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
         assert list(itertools.starmap(operator.add, [iter((40,2))])) == [42]
 
@@ -430,37 +430,37 @@ class AppTestItertools:
         import itertools
 
         it = itertools.starmap(None, [(1, )])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
         it = itertools.starmap(None, [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.starmap(bool, [0])
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
     def test_tee(self):
         import itertools
 
         it1, it2 = itertools.tee([])
-        raises(StopIteration, it1.next)
-        raises(StopIteration, it2.next)
+        raises(StopIteration, next, it1)
+        raises(StopIteration, next, it2)
 
         it1, it2 = itertools.tee([1, 2, 3])
         for x in [1, 2]:
-            assert it1.next() == x
+            assert next(it1) == x
         for x in [1, 2, 3]:
-            assert it2.next() == x
-        assert it1.next() == 3
-        raises(StopIteration, it1.next)
-        raises(StopIteration, it2.next)
+            assert next(it2) == x
+        assert next(it1) == 3
+        raises(StopIteration, next, it1)
+        raises(StopIteration, next, it2)
 
         assert itertools.tee([], 0) == ()
 
         iterators = itertools.tee([1, 2, 3], 10)
         for it in iterators:
             for x in [1, 2, 3]:
-                assert it.next() == x
-            raises(StopIteration, it.next)
+                assert next(it) == x
+            raises(StopIteration, next, it)
 
     def test_tee_wrongargs(self):
         import itertools
@@ -504,67 +504,67 @@ class AppTestItertools:
         import itertools
         
         it = itertools.groupby([])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         it = itertools.groupby([1, 2, 2, 3, 3, 3, 4, 4, 4, 4])
         for x in [1, 2, 3, 4]:
-            k, g = it.next()
+            k, g = next(it)
             assert k == x
             assert len(list(g)) == x
-            raises(StopIteration, g.next)
-        raises(StopIteration, it.next)
+            raises(StopIteration, next, g)
+        raises(StopIteration, next ,it)
 
         it = itertools.groupby([0, 1, 2, 3, 4, 5], None)
         for x in [0, 1, 2, 3, 4, 5]:
-            k, g = it.next()
+            k, g = next(it)
             assert k == x
-            assert g.next() == x
-            raises(StopIteration, g.next)
-        raises(StopIteration, it.next)
+            assert next(g) == x
+            raises(StopIteration, next, g)
+        raises(StopIteration, next, it)
 
         # consumes after group started
         it = itertools.groupby([0, 0, 0, 0, 1])
-        k1, g1 = it.next()
-        assert g1.next() == 0
-        k2, g2 = it.next()
-        raises(StopIteration, g1.next)
-        assert g2.next() == 1
-        raises(StopIteration, g2.next)
+        k1, g1 = next(it)
+        assert next(g1) == 0
+        k2, g2 = next(it)
+        raises(StopIteration, next, g1)
+        assert next(g2) == 1
+        raises(StopIteration, next, g2)
 
         # skips with not started group
         it = itertools.groupby([0, 0, 1])
-        k1, g1 = it.next()
-        k2, g2 = it.next()
-        raises(StopIteration, g1.next)
-        assert g2.next() == 1
-        raises(StopIteration, g2.next)
+        k1, g1 = next(it)
+        k2, g2 = next(it)
+        raises(StopIteration, next, g1)
+        assert next(g2) == 1
+        raises(StopIteration, next, g2)
 
         it = itertools.groupby([0, 1, 2])
-        k1, g1 = it.next()
-        k2, g2 = it.next()
-        k2, g3 = it.next()
-        raises(StopIteration, g1.next)
-        raises(StopIteration, g2.next)
-        assert g3.next() == 2
+        k1, g1 = next(it)
+        k2, g2 = next(it)
+        k2, g3 = next(it)
+        raises(StopIteration, next, g1)
+        raises(StopIteration, next, g2)
+        assert next(g3) == 2
 
         def half_floor(x):
             return x // 2
         it = itertools.groupby([0, 1, 2, 3, 4, 5], half_floor)
         for x in [0, 1, 2]:
-            k, g = it.next()
+            k, g = next(it)
             assert k == x
-            assert half_floor(g.next()) == x
-            assert half_floor(g.next()) == x
-            raises(StopIteration, g.next)
-        raises(StopIteration, it.next)
+            assert half_floor(next(g)) == x
+            assert half_floor(next(g)) == x
+            raises(StopIteration, next, g)
+        raises(StopIteration, next, it)
 
         # keyword argument
         it = itertools.groupby([0, 1, 2, 3, 4, 5], key = half_floor)
         for x in [0, 1, 2]:
-            k, g = it.next()
+            k, g = next(it)
             assert k == x
             assert list(g) == [x*2, x*2+1]
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
         # Grouping is not based on key identity
         class NeverEqual(object):
@@ -573,12 +573,12 @@ class AppTestItertools:
         objects = [NeverEqual(), NeverEqual(), NeverEqual()]
         it = itertools.groupby(objects)
         for x in objects:
-            print "Trying", x
-            k, g = it.next()
+            print("Trying", x)
+            k, g = next(it)
             assert k is x
-            assert g.next() is x
-            raises(StopIteration, g.next)
-        raises(StopIteration, it.next)
+            assert next(g) is x
+            raises(StopIteration, next, g)
+        raises(StopIteration, next, it)
         
         # Grouping is based on key equality
         class AlwaysEqual(object):
@@ -586,19 +586,19 @@ class AppTestItertools:
                 return True
         objects = [AlwaysEqual(), AlwaysEqual(), AlwaysEqual()]
         it = itertools.groupby(objects)
-        k, g = it.next()
+        k, g = next(it)
         assert k is objects[0]
         for x in objects:
-            assert g.next() is x
-        raises(StopIteration, g.next)
-        raises(StopIteration, it.next)
+            assert next(g) is x
+        raises(StopIteration, next, g)
+        raises(StopIteration, next, it)
 
     def test_groupby_wrongargs(self):
         import itertools
 
         raises(TypeError, itertools.groupby, 0)
         it = itertools.groupby([0], 1)
-        raises(TypeError, it.next)
+        raises(TypeError, next, it)
 
     def test_iterables(self):
         import itertools
@@ -624,8 +624,8 @@ class AppTestItertools:
         for it in iterables:
             assert hasattr(it, '__iter__')
             assert iter(it) is it
-            assert hasattr(it, 'next')
-            assert callable(it.next)
+            assert hasattr(it, '__next__')
+            assert callable(it.__next__)
 
     def test_docstrings(self):
         import itertools
@@ -669,25 +669,25 @@ class AppTestItertools26:
     def test_count_overflow(self):
         import itertools, sys
         it = itertools.count(sys.maxint - 1)
-        assert it.next() == sys.maxint - 1
-        assert it.next() == sys.maxint
-        assert it.next() == sys.maxint + 1
+        assert next(it) == sys.maxint - 1
+        assert next(it) == sys.maxint
+        assert next(it) == sys.maxint + 1
         it = itertools.count(sys.maxint + 1)
-        assert it.next() == sys.maxint + 1
-        assert it.next() == sys.maxint + 2
+        assert next(it) == sys.maxint + 1
+        assert next(it) == sys.maxint + 2
         it = itertools.count(-sys.maxint-2)
-        assert it.next() == -sys.maxint - 2
-        assert it.next() == -sys.maxint - 1
-        assert it.next() == -sys.maxint
-        assert it.next() == -sys.maxint + 1
+        assert next(it) == -sys.maxint - 2
+        assert next(it) == -sys.maxint - 1
+        assert next(it) == -sys.maxint
+        assert next(it) == -sys.maxint + 1
         it = itertools.count(0, sys.maxint)
-        assert it.next() == sys.maxint * 0
-        assert it.next() == sys.maxint * 1
-        assert it.next() == sys.maxint * 2
+        assert next(it) == sys.maxint * 0
+        assert next(it) == sys.maxint * 1
+        assert next(it) == sys.maxint * 2
         it = itertools.count(0, sys.maxint + 1)
-        assert it.next() == (sys.maxint + 1) * 0
-        assert it.next() == (sys.maxint + 1) * 1
-        assert it.next() == (sys.maxint + 1) * 2
+        assert next(it) == (sys.maxint + 1) * 0
+        assert next(it) == (sys.maxint + 1) * 1
+        assert next(it) == (sys.maxint + 1) * 2
 
     def test_chain_fromiterable(self):
         import itertools
@@ -832,8 +832,8 @@ class AppTestItertools26:
     def test_product_empty(self):
         from itertools import product
         prod = product('abc', repeat=0)
-        assert prod.next() == ()
-        raises (StopIteration, prod.next)
+        assert next(prod) == ()
+        raises (StopIteration, next, prod)
 
     def test_permutations(self):
         from itertools import permutations
@@ -882,7 +882,7 @@ class AppTestItertools26:
     def test_permutations_r_gt_n(self):
         from itertools import permutations
         perm = permutations([1, 2], 3)
-        raises(StopIteration, perm.next)
+        raises(StopIteration, next, perm)
 
     def test_permutations_neg_r(self):
         from itertools import permutations
@@ -905,14 +905,14 @@ class AppTestItertools27:
     def test_compress_diff_len(self):
         import itertools
         it = itertools.compress(['a'], [])
-        raises(StopIteration, it.next)
+        raises(StopIteration, next, it)
 
     def test_count_kwargs(self):
         import itertools
         it = itertools.count(start=2, step=3)
-        assert it.next() == 2
-        assert it.next() == 5
-        assert it.next() == 8
+        assert next(it) == 2
+        assert next(it) == 5
+        assert next(it) == 8
 
     def test_repeat_kwargs(self):
         import itertools
@@ -961,10 +961,10 @@ class AppTestItertools27:
         r1 = Repeater(1, 3, RuntimeError)
         r2 = Repeater(2, 4, StopIteration)
         it = itertools.izip_longest(r1, r2, fillvalue=0)
-        assert it.next() == (1, 2)
-        assert it.next() == (1, 2)
-        assert it.next()== (1, 2)
-        raises(RuntimeError, it.next)
+        assert next(it) == (1, 2)
+        assert next(it) == (1, 2)
+        assert next(it)== (1, 2)
+        raises(RuntimeError, next, it)
 
     def test_subclassing(self):
         import itertools
