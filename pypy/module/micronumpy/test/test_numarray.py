@@ -1052,6 +1052,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ((a + a).flatten() == [2, 4, 6]).all()
         a = array(2)
         assert (a.flatten() == [2]).all()
+        a = array([[1, 2], [3, 4]])
+        assert (a.T.flatten() == [1, 3, 2, 4]).all()
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
