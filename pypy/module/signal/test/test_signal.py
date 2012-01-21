@@ -174,7 +174,7 @@ class AppTestSignal:
             except OSError:
                 pass
             else:
-                raise AssertionError, "os.read(fd_read, 1) succeeded?"
+                raise AssertionError("os.read(fd_read, 1) succeeded?")
         #
         fd_read, fd_write = posix.pipe()
         flags = fcntl.fcntl(fd_write, fcntl.F_GETFL, 0)
@@ -189,7 +189,7 @@ class AppTestSignal:
             cannot_read()
             posix.kill(posix.getpid(), signal.SIGUSR1)
             res = posix.read(fd_read, 1)
-            assert res == '\x00'
+            assert res == b'\x00'
             cannot_read()
         finally:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)
@@ -252,7 +252,7 @@ class AppTestSignalSocket:
             signal(SIGALRM, handler)
             alarm(1)
             try:
-                s.accept()
+                s._accept()
             except Alarm:
                 pass
             else:
