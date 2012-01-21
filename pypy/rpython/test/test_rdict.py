@@ -622,6 +622,26 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res in [5263, 6352]
 
+    def test_dict_pop(self):
+        def f(n, default):
+            d = {}
+            d[2] = 3
+            d[4] = 5
+            if default == -1:
+                try:
+                    x = d.pop(n)
+                except KeyError:
+                    x = -1
+            else:
+                x = d.pop(n, default)
+            return x * 10 + len(d)
+        res = self.interpret(f, [2, -1])
+        assert res == 31
+        res = self.interpret(f, [3, -1])
+        assert res == -8
+        res = self.interpret(f, [2, 5])
+        assert res == 31
+
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
         def func(i):
