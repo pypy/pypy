@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype
 from pypy.module.micronumpy.signature import ReduceSignature,\
@@ -60,7 +60,7 @@ class W_Ufunc(Wrappable):
         return self.call(space, __args__.arguments_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
-    def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
+    def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
                      skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
@@ -117,13 +117,16 @@ class W_Ufunc(Wrappable):
         if not space.is_w(w_out, space.w_None):
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "out not supported"))
-        if space.is_w(w_axis, space.w_None):
+        if w_axis is None:
+            axis = 0
+        elif space.is_w(w_axis, space.w_None):
             axis = -1
         else:
             axis = space.int_w(w_axis)
         return self.reduce(space, w_obj, False, False, axis, keepdims)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, dim, keepdims):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
+               keepdims=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                                            Scalar
         if self.argcount != 2:

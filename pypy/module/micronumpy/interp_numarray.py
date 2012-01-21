@@ -142,9 +142,11 @@ class BaseArray(Wrappable):
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None):
             if space.is_w(w_axis, space.w_None):
-                w_axis = space.wrap(-1)
+                axis = -1
+            else:
+                axis = space.int_w(w_axis)
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, w_axis)
+                                        self, True, promote_to_largest, axis)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
