@@ -3,14 +3,14 @@ class AppTestGenerator:
     def test_generator(self):
         def f():
             yield 1
-        assert f().next() == 1
+        assert next(f()) == 1
 
     def test_generator2(self):
         def f():
             yield 1
         g = f()
-        assert g.next() == 1
-        raises(StopIteration, g.next)
+        assert next(g) == 1
+        raises(StopIteration, next, g)
 
     def test_attributes(self):
         def f():
@@ -21,9 +21,9 @@ class AppTestGenerator:
         assert g.__name__ == 'f'
         assert g.gi_frame is not None
         assert not g.gi_running
-        g.next()
+        next(g)
         assert not g.gi_running
-        raises(StopIteration, g.next)
+        raises(StopIteration, next, g)
         assert not g.gi_running
         assert g.gi_frame is None
         assert g.gi_code is f.func_code
@@ -43,13 +43,13 @@ class AppTestGenerator:
 
     def test_generator5(self):
         d = {}
-        exec """if 1:
+        exec("""if 1:
         def f():
             v = (yield )
             yield v
         g = f()
-        g.next()
-        """ in d
+        next(g)
+        """, d, d)
         g = d['g']
         assert g.send(42) == 42
 
@@ -73,13 +73,13 @@ class AppTestGenerator:
             except:
                 yield 3
         g = f()
-        assert g.next() == 1
+        assert next(g) == 1
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, g.next)
+        raises(StopIteration, next, g)
 
     def test_throw4(self):
         d = {}
-        exec """if 1:
+        exec("""if 1:
         def f():
             try:
                 yield 1
@@ -87,12 +87,12 @@ class AppTestGenerator:
             except:
                 yield 3
         g = f()
-        """ in d
+        """, d, d)
         g = d['g']
-        assert g.next() == 1
-        assert g.next() == 2
+        assert next(g) == 1
+        assert next(g) == 2
         assert g.throw(NameError("Error")) == 3
-        raises(StopIteration, g.next)
+        raises(StopIteration, next, g)
 
     def test_throw5(self):
         def f():
@@ -105,7 +105,7 @@ class AppTestGenerator:
             except:
                 pass
         g = f()
-        g.next()
+        next(g)
         # String exceptions are not allowed anymore
         raises(TypeError, g.throw, "Error")
         assert g.throw(Exception) == 3
@@ -158,9 +158,9 @@ class AppTestGenerator:
         def f():
             yield 1
         g = f()
-        res = g.next()
+        res = next(g)
         assert res == 1
-        raises(StopIteration, g.next)
+        raises(StopIteration, next, g)
         raises(NameError, g.throw, NameError)
 
     def test_close(self):
@@ -176,7 +176,7 @@ class AppTestGenerator:
             except GeneratorExit:
                 raise StopIteration
         g = f()
-        g.next()
+        next(g)
         assert g.close() is None
 
     def test_close3(self):
@@ -186,7 +186,7 @@ class AppTestGenerator:
             except GeneratorExit:
                 raise NameError
         g = f()
-        g.next()
+        next(g)
         raises(NameError, g.close)
 
     def test_close_fail(self):
@@ -196,22 +196,22 @@ class AppTestGenerator:
             except GeneratorExit:
                 yield 2
         g = f()
-        g.next()
+        next(g)
         raises(RuntimeError, g.close)
 
     def test_close_on_collect(self):
         ## we need to exec it, else it won't run on python2.4
         d = {}
-        exec """
+        exec("""
         def f():
             try:
                 yield
             finally:
                 f.x = 42
-        """.strip() in d
+        """.strip(), d, d)
 
         g = d['f']()
-        g.next()
+        next(g)
         del g
         import gc
         gc.collect()
@@ -233,30 +233,31 @@ class AppTestGenerator:
     def test_generator_propagate_stopiteration(self):
         def f():
             it = iter([1])
-            while 1: yield it.next()
+            while 1: yield next(it)
         g = f()
         assert [x for x in g] == [1]
 
     def test_generator_restart(self):
         def g():
-            i = me.next()
+            i = next(me)
             yield i
         me = g()
-        raises(ValueError, me.next)
+        raises(ValueError, next, me)
 
     def test_generator_expression(self):
-        exec "res = sum(i*i for i in range(5))"
-        assert res == 30
+        d = {}
+        exec("res = sum(i*i for i in range(5))", d, d)
+        assert d['res'] == 30
 
     def test_generator_expression_2(self):
         d = {}
-        exec """
+        exec("""
 def f():
     total = sum(i for i in [x for x in z])
     return total, x
 z = [1, 2, 7]
 res = f()
-""" in d
+""", d, d)
         assert d['res'] == (10, 7)
 
     def test_repr(self):
