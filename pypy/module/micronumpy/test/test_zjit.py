@@ -379,7 +379,17 @@ class TestNumpyJIt(LLJitMixin):
     def test_dot(self):
         result = self.run("dot")
         assert result == 184
-        self.check_simple_loop({})
+        self.check_simple_loop({{'arraylen_gc': 9,
+                                'float_add': 1,
+                                'float_mul': 1,
+                                'getinteriorfield_raw': 3,
+                                'guard_false': 3,
+                                'guard_true': 3,
+                                'int_add': 6,
+                                'int_lt': 6,
+                                'int_sub': 3,
+                                'jump': 1,
+                                'setinteriorfield_raw': 1}})
 
 
 class TestNumpyOld(LLJitMixin):

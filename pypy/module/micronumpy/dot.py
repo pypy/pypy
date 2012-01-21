@@ -70,7 +70,6 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                   broadcast_shape, right_skip)
     righti = ViewIterator(right.start, _r[0], _r[1], broadcast_shape)
     while not outi.done():
-        '''
         dot_driver.jit_merge_point(left=left,
                                    right=right,
                                    shape_len=shape_len,
@@ -81,18 +80,14 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                    dtype=dtype,
                                    sig=None, #For get_printable_location
                                   )
-        '''
         lval = left.getitem(lefti.offset).convert_to(dtype) 
         rval = right.getitem(righti.offset).convert_to(dtype) 
         outval = result.getitem(outi.offset).convert_to(dtype) 
         v = dtype.itemtype.mul(lval, rval)
         value = dtype.itemtype.add(v, outval)
         #Do I need to convert it to result.dtype or does settiem do that?
-        assert outi.offset < result.size
         result.setitem(outi.offset, value)
         outi = outi.next(shape_len)
         righti = righti.next(shape_len)
         lefti = lefti.next(shape_len)
-    assert lefti.done()
-    assert righti.done()
     return result
