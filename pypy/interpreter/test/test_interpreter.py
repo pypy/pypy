@@ -265,7 +265,7 @@ class AppTestInterpreter:
         out = Out()
         try:
             sys.stdout = out
-            print 10
+            print(10)
             assert out.args == ['10','\n']
         finally:
             sys.stdout = save
@@ -281,15 +281,15 @@ class AppTestInterpreter:
                 self.data.append((type(x), x))
         sys.stdout = out = Out()
         try:
-            print unichr(0xa2)
+            print(unichr(0xa2))
             assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
             out.data = []
             out.encoding = "cp424"     # ignored!
-            print unichr(0xa2)
+            print(unichr(0xa2))
             assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
             del out.data[:]
             del out.encoding
-            print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
+            print "foo\t", "bar\n", "trick", "baz\n"  # softspace handling
             assert out.data == [(unicode, "foo\t"),
                                 (unicode, "bar\n"),
                                 (unicode, "trick"),
@@ -307,7 +307,7 @@ class AppTestInterpreter:
         def f(): f()
         try:
             f()
-        except RuntimeError, e:
+        except RuntimeError as e:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
