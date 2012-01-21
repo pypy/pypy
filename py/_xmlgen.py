@@ -136,7 +136,8 @@ class SimpleUnicodeVisitor(object):
     def list(self, obj):
         assert id(obj) not in self.visited
         self.visited[id(obj)] = 1
-        map(self.visit, obj)
+        for elem in obj:
+            self.visit(elem)
 
     def Tag(self, tag):
         assert id(tag) not in self.visited

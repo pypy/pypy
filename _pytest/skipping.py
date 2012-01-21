@@ -9,6 +9,21 @@ def pytest_addoption(parser):
            action="store_true", dest="runxfail", default=False,
            help="run tests even if they are marked xfail")
 
+def pytest_configure(config):
+    config.addinivalue_line("markers",
+        "skipif(*conditions): skip the given test function if evaluation "
+        "of all conditions has a True value.  Evaluation happens within the "
+        "module global context. Example: skipif('sys.platform == \"win32\"') "
+        "skips the test if we are on the win32 platform. "
+    )
+    config.addinivalue_line("markers",
+        "xfail(*conditions, reason=None, run=True): mark the the test function "
+        "as an expected failure. Optionally specify a reason and run=False "
+        "if you don't even want to execute the test function. Any positional "
+        "condition strings will be evaluated (like with skipif) and if one is "
+        "False the marker will not be applied."
+    )
+
 def pytest_namespace():
     return dict(xfail=xfail)
 
@@ -169,21 +184,23 @@ def pytest_terminal_summary(terminalreporter):
         elif char == "X":
             show_xpassed(terminalreporter, lines)
         elif char in "fF":
-            show_failed(terminalreporter, lines)
+            show_simple(terminalreporter, lines, 'failed', "FAIL %s")
         elif char in "sS":
             show_skipped(terminalreporter, lines)
+        elif char == "E":
+            show_simple(terminalreporter, lines, 'error', "ERROR %s")
     if lines:
         tr._tw.sep("=", "short test summary info")
         for line in lines:
             tr._tw.line(line)
 
-def show_failed(terminalreporter, lines):
+def show_simple(terminalreporter, lines, stat, format):
     tw = terminalreporter._tw
-    failed = terminalreporter.stats.get("failed")
+    failed = terminalreporter.stats.get(stat)
     if failed:
         for rep in failed:
             pos = rep.nodeid
-            lines.append("FAIL %s" %(pos, ))
+            lines.append(format %(pos, ))
 
 def show_xfailed(terminalreporter, lines):
     xfailed = terminalreporter.stats.get("xfailed")

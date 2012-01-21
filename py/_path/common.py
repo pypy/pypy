@@ -368,6 +368,5 @@ class FNMatcher:
         else:
             name = str(path) # path.strpath # XXX svn?
             pattern = '*' + path.sep + pattern
-        from fnmatch import fnmatch
-        return fnmatch(name, pattern)
+        return py.std.fnmatch.fnmatch(name, pattern)
 

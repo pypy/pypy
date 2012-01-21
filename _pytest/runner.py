@@ -1,6 +1,6 @@
 """ basic collect and runtest protocol implementations """
 
-import py, sys
+import py, sys, time
 from py._code.code import TerminalRepr
 
 def pytest_namespace():
@@ -14,33 +14,58 @@ def pytest_namespace():
 #
 # pytest plugin hooks
 
+def pytest_addoption(parser):
+    group = parser.getgroup("terminal reporting", "reporting", after="general")
+    group.addoption('--durations',
+         action="store", type="int", default=None, metavar="N",
+         help="show N slowest setup/test durations (N=0 for all)."),
+
+def pytest_terminal_summary(terminalreporter):
+    durations = terminalreporter.config.option.durations
+    if durations is None:
+        return
+    tr = terminalreporter
+    dlist = []
+    for replist in tr.stats.values():
+        for rep in replist:
+            if hasattr(rep, 'duration'):
+                dlist.append(rep)
+    if not dlist:
+        return
+    dlist.sort(key=lambda x: x.duration)
+    dlist.reverse()
+    if not durations:
+        tr.write_sep("=", "slowest test durations")
+    else:
+        tr.write_sep("=", "slowest %s test durations" % durations)
+        dlist = dlist[:durations]
+
+    for rep in dlist:
+        nodeid = rep.nodeid.replace("::()::", "::")
+        tr.write_line("%02.2fs %-8s %s" %
+            (rep.duration, rep.when, nodeid))
+
 def pytest_sessionstart(session):
     session._setupstate = SetupState()
-
-def pytest_sessionfinish(session, exitstatus):
-    hook = session.config.hook
-    rep = hook.pytest__teardown_final(session=session)
-    if rep:
-        hook.pytest__teardown_final_logerror(session=session, report=rep)
-        session.exitstatus = 1
 
 class NodeInfo:
     def __init__(self, location):
         self.location = location
 
-def pytest_runtest_protocol(item):
+def pytest_runtest_protocol(item, nextitem):
     item.ihook.pytest_runtest_logstart(
         nodeid=item.nodeid, location=item.location,
     )
-    runtestprotocol(item)
+    runtestprotocol(item, nextitem=nextitem)
     return True
 
-def runtestprotocol(item, log=True):
+def runtestprotocol(item, log=True, nextitem=None):
     rep = call_and_report(item, "setup", log)
     reports = [rep]
     if rep.passed:
         reports.append(call_and_report(item, "call", log))
-    reports.append(call_and_report(item, "teardown", log))
+    reports.append(call_and_report(item, "teardown", log,
+        nextitem=nextitem))
     return reports
 
 def pytest_runtest_setup(item):
@@ -49,16 +74,8 @@ def pytest_runtest_setup(item):
 def pytest_runtest_call(item):
     item.runtest()
 
-def pytest_runtest_teardown(item):
-    item.session._setupstate.teardown_exact(item)
-
-def pytest__teardown_final(session):
-    call = CallInfo(session._setupstate.teardown_all, when="teardown")
-    if call.excinfo:
-        ntraceback = call.excinfo.traceback .cut(excludepath=py._pydir)
-        call.excinfo.traceback = ntraceback.filter()
-        longrepr = call.excinfo.getrepr(funcargs=True)
-        return TeardownErrorReport(longrepr)
+def pytest_runtest_teardown(item, nextitem):
+    item.session._setupstate.teardown_exact(item, nextitem)
 
 def pytest_report_teststatus(report):
     if report.when in ("setup", "teardown"):
@@ -74,18 +91,18 @@ def pytest_report_teststatus(report):
 #
 # Implementation
 
-def call_and_report(item, when, log=True):
-    call = call_runtest_hook(item, when)
+def call_and_report(item, when, log=True, **kwds):
+    call = call_runtest_hook(item, when, **kwds)
     hook = item.ihook
     report = hook.pytest_runtest_makereport(item=item, call=call)
-    if log and (when == "call" or not report.passed):
+    if log:
         hook.pytest_runtest_logreport(report=report)
     return report
 
-def call_runtest_hook(item, when):
+def call_runtest_hook(item, when, **kwds):
     hookname = "pytest_runtest_" + when
     ihook = getattr(item.ihook, hookname)
-    return CallInfo(lambda: ihook(item=item), when=when)
+    return CallInfo(lambda: ihook(item=item, **kwds), when=when)
 
 class CallInfo:
     """ Result/Exception info a function invocation. """
@@ -95,12 +112,16 @@ class CallInfo:
         #: context of invocation: one of "setup", "call",
         #: "teardown", "memocollect"
         self.when = when
+        self.start = time.time()
         try:
-            self.result = func()
-        except KeyboardInterrupt:
-            raise
-        except:
-            self.excinfo = py.code.ExceptionInfo()
+            try:
+                self.result = func()
+            except KeyboardInterrupt:
+                raise
+            except:
+                self.excinfo = py.code.ExceptionInfo()
+        finally:
+            self.stop = time.time()
 
     def __repr__(self):
         if self.excinfo:
@@ -120,6 +141,10 @@ def getslaveinfoline(node):
         return s
 
 class BaseReport(object):
+
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
     def toterminal(self, out):
         longrepr = self.longrepr
         if hasattr(self, 'node'):
@@ -139,6 +164,7 @@ class BaseReport(object):
 
 def pytest_runtest_makereport(item, call):
     when = call.when
+    duration = call.stop-call.start
     keywords = dict([(x,1) for x in item.keywords])
     excinfo = call.excinfo
     if not call.excinfo:
@@ -160,14 +186,15 @@ def pytest_runtest_makereport(item, call):
             else: # exception in setup or teardown
                 longrepr = item._repr_failure_py(excinfo)
     return TestReport(item.nodeid, item.location,
-        keywords, outcome, longrepr, when)
+                      keywords, outcome, longrepr, when,
+                      duration=duration)
 
 class TestReport(BaseReport):
     """ Basic test report object (also used for setup and teardown calls if
     they fail).
     """
     def __init__(self, nodeid, location,
-            keywords, outcome, longrepr, when):
+            keywords, outcome, longrepr, when, sections=(), duration=0, **extra):
         #: normalized collection node id
         self.nodeid = nodeid
 
@@ -179,15 +206,24 @@ class TestReport(BaseReport):
         #: a name -> value dictionary containing all keywords and
         #: markers associated with a test invocation.
         self.keywords = keywords
-        
+
         #: test outcome, always one of "passed", "failed", "skipped".
         self.outcome = outcome
 
         #: None or a failure representation.
         self.longrepr = longrepr
-        
+
         #: one of 'setup', 'call', 'teardown' to indicate runtest phase.
         self.when = when
+
+        #: list of (secname, data) extra information which needs to
+        #: marshallable
+        self.sections = list(sections)
+
+        #: time it took to run just the test
+        self.duration = duration
+
+        self.__dict__.update(extra)
 
     def __repr__(self):
         return "<TestReport %r when=%r outcome=%r>" % (
@@ -196,8 +232,10 @@ class TestReport(BaseReport):
 class TeardownErrorReport(BaseReport):
     outcome = "failed"
     when = "teardown"
-    def __init__(self, longrepr):
+    def __init__(self, longrepr, **extra):
         self.longrepr = longrepr
+        self.sections = []
+        self.__dict__.update(extra)
 
 def pytest_make_collect_report(collector):
     call = CallInfo(collector._memocollect, "memocollect")
@@ -219,11 +257,13 @@ def pytest_make_collect_report(collector):
         getattr(call, 'result', None))
 
 class CollectReport(BaseReport):
-    def __init__(self, nodeid, outcome, longrepr, result):
+    def __init__(self, nodeid, outcome, longrepr, result, sections=(), **extra):
         self.nodeid = nodeid
         self.outcome = outcome
         self.longrepr = longrepr
         self.result = result or []
+        self.sections = list(sections)
+        self.__dict__.update(extra)
 
     @property
     def location(self):
@@ -277,20 +317,22 @@ class SetupState(object):
         self._teardown_with_finalization(None)
         assert not self._finalizers
 
-    def teardown_exact(self, item):
-        if self.stack and item == self.stack[-1]:
+    def teardown_exact(self, item, nextitem):
+        needed_collectors = nextitem and nextitem.listchain() or []
+        self._teardown_towards(needed_collectors)
+
+    def _teardown_towards(self, needed_collectors):
+        while self.stack:
+            if self.stack == needed_collectors[:len(self.stack)]:
+                break
             self._pop_and_teardown()
-        else:
-            self._callfinalizers(item)
 
     def prepare(self, colitem):
         """ setup objects along the collector chain to the test-method
             and teardown previously setup objects."""
         needed_collectors = colitem.listchain()
-        while self.stack:
-            if self.stack == needed_collectors[:len(self.stack)]:
-                break
-            self._pop_and_teardown()
+        self._teardown_towards(needed_collectors)
+
         # check if the last collection node has raised an error
         for col in self.stack:
             if hasattr(col, '_prepare_exc'):

@@ -2,7 +2,7 @@
 
 import py
 import pytest, _pytest
-import os, sys
+import os, sys, imp
 tracebackcutdir = py.path.local(_pytest.__file__).dirpath()
 
 # exitcodes for the command line
@@ -10,6 +10,8 @@ EXIT_OK = 0
 EXIT_TESTSFAILED = 1
 EXIT_INTERRUPTED = 2
 EXIT_INTERNALERROR = 3
+
+name_re = py.std.re.compile("^[a-zA-Z_]\w*$")
 
 def pytest_addoption(parser):
     parser.addini("norecursedirs", "directory patterns to avoid for recursion",
@@ -26,6 +28,9 @@ def pytest_addoption(parser):
     group._addoption('--maxfail', metavar="num",
                action="store", type="int", dest="maxfail", default=0,
                help="exit after first num failures or errors.")
+
+    group._addoption('--strict', action="store_true",
+               help="run pytest in strict mode, warnings become errors.")
 
     group = parser.getgroup("collect", "collection")
     group.addoption('--collectonly',
@@ -48,7 +53,7 @@ def pytest_addoption(parser):
 def pytest_namespace():
     collect = dict(Item=Item, Collector=Collector, File=File, Session=Session)
     return dict(collect=collect)
-        
+
 def pytest_configure(config):
     py.test.config = config # compatibiltiy
     if config.option.exitfirst:
@@ -77,11 +82,11 @@ def wrap_session(config, doit):
         session.exitstatus = EXIT_INTERNALERROR
         if excinfo.errisinstance(SystemExit):
             sys.stderr.write("mainloop: caught Spurious SystemExit!\n")
-    if not session.exitstatus and session._testsfailed:
-        session.exitstatus = EXIT_TESTSFAILED
     if initstate >= 2:
         config.hook.pytest_sessionfinish(session=session,
-            exitstatus=session.exitstatus)
+            exitstatus=session.exitstatus or (session._testsfailed and 1))
+    if not session.exitstatus and session._testsfailed:
+        session.exitstatus = EXIT_TESTSFAILED
     if initstate >= 1:
         config.pluginmanager.do_unconfigure(config)
     return session.exitstatus
@@ -101,8 +106,12 @@ def pytest_collection(session):
 def pytest_runtestloop(session):
     if session.config.option.collectonly:
         return True
-    for item in session.session.items:
-        item.config.hook.pytest_runtest_protocol(item=item)
+    for i, item in enumerate(session.items):
+        try:
+            nextitem = session.items[i+1]
+        except IndexError:
+            nextitem = None
+        item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
         if session.shouldstop:
             raise session.Interrupted(session.shouldstop)
     return True
@@ -132,7 +141,7 @@ def compatproperty(name):
         return getattr(pytest, name)
     return property(fget, None, None,
         "deprecated attribute %r, use pytest.%s" % (name,name))
-    
+
 class Node(object):
     """ base class for all Nodes in the collection tree.
     Collector subclasses have children, Items are terminal nodes."""
@@ -143,13 +152,13 @@ class Node(object):
 
         #: the parent collector node.
         self.parent = parent
-        
+
         #: the test config object
         self.config = config or parent.config
 
         #: the collection this node is part of
         self.session = session or parent.session
-        
+
         #: filesystem path where this node was collected from
         self.fspath = getattr(parent, 'fspath', None)
         self.ihook = self.session.gethookproxy(self.fspath)
@@ -224,13 +233,13 @@ class Node(object):
     def listchain(self):
         """ return list of all parent collectors up to self,
             starting from root of collection tree. """
-        l = [self]
-        while 1:
-            x = l[0]
-            if x.parent is not None: # and x.parent.parent is not None:
-                l.insert(0, x.parent)
-            else:
-                return l
+        chain = []
+        item = self
+        while item is not None:
+            chain.append(item)
+            item = item.parent
+        chain.reverse()
+        return chain
 
     def listnames(self):
         return [x.name for x in self.listchain()]
@@ -325,6 +334,8 @@ class Item(Node):
     """ a basic test invocation item. Note that for a single function
     there might be multiple test invocation items.
     """
+    nextitem = None
+
     def reportinfo(self):
         return self.fspath, None, ""
 
@@ -469,16 +480,29 @@ class Session(FSCollector):
         return True
 
     def _tryconvertpyarg(self, x):
-        try:
-            mod = __import__(x, None, None, ['__doc__'])
-        except (ValueError, ImportError):
-            return x
-        p = py.path.local(mod.__file__)
-        if p.purebasename == "__init__":
-            p = p.dirpath()
-        else:
-            p = p.new(basename=p.purebasename+".py")
-        return str(p)
+        mod = None
+        path = [os.path.abspath('.')] + sys.path
+        for name in x.split('.'):
+            # ignore anything that's not a proper name here
+            # else something like --pyargs will mess up '.'
+            # since imp.find_module will actually sometimes work for it
+            # but it's supposed to be considered a filesystem path
+            # not a package
+            if name_re.match(name) is None:
+                return x
+            try:
+                fd, mod, type_ = imp.find_module(name, path)
+            except ImportError:
+                return x
+            else:
+                if fd is not None:
+                    fd.close()
+
+            if type_[2] != imp.PKG_DIRECTORY:
+                path = [os.path.dirname(mod)]
+            else:
+                path = [mod]
+        return mod
 
     def _parsearg(self, arg):
         """ return (fspath, names) tuple after checking the file exists. """
@@ -496,7 +520,7 @@ class Session(FSCollector):
             raise pytest.UsageError(msg + arg)
         parts[0] = path
         return parts
-   
+
     def matchnodes(self, matching, names):
         self.trace("matchnodes", matching, names)
         self.trace.root.indent += 1

@@ -15,7 +15,7 @@ def pytest_addoption(parser):
     group._addoption('-r',
          action="store", dest="reportchars", default=None, metavar="chars",
          help="show extra test summary info as specified by chars (f)ailed, "
-              "(s)skipped, (x)failed, (X)passed.")
+              "(E)error, (s)skipped, (x)failed, (X)passed.")
     group._addoption('-l', '--showlocals',
          action="store_true", dest="showlocals", default=False,
          help="show locals in tracebacks (disabled by default).")
@@ -43,7 +43,8 @@ def pytest_configure(config):
             pass
         else:
             stdout = os.fdopen(newfd, stdout.mode, 1)
-            config._toclose = stdout
+            config._cleanup.append(lambda: stdout.close())
+
     reporter = TerminalReporter(config, stdout)
     config.pluginmanager.register(reporter, 'terminalreporter')
     if config.option.debug or config.option.traceconfig:
@@ -51,11 +52,6 @@ def pytest_configure(config):
             msg = " ".join(map(str, args))
             reporter.write_line("[traceconfig] " + msg)
         config.trace.root.setprocessor("pytest:config", mywriter)
-
-def pytest_unconfigure(config):
-    if hasattr(config, '_toclose'):
-        #print "closing", config._toclose, config._toclose.fileno()
-        config._toclose.close()
 
 def getreportopt(config):
     reportopts = ""
@@ -165,9 +161,6 @@ class TerminalReporter:
     def pytest_deselected(self, items):
         self.stats.setdefault('deselected', []).extend(items)
 
-    def pytest__teardown_final_logerror(self, report):
-        self.stats.setdefault("error", []).append(report)
-
     def pytest_runtest_logstart(self, nodeid, location):
         # ensure that the path is printed before the
         # 1st test of a module starts running
@@ -259,7 +252,7 @@ class TerminalReporter:
         msg = "platform %s -- Python %s" % (sys.platform, verinfo)
         if hasattr(sys, 'pypy_version_info'):
             verinfo = ".".join(map(str, sys.pypy_version_info[:3]))
-            msg += "[pypy-%s]" % verinfo
+            msg += "[pypy-%s-%s]" % (verinfo, sys.pypy_version_info[3])
         msg += " -- pytest-%s" % (py.test.__version__)
         if self.verbosity > 0 or self.config.option.debug or \
            getattr(self.config.option, 'pastebin', None):
@@ -318,11 +311,16 @@ class TerminalReporter:
             self.config.hook.pytest_terminal_summary(terminalreporter=self)
         if exitstatus == 2:
             self._report_keyboardinterrupt()
+            del self._keyboardinterrupt_memo
         self.summary_deselected()
         self.summary_stats()
 
     def pytest_keyboard_interrupt(self, excinfo):
         self._keyboardinterrupt_memo = excinfo.getrepr(funcargs=True)
+
+    def pytest_unconfigure(self):
+        if hasattr(self, '_keyboardinterrupt_memo'):
+            self._report_keyboardinterrupt()
 
     def _report_keyboardinterrupt(self):
         excrepr = self._keyboardinterrupt_memo
@@ -388,7 +386,7 @@ class TerminalReporter:
                 else:
                     msg = self._getfailureheadline(rep)
                     self.write_sep("_", msg)
-                    rep.toterminal(self._tw)
+                    self._outrep_summary(rep)
 
     def summary_errors(self):
         if self.config.option.tbstyle != "no":
@@ -406,7 +404,15 @@ class TerminalReporter:
                 elif rep.when == "teardown":
                     msg = "ERROR at teardown of " + msg
                 self.write_sep("_", msg)
-                rep.toterminal(self._tw)
+                self._outrep_summary(rep)
+
+    def _outrep_summary(self, rep):
+        rep.toterminal(self._tw)
+        for secname, content in rep.sections:
+            self._tw.sep("-", secname)
+            if content[-1:] == "\n":
+                content = content[:-1]
+            self._tw.line(content)
 
     def summary_stats(self):
         session_duration = py.std.time.time() - self._sessionstarttime
@@ -417,9 +423,10 @@ class TerminalReporter:
                 keys.append(key)
         parts = []
         for key in keys:
-            val = self.stats.get(key, None)
-            if val:
-                parts.append("%d %s" %(len(val), key))
+            if key: # setup/teardown reports have an empty key, ignore them
+                val = self.stats.get(key, None)
+                if val:
+                    parts.append("%d %s" %(len(val), key))
         line = ", ".join(parts)
         # XXX coloring
         msg = "%s in %.2f seconds" %(line, session_duration)
@@ -430,8 +437,15 @@ class TerminalReporter:
 
     def summary_deselected(self):
         if 'deselected' in self.stats:
+            l = []
+            k = self.config.option.keyword
+            if k:
+                l.append("-k%s" % k)
+            m = self.config.option.markexpr
+            if m:
+                l.append("-m %r" % m)
             self.write_sep("=", "%d tests deselected by %r" %(
-                len(self.stats['deselected']), self.config.option.keyword), bold=True)
+                len(self.stats['deselected']), " ".join(l)), bold=True)
 
 def repr_pythonversion(v=None):
     if v is None:

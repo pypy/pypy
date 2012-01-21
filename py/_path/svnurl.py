@@ -233,6 +233,8 @@ checkin message msg."""
                 e = sys.exc_info()[1]
                 if e.err.find('non-existent in that revision') != -1:
                     raise py.error.ENOENT(self, e.err)
+                elif e.err.find("E200009:") != -1:
+                    raise py.error.ENOENT(self, e.err)
                 elif e.err.find('File not found') != -1:
                     raise py.error.ENOENT(self, e.err)
                 elif e.err.find('not part of a repository')!=-1:

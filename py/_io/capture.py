@@ -258,6 +258,9 @@ class StdCaptureFD(Capture):
                 f = getattr(self, name).tmpfile
                 f.seek(0)
                 res = f.read()
+                enc = getattr(f, 'encoding', None)
+                if enc:
+                    res = py.builtin._totext(res, enc)
                 f.truncate(0)
                 f.seek(0)
             l.append(res)

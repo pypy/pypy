@@ -142,7 +142,7 @@ if sys.version_info >= (3, 0):
             del back
         elif locs is None:
             locs = globs
-        fp = open(fn, "rb")
+        fp = open(fn, "r")
         try:
             source = fp.read()
         finally:

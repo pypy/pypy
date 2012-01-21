@@ -4,6 +4,7 @@ import inspect
 import sys
 import pytest
 from py._code.code import TerminalRepr
+from _pytest.monkeypatch import monkeypatch
 
 import _pytest
 cutdir = py.path.local(_pytest.__file__).dirpath()
@@ -25,6 +26,24 @@ def pytest_cmdline_main(config):
     if config.option.showfuncargs:
         showfuncargs(config)
         return 0
+
+
+def pytest_generate_tests(metafunc):
+    try:
+        param = metafunc.function.parametrize
+    except AttributeError:
+        return
+    for p in param:
+        metafunc.parametrize(*p.args, **p.kwargs)
+
+def pytest_configure(config):
+    config.addinivalue_line("markers",
+        "parametrize(argnames, argvalues): call a test function multiple "
+        "times passing in multiple different argument value sets. Example: "
+        "@parametrize('arg1', [1,2]) would lead to two calls of the decorated "
+        "test function, one with arg1=1 and another with arg1=2."
+    )
+
 
 @pytest.mark.trylast
 def pytest_namespace():
@@ -138,6 +157,7 @@ class PyobjMixin(object):
             obj = obj.place_as
 
         self._fslineno = py.code.getfslineno(obj)
+        assert isinstance(self._fslineno[1], int), obj
         return self._fslineno
 
     def reportinfo(self):
@@ -155,6 +175,7 @@ class PyobjMixin(object):
         else:
             fspath, lineno = self._getfslineno()
             modpath = self.getmodpath()
+        assert isinstance(lineno, int)
         return fspath, lineno, modpath
 
 class PyCollectorMixin(PyobjMixin, pytest.Collector):
@@ -200,6 +221,7 @@ class PyCollectorMixin(PyobjMixin, pytest.Collector):
         module = self.getparent(Module).obj
         clscol = self.getparent(Class)
         cls = clscol and clscol.obj or None
+        transfer_markers(funcobj, cls, module)
         metafunc = Metafunc(funcobj, config=self.config,
             cls=cls, module=module)
         gentesthook = self.config.hook.pytest_generate_tests
@@ -219,6 +241,19 @@ class PyCollectorMixin(PyobjMixin, pytest.Collector):
             l.append(function)
         return l
 
+def transfer_markers(funcobj, cls, mod):
+    # XXX this should rather be code in the mark plugin or the mark
+    # plugin should merge with the python plugin.
+    for holder in (cls, mod):
+        try:
+            pytestmark = holder.pytestmark
+        except AttributeError:
+            continue
+        if isinstance(pytestmark, list):
+            for mark in pytestmark:
+                mark(funcobj)
+        else:
+            pytestmark(funcobj)
 
 class Module(pytest.File, PyCollectorMixin):
     def _getobj(self):
@@ -226,13 +261,8 @@ class Module(pytest.File, PyCollectorMixin):
 
     def _importtestmodule(self):
         # we assume we are only called once per module
-        from _pytest import assertion
-        assertion.before_module_import(self)
         try:
-            try:
-                mod = self.fspath.pyimport(ensuresyspath=True)
-            finally:
-                assertion.after_module_import(self)
+            mod = self.fspath.pyimport(ensuresyspath=True)
         except SyntaxError:
             excinfo = py.code.ExceptionInfo()
             raise self.CollectError(excinfo.getrepr(style="short"))
@@ -244,7 +274,8 @@ class Module(pytest.File, PyCollectorMixin):
                 "  %s\n"
                 "which is not the same as the test file we want to collect:\n"
                 "  %s\n"
-                "HINT: use a unique basename for your test file modules"
+                "HINT: remove __pycache__ / .pyc files and/or use a "
+                "unique basename for your test file modules"
                  % e.args
             )
         #print "imported test module", mod
@@ -374,6 +405,7 @@ class FuncargLookupErrorRepr(TerminalRepr):
         tw.line()
         tw.line("%s:%d" % (self.filename, self.firstlineno+1))
 
+
 class Generator(FunctionMixin, PyCollectorMixin, pytest.Collector):
     def collect(self):
         # test generators are seen as collectors but they also
@@ -430,6 +462,7 @@ class Function(FunctionMixin, pytest.Item):
                 "yielded functions (deprecated) cannot have funcargs")
         else:
             if callspec is not None:
+                self.callspec = callspec
                 self.funcargs = callspec.funcargs or {}
                 self._genid = callspec.id
                 if hasattr(callspec, "param"):
@@ -506,15 +539,59 @@ def fillfuncargs(function):
     request._fillfuncargs()
 
 _notexists = object()
-class CallSpec:
-    def __init__(self, funcargs, id, param):
-        self.funcargs = funcargs
-        self.id = id
+
+class CallSpec2(object):
+    def __init__(self, metafunc):
+        self.metafunc = metafunc
+        self.funcargs = {}
+        self._idlist = []
+        self.params = {}
+        self._globalid = _notexists
+        self._globalid_args = set()
+        self._globalparam = _notexists
+
+    def copy(self, metafunc):
+        cs = CallSpec2(self.metafunc)
+        cs.funcargs.update(self.funcargs)
+        cs.params.update(self.params)
+        cs._idlist = list(self._idlist)
+        cs._globalid = self._globalid
+        cs._globalid_args = self._globalid_args
+        cs._globalparam = self._globalparam
+        return cs
+
+    def _checkargnotcontained(self, arg):
+        if arg in self.params or arg in self.funcargs:
+            raise ValueError("duplicate %r" %(arg,))
+
+    def getparam(self, name):
+        try:
+            return self.params[name]
+        except KeyError:
+            if self._globalparam is _notexists:
+                raise ValueError(name)
+            return self._globalparam
+
+    @property
+    def id(self):
+        return "-".join(map(str, filter(None, self._idlist)))
+
+    def setmulti(self, valtype, argnames, valset, id):
+        for arg,val in zip(argnames, valset):
+            self._checkargnotcontained(arg)
+            getattr(self, valtype)[arg] = val
+        self._idlist.append(id)
+
+    def setall(self, funcargs, id, param):
+        for x in funcargs:
+            self._checkargnotcontained(x)
+        self.funcargs.update(funcargs)
+        if id is not _notexists:
+            self._idlist.append(id)
         if param is not _notexists:
-            self.param = param
-    def __repr__(self):
-        return "<CallSpec id=%r param=%r funcargs=%r>" %(
-            self.id, getattr(self, 'param', '?'), self.funcargs)
+            assert self._globalparam is _notexists
+            self._globalparam = param
+
 
 class Metafunc:
     def __init__(self, function, config=None, cls=None, module=None):
@@ -528,31 +605,69 @@ class Metafunc:
         self._calls = []
         self._ids = py.builtin.set()
 
+    def parametrize(self, argnames, argvalues, indirect=False, ids=None):
+        """ Add new invocations to the underlying test function using the list
+        of argvalues for the given argnames.  Parametrization is performed
+        during the collection phase.  If you need to setup expensive resources
+        you may pass indirect=True and implement a funcarg factory which can
+        perform the expensive setup just before a test is actually run.
+
+        :arg argnames: an argument name or a list of argument names
+
+        :arg argvalues: a list of values for the argname or a list of tuples of
+            values for the list of argument names.
+
+        :arg indirect: if True each argvalue corresponding to an argument will
+            be passed as request.param to its respective funcarg factory so
+            that it can perform more expensive setups during the setup phase of
+            a test rather than at collection time.
+
+        :arg ids: list of string ids each corresponding to the argvalues so
+            that they are part of the test id. If no ids are provided they will
+            be generated automatically from the argvalues.
+        """
+        if not isinstance(argnames, (tuple, list)):
+            argnames = (argnames,)
+            argvalues = [(val,) for val in argvalues]
+        for arg in argnames:
+            if arg not in self.funcargnames:
+                raise ValueError("%r has no argument %r" %(self.function, arg))
+        valtype = indirect and "params" or "funcargs"
+        if not ids:
+            idmaker = IDMaker()
+            ids = list(map(idmaker, argvalues))
+        newcalls = []
+        for callspec in self._calls or [CallSpec2(self)]:
+            for i, valset in enumerate(argvalues):
+                assert len(valset) == len(argnames)
+                newcallspec = callspec.copy(self)
+                newcallspec.setmulti(valtype, argnames, valset, ids[i])
+                newcalls.append(newcallspec)
+        self._calls = newcalls
+
     def addcall(self, funcargs=None, id=_notexists, param=_notexists):
-        """ add a new call to the underlying test function during the
-        collection phase of a test run.  Note that request.addcall() is
-        called during the test collection phase prior and independently
-        to actual test execution.  Therefore you should perform setup
-        of resources in a funcarg factory which can be instrumented
-        with the ``param``.
+        """ (deprecated, use parametrize) Add a new call to the underlying
+        test function during the collection phase of a test run.  Note that
+        request.addcall() is called during the test collection phase prior and
+        independently to actual test execution.  You should only use addcall()
+        if you need to specify multiple arguments of a test function.
 
         :arg funcargs: argument keyword dictionary used when invoking
             the test function.
 
         :arg id: used for reporting and identification purposes.  If you
-            don't supply an `id` the length of the currently
-            list of calls to the test function will be used.
+            don't supply an `id` an automatic unique id will be generated.
 
-        :arg param: will be exposed to a later funcarg factory invocation
-            through the ``request.param`` attribute.  It allows to
-            defer test fixture setup activities to when an actual
-            test is run.
+        :arg param: a parameter which will be exposed to a later funcarg factory
+            invocation through the ``request.param`` attribute.
         """
         assert funcargs is None or isinstance(funcargs, dict)
         if funcargs is not None:
             for name in funcargs:
                 if name not in self.funcargnames:
                     pytest.fail("funcarg %r not used in this function." % name)
+        else:
+            funcargs = {}
         if id is None:
             raise ValueError("id=None not allowed")
         if id is _notexists:
@@ -561,11 +676,26 @@ class Metafunc:
         if id in self._ids:
             raise ValueError("duplicate id %r" % id)
         self._ids.add(id)
-        self._calls.append(CallSpec(funcargs, id, param))
+
+        cs = CallSpec2(self)
+        cs.setall(funcargs, id, param)
+        self._calls.append(cs)
+
+class IDMaker:
+    def __init__(self):
+        self.counter = 0
+    def __call__(self, valset):
+        l = []
+        for val in valset:
+            if not isinstance(val, (int, str)):
+                val = "."+str(self.counter)
+            self.counter += 1
+            l.append(str(val))
+        return "-".join(l)
 
 class FuncargRequest:
     """ A request for function arguments from a test function.
-        
+
         Note that there is an optional ``param`` attribute in case
         there was an invocation to metafunc.addcall(param=...).
         If no such call was done in a ``pytest_generate_tests``
@@ -637,7 +767,7 @@ class FuncargRequest:
 
 
     def applymarker(self, marker):
-        """ apply a marker to a single test function invocation.
+        """ Apply a marker to a single test function invocation.
         This method is useful if you don't want to have a keyword/marker
         on all function invocations.
 
@@ -649,7 +779,7 @@ class FuncargRequest:
         self._pyfuncitem.keywords[marker.markname] = marker
 
     def cached_setup(self, setup, teardown=None, scope="module", extrakey=None):
-        """ return a testing resource managed by ``setup`` &
+        """ Return a testing resource managed by ``setup`` &
         ``teardown`` calls.  ``scope`` and ``extrakey`` determine when the
         ``teardown`` function will be called so that subsequent calls to
         ``setup`` would recreate the resource.
@@ -698,11 +828,18 @@ class FuncargRequest:
             self._raiselookupfailed(argname)
         funcargfactory = self._name2factory[argname].pop()
         oldarg = self._currentarg
-        self._currentarg = argname
+        mp = monkeypatch()
+        mp.setattr(self, '_currentarg', argname)
+        try:
+            param = self._pyfuncitem.callspec.getparam(argname)
+        except (AttributeError, ValueError):
+            pass
+        else:
+            mp.setattr(self, 'param', param, raising=False)
         try:
             self._funcargs[argname] = res = funcargfactory(request=self)
         finally:
-            self._currentarg = oldarg
+            mp.undo()
         return res
 
     def _getscopeitem(self, scope):
@@ -817,8 +954,7 @@ def raises(ExpectedException, *args, **kwargs):
         >>> raises(ZeroDivisionError, f, x=0)
         <ExceptionInfo ...>
 
-    A third possibility is to use a string which which will
-    be executed::
+    A third possibility is to use a string to be executed::
 
         >>> raises(ZeroDivisionError, "f(0)")
         <ExceptionInfo ...>
