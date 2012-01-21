@@ -790,7 +790,7 @@ class Cursor(object):
         if self.statement.kind == DML:
             self.connection._begin()
         else:
-            raise ProgrammingError, "executemany is only for DML statements"
+            raise ProgrammingError("executemany is only for DML statements")
 
         self.rowcount = 0
         for params in many_params:
@@ -912,7 +912,7 @@ class Statement(object):
     def __init__(self, connection, sql):
         self.statement = None
         if not isinstance(sql, str):
-            raise ValueError, "sql must be a string"
+            raise ValueError("sql must be a string")
         self.con = connection
         self.sql = sql # DEBUG ONLY
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
@@ -941,8 +941,8 @@ class Statement(object):
             raise self.con._get_exception(ret)
         self.con._remember_statement(self)
         if _check_remaining_sql(next_char.value):
-            raise Warning, "One and only one statement required: %r" % (
-                next_char.value,)
+            raise Warning("One and only one statement required: %r" % (
+                next_char.value,))
         # sql_char should remain alive until here
 
         self._build_row_cast_map()
@@ -1013,7 +1013,7 @@ class Statement(object):
         elif type(param) is buffer:
             sqlite.sqlite3_bind_blob(self.statement, idx, str(param), len(param), SQLITE_TRANSIENT)
         else:
-            raise InterfaceError, "parameter type %s is not supported" % str(type(param))
+            raise InterfaceError("parameter type %s is not supported" % str(type(param)))
 
     def set_params(self, params):
         ret = sqlite.sqlite3_reset(self.statement)
@@ -1042,7 +1042,7 @@ class Statement(object):
             for idx in range(1, sqlite.sqlite3_bind_parameter_count(self.statement) + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self.statement, idx)
                 if param_name is None:
-                    raise ProgrammingError, "need named parameters"
+                    raise ProgrammingError("need named parameters")
                 param_name = param_name[1:]
                 try:
                     param = params[param_name]
