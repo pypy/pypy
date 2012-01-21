@@ -264,8 +264,14 @@ class BaseArray(Wrappable):
     def descr_copy(self, space):
         return self.copy(space)
 
+    def descr_flatten(self, space):
+        return self.flatten(space)
+
     def copy(self, space):
         return self.get_concrete().copy(space)
+
+    def flatten(self, space):
+        return self.get_concrete().flatten(space)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -599,6 +605,11 @@ class Scalar(BaseArray):
     def copy(self, space):
         return Scalar(self.dtype, self.value)
 
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype)
+        array.setitem(0, self.value)
+        return array
+
     def fill(self, space, w_value):
         self.value = self.dtype.coerce(space, w_value)
 
@@ -744,14 +755,15 @@ class Call2(VirtualArray):
                                self.left.create_sig(), self.right.create_sig())
 
 class SliceArray(Call2):
-    def __init__(self, shape, dtype, left, right):
+    def __init__(self, shape, dtype, left, right, no_broadcast=False):
+        self.no_broadcast = no_broadcast
         Call2.__init__(self, None, 'sliceloop', shape, dtype, dtype, left,
                        right)
 
     def create_sig(self):
         lsig = self.left.create_sig()
         rsig = self.right.create_sig()
-        if self.shape != self.right.shape:
+        if not self.no_broadcast and self.shape != self.right.shape:
             return signature.SliceloopBroadcastSignature(self.ufunc,
                                                          self.name,
                                                          self.calc_dtype,
@@ -978,6 +990,15 @@ class ConcreteArray(BaseArray):
     def copy(self, space):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
         array.setslice(space, self)
+        return array
+
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype, self.order)
+        if self.supports_fast_slicing():
+            array._fast_setslice(space, self)
+        else:
+            arr = SliceArray(array.shape, array.dtype, array, self, no_broadcast=True)
+            array._sliceloop(arr)
         return array
 
     def fill(self, space, w_value):
@@ -1241,6 +1262,7 @@ BaseArray.typedef = TypeDef(
     fill = interp2app(BaseArray.descr_fill),
 
     copy = interp2app(BaseArray.descr_copy),
+    flatten = interp2app(BaseArray.descr_flatten),
     reshape = interp2app(BaseArray.descr_reshape),
     tolist = interp2app(BaseArray.descr_tolist),
 )
