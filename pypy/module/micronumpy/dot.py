@@ -69,8 +69,6 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     _r = calculate_dot_strides(right.strides, right.backstrides,
                                   broadcast_shape, right_skip)
     righti = ViewIterator(right.start, _r[0], _r[1], broadcast_shape)
-    if right.size==4:
-        xxx
     while not outi.done():
         '''
         dot_driver.jit_merge_point(left=left,
