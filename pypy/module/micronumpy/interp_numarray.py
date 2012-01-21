@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
      interp_boxes
@@ -11,6 +11,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
      SkipLastAxisIterator, Chunk, ViewIterator
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -661,17 +662,13 @@ class BaseArray(Wrappable):
             w_denom = space.wrap(self.shape[dim])
         return space.div(self.descr_sum_promote(space, w_axis), w_denom)
 
-    def descr_var(self, space):
-        # var = mean((values - mean(values)) ** 2)
-        w_res = self.descr_sub(space, self.descr_mean(space, space.w_None))
-        assert isinstance(w_res, BaseArray)
-        w_res = w_res.descr_pow(space, space.wrap(2))
-        assert isinstance(w_res, BaseArray)
-        return w_res.descr_mean(space, space.w_None)
+    def descr_var(self, space, w_axis=None):
+        return get_appbridge_cache(space).call_method(space, '_var', self,
+                                                      w_axis)
 
-    def descr_std(self, space):
-        # std(v) = sqrt(var(v))
-        return interp_ufuncs.get(space).sqrt.call(space, [self.descr_var(space)])
+    def descr_std(self, space, w_axis=None):
+        return get_appbridge_cache(space).call_method(space, '_std', self,
+                                                      w_axis)
 
     def descr_fill(self, space, w_value):
         concr = self.get_concrete_or_scalar()
@@ -1245,8 +1242,13 @@ def _find_size_and_shape(space, w_size):
             shape.append(item)
     return size, shape
 
-def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
+@unwrap_spec(subok=bool, copy=bool, ownmaskna=bool)
+def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
+          subok=True, copy=False, w_maskna=None, ownmaskna=False):
     # find scalar
+    if (not subok or copy or not space.is_w(w_maskna, space.w_None) or
+        ownmaskna):
+        raise OperationError(space.w_NotImplementedError, space.wrap("Unsupported args"))
     if not space.issequence_w(w_item_or_iterable):
         if space.is_w(w_dtype, space.w_None):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
@@ -1255,7 +1257,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
         return scalar_w(space, dtype, w_item_or_iterable)
-    if w_order is None:
+    if space.is_w(w_order, space.w_None):
         order = 'C'
     else:
         order = space.str_w(w_order)

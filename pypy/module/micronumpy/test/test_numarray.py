@@ -1029,8 +1029,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.var() == 0.0
         a = arange(10).reshape(5, 2)
         assert a.var() == 8.25
-        #assert (a.var(0) == [8, 8]).all()
-        #assert (a.var(1) == [.25] * 5).all()
+        assert (a.var(0) == [8, 8]).all()
+        assert (a.var(1) == [.25] * 5).all()
 
     def test_std(self):
         from _numpypy import array
