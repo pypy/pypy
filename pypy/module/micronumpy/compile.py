@@ -39,6 +39,7 @@ class FakeSpace(object):
     w_TypeError = None
     w_IndexError = None
     w_OverflowError = None
+    w_NotImplementedError = None
     w_None = None
 
     w_bool = "bool"
