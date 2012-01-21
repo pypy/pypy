@@ -588,7 +588,7 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         items = self.space.fixedview(w_iterable)
         itemcount = len(items)
-        if right < itemcount:
+        if right > itemcount:
             count = left + right
             if count == 1:
                 plural = ''
