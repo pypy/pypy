@@ -70,6 +70,7 @@ class Module(MixedModule):
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("ceil", "ceil"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
@@ -85,6 +86,8 @@ class Module(MixedModule):
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
         ("tan", "tan"),
+        ('bitwise_and', 'bitwise_and'),
+        ('bitwise_or', 'bitwise_or'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

@@ -82,6 +82,16 @@ class NumpyEvalFrame(object):
         for i in range(len(self.iterators)):
             self.iterators[i] = self.iterators[i].next(shapelen)
 
+    @unroll_safe
+    def next_from_second(self, shapelen):
+        """ Don't increase the first iterator
+        """
+        for i in range(1, len(self.iterators)):
+            self.iterators[i] = self.iterators[i].next(shapelen)
+
+    def next_first(self, shapelen):
+        self.iterators[0] = self.iterators[0].next(shapelen)
+
     def get_final_iter(self):
         final_iter = promote(self.final_iter)
         if final_iter < 0:
