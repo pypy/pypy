@@ -344,7 +344,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from _numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(TypeError, add.reduce, 1)
+        raises((ValueError, TypeError), add.reduce, 1)
 
     def test_reduce_1d(self):
         from _numpypy import add, maximum
