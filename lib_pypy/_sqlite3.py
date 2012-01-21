@@ -861,8 +861,6 @@ class Cursor(object):
         except StopIteration:
             return None
 
-        return nextrow
-
     def fetchmany(self, size=None):
         self._check_closed()
         self._check_reset()
