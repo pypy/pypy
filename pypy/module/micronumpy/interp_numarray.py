@@ -925,14 +925,15 @@ class Call2(VirtualArray):
                                self.left.create_sig(), self.right.create_sig())
 
 class SliceArray(Call2):
-    def __init__(self, shape, dtype, left, right):
+    def __init__(self, shape, dtype, left, right, no_broadcast=False):
+        self.no_broadcast = no_broadcast
         Call2.__init__(self, None, 'sliceloop', shape, dtype, dtype, left,
                        right)
 
     def create_sig(self):
         lsig = self.left.create_sig()
         rsig = self.right.create_sig()
-        if self.shape != self.right.shape:
+        if not self.no_broadcast and self.shape != self.right.shape:
             return signature.SliceloopBroadcastSignature(self.ufunc,
                                                          self.name,
                                                          self.calc_dtype,
@@ -1166,7 +1167,7 @@ class ConcreteArray(BaseArray):
         if self.supports_fast_slicing():
             array._fast_setslice(space, self)
         else:
-            arr = SliceArray(array.shape, array.dtype, array, self)
+            arr = SliceArray(array.shape, array.dtype, array, self, no_broadcast=True)
             array._sliceloop(arr)
         return array
 
