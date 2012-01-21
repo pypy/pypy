@@ -165,7 +165,10 @@ def test_app_test_blow(testdir):
     def test_one(self): exec 'blow'
     """)
 
-    ev, = sorter.getreports("pytest_runtest_logreport")
+    reports = sorter.getreports("pytest_runtest_logreport")
+    setup, ev, teardown = reports
     assert ev.failed
+    assert setup.passed
+    assert teardown.passed
     assert 'NameError' in ev.longrepr.reprcrash.message
     assert 'blow' in ev.longrepr.reprcrash.message
