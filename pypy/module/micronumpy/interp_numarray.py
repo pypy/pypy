@@ -1077,11 +1077,11 @@ def _find_size_and_shape(space, w_size):
 
 @unwrap_spec(subok=bool, copy=bool, ownmaskna=bool)
 def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
-          subok=True, copy=False, w_maskna=None, ownmaskna=False):
+          subok=True, copy=True, w_maskna=None, ownmaskna=False):
     # find scalar
     if w_maskna is None:
         w_maskna = space.w_None
-    if (not subok or copy or not space.is_w(w_maskna, space.w_None) or
+    if (not subok or not space.is_w(w_maskna, space.w_None) or
         ownmaskna):
         raise OperationError(space.w_NotImplementedError, space.wrap("Unsupported args"))
     if not space.issequence_w(w_item_or_iterable):
@@ -1099,6 +1099,14 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
         if order != 'C':  # or order != 'F':
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
+    if isinstance(w_item_or_iterable, BaseArray):
+        if (not space.is_w(w_dtype, space.w_None) and
+            w_item_or_iterable.find_dtype() is not w_dtype):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "copying over different dtypes unsupported"))
+        if copy:
+            return w_item_or_iterable.copy(space)
+        return w_item_or_iterable
     shape, elems_w = find_shape_and_elems(space, w_item_or_iterable)
     # they come back in C order
     size = len(elems_w)

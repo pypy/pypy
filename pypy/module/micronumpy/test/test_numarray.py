@@ -1358,7 +1358,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
 
-
+    def test_copy_kwarg(self):
+        from _numpypy import array
+        x = array([1, 2, 3])
+        assert (array(x) == x).all()
+        assert array(x) is not x
+        assert array(x, copy=False) is x
+        assert array(x, copy=True) is not x
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
