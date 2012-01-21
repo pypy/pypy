@@ -293,17 +293,18 @@ def main():
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
         # Double check to ensure we are not overwriting the current interpreter
-        try:
-            this_exe = py.path.local(sys.executable).new(ext='')
-            exe_name = drv.compute_exe_name()
-            samefile = this_exe.samefile(exe_name)
-            assert not samefile, (
-                'Output file %s is the currently running '
-                'interpreter (use --output=...)'% exe_name)
-        except EnvironmentError:
-            pass
-
         goals = translateconfig.goals
+        if not goals or 'compile' in goals:
+            try:
+                this_exe = py.path.local(sys.executable).new(ext='')
+                exe_name = drv.compute_exe_name()
+                samefile = this_exe.samefile(exe_name)
+                assert not samefile, (
+                    'Output file %s is the currently running '
+                    'interpreter (use --output=...)'% exe_name)
+            except EnvironmentError:
+                pass
+
         try:
             drv.proceed(goals)
         finally:
