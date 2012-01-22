@@ -264,7 +264,8 @@ class InstanceRepr(AbstractInstanceRepr):
 
         for name, attrdef in selfattrs.iteritems():
             if not attrdef.readonly and self.is_quasi_immutable(name):
-                ootype.addFields(self.lowleveltype, {'mutable_'+name: OBJECT})
+                name = mangle('mutable_' + name, self.rtyper.getconfig())
+                ootype.addFields(self.lowleveltype, {name: OBJECT})
 
         classattributes = {}
         baseInstance = self.lowleveltype._superclass

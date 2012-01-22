@@ -1,4 +1,5 @@
 version = '5.0.0'
+paramstyle = 'named'
 
 class Warning(StandardError):
     pass

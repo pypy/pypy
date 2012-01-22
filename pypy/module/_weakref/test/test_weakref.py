@@ -324,6 +324,7 @@ class AppTestProxy(object):
         class A(object): pass
         a = A()
         assert _weakref.proxy(a) is _weakref.proxy(a)
+        assert _weakref.proxy(a) is _weakref.proxy(a, None)
 
     def test_callable_proxy(self):
         import _weakref, gc
@@ -368,6 +369,26 @@ class AppTestProxy(object):
                 pass
             return A
         raises(TypeError, tryit)
+
+    def test_proxy_to_dead_object(self):
+        import _weakref, gc
+        class A(object):
+            pass
+        p = _weakref.proxy(A())
+        gc.collect()
+        raises(ReferenceError, "p + 1")
+
+    def test_proxy_with_callback(self):
+        import _weakref, gc
+        class A(object):
+            pass
+        a2 = A()
+        def callback(proxy):
+            a2.seen = proxy
+        p = _weakref.proxy(A(), callback)
+        gc.collect()
+        raises(ReferenceError, "p + 1")
+        assert a2.seen is p
 
     def test_repr(self):
         import _weakref, gc
@@ -445,3 +466,44 @@ class AppTestProxy(object):
         # No exception should be raised here
         gc.collect()
 
+    def test_add(self):
+        import _weakref
+        class A(object):
+            def __add__(self, other):
+                return other
+        a1 = A()
+        a2 = A()
+        p1 = _weakref.proxy(a1)
+        p2 = _weakref.proxy(a2)
+        a3 = p1 + p2
+        assert a3 is a2
+
+    def test_inplace_add(self):
+        import _weakref
+        class A(object):
+            def __add__(self, other):
+                return other
+        a1 = A()
+        a2 = A()
+        p1 = _weakref.proxy(a1)
+        p2 = _weakref.proxy(a2)
+        p1 += p2
+        assert p1 is a2
+
+    def test_setattr(self):
+        import _weakref
+        class A(object):
+            def __setitem__(self, key, value):
+                self.setkey = key
+                self.setvalue = value
+        a1 = A()
+        a2 = A()
+        p1 = _weakref.proxy(a1)
+        p2 = _weakref.proxy(a2)
+        p1[p2] = 42
+        assert a1.setkey is p2
+        assert a1.setvalue == 42
+        #
+        p1[42] = p2
+        assert a1.setkey == 42
+        assert a1.setvalue is p2

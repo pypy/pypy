@@ -1,9 +1,8 @@
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
-from pypy.rlib.rsocket import SocketError
-from pypy.rlib.rarithmetic import r_uint
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rlib.rsocket import SocketError, INVALID_SOCKET
+from pypy.interpreter.error import OperationError
 
 def gethostname(space):
     """gethostname() -> string
@@ -285,7 +284,7 @@ def getaddrinfo(space, w_host, w_port,
                             space.wrap(socktype),
                             space.wrap(protocol),
                             space.wrap(canonname),
-                            addr.as_object(-1, space)]) # -1 as per cpython
+                            addr.as_object(INVALID_SOCKET, space)]) # -1 as per cpython
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
 

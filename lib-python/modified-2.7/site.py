@@ -454,10 +454,10 @@ def setcopyright():
     __builtin__.copyright = _Printer("copyright", sys.copyright)
     __builtin__.credits = _Printer(
         "credits",
-        "PyPy is maintained by the PyPy developers: http://codespeak.net/pypy")
+        "PyPy is maintained by the PyPy developers: http://pypy.org/")
     __builtin__.license = _Printer(
         "license",
-        "See http://codespeak.net/svn/pypy/dist/LICENSE")
+        "See https://bitbucket.org/pypy/pypy/src/default/LICENSE")
 
 
 

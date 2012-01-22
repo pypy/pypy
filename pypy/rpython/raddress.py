@@ -7,7 +7,6 @@ from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib.objectmodel import we_are_translated
 
 
 class __extend__(annmodel.SomeAddress):

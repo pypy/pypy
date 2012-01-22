@@ -63,6 +63,25 @@ class AppTestAppFloatTest:
     def setup_class(cls):
         cls.w_py26 = cls.space.wrap(sys.version_info >= (2, 6))
 
+    def test_isinteger(self):
+        assert (1.).is_integer()
+        assert not (1.1).is_integer()
+        assert not float("inf").is_integer()
+        assert not float("nan").is_integer()
+
+    def test_conjugate(self):
+        assert (1.).conjugate() == 1.
+        assert (-1.).conjugate() == -1.
+
+        class F(float):
+            pass
+        assert F(1.).conjugate() == 1.
+
+        class F(float):
+            def __pos__(self):
+                return 42.
+        assert F(1.).conjugate() == 1.
+
     def test_negatives(self):
         assert -1.1 < 0
         assert -0.1 < 0
@@ -417,6 +436,11 @@ class AppTestAppFloatTest:
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
 
+    def test_float_real(self):
+        class A(float): pass
+        b = A(5).real
+        assert type(b) is float
+
 
 class AppTestFloatHex:
     def w_identical(self, x, y):
@@ -746,3 +770,22 @@ class AppTestFloatHex:
                 pass
             else:
                 self.identical(x, float.fromhex(x.hex()))
+
+    def test_invalid(self):
+        raises(ValueError, float.fromhex, "0P")
+
+    def test_division_edgecases(self):
+        import math
+
+        # inf
+        inf = float("inf")
+        assert math.isnan(inf % 3)
+        assert math.isnan(inf // 3)
+        x, y = divmod(inf, 3)
+        assert math.isnan(x)
+        assert math.isnan(y)
+
+        # divide by 0
+        raises(ZeroDivisionError, lambda: inf % 0)
+        raises(ZeroDivisionError, lambda: inf // 0)
+        raises(ZeroDivisionError, divmod, inf, 0)

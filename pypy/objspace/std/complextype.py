@@ -127,8 +127,8 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
                and space.is_w(space.type(w_real), space.w_complex)):
         return w_real
 
-    if space.is_true(space.isinstance(w_real, space.w_str)) or \
-            space.is_true(space.isinstance(w_real, space.w_unicode)):
+    if space.isinstance_w(w_real, space.w_str) or \
+            space.isinstance_w(w_real, space.w_unicode):
         # a string argument
         if not noarg2:
             raise OperationError(space.w_TypeError,
@@ -203,8 +203,8 @@ def unpackcomplex(space, w_complex):
         return (w_complex.realval, w_complex.imagval)
     #
     # Check that it is not a string (on which space.float() would succeed).
-    if (space.is_true(space.isinstance(w_complex, space.w_str)) or
-        space.is_true(space.isinstance(w_complex, space.w_unicode))):
+    if (space.isinstance_w(w_complex, space.w_str) or
+        space.isinstance_w(w_complex, space.w_unicode)):
         raise operationerrfmt(space.w_TypeError,
                               "complex number expected, got '%s'",
                               space.type(w_complex).getname(space))

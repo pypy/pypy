@@ -4,7 +4,6 @@ from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c import genc
-from pypy.translator.c.genc import gen_source
 from pypy.translator.c.gc import NoneGcPolicy
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
@@ -13,6 +12,7 @@ from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.interactive import Translation
 from pypy.rlib.entrypoint import entrypoint
+from pypy.tool.nullpath import NullPyPathLocal
 
 def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
@@ -62,6 +62,22 @@ def test_simple():
     assert builder.get_malloc_counters()() == (0, 0)
 
     py.test.raises(Exception, f1, "world")  # check that it's really typed
+
+
+def test_dont_write_source_files():
+    def f(x):
+        return x*2
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+
+    t.config.translation.countmallocs = True
+    t.config.translation.dont_write_c_files = True
+    builder = genc.CExtModuleBuilder(t, f, config=t.config)
+    builder.generate_source()
+    assert isinstance(builder.targetdir, NullPyPathLocal)
+    assert builder.targetdir.listdir() == []
+
 
 def test_simple_lambda():
     f = lambda x: x*2

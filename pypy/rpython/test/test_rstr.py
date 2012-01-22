@@ -89,6 +89,28 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i])
             assert res is True
 
+    def test_iter_over_char(self):
+        const = self.const
+        def fn(i):
+            for c in const('a'):
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [0])
+        assert res == ord('a') + 10000
+
+    def test_iter_over_nonconst_char(self):
+        const = self.const
+        def fn(i):
+            if i > 0:
+                c = const('a')
+            else:
+                c = const('A')
+            for c in c:
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [1])
+        assert res == 1 + ord('a') + 10000
+
     def test_char_constant(self):
         const = self.const
         def fn(s):
@@ -227,6 +249,15 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(fn, [i,j])
                 assert res is fn(i, j)
 
+    def test_startswith_char(self):
+        const = self.const
+        def fn(i):
+            s = [const(''), const('one'), const('two'), const('o'), const('on'), const('ne'), const('e'), const('twos'), const('foobar'), const('fortytwo')]
+            return s[i].startswith(const('o'))
+        for i in range(10):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
+
     def test_endswith(self):
         const = self.const
         def fn(i, j):
@@ -237,6 +268,15 @@ class AbstractTestRstr(BaseRtypingTest):
             for j in range(10):
                 res = self.interpret(fn, [i,j])
                 assert res is fn(i, j)
+
+    def test_endswith_char(self):
+        const = self.const
+        def fn(i):
+            s = [const(''), const('one'), const('two'), const('o'), const('on'), const('ne'), const('e'), const('twos'), const('foobar'), const('fortytwo')]
+            return s[i].endswith(const('e'))
+        for i in range(10):
+            res = self.interpret(fn, [i])
+            assert res == fn(i)
 
     def test_find(self):
         const = self.const
@@ -354,12 +394,20 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('!ab!').lstrip(const('!'))
         def right():
             return const('!ab!').rstrip(const('!'))
+        def empty():
+            return const('    ').strip(' ')
+        def left2():
+            return const('a  ').strip(' ')
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
         res = self.interpret(left, [])
         assert self.ll_to_string(res) == const('ab!')
         res = self.interpret(right, [])
         assert self.ll_to_string(res) == const('!ab')
+        res = self.interpret(empty, [])
+        assert self.ll_to_string(res) == const('')
+        res = self.interpret(left2, [])
+        assert self.ll_to_string(res) == const('a')
 
     def test_upper(self):
         const = self.const

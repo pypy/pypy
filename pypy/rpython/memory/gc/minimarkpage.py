@@ -157,7 +157,7 @@ class ArenaCollection(object):
         ll_assert(nsize > 0, "malloc: size is null or negative")
         ll_assert(nsize <= self.small_request_threshold,"malloc: size too big")
         ll_assert((nsize & (WORD-1)) == 0, "malloc: size is not aligned")
-        self.total_memory_used += nsize
+        self.total_memory_used += r_uint(nsize)
         #
         # Get the page to use from the size
         size_class = nsize >> WORD_POWER_2
@@ -482,7 +482,7 @@ class ArenaCollection(object):
             obj += block_size
         #
         # Update the global total size of objects.
-        self.total_memory_used += surviving * block_size
+        self.total_memory_used += r_uint(surviving * block_size)
         #
         # Return the number of surviving objects.
         return surviving

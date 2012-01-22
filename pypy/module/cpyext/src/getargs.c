@@ -777,18 +777,14 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 			Py_buffer *p = (Py_buffer *)va_arg(*p_va, Py_buffer *);
 
 			if (PyString_Check(arg)) {
+                            fflush(stdout);
 				PyBuffer_FillInfo(p, arg,
 						  PyString_AS_STRING(arg), PyString_GET_SIZE(arg),
 						  1, 0);
-			} else {
-                            PyErr_SetString(
-                                PyExc_NotImplementedError,
-                                "s* not implemented for non-string values");
-                            return NULL;
-                        }
-#if 0
+			}
 #ifdef Py_USING_UNICODE
 			else if (PyUnicode_Check(arg)) {
+#if 0
 				uarg = UNICODE_DEFAULT_ENCODING(arg);
 				if (uarg == NULL)
 					return converterr(CONV_UNICODE,
@@ -796,6 +792,9 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				PyBuffer_FillInfo(p, arg,
 						  PyString_AS_STRING(uarg), PyString_GET_SIZE(uarg),
 						  1, 0);
+#else
+                                return converterr("string or buffer", arg, msgbuf, bufsize);
+#endif
 			}
 #endif
 			else { /* any buffer-like object */
@@ -803,7 +802,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 				if (getbuffer(arg, p, &buf) < 0)
 					return converterr(buf, arg, msgbuf, bufsize);
 			}
-#endif
 			if (addcleanup(p, freelist, cleanup_buffer)) {
 				return converterr(
 					"(cleanup problem)",
@@ -1342,7 +1340,6 @@ convertbuffer(PyObject *arg, void **p, char **errmsg)
 	return count;
 }
 
-#if 0 //YYY
 static int
 getbuffer(PyObject *arg, Py_buffer *view, char **errmsg)
 {
@@ -1373,7 +1370,6 @@ getbuffer(PyObject *arg, Py_buffer *view, char **errmsg)
 	PyBuffer_FillInfo(view, NULL, buf, count, 1, 0);
 	return 0;
 }
-#endif
 
 /* Support for keyword arguments donated by
    Geoff Philbrick <philbric@delphi.hks.com> */

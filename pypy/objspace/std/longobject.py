@@ -8,7 +8,26 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rbigint import rbigint, SHIFT
 
-class W_LongObject(W_Object):
+class W_AbstractLongObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractLongObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.bigint_w(self).eq(space.bigint_w(w_other))
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.objspace.std.model import IDTAG_LONG as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+
+class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
     from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['num']
@@ -44,6 +63,26 @@ class W_LongObject(W_Object):
         return W_LongObject(rbigint.fromrarith_int(i))
     fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
     fromrarith_int = staticmethod(fromrarith_int)
+
+    def int_w(w_self, space):
+        try:
+            return w_self.num.toint()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to int"))
+
+    def uint_w(w_self, space):
+        try:
+            return w_self.num.touint()
+        except ValueError:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot convert negative integer to unsigned int"))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to unsigned int"))
+
+    def bigint_w(w_self, space):
+        return w_self.num
 
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
@@ -103,27 +142,6 @@ def float__Long(space, w_longobj):
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to float"))
-
-def int_w__Long(space, w_value):
-    try:
-        return w_value.num.toint()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to int"))
-
-
-def uint_w__Long(space, w_value):
-    try:
-        return w_value.num.touint()
-    except ValueError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "cannot convert negative integer to unsigned int"))
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to unsigned int"))
-
-def bigint_w__Long(space, w_value):
-    return w_value.num
 
 def repr__Long(space, w_long):
     return space.wrap(w_long.num.repr())

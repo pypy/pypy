@@ -31,9 +31,7 @@
 #include "src/char.h"
 #include "src/float.h"
 #include "src/address.h"
-#ifndef AVR
 #include "src/unichar.h"
-#endif
 #include "src/llgroup.h"
 
 #include "src/instrument.h"
@@ -48,10 +46,8 @@
 #  include "src/rtyper.h"
 #  include "src/debug_traceback.h"
 #  include "src/debug_alloc.h"
-#ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_strtod.h"
-#endif
 #endif
 
 #ifdef PYPY_STANDALONE

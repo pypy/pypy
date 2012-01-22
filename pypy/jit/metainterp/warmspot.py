@@ -1,6 +1,6 @@
 import sys, py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
-from pypy.rpython.ootypesystem import ootype
+from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
 from pypy.annotation import model as annmodel
@@ -10,21 +10,19 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.debug import debug_print, fatalerror
-from pypy.rlib.debug import debug_start, debug_stop
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.rlib.debug import fatalerror
+from pypy.rlib.rstackovf import StackOverflow
+from pypy.translator.simplify import get_functype
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
-from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
-from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 # ____________________________________________________________
@@ -51,11 +49,13 @@ def apply_jit(translator, backend_name="auto", inline=False,
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
 def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
-                   listcomp=False, **kwds):
+                   listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
         extraconfigopts = {}
+    for key, value in translationoptions.items():
+        extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
                                     type_system=type_system,
@@ -63,10 +63,11 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1,
+def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
-                    enable_opts=ALL_OPTS_NAMES, **kwds):
+                    function_threshold=4,
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -77,16 +78,24 @@ def jittify_and_run(interp, graph, args, repeat=1,
         translator.config.translation.list_comprehension_operations = True
     except ConfigError:
         pass
+    try:
+        translator.config.translation.jit_ffi = True
+    except ConfigError:
+        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
+    if graph_and_interp_only:
+        return interp, graph
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
         warmrunnerdesc.metainterp_sd.profiler.finish()
@@ -104,7 +113,7 @@ def rpython_ll_meta_interp(function, args, backendopt=True, **kwds):
     return ll_meta_interp(function, args, backendopt=backendopt,
                           translate_support_code=True, **kwds)
 
-def _find_jit_marker(graphs, marker_name):
+def _find_jit_marker(graphs, marker_name, check_driver=True):
     results = []
     for graph in graphs:
         for block in graph.iterblocks():
@@ -112,7 +121,8 @@ def _find_jit_marker(graphs, marker_name):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
                     op.args[0].value == marker_name and
-                    op.args[1].value.active):   # the jitdriver
+                    (not check_driver or op.args[1].value is None or
+                     op.args[1].value.active)):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -126,7 +136,17 @@ def find_jit_merge_points(graphs):
     results = _find_jit_marker(graphs, 'jit_merge_point')
     if not results:
         raise Exception("no jit_merge_point found!")
+    seen = set([graph for graph, block, pos in results])
+    assert len(seen) == len(results), (
+        "found several jit_merge_points in the same graph")
     return results
+
+def find_access_helpers(graphs):
+    return _find_jit_marker(graphs, 'access_helper', False)
+
+def locate_jit_merge_point(graph):
+    [(graph, block, pos)] = find_jit_merge_points([graph])
+    return block, pos, block.operations[pos]
 
 def find_set_param(graphs):
     return _find_jit_marker(graphs, 'set_param')
@@ -143,6 +163,9 @@ def find_force_quasi_immutable(graphs):
 
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
+
+def reset_stats():
+    pyjitpl._warmrunnerdesc.stats.clear()
 
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
@@ -171,6 +194,7 @@ class WarmRunnerDesc(object):
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
         policy.set_supports_longlong(self.cpu.supports_longlong)
+        policy.set_supports_singlefloats(self.cpu.supports_singlefloats)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
@@ -186,13 +210,15 @@ class WarmRunnerDesc(object):
         vrefinfo = VirtualRefInfo(self)
         self.codewriter.setup_vrefinfo(vrefinfo)
         #
+        self.hooks = policy.jithookiface
         self.make_virtualizable_infos()
         self.make_exception_classes()
         self.make_driverhook_graphs()
         self.make_enter_functions()
         self.rewrite_jit_merge_points(policy)
 
-        verbose = not self.cpu.translate_support_code
+        verbose = False # not self.cpu.translate_support_code
+        self.rewrite_access_helpers()
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
@@ -230,17 +256,16 @@ class WarmRunnerDesc(object):
     def split_graph_and_record_jitdriver(self, graph, block, pos):
         op = block.operations[pos]
         jd = JitDriverStaticData()
-        jd._jit_merge_point_pos = (graph, op)
+        jd._jit_merge_point_in = graph
         args = op.args[2:]
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
-        graph.startblock.isstartblock = False
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
-        graph.startblock.isstartblock = True
         # a crash in the following checkgraph() means that you forgot
-        # to list some variable in greens=[] or reds=[] in JitDriver.
+        # to list some variable in greens=[] or reds=[] in JitDriver,
+        # or that a jit_merge_point() takes a constant as an argument.
         checkgraph(graph)
         for v in graph.getargs():
             assert isinstance(v, Variable)
@@ -281,7 +306,9 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, **kwds):
+                  no_stats=False, supports_floats=True,
+                  supports_longlong=True, supports_singlefloats=True,
+                  **kwds):
         assert CPUClass is not None
         self.opt = history.Options(**kwds)
         if no_stats:
@@ -291,11 +318,11 @@ class WarmRunnerDesc(object):
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-            annhelper = self.annhelper
-        else:
-            annhelper = None
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
+        if not supports_floats:       cpu.supports_floats       = False
+        if not supports_longlong:     cpu.supports_longlong     = False
+        if not supports_singlefloats: cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -410,35 +437,40 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
-            if not we_are_translated():
-                print "~~~ Crash in JIT!"
-                print '~~~ %s: %s' % (e.__class__, e)
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(sys.exc_info()[2])
-                raise
-            fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+            tb = not we_are_translated() and sys.exc_info()[2]
+            try:
+                raise e
+            except JitException:
+                raise     # go through
+            except MemoryError:
+                raise     # go through
+            except StackOverflow:
+                raise     # go through
+            except Exception, e:
+                if not we_are_translated():
+                    print "~~~ Crash in JIT!"
+                    print '~~~ %s: %s' % (e.__class__, e)
+                    if sys.stdout == sys.__stdout__:
+                        import pdb; pdb.post_mortem(tb)
+                    raise e.__class__, e, tb
+                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    maybe_compile_and_run(*args)
-                except JitException:
-                    raise     # go through
+                    maybe_compile_and_run(state.increment_threshold, *args)
                 except Exception, e:
                     crash_in_jit(e)
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                maybe_compile_and_run(*args)
+                maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
 
-        can_inline = state.can_inline_greenargs
-        num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            if not can_inline(*args[:num_green_args]):
-                maybe_compile_and_run(*args)
+            maybe_compile_and_run(state.increment_function_threshold, *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
@@ -465,6 +497,9 @@ class WarmRunnerDesc(object):
                 onlygreens=False)
             jd._can_never_inline_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
+            jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.should_unroll_one_iteration,
+                annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,
@@ -488,13 +523,14 @@ class WarmRunnerDesc(object):
             self.make_args_specification(jd)
 
     def make_args_specification(self, jd):
-        graph, op = jd._jit_merge_point_pos
+        graph = jd._jit_merge_point_in
+        _, _, op = locate_jit_merge_point(graph)
         greens_v, reds_v = support.decode_hp_hint_args(op)
         ALLARGS = [v.concretetype for v in (greens_v + reds_v)]
         jd._green_args_spec = [v.concretetype for v in greens_v]
-        jd._red_args_types = [history.getkind(v.concretetype) for v in reds_v]
+        jd.red_args_types = [history.getkind(v.concretetype) for v in reds_v]
         jd.num_green_args = len(jd._green_args_spec)
-        jd.num_red_args = len(jd._red_args_types)
+        jd.num_red_args = len(jd.red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
         (jd._JIT_ENTER_FUNCTYPE,
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
@@ -536,7 +572,7 @@ class WarmRunnerDesc(object):
             assert jitdriver in sublists, \
                    "can_enter_jit with no matching jit_merge_point"
             jd, sublist = sublists[jitdriver]
-            origportalgraph = jd._jit_merge_point_pos[0]
+            origportalgraph = jd._jit_merge_point_in
             if graph is not origportalgraph:
                 sublist.append((graph, block, index))
                 jd.no_loop_header = False
@@ -549,7 +585,6 @@ class WarmRunnerDesc(object):
             self.rewrite_can_enter_jit(jd, sublist)
 
     def rewrite_can_enter_jit(self, jd, can_enter_jits):
-        FUNC = jd._JIT_ENTER_FUNCTYPE
         FUNCPTR = jd._PTR_JIT_ENTER_FUNCTYPE
         jit_enter_fnptr = self.helper_func(FUNCPTR, jd._maybe_enter_jit_fn)
 
@@ -567,7 +602,7 @@ class WarmRunnerDesc(object):
             can_enter_jits = [(jd.portal_graph, jd.portal_graph.startblock, 0)]
 
         for graph, block, index in can_enter_jits:
-            if graph is jd._jit_merge_point_pos[0]:
+            if graph is jd._jit_merge_point_in:
                 continue
 
             op = block.operations[index]
@@ -589,6 +624,24 @@ class WarmRunnerDesc(object):
         s_result = annmodel.lltype_to_annotation(FUNC.RESULT)
         graph = self.annhelper.getgraph(func, args_s, s_result)
         return self.annhelper.graph2delayed(graph, FUNC)
+
+    def rewrite_access_helpers(self):
+        ah = find_access_helpers(self.translator.graphs)
+        for graph, block, index in ah:
+            op = block.operations[index]
+            self.rewrite_access_helper(op)
+
+    def rewrite_access_helper(self, op):
+        ARGS = [arg.concretetype for arg in op.args[2:]]
+        RESULT = op.result.concretetype
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        # make sure we make a copy of function so it no longer belongs
+        # to extregistry
+        func = op.args[1].value
+        func = func_with_new_name(func, func.func_name + '_compiled')
+        ptr = self.helper_func(FUNCPTR, func)
+        op.opname = 'direct_call'
+        op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
 
     def rewrite_jit_merge_points(self, policy):
         for jd in self.jitdrivers_sd:
@@ -625,7 +678,7 @@ class WarmRunnerDesc(object):
         #           while 1:
         #               more stuff
         #
-        origportalgraph = jd._jit_merge_point_pos[0]
+        origportalgraph = jd._jit_merge_point_in
         portalgraph = jd.portal_graph
         PORTALFUNC = jd._PORTAL_FUNCTYPE
 
@@ -641,11 +694,13 @@ class WarmRunnerDesc(object):
         portalfunc_ARGS = []
         nums = {}
         for i, ARG in enumerate(PORTALFUNC.ARGS):
+            kind = history.getkind(ARG)
+            assert kind != 'void'
             if i < len(jd.jitdriver.greens):
                 color = 'green'
             else:
                 color = 'red'
-            attrname = '%s_%s' % (color, history.getkind(ARG))
+            attrname = '%s_%s' % (color, kind)
             count = nums.get(attrname, 0)
             nums[attrname] = count + 1
             portalfunc_ARGS.append((ARG, attrname, count))
@@ -733,22 +788,23 @@ class WarmRunnerDesc(object):
         jd.portal_calldescr = self.cpu.calldescrof(
             jd._PTR_PORTAL_FUNCTYPE.TO,
             jd._PTR_PORTAL_FUNCTYPE.TO.ARGS,
-            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT)
+            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT,
+            EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
 
         def assembler_call_helper(failindex, virtualizableref):
             fail_descr = self.cpu.get_fail_descr_from_number(failindex)
-            while True:
-                if vinfo is not None:
-                    virtualizable = lltype.cast_opaque_ptr(
-                        vinfo.VTYPEPTR, virtualizableref)
-                    vinfo.reset_vable_token(virtualizable)
-                try:
-                    loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
-                except JitException, e:
-                    return handle_jitexception(e)
-                fail_descr = self.execute_token(loop_token)
+            if vinfo is not None:
+                virtualizable = lltype.cast_opaque_ptr(
+                    vinfo.VTYPEPTR, virtualizableref)
+                vinfo.reset_vable_token(virtualizable)
+            try:
+                fail_descr.handle_fail(self.metainterp_sd, jd)
+            except JitException, e:
+                return handle_jitexception(e)
+            else:
+                assert 0, "should have raised"
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(
@@ -776,14 +832,7 @@ class WarmRunnerDesc(object):
         # ____________________________________________________________
         # Now mutate origportalgraph to end with a call to portal_runner_ptr
         #
-        _, op = jd._jit_merge_point_pos
-        for origblock in origportalgraph.iterblocks():
-            if op in origblock.operations:
-                break
-        else:
-            assert False, "lost the operation %r in the graph %r" % (
-                op, origportalgraph)
-        origindex = origblock.operations.index(op)
+        origblock, origindex, op = locate_jit_merge_point(origportalgraph)
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
         greens_v, reds_v = support.decode_hp_hint_args(op)
@@ -820,11 +869,18 @@ class WarmRunnerDesc(object):
         _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
             [lltype.Ptr(STR)], lltype.Void)
         def make_closure(jd, fullfuncname, is_string):
-            state = jd.warmstate
-            def closure(i):
-                if is_string:
-                    i = hlstr(i)
-                getattr(state, fullfuncname)(i)
+            if jd is None:
+                def closure(i):
+                    if is_string:
+                        i = hlstr(i)
+                    for jd in self.jitdrivers_sd:
+                        getattr(jd.warmstate, fullfuncname)(i)
+            else:
+                state = jd.warmstate
+                def closure(i):
+                    if is_string:
+                        i = hlstr(i)
+                    getattr(state, fullfuncname)(i)
             if is_string:
                 TP = PTR_SET_PARAM_STR_FUNCTYPE
             else:
@@ -833,12 +889,16 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
+            
             op = block.operations[i]
-            for jd in self.jitdrivers_sd:
-                if jd.jitdriver is op.args[1].value:
-                    break
+            if op.args[1].value is not None:
+                for jd in self.jitdrivers_sd:
+                    if jd.jitdriver is op.args[1].value:
+                        break
+                else:
+                    assert 0, "jitdriver of set_param() not found"
             else:
-                assert 0, "jitdriver of set_param() not found"
+                jd = None
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:
@@ -874,10 +934,3 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
-
-    # ____________________________________________________________
-
-    def execute_token(self, loop_token):
-        fail_descr = self.cpu.execute_token(loop_token)
-        self.memory_manager.keep_loop_alive(loop_token)
-        return fail_descr

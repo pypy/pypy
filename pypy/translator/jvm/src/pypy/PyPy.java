@@ -283,6 +283,14 @@ public class PyPy implements Constants {
         }
     }
 
+    public double pypy__longlong2float(long l) {
+        return Double.longBitsToDouble(l);
+    }
+
+    public long pypy__float2longlong(double d) {
+        return Double.doubleToRawLongBits(d);
+    }
+
     public double ooparse_float(String s) {
         try {
             return Double.parseDouble(s);
@@ -307,6 +315,14 @@ public class PyPy implements Constants {
         return result;
     }
 
+    public static Object box_integer(int x) {
+        return new Integer(x);
+    }
+
+    public static int unbox_integer(Object o) {
+        Integer x = (Integer)o;
+        return x.intValue();
+    }
     // Used in testing the JVM backend:
     //
     //    A series of methods which serve a similar purpose to repr() in Python:
@@ -343,6 +359,19 @@ public class PyPy implements Constants {
             return "True";
         else
             return "False";
+    }
+
+    public static String serialize_double(double d) {
+        if (Double.isNaN(d)) {
+            return "float(\"nan\")";
+        } else if (Double.isInfinite(d)) {
+            if (d > 0)
+                return "float(\"inf\")";
+            else
+                return "float(\"-inf\")";
+        } else {
+            return Double.toString(d);
+        }
     }
 
     private static String format_char(char c) {
@@ -747,7 +776,7 @@ public class PyPy implements Constants {
         int end = str.length();
 
         if (left) {
-            while (start <= str.length() && str.charAt(start) == ch) start++;
+            while (start < str.length() && str.charAt(start) == ch) start++;
         }
 
         if (right) {
@@ -789,6 +818,20 @@ public class PyPy implements Constants {
 
     public static String ll_substring(String str, int start, int cnt) {
         return str.substring(start,start+cnt);
+    }
+
+    public static boolean ll_startswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(0) == c;
+    }
+
+    public static boolean ll_endswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(str.length() - 1) == c;
     }
 
     // ----------------------------------------------------------------------
@@ -964,12 +1007,15 @@ public class PyPy implements Constants {
         return a + File.separator + b;
     }
 
-    public String ll_strtod_formatd(String format, double d)
+    public String ll_strtod_formatd(double d, char code, int precision, int flags)
     {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
         // supported by ootypesystem.
-        return Double.toString(d); // XXX: we are ignoring "format"
+        DecimalFormat format = new DecimalFormat("0.###");
+        format.setMinimumFractionDigits(precision);
+        format.setMaximumFractionDigits(precision);
+        return format.format(d);
     }
 
     // ----------------------------------------------------------------------
@@ -1075,9 +1121,9 @@ public class PyPy implements Constants {
         if (Double.isNaN(x))
             return interlink.recordFloatSigned(x, 0);
 
-        // Infinity: Python throws exception
+        // Infinity: Python returns (inf, 0)
         if (Double.isInfinite(x))
-            interlink.throwOverflowError();
+            return interlink.recordFloatSigned(x, 0);
 
         // Extract the various parts of the format:
         final long e=11, f=52; // number of bits in IEEE format

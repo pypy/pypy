@@ -1,5 +1,6 @@
 import autopath
 import sys
+from pypy import conftest
 
 class AppTestBuiltinApp:
     def setup_class(cls):
@@ -15,6 +16,15 @@ class AppTestBuiltinApp:
             cls.w_sane_lookup = cls.space.wrap(True)
         except KeyError:
             cls.w_sane_lookup = cls.space.wrap(False)
+        # starting with CPython 2.6, when the stack is almost out, we
+        # can get a random error, instead of just a RuntimeError.
+        # For example if an object x has a __getattr__, we can get
+        # AttributeError if attempting to call x.__getattr__ runs out
+        # of stack.  That's annoying, so we just work around it.
+        if conftest.option.runappdirect:
+            cls.w_safe_runtimerror = cls.space.wrap(True)
+        else:
+            cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
     def test_bytes_alias(self):
         assert bytes is str
@@ -120,15 +130,32 @@ class AppTestBuiltinApp:
     def test_dir_custom(self):
         class Foo(object):
             def __dir__(self):
-                return [1, 3, 2]
+                return ["1", "2", "3"]
         f = Foo()
-        assert dir(f) == [1, 2, 3]
-        #
+        assert dir(f) == ["1", "2", "3"]
+        class Foo:
+            def __dir__(self):
+                return ["apple"]
+        assert dir(Foo()) == ["apple"]
         class Foo(object):
             def __dir__(self):
                 return 42
         f = Foo()
         raises(TypeError, dir, f)
+        import types
+        class Foo(types.ModuleType):
+            def __dir__(self):
+                return ["blah"]
+        assert dir(Foo("a_mod")) == ["blah"]
+
+    def test_dir_custom_lookup(self):
+        class M(type):
+            def __dir__(self, *args): return ["14"]
+        class X(object):
+            __metaclass__ = M
+        x = X()
+        x.__dir__ = lambda x: ["14"]
+        assert dir(x) != ["14"]
 
     def test_format(self):
         assert format(4) == "4"
@@ -382,6 +409,8 @@ class AppTestBuiltinApp:
     def test_cmp_cyclic(self):
         if not self.sane_lookup:
             skip("underlying Python implementation has insane dict lookup")
+        if not self.safe_runtimerror:
+            skip("underlying Python may raise random exceptions on stack ovf")
         a = []; a.append(a)
         b = []; b.append(b)
         from UserList import UserList
@@ -601,62 +630,6 @@ def fn(): pass
         raises(TypeError, pr, x=3)
         raises(TypeError, pr, end=3)
         raises(TypeError, pr, sep=42)
-
-class AppTestBuiltinOptimized(object):
-    def setup_class(cls):
-        from pypy.conftest import gettestobjspace
-        cls.space = gettestobjspace(**{"objspace.opcodes.CALL_LIKELY_BUILTIN": True})
-
-    # hum, we need to invoke the compiler explicitely
-    def test_xrange_len(self):
-        s = """def test():
-        x = xrange(33)
-        assert len(x) == 33
-        x = xrange(33.2)
-        assert len(x) == 33
-        x = xrange(33,0,-1)
-        assert len(x) == 33
-        x = xrange(33,0)
-        assert len(x) == 0
-        x = xrange(33,0.2)
-        assert len(x) == 0
-        x = xrange(0,33)
-        assert len(x) == 33
-        x = xrange(0,33,-1)
-        assert len(x) == 0
-        x = xrange(0,33,2)
-        assert len(x) == 17
-        x = xrange(0,32,2)
-        assert len(x) == 16
-        """
-        ns = {}
-        exec s in ns
-        ns["test"]()
-
-    def test_delete_from_builtins(self):
-        s = """ """
-        # XXX write this test!
-
-    def test_shadow_case_bound_method(self):
-        s = """def test(l):
-        n = len(l)
-        old_len = len
-        class A(object):
-            x = 5
-            def length(self, o):
-                return self.x*old_len(o)
-        import __builtin__
-        __builtin__.len = A().length
-        try:
-            m = len(l)
-        finally:
-            __builtin__.len = old_len
-        return n+m
-        """
-        ns = {}
-        exec s in ns
-        res = ns["test"]([2,3,4])
-        assert res == 18
 
     def test_round(self):
         assert round(11.234) == 11.0

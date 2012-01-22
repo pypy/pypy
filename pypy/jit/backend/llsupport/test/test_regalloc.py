@@ -2,6 +2,8 @@
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT
 from pypy.jit.backend.llsupport.regalloc import FrameManager
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
+from pypy.jit.tool.oparser import parse
+from pypy.jit.backend.detect_cpu import getcpuclass
 
 def newboxes(*values):
     return [BoxInt(v) for v in values]
@@ -40,8 +42,13 @@ class TFrameManager(FrameManager):
     def frame_size(self, box_type):
         if box_type == FLOAT:
             return 2
-        else:
+        elif box_type == INT:
             return 1
+        else:
+            raise ValueError(box_type)
+    def get_loc_index(self, loc):
+        assert isinstance(loc, FakeFramePos)
+        return loc.pos
 
 class MockAsm(object):
     def __init__(self):
@@ -280,7 +287,7 @@ class TestRegalloc(object):
             rm.force_allocate_reg(b)
         rm.before_call()
         assert len(rm.reg_bindings) == 2
-        assert fm.frame_depth == 2
+        assert fm.get_frame_depth() == 2
         assert len(asm.moves) == 2
         rm._check_invariants()
         rm.after_call(boxes[-1])
@@ -303,7 +310,7 @@ class TestRegalloc(object):
             rm.force_allocate_reg(b)
         rm.before_call(save_all_regs=True)
         assert len(rm.reg_bindings) == 0
-        assert fm.frame_depth == 4
+        assert fm.get_frame_depth() == 4
         assert len(asm.moves) == 4
         rm._check_invariants()
         rm.after_call(boxes[-1])
@@ -325,7 +332,7 @@ class TestRegalloc(object):
         xrm = XRegisterManager(longevity, frame_manager=fm, assembler=asm)
         xrm.loc(f0)
         rm.loc(b0)
-        assert fm.frame_depth == 3
+        assert fm.get_frame_depth() == 3
         
         
 
@@ -346,3 +353,123 @@ class TestRegalloc(object):
         spilled2 = rm.force_allocate_reg(b5)
         assert spilled2 is loc
         rm._check_invariants()
+
+
+    def test_hint_frame_locations_1(self):
+        b0, = newboxes(0)
+        fm = TFrameManager()
+        loc123 = FakeFramePos(123, INT)
+        fm.hint_frame_locations[b0] = loc123
+        assert fm.get_frame_depth() == 0
+        loc = fm.loc(b0)
+        assert loc == loc123
+        assert fm.get_frame_depth() == 124
+
+    def test_hint_frame_locations_2(self):
+        b0, b1, b2 = newboxes(0, 1, 2)
+        longevity = {b0: (0, 1), b1: (0, 2), b2: (0, 2)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.force_allocate_reg(b0)
+        rm.force_allocate_reg(b1)
+        rm.force_allocate_reg(b2)
+        rm.force_spill_var(b0)
+        loc = rm.loc(b0)
+        assert isinstance(loc, FakeFramePos)
+        assert fm.get_loc_index(loc) == 0
+        rm.position = 1
+        assert fm.used == [True]
+        rm.possibly_free_var(b0)
+        assert fm.used == [False]
+        #
+        fm.hint_frame_locations[b1] = loc
+        rm.force_spill_var(b1)
+        loc1 = rm.loc(b1)
+        assert loc1 == loc
+        assert fm.used == [True]
+        #
+        fm.hint_frame_locations[b2] = loc
+        rm.force_spill_var(b2)
+        loc2 = rm.loc(b2)
+        assert loc2 != loc1     # because it was not free
+        assert fm.used == [True, True]
+        #
+        rm._check_invariants()
+
+    def test_frame_manager_basic(self):
+        b0, b1 = newboxes(0, 1)
+        fm = TFrameManager()
+        loc0 = fm.loc(b0)
+        assert fm.get_loc_index(loc0) == 0
+        #
+        assert fm.get(b1) is None
+        loc1 = fm.loc(b1)
+        assert fm.get_loc_index(loc1) == 1
+        assert fm.get(b1) == loc1
+        #
+        loc0b = fm.loc(b0)
+        assert loc0b == loc0
+        #
+        fm.loc(BoxInt())
+        assert fm.get_frame_depth() == 3
+        #
+        f0 = BoxFloat()
+        locf0 = fm.loc(f0)
+        assert fm.get_loc_index(locf0) == 4
+        assert fm.get_frame_depth() == 6
+        #
+        f1 = BoxFloat()
+        locf1 = fm.loc(f1)
+        assert fm.get_loc_index(locf1) == 6
+        assert fm.get_frame_depth() == 8
+        assert fm.used == [True, True, True, False, True, True, True, True]
+        #
+        fm.mark_as_free(b0)
+        assert fm.used == [False, True, True, False, True, True, True, True]
+        fm.mark_as_free(b0)
+        assert fm.used == [False, True, True, False, True, True, True, True]
+        fm.mark_as_free(f1)
+        assert fm.used == [False, True, True, False, True, True, False, False]
+        #
+        fm.reserve_location_in_frame(1)
+        assert fm.get_frame_depth() == 9
+        assert fm.used == [False, True, True, False, True, True, False, False, True]
+        #
+        assert b0 not in fm.bindings
+        fm.set_binding(b0, loc0)
+        assert b0 in fm.bindings
+        assert fm.used == [True, True, True, False, True, True, False, False, True]
+        #
+        b3 = BoxInt()
+        assert not fm.try_to_reuse_location(b3, loc0)
+        assert fm.used == [True, True, True, False, True, True, False, False, True]
+        #
+        fm.mark_as_free(b0)
+        assert fm.used == [False, True, True, False, True, True, False, False, True]
+        assert fm.try_to_reuse_location(b3, loc0)
+        assert fm.used == [True, True, True, False, True, True, False, False, True]
+        #
+        fm.mark_as_free(b0)   # already free
+        assert fm.used == [True, True, True, False, True, True, False, False, True]
+        #
+        fm.mark_as_free(b3)
+        assert fm.used == [False, True, True, False, True, True, False, False, True]
+        f3 = BoxFloat()
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(0, FLOAT))
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(1, FLOAT))
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(2, FLOAT))
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(3, FLOAT))
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(4, FLOAT))
+        assert not fm.try_to_reuse_location(f3, fm.frame_pos(5, FLOAT))
+        assert fm.used == [False, True, True, False, True, True, False, False, True]
+        assert fm.try_to_reuse_location(f3, fm.frame_pos(6, FLOAT))
+        assert fm.used == [False, True, True, False, True, True, True, True, True]
+        #
+        fm.used = [False]
+        assert fm.try_to_reuse_location(BoxFloat(), fm.frame_pos(0, FLOAT))
+        assert fm.used == [True, True]
+        #
+        fm.used = [True]
+        assert not fm.try_to_reuse_location(BoxFloat(), fm.frame_pos(0, FLOAT))
+        assert fm.used == [True]

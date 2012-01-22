@@ -184,8 +184,8 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}, closure=None,
-                 name=None):
+    def __init__(self, space, code, globals, constargs={}, outer_func=None,
+                 name=None, is_generator=False):
         ExecutionContext.__init__(self, space)
         self.code = code
 
@@ -193,11 +193,11 @@ class FlowExecutionContext(ExecutionContext):
 
         self.crnt_offset = -1
         self.crnt_frame = None
-        if closure is None:
-            self.closure = None
-        else:
+        if outer_func and outer_func.closure:
             self.closure = [nestedscope.Cell(Constant(value))
-                            for value in closure]
+                            for value in outer_func.closure]
+        else:
+            self.closure = None
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         arg_list = [Variable() for i in range(formalargcount)]
@@ -208,6 +208,7 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = collections.deque([initialblock])
         self.graph = FunctionGraph(name or code.co_name, initialblock)
+        self.is_generator = is_generator
 
     make_link = Link # overridable for transition tracking
 
@@ -216,7 +217,7 @@ class FlowExecutionContext(ExecutionContext):
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
         frame = FlowSpaceFrame(self.space, self.code,
-                               self.w_globals, self.closure)
+                               self.w_globals, self)
         frame.last_instr = 0
         return frame
 
@@ -247,6 +248,8 @@ class FlowExecutionContext(ExecutionContext):
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
+        if self.is_generator:
+            self.produce_generator_mark()
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             frame = self.create_frame()
@@ -259,9 +262,15 @@ class FlowExecutionContext(ExecutionContext):
                 self.topframeref = jit.non_virtual_ref(frame)
                 self.crnt_frame = frame
                 try:
-                    w_result = frame.dispatch(frame.pycode,
-                                              frame.last_instr,
-                                              self)
+                    frame.frame_finished_execution = False
+                    while True:
+                        w_result = frame.dispatch(frame.pycode,
+                                                  frame.last_instr,
+                                                  self)
+                        if frame.frame_finished_execution:
+                            break
+                        else:
+                            self.generate_yield(frame, w_result)
                 finally:
                     self.crnt_frame = None
                     self.topframeref = old_frameref
@@ -306,6 +315,21 @@ class FlowExecutionContext(ExecutionContext):
 
             del self.recorder
         self.fixeggblocks()
+
+    def produce_generator_mark(self):
+        [initialblock] = self.pendingblocks
+        initialblock.operations.append(
+            SpaceOperation('generator_mark', [], Variable()))
+
+    def generate_yield(self, frame, w_result):
+        assert self.is_generator
+        self.recorder.crnt_block.operations.append(
+            SpaceOperation('yield', [w_result], Variable()))
+        # we must push a dummy value that will be POPped: it's the .send()
+        # passed into the generator (2.5 feature)
+        assert sys.version_info >= (2, 5)
+        frame.pushvalue(None)
+        frame.last_instr += 1
 
     def fixeggblocks(self):
         # EggBlocks reuse the variables of their previous block,
@@ -384,8 +408,9 @@ class FlowExecutionContext(ExecutionContext):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.crnt_frame.valuestack_w
-        for i in range(self.crnt_frame.valuestackdepth-1, -1, -1):
+        f = self.crnt_frame
+        stack_items_w = f.locals_stack_w
+        for i in range(f.valuestackdepth-1, f.nlocals-1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -405,8 +430,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     # XXX Unimplemented 2.7 opcodes ----------------

@@ -406,6 +406,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
+                self.check_graph_of_del_does_not_call_too_much(graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
@@ -517,7 +518,13 @@ class InstanceRepr(AbstractInstanceRepr):
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
-        vptr = llops.genop('malloc', vlist,
+        cnonmovable = self.classdef.classdesc.read_attribute(
+            '_alloc_nonmovable_', Constant(False))
+        if cnonmovable.value:
+            opname = 'malloc_nonmovable'
+        else:
+            opname = 'malloc'
+        vptr = llops.genop(opname, vlist,
                            resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)

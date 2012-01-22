@@ -1,5 +1,9 @@
+from pypy.rlib import jit
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
+@jit.dont_look_inside
+def escape(x):
+    return x
 
 class ImmutableFieldsTests:
 
@@ -11,7 +15,7 @@ class ImmutableFieldsTests:
                 self.x = x
 
         def f(x):
-            y = X(x)
+            y = escape(X(x))
             return y.x + 5
         res = self.interp_operations(f, [23])
         assert res == 28
@@ -33,7 +37,7 @@ class ImmutableFieldsTests:
 
         def f(x, y):
             X(x)     # force the field 'x' to be on class 'X'
-            z = Y(x, y)
+            z = escape(Y(x, y))
             return z.x + z.y + 5
         res = self.interp_operations(f, [23, 11])
         assert res == 39
@@ -42,7 +46,7 @@ class ImmutableFieldsTests:
 
         def f(x, y):
             # this time, the field 'x' only shows up on subclass 'Y'
-            z = Y(x, y)
+            z = escape(Y(x, y))
             return z.x + z.y + 5
         res = self.interp_operations(f, [23, 11])
         assert res == 39
@@ -58,7 +62,7 @@ class ImmutableFieldsTests:
         def f(index):
             l = [1, 2, 3, 4]
             l[2] = 30
-            a = X(l)
+            a = escape(X(l))
             return a.y[index]
         res = self.interp_operations(f, [2], listops=True)
         assert res == 30
@@ -76,7 +80,7 @@ class ImmutableFieldsTests:
                 self.y = y
 
         def f(x, index):
-            y = X([x], x+1)
+            y = escape(X([x], x+1))
             return y.lst[index] + y.y + 5
         res = self.interp_operations(f, [23, 0], listops=True)
         assert res == 23 + 24 + 5

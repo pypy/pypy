@@ -37,6 +37,9 @@ class BaseConnectionTest(object):
     def test_connection(self):
         rhandle, whandle = self.make_pair()
 
+        whandle.send_bytes("abc")
+        assert rhandle.recv_bytes(100) == "abc"
+
         obj = [1, 2.0, "hello"]
         whandle.send(obj)
         obj2 = rhandle.recv()
@@ -145,3 +148,25 @@ class AppTestSocketConnection(BaseConnectionTest):
             else:
                 c.close()
         space.delslice(w_connections, space.wrap(0), space.wrap(100))
+
+    def test_bad_fd(self):
+        import _multiprocessing
+
+        raises(IOError, _multiprocessing.Connection, -1)
+        raises(IOError, _multiprocessing.Connection, -15)
+
+    def test_byte_order(self):
+        # The exact format of net strings (length in network byte
+        # order) is important for interoperation with others
+        # implementations.
+        rhandle, whandle = self.make_pair()
+        whandle.send_bytes("abc")
+        whandle.send_bytes("defg")
+        import socket
+        sock = socket.fromfd(rhandle.fileno(),
+                             socket.AF_INET, socket.SOCK_STREAM)
+        data1 = sock.recv(7)
+        assert data1 == '\x00\x00\x00\x03abc'
+        data2 = sock.recv(8)
+        assert data2 == '\x00\x00\x00\x04defg'
+

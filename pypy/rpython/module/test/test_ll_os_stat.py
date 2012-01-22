@@ -2,6 +2,16 @@ from pypy.rpython.module import ll_os_stat, ll_os
 import sys, os
 import py
 
+
+class TestLinuxImplementation:
+    def setup_class(cls):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux specific tests")
+
+    def test_has_all_fields(self):
+        assert ll_os_stat.STAT_FIELDS == ll_os_stat.ALL_STAT_FIELDS[:13]
+
+
 class TestWin32Implementation:
     def setup_class(cls):
         if sys.platform != 'win32':

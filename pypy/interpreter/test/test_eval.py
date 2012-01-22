@@ -15,16 +15,16 @@ class TestFrame:
                 self.code = code
                 Frame.__init__(self, space)
                 self.numlocals = numlocals
-                self.fastlocals_w = [None] * self.numlocals
+                self._fastlocals_w = [None] * self.numlocals
 
             def getcode(self):
                 return self.code
 
             def setfastscope(self, scope_w):
-                self.fastlocals_w = scope_w
+                self._fastlocals_w = scope_w
 
             def getfastscope(self):
-                return self.fastlocals_w
+                return self._fastlocals_w
 
             def getfastscopelength(self):
                 return self.numlocals
@@ -38,11 +38,11 @@ class TestFrame:
         self.f.fast2locals()
         assert space.eq_w(self.f.w_locals, self.space.wrap({}))
         
-        self.f.fastlocals_w[0] = w(5)
+        self.f._fastlocals_w[0] = w(5)
         self.f.fast2locals()
         assert space.eq_w(self.f.w_locals, self.space.wrap({'x': 5}))
 
-        self.f.fastlocals_w[2] = w(7)
+        self.f._fastlocals_w[2] = w(7)
         self.f.fast2locals()
         assert space.eq_w(self.f.w_locals, self.space.wrap({'x': 5, 'args': 7}))
 
@@ -57,13 +57,13 @@ class TestFrame:
         w = self.space.wrap
         self.f.w_locals = self.space.wrap({})
         self.f.locals2fast()
-        self.sameList(self.f.fastlocals_w, [None]*5)
+        self.sameList(self.f._fastlocals_w, [None]*5)
 
         self.f.w_locals = self.space.wrap({'x': 5})
         self.f.locals2fast()
-        self.sameList(self.f.fastlocals_w, [w(5)] + [None]*4)
+        self.sameList(self.f._fastlocals_w, [w(5)] + [None]*4)
 
         self.f.w_locals = self.space.wrap({'x':5, 'args':7})
         self.f.locals2fast()
-        self.sameList(self.f.fastlocals_w, [w(5), None, w(7),
-                                            None, None])
+        self.sameList(self.f._fastlocals_w, [w(5), None, w(7),
+                                             None, None])

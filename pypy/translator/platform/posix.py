@@ -129,7 +129,9 @@ class BasePosix(Platform):
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in
-                           self._preprocess_include_dirs(eci.include_dirs)]
+                           self.preprocess_include_dirs(eci.include_dirs)]
+        rel_libdirs = [pypyrel(libdir) for libdir in
+                       self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
@@ -138,8 +140,8 @@ class BasePosix(Platform):
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
-            ('LIBS', self._libs(eci.libraries)),
-            ('LIBDIRS', self._libdirs(eci.library_dirs)),
+            ('LIBS', self._libs(eci.libraries) + list(self.extra_libs)),
+            ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),
@@ -155,7 +157,7 @@ class BasePosix(Platform):
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 

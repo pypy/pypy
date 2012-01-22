@@ -13,6 +13,10 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
+if sys.platform.startswith("linux"):
+    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
+else:
+    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -24,10 +28,9 @@ PLATFORMS = [
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
-    BoolOption("stackless", "enable stackless features during compilation",
-               default=False, cmdline="--stackless",
-               requires=[("translation.type_system", "lltype"),
-                         ("translation.gcremovetypeptr", False)]),  # XXX?
+    BoolOption("continuation", "enable single-shot continuations",
+               default=False, cmdline="--continuation",
+               requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",
                  requires={
@@ -66,7 +69,8 @@ translation_optiondescription = OptionDescription(
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
-                     "boehm": [("translation.gctransformer", "boehm")],
+                     "boehm": [("translation.continuation", False),  # breaks
+                               ("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
@@ -109,7 +113,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                suggests=[("translation.gc", DEFL_GC),
-                         ("translation.gcrootfinder", "asmgcc"),
+                         ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "x86-without-sse2", "llvm"],
@@ -117,6 +121,8 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
+    # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
+    BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
@@ -138,7 +144,10 @@ translation_optiondescription = OptionDescription(
                  ["annotate", "rtype", "backendopt", "database", "source",
                   "pyjitpl"],
                  default=None, cmdline="--fork-before"),
-
+    BoolOption("dont_write_c_files",
+               "Make the C backend write everyting to /dev/null. " +
+               "Useful for benchmarking, so you don't actually involve the disk",
+               default=False, cmdline="--dont-write-c-files"),
     ArbitraryOption("instrumentctl", "internal",
                default=None),
     StrOption("output", "Output file name", cmdline="--output"),
@@ -163,9 +172,6 @@ translation_optiondescription = OptionDescription(
                cmdline="--cflags"),
     StrOption("linkerflags", "Specify flags for the linker (C backend only)",
                cmdline="--ldflags"),
-    BoolOption("force_make", "Force execution of makefile instead of"
-               " calling platform", cmdline="--force-make",
-               default=False, negation=False),
     IntOption("make_jobs", "Specify -j argument to make for compilation"
               " (C backend only)",
               cmdline="--make-jobs", default=detect_number_of_processors()),
@@ -230,17 +236,17 @@ translation_optiondescription = OptionDescription(
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
                   ", specify arguments",
-                  default=None, cmdline="--prof-based-inline"),
+                  default=None),   # cmdline="--prof-based-inline" fix me
         FloatOption("profile_based_inline_threshold",
                     "Threshold when to inline functions "
                     "for profile based inlining",
                   default=DEFL_PROF_BASED_INLINE_THRESHOLD,
-                  cmdline="--prof-based-inline-threshold"),
+                  ),   # cmdline="--prof-based-inline-threshold" fix me
         StrOption("profile_based_inline_heuristic",
                   "Dotted name of an heuristic function "
                   "for profile based inlining",
                 default="pypy.translator.backendopt.inline.inlining_heuristic",
-                cmdline="--prof-based-inline-heuristic"),
+                ),  # cmdline="--prof-based-inline-heuristic" fix me
         # control clever malloc removal
         BoolOption("clever_malloc_removal",
                    "Drives inlining to remove mallocs in a clever way",
@@ -390,8 +396,6 @@ def set_opt_level(config, level):
             config.translation.suggest(withsmallfuncsets=5)
         elif word == 'jit':
             config.translation.suggest(jit=True)
-            if config.translation.stackless:
-                raise NotImplementedError("JIT conflicts with stackless for now")
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
         elif word == 'compressptr':
@@ -403,6 +407,10 @@ def set_opt_level(config, level):
     # list_comprehension_operations is needed for translation, because
     # make_sure_not_resized often relies on it, so we always enable them
     config.translation.suggest(list_comprehension_operations=True)
+
+    # finally, make the choice of the gc definitive.  This will fail
+    # if we have specified strange inconsistent settings.
+    config.translation.gc = config.translation.gc
 
 # ----------------------------------------------------------------
 

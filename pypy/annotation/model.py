@@ -32,13 +32,15 @@ from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
 from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
-from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 
 DEBUG = False    # set to False to disable recording of debugging information
-TLS = tlsobject()
+
+class State(object):
+    pass
+TLS = State()
 
 class SomeObject(object):
     """The set of all objects.  Each instance stands
@@ -589,13 +591,11 @@ class SomeOOStaticMeth(SomeObject):
     immutable = True
     def __init__(self, method):
         self.method = method
-        
-NUMBER = object()
+
 annotation_to_ll_map = [
     (SomeSingleFloat(), lltype.SingleFloat),
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
     (s_Bool, lltype.Bool),
-    (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
     (SomeLongFloat(), lltype.LongFloat),
     (SomeChar(), lltype.Char),
@@ -621,10 +621,11 @@ def annotation_to_lltype(s_val, info=None):
             return lltype.Ptr(p.PARENTTYPE)
     if isinstance(s_val, SomePtr):
         return s_val.ll_ptrtype
+    if type(s_val) is SomeInteger:
+        return lltype.build_number(None, s_val.knowntype)
+
     for witness, T in annotation_to_ll_map:
         if witness.contains(s_val):
-            if T is NUMBER:
-                return lltype.build_number(None, s_val.knowntype)
             return T
     if info is None:
         info = ''
@@ -633,7 +634,7 @@ def annotation_to_lltype(s_val, info=None):
     raise ValueError("%sshould return a low-level type,\ngot instead %r" % (
         info, s_val))
 
-ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map if ll is not NUMBER])
+ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map])
 
 def lltype_to_annotation(T):
     try:

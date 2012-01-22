@@ -9,22 +9,22 @@ appropriate measure but it's something)::
     Armin Rigo
     Maciej Fijalkowski
     Carl Friedrich Bolz
-    Amaury Forgeot d'Arc
     Antonio Cuni
+    Amaury Forgeot d'Arc
     Samuele Pedroni
     Michael Hudson
     Holger Krekel
-    Christian Tismer
     Benjamin Peterson
+    Christian Tismer
+    Hakan Ardo
+    Alex Gaynor
     Eric van Riet Paap
-    Anders Chrigström
-    Håkan Ardö
+    Anders Chrigstrom
+    David Schneider
     Richard Emslie
     Dan Villiom Podlaski Christiansen
     Alexander Schremmer
-    Alex Gaynor
-    David Schneider
-    Aurelién Campeas
+    Aurelien Campeas
     Anders Lehmann
     Camillo Bruni
     Niklaus Haldimann
@@ -35,16 +35,17 @@ appropriate measure but it's something)::
     Bartosz Skowron
     Jakub Gustak
     Guido Wesdorp
+    Daniel Roberts
     Adrien Di Mascio
     Laura Creighton
     Ludovic Aubry
     Niko Matsakis
-    Daniel Roberts
     Jason Creighton
-    Jacob Hallén
+    Jacob Hallen
     Alex Martelli
     Anders Hammarquist
     Jan de Mooij
+    Wim Lavrijsen
     Stephan Diehl
     Michael Foord
     Stefan Schwarzer
@@ -55,9 +56,13 @@ appropriate measure but it's something)::
     Alexandre Fayolle
     Marius Gedminas
     Simon Burton
+    Justin Peel
     Jean-Paul Calderone
     John Witulski
+    Lukas Diekmann
+    holger krekel
     Wim Lavrijsen
+    Dario Bertini
     Andreas Stührk
     Jean-Philippe St. Pierre
     Guido van Rossum
@@ -69,15 +74,16 @@ appropriate measure but it's something)::
     Georg Brandl
     Gerald Klix
     Wanja Saatkamp
+    Ronny Pfannschmidt
     Boris Feigin
     Oscar Nierstrasz
-    Dario Bertini
     David Malcolm
     Eugene Oden
     Henry Mason
+    Sven Hager
     Lukas Renggli
+    Ilya Osadchiy
     Guenter Jantzen
-    Ronny Pfannschmidt
     Bert Freudenberg
     Amit Regmi
     Ben Young
@@ -94,8 +100,8 @@ appropriate measure but it's something)::
     Jared Grubb
     Karl Bartel
     Gabriel Lavoie
-    Brian Dorsey
     Victor Stinner
+    Brian Dorsey
     Stuart Williams
     Toby Watson
     Antoine Pitrou
@@ -106,19 +112,23 @@ appropriate measure but it's something)::
     Jonathan David Riehl
     Elmo Mäntynen
     Anders Qvist
-    Beatrice Düring
+    Beatrice During
     Alexander Sedov
+    Timo Paulssen
+    Corbin Simpson
     Vincent Legoll
-    Alan McIntyre
     Romain Guillebert
+    Alan McIntyre
     Alex Perry
     Jens-Uwe Mager
+    Simon Cross
     Dan Stromberg
-    Lukas Diekmann
+    Guillebert Romain
     Carl Meyer
     Pieter Zieschang
     Alejandro J. Cura
     Sylvain Thenault
+    Christoph Gerum
     Travis Francis Athougies
     Henrik Vendelbo
     Lutz Paelike
@@ -129,6 +139,7 @@ appropriate measure but it's something)::
     Miguel de Val Borro
     Ignas Mikalajunas
     Artur Lisiecki
+    Philip Jenvey
     Joshua Gilbert
     Godefroid Chappelle
     Yusei Tahara
@@ -137,24 +148,29 @@ appropriate measure but it's something)::
     Gustavo Niemeyer
     William Leslie
     Akira Li
-    Kristján Valur Jónsson
+    Kristjan Valur Jonsson
     Bobby Impollonia
+    Michael Hudson-Doyle
     Andrew Thompson
     Anders Sigfridsson
+    Floris Bruynooghe
     Jacek Generowicz
     Dan Colish
-    Sven Hager
     Zooko Wilcox-O Hearn
+    Dan Villiom Podlaski Christiansen
     Anders Hammarquist
+    Chris Lambacher
     Dinu Gherman
     Dan Colish
+    Brett Cannon
     Daniel Neuhäuser
     Michael Chermside
     Konrad Delong
     Anna Ravencroft
     Greg Price
     Armin Ronacher
+    Christian Muirhead
     Jim Baker
-    Philip Jenvey
     Rodrigo Araújo
+    Romain Guillebert
 

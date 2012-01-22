@@ -3,10 +3,11 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
+from pypy.rpython.error import TyperError
 from pypy.objspace.flow.model import summary
 
 class EmptyBase(object):
@@ -456,12 +457,16 @@ class BaseTestRclass(BaseRtypingTest):
                     compute_identity_hash(d))
 
         res = self.interpret(f, [])
-        # xxx this is too precise, checking the exact implementation
-        assert res.item0 == res.item1
+        # xxx the following test is too precise, checking the exact
+        # implementation.  On Python 2.7 it doesn't work anyway, because
+        # object.__hash__(x) is different from id(x).  The test is disabled
+        # for now, and nobody should rely on compute_identity_hash() returning
+        # a value that is (or was) the current_object_addr_as_int().
+        # --- disabled: assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
         # otherwise prebuilt dictionaries are broken.  It's wrong on
         # top of the ootypesystem though.
-        if type(self) is TestLLtype:
+        if isinstance(self, LLRtypeMixin):
             assert res.item2 == h_c
             assert res.item3 == h_d
 
@@ -971,10 +976,10 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        queryptr = RTTI._obj.query_funcptr # should not raise
+        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
-    
+
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:
@@ -1021,7 +1026,25 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
         assert destrptra is not None
         assert destrptrb is not None
-        
+
+    def test_del_forbidden(self):
+        class A(object):
+            def __del__(self):
+                self.foo()
+            def foo(self):
+                self.bar()
+            def bar(self):
+                pass
+            bar._dont_reach_me_in_del_ = True
+        def f():
+            a = A()
+            a.foo()
+            a.bar()
+        t = TranslationContext()
+        t.buildannotator().build_types(f, [])
+        e = py.test.raises(TyperError, t.buildrtyper().specialize)
+        print e.value
+
     def test_instance_repr(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
         class FooBar(object):
@@ -1106,6 +1129,18 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         else:
             assert sorted([u]) == [6]                    # 32-bit types
             assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
+
+    def test_nonmovable(self):
+        for (nonmovable, opname) in [(True, 'malloc_nonmovable'),
+                                     (False, 'malloc')]:
+            class A(object):
+                _alloc_nonmovable_ = nonmovable
+            def f():
+                return A()
+            t, typer, graph = self.gengraph(f, [])
+            assert summary(graph) == {opname: 1,
+                                      'cast_pointer': 1,
+                                      'setfield': 1}
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):

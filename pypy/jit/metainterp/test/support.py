@@ -3,9 +3,9 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
+from pypy.jit.metainterp.warmstate import unspecialize_value
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp import pyjitpl, history
-from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import codewriter, longlong
 from pypy.rlib.rfloat import isnan
@@ -14,19 +14,27 @@ class SkipThisRun(Exception):
     pass
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
-                  supports_longlong=False, **kwds):
+                  supports_longlong=False, translationoptions={}, **kwds):
     from pypy.jit.codewriter import support
 
-    class FakeJitCell:
-        __compiled_merge_points = []
-        def get_compiled_merge_points(self):
-            return self.__compiled_merge_points[:]
-        def set_compiled_merge_points(self, lst):
-            self.__compiled_merge_points = lst
+    class FakeJitCell(object):
+        __product_token = None
+        def get_procedure_token(self):
+            return self.__product_token
+        def set_procedure_token(self, token):
+            self.__product_token = token
 
-    class FakeWarmRunnerState:
-        def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
-            pass
+    class FakeWarmRunnerState(object):
+        def attach_procedure_to_interp(self, greenkey, procedure_token):
+            cell = self.jit_cell_at_key(greenkey)
+            cell.set_procedure_token(procedure_token)
+
+        def helper_func(self, FUNCPTR, func):
+            from pypy.rpython.annlowlevel import llhelper
+            return llhelper(FUNCPTR, func)
+
+        def get_location_str(self, args):
+            return 'location'
 
         def jit_cell_at_key(self, greenkey):
             assert greenkey == []
@@ -37,8 +45,10 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         enable_opts = ALL_OPTS_DICT
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values, type_system=type_system)
+    rtyper = support.annotate(func, values, type_system=type_system,
+                              translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
+    testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]
 
     class FakeJitDriverSD:
@@ -125,16 +135,14 @@ def _run_with_pyjitpl(testself, args):
 def _run_with_machine_code(testself, args):
     metainterp = testself.metainterp
     num_green_args = metainterp.jitdriver_sd.num_green_args
-    loop_tokens = metainterp.get_compiled_merge_points(args[:num_green_args])
-    if len(loop_tokens) != 1:
-        return NotImplemented
+    procedure_token = metainterp.get_procedure_token(args[:num_green_args])
     # a loop was successfully created by _run_with_pyjitpl(); call it
     cpu = metainterp.cpu
+    args1 = []
     for i in range(len(args) - num_green_args):
         x = args[num_green_args + i]
-        typecode = history.getkind(lltype.typeOf(x))
-        set_future_value(cpu, i, x, typecode)
-    faildescr = cpu.execute_token(loop_tokens[0])
+        args1.append(unspecialize_value(x))
+    faildescr = cpu.execute_token(procedure_token, *args1)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
         return cpu.get_latest_value_int(0)
@@ -148,26 +156,36 @@ def _run_with_machine_code(testself, args):
 
 class JitMixin:
     basic = True
-    def check_loops(self, expected=None, everywhere=False, **check):
-        get_stats().check_loops(expected=expected, everywhere=everywhere,
-                                **check)
-    def check_loop_count(self, count):
-        """NB. This is a hack; use check_tree_loop_count() or
-        check_enter_count() for the real thing.
-        This counts as 1 every bridge in addition to every loop; and it does
-        not count at all the entry bridges from interpreter, although they
-        are TreeLoops as well."""
+    def check_resops(self, expected=None, **check):
+        get_stats().check_resops(expected=expected, **check)
+    def check_simple_loop(self, expected=None, **check):
+        get_stats().check_simple_loop(expected=expected, **check)
+
+    
+
+    def check_trace_count(self, count): # was check_loop_count
+        # The number of traces compiled
         assert get_stats().compiled_count == count
-    def check_tree_loop_count(self, count):
-        assert len(get_stats().loops) == count
-    def check_loop_count_at_most(self, count):
+    def check_trace_count_at_most(self, count):
         assert get_stats().compiled_count <= count
+
+    def check_jitcell_token_count(self, count): # was check_tree_loop_count
+        assert len(get_stats().jitcell_token_wrefs) == count
+
+    def check_target_token_count(self, count):
+        tokens = get_stats().get_all_jitcell_tokens()
+        n = sum ([len(t.target_tokens) for t in tokens])
+        assert n == count
+
     def check_enter_count(self, count):
         assert get_stats().enter_count == count
     def check_enter_count_at_most(self, count):
         assert get_stats().enter_count <= count
+
     def check_jumps(self, maxcount):
+        return # FIXME
         assert get_stats().exec_jumps <= maxcount
+
     def check_aborted_count(self, count):
         assert get_stats().aborted_count == count
     def check_aborted_count_at_least(self, count):
@@ -212,7 +230,7 @@ class JitMixin:
         # this can be used after interp_operations
         if expected is not None:
             expected = dict(expected)
-            expected['jump'] = 1
+            expected['finish'] = 1
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 
@@ -273,3 +291,15 @@ class OOJitMixin(JitMixin):
         NODE._add_fields({'value': ootype.Signed,
                           'next': NODE})
         return NODE
+
+# ____________________________________________________________
+
+class _Foo:
+    pass
+
+def noConst(x):
+    """Helper function for tests, returning 'x' as a BoxInt/BoxPtr
+    even if it is a ConstInt/ConstPtr."""
+    f1 = _Foo(); f2 = _Foo()
+    f1.x = x; f2.x = 0
+    return f1.x

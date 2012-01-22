@@ -5,20 +5,6 @@ import pypy.module.imp.importing
 
 # put builtins here that should be optimized somehow
 
-OPTIMIZED_BUILTINS = ["len", "range", "xrange", "min", "max", "enumerate",
-        "isinstance", "type", "zip", "file", "format", "open", "abs", "chr",
-        "unichr", "ord", "pow", "repr", "hash", "oct", "hex", "round", "cmp",
-        "getattr", "setattr", "delattr", "callable", "int", "str", "float"]
-
-assert len(OPTIMIZED_BUILTINS) <= 256
-
-BUILTIN_TO_INDEX = {}
-
-for i, name in enumerate(OPTIMIZED_BUILTINS):
-    BUILTIN_TO_INDEX[name] = i
-
-assert len(OPTIMIZED_BUILTINS) == len(BUILTIN_TO_INDEX)
-
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
     expose__file__attribute = False
@@ -31,6 +17,13 @@ class Module(MixedModule):
 
         'apply'         : 'app_functional.apply',
         'sorted'        : 'app_functional.sorted',
+        'any'           : 'app_functional.any',
+        'all'           : 'app_functional.all',
+        'sum'           : 'app_functional.sum',
+        'map'           : 'app_functional.map',
+        'reduce'        : 'app_functional.reduce',
+        'filter'        : 'app_functional.filter',
+        'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -95,16 +88,9 @@ class Module(MixedModule):
         'range'         : 'functional.range_int',
         'xrange'        : 'functional.W_XRange',
         'enumerate'     : 'functional.W_Enumerate',
-        'all'           : 'functional.all',
-        'any'           : 'functional.any',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'sum'           : 'functional.sum',
-        'map'           : 'functional.map',
-        'zip'           : 'functional.zip',
-        'reduce'        : 'functional.reduce',
         'reversed'      : 'functional.reversed',
-        'filter'        : 'functional.filter',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
         'classmethod'   : 'descriptor.ClassMethod',
@@ -132,8 +118,8 @@ class Module(MixedModule):
                 return module.Module(space, None, w_builtin)
            builtin = space.interpclass_w(w_builtin)
            if isinstance(builtin, module.Module):
-               return builtin   
-       # no builtin! make a default one.  Given them None, at least.
+               return builtin
+       # no builtin! make a default one.  Give them None, at least.
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
        return builtin
@@ -141,9 +127,6 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         space = self.space
-        self.builtins_by_index = [None] * len(OPTIMIZED_BUILTINS)
-        for i, name in enumerate(OPTIMIZED_BUILTINS):
-            self.builtins_by_index[i] = space.getattr(self, space.wrap(name))
         # install the more general version of isinstance() & co. in the space
         from pypy.module.__builtin__ import abstractinst as ab
         space.abstract_isinstance_w = ab.abstract_isinstance_w.__get__(space)

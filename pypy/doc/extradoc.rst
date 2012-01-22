@@ -8,6 +8,9 @@ Papers
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
 
+* `Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`_,
+  C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
+
 * `Allocation Removal by Partial Evaluation in a Tracing JIT`_,
   C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
 
@@ -50,6 +53,9 @@ Papers
 
 *Other research using PyPy (as far as we know it):*
 
+* `Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`_,
+  N. Riley and C. Zilles
+
 * `PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`_,
   C. Bruni and T. Verwaest
 
@@ -65,15 +71,17 @@ Papers
 
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
+.. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
 .. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
 .. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/publications/bolz-prolog-jit.pdf
-.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://codespeak.net/svn/user/antocuni/phd/thesis/thesis.pdf
+.. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _`How to *not* write Virtual Machines for Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://bitbucket.org/pypy/extradoc/raw/tip/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
+.. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7
@@ -335,7 +343,7 @@ Related projects
   Microsoft's Common Language Runtime (CLR) Intermediate Language (IL).
 
 * Tunes_ is not entirely unrelated.  The web site changed a lot, but a
-  snapshot of the `old Tunes Wiki`_ is available on codespeak; browsing
+  snapshot of the `old Tunes Wiki`_ is available; browsing
   through it is a lot of fun.
 
 .. _TraceMonkey: https://wiki.mozilla.org/JavaScript:TraceMonkey
@@ -355,4 +363,4 @@ Related projects
 .. _`Dynamic Native Optimization of Native Interpreters`: http://people.csail.mit.edu/gregs/dynamorio.html
 .. _JikesRVM: http://jikesrvm.org/
 .. _Tunes: http://tunes.org
-.. _`old Tunes Wiki`: http://codespeak.net/cliki.tunes.org/
+.. _`old Tunes Wiki`: http://buildbot.pypy.org/misc/cliki.tunes.org/

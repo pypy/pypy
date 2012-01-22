@@ -1,11 +1,8 @@
 """This implements pyjitpl's execution of operations.
 """
 
-import py
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
-from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import ovfcheck, r_uint, intmask, r_longlong
+from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
@@ -49,8 +46,8 @@ def do_call(cpu, metainterp, argboxes, descr):
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
-    rettype = descr.get_return_type()
-    if rettype == INT:
+    rettype = descr.get_result_type()
+    if rettype == INT or rettype == 'S':       # *S*ingle float
         try:
             result = cpu.bh_call_i(func, descr, args_i, args_r, args_f)
         except Exception, e:
@@ -64,7 +61,7 @@ def do_call(cpu, metainterp, argboxes, descr):
             metainterp.execute_raised(e)
             result = NULL
         return BoxPtr(result)
-    if rettype == FLOAT or rettype == 'L':
+    if rettype == FLOAT or rettype == 'L':     # *L*ong long
         try:
             result = cpu.bh_call_f(func, descr, args_i, args_r, args_f)
         except Exception, e:
@@ -81,9 +78,6 @@ def do_call(cpu, metainterp, argboxes, descr):
 
 do_call_loopinvariant = do_call
 do_call_may_force = do_call
-
-def do_call_c(cpu, metainterp, argboxes, descr):
-    raise NotImplementedError("Should never be called directly")
 
 def do_getarrayitem_gc(cpu, _, arraybox, indexbox, arraydescr):
     array = arraybox.getref_base()
@@ -125,6 +119,29 @@ def do_setarrayitem_raw(cpu, _, arraybox, indexbox, itembox, arraydescr):
                                   itembox.getfloatstorage())
     else:
         cpu.bh_setarrayitem_raw_i(arraydescr, array, index, itembox.getint())
+
+def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    if descr.is_pointer_field():
+        return BoxPtr(cpu.bh_getinteriorfield_gc_r(array, index, descr))
+    elif descr.is_float_field():
+        return BoxFloat(cpu.bh_getinteriorfield_gc_f(array, index, descr))
+    else:
+        return BoxInt(cpu.bh_getinteriorfield_gc_i(array, index, descr))
+
+def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    if descr.is_pointer_field():
+        cpu.bh_setinteriorfield_gc_r(array, index, descr,
+                                     valuebox.getref_base())
+    elif descr.is_float_field():
+        cpu.bh_setinteriorfield_gc_f(array, index, descr,
+                                     valuebox.getfloatstorage())
+    else:
+        cpu.bh_setinteriorfield_gc_i(array, index, descr,
+                                     valuebox.getint())
 
 def do_getfield_gc(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()
@@ -319,12 +336,19 @@ def _make_execute_list():
             if value in (rop.FORCE_TOKEN,
                          rop.CALL_ASSEMBLER,
                          rop.COND_CALL_GC_WB,
+                         rop.COND_CALL_GC_WB_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
                          rop.HIDE_INTO_PTR32,
                          rop.SHOW_FROM_PTR32,
+                         rop.GETINTERIORFIELD_RAW,
+                         rop.SETINTERIORFIELD_RAW,
+                         rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
+                         rop.CALL_MALLOC_GC,
+                         rop.CALL_MALLOC_NURSERY,
+                         rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

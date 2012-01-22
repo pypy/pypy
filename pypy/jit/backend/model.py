@@ -1,5 +1,6 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
-from pypy.jit.metainterp import history, compile
+from pypy.jit.metainterp import history
+from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractCPU(object):
@@ -8,12 +9,13 @@ class AbstractCPU(object):
     # ^^^ This is only useful on 32-bit platforms.  If True,
     # longlongs are supported by the JIT, but stored as doubles.
     # Boxes and Consts are BoxFloats and ConstFloats.
+    supports_singlefloats = False
 
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1
     done_with_this_frame_float_v = -1
-    exit_frame_with_exception_v = -1
+    propagate_exception_v = -1
     total_compiled_loops = 0
     total_compiled_bridges = 0
     total_freed_loops = 0
@@ -53,12 +55,19 @@ class AbstractCPU(object):
         """Called once by the front-end when the program stops."""
         pass
 
-
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """Assemble the given loop.
         Should create and attach a fresh CompiledLoopToken to
         looptoken.compiled_loop_token and stick extra attributes
         on it to point to the compiled loop in assembler.
+
+        Optionally, return a ``ops_offset`` dictionary, which maps each operation
+        to its offset in the compiled code.  The ``ops_offset`` dictionary is then
+        used by the operation logger to print the offsets in the log.  The
+        offset representing the end of the last operation is stored in
+        ``ops_offset[None]``: note that this might not coincide with the end of
+        the loop, because usually in the loop footer there is code which does
+        not belong to any particular operation.
         """
         raise NotImplementedError
 
@@ -66,27 +75,31 @@ class AbstractCPU(object):
                        original_loop_token, log=True):
         """Assemble the bridge.
         The FailDescr is the descr of the original guard that failed.
-        """
-        raise NotImplementedError    
 
-    def execute_token(self, looptoken):
-        """Execute the generated code referenced by the looptoken.
+        Optionally, return a ``ops_offset`` dictionary.  See the docstring of
+        ``compiled_loop`` for more informations about it.
+        """
+        raise NotImplementedError
+
+    def dump_loop_token(self, looptoken):
+        """Print a disassembled version of looptoken to stdout"""
+        raise NotImplementedError
+
+    def execute_token(self, looptoken, *args):
+        """NOT_RPYTHON (for tests only)
+        Execute the generated code referenced by the looptoken.
         Returns the descr of the last executed operation: either the one
         attached to the failing guard, or the one attached to the FINISH.
-        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
+        Use get_latest_value_xxx() afterwards to read the result(s).
         """
-        raise NotImplementedError
+        argtypes = [lltype.typeOf(x) for x in args]
+        execute = self.make_execute_token(*argtypes)
+        return execute(looptoken, *args)
 
-    def set_future_value_int(self, index, intvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_float(self, index, floatvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_ref(self, index, objvalue):
-        """Set the value for the index'th argument for the loop to run."""
+    def make_execute_token(self, *argtypes):
+        """Must make and return an execute_token() function that will be
+        called with the given argtypes.
+        """
         raise NotImplementedError
 
     def get_latest_value_int(self, index):
@@ -168,34 +181,35 @@ class AbstractCPU(object):
             lst[n] = None
         self.fail_descr_free_list.extend(faildescr_indices)
 
-    @staticmethod
-    def sizeof(S):
+    def sizeof(self, S):
         raise NotImplementedError
 
-    @staticmethod
-    def fielddescrof(S, fieldname):
+    def fielddescrof(self, S, fieldname):
         """Return the Descr corresponding to field 'fieldname' on the
         structure 'S'.  It is important that this function (at least)
         caches the results."""
         raise NotImplementedError
 
-    @staticmethod
-    def arraydescrof(A):
+    def interiorfielddescrof(self, A, fieldname):
         raise NotImplementedError
 
-    @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
+    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
+        is_float, is_signed):
+        raise NotImplementedError
+
+    def arraydescrof(self, A):
+        raise NotImplementedError
+
+    def calldescrof(self, FUNC, ARGS, RESULT):
         # FUNC is the original function type, but ARGS is a list of types
         # with Voids removed
         raise NotImplementedError
 
-    @staticmethod
-    def methdescrof(SELFTYPE, methname):
+    def methdescrof(self, SELFTYPE, methname):
         # must return a subclass of history.AbstractMethDescr
         raise NotImplementedError
 
-    @staticmethod
-    def typedescrof(TYPE):
+    def typedescrof(self, TYPE):
         raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------
@@ -282,6 +296,10 @@ class AbstractCPU(object):
     def bh_strsetitem(self, string, index, newvalue):
         raise NotImplementedError
     def bh_unicodesetitem(self, string, index, newvalue):
+        raise NotImplementedError
+    def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        raise NotImplementedError
+    def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
 
     def force(self, force_token):

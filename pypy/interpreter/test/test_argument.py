@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import py
 from pypy.interpreter.argument import (Arguments, ArgumentsForTranslation,
     ArgErr, ArgErrUnknownKwds, ArgErrMultipleValues, ArgErrCount, rawshape,
@@ -126,6 +127,7 @@ class DummySpace(object):
     w_AttributeError = AttributeError
     w_UnicodeEncodeError = UnicodeEncodeError
     w_dict = dict
+    w_str = str
 
 class TestArgumentsNormal(object):
 
@@ -391,8 +393,8 @@ class TestArgumentsNormal(object):
 
         class FakeArgErr(ArgErr):
 
-            def getmsg(self, fname):
-                return "msg "+fname
+            def getmsg(self):
+                return "msg"
 
         def _match_signature(*args):
             raise FakeArgErr()
@@ -402,7 +404,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, args.parse_obj, "obj", "foo",
                        Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value == "msg foo"
+        assert excinfo.value.get_w_value(space) == "foo() msg"
 
 
     def test_args_parsing_into_scope(self):
@@ -446,8 +448,8 @@ class TestArgumentsNormal(object):
 
         class FakeArgErr(ArgErr):
 
-            def getmsg(self, fname):
-                return "msg "+fname
+            def getmsg(self):
+                return "msg"
 
         def _match_signature(*args):
             raise FakeArgErr()
@@ -458,7 +460,7 @@ class TestArgumentsNormal(object):
                                  "obj", [None, None], "foo",
                                  Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value == "msg foo"
+        assert excinfo.value.get_w_value(space) == "foo() msg"
 
     def test_topacked_frompacked(self):
         space = DummySpace()
@@ -485,52 +487,41 @@ class TestArgumentsNormal(object):
         args._match_signature(None, l, Signature(['abc']))
         assert len(l) == 1
         assert l[0] == space.wrap(5)
-        #
-        def str_w(w):
-            try:
-                return str(w)
-            except UnicodeEncodeError:
-                raise OperationError(space.w_UnicodeEncodeError,
-                                     space.wrap("oups"))
-        space.str_w = str_w
-        w_starstar = space.wrap({u'\u1234': 5})
-        err = py.test.raises(OperationError, Arguments,
-                             space, [], w_starstararg=w_starstar)
-        # Check that we get a TypeError.  On CPython it is because of
-        # "no argument called '?'".  On PyPy we get a TypeError too, but
-        # earlier: "keyword cannot be encoded to ascii".  The
-        # difference, besides the error message, is only apparent if the
-        # receiver also takes a **arg.  Then CPython passes the
-        # non-ascii unicode unmodified, whereas PyPy complains.  We will
-        # not care until someone has a use case for that.
-        assert not err.value.match(space, space.w_UnicodeEncodeError)
-        assert     err.value.match(space, space.w_TypeError)
 
 class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
         err = ArgErrCount(1, 0, 0, False, False, None, 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes no argument (1 given)"
+        s = err.getmsg()
+        assert s == "takes no arguments (1 given)"
         err = ArgErrCount(0, 0, 1, False, False, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (0 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 1 argument (0 given)"
         err = ArgErrCount(3, 0, 2, False, False, [], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 2 arguments (3 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
+        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 2 arguments (3 given)"
         err = ArgErrCount(1, 0, 2, True, False, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 2 arguments (1 given)"
-        err = ArgErrCount(3, 0, 2, True, False, ['a'], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at most 2 arguments (3 given)"
+        s = err.getmsg()
+        assert s == "takes at least 2 arguments (1 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 argument (1 given)"
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (3 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (2 given)"
+        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (0 given)"
+        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
+        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+        s = err.getmsg()
+        assert s == "takes at most 1 non-keyword argument (2 given)"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -550,30 +541,59 @@ class TestErrorHandling(object):
             assert 0, "did not raise"
 
     def test_unknown_keywords(self):
-        err = ArgErrUnknownKwds(1, ['a', 'b'], [True, False])
-        s = err.getmsg('foo')
-        assert s == "foo() got an unexpected keyword argument 'b'"
-        err = ArgErrUnknownKwds(2, ['a', 'b', 'c'], [True, False, False])
-        s = err.getmsg('foo')
-        assert s == "foo() got 2 unexpected keyword arguments"
+        space = DummySpace()
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument 'b'"
+        err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
+                                [True, False, False], None)
+        s = err.getmsg()
+        assert s == "got 2 unexpected keyword arguments"
+
+    def test_unknown_unicode_keyword(self):
+        class DummySpaceUnicode(DummySpace):
+            class sys:
+                defaultencoding = 'utf-8'
+        space = DummySpaceUnicode()
+        err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
+                                [True, False, True, True],
+                                [unichr(0x1234), u'b', u'c'])
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
-        s = err.getmsg('foo')
-        assert s == "foo() got multiple values for keyword argument 'bla'"
+        s = err.getmsg()
+        assert s == "got multiple values for keyword argument 'bla'"
 
 class AppTestArgument:
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
-        assert exc.value.message == "<lambda>() takes at least 1 argument (1 given)"
+        assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"
         exc = raises(TypeError, (lambda: 0), b=3)
-        assert exc.value.message == "<lambda>() takes no argument (1 given)"
+        assert exc.value.message == "<lambda>() takes no arguments (1 given)"
         exc = raises(TypeError, (lambda a, b: 0), 1, 2, 3, a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 arguments (4 given)"
         exc = raises(TypeError, (lambda a, b=1: 0), 1, 2, 3, a=1)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (4 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
         exc = raises(TypeError, (lambda a, b=1, **kw: 0), 1, 2, 3)
-        assert exc.value.message == "<lambda>() takes at most 2 arguments (3 given)"
+        assert exc.value.message == "<lambda>() takes at most 2 non-keyword arguments (3 given)"
+        exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), 1)
+        assert exc.value.message == "<lambda>() takes at least 2 arguments (1 given)"
+        exc = raises(TypeError, (lambda a, b, **kw: 0), 1)
+        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (1 given)"
+        exc = raises(TypeError, (lambda a, b, c=3, **kw: 0), a=1)
+        assert exc.value.message == "<lambda>() takes at least 2 non-keyword arguments (0 given)"
+        exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
+        assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
+
+    def test_unicode_keywords(self):
+        def f(**kwargs):
+            assert kwargs[u"美"] == 42
+        f(**{u"美" : 42})
+        def f(x): pass
+        e = raises(TypeError, "f(**{u'ü' : 19})")
+        assert "?" in str(e.value)
 
 def make_arguments_for_translation(space, args_w, keywords_w={},
                                    w_stararg=None, w_starstararg=None):

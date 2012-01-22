@@ -36,9 +36,7 @@ def flatten_star_args(funcdesc, args_s):
             newtup = SpaceOperation('newtuple', starargs, argscopy[-1])
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
-            graph.startblock.isstartblock = False
             graph.startblock = newstartblock
-            newstartblock.isstartblock = True
             argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
             # note that we can mostly ignore defaults: if nb_extra_args > 0, 
@@ -353,6 +351,16 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
     key = tuple(key)
     return maybe_star_args(funcdesc, key, args_s)
 
+def specialize_arg_or_var(funcdesc, args_s, *argindices):
+    for argno in argindices:
+        if not args_s[argno].is_constant():
+            break
+    else:
+        # all constant
+        return specialize_argvalue(funcdesc, args_s, *argindices)
+    # some not constant
+    return maybe_star_args(funcdesc, None, args_s)
+
 def specialize_argtype(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].knowntype for i in argindices])
     for cls in key:
@@ -370,3 +378,7 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
     else:
         key = s.listdef.listitem.s_value.knowntype
     return maybe_star_args(funcdesc, key, args_s)
+
+def specialize_call_location(funcdesc, args_s, op):
+    assert op is not None
+    return maybe_star_args(funcdesc, op, args_s)

@@ -2,7 +2,7 @@ import os
 from pypy.tool import stdlib_opcode
 from pypy.jit.tl.spli import objects, pycode
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.objectmodel import we_are_translated
 
 opcode_method_names = stdlib_opcode.host_bytecode_spec.method_names
@@ -78,7 +78,7 @@ class SPLIFrame(object):
         while True:
             jitdriver.jit_merge_point(code=code, instr_index=instr_index,
                                       frame=self)
-            self.stack_depth = hint(self.stack_depth, promote=True)
+            self.stack_depth = promote(self.stack_depth)
             op = ord(code[instr_index])
             instr_index += 1
             if op >= HAVE_ARGUMENT:

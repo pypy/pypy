@@ -856,6 +856,46 @@ class TestAnnotateTestCase:
         py.test.raises(Exception, a.build_types, f, [])
         # if you want to get a r_uint, you have to be explicit about it
 
+    def test_add_different_ints(self):
+        def f(a, b):
+            return a + b
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_different_ints(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_ruint_zero(self):
+        def f(a):
+            if a:
+                c = a
+            else:
+                c = 0
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+    def test_merge_ruint_nonneg_signed(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                assert b >= 0
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint, int])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+
     def test_prebuilt_long_that_is_not_too_long(self):
         small_constant = 12L
         def f():
@@ -1099,8 +1139,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1])
-        graph2 = allocdesc.specialize([s_C2])
+        graph1 = allocdesc.specialize([s_C1], None)
+        graph2 = allocdesc.specialize([s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
@@ -1135,8 +1175,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1, s_C2])
-        graph2 = allocdesc.specialize([s_C2, s_C2])
+        graph1 = allocdesc.specialize([s_C1, s_C2], None)
+        graph2 = allocdesc.specialize([s_C2, s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
@@ -1193,6 +1233,33 @@ class TestAnnotateTestCase:
 
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
         assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
+
+    def test_specialize_arg_or_var(self):
+        def f(a):
+            return 1
+        f._annspecialcase_ = 'specialize:arg_or_var(0)'
+
+        def fn(a):
+            return f(3) + f(a)
+
+        a = self.RPythonAnnotator()
+        a.build_types(fn, [int])
+        executedesc = a.bookkeeper.getdesc(f)
+        assert sorted(executedesc._cache.keys()) == [None, (3,)]
+        # we got two different special
+
+    def test_specialize_call_location(self):
+        def g(a):
+            return a
+        g._annspecialcase_ = "specialize:call_location"
+        def f(x):
+            return g(x)
+        f._annspecialcase_ = "specialize:argtype(0)"
+        def h(y):
+            w = f(y)
+            return int(f(str(y))) + w
+        a = self.RPythonAnnotator()
+        assert a.build_types(h, [int]) == annmodel.SomeInteger()
 
     def test_assert_list_doesnt_lose_info(self):
         class T(object):
@@ -3002,7 +3069,7 @@ class TestAnnotateTestCase:
             if g(x, y):
                 g(x, r_uint(y))
         a = self.RPythonAnnotator()
-        a.build_types(f, [int, int])
+        py.test.raises(Exception, a.build_types, f, [int, int])
 
     def test_compare_with_zero(self):
         def g():
@@ -3177,6 +3244,8 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeList)
         assert not s.listdef.listitem.resized
+        assert not s.listdef.listitem.immutable
+        assert s.listdef.listitem.mutated
 
     def test_delslice(self):
         def f():
@@ -3482,6 +3551,17 @@ class TestAnnotateTestCase:
             return cls().foo
         a = self.RPythonAnnotator()
         raises(Exception, a.build_types, f, [int])
+
+    def test_range_variable_step(self):
+        def g(n):
+            return range(0, 10, n)
+        def f(n):
+            r = g(1)    # constant step, at first
+            s = g(n)    # but it becomes a variable step
+            return r
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.listdef.listitem.range_step == 0
 
 
 def g(n):

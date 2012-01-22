@@ -1,12 +1,13 @@
 from pypy.rpython.lltypesystem.lltype import GcArray, Array, Char, malloc
 from pypy.rpython.annlowlevel import llstr
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib import jit
 
 CHAR_ARRAY = GcArray(Char)
 
+@jit.elidable
 def ll_int_str(repr, i):
     return ll_int2dec(i)
-ll_int_str._pure_function_ = True
 
 def ll_unsigned(i):
     if isinstance(i, r_longlong) or isinstance(i, r_ulonglong):
@@ -14,43 +15,41 @@ def ll_unsigned(i):
     else:
         return r_uint(i)
 
-def ll_int2dec(i):
+@jit.elidable
+def ll_int2dec(val):
     from pypy.rpython.lltypesystem.rstr import mallocstr
-    temp = malloc(CHAR_ARRAY, 20)
+
+    sign = int(val < 0)
+    if sign:
+        val = ll_unsigned(-val)
+    else:
+        val = ll_unsigned(val)
     len = 0
-    sign = 0
-    if i < 0:
-        sign = 1
-        i = ll_unsigned(-i)
-    else:
-        i = ll_unsigned(i)
-    if i == 0:
-        len = 1
-        temp[0] = '0'
-    else:
-        while i:
-            temp[len] = chr(i%10+ord('0'))
-            i //= 10
-            len += 1
-    len += sign
-    result = mallocstr(len)
-    result.hash = 0
+    i = val
+    while i:
+        len += 1
+        i //= 10
+
+    total_len = sign + len + int(val == 0)
+    result = mallocstr(total_len)
     if sign:
         result.chars[0] = '-'
-        j = 1
-    else:
-        j = 0
+    elif val == 0:
+        result.chars[0] = '0'
+
+    j = 0
     while j < len:
-        result.chars[j] = temp[len-j-1]
+        result.chars[total_len - j - 1] = chr(val % 10 + ord('0'))
+        val //= 10
         j += 1
     return result
-ll_int2dec._pure_function_ = True
 
 hex_chars = malloc(Array(Char), 16, immortal=True)
 
 for i in range(16):
     hex_chars[i] = "%x"%i
 
+@jit.elidable
 def ll_int2hex(i, addPrefix):
     from pypy.rpython.lltypesystem.rstr import mallocstr
     temp = malloc(CHAR_ARRAY, 20)
@@ -86,8 +85,8 @@ def ll_int2hex(i, addPrefix):
         result.chars[j] = temp[len-j-1]
         j += 1
     return result
-ll_int2hex._pure_function_ = True
 
+@jit.elidable
 def ll_int2oct(i, addPrefix):
     from pypy.rpython.lltypesystem.rstr import mallocstr
     if i == 0:
@@ -123,9 +122,8 @@ def ll_int2oct(i, addPrefix):
         result.chars[j] = temp[len-j-1]
         j += 1
     return result
-ll_int2oct._pure_function_ = True
 
+@jit.elidable
 def ll_float_str(repr, f):
     from pypy.rlib.rfloat import formatd
     return llstr(formatd(f, 'f', 6))
-ll_float_str._pure_function_ = True

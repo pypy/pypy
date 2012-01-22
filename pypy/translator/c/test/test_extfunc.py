@@ -595,6 +595,18 @@ if hasattr(os, 'chown') and hasattr(os, 'lchown'):
         f1 = compile(does_stuff, [])
         f1()
 
+if hasattr(os, 'getlogin'):
+    def test_os_getlogin():
+        def does_stuff():
+            return os.getlogin()
+
+        try:
+            expected = os.getlogin()
+        except OSError, e:
+            py.test.skip("the underlying os.getlogin() failed: %s" % e)
+        f1 = compile(does_stuff, [])
+        assert f1() == expected
+
 # ____________________________________________________________
 
 def _real_getenv(var):
@@ -805,6 +817,24 @@ if hasattr(posix, 'spawnv'):
         func = compile(does_stuff, [])
         func()
         assert open(filename).read() == "2"
+
+if hasattr(posix, 'spawnve'):
+    def test_spawnve():
+        filename = str(udir.join('test_spawnve.txt'))
+        progname = str(sys.executable)
+        scriptpath = udir.join('test_spawnve.py')
+        scriptpath.write('import os\n' +
+                         'f=open(%r,"w")\n' % filename +
+                         'f.write(os.environ["FOOBAR"])\n' +
+                         'f.close\n')
+        scriptname = str(scriptpath)
+        def does_stuff():
+            l = [progname, scriptname]
+            pid = os.spawnve(os.P_NOWAIT, progname, l, {'FOOBAR': '42'})
+            os.waitpid(pid, 0)
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "42"
 
 def test_utime():
     path = str(udir.ensure("test_utime.txt"))

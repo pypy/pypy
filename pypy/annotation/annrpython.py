@@ -149,7 +149,7 @@ class RPythonAnnotator(object):
         desc = olddesc.bind_self(classdef)
         args = self.bookkeeper.build_args("simple_call", args_s[:])
         desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
-            args, annmodel.s_ImpossibleValue)
+            args, annmodel.s_ImpossibleValue, None)
         result = []
         def schedule(graph, inputcells):
             result.append((graph, inputcells))
@@ -228,7 +228,7 @@ class RPythonAnnotator(object):
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(graph.getargs(), cells):
                 s_oldarg = self.binding(a)
-                assert s_oldarg.contains(s_newarg)
+                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
         else:
             assert not self.frozen
             for a in cells:

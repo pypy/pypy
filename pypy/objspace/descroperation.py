@@ -6,6 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+from pypy.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -27,6 +28,20 @@ def object_delattr(space):
                                                   '__delattr__')
     return w_delattr
 object_delattr._annspecialcase_ = 'specialize:memo'
+
+def object_hash(space):
+    "Utility that returns the app-level descriptor object.__hash__."
+    w_src, w_hash = space.lookup_in_type_where(space.w_object,
+                                                  '__hash__')
+    return w_hash
+object_hash._annspecialcase_ = 'specialize:memo'
+
+def type_eq(space):
+    "Utility that returns the app-level descriptor type.__eq__."
+    w_src, w_eq = space.lookup_in_type_where(space.w_type,
+                                             '__eq__')
+    return w_eq
+type_eq._annspecialcase_ = 'specialize:memo'
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
@@ -89,7 +104,7 @@ class Object(object):
             if space.is_data_descr(w_descr):
                 space.delete(w_descr, w_obj)
                 return
-        if w_obj.deldictvalue(space, w_name):
+        if w_obj.deldictvalue(space, name):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
@@ -207,34 +222,51 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        w_descr = space.lookup(w_obj, '__nonzero__')
+        method = "__nonzero__"
+        w_descr = space.lookup(w_obj, method)
         if w_descr is None:
-            w_descr = space.lookup(w_obj, '__len__')
+            method = "__len__"
+            w_descr = space.lookup(w_obj, method)
             if w_descr is None:
                 return True
         w_res = space.get_and_call_function(w_descr, w_obj)
         # more shortcuts for common cases
-        if w_res is space.w_False:
+        if space.is_w(w_res, space.w_False):
             return False
-        if w_res is space.w_True:
+        if space.is_w(w_res, space.w_True):
             return True
         w_restype = space.type(w_res)
-        if (space.is_w(w_restype, space.w_bool) or
-            space.is_w(w_restype, space.w_int)):
+        # Note there is no check for bool here because the only possible
+        # instances of bool are w_False and w_True, which are checked above.
+        if (space.is_w(w_restype, space.w_int) or
+            space.is_w(w_restype, space.w_long)):
             return space.int_w(w_res) != 0
         else:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap('__nonzero__ should return '
-                                            'bool or int'))
+            msg = "%s should return bool or integer" % (method,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
 
-    def nonzero(self, w_obj):
-        if self.is_true(w_obj):
-            return self.w_True
+    def nonzero(space, w_obj):
+        if space.is_true(w_obj):
+            return space.w_True
         else:
-            return self.w_False
+            return space.w_False
 
-##    def len(self, w_obj):
-##        XXX needs to check that the result is an int (or long?) >= 0
+    def len(space, w_obj):
+        w_descr = space.lookup(w_obj, '__len__')
+        if w_descr is None:
+            name = space.type(w_obj).getname(space)
+            msg = "'%s' has no length" % (name,)
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        w_res = space.get_and_call_function(w_descr, w_obj)
+        return space.wrap(space._check_len_result(w_res))
+
+    def _check_len_result(space, w_obj):
+        # Will complain if result is too big.
+        result = space.int_w(space.int(w_obj))
+        if result < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("__len__() should return >= 0"))
+        return result
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
@@ -376,6 +408,9 @@ class DescrOperation(object):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
             return space.get_and_call_function(w_descr, w_container, w_item)
+        return space._contains(w_container, w_item)
+
+    def _contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         while 1:
             try:
@@ -396,7 +431,7 @@ class DescrOperation(object):
             # obscure circumstances.
             return default_identity_hash(space, w_obj)
         if space.is_w(w_hash, space.w_None):
-            typename = space.type(w_obj).getname(space, '?')
+            typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,
                                   "'%s' objects are unhashable", typename)
         w_result = space.get_and_call_function(w_hash, w_obj)
@@ -470,22 +505,26 @@ class DescrOperation(object):
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
 
-    def issubtype(space, w_sub, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__subclasscheck__")
-            if w_check is None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("issubclass not supported here"))
-            return space.get_and_call_function(w_check, w_type, w_sub)
+    def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
-    def isinstance(space, w_inst, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__instancecheck__")
-            if w_check is not None:
-                return space.get_and_call_function(w_check, w_type, w_inst)
-        return space.issubtype(space.type(w_inst), w_type, allow_override)
+    @specialize.arg_or_var(2)
+    def isinstance(space, w_inst, w_type):
+        return space.wrap(space._type_isinstance(w_inst, w_type))
 
+    def issubtype_allow_override(space, w_sub, w_type):
+        w_check = space.lookup(w_type, "__subclasscheck__")
+        if w_check is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("issubclass not supported here"))
+        return space.get_and_call_function(w_check, w_type, w_sub)
+
+    def isinstance_allow_override(space, w_inst, w_type):
+        w_check = space.lookup(w_type, "__instancecheck__")
+        if w_check is not None:
+            return space.get_and_call_function(w_check, w_type, w_inst)
+        else:
+            return space.isinstance(w_inst, w_type)
 
 
 # helpers
@@ -687,13 +726,22 @@ def _make_comparison_impl(symbol, specialnames):
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
         w_first = w_obj1
         w_second = w_obj2
-
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        #
+        if left == right and _same_class_w(space, w_obj1, w_obj2,
+                                           w_typ1, w_typ2):
+            # for __eq__ and __ne__, if the objects have the same
+            # (old-style or new-style) class, then don't try the
+            # opposite method, which is the same one.
             w_right_impl = None
         else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            # XXX see binop_impl
-            if space.is_true(space.issubtype(w_typ2, w_typ1)):
+            # in all other cases, try the opposite method.
+            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
+            if space.is_w(w_typ1, w_typ2):
+                # if the type is the same, *or* if both are old-style classes,
+                # then don't reverse: try left first, right next.
+                pass
+            elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+                # for new-style classes, if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 

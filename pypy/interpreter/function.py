@@ -16,7 +16,7 @@ from pypy.rlib.debug import make_sure_not_resized
 
 funccallunrolling = unrolling_iterable(range(4))
 
-@jit.purefunction_promote()
+@jit.elidable_promote()
 def _get_immutable_code(func):
     assert not func.can_change_code
     return func.code
@@ -30,8 +30,9 @@ class Function(Wrappable):
     can_change_code = True
     _immutable_fields_ = ['code?',
                           'w_func_globals?',
-                          'closure?',
-                          'defs_w?[*]']
+                          'closure?[*]',
+                          'defs_w?[*]',
+                          'name?']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
                  forcename=None):
@@ -63,7 +64,7 @@ class Function(Wrappable):
         if jit.we_are_jitted():
             if not self.can_change_code:
                 return _get_immutable_code(self)
-            return jit.hint(self.code, promote=True)
+            return jit.promote(self.code)
         return self.code
 
     def funccall(self, *args_w): # speed hack
@@ -95,10 +96,10 @@ class Function(Wrappable):
             assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
                 for i in funccallunrolling:
                     if i < nargs:
-                        new_frame.fastlocals_w[i] = args_w[i]
+                        new_frame.locals_stack_w[i] = args_w[i]
                 return new_frame.run()
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
@@ -155,10 +156,10 @@ class Function(Wrappable):
     def _flat_pycall(self, code, nargs, frame):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.fastlocals_w[i] = w_arg
+            new_frame.locals_stack_w[i] = w_arg
 
         return new_frame.run()
 
@@ -166,16 +167,16 @@ class Function(Wrappable):
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.fastlocals_w[i] = w_arg
+            new_frame.locals_stack_w[i] = w_arg
 
         ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.fastlocals_w[i] = self.defs_w[j]
+            new_frame.locals_stack_w[i] = self.defs_w[j]
             i += 1
         return new_frame.run()
 
@@ -241,8 +242,10 @@ class Function(Wrappable):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            assert Function._all.get(identifier, self) is self, ("duplicate "
-                                                                 "function ids")
+            previous = Function._all.get(identifier, self)
+            assert previous is self, (
+                "duplicate function ids with identifier=%r: %r and %r" % (
+                identifier, previous, self))
             self.add_to_table()
         return False
 
@@ -465,19 +468,23 @@ class Method(Wrappable):
                 space.abstract_isinstance_w(w_firstarg, self.w_class)):
             pass  # ok
         else:
-            myname = self.getname(space,"")
-            clsdescr = self.w_class.getname(space,"")
+            myname = self.getname(space, "")
+            clsdescr = self.w_class.getname(space, "")
             if clsdescr:
-                clsdescr+=" "
+                clsdescr += " instance"
+            else:
+                clsdescr = "instance"
             if w_firstarg is None:
                 instdescr = "nothing"
             else:
-                instname = space.abstract_getclass(w_firstarg).getname(space,"")
+                instname = space.abstract_getclass(w_firstarg).getname(space,
+                                                                       "")
                 if instname:
-                    instname += " "
-                instdescr = "%sinstance" %instname
-            msg = ("unbound method %s() must be called with %s"
-                   "instance as first argument (got %s instead)")
+                    instdescr = instname + " instance"
+                else:
+                    instdescr = "instance"
+            msg = ("unbound method %s() must be called with %s "
+                   "as first argument (got %s instead)")
             raise operationerrfmt(space.w_TypeError, msg,
                                   myname, clsdescr, instdescr)
         return space.call_args(self.w_function, args)

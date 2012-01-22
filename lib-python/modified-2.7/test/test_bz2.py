@@ -50,6 +50,7 @@ class BZ2FileTest(BaseTest):
         self.filename = TESTFN
 
     def tearDown(self):
+        test_support.gc_collect()
         if os.path.isfile(self.filename):
             os.unlink(self.filename)
 

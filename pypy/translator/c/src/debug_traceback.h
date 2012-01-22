@@ -21,7 +21,11 @@
    line to the f:17/KeyError line.
 */
 
-#define PYPY_DEBUG_TRACEBACK_DEPTH        128     /* a power of two */
+#ifdef RPY_LL_ASSERT
+#  define PYPY_DEBUG_TRACEBACK_DEPTH        8192    /* a power of two */
+#else
+#  define PYPY_DEBUG_TRACEBACK_DEPTH        128     /* a power of two */
+#endif
 
 #define PYPYDTPOS_RERAISE                 ((struct pypydtpos_s *) -1)
 #define PYPYDTSTORE(loc, etype)                         \

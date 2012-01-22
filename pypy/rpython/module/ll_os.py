@@ -356,6 +356,32 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, str, [str]], int, llimpl=spawnv_llimpl,
                       export_name="ll_os.ll_os_spawnv")
 
+    @registering_if(os, 'spawnve')
+    def register_os_spawnve(self):
+        os_spawnve = self.llexternal('spawnve',
+                                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP,
+                                      rffi.CCHARPP],
+                                     rffi.INT)
+
+        def spawnve_llimpl(mode, path, args, env):
+            envstrs = []
+            for item in env.iteritems():
+                envstrs.append("%s=%s" % item)
+
+            mode = rffi.cast(rffi.INT, mode)
+            l_args = rffi.liststr2charpp(args)
+            l_env = rffi.liststr2charpp(envstrs)
+            childpid = os_spawnve(mode, path, l_args, l_env)
+            rffi.free_charpp(l_env)
+            rffi.free_charpp(l_args)
+            if childpid == -1:
+                raise OSError(rposix.get_errno(), "os_spawnve failed")
+            return rffi.cast(lltype.Signed, childpid)
+
+        return extdef([int, str, [str], {str: str}], int,
+                      llimpl=spawnve_llimpl,
+                      export_name="ll_os.ll_os_spawnve")
+
     @registering(os.dup)
     def register_os_dup(self):
         os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
@@ -382,6 +408,20 @@ class RegisterOs(BaseLazyRegistering):
 
         return extdef([int, int], s_None, llimpl=dup2_llimpl,
                       export_name="ll_os.ll_os_dup2")
+
+    @registering_if(os, "getlogin", condition=not _WIN32)
+    def register_os_getlogin(self):
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
+
+        def getlogin_llimpl():
+            result = os_getlogin()
+            if not result:
+                raise OSError(rposix.get_errno(), "getlogin failed")
+
+            return rffi.charp2str(result)
+
+        return extdef([], str, llimpl=getlogin_llimpl,
+                      export_name="ll_os.ll_os_getlogin")
 
     @registering_str_unicode(os.utime)
     def register_os_utime(self, traits):
@@ -877,7 +917,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.close)
     def register_os_close(self):
-        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT], rffi.INT)
+        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
+                                   rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
@@ -944,8 +985,6 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                # Note: for consistency we raise OSError, but CPython
-                # raises IOError here
                 raise OSError(rposix.get_errno(), "os_ftruncate failed")
 
         return extdef([int, r_longlong], s_None,
@@ -1734,7 +1773,7 @@ if sys.platform == 'win32':
 
         @registering(rwin32.FormatError)
         def register_rwin32_FormatError(self):
-            return extdef([rwin32.DWORD], str,
+            return extdef([lltype.Signed], str,
                           "rwin32_FormatError",
                           llimpl=rwin32.llimpl_FormatError,
                           ooimpl=rwin32.fake_FormatError)

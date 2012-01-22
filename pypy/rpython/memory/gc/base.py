@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
@@ -65,6 +65,7 @@ class GCBase(object):
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
                             getfinalizer,
+                            getlightfinalizer,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -72,8 +73,12 @@ class GCBase(object):
                             varsize_offsets_to_gcpointers_in_var_part,
                             weakpointer_offset,
                             member_index,
-                            is_rpython_class):
+                            is_rpython_class,
+                            has_custom_trace,
+                            get_custom_trace,
+                            fast_path_tracing):
         self.getfinalizer = getfinalizer
+        self.getlightfinalizer = getlightfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.is_gcarrayofgcptr = is_gcarrayofgcptr
@@ -86,6 +91,9 @@ class GCBase(object):
         self.weakpointer_offset = weakpointer_offset
         self.member_index = member_index
         self.is_rpython_class = is_rpython_class
+        self.has_custom_trace = has_custom_trace
+        self.get_custom_trace = get_custom_trace
+        self.fast_path_tracing = fast_path_tracing
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -136,6 +144,7 @@ class GCBase(object):
 
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
+        finalizer_is_light = bool(self.getlightfinalizer(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
@@ -148,13 +157,14 @@ class GCBase(object):
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
-                                 offset_to_length, True)
+                                 offset_to_length)
         else:
             if zero or not hasattr(self, 'malloc_fixedsize'):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
+            ref = malloc_fixedsize(typeid, size, needs_finalizer,
+                                   finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
@@ -186,24 +196,37 @@ class GCBase(object):
         Typically, 'callback' is a bound method and 'arg' can be None.
         """
         typeid = self.get_type_id(obj)
-        # XXX missing performance shortcut for GcArray(HiddenGcRef32)
-        if self.is_gcarrayofgcptr(typeid):
-            # a performance shortcut for GcArray(gcptr)
-            length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
-            item = obj + llmemory.gcarrayofptr_itemsoffset
-            while length > 0:
-                if self.points_to_valid_gc_object(item):
-                    newaddr = callback(item.address[0], arg)
-                    if newaddr is not None:
-                        item.address[0] = newaddr
-                item += llmemory.gcarrayofptr_singleitemoffset
-                length -= 1
-            return
+        #
+        # First, look if we need more than the simple fixed-size tracing
+        if not self.fast_path_tracing(typeid):
+            #
+            # Yes.  Two cases: either we are just a GcArray(gcptr), for
+            # which we have a special case for performance, or we call
+            # the slow path version.
+            # XXX missing performance shortcut for GcArray(HiddenGcRef32)
+            if self.is_gcarrayofgcptr(typeid):
+                length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
+                item = obj + llmemory.gcarrayofptr_itemsoffset
+                while length > 0:
+                    if self.points_to_valid_gc_object(item):
+                        newaddr = callback(item.address[0], arg)
+                        if newaddr is not None:
+                            item.address[0] = newaddr
+                    item += llmemory.gcarrayofptr_singleitemoffset
+                    length -= 1
+                return
+            self._trace_slow_path(obj, callback, arg)
+        #
+        # Do the tracing on the fixed-size part of the object.
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
             self._trace_see(obj, offsets[i], callback, arg)
             i += 1
+    do_trace._annspecialcase_ = 'specialize:arg(2)'
+
+    def _trace_slow_path(self, obj, callback, arg):
+        typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
             item = obj + self.varsize_offset_to_variable_part(typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
@@ -216,7 +239,18 @@ class GCBase(object):
                     j += 1
                 item += itemlength
                 length -= 1
-    do_trace._annspecialcase_ = 'specialize:arg(2)'
+        if self.has_custom_trace(typeid):
+            generator = self.get_custom_trace(typeid)
+            item = llmemory.NULL
+            while True:
+                item = generator(obj, item)
+                if not item:
+                    break
+                if self.points_to_valid_gc_object(item):
+                    newaddr = callback(item.address[0], arg)
+                    if newaddr is not None:
+                        item.address[0] = newaddr
+    _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
 
     def _trace_see(self, obj, ofs, callback, arg):
         if self.config.compressptr and llmemory.has_odd_value_marker(ofs):
@@ -342,7 +376,7 @@ class GCBase(object):
                     break
                 obj = self.run_finalizers.popleft()
                 finalizer = self.getfinalizer(self.get_type_id(obj))
-                finalizer(obj)
+                finalizer(obj, llmemory.NULL)
         finally:
             self.finalizer_lock_count -= 1
 

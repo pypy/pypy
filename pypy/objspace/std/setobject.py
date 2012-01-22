@@ -36,6 +36,8 @@ class W_BaseSetObject(W_Object):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
 
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
@@ -112,7 +114,7 @@ def next__SetIterObject(space, w_setiter):
 # some helper functions
 
 def newset(space):
-    return r_dict(space.eq_w, space.hash_w)
+    return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
 def make_setdata_from_w_iterable(space, w_iterable=None):
     """Return a new r_dict with the content of w_iterable."""
@@ -130,7 +132,7 @@ def _initialize_set(space, w_obj, w_iterable=None):
         w_obj.setdata = make_setdata_from_w_iterable(space, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
-    if space.is_true(space.isinstance(w_obj, space.w_set)):
+    if space.isinstance_w(w_obj, space.w_set):
         return W_FrozensetObject(space,
                                  make_setdata_from_w_iterable(space, w_obj))
     else:
@@ -451,12 +453,12 @@ def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
     if w_set.hash != 0:
         return space.wrap(w_set.hash)
-    hash = 1927868237
-    hash *= (len(w_set.setdata) + 1)
+    hash = r_uint(1927868237)
+    hash *= r_uint(len(w_set.setdata) + 1)
     for w_item in w_set.setdata:
         h = space.hash_w(w_item)
-        value = ((h ^ (h << 16) ^ 89869747)  * multi)
-        hash = intmask(hash ^ value)
+        value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
+        hash = hash ^ value
     hash = hash * 69069 + 907133923
     if hash == 0:
         hash = 590923713
@@ -466,12 +468,11 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    for w_key in w_left.setdata:
-        break
-    else:
+    try:
+        w_key, _ = w_left.setdata.popitem()
+    except KeyError:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    del w_left.setdata[w_key]
     return w_key
 
 def and__Set_Set(space, w_left, w_other):

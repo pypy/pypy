@@ -37,6 +37,9 @@ def setup_directory_structure(space):
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
+                    del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
+                    itertools = "hello_world = 42\n",
+                    gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
@@ -146,6 +149,8 @@ def _teardown(space, w_saved_modules):
 class AppTestImport:
 
     def setup_class(cls): # interpreter-level
+        cls.space = gettestobjspace(usemodules=['itertools'])
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
@@ -562,6 +567,58 @@ class AppTestImport:
         except ImportError:
             pass
 
+    def test_del_from_sys_modules(self):
+        try:
+            import del_sys_module
+        except ImportError:
+            pass    # ok
+        else:
+            assert False, 'should not work'
+
+    def test_shadow_builtin(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import gc' is supposed to always find the built-in module;
+        # like CPython, it is a built-in module, so it shadows everything,
+        # even though there is a gc.py.
+        import sys
+        assert 'gc' not in sys.modules
+        import gc
+        assert not hasattr(gc, 'should_never_be_seen')
+        assert '(built-in)' in repr(gc)
+        del sys.modules['gc']
+
+    def test_shadow_extension_1(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import itertools' is supposed to find itertools.py if there is
+        # one in sys.path.
+        import sys
+        assert 'itertools' not in sys.modules
+        import itertools
+        assert hasattr(itertools, 'hello_world')
+        assert not hasattr(itertools, 'count')
+        assert '(built-in)' not in repr(itertools)
+        del sys.modules['itertools']
+
+    def test_shadow_extension_2(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import itertools' is supposed to find the built-in module even
+        # if there is also one in sys.path as long as it is *after* the
+        # special entry '.../lib_pypy/__extensions__'.  (Note that for now
+        # there is one in lib_pypy/itertools.py, which should not be seen
+        # either; hence the (built-in) test below.)
+        import sys
+        assert 'itertools' not in sys.modules
+        sys.path.append(sys.path.pop(0))
+        try:
+            import itertools
+            assert not hasattr(itertools, 'hello_world')
+            assert hasattr(itertools, 'izip')
+            assert '(built-in)' in repr(itertools)
+        finally:
+            sys.path.insert(0, sys.path.pop())
+        del sys.modules['itertools']
+
+
 class TestAbi:
     def test_abi_tag(self):
         space1 = gettestobjspace(soabi='TEST')
@@ -756,6 +813,27 @@ class TestPycStuff:
                                                  stream.readall(),
                                                  write_pyc=False)
         finally:
+            stream.close()
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+
+    def test_load_source_module_dont_write_bytecode(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_True)
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        finally:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_False)
             stream.close()
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()

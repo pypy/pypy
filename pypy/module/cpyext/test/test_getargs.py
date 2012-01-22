@@ -129,6 +129,21 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
         assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
 
 
+    def test_pyarg_parse_string_old_buffer(self):
+        pybuffer = self.import_parser(
+            '''
+            Py_buffer buf;
+            PyObject *result;
+            if (!PyArg_ParseTuple(args, "s*", &buf)) {
+                return NULL;
+            }
+            result = PyString_FromStringAndSize(buf.buf, buf.len);
+            PyBuffer_Release(&buf);
+            return result;
+            ''')
+        assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
+
+
     def test_pyarg_parse_charbuf_and_length(self):
         """
         The `t#` format specifier can be used to parse a read-only 8-bit

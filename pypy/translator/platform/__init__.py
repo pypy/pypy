@@ -38,8 +38,11 @@ class Platform(object):
     c_environ = None
 
     relevant_environ = ()
+    log_errors = True
 
     so_prefixes = ('',)
+
+    extra_libs = ()
 
     def __init__(self, cc):
         if self.__class__ is Platform:
@@ -56,7 +59,11 @@ class Platform(object):
         compile_args = self._compile_args_from_eci(eci, standalone)
         ofiles = []
         for cfile in cfiles:
-            ofiles.append(self._compile_c_file(self.cc, cfile, compile_args))
+            # Windows hack: use masm for files ending in .asm
+            if str(cfile).lower().endswith('.asm'):
+                ofiles.append(self._compile_c_file(self.masm, cfile, []))
+            else:
+                ofiles.append(self._compile_c_file(self.cc, cfile, compile_args))
         return ofiles
 
     def execute(self, executable, args=None, env=None, compilation_info=None):
@@ -101,6 +108,8 @@ class Platform(object):
         bits = [self.__class__.__name__, 'cc=%r' % self.cc]
         for varname in self.relevant_environ:
             bits.append('%s=%r' % (varname, os.environ.get(varname)))
+        # adding sys.maxint to disambiguate windows
+        bits.append('%s=%r' % ('sys.maxint', sys.maxint))
         return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
@@ -120,11 +129,12 @@ class Platform(object):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.Error(line)
-            # ^^^ don't use ERROR, because it might actually be fine.
-            # Also, ERROR confuses lib-python/conftest.py.
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
             for line in stderr.splitlines():
@@ -160,7 +170,7 @@ class Platform(object):
             extra = self.shared_only
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
-    
+
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_library_dirs(library_dirs))
@@ -177,7 +187,8 @@ class Platform(object):
         link_files = self._linkfiles(eci.link_files)
         export_flags = self._exportsymbols_link_flags(eci)
         return (library_dirs + list(self.link_flags) + export_flags +
-                link_files + list(eci.link_extra) + libraries)
+                link_files + list(eci.link_extra) + libraries +
+                list(self.extra_libs))
 
     def _exportsymbols_link_flags(self, eci, relto=None):
         if eci.export_symbols:
@@ -222,13 +233,13 @@ class Platform(object):
         raise NotImplementedError("Needs to be overwritten")
 
     def _library_dirs_for_libffi(self):
-        raise NotImplementedError("Needs to be overwritten")        
+        raise NotImplementedError("Needs to be overwritten")
 
     def check___thread(self):
         return True
 
-    
-if sys.platform == 'linux2':
+
+if sys.platform.startswith('linux'):
     from pypy.translator.platform.linux import Linux, Linux64
     import platform
     if platform.architecture()[0] == '32bit':
@@ -236,10 +247,13 @@ if sys.platform == 'linux2':
     else:
         host_factory = Linux64
 elif sys.platform == 'darwin':
-    from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64
+    from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
     import platform
-    assert platform.machine() in ('i386', 'x86_64')
-    if sys.maxint <= 2147483647:
+    assert platform.machine() in ('Power Macintosh', 'i386', 'x86_64')
+
+    if  platform.machine() == 'Power Macintosh':
+        host_factory = Darwin_PowerPC
+    elif sys.maxint <= 2147483647:
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
@@ -250,6 +264,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif "openbsd" in sys.platform:
+    from pypy.translator.platform.openbsd import OpenBSD, OpenBSD_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = OpenBSD
+    else:
+        host_factory = OpenBSD_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host_factory = Windows

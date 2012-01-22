@@ -43,6 +43,12 @@ EXPORT(void) my_qsort(void *base, size_t num, size_t width, int(*compare)(const 
 	qsort(base, num, width, compare);
 }
 
+EXPORT(char) deref_LP_c_char_p(char** argv)
+{
+    char* s = *argv;
+    return s[0];
+}
+
 EXPORT(int *) _testfunc_ai8(int a[8])
 {
 	return a;
@@ -474,6 +480,16 @@ EXPORT(S2H) ret_2h_func(S2H inp)
 typedef struct {
 	int a, b, c, d, e, f, g, h;
 } S8I;
+
+
+
+typedef int (*CALLBACK_RECT)(RECT rect);
+
+EXPORT(int) call_callback_with_rect(CALLBACK_RECT cb, RECT rect)
+{
+    return cb(rect);
+}
+
 
 EXPORT(S8I) ret_8i_func(S8I inp)
 {

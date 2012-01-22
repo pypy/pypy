@@ -2,12 +2,10 @@
 """ The ffi for rpython, need to be imported for side effects
 """
 
-import sys
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.extfunc import register_external
-from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.module._minimal_curses import interp_curses
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -82,7 +80,7 @@ def tigetstr_llimpl(cap):
         return res
     finally:
         rffi.free_charp(ll_cap)
-    
+
 register_external(interp_curses._curses_tigetstr, [str], str,
                   export_name='_curses.tigetstr', llimpl=tigetstr_llimpl)
 

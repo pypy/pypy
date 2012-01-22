@@ -38,6 +38,20 @@ namespace pypy.runtime
             return false;
         }
 
+        public static void DEBUG_FLUSH()
+        {
+            if (debug_file != null)
+                debug_file.Flush();
+        }
+
+        public static int DEBUG_OFFSET()
+        {
+            StreamWriter sw = debug_file as StreamWriter;
+            if (sw == null)
+                return -1;
+            return (int)sw.BaseStream.Position; // XXX: the cast might be incorrect
+        }
+
         public static bool HAVE_DEBUG_PRINTS()
         {
             if ((have_debug_prints & 1) != 0) {

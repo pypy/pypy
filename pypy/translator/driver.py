@@ -500,7 +500,6 @@ class TranslationDriver(SimpleTaskEngine):
             cbuilder = CBuilder(self.translator, self.entry_point,
                                 config=self.config,
                                 secondary_entrypoints=self.secondary_entrypoints)
-            cbuilder.stackless = self.config.translation.stackless
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()
@@ -559,6 +558,7 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
             self.c_entryp = newexename
+        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     def task_compile_c(self):

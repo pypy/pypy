@@ -12,7 +12,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 
 from pypy.interpreter import function
 from pypy.objspace.descroperation import object_getattribute
-from pypy.rlib import jit, rstack # for resume points
+from pypy.rlib import jit
 from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
     LOOKUP_METHOD_mapdict_fill_cache_method
 
@@ -51,6 +51,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
             # this handles directly the common case
             #   module.function(args..)
             w_value = w_obj.getdictvalue(space, name)
+            # xxx we could also use the mapdict cache in that case, probably
         else:
             typ = type(w_descr)
             if typ is function.Function or typ is function.FunctionWithFixedCode:
@@ -64,7 +65,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
                             not jit.we_are_jitted()):
                         # let mapdict cache stuff
                         LOOKUP_METHOD_mapdict_fill_cache_method(
-                            f.getcode(), nameindex, w_obj, w_type, w_descr)
+                            space, f.getcode(), name, nameindex, w_obj, w_type)
                     return
     if w_value is None:
         w_value = space.getattr(w_obj, w_name)
@@ -83,7 +84,6 @@ def CALL_METHOD(f, oparg, *ignored):
         w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
         try:
             w_result = f.space.call_valuestack(w_callable, n, f)
-            rstack.resume_point("CALL_METHOD", f, n_args, returns=w_result)
         finally:
             f.dropvalues(n_args + 2)
     else:
@@ -108,7 +108,6 @@ def CALL_METHOD(f, oparg, *ignored):
             w_result = f.space.call_args_and_c_profile(f, w_callable, args)
         else:
             w_result = f.space.call_args(w_callable, args)
-        rstack.resume_point("CALL_METHOD_KW", f, returns=w_result)
     f.pushvalue(w_result)
 
 

@@ -16,6 +16,7 @@ else:
         return space.str_w(w_obj)
 
     def w_string(space, buf, len=-1):
+        #assert type(len) is int
         if len < 0:
             return space.wrap(rffi.charp2str(buf))
         else:

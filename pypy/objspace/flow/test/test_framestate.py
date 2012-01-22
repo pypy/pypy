@@ -25,7 +25,7 @@ class TestFrameState:
         dummy = Constant(None)
         #dummy.dummy = True
         arg_list = ([Variable() for i in range(formalargcount)] +
-                    [dummy] * (len(frame.fastlocals_w) - formalargcount))
+                    [dummy] * (frame.nlocals - formalargcount))
         frame.setfastscope(arg_list)
         return frame
 
@@ -42,7 +42,7 @@ class TestFrameState:
     def test_neq_hacked_framestate(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Variable()
+        frame.locals_stack_w[frame.nlocals-1] = Variable()
         fs2 = FrameState(frame)
         assert fs1 != fs2
 
@@ -55,7 +55,7 @@ class TestFrameState:
     def test_union_on_hacked_framestates(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Variable()
+        frame.locals_stack_w[frame.nlocals-1] = Variable()
         fs2 = FrameState(frame)
         assert fs1.union(fs2) == fs2  # fs2 is more general
         assert fs2.union(fs1) == fs2  # fs2 is more general
@@ -63,7 +63,7 @@ class TestFrameState:
     def test_restore_frame(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Variable()
+        frame.locals_stack_w[frame.nlocals-1] = Variable()
         fs1.restoreframe(frame)
         assert fs1 == FrameState(frame)
 
@@ -82,25 +82,26 @@ class TestFrameState:
     def test_getoutputargs(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Variable()
+        frame.locals_stack_w[frame.nlocals-1] = Variable()
         fs2 = FrameState(frame)
         outputargs = fs1.getoutputargs(fs2)
         # 'x' -> 'x' is a Variable
-        # fastlocals_w[-1] -> fastlocals_w[-1] is Constant(None)
-        assert outputargs == [frame.fastlocals_w[0], Constant(None)]
+        # locals_w[n-1] -> locals_w[n-1] is Constant(None)
+        assert outputargs == [frame.locals_stack_w[0], Constant(None)]
 
     def test_union_different_constants(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Constant(42)
+        frame.locals_stack_w[frame.nlocals-1] = Constant(42)
         fs2 = FrameState(frame)
         fs3 = fs1.union(fs2)
         fs3.restoreframe(frame)
-        assert isinstance(frame.fastlocals_w[-1], Variable) # generalized
+        assert isinstance(frame.locals_stack_w[frame.nlocals-1], Variable)
+                                 # ^^^ generalized
 
     def test_union_spectag(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
-        frame.fastlocals_w[-1] = Constant(SpecTag())
+        frame.locals_stack_w[frame.nlocals-1] = Constant(SpecTag())
         fs2 = FrameState(frame)
         assert fs1.union(fs2) is None   # UnionError

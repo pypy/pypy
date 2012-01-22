@@ -27,7 +27,7 @@ documentation in the 'pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2011
+PyPy Copyright holders 2003-2012
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -42,34 +42,39 @@ copyrighted by one or more of the following people and organizations:
     Samuele Pedroni
     Michael Hudson
     Holger Krekel
+    Alex Gaynor
     Christian Tismer
+    Hakan Ardo
     Benjamin Peterson
+    David Schneider
     Eric van Riet Paap
-    Anders Chrigström
-    Håkan Ardö
+    Anders Chrigstrom
     Richard Emslie
     Dan Villiom Podlaski Christiansen
     Alexander Schremmer
-    Alex Gaynor
-    David Schneider
-    Aurelién Campeas
+    Lukas Diekmann
+    Aurelien Campeas
     Anders Lehmann
     Camillo Bruni
     Niklaus Haldimann
+    Sven Hager
     Leonardo Santagada
     Toon Verwaest
     Seo Sanghyeon
+    Justin Peel
     Lawrence Oluyede
     Bartosz Skowron
     Jakub Gustak
     Guido Wesdorp
-    Adrien Di Mascio
+    Daniel Roberts
     Laura Creighton
+    Adrien Di Mascio
     Ludovic Aubry
     Niko Matsakis
-    Daniel Roberts
+    Wim Lavrijsen
+    Matti Picus
     Jason Creighton
-    Jacob Hallén
+    Jacob Hallen
     Alex Martelli
     Anders Hammarquist
     Jan de Mooij
@@ -83,29 +88,36 @@ copyrighted by one or more of the following people and organizations:
     Alexandre Fayolle
     Marius Gedminas
     Simon Burton
+    David Edelsohn
     Jean-Paul Calderone
     John Witulski
-    Wim Lavrijsen
+    Timo Paulssen
+    holger krekel
+    Dario Bertini
+    Mark Pearse
     Andreas Stührk
     Jean-Philippe St. Pierre
     Guido van Rossum
     Pavel Vinogradov
     Valentino Volonghi
     Paul deGrandis
+    Ilya Osadchiy
+    Ronny Pfannschmidt
     Adrian Kuhn
     tav
     Georg Brandl
+    Philip Jenvey
     Gerald Klix
     Wanja Saatkamp
     Boris Feigin
     Oscar Nierstrasz
-    Dario Bertini
     David Malcolm
     Eugene Oden
     Henry Mason
+    Jeff Terrace
     Lukas Renggli
     Guenter Jantzen
-    Ronny Pfannschmidt
+    Ned Batchelder
     Bert Freudenberg
     Amit Regmi
     Ben Young
@@ -122,8 +134,8 @@ copyrighted by one or more of the following people and organizations:
     Jared Grubb
     Karl Bartel
     Gabriel Lavoie
-    Brian Dorsey
     Victor Stinner
+    Brian Dorsey
     Stuart Williams
     Toby Watson
     Antoine Pitrou
@@ -134,19 +146,22 @@ copyrighted by one or more of the following people and organizations:
     Jonathan David Riehl
     Elmo Mäntynen
     Anders Qvist
-    Beatrice Düring
+    Beatrice During
     Alexander Sedov
+    Corbin Simpson
     Vincent Legoll
-    Alan McIntyre
     Romain Guillebert
+    Alan McIntyre
     Alex Perry
     Jens-Uwe Mager
+    Simon Cross
     Dan Stromberg
-    Lukas Diekmann
+    Guillebert Romain
     Carl Meyer
     Pieter Zieschang
     Alejandro J. Cura
     Sylvain Thenault
+    Christoph Gerum
     Travis Francis Athougies
     Henrik Vendelbo
     Lutz Paelike
@@ -155,8 +170,10 @@ copyrighted by one or more of the following people and organizations:
     Lucio Torre
     Lene Wagner
     Miguel de Val Borro
-    Ignas Mikalajunas
     Artur Lisiecki
+    Bruno Gola
+    Ignas Mikalajunas
+    Stefano Rivera
     Joshua Gilbert
     Godefroid Chappelle
     Yusei Tahara
@@ -165,26 +182,31 @@ copyrighted by one or more of the following people and organizations:
     Gustavo Niemeyer
     William Leslie
     Akira Li
-    Kristján Valur Jónsson
+    Kristjan Valur Jonsson
     Bobby Impollonia
+    Michael Hudson-Doyle
+    Laurence Tratt
+    Yasir Suhail
     Andrew Thompson
     Anders Sigfridsson
+    Floris Bruynooghe
     Jacek Generowicz
     Dan Colish
-    Sven Hager
     Zooko Wilcox-O Hearn
-    Anders Hammarquist
+    Dan Loewenherz
+    Chris Lambacher
     Dinu Gherman
-    Dan Colish
+    Brett Cannon
     Daniel Neuhäuser
     Michael Chermside
     Konrad Delong
     Anna Ravencroft
     Greg Price
     Armin Ronacher
+    Christian Muirhead
     Jim Baker
-    Philip Jenvey
     Rodrigo Araújo
+    Romain Guillebert
 
     Heinrich-Heine University, Germany 
     Open End AB (formerly AB Strakt), Sweden

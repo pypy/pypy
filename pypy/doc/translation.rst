@@ -155,7 +155,7 @@ the types and their attributes in some detail:
                    function.  The two input variables are the exception class
                    and the exception value, respectively.  (No other block will
                    actually link to the exceptblock if the function does not
-                   explicitely raise exceptions.)
+                   explicitly raise exceptions.)
 
 
 ``Block``
@@ -325,7 +325,7 @@ Mutable Values and Containers
 Mutable objects need special treatment during annotation, because
 the annotation of contained values needs to be possibly updated to account
 for mutation operations, and consequently the annotation information
-reflown through the relevant parts of the flow the graphs.
+reflown through the relevant parts of the flow graphs.
 
 * ``SomeList`` stands for a list of homogeneous type (i.e. all the
   elements of the list are represented by a single common ``SomeXxx``
@@ -503,8 +503,8 @@ Malloc Removal
 
 Since RPython is a garbage collected language there is a lot of heap memory
 allocation going on all the time, which would either not occur at all in a more
-traditional explicitely managed language or results in an object which dies at
-a time known in advance and can thus be explicitely deallocated. For example a
+traditional explicitly managed language or results in an object which dies at
+a time known in advance and can thus be explicitly deallocated. For example a
 loop of the following form::
 
     for i in range(n):
@@ -552,14 +552,15 @@ The Stackless Transform
 
 The stackless transform converts functions into a form that knows how
 to save the execution point and active variables into a heap structure
-and resume execution at that point.  This is used to implement
+and resume execution at that point.  This was used to implement
 coroutines as an RPython-level feature, which in turn are used to
-implement `coroutines, greenlets and tasklets`_ as an application
+implement coroutines, greenlets and tasklets as an application
 level feature for the Standard Interpreter.
 
-Enable the stackless transformation with :config:`translation.stackless`.
+The stackless transformation has been deprecated and is no longer
+available in trunk.  It has been replaced with continulets_.
 
-.. _`coroutines, greenlets and tasklets`: stackless.html
+.. _continulets: stackless.html
 
 .. _`preparing the graphs for source generation`:
 
@@ -684,7 +685,7 @@ backend as part of his `Master's thesis`_, the Google's Summer of Code
 .. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
-.. _`Master's thesis`: http://codespeak.net/~antocuni/Implementing%20Python%20in%20.NET.pdf
+.. _`Master's thesis`: http://buildbot.pypy.org/misc/Implementing%20Python%20in%20.NET.pdf
 .. _GenCLI: cli-backend.html
 
 GenJVM
@@ -695,7 +696,7 @@ programs directly into Java bytecode, similarly to what GenCLI does.
 
 So far it is the second most mature high level backend after GenCLI:
 it still can't translate the full Standard Interpreter, but after the
-Leysin sprint we were able to compile and run the rpytstone and
+Leysin sprint we were able to compile and run the rpystone and
 richards benchmarks.
 
 GenJVM is almost entirely the work of Niko Matsakis, who worked on it

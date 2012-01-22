@@ -154,7 +154,6 @@ class AbstractMatchContext(object):
         return (fmarks[groupnum], fmarks[groupnum+1])
 
     def group(self, groupnum=0):
-        "NOT_RPYTHON"   # compatibility
         frm, to = self.span(groupnum)
         if 0 <= frm <= to:
             return self._string[frm:to]
@@ -391,6 +390,8 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             if self.num_pending >= min:
                 while enum is not None and ptr == ctx.match_end:
                     enum = enum.move_to_next_result(ctx)
+                    # matched marks for zero-width assertions
+                    marks = ctx.match_marks
             #
             if enum is not None:
                 # matched one more 'item'.  record it and continue.
@@ -759,17 +760,27 @@ def match_repeated_ignore(ctx, ptr, oldptr, length):
 @specializectx
 def find_repetition_end(ctx, ppos, ptr, maxcount):
     end = ctx.end
-    if maxcount <= 1:
-        if maxcount == 1 and ptr < end:
-            # Relatively common case: maxcount == 1.  If we are not at the
-            # end of the string, it's done by a single direct check.
-            op = ctx.pat(ppos)
-            for op1, checkerfn in unroll_char_checker:
-                if op1 == op:
-                    if checkerfn(ctx, ptr, ppos):
-                        return ptr + 1
+    ptrp1 = ptr + 1
+    # First get rid of the cases where we don't have room for any match.
+    if maxcount <= 0 or ptrp1 > end:
         return ptr
-    elif maxcount != 65535:
+    # Check the first character directly.  If it doesn't match, we are done.
+    # The idea is to be fast for cases like re.search("b+"), where we expect
+    # the common case to be a non-match.  It's much faster with the JIT to
+    # have the non-match inlined here rather than detect it in the fre() call.
+    op = ctx.pat(ppos)
+    for op1, checkerfn in unroll_char_checker:
+        if op1 == op:
+            if checkerfn(ctx, ptr, ppos):
+                break
+    else:
+        return ptr
+    # It matches at least once.  If maxcount == 1 (relatively common),
+    # then we are done.
+    if maxcount == 1:
+        return ptrp1
+    # Else we really need to count how many times it matches.
+    if maxcount != 65535:
         # adjust end
         end1 = ptr + maxcount
         if end1 <= end:
@@ -777,7 +788,7 @@ def find_repetition_end(ctx, ppos, ptr, maxcount):
     op = ctx.pat(ppos)
     for op1, fre in unroll_fre_checker:
         if op1 == op:
-            return fre(ctx, ptr, end, ppos)
+            return fre(ctx, ptrp1, end, ppos)
     raise Error("rsre.find_repetition_end[%d]" % op)
 
 @specializectx

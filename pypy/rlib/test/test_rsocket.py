@@ -297,24 +297,25 @@ def test_getaddrinfo_http():
     e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
 
-def test_getaddrinfo_codespeak():
-    lst = getaddrinfo('codespeak.net', None)
+def test_getaddrinfo_pydotorg():
+    lst = getaddrinfo('python.org', None)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '88.198.193.90':
+        if addr.get_host() == '82.94.164.162':
             found = True
     assert found, lst
 
 def test_getaddrinfo_no_reverse_lookup():
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
     # Python2.3 on Windows returns the hostname.
-    lst = getaddrinfo('213.239.226.252', None, flags=AI_NUMERICHOST)
+    lst = getaddrinfo('82.94.164.162', None, flags=AI_NUMERICHOST)
     assert isinstance(lst, list)
     found = False
+    print lst
     for family, socktype, protocol, canonname, addr in lst:
-        assert canonname != 'codespeak.net'
-        if addr.get_host() == '213.239.226.252':
+        assert 'python.org' not in canonname
+        if addr.get_host() == '82.94.164.162':
             found = True
     assert found, lst
 

@@ -76,7 +76,10 @@ class Assembler(object):
                 TYPE = llmemory.Address
             if TYPE == llmemory.Address:
                 value = heaptracker.adr2int(value)
-            elif not isinstance(value, ComputedIntSymbolic):
+            if TYPE is lltype.SingleFloat:
+                value = longlong.singlefloat2int(value)
+            if not isinstance(value, (llmemory.AddressAsInt,
+                                      ComputedIntSymbolic)):
                 value = lltype.cast_primitive(lltype.Signed, value)
                 if allow_short and -128 <= value <= 127:
                     # emit the constant as a small integer

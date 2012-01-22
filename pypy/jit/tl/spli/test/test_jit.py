@@ -36,7 +36,7 @@ class TestSPLIJit(JitMixin):
                 i = i + 1
             return i
         self.interpret(f, [])
-        self.check_loops(new_with_vtable=0)
+        self.check_resops(new_with_vtable=0)
 
     def test_bridge(self):
         py.test.skip('We currently cant virtualize across bridges')
@@ -52,7 +52,7 @@ class TestSPLIJit(JitMixin):
             return total
 
         self.interpret(f, [1, 10])
-        self.check_loops(new_with_vtable=0)
+        self.check_resops(new_with_vtable=0)
 
     def test_bridge_bad_case(self):
         py.test.skip('We currently cant virtualize across bridges')
@@ -67,7 +67,7 @@ class TestSPLIJit(JitMixin):
             return a + b
 
         self.interpret(f, [1, 10])
-        self.check_loops(new_with_vtable=1) # XXX should eventually be 0?
+        self.check_resops(new_with_vtable=1) # XXX should eventually be 0?
         # I think it should be either 0 or 2, 1 makes little sense
         # If the loop after entering goes first time to the bridge, a
         # is rewrapped again, without preserving the identity. I'm not

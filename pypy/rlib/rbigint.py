@@ -40,7 +40,7 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 # In that case, do 5 bits at a time.  The potential drawback is that
 # a table of 2**5 intermediate results is computed.
 
-FIVEARY_CUTOFF = 8
+## FIVEARY_CUTOFF = 8   disabled for now
 
 
 def _mask_digit(x):
@@ -124,7 +124,7 @@ class rbigint(object):
         return len(self._digits)
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def fromint(intval):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
@@ -156,7 +156,7 @@ class rbigint(object):
         return v
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def frombool(b):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
@@ -179,7 +179,7 @@ class rbigint(object):
             raise OverflowError
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def _fromfloat_finite(dval):
         sign = 1
         if dval < 0.0:
@@ -201,7 +201,7 @@ class rbigint(object):
         return v
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     @specialize.argtype(0)
     def fromrarith_int(i):
         # This function is marked as pure, so you must not call it and
@@ -209,12 +209,13 @@ class rbigint(object):
         return rbigint(*args_from_rarith_int(i))
 
     @staticmethod
-    @jit.purefunction
+    @jit.elidable
     def fromdecimalstr(s):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
         return _decimalstr_to_bigint(s)
 
+    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.
@@ -228,7 +229,7 @@ class rbigint(object):
         sign = self.sign
         if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
-        return intmask(x * sign)
+        return intmask(intmask(x) * sign)
 
     def tolonglong(self):
         return _AsLongLong(self)
@@ -294,6 +295,7 @@ class rbigint(object):
     def ne(self, other):
         return not self.eq(other)
 
+    @jit.elidable
     def lt(self, other):
         if self.sign > other.sign:
             return False
@@ -456,7 +458,7 @@ class rbigint(object):
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if b.numdigits() <= FIVEARY_CUTOFF:
+        if 1:   ## b.numdigits() <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             i = b.numdigits() - 1
@@ -469,26 +471,30 @@ class rbigint(object):
                         z = _help_mult(z, a, c)
                     j >>= 1
                 i -= 1
-        else:
-            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where c != None.
-            # z still holds 1L
-            table = [z] * 32
-            table[0] = z
-            for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], a, c)
-            i = b.numdigits() - 1
-            while i >= 0:
-                bi = b.digit(i)
-                j = SHIFT - 5
-                while j >= 0:
-                    index = (bi >> j) & 0x1f
-                    for k in range(5):
-                        z = _help_mult(z, z, c)
-                    if index:
-                        z = _help_mult(z, table[index], c)
-                    j -= 5
-                i -= 1
+##        else:
+##            This code is disabled for now, because it assumes that
+##            SHIFT is a multiple of 5.  It could be fixed but it looks
+##            like it's more troubles than benefits...
+##
+##            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
+##            # This is only useful in the case where c != None.
+##            # z still holds 1L
+##            table = [z] * 32
+##            table[0] = z
+##            for i in range(1, 32):
+##                table[i] = _help_mult(table[i-1], a, c)
+##            i = b.numdigits() - 1
+##            while i >= 0:
+##                bi = b.digit(i)
+##                j = SHIFT - 5
+##                while j >= 0:
+##                    index = (bi >> j) & 0x1f
+##                    for k in range(5):
+##                        z = _help_mult(z, z, c)
+##                    if index:
+##                        z = _help_mult(z, table[index], c)
+##                    j -= 5
+##                i -= 1
 
         if negativeOutput and z.sign != 0:
             z = z.sub(c)
@@ -915,7 +921,7 @@ def _k_mul(a, b):
     ah, al = _kmul_split(a, shift)
     assert ah.sign == 1    # the split isn't degenerate
 
-    if a == b:
+    if a is b:
         bh = ah
         bl = al
     else:
@@ -969,26 +975,21 @@ def _k_mul(a, b):
     i = ret.numdigits() - shift  # # digits after shift
     _v_isub(ret, shift, i, t2, t2.numdigits())
     _v_isub(ret, shift, i, t1, t1.numdigits())
-    del t1, t2
 
     # 6. t3 <- (ah+al)(bh+bl), and add into result.
     t1 = _x_add(ah, al)
-    del ah, al
 
-    if a == b:
+    if a is b:
         t2 = t1
     else:
         t2 = _x_add(bh, bl)
-    del bh, bl
 
     t3 = _k_mul(t1, t2)
-    del t1, t2
     assert t3.sign >=0
 
     # Add t3.  It's not obvious why we can't run out of room here.
     # See the (*) comment after this function.
     _v_iadd(ret, shift, i, t3, t3.numdigits())
-    del t3
 
     ret._normalize()
     return ret
@@ -1079,7 +1080,6 @@ def _k_lopsided_mul(a, b):
         # Add into result.
         _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
                  product, product.numdigits())
-        del product
 
         bsize -= nbtouse
         nbdone += nbtouse
@@ -1345,6 +1345,7 @@ def _AsScaledDouble(v):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
+@jit.dont_look_inside
 def _AsDouble(n):
     """ Get a C double from a bigint object. """
     # This is a "correctly-rounded" version from Python 2.7.
@@ -1383,7 +1384,7 @@ def _AsDouble(n):
 
     # Now remove the excess 2 bits, rounding to nearest integer (with
     # ties rounded to even).
-    q = (q >> 2) + (bool(q & 2) and bool(q & 5))
+    q = (q >> 2) + r_uint((bool(q & 2) and bool(q & 5)))
 
     if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
                              q == r_ulonglong(1) << DBL_MANT_DIG):
@@ -1539,8 +1540,8 @@ def _bigint_true_divide(a, b):
     assert extra_bits == 2 or extra_bits == 3
 
     # Round by remembering a modified copy of the low digit of x
-    mask = 1 << (extra_bits - 1)
-    low = x.udigit(0) | inexact
+    mask = r_uint(1 << (extra_bits - 1))
+    low = x.udigit(0) | r_uint(inexact)
     if (low & mask) != 0 and (low & (3*mask-1)) != 0:
         low += mask
     x_digit_0 = low & ~(mask-1)
@@ -1598,7 +1599,7 @@ def _format(a, digits, prefix='', suffix=''):
     elif (base & (base - 1)) == 0:
         # JRH: special case for power-of-2 bases
         accum = 0
-        accumbits = 0  # # of bits in accum 
+        accumbits = 0  # # of bits in accum
         basebits = 1   # # of bits in base-1
         i = base
         while 1:
@@ -1789,7 +1790,7 @@ def _AsULonglong_ignore_sign(v):
     i = v.numdigits() - 1
     while i >= 0:
         prev = x
-        x = (x << SHIFT) + v.widedigit(i)
+        x = (x << SHIFT) + r_ulonglong(v.widedigit(i))
         if (x >> SHIFT) != prev:
                 raise OverflowError(
                     "long int too large to convert to unsigned long long int")
@@ -1832,8 +1833,8 @@ def _hash(v):
         if x < v.udigit(i):
             x += 1
         i -= 1
-    x = intmask(x * sign)
-    return x
+    res = intmask(intmask(x) * sign)
+    return res
 
 #_________________________________________________________________
 

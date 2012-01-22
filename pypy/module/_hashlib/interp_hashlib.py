@@ -4,31 +4,37 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rlib import rgc, ropenssl
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
+
+# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
+# Used for adding memory pressure. Last number is an (under?)estimate of
+# EVP_PKEY_CTX's size.
+# XXX: Make a better estimate here
+HASH_MALLOC_SIZE = ropenssl.EVP_MD_SIZE + ropenssl.EVP_MD_CTX_SIZE \
+        + rffi.sizeof(ropenssl.EVP_MD) * 2 + 208
 
 class W_Hash(Wrappable):
     ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
 
     def __init__(self, space, name):
         self.name = name
+        digest_type = self.digest_type_by_name(space)
+        self.digest_size = rffi.getintfield(digest_type, 'c_md_size')
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
-        digest = ropenssl.EVP_get_digestbyname(name)
-        if not digest:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unknown hash function"))
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        ropenssl.EVP_DigestInit(ctx, digest)
+        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
+        ropenssl.EVP_DigestInit(ctx, digest_type)
         self.ctx = ctx
 
     def __del__(self):
@@ -36,6 +42,13 @@ class W_Hash(Wrappable):
         if self.ctx:
             ropenssl.EVP_MD_CTX_cleanup(self.ctx)
             lltype.free(self.ctx, flavor='raw')
+
+    def digest_type_by_name(self, space):
+        digest_type = ropenssl.EVP_get_digestbyname(self.name)
+        if not digest_type:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("unknown hash function"))
+        return digest_type
 
     def descr_repr(self, space):
         addrstring = self.getaddrstring(space)
@@ -65,59 +78,30 @@ class W_Hash(Wrappable):
         "Return the digest value as a string of hexadecimal digits."
         digest = self._digest(space)
         hexdigits = '0123456789abcdef'
-        result = StringBuilder(self._digest_size() * 2)
+        result = StringBuilder(self.digest_size * 2)
         for c in digest:
             result.append(hexdigits[(ord(c) >> 4) & 0xf])
             result.append(hexdigits[ ord(c)       & 0xf])
         return space.wrap(result.build())
 
     def get_digest_size(self, space):
-        return space.wrap(self._digest_size())
+        return space.wrap(self.digest_size)
 
     def get_block_size(self, space):
-        return space.wrap(self._block_size())
+        digest_type = self.digest_type_by_name(space)
+        block_size = rffi.getintfield(digest_type, 'c_block_size')
+        return space.wrap(block_size)
 
     def _digest(self, space):
-        copy = self.copy(space)
-        ctx = copy.ctx
-        digest_size = self._digest_size()
-        digest = lltype.malloc(rffi.CCHARP.TO, digest_size, flavor='raw')
+        with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
+            with self.lock:
+                ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
+            digest_size = self.digest_size
+            with lltype.scoped_alloc(rffi.CCHARP.TO, digest_size) as digest:
+                ropenssl.EVP_DigestFinal(ctx, digest, None)
+                ropenssl.EVP_MD_CTX_cleanup(ctx)
+                return rffi.charpsize2str(digest, digest_size)
 
-        try:
-            ropenssl.EVP_DigestFinal(ctx, digest, None)
-            return rffi.charpsize2str(digest, digest_size)
-        finally:
-            keepalive_until_here(copy)
-            lltype.free(digest, flavor='raw')
-
-
-    def _digest_size(self):
-        # XXX This isn't the nicest way, but the EVP_MD_size OpenSSL
-        # XXX function is defined as a C macro on OS X and would be
-        # XXX significantly harder to implement in another way.
-        # Values are digest sizes in bytes
-        return {
-            'md5':    16, 'MD5':    16,
-            'sha1':   20, 'SHA1':   20,
-            'sha224': 28, 'SHA224': 28,
-            'sha256': 32, 'SHA256': 32,
-            'sha384': 48, 'SHA384': 48,
-            'sha512': 64, 'SHA512': 64,
-            }.get(self.name, 0)
-
-    def _block_size(self):
-        # XXX This isn't the nicest way, but the EVP_MD_CTX_block_size
-        # XXX OpenSSL function is defined as a C macro on some systems
-        # XXX and would be significantly harder to implement in
-        # XXX another way.
-        return {
-            'md5':     64, 'MD5':     64,
-            'sha1':    64, 'SHA1':    64,
-            'sha224':  64, 'SHA224':  64,
-            'sha256':  64, 'SHA256':  64,
-            'sha384': 128, 'SHA384': 128,
-            'sha512': 128, 'SHA512': 128,
-            }.get(self.name, 0)
 
 W_Hash.typedef = TypeDef(
     'HASH',
@@ -131,6 +115,7 @@ W_Hash.typedef = TypeDef(
     digestsize=GetSetProperty(W_Hash.get_digest_size),
     block_size=GetSetProperty(W_Hash.get_block_size),
     )
+W_Hash.acceptable_as_base_class = False
 
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
@@ -146,6 +131,6 @@ def make_new_hash(name, funcname):
         return new(space, name, string)
     return new_hash
 
-for name in algorithms:
-    newname = 'new_%s' % (name,)
-    globals()[newname] = make_new_hash(name, newname)
+for _name in algorithms:
+    _newname = 'new_%s' % (_name,)
+    globals()[_newname] = make_new_hash(_name, _newname)

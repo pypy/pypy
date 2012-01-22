@@ -18,4 +18,5 @@ if len(sys.argv) == 1 and os.path.dirname(sys.argv[0]) in '.':
 if __name__ == '__main__':
     import tool.autopath
     import pytest
-    sys.exit(pytest.main())
+    import pytest_cov
+    sys.exit(pytest.main(plugins=[pytest_cov]))

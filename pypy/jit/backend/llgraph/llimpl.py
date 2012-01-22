@@ -7,9 +7,8 @@ when executing on top of the llinterpreter.
 import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
-from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
-                                         BoxInt, BoxPtr, BoxObj, BoxFloat,
-                                         REF, INT, FLOAT)
+from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -18,11 +17,12 @@ from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.extregistry import ExtRegistryEntry
 
-from pypy.jit.metainterp import resoperation, executor
+from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
+from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -50,6 +50,11 @@ def _to_opaque(value):
         value._the_opaque_pointer = op
         return op
 
+def _normalize(value):
+    if isinstance(value, lltype._ptr):
+        value = lltype.top_container(value._obj)
+    return value
+
 def from_opaque_string(s):
     if isinstance(s, str):
         return s
@@ -57,6 +62,12 @@ def from_opaque_string(s):
         return OOSupport.from_rstr(s)
     else:
         return LLSupport.from_rstr(s)
+
+FLOAT_ARRAY_TP = lltype.Ptr(lltype.Array(lltype.Float, hints={"nolength": True}))
+def maybe_uncast(TP, array):
+    if array._TYPE.TO._hints.get("uncast_on_llgraph"):
+        array = rffi.cast(TP, array)
+    return array
 
 # a list of argtypes of all operations - couldn't find any and it's
 # very useful.  Note however that the table is half-broken here and
@@ -137,6 +148,7 @@ TYPES = {
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('varargs',), 'intorptr'),
     'cond_call_gc_wb' : (('ptr', 'ptr'), None),
+    'cond_call_gc_wb_array': (('ptr', 'int', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -159,6 +171,7 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
+    'cast_int_to_ptr' : (('int',), 'ref'),
     'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
@@ -316,16 +329,31 @@ def compile_start_ref_var(loop, TYPE):
     _variables.append(v)
     return r
 
+def compile_started_vars(clt):
+    if not hasattr(clt, '_debug_argtypes'):    # only when compiling the loop
+        argtypes = [v.concretetype for v in _variables]
+        try:
+            clt._debug_argtypes = argtypes
+        except AttributeError:    # when 'clt' is actually a translated
+            pass                  # GcStruct
+
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type, arg_types):
+def compile_add_descr(loop, ofs, type, arg_types, extrainfo, width):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type, arg_types=arg_types)
+    op.descr = Descr(ofs, type, arg_types=arg_types, extrainfo=extrainfo, width=width)
+
+def compile_add_descr_arg(loop, ofs, type, arg_types):
+    from pypy.jit.backend.llgraph.runner import Descr
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    assert isinstance(type, str) and len(type) == 1
+    op.args.append(Descr(ofs, type, arg_types=arg_types))
 
 def compile_add_loop_token(loop, descr):
     if we_are_translated():
@@ -333,6 +361,16 @@ def compile_add_loop_token(loop, descr):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
+
+TARGET_TOKENS = weakref.WeakKeyDictionary()
+
+def compile_add_target_token(loop, descr, clt):
+    # here, 'clt' is the compiled_loop_token of the original loop that
+    # we are compiling
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    descrobj = _normalize(descr)
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args, clt
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -368,13 +406,25 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target):
+def compile_add_jump_target(loop, targettoken, source_clt):
     loop = _from_opaque(loop)
-    loop_target = _from_opaque(loop_target)
+    descrobj = _normalize(targettoken)
+    (loop_target, target_opindex, target_inputargs, target_clt
+        ) = TARGET_TOKENS[descrobj]
+    #
+    try:
+        assert source_clt._debug_argtypes == target_clt._debug_argtypes
+    except AttributeError:   # when translated
+        pass
+    #
     op = loop.operations[-1]
     op.jump_target = loop_target
+    op.jump_target_opindex = target_opindex
+    op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(loop_target.inputargs)
+    assert [v.concretetype for v in op.args] == (
+           [v.concretetype for v in target_inputargs])
+    #
     if loop_target == loop:
         log.info("compiling new loop")
     else:
@@ -431,8 +481,11 @@ class Frame(object):
         self._may_force = -1
 
     def getenv(self, v):
+        from pypy.jit.backend.llgraph.runner import Descr
         if isinstance(v, Constant):
             return v.value
+        elif isinstance(v, Descr):
+            return v
         else:
             return self.env[v]
 
@@ -505,10 +558,11 @@ class Frame(object):
                 self.opindex += 1
                 continue
             if op.opnum == rop.JUMP:
-                assert len(op.jump_target.inputargs) == len(args)
-                self.env = dict(zip(op.jump_target.inputargs, args))
+                inputargs = op.jump_target_inputargs
+                assert len(inputargs) == len(args)
+                self.env = dict(zip(inputargs, args))
                 self.loop = op.jump_target
-                self.opindex = 0
+                self.opindex = op.jump_target_opindex
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
                 if self.verbose:
@@ -601,15 +655,24 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_debug_merge_point(self, _, value, recdepth):
+    def op_label(self, _, *args):
+        op = self.loop.operations[self.opindex]
+        assert op.opnum == rop.LABEL
+        assert len(op.args) == len(args)
+        newenv = {}
+        for v, value in zip(op.args, args):
+            newenv[v] = value
+        self.env = newenv
+
+    def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
-        loc = ConstPtr(value)._get_str()
         try:
             stats = get_stats()
         except AttributeError:
             pass
         else:
-            stats.add_merge_point_location(loc)
+            stats.add_merge_point_location(args[1:])
+        pass
 
     def op_guard_true(self, _, value):
         if not value:
@@ -800,6 +863,49 @@ class Frame(object):
         else:
             raise NotImplementedError
 
+    def op_getinteriorfield_gc(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_gc_ptr(array, index, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_gc_int(array, index, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_gc_float(array, index, descr.ofs)
+        else:
+            raise NotImplementedError
+
+    def op_getinteriorfield_raw(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_raw_ptr(array, index, descr.width, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_raw_int(array, index, descr.width, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_raw_float(array, index, descr.width, descr.ofs)
+        else:
+            raise NotImplementedError
+
+    def op_setinteriorfield_gc(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_gc_ptr(array, index, descr.ofs,
+                                              newvalue)
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_gc_int(array, index, descr.ofs,
+                                              newvalue)
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_gc_float(array, index, descr.ofs,
+                                                newvalue)
+        else:
+            raise NotImplementedError
+
+    def op_setinteriorfield_raw(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_raw_ptr(array, index, newvalue, descr.width, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_raw_int(array, index, newvalue, descr.width, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_raw_float(array, index, newvalue, descr.width, descr.ofs)
+        else:
+            raise NotImplementedError
+
     def op_setfield_gc(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
@@ -821,6 +927,12 @@ class Frame(object):
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=False)
+
+    def op_call_release_gil(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=True)
+
+    def _do_call(self, calldescr, func, args, call_with_llptr):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         assert _call_args_i == _call_args_r == _call_args_f == []
@@ -839,7 +951,8 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order, calldescr)
+            return _do_call_common(func, args_in_order, calldescr,
+                                   call_with_llptr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -851,6 +964,9 @@ class Frame(object):
     def op_cond_call_gc_wb(self, descr, a, b):
         py.test.skip("cond_call_gc_wb not supported")
 
+    def op_cond_call_gc_wb_array(self, descr, a, b, c):
+        py.test.skip("cond_call_gc_wb_array not supported")
+
     def op_oosend(self, descr, obj, *args):
         raise NotImplementedError("oosend for lltype backend??")
 
@@ -858,9 +974,6 @@ class Frame(object):
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
-
-    def op_cast_ptr_to_int(self, descr, ptr):
-        return cast_to_int(ptr)
 
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)
@@ -893,6 +1006,7 @@ class Frame(object):
         self._may_force = self.opindex
         try:
             inpargs = _from_opaque(ctl.compiled_version).inputargs
+            assert len(inpargs) == len(args)
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:
@@ -1061,13 +1175,17 @@ def cast_to_int(x):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
         return heaptracker.adr2int(x)
+    if TP is lltype.SingleFloat:
+        return longlong.singlefloat2int(x)
     return lltype.cast_primitive(lltype.Signed, x)
 
 def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
             x = llmemory.cast_int_to_adr(x)
-        if TYPE is rffi.VOIDP:
+        if TYPE is rffi.VOIDP or (
+                hasattr(TYPE.TO, '_hints') and
+                TYPE.TO._hints.get("uncast_on_llgraph")):
             # assume that we want a "C-style" cast, without typechecking the value
             return rffi.cast(TYPE, x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
@@ -1076,6 +1194,9 @@ def cast_from_int(TYPE, x):
             x = llmemory.cast_int_to_adr(x)
         assert lltype.typeOf(x) == llmemory.Address
         return x
+    elif TYPE is lltype.SingleFloat:
+        assert lltype.typeOf(x) is lltype.Signed
+        return longlong.int2singlefloat(x)
     else:
         if lltype.typeOf(x) == llmemory.Address:
             x = heaptracker.adr2int(x)
@@ -1094,6 +1215,9 @@ def cast_from_ptr(TYPE, x, may_be_hiddengcref32=False):
         assert may_be_hiddengcref32
         return llop.hide_into_ptr32(TYPE, x)
     return lltype.cast_opaque_ptr(TYPE, x)
+
+def cast_from_ptr_hiddengcref2(TYPE, x):
+    return cast_from_ptr(TYPE, x, may_be_hiddengcref32=True)
 
 def cast_to_floatstorage(x):
     if isinstance(x, float):
@@ -1137,6 +1261,7 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
+    assert lltype.typeOf(value) is lltype.Signed
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
@@ -1320,8 +1445,8 @@ def do_getarrayitem_gc_float(array, index):
     return cast_to_floatstorage(array.getitem(index))
 
 def do_getarrayitem_raw_float(array, index):
-    array = array.adr.ptr._obj
-    return cast_to_floatstorage(array.getitem(index))
+    array = maybe_uncast(FLOAT_ARRAY_TP, array.adr.ptr)
+    return cast_to_floatstorage(array._obj.getitem(index))
 
 def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
@@ -1341,6 +1466,34 @@ def do_getfield_gc_float(struct, fieldnum):
 def do_getfield_gc_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_gc(struct, fieldnum),
                        may_be_hiddengcref32=True)
+
+def _getinteriorfield_gc(struct, fieldnum):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+    return getattr(struct, fieldname)
+
+def do_getinteriorfield_gc_int(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_int(_getinteriorfield_gc(struct, fieldnum))
+
+def do_getinteriorfield_gc_float(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_floatstorage(_getinteriorfield_gc(struct, fieldnum))
+
+def do_getinteriorfield_gc_ptr(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
+
+def _getinteriorfield_raw(ffitype, array, index, width, ofs):
+    addr = rffi.cast(rffi.VOIDP, array)
+    return libffi.array_getitem(ffitype, width, addr, index, ofs)
+
+def do_getinteriorfield_raw_int(array, index, width, ofs):
+    res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
+    return res
+
+def do_getinteriorfield_raw_float(array, index, width, ofs):
+    res = _getinteriorfield_raw(libffi.types.double, array, index, width, ofs)
+    return res
 
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1384,8 +1537,9 @@ def do_setarrayitem_gc_float(array, index, newvalue):
     newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
+
 def do_setarrayitem_raw_float(array, index, newvalue):
-    array = array.adr.ptr
+    array = maybe_uncast(FLOAT_ARRAY_TP, array.adr.ptr)
     ITEMTYPE = lltype.typeOf(array).TO.OF
     newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array._obj.setitem(index, newvalue)
@@ -1393,29 +1547,43 @@ def do_setarrayitem_raw_float(array, index, newvalue):
 def do_setarrayitem_gc_ptr(array, index, newvalue):
     array = array._obj.container
     ITEMTYPE = lltype.typeOf(array).OF
-    newvalue = cast_from_ptr(ITEMTYPE, newvalue, may_be_hiddengcref32=True)
+    newvalue = cast_from_ptr_hiddengcref2(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setfield_gc_int(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_int(FIELDTYPE, newvalue)
-    setattr(ptr, fieldname, newvalue)
+def new_setfield_gc(cast_func):
+    def do_setfield_gc(struct, fieldnum, newvalue):
+        STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+        ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
+        FIELDTYPE = getattr(STRUCT, fieldname)
+        newvalue = cast_func(FIELDTYPE, newvalue)
+        setattr(ptr, fieldname, newvalue)
+    return do_setfield_gc
+do_setfield_gc_int = new_setfield_gc(cast_from_int)
+do_setfield_gc_float = new_setfield_gc(cast_from_floatstorage)
+do_setfield_gc_ptr = new_setfield_gc(cast_from_ptr)
 
-def do_setfield_gc_float(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_floatstorage(FIELDTYPE, newvalue)
-    setattr(ptr, fieldname, newvalue)
+def new_setinteriorfield_gc(cast_func):
+    def do_setinteriorfield_gc(array, index, fieldnum, newvalue):
+        STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+        struct = array._obj.container.getitem(index)
+        FIELDTYPE = getattr(STRUCT, fieldname)
+        setattr(struct, fieldname, cast_func(FIELDTYPE, newvalue))
+    return do_setinteriorfield_gc
+do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
+do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
+do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr_hiddengcref2)
 
-def do_setfield_gc_ptr(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_ptr(FIELDTYPE, newvalue, may_be_hiddengcref32=True)
-    setattr(ptr, fieldname, newvalue)
+def new_setinteriorfield_raw(cast_func, ffitype):
+    def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
+        addr = rffi.cast(rffi.VOIDP, array)
+        for TYPE, ffitype2 in clibffi.ffitype_map:
+            if ffitype2 is ffitype:
+                newvalue = cast_func(TYPE, newvalue)
+                break
+        return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
+    return do_setinteriorfield_raw
+do_setinteriorfield_raw_int = new_setinteriorfield_raw(cast_from_int, libffi.types.slong)
+do_setinteriorfield_raw_float = new_setinteriorfield_raw(cast_from_floatstorage, libffi.types.double)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1486,20 +1654,24 @@ kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
     'L': lltype.SignedLongLong,
+    'S': lltype.SingleFloat,
     'v': lltype.Void,
     }
 
-def _do_call_common(f, args_in_order=None, calldescr=None):
+def _do_call_common(f, args_in_order=None, calldescr=None,
+                    call_with_llptr=False):
     ptr = llmemory.cast_int_to_adr(f).ptr
     PTR = lltype.typeOf(ptr)
     if PTR == rffi.VOIDP:
         # it's a pointer to a C function, so we don't have a precise
         # signature: create one from the descr
+        assert call_with_llptr is True
         ARGS = map(kind2TYPE.get, calldescr.arg_types)
         RESULT = kind2TYPE[calldescr.typeinfo]
         FUNC = lltype.FuncType(ARGS, RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
     else:
+        assert call_with_llptr is False
         FUNC = PTR.TO
         ARGS = FUNC.ARGS
         func_to_call = ptr._obj._callable
@@ -1675,8 +1847,11 @@ setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_start_float_var, annmodel.SomeInteger())
+setannotation(compile_started_vars, annmodel.s_None)
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
+setannotation(compile_add_descr_arg, annmodel.s_None)
+setannotation(compile_add_target_token, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)
@@ -1724,6 +1899,9 @@ setannotation(do_getfield_gc_float, s_FloatStorage)
 setannotation(do_getfield_raw_int, annmodel.SomeInteger())
 setannotation(do_getfield_raw_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_getfield_raw_float, s_FloatStorage)
+setannotation(do_getinteriorfield_gc_int, annmodel.SomeInteger())
+setannotation(do_getinteriorfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_getinteriorfield_gc_float, s_FloatStorage)
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1737,6 +1915,9 @@ setannotation(do_setfield_gc_float, annmodel.s_None)
 setannotation(do_setfield_raw_int, annmodel.s_None)
 setannotation(do_setfield_raw_ptr, annmodel.s_None)
 setannotation(do_setfield_raw_float, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_int, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_ptr, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_float, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
 setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))

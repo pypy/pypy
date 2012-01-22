@@ -118,7 +118,7 @@ def run_toplevel(space, f, verbose=False):
         operationerr.normalize_exception(space)
         w_type = operationerr.w_type
         w_value = operationerr.get_w_value(space)
-        w_traceback = space.wrap(operationerr.application_traceback)
+        w_traceback = space.wrap(operationerr.get_traceback())
 
         # for debugging convenience we also insert the exception into
         # the interpreter-level sys.last_xxx

@@ -1,4 +1,3 @@
-from pypy.rpython.tool import rffi_platform as platform
 from pypy.rlib import rposix
 from pypy.rlib.rarithmetic import intmask
 

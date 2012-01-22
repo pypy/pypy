@@ -112,9 +112,31 @@ Python programs we generally are 3 times the speed of Cpython 2.6 .
 You might be interested in our `benchmarking site`_ and our 
 `jit documentation`_.
 
+Note that the JIT has a very high warm-up cost, meaning that the
+programs are slow at the beginning.  If you want to compare the timings
+with CPython, even relatively simple programs need to run *at least* one
+second, preferrably at least a few seconds.  Large, complicated programs
+need even more time to warm-up the JIT.
+
 .. _`benchmarking site`: http://speed.pypy.org
 
 .. _`jit documentation`: jit/index.html
+
+---------------------------------------------------------------
+Couldn't the JIT dump and reload already-compiled machine code?
+---------------------------------------------------------------
+
+No, we found no way of doing that.  The JIT generates machine code
+containing a large number of constant addresses --- constant at the time
+the machine code is written.  The vast majority is probably not at all
+constants that you find in the executable, with a nice link name.  E.g.
+the addresses of Python classes are used all the time, but Python
+classes don't come statically from the executable; they are created anew
+every time you restart your program.  This makes saving and reloading
+machine code completely impossible without some very advanced way of
+mapping addresses in the old (now-dead) process to addresses in the new
+process, including checking that all the previous assumptions about the
+(now-dead) object are still true about the new object.
 
 
 .. _`prolog and javascript`:
@@ -162,7 +184,7 @@ most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`contact us`: index.html
-.. _`mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`mailing list`: http://python.org/mailman/listinfo/pypy-dev
 
 -------------------------------------------------------------
 OSError: ... cannot restore segment prot after reloc... Help?
@@ -314,6 +336,28 @@ How do I compile my own interpreters?
 Begin by reading `Andrew Brown's tutorial`_ .
 
 .. _`Andrew Brown's tutorial`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+
+---------------------------------------------------------
+Can RPython modules for PyPy be translated independently?
+---------------------------------------------------------
+
+No, you have to rebuild the entire interpreter.  This means two things:
+
+* It is imperative to use test-driven development.  You have to test
+  exhaustively your module in pure Python, before even attempting to
+  translate it.  Once you translate it, you should have only a few typing
+  issues left to fix, but otherwise the result should work out of the box.
+
+* Second, and perhaps most important: do you have a really good reason
+  for writing the module in RPython in the first place?  Nowadays you
+  should really look at alternatives, like writing it in pure Python,
+  using ctypes if it needs to call C code.  Other alternatives are being
+  developed too (as of summer 2011), like a Cython binding.
+
+In this context it is not that important to be able to translate
+RPython modules independently of translating the complete interpreter.
+(It could be done given enough efforts, but it's a really serious
+undertaking.  Consider it as quite unlikely for now.)
 
 ----------------------------------------------------------
 Why does PyPy draw a Mandelbrot fractal while translating?

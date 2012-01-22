@@ -1,8 +1,8 @@
 import py
 from pypy.translator.cli.test.runtest import CliTest
-from pypy.rpython.test.test_rint import BaseTestRint
+from pypy.rpython.test.test_rint import TestOOtype as _TestOOtype # so py.test won't run the base test
 
-class TestCliInt(CliTest, BaseTestRint):
+class TestCliInt(CliTest, _TestOOtype):
     def test_char_constant(self):
         def dummyfn(i):
             return chr(i)

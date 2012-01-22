@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.objectmodel import we_are_translated
 
 class CodecState(object):
@@ -32,15 +32,22 @@ class CodecState(object):
                 space.wrap(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
             if (not space.is_true(space.isinstance(w_res, space.w_tuple))
-                or space.len_w(w_res) != 2):
+                or space.len_w(w_res) != 2
+                or not space.is_true(space.isinstance(
+                                 space.getitem(w_res, space.wrap(0)),
+                                 space.w_unicode))):
+                if decode:
+                    msg = ("decoding error handler must return "
+                           "(unicode, int) tuple, not %s")
+                else:
+                    msg = ("encoding error handler must return "
+                           "(unicode, int) tuple, not %s")
                 raise operationerrfmt(
-                    space.w_TypeError,
-                    "encoding error handler must return "
-                    "(unicode, int) tuple, not %s",
+                    space.w_TypeError, msg,
                     space.str_w(space.repr(w_res)))
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
-            if (newpos < 0):
+            if newpos < 0:
                 newpos = len(input) + newpos
             if newpos < 0 or newpos > len(input):
                 raise operationerrfmt(
@@ -50,7 +57,9 @@ class CodecState(object):
                 replace = space.unicode_w(w_replace)
                 return replace, newpos
             else:
-                replace = space.str_w(w_replace)
+                from pypy.objspace.std.unicodetype import encode_object
+                w_str = encode_object(space, w_replace, encoding, None)
+                replace = space.str_w(w_str)
                 return replace, newpos
         return unicode_call_errorhandler
 
@@ -58,10 +67,7 @@ class CodecState(object):
         if self.unicodedata_handler:
             return self.unicodedata_handler
         try:
-            w_builtin = space.getbuiltinmodule('__builtin__')
-            w_import = space.getattr(w_builtin, space.wrap("__import__"))
-            w_unicodedata = space.call_function(w_import,
-                                                space.wrap("unicodedata"))
+            w_unicodedata = space.getbuiltinmodule("unicodedata")
             w_getcode = space.getattr(w_unicodedata, space.wrap("_get_code"))
         except OperationError:
             return None
@@ -102,6 +108,10 @@ def lookup_codec(space, encoding):
     w_result = state.codec_search_cache.get(normalized_encoding, None)
     if w_result is not None:
         return w_result
+    return _lookup_codec_loop(space, encoding, normalized_encoding)
+
+def _lookup_codec_loop(space, encoding, normalized_encoding):
+    state = space.fromcache(CodecState)
     if state.codec_need_encodings:
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
         # registers new codecs
@@ -160,15 +170,7 @@ def strict_errors(space, w_exc):
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
     w_end = space.getattr(w_exc, space.wrap('end'))
-    if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        return space.newtuple([space.wrap(''), w_end])
-    elif (space.isinstance_w(w_exc, space.w_UnicodeDecodeError) or
-          space.isinstance_w(w_exc, space.w_UnicodeTranslateError)):
-        return space.newtuple([space.wrap(u''), w_end])
-    else:
-        typename = space.type(w_exc).getname(space, '?')
-        raise operationerrfmt(space.w_TypeError,
-            "don't know how to handle %s in error callback", typename)
+    return space.newtuple([space.wrap(u''), w_end])
 
 def replace_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -176,7 +178,7 @@ def replace_errors(space, w_exc):
     w_end = space.getattr(w_exc, space.wrap('end'))
     size = space.int_w(w_end) - space.int_w(w_start)
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
-        text = '?' * size
+        text = u'?' * size
         return space.newtuple([space.wrap(text), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         text = u'\ufffd'
@@ -185,7 +187,7 @@ def replace_errors(space, w_exc):
         text = u'\ufffd' * size
         return space.newtuple([space.wrap(text), w_end])
     else:
-        typename = space.type(w_exc).getname(space, '?')
+        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
             "don't know how to handle %s in error callback", typename)
 
@@ -206,7 +208,7 @@ def xmlcharrefreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space, '?')
+        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
             "don't know how to handle %s in error callback", typename)
 
@@ -239,7 +241,7 @@ def backslashreplace_errors(space, w_exc):
             pos += 1
         return space.newtuple([space.wrap(builder.build()), w_end])
     else:
-        typename = space.type(w_exc).getname(space, '?')
+        typename = space.type(w_exc).getname(space)
         raise operationerrfmt(space.w_TypeError,
             "don't know how to handle %s in error callback", typename)
 
@@ -686,11 +688,15 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" codec
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(errors='str_or_None')
-def escape_encode(space, w_string, errors='strict'):
-    w_repr = space.repr(w_string)
-    w_result = space.getslice(w_repr, space.wrap(1), space.wrap(-1))
-    return space.newtuple([w_result, space.len(w_string)])
+@unwrap_spec(data=str, errors='str_or_None')
+def escape_encode(space, data, errors='strict'):
+    from pypy.objspace.std.stringobject import string_escape_encode
+    result = string_escape_encode(data, quote="'")
+    start = 1
+    end = len(result) - 1
+    assert end >= 0
+    w_result = space.wrap(result[start:end])
+    return space.newtuple([w_result, space.wrap(len(data))])
 
 @unwrap_spec(data=str, errors='str_or_None')
 def escape_decode(space, data, errors='strict'):

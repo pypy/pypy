@@ -369,7 +369,7 @@ as EuroPython or Pycon. Upcoming events are usually announced on `the blog`_.
 
 .. _`full Python interpreter`: getting-started-python.html
 .. _`the blog`: http://morepypy.blogspot.com
-.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`pypy-dev mailing list`: http://python.org/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: index.html
 
 .. _`py library`: http://pylib.org

@@ -63,5 +63,5 @@ Page hits to http://codespeak.net/pypy/:
 
 .. image:: webaccess.png
 
-.. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-svn
-.. _`pypy-svn`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`pypy-dev`: http://python.org/mailman/listinfo/pypy-commit
+.. _`pypy-svn`: http://python.org/mailman/listinfo/pypy-dev

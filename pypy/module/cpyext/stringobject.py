@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyObjectFields, Py_ssize_t, CONST_STRING)
+    PyObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
@@ -203,6 +203,10 @@ def _PyString_Resize(space, ref, newsize):
     ref[0] = rffi.cast(PyObject, py_newstr)
     return 0
 
+@cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
+def _PyString_Eq(space, w_str1, w_str2):
+    return space.eq_w(w_str1, w_str2)
+
 @cpython_api([PyObjectP, PyObject], lltype.Void)
 def PyString_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
@@ -264,3 +268,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyString_Join(space, w_sep, w_seq):
+    return space.call_method(w_sep, 'join', w_seq)

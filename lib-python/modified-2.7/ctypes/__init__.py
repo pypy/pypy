@@ -7,6 +7,7 @@ import os as _os, sys as _sys
 
 __version__ = "1.1.0"
 
+import _ffi
 from _ctypes import Union, Structure, Array
 from _ctypes import _Pointer
 from _ctypes import CFuncPtr as _CFuncPtr
@@ -350,7 +351,7 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _dlopen(self._name, mode)
+            self._handle = _ffi.CDLL(name, mode)
         else:
             self._handle = handle
 
@@ -488,9 +489,12 @@ def PYFUNCTYPE(restype, *argtypes):
         _flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
     return CFunctionType
 
-_cast = PYFUNCTYPE(py_object, c_void_p, py_object, py_object)(_cast_addr)
 def cast(obj, typ):
-    return _cast(obj, obj, typ)
+    try:
+        c_void_p.from_param(obj)
+    except TypeError, e:
+        raise ArgumentError(str(e))
+    return _cast_addr(obj, obj, typ)
 
 _string_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
 def string_at(ptr, size=-1):

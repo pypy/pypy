@@ -559,7 +559,9 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
 C_HEADER = """
 #include <stdio.h>
 #include <stddef.h>   /* for offsetof() */
-#include <stdint.h>   /* FreeBSD: for uint64_t */
+#ifndef _WIN32
+#  include <stdint.h>   /* FreeBSD: for uint64_t */
+#endif
 
 void dump(char* key, int value) {
     printf("%s: %d\\n", key, value);

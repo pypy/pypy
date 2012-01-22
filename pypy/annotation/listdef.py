@@ -184,6 +184,11 @@ class ListDef(object):
     def generalize(self, s_value):
         self.listitem.generalize(s_value)
 
+    def generalize_range_step(self, range_step):
+        newlistitem = ListItem(self.listitem.bookkeeper, s_ImpossibleValue)
+        newlistitem.range_step = range_step
+        self.listitem.merge(newlistitem)
+
     def __repr__(self):
         return '<[%r]%s%s%s%s>' % (self.listitem.s_value,
                                self.listitem.mutated and 'm' or '',

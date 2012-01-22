@@ -993,13 +993,13 @@ class MappingTestCase(TestBase):
         self.assertTrue(len(weakdict) == 2)
         k, v = weakdict.popitem()
         self.assertTrue(len(weakdict) == 1)
-        if k is key1:
+        if k == key1:
             self.assertTrue(v is value1)
         else:
             self.assertTrue(v is value2)
         k, v = weakdict.popitem()
         self.assertTrue(len(weakdict) == 0)
-        if k is key1:
+        if k == key1:
             self.assertTrue(v is value1)
         else:
             self.assertTrue(v is value2)

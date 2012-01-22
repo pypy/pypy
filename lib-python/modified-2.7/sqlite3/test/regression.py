@@ -274,6 +274,18 @@ class RegressionTests(unittest.TestCase):
         cur.execute("UPDATE foo SET id = 3 WHERE id = 1")
         self.assertEqual(cur.description, None)
 
+    def CheckStatementCache(self):
+        cur = self.con.cursor()
+        cur.execute("CREATE TABLE foo (id INTEGER)")
+        values = [(i,) for i in xrange(5)]
+        cur.executemany("INSERT INTO foo (id) VALUES (?)", values)
+
+        cur.execute("SELECT id FROM foo")
+        self.assertEqual(list(cur), values)
+        self.con.commit()
+        cur.execute("SELECT id FROM foo")
+        self.assertEqual(list(cur), values)
+
 def suite():
     regression_suite = unittest.makeSuite(RegressionTests, "Check")
     return unittest.TestSuite((regression_suite,))

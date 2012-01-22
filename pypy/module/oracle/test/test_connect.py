@@ -41,6 +41,10 @@ class AppTestConnection(OracleNotConnectedTestBase):
         if hasattr(self, 'cnx'):
             self.cnx.close()
 
+    def test_constants(self):
+        assert '.' in oracle.version
+        assert oracle.paramstyle == 'named'
+
     def test_connect(self):
         self.cnx = oracle.connect(self.username, self.password,
                                   self.tnsentry, threaded=True)
@@ -48,6 +52,13 @@ class AppTestConnection(OracleNotConnectedTestBase):
         assert self.cnx.password == self.password
         assert self.cnx.tnsentry == self.tnsentry
         assert isinstance(self.cnx.version, str)
+
+    def test_connect_twophase(self):
+        self.cnx = oracle.connect(self.username, self.password,
+                                  self.tnsentry, twophase=True)
+        assert self.cnx.username == self.username
+        assert self.cnx.password == self.password
+        assert self.cnx.tnsentry == self.tnsentry
 
     def test_singleArg(self):
         self.cnx = oracle.connect("%s/%s@%s" % (self.username, self.password,

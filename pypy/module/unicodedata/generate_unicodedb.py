@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import pprint
-
 MAXUNICODE = 0x10FFFF     # the value of sys.maxunicode of wide Python builds
 
 MANDATORY_LINE_BREAKS = ["BK", "CR", "LF", "NL"] # line break categories
@@ -66,16 +64,16 @@ class Unicodechar:
             self.upper = int(data[12], 16)
         self.lower = None
         if data[13]:
-            self.lower = int(data[13], 16) 
+            self.lower = int(data[13], 16)
         self.title = None
         if data[14]:
             self.title = int(data[14], 16)
-        
+
     def copy(self):
         uc = Unicodechar()
         uc.__dict__.update(self.__dict__)
         return uc
-        
+
 def get_compat_decomposition(table, code):
     if not table[code].decomposition:
         return [code]
@@ -177,13 +175,13 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
     for code in range(len(table)):
         if table[code] is None:
             table[code] = defaultChar
-            
+
     extra_numeric = read_unihan(unihan_file)
     for code, value in extra_numeric.iteritems():
         uc = table[code].copy()
         uc.numeric = value
         table[code] = uc
-        
+
     # Compute full decompositions.
     for code in range(len(table)):
         get_canonical_decomposition(table, code)
@@ -365,7 +363,7 @@ def write_character_names(outfile, table, base_mod):
             print >> outfile, '%r: %r,' % (code, name)
         print >> outfile, '}'
 
-        
+
         print >> outfile, '_names_corrected = {'
         for name, code in sorted(base_mod._orig_names.iteritems()):
             if name not in names:
@@ -389,7 +387,7 @@ def write_character_names(outfile, table, base_mod):
                 print >> outfile, '%r: None,' % name
         print >> outfile, '}'
 
-    
+
 def writeUnicodedata(version, table, outfile, base):
     if base:
         print >> outfile, 'import %s as base_mod' % base
@@ -406,7 +404,7 @@ def writeUnicodedata(version, table, outfile, base):
         cjk_end = 0x9FBB
 
     write_character_names(outfile, table, base_mod)
-    
+
     print >> outfile, '''
 _cjk_prefix = "CJK UNIFIED IDEOGRAPH-"
 _hangul_prefix = 'HANGUL SYLLABLE '
@@ -496,7 +494,7 @@ def name(code):
         v_code = vl_code %% len(_hangul_V)
         return ("HANGUL SYLLABLE " + _hangul_L[l_code] +
                 _hangul_V[v_code] + _hangul_T[t_code])
-    
+
     if not base_mod:
         return lookup_charcode(code)
     else:
@@ -522,7 +520,7 @@ def name(code):
             digit[code] = table[code].digit
         if table[code].numeric is not None:
             numeric[code] = table[code].numeric
-            
+
     writeDict(outfile, '_decimal', decimal, base_mod)
     writeDict(outfile, '_digit', digit, base_mod)
     writeDict(outfile, '_numeric', numeric, base_mod)
@@ -662,11 +660,11 @@ def compat_decomposition(code):
 '''
 
 def main():
-    import re, sys
+    import sys
     from optparse import OptionParser
     infile = None
     outfile = sys.stdout
-    
+
     parser = OptionParser('Usage: %prog [options]')
     parser.add_option('--base', metavar='FILENAME', help='Base python version (for import)')
     parser.add_option('--output', metavar='OUTPUT_MODULE', help='Output module (implied py extension)')

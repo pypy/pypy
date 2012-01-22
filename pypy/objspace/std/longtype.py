@@ -4,12 +4,8 @@ from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.strutil import string_to_bigint, ParseStringError
 
-long_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any long.")
-
-def long_conjugate__ANY(space, w_int):
-    return space.pos(w_int)
-
-register_all(vars(), globals())
+def descr_conjugate(space, w_int):
+    return space.long(w_int)
 
 
 def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
@@ -28,9 +24,9 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
             return w_value
         elif type(w_value) is W_LongObject:
             return newbigint(space, w_longtype, w_value.num)
-        elif space.is_true(space.isinstance(w_value, space.w_str)):
+        elif space.isinstance_w(w_value, space.w_str):
             return string_to_w_long(space, w_longtype, space.str_w(w_value))
-        elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+        elif space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
@@ -55,7 +51,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=gateway.NoneNotWrapped):
     else:
         base = space.int_w(w_base)
 
-        if space.is_true(space.isinstance(w_value, space.w_unicode)):
+        if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             s = unicode_to_decimal_w(space, w_value)
         else:
@@ -104,7 +100,7 @@ def descr_get_denominator(space, w_obj):
     return space.newlong(1)
 
 def descr_get_real(space, w_obj):
-    return w_obj
+    return space.long(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.newlong(0)
@@ -128,6 +124,7 @@ string representation of a floating point number!)  When converting a
 string, use the optional base.  It is an error to supply a base when
 converting a non-string.''',
     __new__ = gateway.interp2app(descr__new__),
+    conjugate = gateway.interp2app(descr_conjugate),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),

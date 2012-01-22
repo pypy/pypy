@@ -15,6 +15,10 @@ else:
         mod.wcslen.argtypes = [ctypes.c_wchar_p]
         mod.func = dll._testfunc_p_p
 
+    def teardown_module(mod):
+        del mod.func
+        del mod.wcslen
+
     class TestUnicode(BaseCTypesTestChecker):
         def setup_method(self, method):
             self.prev_conv_mode = ctypes.set_conversion_mode("ascii", "strict")

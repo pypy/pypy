@@ -14,7 +14,6 @@ from pypy.module.cpyext.api import (
     METH_VARARGS, build_type_checkers, PyObjectFields, bootstrap_function)
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.objspace.std.tupleobject import W_TupleObject
 
 PyCFunction_typedef = rffi.COpaquePtr(typedef='PyCFunction')
 PyCFunction = lltype.Ptr(lltype.FuncType([PyObject, PyObject], PyObject))
@@ -59,6 +58,7 @@ def cfunction_dealloc(space, py_obj):
 class W_PyCFunctionObject(Wrappable):
     def __init__(self, space, ml, w_self, w_module=None):
         self.ml = ml
+        self.name = rffi.charp2str(self.ml.c_ml_name)
         self.w_self = w_self
         self.w_module = w_module
 
@@ -70,32 +70,31 @@ class W_PyCFunctionObject(Wrappable):
         flags &= ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         if space.is_true(w_kw) and not flags & METH_KEYWORDS:
             raise OperationError(space.w_TypeError, space.wrap(
-                rffi.charp2str(self.ml.c_ml_name) + "() takes no keyword arguments"))
+                self.name + "() takes no keyword arguments"))
 
         func = rffi.cast(PyCFunction, self.ml.c_ml_meth)
+        length = space.int_w(space.len(w_args))
         if flags & METH_KEYWORDS:
             func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
             return generic_cpy_call(space, func, w_self, w_args, w_kw)
         elif flags & METH_NOARGS:
-            if len(w_args.wrappeditems) == 0:
+            if length == 0:
                 return generic_cpy_call(space, func, w_self, None)
             raise OperationError(space.w_TypeError, space.wrap(
-                rffi.charp2str(self.ml.c_ml_name) + "() takes no arguments"))
+                self.name + "() takes no arguments"))
         elif flags & METH_O:
-            assert isinstance(w_args, W_TupleObject)
-            if len(w_args.wrappeditems) != 1:
+            if length != 1:
                 raise OperationError(space.w_TypeError,
                         space.wrap("%s() takes exactly one argument (%d given)" %  (
-                        rffi.charp2str(self.ml.c_ml_name), 
-                        len(w_args.wrappeditems))))
-            w_arg = w_args.wrappeditems[0]
+                        self.name, length)))
+            w_arg = space.getitem(w_args, space.wrap(0))
             return generic_cpy_call(space, func, w_self, w_arg)
         elif flags & METH_VARARGS:
             return generic_cpy_call(space, func, w_self, w_args)
         else: # METH_OLDARGS, the really old style
-            size = len(w_args.wrappeditems)
+            size = length
             if size == 1:
-                w_arg = w_args.wrappeditems[0]
+                w_arg = space.getitem(w_args, space.wrap(0))
             elif size == 0:
                 w_arg = None
             else:
@@ -122,7 +121,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_method_repr(self):
-        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space, '?')))
+        return self.getrepr(self.space, "built-in method '%s' of '%s' object" % (self.name, self.w_objclass.getname(self.space)))
 
 PyCFunction_Check, PyCFunction_CheckExact = build_type_checkers("CFunction", W_PyCFunctionObject)
 
@@ -151,7 +150,7 @@ class W_PyCWrapperObject(Wrappable):
 
     def descr_method_repr(self):
         return self.space.wrap("<slot wrapper '%s' of '%s' objects>" % (self.method_name,
-            self.w_objclass.getname(self.space, '?')))
+            self.w_objclass.getname(self.space)))
 
 def cwrapper_descr_call(space, w_self, __args__):
     self = space.interp_w(W_PyCWrapperObject, w_self)
@@ -200,6 +199,7 @@ W_PyCFunctionObject.typedef = TypeDef(
     __call__ = interp2app(cfunction_descr_call),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __module__ = interp_attrproperty_w('w_module', cls=W_PyCFunctionObject),
+    __name__ = interp_attrproperty('name', cls=W_PyCFunctionObject),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -240,6 +240,7 @@ def PyCFunction_GetFunction(space, w_obj):
 def PyStaticMethod_New(space, w_func):
     return space.wrap(StaticMethod(w_func))
 
+@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], PyObject)
 def PyDescr_NewMethod(space, w_type, method):
     return space.wrap(W_PyCMethodObject(space, method, w_type))
 

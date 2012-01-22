@@ -5,7 +5,7 @@ from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.module.cmath import Module, names_and_docstrings
+from pypy.module.cmath import names_and_docstrings
 from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
 from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
 from pypy.module.cmath.constant import M_LN2, M_LN10

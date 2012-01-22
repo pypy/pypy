@@ -1066,7 +1066,7 @@ class TestResultWithPdb(ResultClass):
         if '--pdb' in sys.argv:
             import pdb, traceback
             traceback.print_tb(exc_info[2])
-            pdb.post_mortem(exc_info[2], pdb.Pdb)
+            pdb.post_mortem(exc_info[2])
 
 # ----------------------------------
 

@@ -36,6 +36,14 @@ class CodeCheckerMixin(object):
 def hexdump(s):
     return ' '.join(["%02X" % ord(c) for c in s])
 
+def reduce_to_32bit(s):
+    if s[:2] != '%r':
+        return s
+    if s[2:].isdigit():
+        return s + 'd'
+    else:
+        return '%e' + s[2:]
+
 # ____________________________________________________________
 
 COUNT1 = 15
@@ -180,12 +188,14 @@ class TestRx86_32(object):
     ##        for m, extra in args:
     ##            if m in (i386.MODRM, i386.MODRM8) or all:
     ##                suffix = suffixes[sizes[m]] + suffix
-            if argmodes and not self.is_xmm_insn:
+            if (argmodes and not self.is_xmm_insn
+                         and not instrname.startswith('FSTP')):
                 suffix = suffixes[self.WORD]
             # Special case: On 64-bit CPUs, rx86 assumes 64-bit integer
             # operands when converting to/from floating point, so we need to
             # indicate that with a suffix
-            if (self.WORD == 8) and instrname.startswith('CVT'):
+            if (self.WORD == 8) and (instrname.startswith('CVT') and
+                                     'SI' in instrname):
                 suffix = suffixes[self.WORD]
 
             if instr_suffix is not None:
@@ -212,6 +222,17 @@ class TestRx86_32(object):
             for mode, v in zip(argmodes, args):
                 ops.append(assembler_operand[mode](v))
             ops.reverse()
+            #
+            if (instrname.lower() == 'mov' and suffix == 'q' and
+                ops[0].startswith('$') and 0 <= int(ops[0][1:]) <= 4294967295
+                and ops[1].startswith('%r')):
+                # movq $xxx, %rax => movl $xxx, %eax
+                suffix = 'l'
+                ops[1] = reduce_to_32bit(ops[1])
+            if instrname.lower() == 'movd':
+                ops[0] = reduce_to_32bit(ops[0])
+                ops[1] = reduce_to_32bit(ops[1])
+            #
             op = '\t%s%s %s%s' % (instrname.lower(), suffix,
                                   ', '.join(ops), following)
             g.write('%s\n' % op)

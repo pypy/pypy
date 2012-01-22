@@ -3,7 +3,7 @@ from pypy.translator.platform import host, CompilationError
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.udir import udir
 from StringIO import StringIO
-import sys
+import sys, os
 
 def test_echo():
     res = host.execute('echo', '42 24')
@@ -41,6 +41,7 @@ class TestMakefile(object):
         if self.strict_on_stderr:
             assert res.err == ''
         assert res.returncode == 0
+        assert '-lrt' in tmpdir.join("Makefile").read()
 
     def test_link_files(self):
         tmpdir = udir.join('link_files' + self.__class__.__name__).ensure(dir=1)
@@ -48,6 +49,19 @@ class TestMakefile(object):
         mk = self.platform.gen_makefile(['blip.c'], eci, path=tmpdir)
         mk.write()
         assert 'LINKFILES = /foo/bar.a' in tmpdir.join('Makefile').read()
+
+    def test_preprocess_localbase(self):
+        tmpdir = udir.join('test_preprocess_localbase').ensure(dir=1)
+        eci = ExternalCompilationInfo()
+        os.environ['PYPY_LOCALBASE'] = '/foo/baz'
+        try:
+            mk = self.platform.gen_makefile(['blip.c'], eci, path=tmpdir)
+            mk.write()
+        finally:
+            del os.environ['PYPY_LOCALBASE']
+        Makefile = tmpdir.join('Makefile').read()
+        assert 'INCLUDEDIRS = -I/foo/baz/include' in Makefile
+        assert 'LIBDIRS = -L/foo/baz/lib' in Makefile
 
 class TestMaemo(TestMakefile):
     strict_on_stderr = False

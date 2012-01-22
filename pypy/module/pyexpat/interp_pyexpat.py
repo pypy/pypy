@@ -3,14 +3,14 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
-from pypy.objspace.descroperation import object_setattr
+from pypy.rlib import rgc
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.unroll import unrolling_iterable
-
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 
 import sys
+import weakref
 import py
 
 if sys.platform == "win32":
@@ -19,7 +19,9 @@ else:
     libname = 'expat'
 eci = ExternalCompilationInfo(
     libraries=[libname],
+    library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
+    include_dirs=platform.preprocess_include_dirs([]),
     )
 
 eci = rffi_platform.configure_external_library(
@@ -30,6 +32,60 @@ eci = rffi_platform.configure_external_library(
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference(will_be_varsize=True))
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
+
+xml_error_list = [
+    "XML_ERROR_NO_MEMORY",
+    "XML_ERROR_SYNTAX",
+    "XML_ERROR_NO_ELEMENTS",
+    "XML_ERROR_INVALID_TOKEN",
+    "XML_ERROR_UNCLOSED_TOKEN",
+    "XML_ERROR_PARTIAL_CHAR",
+    "XML_ERROR_TAG_MISMATCH",
+    "XML_ERROR_DUPLICATE_ATTRIBUTE",
+    "XML_ERROR_JUNK_AFTER_DOC_ELEMENT",
+    "XML_ERROR_PARAM_ENTITY_REF",
+    "XML_ERROR_UNDEFINED_ENTITY",
+    "XML_ERROR_RECURSIVE_ENTITY_REF",
+    "XML_ERROR_ASYNC_ENTITY",
+    "XML_ERROR_BAD_CHAR_REF",
+    "XML_ERROR_BINARY_ENTITY_REF",
+    "XML_ERROR_ATTRIBUTE_EXTERNAL_ENTITY_REF",
+    "XML_ERROR_MISPLACED_XML_PI",
+    "XML_ERROR_UNKNOWN_ENCODING",
+    "XML_ERROR_INCORRECT_ENCODING",
+    "XML_ERROR_UNCLOSED_CDATA_SECTION",
+    "XML_ERROR_EXTERNAL_ENTITY_HANDLING",
+    "XML_ERROR_NOT_STANDALONE",
+    "XML_ERROR_UNEXPECTED_STATE",
+    "XML_ERROR_ENTITY_DECLARED_IN_PE",
+    "XML_ERROR_FEATURE_REQUIRES_XML_DTD",
+    "XML_ERROR_CANT_CHANGE_FEATURE_ONCE_PARSING",
+    # Added in Expat 1.95.7.
+    "XML_ERROR_UNBOUND_PREFIX",
+    # Added in Expat 1.95.8.
+    "XML_ERROR_UNDECLARING_PREFIX",
+    "XML_ERROR_INCOMPLETE_PE",
+    "XML_ERROR_XML_DECL",
+    "XML_ERROR_TEXT_DECL",
+    "XML_ERROR_PUBLICID",
+    "XML_ERROR_SUSPENDED",
+    "XML_ERROR_NOT_SUSPENDED",
+    "XML_ERROR_ABORTED",
+    "XML_ERROR_FINISHED",
+    "XML_ERROR_SUSPEND_PE",
+    ]
+xml_model_list = [
+    "XML_CTYPE_EMPTY",
+    "XML_CTYPE_ANY",
+    "XML_CTYPE_MIXED",
+    "XML_CTYPE_NAME",
+    "XML_CTYPE_CHOICE",
+    "XML_CTYPE_SEQ",
+    "XML_CQUANT_NONE",
+    "XML_CQUANT_OPT",
+    "XML_CQUANT_REP",
+    "XML_CQUANT_PLUS",
+    ]
 
 class CConfigure:
     _compilation_info_ = eci
@@ -55,6 +111,24 @@ class CConfigure:
     XML_MICRO_VERSION = rffi_platform.ConstantInteger('XML_MICRO_VERSION')
     XML_FALSE = rffi_platform.ConstantInteger('XML_FALSE')
     XML_TRUE = rffi_platform.ConstantInteger('XML_TRUE')
+
+    for name in xml_error_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    XML_Parser_SIZE = rffi_platform.SizeOf("XML_Parser")
 
 for k, v in rffi_platform.configure(CConfigure).items():
     globals()[k] = v
@@ -132,7 +206,7 @@ global_storage = Storage()
 class CallbackData(Wrappable):
     def __init__(self, space, parser):
         self.space = space
-        self.parser = parser
+        self.parser = weakref.ref(parser)
 
 SETTERS = {}
 for index, (name, params) in enumerate(HANDLERS.items()):
@@ -209,7 +283,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
         space = userdata.space
-        parser = userdata.parser
+        parser = userdata.parser()
 
         handler = parser.handlers[%(index)s]
         if not handler:
@@ -244,7 +318,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     id = rffi.cast(lltype.Signed, ll_userdata)
     userdata = global_storage.get_object(id)
     space = userdata.space
-    parser = userdata.parser
+    parser = userdata.parser()
 
     name = rffi.charp2str(name)
 
@@ -263,8 +337,6 @@ XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
 
-ENUMERATE_SETTERS = unrolling_iterable(SETTERS.items())
-
 # Declarations of external functions
 
 XML_ParserCreate = expat_external(
@@ -272,7 +344,7 @@ XML_ParserCreate = expat_external(
 XML_ParserCreateNS = expat_external(
     'XML_ParserCreateNS', [rffi.CCHARP, rffi.CHAR], XML_Parser)
 XML_ParserFree = expat_external(
-    'XML_ParserFree', [XML_Parser], lltype.Void)
+    'XML_ParserFree', [XML_Parser], lltype.Void, threadsafe=False)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
 def XML_GetUserData(parser):
@@ -298,7 +370,8 @@ if XML_COMBINED_VERSION >= 19505:
 XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
-    'XML_ErrorString', [rffi.INT], rffi.CCHARP)
+    'XML_ErrorString', [rffi.INT],
+    rffi.CCHARP)
 XML_GetCurrentLineNumber = expat_external(
     'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
 XML_GetErrorLineNumber = XML_GetCurrentLineNumber
@@ -360,8 +433,7 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(
-                rffi.cast(lltype.Signed, self.itself))
+            global_storage.free_nonmoving_id(self.id)
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
@@ -469,15 +541,19 @@ getting the advantage of providing document type information to the parser.
                 self.buffer_used = 0
         return False
 
-    def sethandler(self, space, name, w_handler, index, setter, handler):
+    def gethandler(self, space, name, index):
+        if name == 'CharacterDataHandler':
+            return self.w_character_data_handler or space.w_None
+        return self.handlers[index]
 
+    def sethandler(self, space, name, w_handler, index, setter, handler):
         if name == 'CharacterDataHandler':
             self.flush_character_buffer(space)
             if space.is_w(w_handler, space.w_None):
                 self.w_character_data_handler = None
             else:
                 self.w_character_data_handler = w_handler
-
+        #
         self.handlers[index] = w_handler
         setter(self.itself, handler)
 
@@ -504,21 +580,29 @@ getting the advantage of providing document type information to the parser.
         return True
 
 
-    @unwrap_spec(name=str)
-    def setattr(self, space, name, w_value):
-        if name == "namespace_prefixes":
-            XML_SetReturnNSTriplet(self.itself, space.int_w(w_value))
-            return
+    @staticmethod
+    def _make_property(name):
+        index, setter, handler = SETTERS[name]
+        #
+        def descr_get_property(self, space):
+            return self.gethandler(space, name, index)
+        #
+        def descr_set_property(self, space, w_value):
+            return self.sethandler(space, name, w_value,
+                                   index, setter, handler)
+        #
+        return GetSetProperty(descr_get_property,
+                              descr_set_property,
+                              cls=W_XMLParserType)
 
-        for handler_name, (index, setter, handler) in ENUMERATE_SETTERS:
-            if name == handler_name:
-                return self.sethandler(space, handler_name, w_value,
-                                       index, setter, handler)
 
-        # fallback to object.__setattr__()
-        return space.call_function(
-            object_setattr(space),
-            space.wrap(self), space.wrap(name), w_value)
+    def get_namespace_prefixes(self, space):
+        raise OperationError(space.w_AttributeError,
+            space.wrap("not implemented: reading namespace_prefixes"))
+
+    @unwrap_spec(value=int)
+    def set_namespace_prefixes(self, space, value):
+        XML_SetReturnNSTriplet(self.itself, bool(value))
 
     # Parse methods
 
@@ -656,10 +740,18 @@ XMLParser_methods = ['Parse', 'ParseFile', 'SetBase', 'SetParamEntityParsing',
 if XML_COMBINED_VERSION >= 19505:
     XMLParser_methods.append('UseForeignDTD')
 
+_XMLParser_extras = {}
+for name in XMLParser_methods:
+    _XMLParser_extras[name] = interp2app(getattr(W_XMLParserType, name))
+for name in SETTERS:
+    _XMLParser_extras[name] = W_XMLParserType._make_property(name)
+
 W_XMLParserType.typedef = TypeDef(
     "pyexpat.XMLParserType",
     __doc__ = "XML parser",
-    __setattr__ = interp2app(W_XMLParserType.setattr),
+    namespace_prefixes = GetSetProperty(W_XMLParserType.get_namespace_prefixes,
+                                        W_XMLParserType.set_namespace_prefixes,
+                                        cls=W_XMLParserType),
     returns_unicode = bool_property('returns_unicode', W_XMLParserType),
     ordered_attributes = bool_property('ordered_attributes', W_XMLParserType),
     specified_attributes = bool_property('specified_attributes', W_XMLParserType),
@@ -678,8 +770,7 @@ W_XMLParserType.typedef = TypeDef(
     CurrentColumnNumber = GetSetProperty(W_XMLParserType.descr_ErrorColumnNumber, cls=W_XMLParserType),
     CurrentByteIndex = GetSetProperty(W_XMLParserType.descr_ErrorByteIndex, cls=W_XMLParserType),
 
-    **dict((name, interp2app(getattr(W_XMLParserType, name)))
-           for name in XMLParser_methods)
+    **_XMLParser_extras
     )
 
 def ParserCreate(space, w_encoding=None, w_namespace_separator=None,
@@ -691,7 +782,7 @@ Return a new XML parser object."""
     elif space.is_true(space.isinstance(w_encoding, space.w_str)):
         encoding = space.str_w(w_encoding)
     else:
-        type_name = space.type(w_encoding).getname(space, '?')
+        type_name = space.type(w_encoding).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 1 must be string or None,'
@@ -711,7 +802,7 @@ Return a new XML parser object."""
                 space.wrap('namespace_separator must be at most one character,'
                            ' omitted, or None'))
     else:
-        type_name = space.type(w_namespace_separator).getname(space, '?')
+        type_name = space.type(w_namespace_separator).getname(space)
         raise OperationError(
             space.w_TypeError,
             space.wrap('ParserCreate() argument 2 must be string or None,'
@@ -730,7 +821,10 @@ Return a new XML parser object."""
             rffi.cast(rffi.CHAR, namespace_separator))
     else:
         xmlparser = XML_ParserCreate(encoding)
-
+    # Currently this is just the size of the pointer and some estimated bytes.
+    # The struct isn't actually defined in expat.h - it is in xmlparse.c
+    # XXX: find a good estimate of the XML_ParserStruct
+    rgc.add_memory_pressure(XML_Parser_SIZE + 300)
     if not xmlparser:
         raise OperationError(space.w_RuntimeError,
                              space.wrap('XML_ParserCreate failed'))

@@ -153,7 +153,7 @@ The steps of the translation process can be summarized as follows:
 
 * Optionally, `various transformations`_ can then be applied which, for
   example, perform optimizations such as inlining, add capabilities
-  such as stackless_-style concurrency, or insert code for the
+  such as stackless-style concurrency (deprecated), or insert code for the
   `garbage collector`_.
 
 * Then, the graphs are converted to source code for the target platform
@@ -255,7 +255,6 @@ index`_.  Of particular interest after reading this document might be:
 
 .. _Python: http://docs.python.org/reference/
 .. _Psyco: http://psyco.sourceforge.net
-.. _stackless: stackless.html
 .. _`generate Just-In-Time Compilers`: jit/index.html
 .. _`JIT Generation in PyPy`: jit/index.html
 .. _`implement your own interpreter`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html

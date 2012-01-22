@@ -1,147 +1,174 @@
-""" A very simple cell dict implementation. The dictionary maps keys to cell.
-This ensures that the function (dict, key) -> cell is pure. By itself, this
-optimization is not helping at all, but in conjunction with the JIT it can
-speed up global lookups a lot."""
+""" A very simple cell dict implementation using a version tag. The dictionary
+maps keys to objects. If a specific key is changed a lot, a level of
+indirection is introduced to make the version tag change less often.
+"""
 
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import IteratorImplementation
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject, _is_sane_hash
-from pypy.rlib import jit
+from pypy.objspace.std.dictmultiobject import DictStrategy, _never_equal_to_string
+from pypy.objspace.std.dictmultiobject import ObjectDictStrategy
+from pypy.rlib import jit, rerased
 
-class ModuleCell(object):
+class VersionTag(object):
+    pass
+
+class ModuleCell(W_Root):
     def __init__(self, w_value=None):
         self.w_value = w_value
-
-    def invalidate(self):
-        w_value = self.w_value
-        self.w_value = None
-        return w_value
 
     def __repr__(self):
         return "<ModuleCell: %s>" % (self.w_value, )
 
-class ModuleDictImplementation(W_DictMultiObject):
+def unwrap_cell(w_value):
+    if isinstance(w_value, ModuleCell):
+        return w_value.w_value
+    return w_value
+
+class ModuleDictStrategy(DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("modulecell")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    _immutable_fields_ = ["version?"]
+
     def __init__(self, space):
         self.space = space
-        self.content = {}
+        self.version = VersionTag()
 
-    def getcell(self, key, makenew):
-        if makenew or jit.we_are_jitted():
-            # when we are jitting, we always go through the pure function
-            # below, to ensure that we have no residual dict lookup
-            self = jit.hint(self, promote=True)
-            return self._getcell_makenew(key)
-        return self.content.get(key, None)
+    def get_empty_storage(self):
+        return self.erase({})
 
-    @jit.purefunction
-    def _getcell_makenew(self, key):
-        return self.content.setdefault(key, ModuleCell())
+    def mutated(self):
+        self.version = VersionTag()
 
-    def impl_setitem(self, w_key, w_value):
+    def getdictvalue_no_unwrapping(self, w_dict, key):
+        # NB: it's important to promote self here, so that self.version is a
+        # no-op due to the quasi-immutable field
+        self = jit.promote(self)
+        return self._getdictvalue_no_unwrapping_pure(self.version, w_dict, key)
+
+    @jit.elidable_promote('0,1,2')
+    def _getdictvalue_no_unwrapping_pure(self, version, w_dict, key):
+        return self.unerase(w_dict.dstorage).get(key, None)
+
+    def setitem(self, w_dict, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            self.impl_setitem_str(self.space.str_w(w_key), w_value)
+            self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
-            self._as_rdict().impl_fallback_setitem(w_key, w_value)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.setitem(w_key, w_value)
 
-    def impl_setitem_str(self, name, w_value):
-        self.getcell(name, True).w_value = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        cell = self.getdictvalue_no_unwrapping(w_dict, key)
+        if isinstance(cell, ModuleCell):
+            cell.w_value = w_value
+            return
+        if cell is not None:
+            # If the new value and the current value are the same, don't create a
+            # level of indirection, or mutate the version.
+            if self.space.is_w(w_value, cell):
+                return
+            w_value = ModuleCell(w_value)
+        self.mutated()
+        self.unerase(w_dict.dstorage)[key] = w_value
 
-    def impl_setdefault(self, w_key, w_default):
+    def setdefault(self, w_dict, w_key, w_default):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            cell = self.getcell(space.str_w(w_key), True)
-            if cell.w_value is None:
-                cell.w_value = w_default
-            return cell.w_value
+            key = space.str_w(w_key)
+            w_result = self.getitem_str(w_dict, key)
+            if w_result is not None:
+                return w_result
+            self.setitem_str(w_dict, key, w_default)
+            return w_default
         else:
-            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
-    def impl_delitem(self, w_key):
+    def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
             key = space.str_w(w_key)
-            cell = self.getcell(key, False)
-            if cell is None or cell.w_value is None:
-                raise KeyError
-            # note that we don't remove the cell from self.content, to make
-            # sure that a key that was found at any point in the dict, still
-            # maps to the same cell later (even if this cell no longer
-            # represents a key)
-            cell.invalidate()
-        elif _is_sane_hash(space, w_key_type):
+            dict_w = self.unerase(w_dict.dstorage)
+            try:
+                del dict_w[key]
+            except KeyError:
+                raise
+            else:
+                self.mutated()
+        elif _never_equal_to_string(space, w_key_type):
             raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
-        
-    def impl_length(self):
-        # inefficient, but do we care?
-        res = 0
-        for cell in self.content.itervalues():
-            if cell.w_value is not None:
-                res += 1
-        return res
+            self.switch_to_object_strategy(w_dict)
+            w_dict.delitem(w_key)
 
-    def impl_getitem(self, w_lookup):
+    def length(self, w_dict):
+        return len(self.unerase(w_dict.dstorage))
+
+    def getitem(self, w_dict, w_key):
         space = self.space
-        w_lookup_type = space.type(w_lookup)
+        w_lookup_type = space.type(w_key)
         if space.is_w(w_lookup_type, space.w_str):
-            return self.impl_getitem_str(space.str_w(w_lookup))
+            return self.getitem_str(w_dict, space.str_w(w_key))
 
-        elif _is_sane_hash(space, w_lookup_type):
+        elif _never_equal_to_string(space, w_lookup_type):
             return None
         else:
-            return self._as_rdict().impl_fallback_getitem(w_lookup)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_key)
 
-    def impl_getitem_str(self, lookup):
-        res = self.getcell(lookup, False)
-        if res is None:
-            return None
-        # note that even if the res.w_value is None, the next line is fine
-        return res.w_value
+    def getitem_str(self, w_dict, key):
+        w_res = self.getdictvalue_no_unwrapping(w_dict, key)
+        return unwrap_cell(w_res)
 
-    def impl_iter(self):
-        return ModuleDictIteratorImplementation(self.space, self)
+    def iter(self, w_dict):
+        return ModuleDictIteratorImplementation(self.space, self, w_dict)
 
-    def impl_keys(self):
+    def keys(self, w_dict):
         space = self.space
-        return [space.wrap(key) for key, cell in self.content.iteritems()
-                    if cell.w_value is not None]
+        iterator = self.unerase(w_dict.dstorage).iteritems
+        return [space.wrap(key) for key, cell in iterator()]
 
-    def impl_values(self):
-        return [cell.w_value for cell in self.content.itervalues()
-                    if cell.w_value is not None]
+    def values(self, w_dict):
+        iterator = self.unerase(w_dict.dstorage).itervalues
+        return [unwrap_cell(cell) for cell in iterator()]
 
-    def impl_items(self):
+    def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), cell.w_value])
-                    for (key, cell) in self.content.iteritems()
-                        if cell.w_value is not None]
+        iterator = self.unerase(w_dict.dstorage).iteritems
+        return [space.newtuple([space.wrap(key), unwrap_cell(cell)])
+                    for key, cell in iterator()]
 
-    def impl_clear(self):
-        for k, cell in self.content.iteritems():
-            cell.invalidate()
+    def clear(self, w_dict):
+        iterator = self.unerase(w_dict.dstorage).clear()
+        self.mutated()
 
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        for k, cell in self.content.iteritems():
-            if cell.w_value is not None:
-                r_dict_content[self.space.wrap(k)] = cell.w_value
-            cell.invalidate()
-        self._clear_fields()
-        return self
+    def popitem(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        key, w_value = d.popitem()
+        self.mutated()
+        return self.space.wrap(key), unwrap_cell(w_value)
 
-    def _clear_fields(self):
-        self.content = None
+    def switch_to_object_strategy(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        d_new = strategy.unerase(strategy.get_empty_storage())
+        for key, cell in d.iteritems():
+            d_new[self.space.wrap(key)] = unwrap_cell(cell)
+        w_dict.strategy = strategy
+        w_dict.dstorage = strategy.erase(d_new)
 
 class ModuleDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = dictimplementation.content.iteritems()
+        dict_w = strategy.unerase(dictimplementation.dstorage)
+        self.iterator = dict_w.iteritems()
 
     def next_entry(self):
         for key, cell in self.iterator:
-            if cell.w_value is not None:
-                return (self.space.wrap(key), cell.w_value)
+            return (self.space.wrap(key), unwrap_cell(cell))
         else:
             return None, None

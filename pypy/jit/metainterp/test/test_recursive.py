@@ -1,6 +1,6 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted, hint
-from pypy.rlib.jit import unroll_safe, dont_look_inside
+from pypy.rlib.jit import JitDriver, hint, set_param
+from pypy.rlib.jit import unroll_safe, dont_look_inside, promote
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -143,11 +143,11 @@ class RecursiveTests:
         f = self.get_interpreter(codes)
 
         assert self.meta_interp(f, [0, 0, 0], enable_opts='') == 42
-        self.check_loops(int_add = 1, call_may_force = 1, call = 0)
+        self.check_resops(call_may_force=1, int_add=1, call=0)
         assert self.meta_interp(f, [0, 0, 0], enable_opts='',
                                 inline=True) == 42
-        self.check_loops(int_add = 2, call_may_force = 0, call = 0,
-                         guard_no_exception = 0)
+        self.check_resops(call=0, int_add=2, call_may_force=0,
+                          guard_no_exception=0)
 
     def test_inline_jitdriver_check(self):
         code = "021"
@@ -160,7 +160,7 @@ class RecursiveTests:
                                 inline=True) == 42
         # the call is fully inlined, because we jump to subcode[1], thus
         # skipping completely the JUMP_BACK in subcode[0]
-        self.check_loops(call_may_force = 0, call_assembler = 0, call = 0)
+        self.check_resops(call=0, call_may_force=0, call_assembler=0)
 
     def test_guard_failure_in_inlined_function(self):
         def p(pc, code):
@@ -308,8 +308,8 @@ class RecursiveTests:
                 pc += 1
             return n
         def main(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 5)            
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 5)            
             return f("c-l", n)
         expected = main(100)
         res = self.meta_interp(main, [100], enable_opts='', inline=True)
@@ -329,7 +329,7 @@ class RecursiveTests:
                 return recursive(n - 1) + 1
             return 0
         def loop(n):            
-            myjitdriver.set_param("threshold", 10)
+            set_param(myjitdriver, "threshold", 10)
             pc = 0
             while n:
                 myjitdriver.can_enter_jit(n=n)
@@ -351,8 +351,8 @@ class RecursiveTests:
             return 0
         myjitdriver = JitDriver(greens=[], reds=['n'])
         def loop(n):
-            myjitdriver.set_param("threshold", 4)
-            myjitdriver.set_param("trace_eagerness", 2)
+            set_param(None, "threshold", 4)
+            set_param(None, "trace_eagerness", 2)
             while n:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
@@ -482,18 +482,19 @@ class RecursiveTests:
         TRACE_LIMIT = 66
  
         def main(inline):
-            myjitdriver.set_param("threshold", 10)
+            set_param(None, "threshold", 10)
+            set_param(None, 'function_threshold', 60)
             if inline:
-                myjitdriver.set_param('inlining', True)
+                set_param(None, 'inlining', True)
             else:
-                myjitdriver.set_param('inlining', False)
+                set_param(None, 'inlining', False)
             return loop(100)
 
         res = self.meta_interp(main, [0], enable_opts='', trace_limit=TRACE_LIMIT)
-        self.check_loops(call_may_force=1, call=0)
+        self.check_resops(call=0, call_may_force=1)
 
         res = self.meta_interp(main, [1], enable_opts='', trace_limit=TRACE_LIMIT)
-        self.check_loops(call_may_force=0, call=0)
+        self.check_resops(call=0, call_may_force=0)
 
     def test_trace_from_start(self):
         def p(pc, code):
@@ -529,8 +530,8 @@ class RecursiveTests:
             result = 0
             for i in range(m):
                 result += f('+-cl--', i)
-        g(50)
-        self.meta_interp(g, [50], backendopt=True)
+        res = self.meta_interp(g, [50], backendopt=True)
+        assert res == g(50)
         py.test.skip("tracing from start is by now only longer enabled "
                      "if a trace gets too big")
         self.check_tree_loop_count(3)
@@ -563,11 +564,11 @@ class RecursiveTests:
                 pc += 1
             return n
         def g(m):
-            myjitdriver.set_param('inlining', True)
+            set_param(None, 'inlining', True)
             # carefully chosen threshold to make sure that the inner function
             # cannot be inlined, but the inner function on its own is small
             # enough
-            myjitdriver.set_param('trace_limit', 40)
+            set_param(None, 'trace_limit', 40)
             if m > 1000000:
                 f('', 0)
             result = 0
@@ -575,8 +576,8 @@ class RecursiveTests:
                 result += f('-c-----------l-', i+100)
         self.meta_interp(g, [10], backendopt=True)
         self.check_aborted_count(1)
-        self.check_loops(call_assembler=1, call=0)
-        self.check_tree_loop_count(3)
+        self.check_resops(call=0, call_assembler=2)        
+        self.check_jitcell_token_count(2)
 
     def test_directly_call_assembler(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
@@ -624,8 +625,7 @@ class RecursiveTests:
         try:
             compile.compile_tmp_callback = my_ctc
             self.meta_interp(portal, [2, 5], inline=True)
-            self.check_loops(call_assembler=2, call_may_force=0,
-                             everywhere=True)
+            self.check_resops(call_may_force=0, call_assembler=2)
         finally:
             compile.compile_tmp_callback = original_ctc
         # check that we made a temporary callback
@@ -680,8 +680,7 @@ class RecursiveTests:
         try:
             compile.compile_tmp_callback = my_ctc
             self.meta_interp(main, [2, 5], inline=True)
-            self.check_loops(call_assembler=2, call_may_force=0,
-                             everywhere=True)
+            self.check_resops(call_may_force=0, call_assembler=2)
         finally:
             compile.compile_tmp_callback = original_ctc
         # check that we made a temporary callback
@@ -925,7 +924,7 @@ class RecursiveTests:
                 myjitdriver.can_enter_jit(codeno=codeno, frame=frame, n=n, x=x)
                 myjitdriver.jit_merge_point(codeno=codeno, frame=frame, n=n,
                                             x=x)
-                frame.s = hint(frame.s, promote=True)
+                frame.s = promote(frame.s)
                 n -= 1
                 s = frame.s
                 assert s >= 0
@@ -1020,7 +1019,7 @@ class RecursiveTests:
         res = self.meta_interp(portal, [2, 0], inline=True,
                                policy=StopAtXPolicy(residual))
         assert res == portal(2, 0)
-        self.check_loops(call_assembler=4, everywhere=True)
+        self.check_resops(call_assembler=4)
 
     def test_inline_without_hitting_the_loop(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
@@ -1044,7 +1043,7 @@ class RecursiveTests:
         assert portal(0) == 70
         res = self.meta_interp(portal, [0], inline=True)
         assert res == 70
-        self.check_loops(call_assembler=0)
+        self.check_resops(call_assembler=0)
 
     def test_inline_with_hitting_the_loop_sometimes(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1070,7 +1069,7 @@ class RecursiveTests:
         assert portal(0, 1) == 2095
         res = self.meta_interp(portal, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=12, everywhere=True)
+        self.check_resops(call_assembler=12)
 
     def test_inline_with_hitting_the_loop_sometimes_exc(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1108,7 +1107,7 @@ class RecursiveTests:
         assert main(0, 1) == 2095
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
-        self.check_loops(call_assembler=12, everywhere=True)
+        self.check_resops(call_assembler=12)
 
     def test_handle_jitexception_in_portal(self):
         # a test for _handle_jitexception_in_portal in blackhole.py
@@ -1192,6 +1191,76 @@ class RecursiveTests:
                 portal(i, i)
                 i -= 1
         self.meta_interp(portal, [0, 10], inline=True)
+
+    def test_trace_from_start_always(self):
+        from pypy.rlib.nonconst import NonConstant
+        
+        driver = JitDriver(greens = ['c'], reds = ['i', 'v'])
+
+        def portal(c, i, v):
+            while i > 0:
+                driver.jit_merge_point(c=c, i=i, v=v)
+                portal(c, i - 1, v)
+                if v:
+                    driver.can_enter_jit(c=c, i=i, v=v)
+                break
+
+        def main(c, i, _set_param, v):
+            if _set_param:
+                set_param(driver, 'function_threshold', 0)
+            portal(c, i, v)
+
+        self.meta_interp(main, [10, 10, False, False], inline=True)
+        self.check_jitcell_token_count(1)
+        self.check_trace_count(1)
+        self.meta_interp(main, [3, 10, True, False], inline=True)
+        self.check_jitcell_token_count(0)
+        self.check_trace_count(0)
+
+    def test_trace_from_start_does_not_prevent_inlining(self):
+        driver = JitDriver(greens = ['c', 'bc'], reds = ['i'])
+        
+        def portal(bc, c, i):
+            while True:
+                driver.jit_merge_point(c=c, bc=bc, i=i)
+                if bc == 0:
+                    portal(1, 8, 0)
+                    c += 1
+                else:
+                    return
+                if c == 10: # bc == 0                    
+                    c = 0
+                    if i >= 100:
+                        return
+                    driver.can_enter_jit(c=c, bc=bc, i=i)
+                i += 1
+
+        self.meta_interp(portal, [0, 0, 0], inline=True)
+        self.check_resops(call_may_force=0, call=0)
+
+    def test_dont_repeatedly_trace_from_the_same_guard(self):
+        driver = JitDriver(greens = [], reds = ['level', 'i'])
+
+        def portal(level):
+            if level == 0:
+                i = -10
+            else:
+                i = 0
+            #
+            while True:
+                driver.jit_merge_point(level=level, i=i)
+                if level == 25:
+                    return 42
+                i += 1
+                if i <= 0:      # <- guard
+                    continue    # first make a loop
+                else:
+                    # then we fail the guard above, doing a recursive call,
+                    # which will itself fail the same guard above, and so on
+                    return portal(level + 1)
+
+        self.meta_interp(portal, [0])
+        self.check_trace_count_at_most(2)   # and not, e.g., 24
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):

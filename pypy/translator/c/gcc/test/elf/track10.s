@@ -1,5 +1,5 @@
-	.type	main, @function
-main:
+	.type	main1, @function
+main1:
 	pushl	%ebx
 	call	pypy_f
 	;; expected {4(%esp) | (%esp), %esi, %edi, %ebp | %ebx}
@@ -11,4 +11,4 @@ main:
 	/* GCROOT %ebx */
 	popl	%ebx
 	ret
-	.size	main, .-main
+	.size	main1, .-main1

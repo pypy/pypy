@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
-from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -187,7 +187,7 @@ def checkptr(ptr):
 
 def checkadr(addr):
     assert lltype.typeOf(addr) is llmemory.Address
-    
+
 def is_inst(inst):
     return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType, ootype.StaticMethod))
 
@@ -528,13 +528,6 @@ class LLFrame(object):
         from pypy.translator.tool.lltracker import track
         track(*ll_objects)
 
-    def op_debug_pdb(self, *ll_args):
-        if self.llinterpreter.tracer:
-            self.llinterpreter.tracer.flush()
-        print "entering pdb...", ll_args
-        import pdb
-        pdb.set_trace()
-
     def op_debug_assert(self, x, msg):
         assert x, msg
 
@@ -570,6 +563,9 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
+    def op_jit_record_known_class(self, *args):
+        pass
+
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 
@@ -584,15 +580,6 @@ class LLFrame(object):
 
     def op_hint(self, x, hints):
         return x
-
-    def op_resume_point(self, *args):
-        pass
-
-    def op_resume_state_create(self, *args):
-        raise RuntimeError("resume_state_create can not be called.")
-
-    def op_resume_state_invoke(self, *args):
-        raise RuntimeError("resume_state_invoke can not be called.")
 
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
@@ -688,7 +675,7 @@ class LLFrame(object):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
         frame = self.newsubframe(graph, args)
-        return frame.eval()        
+        return frame.eval()
 
     def op_direct_call(self, f, *args):
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
@@ -705,21 +692,6 @@ class LLFrame(object):
             pass
             #log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
-
-    def op_adr_call(self, TGT, f, *inargs):
-        checkadr(f)
-        obj = self.llinterpreter.typer.type_system.deref(f.ref())
-        assert hasattr(obj, 'graph') # don't want to think about that
-        graph = obj.graph
-        args = []
-        for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
-            args.append(lltype._cast_whatever(arg.concretetype, inarg))
-        frame = self.newsubframe(graph, args)
-        result = frame.eval()
-        from pypy.translator.stackless.frame import storage_type
-        assert storage_type(lltype.typeOf(result)) == TGT
-        return lltype._cast_whatever(TGT, result)
-    op_adr_call.need_result_type = True
 
     def op_malloc(self, obj, flags):
         flavor = flags['flavor']
@@ -745,13 +717,13 @@ class LLFrame(object):
             return ptr
         except MemoryError:
             self.make_llexception()
-            
+
     def op_malloc_nonmovable(self, TYPE, flags):
         flavor = flags['flavor']
         assert flavor == 'gc'
         zero = flags.get('zero', False)
         return self.heap.malloc_nonmovable(TYPE, zero=zero)
-        
+
     def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
         flavor = flags['flavor']
         assert flavor == 'gc'
@@ -763,15 +735,21 @@ class LLFrame(object):
         track_allocation = flags.get('track_allocation', True)
         self.heap.free(obj, flavor='raw', track_allocation=track_allocation)
 
+    def op_gc_add_memory_pressure(self, size):
+        self.heap.add_memory_pressure(size)
+
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
 
     def op_zero_gc_pointers_inside(self, obj):
         raise NotImplementedError("zero_gc_pointers_inside")
 
-    def op_gc_writebarrier_before_copy(self, source, dest):
+    def op_gc_writebarrier_before_copy(self, source, dest,
+                                       source_start, dest_start, length):
         if hasattr(self.heap, 'writebarrier_before_copy'):
-            return self.heap.writebarrier_before_copy(source, dest)
+            return self.heap.writebarrier_before_copy(source, dest,
+                                                      source_start, dest_start,
+                                                      length)
         else:
             return True
 
@@ -869,10 +847,11 @@ class LLFrame(object):
 
     def op_gc_adr_of_nursery_top(self):
         raise NotImplementedError
-
     def op_gc_adr_of_nursery_free(self):
         raise NotImplementedError
 
+    def op_gc_adr_of_root_stack_base(self):
+        raise NotImplementedError
     def op_gc_adr_of_root_stack_top(self):
         raise NotImplementedError
 
@@ -927,6 +906,21 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
+    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
+        raise NotImplementedError("gc_shadowstackref_new")
+    def op_gc_shadowstackref_context(self):
+        raise NotImplementedError("gc_shadowstackref_context")
+    def op_gc_shadowstackref_destroy(self):
+        raise NotImplementedError("gc_shadowstackref_destroy")
+    def op_gc_save_current_state_away(self):
+        raise NotImplementedError("gc_save_current_state_away")
+    def op_gc_forget_current_state(self):
+        raise NotImplementedError("gc_forget_current_state")
+    def op_gc_restore_state_from(self):
+        raise NotImplementedError("gc_restore_state_from")
+    def op_gc_start_fresh_new_state(self):
+        raise NotImplementedError("gc_start_fresh_new_state")
+
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
 
@@ -962,27 +956,6 @@ class LLFrame(object):
 
     def op_get_write_barrier_from_array_failing_case(self):
         raise NotImplementedError("get_write_barrier_from_array_failing_case")
-
-    def op_yield_current_frame_to_caller(self):
-        raise NotImplementedError("yield_current_frame_to_caller")
-
-    def op_stack_frames_depth(self):
-        return len(self.llinterpreter.frame_stack)
-
-    def op_stack_switch(self, frametop):
-        raise NotImplementedError("stack_switch")
-
-    def op_stack_unwind(self):
-        raise NotImplementedError("stack_unwind")
-
-    def op_stack_capture(self):
-        raise NotImplementedError("stack_capture")
-
-    def op_get_stack_depth_limit(self):
-        raise NotImplementedError("get_stack_depth_limit")
-
-    def op_set_stack_depth_limit(self):
-        raise NotImplementedError("set_stack_depth_limit")
 
     def op_stack_current(self):
         return 0
@@ -1085,7 +1058,7 @@ class LLFrame(object):
         assert isinstance(x, int)
         assert isinstance(y, int)
         try:
-            return ovfcheck_lshift(x, y)
+            return ovfcheck(x << y)
         except OverflowError:
             self.make_llexception()
 
@@ -1148,13 +1121,6 @@ class LLFrame(object):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
 
-    def op_cast_float_to_int(self, f):
-        assert type(f) is float
-        try:
-            return ovfcheck(int(f))
-        except OverflowError:
-            self.make_llexception()
-
     def op_int_is_true(self, x):
         # special case
         if type(x) is CDefinedIntSymbolic:
@@ -1163,16 +1129,6 @@ class LLFrame(object):
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
         assert isinstance(x, (int, Symbolic))
         return bool(x)
-
-    # read frame var support
-
-    def op_get_frame_base(self):
-        self._obj0 = self        # hack
-        return llmemory.fakeaddress(self)
-
-    def op_frame_info(self, *vars):
-        pass
-    op_frame_info.specialform = True
 
     # hack for jit.codegen.llgraph
 
@@ -1257,6 +1213,12 @@ class LLFrame(object):
             return ootype.ooparse_float(s)
         except ValueError:
             self.make_llexception()
+
+    def op_oobox_int(self, i):
+        return ootype.oobox_int(i)
+
+    def op_oounbox_int(self, x):
+        return ootype.oounbox_int(x)
 
 class Tracer(object):
     Counter = 0
@@ -1382,7 +1344,7 @@ def wrap_callable(llinterpreter, fn, obj, method_name):
         func_graph = fn.graph
     else:
         # obj is an instance, we want to call 'method_name' on it
-        assert fn is None        
+        assert fn is None
         self_arg = [obj]
         func_graph = obj._TYPE._methods[method_name._str].graph
 

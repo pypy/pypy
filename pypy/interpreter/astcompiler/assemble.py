@@ -655,9 +655,6 @@ def _compute_CALL_FUNCTION_KW(arg):
 def _compute_CALL_FUNCTION_VAR_KW(arg):
     return -_num_args(arg) - 2
 
-def _compute_CALL_LIKELY_BUILTIN(arg):
-    return -(arg & 0xFF) + 1
-
 def _compute_CALL_METHOD(arg):
     return -_num_args(arg) - 1
 

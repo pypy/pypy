@@ -139,7 +139,7 @@ class Source(object):
                 trysource = self[start:end]
                 if trysource.isparseable():
                     return start, end
-        return start, end
+        return start, len(self)
 
     def getblockend(self, lineno):
         # XXX

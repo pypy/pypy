@@ -1,21 +1,16 @@
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError
-import sys
-import os
-import platform
-import stat
+from pypy.rlib.rmmap import RValueError, RTypeError
+
 
 class W_MMap(Wrappable):
     def __init__(self, space, mmap_obj):
         self.space = space
         self.mmap = mmap_obj
-        
+
     def close(self):
         self.mmap.close()
 
@@ -217,8 +212,6 @@ if rmmap._POSIX:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 elif rmmap._MS_WINDOWS:
@@ -238,8 +231,6 @@ elif rmmap._MS_WINDOWS:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 W_MMap.typedef = TypeDef("mmap",

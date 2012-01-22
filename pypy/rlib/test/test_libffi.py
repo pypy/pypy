@@ -1,9 +1,13 @@
-import py
 import sys
+
+import py
+
+from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
+    IS_32_BIT, array_getitem, array_setitem)
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
+from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name
-from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -50,6 +54,33 @@ class TestLibffiMisc(BaseFfiTest):
         del lib
         assert not ALLOCATED
 
+    def test_array_fields(self):
+        POINT = lltype.Struct("POINT",
+            ("x", lltype.Float),
+            ("y", lltype.Float),
+        )
+        points = lltype.malloc(rffi.CArray(POINT), 2, flavor="raw")
+        points[0].x = 1.0
+        points[0].y = 2.0
+        points[1].x = 3.0
+        points[1].y = 4.0
+        points = rffi.cast(rffi.CArrayPtr(lltype.Char), points)
+        assert array_getitem(types.double, 16, points, 0, 0) == 1.0
+        assert array_getitem(types.double, 16, points, 0, 8) == 2.0
+        assert array_getitem(types.double, 16, points, 1, 0) == 3.0
+        assert array_getitem(types.double, 16, points, 1, 8) == 4.0
+
+        array_setitem(types.double, 16, points, 0, 0, 10.0)
+        array_setitem(types.double, 16, points, 0, 8, 20.0)
+        array_setitem(types.double, 16, points, 1, 0, 30.0)
+        array_setitem(types.double, 16, points, 1, 8, 40.0)
+
+        assert array_getitem(types.double, 16, points, 0, 0) == 10.0
+        assert array_getitem(types.double, 16, points, 0, 8) == 20.0
+        assert array_getitem(types.double, 16, points, 1, 0) == 30.0
+        assert array_getitem(types.double, 16, points, 1, 8) == 40.0
+
+        lltype.free(points, flavor="raw")
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -97,7 +128,7 @@ class TestLibffiCall(BaseFfiTest):
     def get_libfoo(self):
         return self.CDLL(self.libfoo_name)
 
-    def call(self, funcspec, args, RESULT, init_result=0):
+    def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
         Call the specified function after constructing and ArgChain with the
         arguments in ``args``.
@@ -108,22 +139,33 @@ class TestLibffiCall(BaseFfiTest):
         This method is overridden by metainterp/test/test_fficall.py in
         order to do the call in a loop and JIT it. The optional arguments are
         used only by that overridden method.
-        
+
         """
         lib, name, argtypes, restype = funcspec
         func = lib.getpointer(name, argtypes, restype)
         chain = ArgChain()
         for arg in args:
-            chain.arg(arg)
-        return func.call(chain, RESULT)
-
-    def check_loops(self, *args, **kwds):
-        """
-        Ignored here, but does something in the JIT tests
-        """
-        pass
+            if isinstance(arg, tuple):
+                methname, arg = arg
+                meth = getattr(chain, methname)
+                meth(arg)
+            else:
+                chain.arg(arg)
+        return func.call(chain, RESULT, is_struct=is_struct)
 
     # ------------------------------------------------------------------------
+
+    def test_very_simple(self):
+        """
+            int diff_xy(int x, long y)
+            {
+                return x - y;
+            }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'diff_xy', [types.sint, types.slong], types.sint)
+        res = self.call(func, [50, 8], lltype.Signed)
+        assert res == 42
 
     def test_simple(self):
         """
@@ -132,25 +174,16 @@ class TestLibffiCall(BaseFfiTest):
                 return (x + (int)y);
             }
         """
-        libfoo = self.get_libfoo() 
+        libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-        res = self.call(func, [38, 4.2], rffi.LONG)
+        res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
         assert res == 42
-        self.check_loops({
-                'call_may_force': 1,
-                'guard_no_exception': 1,
-                'guard_not_forced': 1,
-                'int_add': 1,
-                'int_lt': 1,
-                'guard_true': 1,
-                'jump': 1})
 
     def test_float_result(self):
         libm = self.get_libm()
         func = (libm, 'pow', [types.double, types.double], types.double)
-        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, init_result=0.0)
+        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, jitif=["floats"])
         assert res == 8.0
-        self.check_loops(call_may_force=1, guard_no_exception=1, guard_not_forced=1)
 
     def test_cast_result(self):
         """
@@ -163,7 +196,6 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'cast_to_uchar_and_ovf', [types.sint], types.uchar)
         res = self.call(func, [0], rffi.UCHAR)
         assert res == 200
-        self.check_loops(call_may_force=1, guard_no_exception=1, guard_not_forced=1)
 
     def test_cast_argument(self):
         """
@@ -176,6 +208,17 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'many_args', [types.uchar, types.sint], types.sint)
         res = self.call(func, [chr(20), 22], rffi.LONG)
         assert res == 42
+
+    def test_char_args(self):
+        """
+        char sum_args(char a, char b) {
+            return a + b;
+        }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_args', [types.schar, types.schar], types.schar)
+        res = self.call(func, [123, 43], rffi.CHAR)
+        assert res == chr(166)
 
     def test_unsigned_short_args(self):
         """
@@ -236,7 +279,7 @@ class TestLibffiCall(BaseFfiTest):
             };
 
             struct pair my_static_pair = {10, 20};
-            
+
             long* get_pointer_to_b()
             {
                 return &my_static_pair.b;
@@ -245,8 +288,7 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = self.get_libfoo()
         func = (libfoo, 'get_pointer_to_b', [], types.pointer)
         LONGP = lltype.Ptr(rffi.CArray(rffi.LONG))
-        null = lltype.nullptr(LONGP.TO)
-        res = self.call(func, [], LONGP, init_result=null)
+        res = self.call(func, [], LONGP)
         assert res[0] == 20
 
     def test_void_result(self):
@@ -261,15 +303,74 @@ class TestLibffiCall(BaseFfiTest):
         #
         initval = self.call(get_dummy, [], rffi.LONG)
         #
-        res = self.call(set_dummy, [initval+1], lltype.Void, init_result=None)
+        res = self.call(set_dummy, [initval+1], lltype.Void)
         assert res is None
         #
         res = self.call(get_dummy, [], rffi.LONG)
         assert res == initval+1
 
+    def test_single_float_args(self):
+        """
+            float sum_xy_float(float x, float y)
+            {
+                return x+y;
+            }
+        """
+        from ctypes import c_float # this is used only to compute the expected result
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_float', [types.float, types.float], types.float)
+        x = r_singlefloat(12.34)
+        y = r_singlefloat(56.78)
+        res = self.call(func, [x, y], rffi.FLOAT, jitif=["singlefloats"])
+        expected = c_float(c_float(12.34).value + c_float(56.78).value).value
+        assert float(res) == expected
+
+    def test_slonglong_args(self):
+        """
+            long long sum_xy_longlong(long long x, long long y)
+            {
+                return x+y;
+            }
+        """
+        maxint32 = 2147483647 # we cannot really go above maxint on 64 bits
+                              # (and we would not test anything, as there long
+                              # is the same as long long)
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_longlong', [types.slonglong, types.slonglong],
+                types.slonglong)
+        if IS_32_BIT:
+            x = r_longlong(maxint32+1)
+            y = r_longlong(maxint32+2)
+        else:
+            x = maxint32+1
+            y = maxint32+2
+        res = self.call(func, [x, y], rffi.LONGLONG, jitif=["longlong"])
+        expected = maxint32*2 + 3
+        assert res == expected
+
+    def test_ulonglong_args(self):
+        """
+            unsigned long long sum_xy_ulonglong(unsigned long long x,
+                                                unsigned long long y)
+            {
+                return x+y;
+            }
+        """
+        maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
+                                       # longlong, but it does into a
+                                       # ulonglong
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_xy_ulonglong', [types.ulonglong, types.ulonglong],
+                types.ulonglong)
+        x = r_ulonglong(maxint64+1)
+        y = r_ulonglong(2)
+        res = self.call(func, [x, y], rffi.ULONGLONG, jitif=["longlong"])
+        expected = maxint64 + 3
+        assert res == expected
+
     def test_wrong_number_of_arguments(self):
         from pypy.rpython.llinterp import LLException
-        libfoo = self.get_libfoo() 
+        libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
 
         glob = globals()
@@ -287,3 +388,59 @@ class TestLibffiCall(BaseFfiTest):
 
         my_raises("self.call(func, [38], rffi.LONG)") # one less
         my_raises("self.call(func, [38, 12.3, 42], rffi.LONG)") # one more
+
+
+    def test_byval_argument(self):
+        """
+            struct Point {
+                long x;
+                long y;
+            };
+
+            long sum_point(struct Point p) {
+                return p.x + p.y;
+            }
+        """
+        libfoo = CDLL(self.libfoo_name)
+        ffi_point_struct = make_struct_ffitype_e(0, 0, [types.slong, types.slong])
+        ffi_point = ffi_point_struct.ffistruct
+        sum_point = (libfoo, 'sum_point', [ffi_point], types.slong)
+        #
+        ARRAY = rffi.CArray(rffi.LONG)
+        buf = lltype.malloc(ARRAY, 2, flavor='raw')
+        buf[0] = 30
+        buf[1] = 12
+        adr = rffi.cast(rffi.VOIDP, buf)
+        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG,
+                        jitif=["byval"])
+        assert res == 42
+        # check that we still have the ownership on the buffer
+        assert buf[0] == 30
+        assert buf[1] == 12
+        lltype.free(buf, flavor='raw')
+        lltype.free(ffi_point_struct, flavor='raw')
+
+    def test_byval_result(self):
+        """
+            struct Point make_point(long x, long y) {
+                struct Point p;
+                p.x = x;
+                p.y = y;
+                return p;
+            }
+        """
+        libfoo = CDLL(self.libfoo_name)
+        ffi_point_struct = make_struct_ffitype_e(0, 0, [types.slong, types.slong])
+        ffi_point = ffi_point_struct.ffistruct
+
+        libfoo = CDLL(self.libfoo_name)
+        make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
+        #
+        PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
+        p = self.call(make_point, [12, 34], PTR, is_struct=True,
+                      jitif=["byval"])
+        assert p[0] == 12
+        assert p[1] == 34
+        lltype.free(p, flavor='raw')
+        lltype.free(ffi_point_struct, flavor='raw')
+        

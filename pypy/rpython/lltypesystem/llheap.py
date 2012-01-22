@@ -5,8 +5,7 @@ from pypy.rpython.lltypesystem.llmemory import weakref_create, weakref_deref
 
 setfield = setattr
 from operator import setitem as setarrayitem
-from pypy.rlib.rgc import collect
-from pypy.rlib.rgc import can_move
+from pypy.rlib.rgc import can_move, collect, add_memory_pressure
 
 def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue,
                 offsets=None):

@@ -7,12 +7,19 @@ class TestWeakReference(BaseApiTest):
         w_ref = api.PyWeakref_NewRef(w_obj, space.w_None)
         assert w_ref is not None
         assert space.is_w(api.PyWeakref_GetObject(w_ref), w_obj)
+        assert space.is_w(api.PyWeakref_GET_OBJECT(w_ref), w_obj)
         assert space.is_w(api.PyWeakref_LockObject(w_ref), w_obj)
 
         w_obj = space.newtuple([])
         assert api.PyWeakref_NewRef(w_obj, space.w_None) is None
         assert api.PyErr_Occurred() is space.w_TypeError
         api.PyErr_Clear()
+
+    def test_proxy(self, space, api):
+        w_obj = space.w_Warning # some weakrefable object
+        w_proxy = api.PyWeakref_NewProxy(w_obj, None)
+        assert space.unwrap(space.str(w_proxy)) == "<type 'exceptions.Warning'>"
+        assert space.unwrap(space.repr(w_proxy)).startswith('<weak')
 
     def test_weakref_lockobject(self, space, api):
         # some new weakrefable object

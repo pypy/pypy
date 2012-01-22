@@ -49,7 +49,7 @@ def test_immutable_fields():
     accessor = rclass.FieldListAccessor()
     S2 = lltype.GcStruct('S2', ('x', lltype.Signed),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S2, {'x': ''})
+    accessor.initialize(S2, {'x': rclass.IR_IMMUTABLE})
     test_simple(S2)
 
 

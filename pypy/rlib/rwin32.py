@@ -55,14 +55,19 @@ class CConfig:
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
 
-        OSVERSIONINFO = rffi_platform.Struct(
-            'OSVERSIONINFO',
+        OSVERSIONINFOEX = rffi_platform.Struct(
+            'OSVERSIONINFOEX',
             [('dwOSVersionInfoSize', rffi.UINT),
              ('dwMajorVersion', rffi.UINT),
              ('dwMinorVersion', rffi.UINT),
              ('dwBuildNumber',  rffi.UINT),
              ('dwPlatformId',  rffi.UINT),
-             ('szCSDVersion', rffi.CFixedArray(lltype.Char, 1))])
+             ('szCSDVersion', rffi.CFixedArray(lltype.Char, 1)),
+             ('wServicePackMajor', rffi.USHORT),
+             ('wServicePackMinor', rffi.USHORT),
+             ('wSuiteMask', rffi.USHORT),
+             ('wProductType', rffi.UCHAR),
+         ])
 
         LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType(
             "LPSECURITY_ATTRIBUTES", rffi.CCHARP)
@@ -79,8 +84,9 @@ class CConfig:
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
+def winexternal(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           calling_conv='win', **kwds)
 
 if WIN32:
     HANDLE = rffi.COpaquePtr(typedef='HANDLE')
@@ -92,8 +98,13 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    GetLastError = winexternal('GetLastError', [], DWORD)
-    SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+    _GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
+    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+
+    def GetLastError():
+        return rffi.cast(lltype.Signed, _GetLastError())
+    def SetLastError(err):
+        _SetLastError(rffi.cast(DWORD, err))
 
     # In tests, the first call to GetLastError is always wrong, because error
     # is hidden by operations in ll2ctypes.  Call it now.
@@ -103,10 +114,10 @@ if WIN32:
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, threadsafe=False)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, threadsafe=False)
 
     FormatMessage = winexternal(
         'FormatMessageA',
@@ -178,12 +189,12 @@ if WIN32:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                    FORMAT_MESSAGE_FROM_SYSTEM,
                                    None,
-                                   code,
+                                   rffi.cast(DWORD, code),
                                    DEFAULT_LANGUAGE,
                                    rffi.cast(rffi.CCHARP, buf),
                                    0, None)
 
-            if msglen <= 2 or msglen > sys.maxint:
+            if msglen <= 2:   # includes the case msglen < 0
                 return fake_FormatError(code)
 
             # FormatMessage always appends \r\n.
@@ -224,14 +235,14 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
     _GetVersionEx = winexternal('GetVersionExA',
-                                [lltype.Ptr(OSVERSIONINFO)],
+                                [lltype.Ptr(OSVERSIONINFOEX)],
                                 DWORD)
 
     @jit.dont_look_inside
     def GetVersionEx():
-        info = lltype.malloc(OSVERSIONINFO, flavor='raw')
+        info = lltype.malloc(OSVERSIONINFOEX, flavor='raw')
         rffi.setintfield(info, 'c_dwOSVersionInfoSize',
-                         rffi.sizeof(OSVERSIONINFO))
+                         rffi.sizeof(OSVERSIONINFOEX))
         try:
             if not _GetVersionEx(info):
                 raise lastWindowsError()
@@ -240,7 +251,11 @@ if WIN32:
                     rffi.cast(lltype.Signed, info.c_dwBuildNumber),
                     rffi.cast(lltype.Signed, info.c_dwPlatformId),
                     rffi.charp2str(rffi.cast(rffi.CCHARP,
-                                             info.c_szCSDVersion)))
+                                             info.c_szCSDVersion)),
+                    rffi.cast(lltype.Signed, info.c_wServicePackMajor),
+                    rffi.cast(lltype.Signed, info.c_wServicePackMinor),
+                    rffi.cast(lltype.Signed, info.c_wSuiteMask),
+                    rffi.cast(lltype.Signed, info.c_wProductType))
         finally:
             lltype.free(info, flavor='raw')
 

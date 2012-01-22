@@ -105,7 +105,8 @@ class PyPyTarget(object):
         return parser
 
     def handle_config(self, config, translateconfig):
-        if translateconfig._cfgimpl_value_owners['opt'] == 'default':
+        if (not translateconfig.help and
+            translateconfig._cfgimpl_value_owners['opt'] == 'default'):
             raise Exception("You have to specify the --opt level.\n"
                     "Try --opt=2 or --opt=jit, or equivalently -O2 or -Ojit .")
         self.translateconfig = translateconfig
@@ -172,15 +173,15 @@ class PyPyTarget(object):
                 # command-line directly instead of via --allworkingmodules.
                 config.objspace.usemodules.thread = False
 
-        if config.translation.stackless:
-            config.objspace.usemodules._stackless = True
-        elif config.objspace.usemodules._stackless:
+        if config.translation.continuation:
+            config.objspace.usemodules._continuation = True
+        elif config.objspace.usemodules._continuation:
             try:
-                config.translation.stackless = True
+                config.translation.continuation = True
             except ConflictConfigError:
-                raise ConflictConfigError("please use the --stackless option "
-                                          "to translate.py instead of "
-                                          "--withmod-_stackless directly")
+                # Same as above: try to auto-disable the _continuation
+                # module if translation.continuation cannot be enabled
+                config.objspace.usemodules._continuation = False
 
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False
@@ -225,8 +226,8 @@ class PyPyTarget(object):
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.policy import PyPyJitPolicy
-        return PyPyJitPolicy()
+        from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
+        return PyPyJitPolicy(pypy_hooks)
     
     def get_entry_point(self, config):
         from pypy.tool.lib_pypy import import_from_lib_pypy

@@ -26,8 +26,9 @@
 #define PYPY_DEBUG_FILE           pypy_debug_file
 #define PYPY_DEBUG_START(cat)     pypy_debug_start(cat)
 #define PYPY_DEBUG_STOP(cat)      pypy_debug_stop(cat)
+#define OP_DEBUG_OFFSET(res)      res = pypy_debug_offset()
 #define OP_HAVE_DEBUG_PRINTS(r)   r = (pypy_have_debug_prints & 1)
-
+#define OP_DEBUG_FLUSH() fflush(pypy_debug_file)
 
 /************************************************************/
 
@@ -35,6 +36,7 @@
 void pypy_debug_ensure_opened(void);
 void pypy_debug_start(const char *category);
 void pypy_debug_stop(const char *category);
+long pypy_debug_offset(void);
 
 extern long pypy_have_debug_prints;
 extern FILE *pypy_debug_file;
@@ -51,8 +53,6 @@ extern FILE *pypy_debug_file;
 #  ifdef _WIN32
 #    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
 #  else
-#    include <time.h>
-#    include <sys/time.h>
 
 long long pypy_read_timestamp();
 

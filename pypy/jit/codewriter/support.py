@@ -13,13 +13,13 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
-from pypy import conftest
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.jit import elidable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
@@ -37,9 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
@@ -47,15 +49,13 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
-    if inline:
-        auto_inlining(t, threshold=inline)
+    #if inline:
+    #    auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t, inline_threshold=inline or 0,
                 remove_asserts=True, really_remove_asserts=True)
 
-    #if conftest.option.view:
-    #    t.view()
     return rtyper
 
 def getgraph(func, values):
@@ -90,9 +90,12 @@ def decode_hp_hint_args(op):
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
-    def _sort(args_v):
+    def _sort(args_v, is_green):
         from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
+        if is_green:
+            assert len(lst) == len(args_v), (
+                "not supported so far: 'greens' variables contain Void")
         _kind2count = {'int': 1, 'ref': 2, 'float': 3}
         lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
@@ -101,7 +104,7 @@ def decode_hp_hint_args(op):
         assert lst == lst2
         return lst
     #
-    return (_sort(greens_v), _sort(reds_v))
+    return (_sort(greens_v, True), _sort(reds_v, False))
 
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
@@ -159,7 +162,6 @@ _ll_3_list_insert = rlist.ll_insert_nonneg
 _ll_4_list_setslice = rlist.ll_listsetslice
 _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
-_ll_1_list_list2fixed = lltypesystem_rlist.ll_list2fixed
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 
 _ll_2_list_getitem_foldable = _ll_2_list_getitem
@@ -167,9 +169,14 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+@elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
+# the following function should not be "@elidable": I can think of
+# a corner case in which id(const) is constant-folded, and then 'const'
+# disappears and is collected too early (possibly causing another object
+# with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
@@ -185,7 +192,7 @@ def _ll_2_int_floordiv_ovf_zer(x, y):
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:        
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -222,7 +229,18 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
-        
+
+def _ll_1_cast_uint_to_float(x):
+    # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+
 # math support
 # ------------
 
@@ -238,6 +256,9 @@ def u_to_longlong(x):
 def _ll_1_llong_invert(xll):
     y = ~r_ulonglong(xll)
     return u_to_longlong(y)
+
+def _ll_1_ullong_invert(xull):
+    return ~xull
 
 def _ll_2_llong_lt(xll, yll):
     return xll < yll
@@ -257,16 +278,22 @@ def _ll_2_llong_gt(xll, yll):
 def _ll_2_llong_ge(xll, yll):
     return xll >= yll
 
-def _ll_2_llong_ult(xull, yull):
+def _ll_2_ullong_eq(xull, yull):
+    return xull == yull
+
+def _ll_2_ullong_ne(xull, yull):
+    return xull != yull
+
+def _ll_2_ullong_ult(xull, yull):
     return xull < yull
 
-def _ll_2_llong_ule(xull, yull):
+def _ll_2_ullong_ule(xull, yull):
     return xull <= yull
 
-def _ll_2_llong_ugt(xull, yull):
+def _ll_2_ullong_ugt(xull, yull):
     return xull > yull
 
-def _ll_2_llong_uge(xull, yull):
+def _ll_2_ullong_uge(xull, yull):
     return xull >= yull
 
 def _ll_2_llong_add(xll, yll):
@@ -293,21 +320,54 @@ def _ll_2_llong_xor(xll, yll):
     z = r_ulonglong(xll) ^ r_ulonglong(yll)
     return u_to_longlong(z)
 
+def _ll_2_ullong_add(xull, yull):
+    z = (xull) + (yull)
+    return (z)
+
+def _ll_2_ullong_sub(xull, yull):
+    z = (xull) - (yull)
+    return (z)
+
+def _ll_2_ullong_mul(xull, yull):
+    z = (xull) * (yull)
+    return (z)
+
+def _ll_2_ullong_and(xull, yull):
+    z = (xull) & (yull)
+    return (z)
+
+def _ll_2_ullong_or(xull, yull):
+    z = (xull) | (yull)
+    return (z)
+
+def _ll_2_ullong_xor(xull, yull):
+    z = (xull) ^ (yull)
+    return (z)
+
 def _ll_2_llong_lshift(xll, y):
     z = r_ulonglong(xll) << y
     return u_to_longlong(z)
 
+def _ll_2_ullong_lshift(xull, y):
+    return xull << y
+
 def _ll_2_llong_rshift(xll, y):
     return xll >> y
 
-def _ll_2_llong_urshift(xull, y):
+def _ll_2_ullong_urshift(xull, y):
     return xull >> y
 
 def _ll_1_llong_from_int(x):
     return r_longlong(intmask(x))
 
+def _ll_1_ullong_from_int(x):
+    return r_ulonglong(intmask(x))
+
 def _ll_1_llong_from_uint(x):
     return r_longlong(r_uint(x))
+
+def _ll_1_ullong_from_uint(x):
+    return r_ulonglong(r_uint(x))
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
@@ -315,8 +375,14 @@ def _ll_1_llong_to_int(xll):
 def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
+def _ll_1_ullong_from_float(xf):
+    return r_ulonglong(xf)
+
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
+
+def _ll_1_ullong_u_to_float(xull):
+    return float(rffi.cast(lltype.UnsignedLongLong, xull))
 
 
 def _ll_1_llong_abs(xll):
@@ -342,20 +408,23 @@ def _ll_2_llong_mod_zer(xll, yll):
     return llop.llong_mod(lltype.SignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
+
+def _ll_2_uint_mod(xll, yll):
+    return llop.uint_mod(lltype.Unsigned, xll, yll)
 
 
 # libffi support
@@ -395,7 +464,7 @@ inline_calls_to = [
     ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
-    ]
+]
 
 
 class LLtypeHelpers:
@@ -420,10 +489,6 @@ class LLtypeHelpers:
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
 
-    def _ll_1_newdictiter(ITER, d):
-        return ll_rdict.ll_dictiter(lltype.Ptr(ITER), d)
-    _ll_1_newdictiter.need_result_type = True
-
     _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
     _dictnext_items  = staticmethod(ll_rdict.ll_dictnext_group['items'])
@@ -435,6 +500,8 @@ class LLtypeHelpers:
     def _ll_1_dictiter_nextitems(RES, iter):
         return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
     _ll_1_dictiter_nextitems.need_result_type = True
+
+    _ll_1_dict_resize = ll_rdict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 
@@ -531,15 +598,75 @@ class LLtypeHelpers:
             return p
         return _ll_0_alloc_with_del
 
-    def build_ll_1_raw_malloc(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw')
-        return _ll_1_raw_malloc
+    def build_raw_malloc_varsize_builder(zero=False,
+                                         add_memory_pressure=False,
+                                         track_allocation=True):
+        def build_ll_1_raw_malloc_varsize(ARRAY):
+            def _ll_1_raw_malloc_varsize(n):
+                return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
+                                     add_memory_pressure=add_memory_pressure,
+                                     track_allocation=track_allocation)
+            return _ll_1_raw_malloc_varsize
+        return build_ll_1_raw_malloc_varsize
 
-    def build_ll_1_raw_free(ARRAY):
-        def _ll_1_raw_free(p):
-            lltype.free(p, flavor='raw')
-        return _ll_1_raw_free
+    build_ll_1_raw_malloc_varsize = (
+        build_raw_malloc_varsize_builder())
+    build_ll_1_raw_malloc_varsize_zero = (
+        build_raw_malloc_varsize_builder(zero=True))
+    build_ll_1_raw_malloc_varsize_zero_add_memory_pressure = (
+        build_raw_malloc_varsize_builder(zero=True, add_memory_pressure=True))
+    build_ll_1_raw_malloc_varsize_add_memory_pressure = (
+        build_raw_malloc_varsize_builder(add_memory_pressure=True))
+    build_ll_1_raw_malloc_varsize_no_track_allocation = (
+        build_raw_malloc_varsize_builder(track_allocation=False))
+    build_ll_1_raw_malloc_varsize_zero_no_track_allocation = (
+        build_raw_malloc_varsize_builder(zero=True, track_allocation=False))
+    build_ll_1_raw_malloc_varsize_zero_add_memory_pressure_no_track_allocation = (
+        build_raw_malloc_varsize_builder(zero=True, add_memory_pressure=True, track_allocation=False))
+    build_ll_1_raw_malloc_varsize_add_memory_pressure_no_track_allocation = (
+        build_raw_malloc_varsize_builder(add_memory_pressure=True, track_allocation=False))
+
+    def build_raw_malloc_fixedsize_builder(zero=False,
+                                           add_memory_pressure=False,
+                                           track_allocation=True):
+        def build_ll_0_raw_malloc_fixedsize(STRUCT):
+            def _ll_0_raw_malloc_fixedsize():
+                return lltype.malloc(STRUCT, flavor='raw', zero=zero,
+                                     add_memory_pressure=add_memory_pressure,
+                                     track_allocation=track_allocation)
+            return _ll_0_raw_malloc_fixedsize
+        return build_ll_0_raw_malloc_fixedsize
+
+    build_ll_0_raw_malloc_fixedsize = (
+        build_raw_malloc_fixedsize_builder())
+    build_ll_0_raw_malloc_fixedsize_zero = (
+        build_raw_malloc_fixedsize_builder(zero=True))
+    build_ll_0_raw_malloc_fixedsize_zero_add_memory_pressure = (
+        build_raw_malloc_fixedsize_builder(zero=True, add_memory_pressure=True))
+    build_ll_0_raw_malloc_fixedsize_add_memory_pressure = (
+        build_raw_malloc_fixedsize_builder(add_memory_pressure=True))
+    build_ll_0_raw_malloc_fixedsize_no_track_allocation = (
+        build_raw_malloc_fixedsize_builder(track_allocation=False))
+    build_ll_0_raw_malloc_fixedsize_zero_no_track_allocation = (
+        build_raw_malloc_fixedsize_builder(zero=True, track_allocation=False))
+    build_ll_0_raw_malloc_fixedsize_zero_add_memory_pressure_no_track_allocation = (
+        build_raw_malloc_fixedsize_builder(zero=True, add_memory_pressure=True, track_allocation=False))
+    build_ll_0_raw_malloc_fixedsize_add_memory_pressure_no_track_allocation = (
+        build_raw_malloc_fixedsize_builder(add_memory_pressure=True, track_allocation=False))
+
+    def build_raw_free_builder(track_allocation=True):
+        def build_ll_1_raw_free(ARRAY):
+            def _ll_1_raw_free(p):
+                lltype.free(p, flavor='raw',
+                            track_allocation=track_allocation)
+            return _ll_1_raw_free
+        return build_ll_1_raw_free
+
+    build_ll_1_raw_free = (
+        build_raw_free_builder())
+    build_ll_1_raw_free_no_track_allocation = (
+        build_raw_free_builder(track_allocation=False))
+
 
 class OOtypeHelpers:
 
@@ -573,10 +700,6 @@ class OOtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return oo_rdict.ll_dictiter(ITER, d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])

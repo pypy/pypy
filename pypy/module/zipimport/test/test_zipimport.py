@@ -1,7 +1,7 @@
 
 from pypy.conftest import gettestobjspace
 import marshal
-import py
+import py, os
 import time
 import struct
 from pypy.module.imp.importing import get_pyc_magic, _w_long
@@ -15,6 +15,7 @@ class AppTestZipimport:
     cpy's regression tests
     """
     compression = ZIP_STORED
+    pathsep = '/'
     
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
@@ -57,6 +58,7 @@ class AppTestZipimport:
         test_pyc = cls.make_pyc(space, co, now)
         cls.w_test_pyc = space.wrap(test_pyc)
         cls.w_compression = space.wrap(cls.compression)
+        cls.w_pathsep = space.wrap(cls.pathsep)
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
         ziptestmodule = tmpdir.join("somezip.zip")
         cls.w_tmpzip = space.wrap(str(ziptestmodule))
@@ -100,6 +102,7 @@ class AppTestZipimport:
         from zipfile import ZipFile, ZipInfo
         z = ZipFile(self.zipfile, 'w')
         write_files = self.write_files
+        filename = filename.replace('/', self.pathsep)
         write_files.append((filename, data))
         for filename, data in write_files:
             zinfo = ZipInfo(filename, time.localtime(self.now))
@@ -121,6 +124,7 @@ class AppTestZipimport:
             del _zip_directory_cache[self.zipfile]
 
     def test_cache_subdir(self):
+        import os
         self.writefile('x.py', '')
         self.writefile('sub/__init__.py', '')
         self.writefile('sub/yy.py', '')
@@ -130,7 +134,7 @@ class AppTestZipimport:
 
         assert main_importer is not sub_importer
         assert main_importer.prefix == ""
-        assert sub_importer.prefix == "sub/"
+        assert sub_importer.prefix == "sub" + os.path.sep
 
     def test_good_bad_arguments(self):
         from zipimport import zipimporter
@@ -262,7 +266,7 @@ class AppTestZipimport:
         import zipimport
         data = "saddsadsa"
         self.writefile("xxx", data)
-        self.writefile("xx"+os.sep+"__init__.py", "5")
+        self.writefile("xx/__init__.py", "5")
         self.writefile("yy.py", "3")
         self.writefile('uu.pyc', self.test_pyc)
         z = zipimport.zipimporter(self.zipfile)
@@ -287,8 +291,7 @@ class AppTestZipimport:
         """
         import os
         import zipimport
-        self.writefile(
-            os.sep.join(("directory", "package", "__init__.py")), "")
+        self.writefile("directory/package/__init__.py", "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         # Grab this so if the assertion fails, py.test will display its
         # value.  Not sure why it doesn't the assertion uses import.archive
@@ -296,15 +299,14 @@ class AppTestZipimport:
         archive = importer.archive
         realprefix = importer.prefix
         allbutlast = self.zipfile.split(os.path.sep)[:-1]
-        prefix = 'directory/'
+        prefix = 'directory' + os.path.sep
         assert archive == self.zipfile
         assert realprefix == prefix
 
     def test_subdirectory_importer(self):
         import os
         import zipimport
-        self.writefile(
-            os.sep.join(("directory", "package", "__init__.py")), "")
+        self.writefile("directory/package/__init__.py", "")
         z = zipimport.zipimporter(self.zipfile + "/directory")
         mod = z.load_module("package")
         assert z.is_package("package")
@@ -313,14 +315,9 @@ class AppTestZipimport:
     def test_subdirectory_twice(self):
         import os, zipimport
  
-        self.writefile(
-            os.sep.join(("package", "__init__.py")), "")
-        self.writefile(
-            os.sep.join(("package", "subpackage",
-                         "__init__.py")), "")
-        self.writefile(
-            os.sep.join(("package", "subpackage",
-                         "foo.py")), "")
+        self.writefile("package/__init__.py", "")
+        self.writefile("package/subpackage/__init__.py", "")
+        self.writefile("package/subpackage/foo.py", "")
         import sys
         print sys.path
         mod = __import__('package.subpackage.foo', None, None, [])
@@ -331,8 +328,7 @@ class AppTestZipimport:
         """
         import os
         import zipimport
-        self.writefile(
-                     os.sep.join(("directory", "package", "__init__.py")), "")
+        self.writefile("directory/package/__init__.py", "")
         importer = zipimport.zipimporter(self.zipfile + "/directory")
         l = [i for i in zipimport._zip_directory_cache]
         assert len(l)
@@ -370,3 +366,8 @@ class AppTestZipimportDeflated(AppTestZipimport):
         except ImportError:
             py.test.skip("zlib not available, cannot test compressed zipfiles")
         cls.make_class()
+
+
+if os.sep != '/':
+    class AppTestNativePathSep(AppTestZipimport):
+        pathsep = os.sep
