@@ -20,6 +20,8 @@
 # 2. Altered source versions must be plainly marked as such, and must not be
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
+#
+# Note: This software has been modified for use in PyPy.
 
 from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
