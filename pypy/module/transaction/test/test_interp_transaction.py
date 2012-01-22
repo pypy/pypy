@@ -3,8 +3,14 @@ from pypy.module.transaction import interp_transaction
 
 
 class FakeSpace:
-    def new_exception_class(self, name):
-        return "some error class"
+    def getbuiltinmodule(self, name):
+        assert name == 'transaction'
+        return 'transaction module'
+    def getattr(self, w_obj, w_name):
+        assert w_obj == 'transaction module'
+        return 'some stuff from the transaction module'
+    def wrap(self, x):
+        return 'wrapped stuff'
     def call_args(self, w_callback, args):
         w_callback(*args)
 
