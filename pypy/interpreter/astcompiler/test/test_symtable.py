@@ -142,6 +142,10 @@ class TestSymbolTable:
         scp = self.func_scope("def f(): x")
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
 
+    def test_exception_variable(self):
+        scp = self.mod_scope("try: pass\nexcept ValueError as e: pass")
+        assert scp.lookup("e") == symtable.SCOPE_LOCAL
+
     def test_nested_scopes(self):
         def nested_scope(*bodies):
             names = enumerate("f" + string.ascii_letters)

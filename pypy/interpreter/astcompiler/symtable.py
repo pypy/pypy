@@ -417,6 +417,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_alias(self, alias):
         self._visit_alias(alias)
 
+    def visit_ExceptHandler(self, handler):
+        if handler.name:
+            self.note_symbol(handler.name, SYM_ASSIGNED)
+        ast.GenericASTVisitor.visit_ExceptHandler(self, handler)
+
     def visit_Yield(self, yie):
         self.scope.note_yield(yie)
         ast.GenericASTVisitor.visit_Yield(self, yie)
