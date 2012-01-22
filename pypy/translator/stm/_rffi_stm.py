@@ -32,7 +32,7 @@ stm_read_word = llexternal('stm_read_word', [SignedP], lltype.Signed)
 stm_write_word = llexternal('stm_write_word', [SignedP, lltype.Signed],
                             lltype.Void)
 
-CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
+CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed], rffi.VOIDP))
 stm_perform_transaction = llexternal('stm_perform_transaction',
                                      [CALLBACK, rffi.VOIDP], rffi.VOIDP)
 

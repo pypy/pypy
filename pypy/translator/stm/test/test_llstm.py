@@ -19,8 +19,9 @@ rs2a = r_singlefloat(0.017634)
 rs1b = r_singlefloat(40.121)
 rs2b = r_singlefloat(-9e9)
 
-def callback1(a):
+def callback1(a, retry_counter):
     a = rffi.cast(lltype.Ptr(A), a)
+    assert retry_counter == a.y      # non-transactionally
     assert a.x == -611
     assert a.c1 == '/'
     assert a.c2 == '\\'
@@ -76,7 +77,7 @@ def test_stm_getfield():
     assert a.y == 10
     lltype.free(a, flavor='raw')
 
-def callback2(a):
+def callback2(a, retry_counter):
     a = rffi.cast(lltype.Ptr(A), a)
     assert a.x == -611
     assert a.c1 == '&'

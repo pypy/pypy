@@ -6,7 +6,7 @@ def test_descriptor():
     stm_descriptor_done()
 
 def test_stm_perform_transaction():
-    def callback1(x):
+    def callback1(x, retry_counter):
         return lltype.nullptr(rffi.VOIDP.TO)
     stm_descriptor_init()
     stm_perform_transaction(llhelper(CALLBACK, callback1),
@@ -17,7 +17,8 @@ def test_stm_abort_and_retry():
     A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed))
     a = lltype.malloc(A, immortal=True, flavor='raw')
     a.y = 0
-    def callback1(x):
+    def callback1(x, retry_counter):
+        assert retry_counter == a.y
         if a.y < 10:
             a.y += 1    # non-transactionally
             stm_abort_and_retry()
@@ -35,7 +36,8 @@ def test_stm_abort_and_retry_transactionally():
     a = lltype.malloc(A, immortal=True, flavor='raw')
     a.x = -611
     a.y = 0
-    def callback1(x):
+    def callback1(x, retry_counter):
+        assert retry_counter == a.y
         assert a.x == -611
         p = lltype.direct_fieldptr(a, 'x')
         p = rffi.cast(SignedP, p)
@@ -55,7 +57,7 @@ def test_stm_abort_and_retry_transactionally():
     assert a.x == 420
 
 def test_stm_debug_get_state():
-    def callback1(x):
+    def callback1(x, retry_counter):
         assert stm_debug_get_state() == 1
         stm_try_inevitable()
         assert stm_debug_get_state() == 2

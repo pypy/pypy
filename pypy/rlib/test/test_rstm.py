@@ -7,7 +7,7 @@ from pypy.translator.stm.test.support import CompiledSTMTests
 class Arg(object):
     _alloc_nonmovable_ = True
 
-def setx(arg):
+def setx(arg, retry_counter):
     debug_print(arg.x)
     assert rstm.debug_get_state() == 1
     if arg.x == 303:

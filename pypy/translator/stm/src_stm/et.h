@@ -22,7 +22,7 @@
 
 void stm_descriptor_init(void);
 void stm_descriptor_done(void);
-void* stm_perform_transaction(void*(*)(void*), void*);
+void* stm_perform_transaction(void*(*)(void*, long), void*);
 long stm_read_word(long* addr);
 void stm_write_word(long* addr, long val);
 void stm_try_inevitable(STM_CCHARP1(why));

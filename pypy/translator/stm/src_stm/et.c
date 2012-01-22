@@ -622,16 +622,20 @@ static long commit_transaction(void)
   return d->end_time;
 }
 
-void* stm_perform_transaction(void*(*callback)(void*), void *arg)
+void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
 {
   void *result;
   jmp_buf _jmpbuf;
+  volatile long v_counter = 0;
+  long counter;
   /* you need to call descriptor_init() before calling
      stm_perform_transaction() */
   assert(thread_descriptor != NULL_TX);
   setjmp(_jmpbuf);
   begin_transaction(&_jmpbuf);
-  result = callback(arg);
+  counter = v_counter;
+  v_counter = counter + 1;
+  result = callback(arg, counter);
   commit_transaction();
   return result;
 }

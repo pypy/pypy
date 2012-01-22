@@ -20,7 +20,7 @@ class Arg:
     _alloc_nonmovable_ = True
 
 
-def add_at_end_of_chained_list(arg):
+def add_at_end_of_chained_list(arg, retry_counter):
     node = arg.anchor
     value = arg.value
     x = Node(value)
@@ -52,7 +52,7 @@ def check_chained_list(node):
     print "check ok!"
 
 
-def increment_done(arg):
+def increment_done(arg, retry_counter):
     print "thread done."
     glob.done += 1
 

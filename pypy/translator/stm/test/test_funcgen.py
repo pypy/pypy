@@ -93,7 +93,7 @@ def make_a_1():
     return a
 a_prebuilt = make_a_1()
 
-def _play_with_getfield(dummy_arg):
+def _play_with_getfield(dummy_arg, retry_counter):
     a = a_prebuilt
     assert a.x == -611
     assert a.c1 == '/'
@@ -106,7 +106,7 @@ def _play_with_getfield(dummy_arg):
     assert float(a.sb) == float(rs1b)
     return NULL
     
-def _play_with_setfields(dummy_arg):
+def _play_with_setfields(dummy_arg, retry_counter):
     a = a_prebuilt
     #
     a.x = 12871981
@@ -125,10 +125,10 @@ def _play_with_setfields(dummy_arg):
     a.sb = rs2b
     # read the values which have not been commited yet, but are local to the
     # transaction
-    _check_values_of_fields(dummy_arg)
+    _check_values_of_fields(dummy_arg, retry_counter)
     return NULL
 
-def _check_values_of_fields(dummy_arg):
+def _check_values_of_fields(dummy_arg, retry_counter):
     a = a_prebuilt
     assert a.x == 12871981
     assert a.c1 == '('
@@ -162,14 +162,14 @@ def change(array, newvalues):
         array[i] = rffi.cast(lltype.typeOf(array).TO.OF, newvalues[i])
 change._annspecialcase_ = 'specialize:ll'
 
-def _play_with_getarrayitem(dummy_arg):
+def _play_with_getarrayitem(dummy_arg, retry_counter):
     check(prebuilt_array_signed, [1, 10, -1, -10, 42])
     check(prebuilt_array_char,   [chr(1), chr(10), chr(255),
                                   chr(246), chr(42)])
     return NULL
 
 
-def _play_with_setarrayitem_1(dummy_arg):
+def _play_with_setarrayitem_1(dummy_arg, retry_counter):
     change(prebuilt_array_signed, [500000, -10000000, 3])
     check(prebuilt_array_signed,  [500000, -10000000, 3, -10, 42])
     prebuilt_array_char[0] = 'A'
@@ -180,7 +180,7 @@ def _play_with_setarrayitem_1(dummy_arg):
     check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
     return NULL
 
-def _play_with_setarrayitem_2(dummy_arg):
+def _play_with_setarrayitem_2(dummy_arg, retry_counter):
     check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
     prebuilt_array_char[1] = 'D'
     check(prebuilt_array_char,    ['A', 'D', chr(255), 'B', 'C'])
@@ -188,7 +188,7 @@ def _play_with_setarrayitem_2(dummy_arg):
     check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
     return NULL
 
-def _play_with_setarrayitem_3(dummy_arg):
+def _play_with_setarrayitem_3(dummy_arg, retry_counter):
     check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
     return NULL
 
@@ -222,14 +222,14 @@ def change2(array, newvalues1, newvalues2):
         array[i].y = rffi.cast(lltype.typeOf(array).TO.OF.y, newvalues2[i])
 change2._annspecialcase_ = 'specialize:ll'
 
-def _play_with_getinteriorfield(dummy_arg):
+def _play_with_getinteriorfield(dummy_arg, retry_counter):
     check2(prebuilt_array_signed_signed, [1, -1, -50], [10, 20, -30])
     check2(prebuilt_array_char_char, [chr(1), chr(255), chr(206)],
                                      [chr(10), chr(20), chr(226)])
     return NULL
 
 
-def _play_with_setinteriorfield_1(dummy_arg):
+def _play_with_setinteriorfield_1(dummy_arg, retry_counter):
     change2(prebuilt_array_signed_signed, [500000, -10000000], [102101202])
     check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
                                          [102101202, 20, -30])
@@ -238,7 +238,7 @@ def _play_with_setinteriorfield_1(dummy_arg):
                                      ['b', chr(20), chr(226)])
     return NULL
 
-def _play_with_setinteriorfield_2(dummy_arg):
+def _play_with_setinteriorfield_2(dummy_arg, retry_counter):
     check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
                                          [102101202, 20, -30])
     check2(prebuilt_array_char_char, ['a', chr(255), chr(206)],
@@ -253,7 +253,7 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_getfield_all_sizes(self):
         def do_stm_getfield(argv):
-            _play_with_getfield(None)
+            _play_with_getfield(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_getfield)
         cbuilder.cmdexec('')
@@ -272,7 +272,7 @@ class TestFuncGen(CompiledSTMTests):
         def do_stm_getfield(argv):
             stm_descriptor_init()
             # we have a descriptor, but we don't call it in a transaction
-            _play_with_getfield(None)
+            _play_with_getfield(None, 0)
             stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_getfield)
@@ -280,7 +280,7 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_setfield_all_sizes(self):
         def do_stm_setfield(argv):
-            _play_with_setfields(None)
+            _play_with_setfields(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_setfield)
         cbuilder.cmdexec('')
@@ -301,7 +301,7 @@ class TestFuncGen(CompiledSTMTests):
     def test_setfield_all_sizes_outside_transaction(self):
         def do_stm_setfield(argv):
             stm_descriptor_init()
-            _play_with_setfields(None)
+            _play_with_setfields(None, 0)
             stm_descriptor_done()
             return 0
         t, cbuilder = self.compile(do_stm_setfield)
@@ -309,7 +309,7 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_getarrayitem_all_sizes(self):
         def do_stm_getarrayitem(argv):
-            _play_with_getarrayitem(None)
+            _play_with_getarrayitem(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_getarrayitem)
         cbuilder.cmdexec('')
@@ -327,9 +327,9 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_setarrayitem_all_sizes(self):
         def do_stm_setarrayitem(argv):
-            _play_with_setarrayitem_1(None)
-            _play_with_setarrayitem_2(None)
-            _play_with_setarrayitem_3(None)
+            _play_with_setarrayitem_1(None, 0)
+            _play_with_setarrayitem_2(None, 0)
+            _play_with_setarrayitem_3(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_setarrayitem)
         cbuilder.cmdexec('')
@@ -351,7 +351,7 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_getinteriorfield_all_sizes(self):
         def do_stm_getinteriorfield(argv):
-            _play_with_getinteriorfield(None)
+            _play_with_getinteriorfield(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_getinteriorfield)
         cbuilder.cmdexec('')
@@ -369,8 +369,8 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_setinteriorfield_all_sizes(self):
         def do_stm_setinteriorfield(argv):
-            _play_with_setinteriorfield_1(None)
-            _play_with_setinteriorfield_2(None)
+            _play_with_setinteriorfield_1(None, 0)
+            _play_with_setinteriorfield_2(None, 0)
             return 0
         t, cbuilder = self.compile(do_stm_setinteriorfield)
         cbuilder.cmdexec('')

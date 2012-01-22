@@ -10,13 +10,13 @@ _global_lock = thread.allocate_lock()
 
 @specialize.memo()
 def _get_stm_callback(func, argcls):
-    def _stm_callback(llarg):
+    def _stm_callback(llarg, retry_counter):
         if we_are_translated():
             llarg = rffi.cast(rclass.OBJECTPTR, llarg)
             arg = cast_base_ptr_to_instance(argcls, llarg)
         else:
             arg = lltype.TLS.stm_callback_arg
-        res = func(arg)
+        res = func(arg, retry_counter)
         assert res is None
         return lltype.nullptr(rffi.VOIDP.TO)
     return _stm_callback

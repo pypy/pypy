@@ -84,11 +84,18 @@ class Pending:
         self.w_callback = w_callback
         self.args = args
 
+    def register(self):
+        id = threadintf.thread_id()
+        state.pending_lists[id].append(self)
+
     def run(self):
         rstm.perform_transaction(Pending._run_in_transaction, Pending, self)
 
     @staticmethod
-    def _run_in_transaction(pending):
+    def _run_in_transaction(pending, retry_counter):
+        if retry_counter > 0:
+            self.register()   # retrying: will be done later, try others first
+            return
         if state.got_exception is not None:
             return   # return early if there is already a 'got_exception'
         try:
@@ -99,8 +106,7 @@ class Pending:
 
 
 def add(space, w_callback, __args__):
-    id = threadintf.thread_id()
-    state.pending_lists[id].append(Pending(w_callback, __args__))
+    Pending(w_callback, __args__).register()
 
 
 def add_list(new_pending_list):
