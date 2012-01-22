@@ -129,6 +129,15 @@ class AppTestClasses:
         r = e.encode(u"xyz\u5f95\u6c85")
         assert r == 'xyz~{abcd~}'
 
+    def test_encode_hz_noreset(self):
+        text = (u'\u5df1\u6240\u4e0d\u6b32\uff0c\u52ff\u65bd\u65bc\u4eba\u3002'
+                u'Bye.')
+        out = ''
+        e = self.IncrementalHzEncoder()
+        for c in text:
+            out += e.encode(c)
+        assert out == b'~{<:Ky2;S{#,NpJ)l6HK!#~}Bye.'
+
     def test_encode_hz_error(self):
         e = self.IncrementalHzEncoder()
         raises(UnicodeEncodeError, e.encode, u"\u4321", True)
