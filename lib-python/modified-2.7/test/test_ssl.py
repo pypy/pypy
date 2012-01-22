@@ -1334,7 +1334,6 @@ def test_main(verbose=False):
     global CERTFILE, SVN_PYTHON_ORG_ROOT_CERT
     CERTFILE = test_support.findfile("keycert.pem")
     SVN_PYTHON_ORG_ROOT_CERT = test_support.findfile(
-        os.path.dirname(__file__) or os.curdir,
         "https_svn_python_org_root.pem")
 
     if (not os.path.exists(CERTFILE) or
