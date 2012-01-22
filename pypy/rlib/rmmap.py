@@ -625,12 +625,15 @@ if _POSIX:
             flags = MAP_PRIVATE
             prot = PROT_READ | PROT_WRITE
         elif access == _ACCESS_DEFAULT:
-            pass
+            # map prot to access type
+            if prot & PROT_READ and prot & PROT_WRITE:
+                pass  # _ACCESS_DEFAULT
+            elif prot & PROT_WRITE:
+                access = ACCESS_WRITE
+            else:
+                access = ACCESS_READ
         else:
             raise RValueError("mmap invalid access parameter.")
-
-        if prot == PROT_READ:
-            access = ACCESS_READ
 
         # check file size
         try:
