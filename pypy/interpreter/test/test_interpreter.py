@@ -251,7 +251,7 @@ class TestInterpreter:
         code = """ def f(a, b, *, c, d):
             return a, b, c, d
         """
-        assert self.codetest(code, "f", [1, 2], {"d" : 3, "c" : 4}) == (1, 2, 3, 4)
+        assert self.codetest(code, "f", [1, 2], {"d" : 4, "c" : 3}) == (1, 2, 3, 4)
 
 
 
