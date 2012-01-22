@@ -191,6 +191,26 @@ class AppTestBufferedReader:
         f = _io.BufferedReader(raw)
         assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
 
+    def test_read_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def readable(self):
+                return True
+            def readinto(self, buf):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    buf[:3] = "abc"
+                    return 3
+        rawio = MockRawIO()
+        bufio = _io.BufferedReader(rawio)
+        r = bufio.read(4)
+        assert r == "abca"
+        assert rawio.count == 4
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread'])
 
@@ -385,6 +405,25 @@ class AppTestBufferedWriter:
         assert bufio.peek(1) == ""
         assert bufio.read() is None
         assert bufio.read() == ""
+
+    def test_write_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def writable(self):
+                return True
+            def write(self, data):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    return len(data)
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        assert bufio.write("test") == 4
+        bufio.flush()
+        assert rawio.count == 3
 
 class AppTestBufferedRWPair:
     def test_pair(self):

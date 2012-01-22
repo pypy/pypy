@@ -11,8 +11,22 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
+import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
+
+def trap_eintr(space, error):
+    # Return True if an EnvironmentError with errno == EINTR is set
+    if not error.match(space, space.w_EnvironmentError):
+        return False
+    try:
+        w_value = error.get_w_value(space)
+        w_errno = space.getattr(w_value, space.wrap("errno"))
+        return space.is_true(
+            space.eq(w_errno, space.wrap(errno.EINTR)))
+    except OperationError:
+        return False
+
 
 class BlockingIOError(Exception):
     pass
@@ -315,7 +329,16 @@ class BufferedMixin:
 
     def _write(self, space, data):
         w_data = space.wrap(data)
-        w_written = space.call_method(self.w_raw, "write", w_data)
+        while True:
+            try:
+                w_written = space.call_method(self.w_raw, "write", w_data)
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue  # try again
+                raise
+            else:
+                break
+                
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
             raise OperationError(space.w_IOError, space.wrap(
@@ -481,7 +504,16 @@ class BufferedMixin:
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
         w_buf = space.wrap(RawBuffer(buffer, start, length))
-        w_size = space.call_method(self.w_raw, "readinto", w_buf)
+        while True:
+            try:
+                w_size = space.call_method(self.w_raw, "readinto", w_buf)
+            except OperationError, e:
+                if trap_eintr(space, e):
+                    continue  # try again
+                raise
+            else:
+                break
+                
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
