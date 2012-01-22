@@ -94,7 +94,7 @@ class Pending:
     @staticmethod
     def _run_in_transaction(pending, retry_counter):
         if retry_counter > 0:
-            self.register()   # retrying: will be done later, try others first
+            pending.register() # retrying: will be done later, try others first
             return
         if state.got_exception is not None:
             return   # return early if there is already a 'got_exception'
