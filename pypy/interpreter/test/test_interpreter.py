@@ -4,7 +4,7 @@ from pypy.interpreter import gateway, module, error
 
 class TestInterpreter: 
 
-    def codetest(self, source, functionname, args):
+    def codetest(self, source, functionname, args, kwargs={}):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
         space = self.space
@@ -22,10 +22,11 @@ class TestInterpreter:
         code = space.unwrap(w_code)
         code.exec_code(space, w_glob, w_glob)
 
-        wrappedargs = [w(a) for a in args]
+        wrappedargs = w(args)
+        wrappedkwargs = w(kwargs)
         wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
-            w_output = space.call_function(wrappedfunc, *wrappedargs)
+            w_output = space.call(wrappedfunc, wrappedargs, wrappedkwargs)
         except error.OperationError, e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
@@ -245,6 +246,13 @@ class TestInterpreter:
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2]) == (1, 2, 3, 4)
+
+    def test_kwonlyargs_order(self):
+        code = """ def f(a, b, *, c, d):
+            return a, b, c, d
+        """
+        assert self.codetest(code, "f", [1, 2], {"d" : 3, "c" : 4}) == (1, 2, 3, 4)
+
 
 
 class AppTestInterpreter: 
