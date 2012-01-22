@@ -510,7 +510,13 @@ class InstanceRepr(AbstractInstanceRepr):
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
-        vptr = llops.genop('malloc', vlist,
+        cnonmovable = self.classdef.classdesc.read_attribute(
+            '_alloc_nonmovable_', Constant(False))
+        if cnonmovable.value:
+            opname = 'malloc_nonmovable'
+        else:
+            opname = 'malloc'
+        vptr = llops.genop(opname, vlist,
                            resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)

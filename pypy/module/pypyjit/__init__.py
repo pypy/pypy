@@ -11,6 +11,7 @@ class Module(MixedModule):
         'set_optimize_hook': 'interp_resop.set_optimize_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
         'ResOperation': 'interp_resop.WrappedOp',
+        'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'Box': 'interp_resop.WrappedBox',
     }
 

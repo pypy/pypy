@@ -451,6 +451,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     y = w_float2.floatval
 
     # Sort out special cases here instead of relying on pow()
+    if y == 2.0:                      # special case for performance:
+        return W_FloatObject(x * x)   # x * x is always correct
     if y == 0.0:
         # x**0 is 1, even 0**0
         return W_FloatObject(1.0)

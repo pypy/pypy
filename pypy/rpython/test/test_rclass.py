@@ -1130,6 +1130,18 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
             assert sorted([u]) == [6]                    # 32-bit types
             assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
 
+    def test_nonmovable(self):
+        for (nonmovable, opname) in [(True, 'malloc_nonmovable'),
+                                     (False, 'malloc')]:
+            class A(object):
+                _alloc_nonmovable_ = nonmovable
+            def f():
+                return A()
+            t, typer, graph = self.gengraph(f, [])
+            assert summary(graph) == {opname: 1,
+                                      'cast_pointer': 1,
+                                      'setfield': 1}
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 

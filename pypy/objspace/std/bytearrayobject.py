@@ -624,8 +624,8 @@ def _delitem_slice_helper(space, items, start, step, slicelength):
 
     if step == 1:
         assert start >= 0
-        assert slicelength >= 0
-        del items[start:start+slicelength]
+        if slicelength > 0:
+            del items[start:start+slicelength]
     else:
         n = len(items)
         i = start
@@ -662,10 +662,11 @@ def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
             while i >= lim:
                 items[i] = items[i-delta]
                 i -= 1
-        elif start >= 0:
-            del items[start:start+delta]
+        elif delta == 0:
+            pass
         else:
-            assert delta==0   # start<0 is only possible with slicelength==0
+            assert start >= 0   # start<0 is only possible with slicelength==0
+            del items[start:start+delta]
     elif len2 != slicelength:  # No resize for extended slices
         raise operationerrfmt(space.w_ValueError, "attempt to "
               "assign sequence of size %d to extended slice of size %d",
