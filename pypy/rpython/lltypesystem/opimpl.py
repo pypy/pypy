@@ -622,14 +622,14 @@ def op_hide_into_ptr32(ptr):
     return lltype.cast_opaque_ptr(llmemory.HiddenGcRef32, ptr)
 
 def op_show_from_ptr32(RESTYPE, ptr32):
-    if not ptr32:
-        return lltype.nullptr(RESTYPE.TO)
     if RESTYPE == llmemory.Address:
         if not ptr32:
             return llmemory.NULL
         PTRTYPE = lltype.Ptr(ptr32._obj.container._TYPE)
         ptr = lltype.cast_opaque_ptr(PTRTYPE, ptr32)
         return llmemory.cast_ptr_to_adr(ptr)
+    if not ptr32:
+        return lltype.nullptr(RESTYPE.TO)
     if isinstance(RESTYPE.TO, lltype.GcOpaqueType):
         try:
             ptr32 = ptr32._obj.container._as_ptr()
