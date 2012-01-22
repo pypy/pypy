@@ -772,7 +772,7 @@ class Cursor(object):
             self.statement.item = None
             self.statement.exhausted = True
 
-        if self.statement.kind == DML or self.statement.kind == DDL:
+        if self.statement.kind == DML:
             self.statement.reset()
 
         self.rowcount = -1
