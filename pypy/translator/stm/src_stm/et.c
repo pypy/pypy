@@ -271,8 +271,9 @@ static void tx_abort(int reason)
   d->num_aborts[reason]++;
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-abort");
-  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx aborting\n",
-                                      (long)pthread_self());
+  if (PYPY_HAVE_DEBUG_PRINTS)
+      fprintf(PYPY_DEBUG_FILE, "thread %lx aborting %d\n",
+                               (long)pthread_self(), reason);
   PYPY_DEBUG_STOP("stm-abort");
 #endif
   tx_restart(d);
