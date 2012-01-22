@@ -18,3 +18,8 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.module.transaction import interp_transaction
         interp_transaction.state.startup(space)
+
+    def translating_for_checkmodule(self, space):
+        from pypy.module.transaction import interp_transaction
+        interp_transaction.state.space = space
+        interp_transaction.state._freeze_ = lambda: None   # hack!

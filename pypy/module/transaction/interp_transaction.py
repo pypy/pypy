@@ -19,6 +19,8 @@ class State(object):
         self.ll_lock = threadintf.null_ll_lock
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
+        self.main_thread_id = 0
+        self.w_error = None
 
     def startup(self, space):
         self.space = space
