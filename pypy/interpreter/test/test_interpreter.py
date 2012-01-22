@@ -38,7 +38,7 @@ class TestInterpreter:
                 def f():
                     try:
                         raise Exception()
-                    except Exception, e:
+                    except Exception as e:
                         return 1
                     return 2
             ''', 'f', [])
@@ -48,8 +48,8 @@ class TestInterpreter:
         x = self.codetest('''
             def f():
                 try:
-                    raise Exception, 1
-                except Exception, e:
+                    raise Exception(1)
+                except Exception as e:
                     return e.args[0]
             ''', 'f', [])
         assert x == 1
@@ -83,7 +83,7 @@ class TestInterpreter:
                     z = 0
                     try:
                         "x"+1
-                    except TypeError, e:
+                    except TypeError as e:
                         z = 5
                         raise e
                 except TypeError:
@@ -97,7 +97,7 @@ class TestInterpreter:
                     z = 0
                     try:
                         z = 1//v
-                    except ZeroDivisionError, e:
+                    except ZeroDivisionError as e:
                         z = "infinite result"
                     return z
                 '''
@@ -295,20 +295,23 @@ class AppTestInterpreter:
                 self.data.append((type(x), x))
         sys.stdout = out = Out()
         try:
-            print(unichr(0xa2))
-            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            print(chr(0xa2))
+            assert out.data == [(str, chr(0xa2)), (str, "\n")]
             out.data = []
             out.encoding = "cp424"     # ignored!
-            print(unichr(0xa2))
-            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            print(chr(0xa2))
+            assert out.data == [(str, chr(0xa2)), (str, "\n")]
             del out.data[:]
             del out.encoding
-            print "foo\t", "bar\n", "trick", "baz\n"  # softspace handling
-            assert out.data == [(unicode, "foo\t"),
-                                (unicode, "bar\n"),
-                                (unicode, "trick"),
+            # we don't care about softspace anymore
+            print("foo\t", "bar\n", "trick", "baz\n")
+            assert out.data == [(str, "foo\t"),
                                 (str, " "),
-                                (unicode, "baz\n"),
+                                (str, "bar\n"),
+                                (str, " "),
+                                (str, "trick"),
+                                (str, " "),
+                                (str, "baz\n"),
                                 (str, "\n")]
         finally:
             sys.stdout = save
