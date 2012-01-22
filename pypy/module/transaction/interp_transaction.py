@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.transaction import threadintf
+from pypy.module.transaction.fifo import Fifo
 from pypy.rlib import rstm
 
 
@@ -13,7 +14,7 @@ class State(object):
         self.__dict__.clear()
         self.running = False
         self.num_threads = NUM_THREADS_DEFAULT
-        self.pending = []
+        self.pending = Fifo()
         self.pending_lists = {0: self.pending}
         self.ll_lock = threadintf.null_ll_lock
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
@@ -110,24 +111,23 @@ def add(space, w_callback, __args__):
 
 
 def add_list(new_pending_list):
-    if len(new_pending_list) == 0:
+    if new_pending_list.is_empty():
         return
-    was_empty = len(state.pending) == 0
-    state.pending += new_pending_list
-    del new_pending_list[:]
+    was_empty = state.pending.is_empty()
+    state.pending.steal(new_pending_list)
     if was_empty:
         state.unlock_no_tasks_pending()
 
 
 def _run_thread():
     state.lock()
-    my_pending_list = []
+    my_pending_list = Fifo()
     my_thread_id = threadintf.thread_id()
     state.pending_lists[my_thread_id] = my_pending_list
     rstm.descriptor_init()
     #
     while True:
-        if len(state.pending) == 0:
+        if state.pending.is_empty():
             assert state.is_locked_no_tasks_pending()
             state.num_waiting_threads += 1
             if state.num_waiting_threads == state.num_threads:
@@ -143,8 +143,8 @@ def _run_thread():
             if state.finished:
                 break
         else:
-            pending = state.pending.pop(0)
-            if len(state.pending) == 0:
+            pending = state.pending.popleft()
+            if state.pending.is_empty():
                 state.lock_no_tasks_pending()
             state.unlock()
             pending.run()
@@ -164,7 +164,7 @@ def run(space):
             state.w_error,
             space.wrap("recursive invocation of transaction.run()"))
     assert not state.is_locked_no_tasks_pending()
-    if len(state.pending) == 0:
+    if state.pending.is_empty():
         return
     state.num_waiting_threads = 0
     state.finished = False
@@ -177,7 +177,7 @@ def run(space):
     state.lock_unfinished()  # wait for all threads to finish
     #
     assert state.num_waiting_threads == 0
-    assert len(state.pending) == 0
+    assert state.pending.is_empty()
     assert state.pending_lists.keys() == [state.main_thread_id]
     assert not state.is_locked_no_tasks_pending()
     state.running = False
