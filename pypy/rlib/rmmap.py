@@ -43,7 +43,7 @@ class CConfig:
 constants = {}
 if _POSIX:
     # constants, look in sys/mman.h and platform docs for the meaning
-    # some constants are linux only so they will be correctly exposed outside 
+    # some constants are linux only so they will be correctly exposed outside
     # depending on the OS
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE',
                       'PROT_READ', 'PROT_WRITE',
@@ -136,7 +136,7 @@ elif _MS_WINDOWS:
             )
 
         SYSINFO_UNION = rffi.CStruct(
-            'union SYSINFO_UNION', 
+            'union SYSINFO_UNION',
                 ("dwOemId", DWORD),
                 ("_struct_", SYSINFO_STRUCT),
             )
@@ -250,7 +250,7 @@ class MMap(object):
         elif _POSIX:
             self.fd = -1
             self.closed = False
-    
+
     def check_valid(self):
         if _MS_WINDOWS:
             to_close = self.map_handle == INVALID_HANDLE
@@ -259,11 +259,11 @@ class MMap(object):
 
         if to_close:
             raise RValueError("map closed or invalid")
-    
+
     def check_writeable(self):
         if not (self.access != ACCESS_READ):
             raise RTypeError("mmap can't modify a readonly memory map.")
-    
+
     def check_resizeable(self):
         if not (self.access == ACCESS_WRITE or self.access == _ACCESS_DEFAULT):
             raise RTypeError("mmap can't resize a readonly or copy-on-write memory map.")
@@ -273,7 +273,7 @@ class MMap(object):
         assert size >= 0
         self.data = data
         self.size = size
-    
+
     def close(self):
         if _MS_WINDOWS:
             if self.size > 0:
@@ -302,7 +302,7 @@ class MMap(object):
 
     def unmapview(self):
         UnmapViewOfFile(self.getptr(0))
-    
+
     def read_byte(self):
         self.check_valid()
 
@@ -312,7 +312,7 @@ class MMap(object):
             return value
         else:
             raise RValueError("read byte out of range")
-    
+
     def readline(self):
         self.check_valid()
 
@@ -327,7 +327,7 @@ class MMap(object):
         res = "".join([data[i] for i in range(self.pos, eol)])
         self.pos += len(res)
         return res
-    
+
     def read(self, num=-1):
         self.check_valid()
 
@@ -389,10 +389,10 @@ class MMap(object):
 
     def seek(self, pos, whence=0):
         self.check_valid()
-        
+
         dist = pos
         how = whence
-        
+
         if how == 0: # relative to start
             where = dist
         elif how == 1: # relative to current position
@@ -404,16 +404,16 @@ class MMap(object):
 
         if not (0 <= where <= self.size):
             raise RValueError("seek out of range")
-        
+
         self.pos = where
-    
+
     def tell(self):
         self.check_valid()
         return self.pos
-    
+
     def file_size(self):
         self.check_valid()
-        
+
         size = self.size
         if _MS_WINDOWS:
             if self.file_handle != INVALID_HANDLE:
@@ -433,11 +433,11 @@ class MMap(object):
             else:
                 size = int(size)
         return size
-    
+
     def write(self, data):
-        self.check_valid()        
+        self.check_valid()
         self.check_writeable()
-        
+
         data_len = len(data)
         if self.pos + data_len > self.size:
             raise RValueError("data out of range")
@@ -447,10 +447,10 @@ class MMap(object):
         for i in range(data_len):
             internaldata[start+i] = data[i]
         self.pos = start + data_len
-    
+
     def write_byte(self, byte):
         self.check_valid()
-        
+
         if len(byte) != 1:
             raise RTypeError("write_byte() argument must be char")
 
@@ -491,14 +491,14 @@ class MMap(object):
                 if res == -1:
                     errno = rposix.get_errno()
                     raise OSError(errno, os.strerror(errno))
-        
+
         return 0
-    
+
     def move(self, dest, src, count):
         self.check_valid()
-        
+
         self.check_writeable()
-        
+
         # check boundings
         if (src < 0 or dest < 0 or count < 0 or
             src + count > self.size or dest + count > self.size):
@@ -507,19 +507,19 @@ class MMap(object):
         datasrc = self.getptr(src)
         datadest = self.getptr(dest)
         c_memmove(datadest, datasrc, count)
-    
+
     def resize(self, newsize):
         self.check_valid()
-        
+
         self.check_resizeable()
-        
+
         if _POSIX:
             if not has_mremap:
                 raise RValueError("mmap: resizing not available--no mremap()")
-            
+
             # resize the underlying file first
             os.ftruncate(self.fd, self.offset + newsize)
-                
+
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,
                                MREMAP_MAYMOVE or 0)
@@ -573,9 +573,9 @@ class MMap(object):
 
     def len(self):
         self.check_valid()
-        
+
         return self.size
-    
+
     def getitem(self, index):
         self.check_valid()
         # simplified version, for rpython
@@ -650,6 +650,8 @@ if _POSIX:
                 size = int(size)
             if stat.S_ISREG(mode):
                 if map_size == 0:
+                    if offset > st[stat.ST_SIZE]:
+                        raise RValueError("mmap offset is greater than file size")
                     map_size = size
                 elif map_size > size:
                     raise RValueError("mmap length is greater than file size")
@@ -673,7 +675,7 @@ if _POSIX:
         if res == rffi.cast(PTR, -1):
             errno = rposix.get_errno()
             raise OSError(errno, os.strerror(errno))
-        
+
         m.setdata(res, map_size)
         return m
 
@@ -704,7 +706,7 @@ if _POSIX:
     alloc._annenforceargs_ = (int,)
 
     free = c_munmap_safe
-    
+
 elif _MS_WINDOWS:
     def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # check size boundaries
@@ -712,11 +714,11 @@ elif _MS_WINDOWS:
         map_size = length
         if offset < 0:
             raise RValueError("negative offset")
-        
+
         flProtect = 0
         dwDesiredAccess = 0
         fh = NULL_HANDLE
-        
+
         if access == ACCESS_READ:
             flProtect = PAGE_READONLY
             dwDesiredAccess = FILE_MAP_READ
@@ -728,7 +730,7 @@ elif _MS_WINDOWS:
             dwDesiredAccess = FILE_MAP_COPY
         else:
             raise RValueError("mmap invalid access parameter.")
-        
+
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
@@ -739,7 +741,7 @@ elif _MS_WINDOWS:
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
-        
+
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
         m.map_handle = INVALID_HANDLE
@@ -752,7 +754,7 @@ elif _MS_WINDOWS:
                 res = DuplicateHandle(GetCurrentProcess(), # source process handle
                                       fh, # handle to be duplicated
                                       GetCurrentProcess(), # target process handle
-                                      handle_ref, # result  
+                                      handle_ref, # result
                                       0, # access - ignored due to options value
                                       False, # inherited by child procs?
                                       DUPLICATE_SAME_ACCESS) # options
@@ -761,7 +763,7 @@ elif _MS_WINDOWS:
                 m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
-            
+
             if not map_size:
                 low, high = _get_file_size(fh)
                 if _64BIT:
@@ -775,7 +777,7 @@ elif _MS_WINDOWS:
 
         if tagname:
             m.tagname = tagname
-        
+
         # DWORD is a 4-byte int. If int > 4-byte it must be divided
         if _64BIT:
             size_hi = (map_size + offset) >> 32
@@ -807,7 +809,7 @@ elif _MS_WINDOWS:
 
     def alloc(map_size):
         """Allocate memory.  This is intended to be used by the JIT,
-        so the memory has the executable bit set.  
+        so the memory has the executable bit set.
         XXX implement me: it should get allocated internally in
         case of a sandboxed process
         """
@@ -825,5 +827,5 @@ elif _MS_WINDOWS:
 
     def free(ptr, map_size):
         VirtualFree(ptr, 0, MEM_RELEASE)
-        
+
 # register_external here?
