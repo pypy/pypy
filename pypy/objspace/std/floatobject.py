@@ -383,8 +383,16 @@ def mod__Float_Float(space, w_float1, w_float2):
     except ValueError:
         mod = rfloat.NAN
     else:
-        if (mod and ((y < 0.0) != (mod < 0.0))):
-            mod += y
+        if mod:
+            # ensure the remainder has the same sign as the denominator
+            if (y < 0.0) != (mod < 0.0):
+                mod += y
+        else:
+            # the remainder is zero, and in the presence of signed zeroes
+            # fmod returns different results across platforms; ensure
+            # it has the same sign as the denominator; we'd like to do
+            # "mod = y * 0.0", but that may get optimized away
+            mod = copysign(0.0, y)
 
     return W_FloatObject(mod)
 
