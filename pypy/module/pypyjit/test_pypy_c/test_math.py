@@ -102,6 +102,7 @@ class TestMath(BaseTestPyPyC):
         assert abs(log.result - main(500)) < 1e-9
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("pow", """
-            f2 = float_mul(f1, f1)
-            f3 = float_sub(f1, f2)
+            guard_not_invalidated(descr=...)
+            f38 = float_mul(f30, f30)
+            f39 = float_sub(f30, f38)
         """)
