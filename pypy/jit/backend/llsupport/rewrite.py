@@ -326,3 +326,58 @@ class GcRewriterAssembler(object):
             # assume that "self.gc_ll_descr.minimal_size_in_nursery" is 2 WORDs
             size = max(size, 2 * WORD)
             return (size + WORD-1) & ~(WORD-1)     # round up
+
+
+if 0:
+            # ---------- compressptr support ----------
+            descr = op.getdescr()
+            if (self.supports_compressed_ptrs and
+                (isinstance(descr, GcPtrHidden32FieldDescr) or
+                 isinstance(descr, GcPtrHidden32ArrayDescr))):
+                num = op.getopnum()
+                if (num == rop.GETFIELD_GC or
+                    num == rop.GETFIELD_GC_PURE or
+                    num == rop.GETARRAYITEM_GC or
+                    num == rop.GETARRAYITEM_GC_PURE):
+                    v1 = BoxInt()
+                    v2 = op.result
+                    newops.append(op.copy_and_change(num, result=v1))
+                    op = ResOperation(rop.SHOW_FROM_PTR32, [v1], v2)
+                elif num == rop.SETFIELD_GC or num == rop.SETFIELD_RAW:
+                    v1 = op.getarg(1)
+                    v2 = BoxInt()
+                    newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
+                    op = op.copy_and_change(num, args=[op.getarg(0), v2])
+                elif num == rop.SETARRAYITEM_GC or num == rop.SETARRAYITEM_RAW:
+                    v1 = op.getarg(2)
+                    v2 = BoxInt()
+                    newops.append(ResOperation(rop.HIDE_INTO_PTR32, [v1], v2))
+                    op = op.copy_and_change(num, args=[op.getarg(0),
+                                                       op.getarg(1), v2])
+                elif num == rop.ARRAYLEN_GC or num == rop.NEW_ARRAY:
+                    # although these operations operate on a
+                    # GcArray(HiddenGcRef32), there is no actual
+                    # HiddenGcRef32 argument or result
+                    pass
+                else:
+                    raise AssertionError(op)
+            elif (self.supports_compressed_ptrs and
+                  isinstance(descr, BaseCallDescr)):
+                args = op.getarglist()
+                arg_classes = descr.get_arg_types()
+                fixed = 1
+                assert len(args) == fixed + len(arg_classes)
+                for i in range(len(arg_classes)):
+                    if arg_classes[i] == 'H':
+                        v1 = args[fixed + i]
+                        v2 = BoxInt()
+                        newops.append(ResOperation(rop.HIDE_INTO_PTR32,
+                                                   [v1], v2))
+                        args[fixed + i] = v2
+                        op = op.copy_and_change(op.getopnum(), args=args)
+                if descr.get_return_type() == 'H':
+                    v1 = BoxInt()
+                    v2 = op.result
+                    newops.append(op.copy_and_change(op.getopnum(), result=v1))
+                    op = ResOperation(rop.SHOW_FROM_PTR32, [v1], v2)
+            # ----------
