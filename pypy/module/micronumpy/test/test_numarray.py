@@ -892,6 +892,10 @@ class AppTestNumArray(BaseNumpyAppTest):
                    [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
         c = dot(a, b[:, 2])
         assert (c == [[62, 214, 366], [518, 670, 822]]).all()
+        a = arange(3*4*5*6).reshape((3,4,5,6))
+        b = arange(3*4*5*6)[::-1].reshape((5,4,6,3))
+        assert dot(a, b)[2,3,2,1,2,2] == 499128
+        assert sum(a[2,3,2,:] * b[1,2,:,2]) == 499128
 
     def test_dot_constant(self):
         from _numpypy import array
