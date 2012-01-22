@@ -4592,8 +4592,12 @@ order (MRO) for bases """
             str.split(fake_str)
 
         # call a slot wrapper descriptor
-        with self.assertRaises(TypeError):
-            str.__add__(fake_str, "abc")
+        try:
+            r = str.__add__(fake_str, "abc")
+        except TypeError:
+            pass
+        else:
+            self.assertEqual(r, NotImplemented)
 
 
 class DictProxyTests(unittest.TestCase):
