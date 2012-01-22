@@ -106,6 +106,7 @@ class PyCode(eval.Code):
 
         if self.co_cellvars:
             argcount = self.co_argcount
+            argcount += self.co_kwonlyargcount
             assert argcount >= 0     # annotator hint
             if self.co_flags & CO_VARARGS:
                 argcount += 1
@@ -207,6 +208,8 @@ class PyCode(eval.Code):
         if self.co_flags & (CO_VARARGS | CO_VARKEYWORDS):
             return
         if len(self._args_as_cellvars) > 0:
+            return
+        if self.co_kwonlyargcount > 0:
             return
         if self.co_argcount > 0xff:
             return

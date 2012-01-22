@@ -35,6 +35,9 @@ class Signature(object):
     def num_argnames(self):
         return len(self.argnames)
 
+    def num_kwonlyargnames(self):
+        return len(self.kwonlyargnames)
+
     def has_vararg(self):
         return self.varargname is not None
 
@@ -291,6 +294,7 @@ class Arguments(object):
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
+        co_kwonlyargcount = signature.num_kwonlyargnames()
         has_vararg = signature.has_vararg()
         has_kwarg = signature.has_kwarg()
         extravarargs = None
@@ -379,9 +383,9 @@ class Arguments(object):
                     used_keywords[i] = True # mark as used
                     num_remainingkwds -= 1
         missing = 0
-        if input_argcount < co_argcount:
-            def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
-            for i in range(input_argcount, co_argcount):
+        if input_argcount < co_argcount + co_kwonlyargcount:
+            def_first = co_argcount + co_kwonlyargcount - (0 if defaults_w is None else len(defaults_w))
+            for i in range(input_argcount, co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     continue
                 defnum = i - def_first
@@ -392,6 +396,10 @@ class Arguments(object):
                     # because it might be related to a problem with */** or
                     # keyword arguments, which will be checked for below.
                     missing += 1
+
+        # TODO: Put a nice error message
+        #if co_kwonlyargcount:
+        #    assert co_kwonlyargcount == len(signature.kwonlyargnames)
 
         # collect extra keyword arguments into the **kwarg
         if has_kwarg:
@@ -423,7 +431,7 @@ class Arguments(object):
                               co_argcount, has_vararg, has_kwarg,
                               defaults_w, missing)
 
-        return co_argcount + has_vararg + has_kwarg
+        return co_argcount + has_vararg + has_kwarg + co_kwonlyargcount
 
 
 
