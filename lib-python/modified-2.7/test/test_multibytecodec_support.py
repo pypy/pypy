@@ -330,7 +330,7 @@ class TestBase_Mapping(unittest.TestCase):
                             repr(csetch), repr(unich), exc.reason))
 
 def load_teststring(name):
-    dir = os.path.join(os.path.dirname(__file__), 'cjkencodings')
+    dir = test_support.findfile('cjkencodings')
     with open(os.path.join(dir, name + '.txt'), 'rb') as f:
         encoded = f.read()
     with open(os.path.join(dir, name + '-utf8.txt'), 'rb') as f:
