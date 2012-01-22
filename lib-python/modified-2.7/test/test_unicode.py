@@ -442,6 +442,17 @@ class UnicodeTest(
                 return u'\u1234'
         self.assertEqual('%s' % Wrapper(), u'\u1234')
 
+    def test_startswith_endswith_errors(self):
+        for meth in (u'foo'.startswith, u'foo'.endswith):
+            with self.assertRaises(UnicodeDecodeError):
+                meth('\xff')
+            with self.assertRaises(TypeError) as cm:
+                meth(['f'])
+            exc = str(cm.exception)
+            self.assertIn('unicode', exc)
+            self.assertIn('str', exc)
+            self.assertIn('tuple', exc)
+
     @test_support.run_with_locale('LC_ALL', 'de_DE', 'fr_FR')
     def test_format_float(self):
         # should not format with a comma, but always with C locale
@@ -667,11 +678,17 @@ class UnicodeTest(
         # see http://www.unicode.org/versions/Unicode5.2.0/ch03.pdf
         # (table 3-7) and http://www.rfc-editor.org/rfc/rfc3629.txt
         #for cb in map(chr, range(0xA0, 0xC0)):
-            #sys.__stdout__.write('\\xED\\x%02x\\x80\n' % ord(cb))
             #self.assertRaises(UnicodeDecodeError,
                               #('\xED'+cb+'\x80').decode, 'utf-8')
             #self.assertRaises(UnicodeDecodeError,
                               #('\xED'+cb+'\xBF').decode, 'utf-8')
+        # but since they are valid on Python 2 add a test for that:
+        for cb, surrogate in zip(map(chr, range(0xA0, 0xC0)),
+                                 map(unichr, range(0xd800, 0xe000, 64))):
+            encoded = '\xED'+cb+'\x80'
+            self.assertEqual(encoded.decode('utf-8'), surrogate)
+            self.assertEqual(surrogate.encode('utf-8'), encoded)
+
         for cb in map(chr, range(0x80, 0x90)):
             self.assertRaises(UnicodeDecodeError,
                               ('\xF0'+cb+'\x80\x80').decode, 'utf-8')
