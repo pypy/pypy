@@ -1317,10 +1317,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T.flat
         b[6::2] = [-1, -2]
         assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
-        b[1:2] = [[[100]]]
+        b[0:2] = [[[100]]]
         assert(a[0,0] == 100)
         assert(a[1,0] == 100)
-        b[array([10, 11])] == [-20, -40]
+        raises(NotImplementedError, 'b[array([10, 11])] == [-20, -40]')
         
 
     def test_flatiter_view(self):

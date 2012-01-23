@@ -1304,7 +1304,7 @@ def _to_coords(space, arr, w_item_or_slice):
     elif space.isinstance_w(w_item_or_slice, space.w_slice):
         start, stop, step, lngth = space.decode_index4(w_item_or_slice,arr.size)
     else:
-        operationerrfmt(space.NotImplementedError,'cannot iterator over %s yet', w_item_or_slice)
+        raise operationerrfmt(space.w_NotImplementedError,'cannot iterator over %s yet', w_item_or_slice)
     retval = []
     for i in range(start, stop, step):
         coords = []
