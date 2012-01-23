@@ -124,6 +124,38 @@ class LLSTMFrame(LLFrame):
             self.check_stm_mode(lambda m: False)
             assert 0
 
+    def opstm_getinteriorfield(self, struct, *fields):
+        STRUCT = lltype.typeOf(struct).TO
+        if STRUCT._immutable_interiorfield(fields):
+            # immutable field reads are always allowed
+            return LLFrame.op_getinteriorfield(self, struct, *fields)
+        elif STRUCT._gckind == 'raw':
+            # raw getfields are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            return LLFrame.op_getinteriorfield(self, struct, *fields)
+        else:
+            # mutable 'getfields' are always forbidden for now
+            self.check_stm_mode(lambda m: False)
+            assert 0
+
+    def opstm_setinteriorfield(self, struct, *fields_and_newvalue):
+        fields = fields_and_newvalue[:-1]
+        newvalue = fields_and_newvalue[-1]
+        STRUCT = lltype.typeOf(struct).TO
+        if STRUCT._immutable_interiorfield(fields):
+            # immutable field writes (i.e. initializing writes) should
+            # always be fine, because they should occur into newly malloced
+            # structures
+            LLFrame.op_setinteriorfield(self, struct, *fields_and_newvalue)
+        elif STRUCT._gckind == 'raw':
+            # raw setfields are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            LLFrame.op_setinteriorfield(self, struct, *fields_and_newvalue)
+        else:
+            # mutable 'setfields' are always forbidden for now
+            self.check_stm_mode(lambda m: False)
+            assert 0
+
     def opstm_malloc(self, TYPE, flags):
         # non-GC must not occur in a regular transaction,
         # but can occur in inevitable mode or outside a transaction

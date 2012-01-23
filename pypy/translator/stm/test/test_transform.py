@@ -98,8 +98,11 @@ def test_setarrayitem():
     assert summary(graph) == {'stm_setarrayitem': 1}
     eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
 
+STRLIKE = lltype.GcStruct('STRLIKE',    # no 'immutable' in this version
+                          ('chars', lltype.Array(lltype.Char)))
+
 def test_getinteriorfield():
-    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    p = lltype.malloc(STRLIKE, 100, immortal=True)
     p.chars[42] = 'X'
     def func(p):
         return p.chars[42]
@@ -110,12 +113,32 @@ def test_getinteriorfield():
     assert res == 'X'
 
 def test_setinteriorfield():
-    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    p = lltype.malloc(STRLIKE, 100, immortal=True)
     def func(p):
         p.chars[42] = 'Y'
     interp, graph = get_interpreter(func, [p])
     transform_graph(graph)
     assert summary(graph) == {'stm_setinteriorfield': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+
+def test_getstrchar():
+    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    p.chars[42] = 'X'
+    def func(p):
+        return p.chars[42]
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'getinteriorfield': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+    assert res == 'X'
+
+def test_setstrchar():
+    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    def func(p):
+        p.chars[42] = 'Y'
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'setinteriorfield': 1}
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
 
 def test_unsupported_operation():

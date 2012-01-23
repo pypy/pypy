@@ -164,7 +164,7 @@ class STMTransformer(object):
         OUTER = op.args[0].concretetype.TO
         if op.result.concretetype is lltype.Void:
             op1 = op
-        elif OUTER._hints.get('immutable'):
+        elif OUTER._immutable_interiorfield(unwraplist(op.args[1:])):
             op1 = op
         elif OUTER._gckind == 'raw':
             turn_inevitable(newoperations, "getinteriorfield-raw")
@@ -177,7 +177,7 @@ class STMTransformer(object):
         OUTER = op.args[0].concretetype.TO
         if op.args[-1].concretetype is lltype.Void:
             op1 = op
-        elif OUTER._hints.get('immutable'):
+        elif OUTER._immutable_interiorfield(unwraplist(op.args[1:-1])):
             op1 = op
         elif OUTER._gckind == 'raw':
             turn_inevitable(newoperations, "setinteriorfield-raw")
@@ -232,3 +232,12 @@ def turn_inevitable(newoperations, info):
 def turn_inevitable_and_proceed(newoperations, op):
     turn_inevitable(newoperations, op.opname)
     newoperations.append(op)
+
+def unwraplist(list_v):
+    for v in list_v:
+        if isinstance(v, Constant):
+            yield v.value
+        elif isinstance(v, Variable):
+            yield None    # unknown
+        else:
+            raise AssertionError(v)
