@@ -197,6 +197,19 @@ class ContainerType(LowLevelType):
     def _container_example(self):
         raise NotImplementedError
 
+    def _immutable_interiorfield(self, fields):
+        T = self
+        for fieldname in fields:   # may also be None or an integer, for arrays
+            if T._immutable_field(fieldname):
+                return True
+            if isinstance(fieldname, str):
+                assert isinstance(T, Struct)
+                T = getattr(T, fieldname)
+            else:
+                assert isinstance(T, Array)
+                T = T.OF
+        return False
+
 
 class Typedef(LowLevelType):
     """A typedef is just another name for an existing type"""
@@ -350,19 +363,6 @@ class Struct(ContainerType):
                 return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return False
-
-    def _immutable_interiorfield(self, fields):
-        T = self
-        for fieldname in fields:   # may also be None or an integer, for arrays
-            if T._immutable_field(fieldname):
-                return True
-            if isinstance(fieldname, str):
-                assert isinstance(T, Struct)
-                T = getattr(T, fieldname)
-            else:
-                assert isinstance(T, Array)
-                T = T.OF
         return False
 
 class RttiStruct(Struct):

@@ -829,11 +829,15 @@ def test_immutable_interiorfield():
         S = GcStruct('S', ('ar', A))
         immut = S._immutable_interiorfield(['ar', 4, 'a'])
         assert immut == expected
+        immut = A._immutable_interiorfield([4, 'a'])
+        assert immut == expected
         #
         T = Struct('T', ('a', lltype.Signed))
         A = Array(T, hints=hints)
         S = GcStruct('S', ('ar', A))
         immut = S._immutable_interiorfield(['ar', 4, 'a'])
+        assert immut == expected
+        immut = A._immutable_interiorfield([4, 'a'])
         assert immut == expected
 
 
