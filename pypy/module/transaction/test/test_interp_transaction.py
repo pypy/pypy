@@ -11,13 +11,29 @@ class FakeSpace:
         return 'some stuff from the transaction module'
     def wrap(self, x):
         return 'wrapped stuff'
+    def getexecutioncontext(self):
+        ec = interp_transaction.state.getvalue()
+        if ec is None:
+            ec = self.createexecutioncontext()
+            interp_transaction.state.setvalue(ec)
+        return ec
+    def createexecutioncontext(self):
+        return FakeEC()
     def call_args(self, w_callback, args):
         w_callback(*args)
 
+class FakeEC:
+    pass
+
+def make_fake_space():
+    space = FakeSpace()
+    interp_transaction.state.initialize(space)
+    interp_transaction.state.startup(space, None)
+    return space
+
 
 def test_linear_list():
-    space = FakeSpace()
-    interp_transaction.state.startup(space)
+    space = make_fake_space()
     seen = []
     #
     def do(n):
@@ -32,8 +48,7 @@ def test_linear_list():
 
 
 def test_tree_of_transactions():
-    space = FakeSpace()
-    interp_transaction.state.startup(space)
+    space = make_fake_space()
     seen = []
     #
     def do(level):
@@ -51,8 +66,7 @@ def test_tree_of_transactions():
 
 
 def test_transactional_simple():
-    space = FakeSpace()
-    interp_transaction.state.startup(space)
+    space = make_fake_space()
     lst = []
     def f(n):
         lst.append(n+0)

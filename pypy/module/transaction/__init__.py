@@ -15,12 +15,13 @@ class Module(MixedModule):
         'TransactionError': 'app_transaction.TransactionError',
     }
 
+    def __init__(self, space, *args):
+        "NOT_RPYTHON: patches space.threadlocals to use real threadlocals"
+        from pypy.module.transaction import interp_transaction
+        MixedModule.__init__(self, space, *args)
+        interp_transaction.state.initialize(space)
+        space.threadlocals = interp_transaction.state
+
     def startup(self, space):
         from pypy.module.transaction import interp_transaction
-        interp_transaction.state.startup(space)
-
-    def translating_for_checkmodule(self, space):
-        from pypy.module.transaction import interp_transaction
-        interp_transaction.state._freeze_()
-        interp_transaction.state.space = space
-        interp_transaction.state._freeze_ = lambda: None   # hack!
+        interp_transaction.state.startup(space, space.wrap(self))
