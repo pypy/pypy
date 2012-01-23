@@ -268,6 +268,7 @@ class BufferedMixin:
         if pos < 0:
             raise OperationError(space.w_IOError, space.wrap(
                 "Raw stream returned invalid position"))
+        self.abs_pos = pos
         return pos
 
     def _closed(self, space):
@@ -638,7 +639,7 @@ class BufferedMixin:
             if size <= available:
                 for i in range(size):
                     self.buffer[self.pos + i] = data[i]
-                if self.write_end == -1:
+                if self.write_end == -1 or self.write_pos > self.pos:
                     self.write_pos = self.pos
                 self._adjust_position(self.pos + size)
                 if self.pos > self.write_end:

@@ -467,3 +467,30 @@ class AppTestBufferedRandom:
         f.write('xxxx')
         f.seek(0)
         assert f.read() == 'a\nbxxxx'
+
+    def test_write_rewind_write(self):
+        # Various combinations of reading / writing / seeking
+        # backwards / writing again
+        import _io, errno
+        def mutate(bufio, pos1, pos2):
+            assert pos2 >= pos1
+            # Fill the buffer
+            bufio.seek(pos1)
+            bufio.read(pos2 - pos1)
+            bufio.write(b'\x02')
+            # This writes earlier than the previous write, but still inside
+            # the buffer.
+            bufio.seek(pos1)
+            bufio.write(b'\x01')
+
+        b = b"\x80\x81\x82\x83\x84"
+        for i in range(0, len(b)):
+            for j in range(i, len(b)):
+                raw = _io.BytesIO(b)
+                bufio = _io.BufferedRandom(raw, 100)
+                mutate(bufio, i, j)
+                bufio.flush()
+                expected = bytearray(b)
+                expected[j] = 2
+                expected[i] = 1
+                assert raw.getvalue() == str(expected)
