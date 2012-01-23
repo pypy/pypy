@@ -7,6 +7,8 @@ from pypy.rlib import rstm
 
 NUM_THREADS_DEFAULT = 4     # by default
 
+MAIN_THREAD_ID = 0
+
 
 class State(object):
 
@@ -19,7 +21,6 @@ class State(object):
         self.ll_lock = threadintf.null_ll_lock
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
-        self.main_thread_id = 0
         self.w_error = None
 
     def startup(self, space):
@@ -31,8 +32,7 @@ class State(object):
         self.ll_no_tasks_pending_lock = threadintf.allocate_lock()
         self.ll_unfinished_lock = threadintf.allocate_lock()
         self.lock_unfinished()
-        self.main_thread_id = threadintf.thread_id()
-        self.pending_lists = {self.main_thread_id: self.pending}
+        self.pending_lists = {MAIN_THREAD_ID: self.pending}
 
     def set_num_threads(self, num):
         if self.running:
@@ -88,7 +88,7 @@ class Pending:
         self.args = args
 
     def register(self):
-        id = threadintf.thread_id()
+        id = rstm.thread_id()
         state.pending_lists[id].append(self)
 
     def run(self):
@@ -112,7 +112,7 @@ def add(space, w_callback, __args__):
     Pending(w_callback, __args__).register()
 
 
-def add_list(new_pending_list):
+def _add_list(new_pending_list):
     if new_pending_list.is_empty():
         return
     was_empty = state.pending.is_empty()
@@ -123,10 +123,11 @@ def add_list(new_pending_list):
 
 def _run_thread():
     state.lock()
-    my_pending_list = Fifo()
-    my_thread_id = threadintf.thread_id()
-    state.pending_lists[my_thread_id] = my_pending_list
     rstm.descriptor_init()
+    my_pending_list = Fifo()
+    my_thread_id = rstm.thread_id()
+    assert my_thread_id not in state.pending_lists
+    state.pending_lists[my_thread_id] = my_pending_list
     #
     while True:
         if state.pending.is_empty():
@@ -151,7 +152,7 @@ def _run_thread():
             state.unlock()
             pending.run()
             state.lock()
-            add_list(my_pending_list)
+            _add_list(my_pending_list)
     #
     rstm.descriptor_done()
     del state.pending_lists[my_thread_id]
@@ -180,7 +181,7 @@ def run(space):
     #
     assert state.num_waiting_threads == 0
     assert state.pending.is_empty()
-    assert state.pending_lists.keys() == [state.main_thread_id]
+    assert state.pending_lists.keys() == [MAIN_THREAD_ID]
     assert not state.is_locked_no_tasks_pending()
     state.running = False
     #

@@ -28,9 +28,3 @@ def start_new_thread(callback, args):
         ll_thread.start_new_thread(callback, args)
     else:
         thread.start_new_thread(callback, args)
-
-def thread_id():
-    if we_are_translated():
-        return ll_thread.get_ident()
-    else:
-        return thread.get_ident()

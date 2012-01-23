@@ -55,3 +55,6 @@ def descriptor_done():
 
 def debug_get_state():
     return _rffi_stm.stm_debug_get_state()
+
+def thread_id():
+    return _rffi_stm.stm_thread_id()
