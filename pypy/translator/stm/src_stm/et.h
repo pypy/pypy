@@ -31,6 +31,8 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
                                      0: not in a transaction
                                      1: in a regular transaction
                                      2: in an inevitable transaction */
+long stm_thread_id(void);  /* returns a unique thread id,
+                              or 0 if descriptor_init() was not called */
 
 // XXX little-endian only!
 /* this macro is used if 'base' is a word-aligned pointer and 'offset'

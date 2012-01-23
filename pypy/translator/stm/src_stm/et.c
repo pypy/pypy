@@ -71,13 +71,14 @@ struct tx_descriptor {
   unsigned num_aborts[ABORT_REASONS];
   unsigned num_spinloops[SPINLOOP_REASONS];
   unsigned int spinloop_counter;
+  int transaction_active;
   owner_version_t my_lock_word;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
-  int transaction_active;
 };
 
 static const struct tx_descriptor null_tx = {
-  .transaction_active = 0
+  .transaction_active = 0,
+  .my_lock_word = 0
 };
 #define NULL_TX  ((struct tx_descriptor *)(&null_tx))
 
@@ -831,6 +832,12 @@ long stm_debug_get_state(void)
     return 1;
   else
     return 2;
+}
+
+long stm_thread_id(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return d->my_lock_word;
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */

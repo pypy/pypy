@@ -38,3 +38,4 @@ stm_perform_transaction = llexternal('stm_perform_transaction',
 
 stm_abort_and_retry = llexternal('stm_abort_and_retry', [], lltype.Void)
 stm_debug_get_state = llexternal('stm_debug_get_state', [], lltype.Signed)
+stm_thread_id       = llexternal('stm_thread_id',       [], lltype.Signed)

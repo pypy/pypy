@@ -68,3 +68,10 @@ def test_stm_debug_get_state():
     stm_perform_transaction(llhelper(CALLBACK, callback1),
                             lltype.nullptr(rffi.VOIDP.TO))
     stm_descriptor_done()
+
+def test_stm_thread_id():
+    assert stm_thread_id() == 0
+    stm_descriptor_init()
+    assert stm_thread_id() != 0
+    stm_descriptor_done()
+    assert stm_thread_id() == 0
