@@ -283,4 +283,3 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
-
