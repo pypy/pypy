@@ -163,12 +163,11 @@ class AbstractARMv7Builder(object):
         self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
-        if c == cond.AL:
-            self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET / 2)
-            self.write32(target)
-        else:
-            self.gen_load_int(reg.ip.value, target, cond=c)
-            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
+        self.gen_load_int(reg.ip.value, target, cond=c)
+        self.BX(reg.ip.value, c=c)
+
+    def BX(self, reg, c=cond.AL):
+        self.write32(c << 28 | 0x12FFF1 << 4 | (reg & 0xF))
 
     def B_offs(self, target_ofs, c=cond.AL):
         pos = self.currpos()
