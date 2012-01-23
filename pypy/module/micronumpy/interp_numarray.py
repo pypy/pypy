@@ -567,7 +567,11 @@ class BaseArray(Wrappable):
                                       backstrides, shape, concrete))
 
     def descr_ravel(self, space, w_order=None):
-        if not space.is_w(w_order, space.w_None):
+        if space.is_w(w_order, space.w_None):
+            order = 'C'
+        else:
+            order = space.str_w(w_order)
+        if order != 'C':
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "order not implemented"))
         return self.descr_reshape(space, [space.wrap(-1)])

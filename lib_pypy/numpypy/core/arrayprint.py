@@ -551,7 +551,8 @@ class FloatFormat(object):
 
     def fillFormat(self, data):
         import numeric as _nc
-        errstate = _nc.seterr(all='ignore')
+        # XXX pypy unimplemented
+        #errstate = _nc.seterr(all='ignore')
         try:
             special = isnan(data) | isinf(data) | isna(data)
             special[isna(data)] = False
@@ -570,7 +571,9 @@ class FloatFormat(object):
                                            or max_val/min_val > 1000.):
                     self.exp_format = True
         finally:
-            _nc.seterr(**errstate)
+            pass
+            # XXX pypy unimplemented
+            #_nc.seterr(**errstate)
 
         if self.exp_format:
             self.large_exponent = 0 < min_val < 1e-99 or max_val >= 1e100
