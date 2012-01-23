@@ -796,6 +796,13 @@ def test_immutable_hint():
     S = GcStruct('S', ('x', lltype.Signed),
                  hints={'immutable_fields': FieldListAccessor({'x': 1234})})
     assert S._immutable_field('x') == 1234
+    #
+    S = GcStruct('S', ('c', lltype.Array(lltype.Char)))
+    assert S.c._immutable_field() == False
+    #
+    S = GcStruct('S', ('d', lltype.Array(lltype.Char,
+                                         hints={'immutable': True})))
+    assert S.d._immutable_field() == True
 
 def test_typedef():
     T = Typedef(Signed, 'T')
