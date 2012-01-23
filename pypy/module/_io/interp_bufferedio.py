@@ -11,6 +11,7 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
+from pypy.module.thread import ll_thread
 import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -26,6 +27,29 @@ def trap_eintr(space, error):
             space.eq(w_errno, space.wrap(errno.EINTR)))
     except OperationError:
         return False
+
+
+class TryLock(object):
+    "A Lock that raises RuntimeError when acquired twice by the same thread"
+    def __init__(self, space):
+        ## XXX cannot free a Lock?
+        ## if self.lock:
+        ##     self.lock.free()
+        self.lock = space.allocate_lock()
+        self.owner = 0
+        self.operr = OperationError(space.w_RuntimeError,
+                                    space.wrap("reentrant call"))
+
+    def __enter__(self):
+        if not self.lock.acquire(False):
+            if self.owner == ll_thread.get_ident():
+                raise self.operr
+            self.lock.acquire(True)
+        self.owner = ll_thread.get_ident()
+    
+    def __exit__(self,*args):
+        self.owner = 0
+        self.lock.release()
 
 
 class BlockingIOError(Exception):
@@ -130,10 +154,7 @@ class BufferedMixin:
 
         self.buffer = ['\0'] * self.buffer_size
 
-        ## XXX cannot free a Lock?
-        ## if self.lock:
-        ##     self.lock.free()
-        self.lock = space.allocate_lock()
+        self.lock = TryLock(space)
 
         try:
             self._raw_tell(space)

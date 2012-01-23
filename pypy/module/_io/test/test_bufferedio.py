@@ -1,6 +1,9 @@
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
+from pypy.module._io import interp_bufferedio
+from pypy.interpreter.error import OperationError
+import py.test
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
@@ -217,7 +220,7 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
 
 class AppTestBufferedWriter:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+        cls.space = gettestobjspace(usemodules=['_io', 'thread'])
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
         if option.runappdirect:
@@ -425,6 +428,22 @@ class AppTestBufferedWriter:
         bufio.flush()
         assert rawio.count == 3
 
+    def test_reentrant_write(self):
+        import thread  # Reentrant-safe is only enabled with threads
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def write(self, data):
+                bufio.write("something else")
+                return len(data)
+
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        bufio.write("test")
+        exc = raises(RuntimeError, bufio.flush)
+        assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
@@ -494,3 +513,15 @@ class AppTestBufferedRandom:
                 expected[j] = 2
                 expected[i] = 1
                 assert raw.getvalue() == str(expected)
+        
+
+class TestNonReentrantLock:
+    def test_trylock(self):
+        space = gettestobjspace(usemodules=['thread'])
+        lock = interp_bufferedio.TryLock(space)
+        with lock:
+            pass
+        with lock:
+            exc = py.test.raises(OperationError, "with lock: pass")
+        assert exc.value.match(space, space.w_RuntimeError)
+
