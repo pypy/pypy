@@ -352,6 +352,20 @@ class Struct(ContainerType):
                 pass
         return False
 
+    def _immutable_interiorfield(self, fields_v):
+        T = self
+        for v_field in fields_v:
+            fieldname = getattr(v_field, 'value', None)
+            if T._immutable_field(fieldname):
+                return True
+            if isinstance(fieldname, str):
+                assert isinstance(T, Struct)
+                T = getattr(T, fieldname)
+            else:
+                assert isinstance(T, Array)
+                T = T.OF
+        return False
+
 class RttiStruct(Struct):
     _runtime_type_info = None
 
