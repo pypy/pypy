@@ -582,20 +582,21 @@ class AssemblerARM(ResOpAssembler):
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
         regalloc.prepare_loop(inputargs, operations)
 
-        loop_head = self.mc.currpos()
+        loop_head = self.mc.get_relative_pos()
         looptoken._arm_loop_code = loop_head
-
+        #
         clt.frame_depth = -1
         frame_depth = self._assemble(operations, regalloc)
         clt.frame_depth = frame_depth
-        self._patch_sp_offset(sp_patch_location, frame_depth)
+        #
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
 
+        self._patch_sp_offset(sp_patch_location, frame_depth)
         self.write_pending_failure_recoveries()
 
         rawstart = self.materialize_loop(looptoken)
         looptoken._arm_func_addr = rawstart
 
-        size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.process_pending_guards(rawstart)
         self.fixup_target_tokens(rawstart)
 
@@ -613,7 +614,6 @@ class AssemblerARM(ResOpAssembler):
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
-        #self.mc.BKPT()
         self._walk_operations(operations, regalloc)
         frame_depth = regalloc.frame_manager.get_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
@@ -637,11 +637,12 @@ class AssemblerARM(ResOpAssembler):
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
 
-        startpos = self.mc.get_relative_pos()
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
         regalloc.prepare_bridge(inputargs, arglocs, operations)
 
         sp_patch_location = self._prepare_sp_patch_position()
+
+        startpos = self.mc.get_relative_pos()
 
         frame_depth = self._assemble(operations, regalloc)
 
@@ -746,8 +747,6 @@ class AssemblerARM(ResOpAssembler):
     def _patch_sp_offset(self, pos, frame_depth):
         cb = OverwritingBuilder(self.mc, pos,
                                 OverwritingBuilder.size_of_gen_load_int + WORD)
-        # Note: the frame_depth is one less than the value stored in the frame
-        # manager
         n = frame_depth * WORD
 
         # ensure the sp is 8 byte aligned when patching it
