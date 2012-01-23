@@ -21,5 +21,6 @@ class Module(MixedModule):
 
     def translating_for_checkmodule(self, space):
         from pypy.module.transaction import interp_transaction
+        interp_transaction.state._freeze_()
         interp_transaction.state.space = space
         interp_transaction.state._freeze_ = lambda: None   # hack!
