@@ -5,9 +5,53 @@ Try:
     ./objdump.py --decode dumpfile
 """
 import os, sys, py
+import subprocess
+
+def machine_code_dump(data, originaddr, backend_name, label_list=None):
+    assert backend_name == 'arm_32'
+    tmpfile = get_tmp_file()
+    objdump = 'objdump -M reg-names-std --adjust-vma=%(origin)d -D --architecture=arm --target=binary %(file)s'
+    #
+    f = open(tmpfile, 'wb')
+    f.write(data)
+    f.close()
+    p = subprocess.Popen(objdump % {
+        'file': tmpfile,
+        'origin': originaddr,
+    }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    assert not p.returncode, ('Encountered an error running objdump: %s' %
+                              stderr)
+    # drop some objdump cruft
+    lines = stdout.splitlines(True)[6:]     # drop some objdump cruft
+    return format_code_dump_with_labels(originaddr, lines, label_list)
+
+def format_code_dump_with_labels(originaddr, lines, label_list):
+    from pypy.rlib.rarithmetic import r_uint
+    if not label_list:
+        label_list = []
+    originaddr = r_uint(originaddr)
+    itlines = iter(lines)
+    yield itlines.next() # don't process the first line
+    for lbl_start, lbl_name in label_list:
+        for line in itlines:
+            addr, _ = line.split(':', 1)
+            addr = int(addr, 16)
+            if addr >= originaddr+lbl_start:
+                yield '\n'
+                if lbl_name is None:
+                    yield '--end of the loop--\n'
+                else:
+                    yield str(lbl_name) + '\n'
+                yield line
+                break
+            yield line
+    # yield all the remaining lines
+    for line in itlines:
+        yield line
 
 def objdump(input):
-    os.system('objdump -D --architecture=arm --target=binary %s' % input)
+    os.system('objdump -D -M reg-names-std --architecture=arm --target=binary %s' % input)
 
 
 def get_tmp_file():

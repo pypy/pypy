@@ -1,5 +1,6 @@
 import py
 from pypy.jit.backend.arm.runner import ArmCPU
+from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest, \
                                                 boxfloat, \
                                                 constfloat
@@ -23,12 +24,20 @@ class FakeStats(object):
 
 class TestARM(LLtypeBackendTest):
 
+    # for the individual tests see
+    # ====> ../../test/runner_test.py
+
+    add_loop_instructions = ['mov', 'adds', 'cmp', 'beq', 'b']
+    bridge_loop_instructions = ['movw', 'movt', 'bx']
+
+    def get_machine_code_dump_func(self):
+        from pypy.jit.backend.arm.tool.objdump import machine_code_dump
+        return machine_code_dump
+
     def setup_method(self, meth):
         self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
 
-    # for the individual tests see
-    # ====> ../../test/runner_test.py
     def test_result_is_spilled(self):
         cpu = self.cpu
         inp = [BoxInt(i) for i in range(1, 15)]
