@@ -352,10 +352,9 @@ class Struct(ContainerType):
                 pass
         return False
 
-    def _immutable_interiorfield(self, fields_v):
+    def _immutable_interiorfield(self, fields):
         T = self
-        for v_field in fields_v:
-            fieldname = getattr(v_field, 'value', None)
+        for fieldname in fields:   # may also be None or an integer, for arrays
             if T._immutable_field(fieldname):
                 return True
             if isinstance(fieldname, str):

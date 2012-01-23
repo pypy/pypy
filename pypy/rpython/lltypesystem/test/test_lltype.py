@@ -805,40 +805,35 @@ def test_immutable_hint():
     assert S.d._immutable_field() == True
 
 def test_immutable_interiorfield():
-    class Constant:
-        def __init__(self, value):
-            self.value = value
     #
     for hints in [{}, {'immutable': True}]:
         expected = 'immutable' in hints
         #
         T = Struct('T', ('a', lltype.Signed), hints=hints)
         S = GcStruct('S', ('t', T))
-        immut = S._immutable_interiorfield([Constant('t'), Constant('a')])
+        immut = S._immutable_interiorfield(['t', 'a'])
         assert immut == expected
         #
         T = Struct('T', ('a', lltype.Signed))
         S = GcStruct('S', ('t', T), hints=hints)
-        immut = S._immutable_interiorfield([Constant('t'), Constant('a')])
+        immut = S._immutable_interiorfield(['t', 'a'])
         assert immut == expected
         #
         A = Array(lltype.Signed, hints=hints)
         S = GcStruct('S', ('ar', A))
-        immut = S._immutable_interiorfield([Constant('ar'), Constant(4)])
+        immut = S._immutable_interiorfield(['ar', 4])
         assert immut == expected
         #
         T = Struct('T', ('a', lltype.Signed), hints=hints)
         A = Array(T)
         S = GcStruct('S', ('ar', A))
-        immut = S._immutable_interiorfield([Constant('ar'), Constant(4),
-                                            Constant('a')])
+        immut = S._immutable_interiorfield(['ar', 4, 'a'])
         assert immut == expected
         #
         T = Struct('T', ('a', lltype.Signed))
         A = Array(T, hints=hints)
         S = GcStruct('S', ('ar', A))
-        immut = S._immutable_interiorfield([Constant('ar'), Constant(4),
-                                            Constant('a')])
+        immut = S._immutable_interiorfield(['ar', 4, 'a'])
         assert immut == expected
 
 
