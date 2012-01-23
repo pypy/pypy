@@ -40,6 +40,10 @@ class TestX86(LLtypeBackendTest):
         # the 'mov' is part of the 'jmp' so far
         bridge_loop_instructions = ['lea', 'mov', 'jmp']
 
+    def get_machine_code_dump_func(self):
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        return machine_code_dump
+
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()

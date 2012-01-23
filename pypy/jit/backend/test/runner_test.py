@@ -3174,7 +3174,6 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert res.getfloat() == expected
 
-
     def test_compile_loop_with_target(self):
         i0 = BoxInt()
         i1 = BoxInt()
@@ -3220,10 +3219,10 @@ class LLtypeBackendTest(BaseBackendTest):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        machine_code_dump = self.get_machine_code_dump_func()
         import ctypes
         ops = """
-        [i2]
+        [i3, i2]
         i0 = same_as(i2)    # but forced to be in a register
         label(i0, descr=1)
         i1 = int_add(i0, i0)
@@ -3254,17 +3253,16 @@ class LLtypeBackendTest(BaseBackendTest):
         def checkops(mc, ops):
             assert len(mc) == len(ops)
             for i in range(len(mc)):
-                assert mc[i].split("\t")[-1].startswith(ops[i])
-            
+                assert mc[i].split("\t")[2].startswith(ops[i])
+
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         mc = list(machine_code_dump(data, info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') == 2]
+        lines = [line for line in mc if line.count('\t') >= 2]
         checkops(lines, self.add_loop_instructions)
         data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
         mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
-        lines = [line for line in mc if line.count('\t') == 2]
+        lines = [line for line in mc if line.count('\t') >= 2]
         checkops(lines, self.bridge_loop_instructions)
-
 
     def test_compile_bridge_with_target(self):
         # This test creates a loopy piece of code in a bridge, and builds another
