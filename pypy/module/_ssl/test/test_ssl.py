@@ -64,8 +64,8 @@ class AppTestSSL:
 
     def test_sslwrap(self):
         import _ssl, _socket, sys, gc
-        if sys.platform == 'darwin':
-            skip("hangs indefinitely on OSX (also on CPython)")
+        if sys.platform == 'darwin' or 'freebsd' in sys.platform:
+            skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
         s = _socket.socket()
         ss = _ssl.sslwrap(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
