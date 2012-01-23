@@ -38,7 +38,6 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
 
-
 def find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
@@ -154,15 +153,17 @@ def get_shape_from_iterable(space, old_size, w_iterable):
 # fits the new shape, using those steps. If there is a shape/step mismatch
 # (meaning that the realignment of elements crosses from one step into another)
 # return None so that the caller can raise an exception.
-def calc_new_strides(new_shape, old_shape, old_strides):
+def calc_new_strides(new_shape, old_shape, old_strides, order):
+    # Return the proper strides for new_shape, or None if the mapping crosses
+    # stepping boundaries
+
     # Assumes that prod(old_shape) == prod(new_shape), len(old_shape) > 1, and
     # len(new_shape) > 0
     steps = []
     last_step = 1
     oldI = 0
     new_strides = []
-    if old_strides[0] < old_strides[-1]:
-        #Start at old_shape[0], old_stides[0]
+    if order == 'F':
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -179,12 +180,10 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI += 1
-                if oldI >= len(old_shape):
-                    continue
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
-    else:
-        #Start at old_shape[-1], old_strides[-1]
+                if oldI < len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
+    elif order == 'C':
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -203,8 +202,8 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI -= 1
-                if oldI < -len(old_shape):
-                    continue
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
+                if oldI >= -len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
+    assert len(new_strides) == len(new_shape)
     return new_strides

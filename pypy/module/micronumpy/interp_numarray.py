@@ -491,8 +491,8 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space, concrete.size, w_shape)
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape,
-                                       concrete.shape, concrete.strides)
+        new_strides = calc_new_strides(new_shape, concrete.shape,
+                                     concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
             ndims = len(new_shape)
@@ -1083,7 +1083,8 @@ class W_NDimSlice(ViewArray):
             self.backstrides = backstrides
             self.shape = new_shape
             return
-        new_strides = calc_new_strides(new_shape, self.shape, self.strides)
+        new_strides = calc_new_strides(new_shape, self.shape, self.strides,
+                                                   self.order)
         if new_strides is None:
             raise OperationError(space.w_AttributeError, space.wrap(
                           "incompatible shape for a non-contiguous array"))
