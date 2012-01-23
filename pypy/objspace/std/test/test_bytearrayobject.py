@@ -1,5 +1,9 @@
+from pypy import conftest
 
 class AppTestBytesArray:
+    def setup_class(cls):
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
+
     def test_basics(self):
         b = bytearray()
         assert type(b) is bytearray
@@ -439,3 +443,15 @@ class AppTestBytesArray:
     def test_reduce(self):
         assert bytearray('caf\xe9').__reduce__() == (
             bytearray, (u'caf\xe9', 'latin-1'), None)
+
+    def test_setitem_slice_performance(self):
+        # because of a complexity bug, this used to take forever on a
+        # translated pypy.  On CPython2.6 -A, it takes around 8 seconds.
+        if self.runappdirect:
+            count = 16*1024*1024
+        else:
+            count = 1024
+        b = bytearray(count)
+        for i in range(count):
+            b[i:i+1] = 'y'
+        assert str(b) == 'y' * count
