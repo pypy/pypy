@@ -32,8 +32,8 @@ from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.backend.x86.support import values_array, memcpy_fn
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
-                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
-                                                     # 'e'ntry point
+                              ('type', lltype.Char),  # 'b'ridge, 'l'abel or
+                                                      # 'e'ntry point
                               ('number', lltype.Signed))
 
 
@@ -384,7 +384,6 @@ class AssemblerARM(ResOpAssembler):
             # are stored in r0 and r1.
             mc.SUB_rr(r.r0.value, r.r1.value, r.r0.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-            # XXX replace with an STMxx operation
             for reg, ofs in ARMv7RegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.STR_ri(reg.value, r.fp.value, imm=ofs)
             mc.BL(addr)
@@ -531,8 +530,7 @@ class AssemblerARM(ResOpAssembler):
 
     def gen_shadowstack_header(self, gcrootmap):
         # we need to put two words into the shadowstack: the MARKER
-        # and the address of the frame (ebp, actually)
-        # XXX add some comments
+        # and the address of the frame (fp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         self.mc.gen_load_int(r.ip.value, rst)
         self.mc.LDR_ri(r.r4.value, r.ip.value)  # LDR r4, [rootstacktop]
@@ -1121,23 +1119,18 @@ class AssemblerARM(ResOpAssembler):
             self.mc.gen_load_int(r.r1.value, size)
             self.mc.ADD_rr(r.r1.value, r.r0.value, r.r1.value)
 
-        # XXX maybe use an offset from the value nursery_free_addr
         self.mc.gen_load_int(r.ip.value, nursery_top_adr)
         self.mc.LDR_ri(r.ip.value, r.ip.value)
 
         self.mc.CMP_rr(r.r1.value, r.ip.value)
 
-        # XXX update
-        # See comments in _build_malloc_slowpath for the
-        # details of the two helper functions that we are calling below.
-        # First, we need to call two of them and not just one because we
-        # need to have a mark_gc_roots() in between.  Then the calling
-        # convention of slowpath_addr{1,2} are tweaked a lot to allow
-        # the code here to be just two CALLs: slowpath_addr1 gets the
-        # size of the object to allocate from (EDX-EAX) and returns the
-        # result in EAX; self.malloc_slowpath additionally returns in EDX a
-        # copy of heap(nursery_free_adr), so that the final MOV below is
-        # a no-op.
+        # We load into r0 the address stored at nursery_free_adr We calculate
+        # the new value for nursery_free_adr and store in r1 The we load the
+        # address stored in nursery_top_adr into IP If the value in r1 is
+        # (unsigned) bigger than the one in ip we conditionally call
+        # malloc_slowpath in case we called malloc_slowpath, which returns the
+        # new value of nursery_free_adr in r1 and the adr of the new object in
+        # r0.
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
         self.mc.BL(self.malloc_slowpath, c=c.HI)

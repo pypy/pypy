@@ -1158,8 +1158,8 @@ class ForceOpAssembler(object):
 
     def call_release_gil(self, gcrootmap, save_registers, fcond):
         # First, we need to save away the registers listed in
-        # 'save_registers' that are not callee-save.  XXX We assume that
-        # the floating point registers won't be modified.
+        # 'save_registers' that are not callee-save.
+        # NOTE: We assume that  the floating point registers won't be modified.
         regs_to_save = []
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
@@ -1170,8 +1170,8 @@ class ForceOpAssembler(object):
 
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
-        # XXX like with call_release_gil(), we assume that we don't need
-        # to save vfp regs in this case. Besides the result location
+        # NOTE: like with call_release_gil(), we assume that we don't need to
+        # save vfp regs in this case. Besides the result location
         regs_to_save = []
         vfp_regs_to_save = []
         if save_loc.is_reg():

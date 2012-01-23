@@ -66,9 +66,6 @@ class ARMFrameManager(FrameManager):
 
     def __init__(self):
         FrameManager.__init__(self)
-        #self.used = [True]  # keep first slot free
-        # XXX refactor frame to avoid this issue of keeping the first slot
-        # reserved
 
     @staticmethod
     def frame_pos(i, box_type):
@@ -1009,7 +1006,6 @@ class Regalloc(object):
         return [res_loc]
 
     def prepare_op_label(self, op, fcond):
-        # XXX big refactoring needed?
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         inputargs = op.getarglist()
