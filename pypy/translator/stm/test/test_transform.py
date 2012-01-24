@@ -185,6 +185,17 @@ def test_arrayitem_access_directly():
                              stm_mode="regular_transaction")
         assert res == 42
 
+def test_setfield_freshly_allocated():
+    py.test.skip("XXX not implemented")
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    def func(n):
+        p = lltype.malloc(S)
+        p.x = n
+    interp, graph = get_interpreter(func, [42])
+    transform_graph(graph)
+    assert summary(graph) == {'malloc': 1, 'setfield': 1}
+    res = eval_stm_graph(interp, graph, [42], stm_mode="regular_transaction")
+
 def test_unsupported_operation():
     def func(n):
         n += 1
