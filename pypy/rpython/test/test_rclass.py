@@ -1142,6 +1142,35 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
                                       'cast_pointer': 1,
                                       'setfield': 1}
 
+    def test_stm_access_directly(self):
+        for ret in ['a', 'b', 'c']:
+            class A(object):
+                pass
+            class B(A):
+                _stm_access_directly_ = True
+            class C(B):
+                pass
+            def f(n):
+                a = b = c = None
+                if n < 5:
+                    a = A()
+                    a.a = n
+                elif n < 10:
+                    b = B()
+                    b.b = n
+                else:
+                    c = C()
+                    c.c = n
+                if ret == 'a': return a
+                if ret == 'b': return b
+                if ret == 'c': return c
+            t, typer, graph = self.gengraph(f, [int])
+            TYPE = graph.getreturnvar().concretetype.TO
+            if ret == 'a':
+                assert "stm_access_directly" not in TYPE._hints
+            else:
+                assert TYPE._hints["stm_access_directly"] == True
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 

@@ -206,6 +206,8 @@ class AbstractInstanceRepr(Repr):
                 self.immutable_field_set = set(immutable_fields.value)
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
+        if self.classdef.classdesc.lookup('_stm_access_directly_') is not None:
+            hints['stm_access_directly'] = True
         return hints
 
     def __repr__(self):
