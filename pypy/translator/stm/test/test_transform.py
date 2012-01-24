@@ -141,7 +141,7 @@ def test_setstrchar():
     assert summary(graph) == {'setinteriorfield': 1}
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
 
-def test_getfield_access_directly():
+def test_getfield_setfield_access_directly():
     class P:
         x = 42
         _stm_access_directly_ = True
@@ -153,6 +153,42 @@ def test_getfield_access_directly():
     assert summary(graph) == {'malloc': 1, 'cast_pointer': 1,
                               'getfield': 1, 'setfield': 3, 'int_add': 1}
     res = eval_stm_graph(interp, graph, [], stm_mode="regular_transaction")
+
+def test_arrayitem_access_directly():
+    class P1:
+        pass
+    class P2:
+        _stm_access_directly_ = True
+    for P in [P1, P2]:
+        def func(n):
+            p = P()
+            p.lst = [0]
+            p.lst[0] = n
+            return p.lst[0]
+        interp, graph = get_interpreter(func, [42])
+        #
+        from pypy.translator.backendopt.inline import auto_inline_graphs
+        translator = interp.typer.annotator.translator
+        auto_inline_graphs(translator, translator.graphs, 16.0)
+        if option.view:
+            graph.show()
+        #
+        transform_graph(graph)
+        if P is P1:
+            assert 'stm_getfield' in summary(graph)
+            assert 'stm_setfield' in summary(graph)
+            assert 'stm_getarrayitem' in summary(graph)
+            assert 'stm_setarrayitem' in summary(graph)
+        elif P is P2:
+            assert 'stm_getfield' not in summary(graph)
+            assert 'stm_setfield' not in summary(graph)
+            assert 'stm_getarrayitem' not in summary(graph)
+            assert 'stm_setarrayitem' not in summary(graph)
+        else:
+            assert 0
+        res = eval_stm_graph(interp, graph, [42],
+                             stm_mode="regular_transaction")
+        assert res == 42
 
 def test_unsupported_operation():
     def func(n):
