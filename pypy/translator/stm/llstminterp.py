@@ -66,7 +66,8 @@ class LLSTMFrame(LLFrame):
 
     def opstm_getfield(self, struct, fieldname):
         STRUCT = lltype.typeOf(struct).TO
-        if STRUCT._immutable_field(fieldname):
+        if (STRUCT._immutable_field(fieldname) or
+            'stm_access_directly' in STRUCT._hints):
             # immutable field reads are always allowed
             return LLFrame.op_getfield(self, struct, fieldname)
         elif STRUCT._gckind == 'raw':
@@ -80,7 +81,8 @@ class LLSTMFrame(LLFrame):
 
     def opstm_setfield(self, struct, fieldname, newvalue):
         STRUCT = lltype.typeOf(struct).TO
-        if STRUCT._immutable_field(fieldname):
+        if (STRUCT._immutable_field(fieldname) or
+            'stm_access_directly' in STRUCT._hints):
             # immutable field writes (i.e. initializing writes) should
             # always be fine, because they should occur into newly malloced
             # structures

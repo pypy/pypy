@@ -141,6 +141,19 @@ def test_setstrchar():
     assert summary(graph) == {'setinteriorfield': 1}
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
 
+def test_getfield_access_directly():
+    class P:
+        x = 42
+        _stm_access_directly_ = True
+    def func():
+        p = P()
+        p.x += 1
+    interp, graph = get_interpreter(func, [])
+    transform_graph(graph)
+    assert summary(graph) == {'malloc': 1, 'cast_pointer': 1,
+                              'getfield': 1, 'setfield': 3, 'int_add': 1}
+    res = eval_stm_graph(interp, graph, [], stm_mode="regular_transaction")
+
 def test_unsupported_operation():
     def func(n):
         n += 1

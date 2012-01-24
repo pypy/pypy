@@ -112,7 +112,8 @@ class STMTransformer(object):
         STRUCT = op.args[0].concretetype.TO
         if op.result.concretetype is lltype.Void:
             op1 = op
-        elif STRUCT._immutable_field(op.args[1].value):
+        elif (STRUCT._immutable_field(op.args[1].value) or
+              'stm_access_directly' in STRUCT._hints):
             op1 = op
         elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "getfield-raw")
@@ -125,7 +126,8 @@ class STMTransformer(object):
         STRUCT = op.args[0].concretetype.TO
         if op.args[2].concretetype is lltype.Void:
             op1 = op
-        elif STRUCT._immutable_field(op.args[1].value):
+        elif (STRUCT._immutable_field(op.args[1].value) or
+              'stm_access_directly' in STRUCT._hints):
             op1 = op
         elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "setfield-raw")
