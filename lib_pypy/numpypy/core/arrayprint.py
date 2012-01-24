@@ -305,10 +305,10 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
             #else:
             format_function = formatdict['int']
         elif issubclass(dtypeobj, _nt.floating):
-            if issubclass(dtypeobj, _nt.longfloat):
-                format_function = formatdict['longfloat']
-            else:
-                format_function = formatdict['float']
+            #if issubclass(dtypeobj, _nt.longfloat):
+            #    format_function = formatdict['longfloat']
+            #else:
+            format_function = formatdict['float']
         elif issubclass(dtypeobj, _nt.complexfloating):
             if issubclass(dtypeobj, _nt.clongfloat):
                 format_function = formatdict['longcomplexfloat']
@@ -610,7 +610,7 @@ class FloatFormat(object):
 
     def __call__(self, x, strip_zeros=True):
         import numeric as _nc
-        err = _nc.seterr(invalid='ignore')
+        #err = _nc.seterr(invalid='ignore')
         try:
             if isna(x):
                 return self.special_fmt % (str(x).replace('NA', _na_str, 1),)
@@ -628,7 +628,8 @@ class FloatFormat(object):
                 else:
                     return self.special_fmt % ('-' + _inf_str,)
         finally:
-            _nc.seterr(**err)
+            pass
+            #_nc.seterr(**err)
 
         s = self.format % x
         if self.large_exponent:
