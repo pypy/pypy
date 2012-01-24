@@ -529,26 +529,31 @@ class AppTestSocket:
         import _socket, os
         if not hasattr(_socket, 'AF_UNIX'):
             skip('AF_UNIX not supported.')
-        sockpath = os.path.join(self.udir, 'app_test_unix_socket_connect')
+        oldcwd = os.getcwd()
+        os.chdir(self.udir)
+        try:
+            sockpath = 'app_test_unix_socket_connect'
 
-        serversock = _socket.socket(_socket.AF_UNIX)
-        serversock.bind(sockpath)
-        serversock.listen(1)
+            serversock = _socket.socket(_socket.AF_UNIX)
+            serversock.bind(sockpath)
+            serversock.listen(1)
 
-        clientsock = _socket.socket(_socket.AF_UNIX)
-        clientsock.connect(sockpath)
-        s, addr = serversock.accept()
-        assert not addr
+            clientsock = _socket.socket(_socket.AF_UNIX)
+            clientsock.connect(sockpath)
+            s, addr = serversock.accept()
+            assert not addr
 
-        s.send('X')
-        data = clientsock.recv(100)
-        assert data == 'X'
-        clientsock.send('Y')
-        data = s.recv(100)
-        assert data == 'Y'
+            s.send('X')
+            data = clientsock.recv(100)
+            assert data == 'X'
+            clientsock.send('Y')
+            data = s.recv(100)
+            assert data == 'Y'
 
-        clientsock.close()
-        s.close()
+            clientsock.close()
+            s.close()
+        finally:
+            os.chdir(oldcwd)
 
 
 class AppTestSocketTCP:

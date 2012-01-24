@@ -92,6 +92,7 @@ NewCustomDict = _NewCustomDict()
 CASTS = {
 #   FROM                      TO
     (ootype.Signed,           ootype.UnsignedLongLong): jvm.I2L,
+    (ootype.Unsigned,         ootype.UnsignedLongLong): jvm.I2L,
     (ootype.SignedLongLong,   ootype.Signed):           jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Unsigned):         jvm.L2I,
     (ootype.UnsignedLongLong, ootype.Signed):           jvm.L2I,

@@ -4,7 +4,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import py
 from pypy.rlib import jit, rgc
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.tool import rffi_platform
 from pypy.tool import autopath
@@ -85,6 +85,7 @@ gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
 def allocate_lock():
     return Lock(allocate_ll_lock())
 
+@specialize.arg(0)
 def ll_start_new_thread(func):
     ident = c_thread_start(func)
     if ident == -1:
@@ -97,6 +98,7 @@ def ll_start_new_thread(func):
 def get_ident():
     return rffi.cast(lltype.Signed, c_thread_get_ident())
 
+@specialize.arg(0)
 def start_new_thread(x, y):
     """In RPython, no argument can be passed.  You have to use global
     variables to pass information to the new thread.  That's not very

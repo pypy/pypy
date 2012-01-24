@@ -4,6 +4,19 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
      calculate_slice_strides
 
+# structures to describe slicing
+
+class Chunk(object):
+    def __init__(self, start, stop, step, lgt):
+        self.start = start
+        self.stop = stop
+        self.step = step
+        self.lgt = lgt
+
+    def extend_shape(self, shape):
+        if self.step != 0:
+            shape.append(self.lgt)
+
 class BaseTransform(object):
     pass
 
@@ -38,10 +51,17 @@ class ArrayIterator(BaseIterator):
         self.size = size
 
     def next(self, shapelen):
+        return self._next(1)
+
+    def _next(self, ofs):
         arr = instantiate(ArrayIterator)
         arr.size = self.size
-        arr.offset = self.offset + 1
+        arr.offset = self.offset + ofs
         return arr
+
+    def next_no_increase(self, shapelen):
+        # a hack to make JIT believe this is always virtual
+        return self._next(0)
 
     def done(self):
         return self.offset >= self.size
@@ -157,6 +177,8 @@ class AxisIterator(BaseIterator):
                 offset += self.strides[i]
                 break
             else:
+                if i == self.dim:
+                    first_line = True
                 indices[i] = 0
                 offset -= self.backstrides[i]
         else:

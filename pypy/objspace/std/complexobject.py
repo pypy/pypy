@@ -8,6 +8,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
+from pypy.rlib import jit
 
 import math
 
@@ -129,10 +130,10 @@ class W_ComplexObject(W_AbstractComplexObject):
             ir = len * math.sin(phase)
         return W_ComplexObject(rr, ir)
 
-    def pow_int(self, n):
-        if n > 100 or n < -100:
-            return self.pow(W_ComplexObject(1.0 * n, 0.0))
-        elif n > 0:
+    def pow_small_int(self, n):
+        if n >= 0:
+            if jit.isconstant(n) and n == 2:
+                return self.mul(self)
             return self.pow_positive_int(n)
         else:
             return w_one.div(self.pow_positive_int(-n))
@@ -217,10 +218,10 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
 def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
     if not space.is_w(thirdArg, space.w_None):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
-    int_exponent = int(w_exponent.realval)
     try:
-        if w_exponent.imagval == 0.0 and w_exponent.realval == int_exponent:
-            w_p = w_complex.pow_int(int_exponent)
+        r = w_exponent.realval
+        if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
+            w_p = w_complex.pow_small_int(int(r))
         else:
             w_p = w_complex.pow(w_exponent)
     except ZeroDivisionError:

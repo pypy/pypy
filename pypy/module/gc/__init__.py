@@ -1,17 +1,17 @@
 from pypy.interpreter.mixedmodule import MixedModule
     
 class Module(MixedModule):
-    appleveldefs = {
-        'enable': 'app_gc.enable',
-        'disable': 'app_gc.disable',
-        'isenabled': 'app_gc.isenabled',
-    }
     interpleveldefs = {
         'collect': 'interp_gc.collect',
+        'enable': 'interp_gc.enable',
+        'disable': 'interp_gc.disable',
+        'isenabled': 'interp_gc.isenabled',
         'enable_finalizers': 'interp_gc.enable_finalizers',
         'disable_finalizers': 'interp_gc.disable_finalizers',
         'garbage' : 'space.newlist([])',
         #'dump_heap_stats': 'interp_gc.dump_heap_stats',
+    }
+    appleveldefs = {
     }
 
     def __init__(self, space, w_name):

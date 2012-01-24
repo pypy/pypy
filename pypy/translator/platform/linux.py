@@ -1,15 +1,20 @@
 """Support for Linux."""
 
+import os
 import sys
 from pypy.translator.platform.posix import BasePosix
 
 class BaseLinux(BasePosix):
     name = "linux"
     
-    link_flags = ('-pthread',)
+    link_flags = tuple(
+                 ['-pthread',]
+                 + os.environ.get('LDFLAGS', '').split())
     extra_libs = ('-lrt',)
-    cflags = ('-O3', '-pthread', '-fomit-frame-pointer',
-              '-Wall', '-Wno-unused')
+    cflags = tuple(
+             ['-O3', '-pthread', '-fomit-frame-pointer',
+              '-Wall', '-Wno-unused']
+             + os.environ.get('CFLAGS', '').split())
     standalone_only = ()
     shared_only = ('-fPIC',)
     so_ext = 'so'
