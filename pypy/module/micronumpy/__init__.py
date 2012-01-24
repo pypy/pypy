@@ -94,6 +94,7 @@ class Module(MixedModule):
         ("tan", "tan"),
         ('bitwise_and', 'bitwise_and'),
         ('bitwise_or', 'bitwise_or'),
+        ('bitwise_not', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
     ]:

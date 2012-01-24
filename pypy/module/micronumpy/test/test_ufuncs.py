@@ -377,6 +377,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (a | 1 == bitwise_or(a, 1)).all()
         raises(TypeError, 'array([1.0]) & 1')
 
+    def test_unary_bitops(self):
+        from _numpypy import bitwise_not, array
+        a = array([1, 2, 3, 4])
+        assert (~a == [-2, -3, -4, -5]).all()
+        assert (bitwise_not(a) == ~a).all()
+
     def test_comparisons(self):
         import operator
         from _numpypy import equal, not_equal, less, less_equal, greater, greater_equal

@@ -30,12 +30,14 @@ class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
 
-    def __init__(self, name, promote_to_float, promote_bools, identity):
+    def __init__(self, name, promote_to_float, promote_bools, identity,
+                 int_only):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
 
         self.identity = identity
+        self.int_only = int_only
 
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
@@ -248,9 +250,10 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, bool_result=False):
+        identity=None, bool_result=False, int_only=False):
 
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
+                         int_only)
         self.func = func
         self.bool_result = bool_result
 
@@ -284,10 +287,10 @@ class W_Ufunc2(W_Ufunc):
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None, comparison_func=False, int_only=False):
 
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
+                         int_only)
         self.func = func
         self.comparison_func = comparison_func
-        self.int_only = int_only
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
@@ -466,6 +469,7 @@ class UfuncState(object):
                                                'int_only': True}),
             ("bitwise_or", "bitwise_or", 2, {"identity": 0,
                                              'int_only': True}),
+            ("invert", "invert", 1, {"int_only": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),

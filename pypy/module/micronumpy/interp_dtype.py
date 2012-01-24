@@ -90,7 +90,8 @@ class W_Dtype(Wrappable):
         return space.newtuple([])
 
     def is_int_type(self):
-        return self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR
+        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
+                self.kind == BOOLLTR)
 
     def is_bool_type(self):
         return self.kind == BOOLLTR

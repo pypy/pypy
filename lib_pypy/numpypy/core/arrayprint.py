@@ -542,12 +542,12 @@ class FloatFormat(object):
         self.exp_format = False
         self.large_exponent = False
         self.max_str_len = 0
-        try:
-            self.fillFormat(data)
-        except (TypeError, NotImplementedError):
+        #try:
+        self.fillFormat(data)
+        #except (TypeError, NotImplementedError):
             # if reduce(data) fails, this instance will not be called, just
             # instantiated in formatdict.
-            pass
+            #pass
 
     def fillFormat(self, data):
         import numeric as _nc

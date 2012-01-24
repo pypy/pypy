@@ -100,6 +100,7 @@ class BaseArray(Wrappable):
     descr_pos = _unaryop_impl("positive")
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
+    descr_invert = _unaryop_impl("invert")
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other):
@@ -1277,6 +1278,7 @@ BaseArray.typedef = TypeDef(
 
     __and__ = interp2app(BaseArray.descr_and),
     __or__ = interp2app(BaseArray.descr_or),
+    __invert__ = interp2app(BaseArray.descr_invert),
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),

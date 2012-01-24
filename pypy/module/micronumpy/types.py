@@ -189,7 +189,7 @@ class Primitive(object):
     @simple_binary_op
     def min(self, v1, v2):
         return min(v1, v2)
-    
+
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
@@ -231,6 +231,20 @@ class Bool(BaseType, Primitive):
 
     def default_fromstring(self, space):
         return self.box(False)
+
+    # XXX check rpythonization
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return v1 & v2
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return v1 | v2
+
+    @simple_unary_op
+    def invert(self, v):
+        return ~v
 
 class Integer(Primitive):
     _mixin_ = True
@@ -287,6 +301,10 @@ class Integer(Primitive):
     @simple_binary_op
     def bitwise_or(self, v1, v2):
         return v1 | v2
+
+    @simple_unary_op
+    def invert(self, v):
+        return ~v
 
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
