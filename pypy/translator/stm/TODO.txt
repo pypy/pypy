@@ -7,3 +7,9 @@
     if (d) x = stm_read_word(a); else x = *a;
     if (d) y = stm_read_word(b); else y = *b;
   to check !d only once if it is null
+
+
+* PyFrames are accessed directly:
+
+  - make the case of concurrent accesses to the same generator safe
+  - make the rare other cases of concurrent accesses safe

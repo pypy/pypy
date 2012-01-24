@@ -39,6 +39,8 @@ class PyFrame(eval.Frame):
 
     __metaclass__ = extendabletype
 
+    _stm_access_directly_ = True
+
     frame_finished_execution = False
     last_instr               = -1
     last_exception           = None
