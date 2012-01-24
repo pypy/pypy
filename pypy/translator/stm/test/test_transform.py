@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.objspace.flow.model import summary
