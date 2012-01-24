@@ -1381,6 +1381,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
 
+    def test_isna(self):
+        from _numpypy import isna, array
+        # XXX for now
+        assert not isna(3)
+        assert (isna(array([1, 2, 3, 4])) == [False, False, False, False]).all()
 
 
 class AppTestSupport(BaseNumpyAppTest):
