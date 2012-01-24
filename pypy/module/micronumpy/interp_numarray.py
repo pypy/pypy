@@ -270,6 +270,13 @@ class BaseArray(Wrappable):
     def copy(self, space):
         return self.get_concrete().copy(space)
 
+    def empty_copy(self, space, dtype):
+        shape = self.shape
+        size = 1
+        for elem in shape:
+            size *= elem
+        return W_NDimArray(size, shape[:], dtype, 'C')
+
     def flatten(self, space):
         return self.get_concrete().flatten(space)
 
@@ -1339,3 +1346,11 @@ W_FlatIterator.typedef = TypeDef(
     __iter__ = interp2app(W_FlatIterator.descr_iter),
 )
 W_FlatIterator.acceptable_as_base_class = False
+
+def isna(space, w_obj):
+    if isinstance(w_obj, BaseArray):
+        arr = w_obj.empty_copy(space,
+                               interp_dtype.get_dtype_cache(space).w_booldtype)
+        arr.fill(space, space.wrap(False))
+        return arr
+    return space.wrap(False)

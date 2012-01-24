@@ -1389,6 +1389,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array(x, copy=False) is x
         assert array(x, copy=True) is not x
 
+    def test_isna(self):
+        from _numpypy import isna, array
+        # XXX for now
+        assert not isna(3)
+        assert (isna(array([1, 2, 3, 4])) == [False, False, False, False]).all()
+
     def test_ravel(self):
         from _numpypy import arange
         assert (arange(3).ravel() == arange(3)).all()

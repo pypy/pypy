@@ -133,6 +133,19 @@ class AppTestFileIO:
         f.close()
         assert a == 'a\nbxxxxxxx'
 
+    def test_nonblocking_read(self):
+        import os, fcntl
+        r_fd, w_fd = os.pipe()
+        # set nonblocking
+        fcntl.fcntl(r_fd, fcntl.F_SETFL, os.O_NONBLOCK)
+        import _io
+        f = _io.FileIO(r_fd, 'r')
+        # Read from stream sould return None
+        assert f.read() is None
+        assert f.read(10) is None
+        a = bytearray('x' * 10)
+        assert f.readinto(a) is None
+
     def test_repr(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'r')
