@@ -272,7 +272,7 @@ class Instance(OOType):
             return True
         if 'immutable_fields' in self._hints:
             try:
-                return self._hints['immutable_fields'].fields[field]
+                return self._hints['immutable_fields']._fields[field]
             except KeyError:
                 pass
         return False

@@ -12,13 +12,13 @@ class FieldListAccessor(object):
     def initialize(self, TYPE, fields):
         assert type(fields) is dict
         self.TYPE = TYPE
-        self.fields = fields
+        self._fields = fields
         for x in fields.itervalues():
             assert isinstance(x, ImmutableRanking)
 
     def all_immutable_fields(self):
         result = set()
-        for key, value in self.fields.iteritems():
+        for key, value in self._fields.iteritems():
             if value in (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY):
                 result.add(key)
         return result
@@ -38,7 +38,11 @@ class ImmutableRanking(object):
     def __repr__(self):
         return '<%s>' % self.name
 
+# IR_MUTABLE_OWNED means that the field is a regular mutable pointer field,
+# but as a pointer it is the only reference to whatever it points to.  This
+# is useful for STM support in PyFrame.
 IR_MUTABLE              = ImmutableRanking('mutable', False)
+IR_MUTABLE_OWNED        = ImmutableRanking("mutable_owned", False)
 IR_IMMUTABLE            = ImmutableRanking('immutable', True)
 IR_IMMUTABLE_ARRAY      = ImmutableRanking('immutable_array', True)
 IR_QUASIIMMUTABLE       = ImmutableRanking('quasiimmutable', False)
@@ -252,6 +256,9 @@ class AbstractInstanceRepr(Repr):
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
                 rank = IR_QUASIIMMUTABLE
+            elif name.endswith('->...'):  # for stm_access_directly:
+                name = name[:-5]          # a mutable but owned object
+                rank = IR_MUTABLE_OWNED
             else:                       # a regular immutable/green field
                 rank = IR_IMMUTABLE
             try:
