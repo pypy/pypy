@@ -159,7 +159,10 @@ def test_arrayitem_access_directly():
         pass
     class P2:
         _stm_access_directly_ = True
-    for P in [P1, P2]:
+    class P3:
+        _stm_access_directly_ = True
+        _immutable_fields_ = ['lst->...']
+    for P in [P1, P2, P2]:
         def func(n):
             p = P()
             p.lst = [0]
@@ -174,18 +177,10 @@ def test_arrayitem_access_directly():
             graph.show()
         #
         transform_graph(graph)
-        if P is P1:
-            assert 'stm_getfield' in summary(graph)
-            assert 'stm_setfield' in summary(graph)
-            assert 'stm_getarrayitem' in summary(graph)
-            assert 'stm_setarrayitem' in summary(graph)
-        elif P is P2:
-            assert 'stm_getfield' not in summary(graph)
-            assert 'stm_setfield' not in summary(graph)
-            assert 'stm_getarrayitem' not in summary(graph)
-            #assert 'stm_setarrayitem' not in summary(graph) --- xxx
-        else:
-            assert 0
+        assert ('stm_getfield' in summary(graph)) == (P is P1)
+        assert ('stm_setfield' in summary(graph)) == (P is P1)
+        assert ('stm_getarrayitem' in summary(graph)) == (P is not P3)
+        #assert ('stm_setarrayitem' in summary(graph)) == (P is not P3) -- xxx
         res = eval_stm_graph(interp, graph, [42],
                              stm_mode="regular_transaction")
         assert res == 42

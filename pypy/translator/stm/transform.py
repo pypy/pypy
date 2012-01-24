@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.stm import _rffi_stm
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.rpython.lltypesystem import lltype, lloperation
+from pypy.rpython import rclass
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
@@ -43,7 +44,7 @@ class STMTransformer(object):
             return
         newoperations = []
         self.current_block = block
-        self.array_of_stm_access_directly = set()
+        self.access_directly = set()
         for i, op in enumerate(block.operations):
             self.current_op_index = i
             try:
@@ -65,7 +66,7 @@ class STMTransformer(object):
                 assert res is None
         block.operations = newoperations
         self.current_block = None
-        self.array_of_stm_access_directly = None
+        self.access_directly = None
 
     def transform_graph(self, graph):
         for block in graph.iterblocks():
@@ -117,7 +118,14 @@ class STMTransformer(object):
         elif STRUCT._immutable_field(op.args[1].value):
             op1 = op
         elif 'stm_access_directly' in STRUCT._hints:
-            self.array_of_stm_access_directly.add(op.result)
+            try:
+                immfld = STRUCT._hints['immutable_fields']
+            except KeyError:
+                pass
+            else:
+                rank = immfld._fields.get(op.args[1].value, None)
+                if rank is rclass.IR_MUTABLE_OWNED:
+                    self.access_directly.add(op.result)
             op1 = op
         elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "getfield-raw")
@@ -146,7 +154,7 @@ class STMTransformer(object):
             op1 = op
         elif ARRAY._immutable_field():
             op1 = op
-        elif op.args[0] in self.array_of_stm_access_directly:
+        elif op.args[0] in self.access_directly:
             op1 = op
         elif ARRAY._gckind == 'raw':
             turn_inevitable(newoperations, "getarrayitem-raw")
@@ -161,7 +169,7 @@ class STMTransformer(object):
             op1 = op
         elif ARRAY._immutable_field():
             op1 = op
-        elif op.args[0] in self.array_of_stm_access_directly:
+        elif op.args[0] in self.access_directly:
             op1 = op
         elif ARRAY._gckind == 'raw':
             turn_inevitable(newoperations, "setarrayitem-raw")
@@ -228,8 +236,8 @@ class STMTransformer(object):
         newoperations.append(op)
 
     def stt_same_as(self, newoperations, op):
-        if op.args[0] in self.array_of_stm_access_directly:
-            self.array_of_stm_access_directly.add(op.result)
+        if op.args[0] in self.access_directly:
+            self.access_directly.add(op.result)
         newoperations.append(op)
 
     stt_cast_pointer = stt_same_as

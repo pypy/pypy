@@ -40,6 +40,7 @@ class PyFrame(eval.Frame):
     __metaclass__ = extendabletype
 
     _stm_access_directly_ = True
+    _immutable_fields_ = ['locals_stack_w->...', 'cells->...']
 
     frame_finished_execution = False
     last_instr               = -1
