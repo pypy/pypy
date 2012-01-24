@@ -53,6 +53,20 @@ class TestCompiler:
         code.exec_code(space, w_dict, w_dict)
         return w_dict
 
+    # on Python3 some reprs are different than Python2. Here is a collection
+    # of how the repr should be on on Python3 for some objects
+    PY3_REPR = {
+        int: "<class 'int'>",
+        float: "<class 'float'>",
+        }
+
+    def get_py3_repr(self, val):
+        try:
+            return self.PY3_REPR.get(val, repr(val))
+        except TypeError:
+            # e.g., for unhashable types
+            return repr(val)
+
     def check(self, w_dict, evalexpr, expected):
         # for now, we compile evalexpr with CPython's compiler but run
         # it with our own interpreter to extract the data from w_dict
@@ -61,8 +75,9 @@ class TestCompiler:
         pyco_expr = PyCode._from_code(space, co_expr)
         w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
+        expected_repr = self.get_py3_repr(expected)
         if not isinstance(expected, float):
-            assert res == repr(expected)
+            assert res == expected_repr
         else:
             # Float representation can vary a bit between interpreter
             # versions, compare the numbers instead.
