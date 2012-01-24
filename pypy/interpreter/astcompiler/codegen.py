@@ -1126,14 +1126,6 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):
 
-    def _handle_nested_args(self, args):
-        for i in range(len(args)):
-            arg = args[i]
-            if isinstance(arg, ast.Tuple):
-                self.update_position(arg.lineno)
-                self.name_op(".%d" % (i,), ast.Load)
-                arg.walkabout(self)
-
     def _get_code_flags(self):
         scope = self.scope
         assert isinstance(scope, symtable.FunctionScope)
@@ -1171,10 +1163,8 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         args = func.args
         assert isinstance(args, ast.arguments)
         if args.args:
-            self._handle_nested_args(args.args)
             self.argcount = len(args.args)
         if args.kwonlyargs:
-            self._handle_nested_args(args.kwonlyargs)
             self.kwonlyargcount = len(args.kwonlyargs)
         if func.body:
             for i in range(start, len(func.body)):
@@ -1188,7 +1178,6 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         args = lam.args
         assert isinstance(args, ast.arguments)
         if args.args:
-            self._handle_nested_args(args.args)
             self.argcount = len(args.args)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)

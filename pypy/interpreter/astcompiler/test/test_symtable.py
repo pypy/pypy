@@ -124,12 +124,6 @@ class TestSymbolTable:
         assert scp.has_keywords_arg
         assert not scp.has_variable_arg
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
-        scp = self.func_scope("def f((x, y), a): pass")
-        for name in ("x", "y", "a"):
-            assert scp.lookup(name) == symtable.SCOPE_LOCAL
-        scp = self.func_scope("def f(((a, b), c)): pass")
-        for name in ("a", "b", "c"):
-            assert scp.lookup(name) == symtable.SCOPE_LOCAL
 
     def test_arguments_kwonly(self):
         scp = self.func_scope("def f(a, *, b): pass")

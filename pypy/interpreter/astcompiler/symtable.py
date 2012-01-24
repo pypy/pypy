@@ -508,28 +508,14 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if arguments.kwarg:
             self.note_symbol(arguments.kwarg, SYM_PARAM)
             scope.note_keywords_arg(arguments.kwarg)
-        if arguments.args:
-            self._handle_nested_params(arguments.args)
 
     def _handle_params(self, params, is_toplevel):
         for i in range(len(params)):
             arg = params[i]
             if isinstance(arg, ast.Name):
                 self.note_symbol(arg.id, SYM_PARAM)
-            elif isinstance(arg, ast.Tuple):
-                # Tuple unpacking in the argument list.  Add a secret variable
-                # name to recieve the tuple with.
-                if is_toplevel:
-                    self.implicit_arg(i)
             else:
                 raise AssertionError("unknown parameter type")
-        if not is_toplevel:
-            self._handle_nested_params(params)
-
-    def _handle_nested_params(self, params):
-        for param in params:
-            if isinstance(param, ast.Tuple):
-                self._handle_params(param.elts, False)
 
     def visit_Name(self, name):
         if name.ctx == ast.Load:
