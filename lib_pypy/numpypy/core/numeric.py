@@ -180,7 +180,8 @@ def array_repr(arr, max_line_width=None, precision=None, suppress_small=None):
 
     skipdtype = (arr.dtype.type in _typelessdata) and arr.size > 0
 
-    if arr.flags.maskna:
+    # XXX pypy lacks support
+    if 0 and arr.flags.maskna:
         whichna = isna(arr)
         # If nothing is NA, explicitly signal the NA-mask
         if not any(whichna):
