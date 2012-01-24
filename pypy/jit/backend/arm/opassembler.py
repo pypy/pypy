@@ -1024,38 +1024,17 @@ class ForceOpAssembler(object):
         self.mc.gen_load_int(r.ip.value, value)
         self.mc.CMP_rr(tmploc.value, r.ip.value)
 
-        fast_jmp_pos = self.mc.currpos()
-        self.mc.BKPT()
-
-        # Path A: use assembler helper
         #if values are equal we take the fast path
         # Slow path, calling helper
         # jump to merge point
+
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip],
-                                    r.caller_vfp_resp):
-            # result of previous call is in r0
-            self.mov_loc_loc(arglocs[0], r.r1)
-            self.mc.BL(asm_helper_adr)
-            if op.result and resloc.is_vfp_reg():
-                # move result to the allocated register
-                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
-        # jump to merge point
-        jmp_pos = self.mc.currpos()
-        # This location is not necessarily patched later, depending on how many
-        # instructions we emit from here to the merge point below.
-        self.mc.NOP()
-
-        # Path B: load return value and reset token
+        # Path A: load return value and reset token
         # Fast Path using result boxes
-        # patch the jump to the fast path
-        offset = self.mc.currpos() - fast_jmp_pos
-        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
-        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
 
+        fast_path_cond=c.EQ
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
             from pypy.jit.backend.llsupport.descr import FieldDescr
@@ -1063,9 +1042,9 @@ class ForceOpAssembler(object):
             assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             tmploc = regalloc.get_scratch_reg(INT)
-            self.mov_loc_loc(arglocs[0], r.ip)
-            self.mc.MOV_ri(tmploc.value, 0)
-            self.mc.STR_ri(tmploc.value, r.ip.value, ofs)
+            self.mov_loc_loc(arglocs[0], r.ip, cond=fast_path_cond)
+            self.mc.MOV_ri(tmploc.value, 0, cond=fast_path_cond)
+            self.mc.STR_ri(tmploc.value, r.ip.value, ofs, cond=fast_path_cond)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
@@ -1078,17 +1057,30 @@ class ForceOpAssembler(object):
                 adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
-            self.mc.gen_load_int(r.ip.value, adr)
+            self.mc.gen_load_int(r.ip.value, adr, cond=fast_path_cond)
             if op.result.type == FLOAT:
-                self.mc.VLDR(resloc.value, r.ip.value)
+                self.mc.VLDR(resloc.value, r.ip.value, cond=fast_path_cond)
             else:
-                self.mc.LDR_ri(resloc.value, r.ip.value)
+                self.mc.LDR_ri(resloc.value, r.ip.value, cond=fast_path_cond)
+        # jump to merge point
+        jmp_pos = self.mc.currpos()
+        self.mc.BKPT()
+
+        # Path B: use assembler helper
+        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip],
+                                    r.caller_vfp_resp):
+            # result of previous call is in r0
+            self.mov_loc_loc(arglocs[0], r.r1)
+            self.mc.BL(asm_helper_adr)
+            if op.result and resloc.is_vfp_reg():
+                # move result to the allocated register
+                self.mov_to_vfp_loc(r.r0, r.r1, resloc)
 
         # merge point
-        offset = self.mc.currpos() - jmp_pos
-        if offset - PC_OFFSET >= 0:
-            pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
-            pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET)
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_pos, WORD)
+        pmc.B_offs(currpos, fast_path_cond)
 
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
