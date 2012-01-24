@@ -116,11 +116,14 @@ class Module(MixedModule):
             # Install standard streams for tests that don't call app_main
             space.appexec([], """():
                 import sys, io
-                sys.stdin = sys.__stdin__ = io.open(0, "r", closefd=False)
+                sys.stdin = sys.__stdin__ = io.open(0, "r", encoding="ascii",
+                                                    closefd=False)
                 sys.stdin.buffer.raw.name = "<stdin>"
-                sys.stdout = sys.__stdout__ = io.open(1, "w", closefd=False)
+                sys.stdout = sys.__stdout__ = io.open(1, "w", encoding="ascii",
+                                                      closefd=False)
                 sys.stdout.buffer.raw.name = "<stdout>"
-                sys.stderr = sys.__stderr__ = io.open(2, "w", closefd=False)
+                sys.stderr = sys.__stderr__ = io.open(2, "w", encoding="ascii",
+                                                      closefd=False)
                 sys.stderr.buffer.raw.name = "<stderr>"
                """)
 
