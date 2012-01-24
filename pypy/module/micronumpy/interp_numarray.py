@@ -1408,38 +1408,36 @@ BaseArray.typedef = TypeDef(
 
 #TODO:Move all this to another file after fijal finishes reorganization
 def _to_coords(space, arr, w_item_or_slice):
-    '''Always returns a list of coords.
+    '''Returns a start coord, step, and length.
     '''
-    start = stop = step = 0
+    start = lngth = step = 0
     if space.isinstance_w(w_item_or_slice, space.w_int):
         start = space.int_w(w_item_or_slice)
         if start < 0:
             start += arr.size
-        stop = start+1
+        lngth = 1
         step = 1
     elif space.isinstance_w(w_item_or_slice, space.w_slice):
         start, stop, step, lngth = space.decode_index4(w_item_or_slice,arr.size)
     else:
-        raise operationerrfmt(space.w_NotImplementedError,'cannot iterator over %s yet', w_item_or_slice)
-    retval = []
-    for i in range(start, stop, step):
-        coords = []
-        ii = i
-        if arr.order =='C':
-            for s in range(len(arr.shape) -1, -1, -1):
-                coords.insert(0,ii % arr.shape[s])
-                ii /= arr.shape[s]
-        else:
-            raise NotImplementedError
-            #untested code. Erase?
-            for s in range(len(arr.shape)):
-                coords.append(ii % arr.shape[s])
-                ii /= arr.shape[s]
-        if ii != 0:
-            raise OperationError(space.w_IndexError,
-                                 space.wrap("invalid index"))
+        raise OperationError(space.w_IndexError, 
+                             space.wrap('unsupported iterator index'))
+    coords = []
+    i = start
+    if arr.order =='C':
+        for s in range(len(arr.shape) -1, -1, -1):
+            coords.insert(0, i % arr.shape[s])
+            i /= arr.shape[s]
+    else:
+        raise NotImplementedError
+        #untested code. Erase?
+        for s in range(len(arr.shape)):
+            coords.append(i % arr.shape[s])
+            i /= arr.shape[s]
+    if i != 0:
+        raise OperationError(space.w_IndexError, space.wrap("invalid index"))
             
-        retval.append(space.newtuple([space.wrap(c) for c in coords]))
+    retval = [coords, step, lngth]
     return retval 
 
 class W_FlatIterator(ViewArray):
@@ -1469,27 +1467,61 @@ class W_FlatIterator(ViewArray):
         return space.wrap(self.index)
 
     def descr_coords(self, space):
-        return _to_coords(space, self.base, space.wrap(self.index))[0]
+        coords = _to_coords(space, self.base, space.wrap(self.index))[0]
+        return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_getitem(self, space, w_idx):
-        coords = _to_coords(space, self.base, w_idx)
-        if len(coords)>1:
-            w_result = W_NDimArray(len(coords), [len(coords)], self.base.dtype,
+        coords,step,lngth = _to_coords(space, self.base, w_idx)
+        if lngth > 1:
+            res = W_NDimArray(lngth, [lngth], self.base.dtype,
                                         self.base.order)
-            for i,c in enumerate(coords):
-                w_val = self.base.descr_getitem(space, c)
-                w_result.setitem(i,w_val)
-            return w_result
+            # setslice would have been better, but flat[6:9] for arbitrary
+            # shapes of array a cannot be represented as a[x1:x2, y1:y2]
+            basei = ViewIterator(self.base.start, self.base.strides, 
+                                   self.base.backstrides,self.base.shape)
+            basei.indices = coords
+            ri = ArrayIterator(lngth)
+            itemsize = self.base.dtype.itemtype.get_element_size()
+            shapelen = len(self.base.shape)
+            delta = 0
+            ri_start = ri.offset
+            basei_start = basei.offset
+            bstorage = self.base.storage
+            while not ri.done():
+                # TODO: add a jit_merge_point
+
+                # This is an O(N) approach
+                #      w_val = self.base.getitemspace, c)
+                #      w_result.setitem(ri.offset,w_val)
+                # Try to do better by checking when we can use memcpy
+                # from basei_start to basei.offset
+
+                while basei.offset - delta - basei_start == 0:
+                    basei = basei.next(shapelen)
+                    ri = ri.next(shapelen)
+                    delta += 1
+                rffi.c_memcpy(
+                    rffi.ptradd(res.storage, ri_start* itemsize),
+                    rffi.ptradd(bstorage, basei_start * itemsize),
+                    delta * itemsize,
+                )
+                delta = 0
+                ri_start = ri.offset
+                basei_start = basei.offset
+            return res
         else:
-            return self.base.descr_getitem(space, coords[0])
+            w_coords = space.newtuple([space.wrap(c) for c in coords])
+            return self.base.descr_getitem(space, w_coords)
 
     def descr_setitem(self, space, w_idx, w_value):
-        coords = _to_coords(space, self.base, w_idx)
+        coords, step, lngth = _to_coords(space, self.base, w_idx)
         arr = convert_to_array(space, w_value)
         ai = 0
+        return
         for c in coords:
             v = arr.getitem(ai)
-            self.base.descr_setitem(space, c,v)
+            self.base.descr_setitem(space, c, v)
+            # need to repeat input values until all assignments are done
             ai = (ai + 1) % arr.size
         
 W_FlatIterator.typedef = TypeDef(
