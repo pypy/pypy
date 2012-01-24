@@ -259,11 +259,11 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
                   'int' : IntegerFormat(data),
                   'float' : FloatFormat(data, precision, suppress_small),
                   'longfloat' : LongFloatFormat(precision),
-                  'complexfloat' : ComplexFormat(data, precision,
-                                                 suppress_small),
-                  'longcomplexfloat' : LongComplexFormat(precision),
-                  'datetime' : DatetimeFormat(data),
-                  'timedelta' : TimedeltaFormat(data),
+                  #'complexfloat' : ComplexFormat(data, precision,
+                  #                               suppress_small),
+                  #'longcomplexfloat' : LongComplexFormat(precision),
+                  #'datetime' : DatetimeFormat(data),
+                  #'timedelta' : TimedeltaFormat(data),
                   'numpystr' : repr_format,
                   'str' : str}
 
@@ -300,10 +300,10 @@ def _array2string(a, max_line_width, precision, suppress_small, separator=' ',
         if issubclass(dtypeobj, _nt.bool_):
             format_function = formatdict['bool']
         elif issubclass(dtypeobj, _nt.integer):
-            if issubclass(dtypeobj, _nt.timedelta64):
-                format_function = formatdict['timedelta']
-            else:
-                format_function = formatdict['int']
+            #if issubclass(dtypeobj, _nt.timedelta64):
+            #    format_function = formatdict['timedelta']
+            #else:
+            format_function = formatdict['int']
         elif issubclass(dtypeobj, _nt.floating):
             if issubclass(dtypeobj, _nt.longfloat):
                 format_function = formatdict['longfloat']
