@@ -32,6 +32,7 @@ def eval_stm_graph(llinterp, graph, values, stm_mode="not_in_transaction",
 class LLSTMFrame(LLFrame):
 
     def eval(self):
+        self.array_of_stm_access_directly = set()
         try:
             res = LLFrame.eval(self)
         except LLException, e:
@@ -66,10 +67,16 @@ class LLSTMFrame(LLFrame):
 
     def opstm_getfield(self, struct, fieldname):
         STRUCT = lltype.typeOf(struct).TO
-        if (STRUCT._immutable_field(fieldname) or
-            'stm_access_directly' in STRUCT._hints):
+        if STRUCT._immutable_field(fieldname):
             # immutable field reads are always allowed
             return LLFrame.op_getfield(self, struct, fieldname)
+        elif 'stm_access_directly' in STRUCT._hints:
+            # stm_access_directly fields are allowed
+            # (XXX should check for locks!)
+            res = LLFrame.op_getfield(self, struct, fieldname)
+            if isinstance(res, lltype._ptr):
+                self.array_of_stm_access_directly.add(res._obj)
+            return res
         elif STRUCT._gckind == 'raw':
             # raw getfields are allowed outside a regular transaction
             self.check_stm_mode(lambda m: m != "regular_transaction")
@@ -81,11 +88,14 @@ class LLSTMFrame(LLFrame):
 
     def opstm_setfield(self, struct, fieldname, newvalue):
         STRUCT = lltype.typeOf(struct).TO
-        if (STRUCT._immutable_field(fieldname) or
-            'stm_access_directly' in STRUCT._hints):
+        if STRUCT._immutable_field(fieldname):
             # immutable field writes (i.e. initializing writes) should
             # always be fine, because they should occur into newly malloced
             # structures
+            LLFrame.op_setfield(self, struct, fieldname, newvalue)
+        elif 'stm_access_directly' in STRUCT._hints:
+            # field writes in a stm_access_directly are allowed
+            # (XXX should check for locks!)
             LLFrame.op_setfield(self, struct, fieldname, newvalue)
         elif STRUCT._gckind == 'raw':
             # raw setfields are allowed outside a regular transaction
@@ -101,6 +111,10 @@ class LLSTMFrame(LLFrame):
         if ARRAY._immutable_field():
             # immutable item reads are always allowed
             return LLFrame.op_getarrayitem(self, array, index)
+        elif array._obj in self.array_of_stm_access_directly:
+            # an array read out of an stm_access_directly structure is ok
+            # (XXX should check for locks!)
+            return LLFrame.op_getarrayitem(self, array, index)
         elif ARRAY._gckind == 'raw':
             # raw getfields are allowed outside a regular transaction
             self.check_stm_mode(lambda m: m != "regular_transaction")
@@ -111,11 +125,15 @@ class LLSTMFrame(LLFrame):
             assert 0
 
     def opstm_setarrayitem(self, array, index, newvalue):
-        ARRAY = lltype.typeOf(struct).TO
+        ARRAY = lltype.typeOf(array).TO
         if ARRAY._immutable_field():
             # immutable item writes (i.e. initializing writes) should
             # always be fine, because they should occur into newly malloced
             # arrays
+            LLFrame.op_setarrayitem(self, array, index, newvalue)
+        elif array._obj in self.array_of_stm_access_directly:
+            # an array read out of an stm_access_directly structure is ok
+            # (XXX should check for locks!)
             LLFrame.op_setarrayitem(self, array, index, newvalue)
         elif ARRAY._gckind == 'raw':
             # raw setarrayitems are allowed outside a regular transaction
