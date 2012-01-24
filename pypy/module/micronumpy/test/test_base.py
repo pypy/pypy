@@ -12,6 +12,7 @@ class BaseNumpyAppTest(object):
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
                 sys.modules['numpypy'] = numpy
+                sys.modules['_numpypy'] = numpy
         cls.space = gettestobjspace(usemodules=['micronumpy'])
 
 class TestSignature(object):

@@ -30,7 +30,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from _numpypy import dtype
 
-        assert repr(dtype) == "<type 'numpypy.dtype'>"
+        assert '.dtype' in repr(dtype)
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
