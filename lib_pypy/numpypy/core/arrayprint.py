@@ -14,9 +14,9 @@ __docformat__ = 'restructuredtext'
 
 import sys
 import _numpypy as _nt
-from _numpypy import maximum, minimum, absolute, not_equal #, isnan, isinf
+from _numpypy import maximum, minimum, absolute, not_equal, isinf, isnan
 #from _numpypy import format_longfloat, datetime_as_string, datetime_data, isna
-from fromnumeric import ravel
+from .fromnumeric import ravel
 
 
 def product(x, y): return x*y

@@ -413,3 +413,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_true_divide(self):
         from _numpypy import arange, array, true_divide
         assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
+
+    def test_isnan_isinf(self):
+        from _numpypy import isnan, isinf, float64, array
+        assert isnan(float('nan'))
+        assert isnan(float64(float('nan')))
+        assert not isnan(3)
+        assert isinf(float('inf'))
+        assert not isnan(3.5)
+        assert not isinf(3.5)
+        assert not isnan(float('inf'))
+        assert not isinf(float('nan'))
+        assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
+        assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
+        assert isinf(array([0.2])).dtype.kind == 'b'

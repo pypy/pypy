@@ -735,11 +735,12 @@ class VirtualSlice(VirtualArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, ufunc, name, shape, res_dtype, values):
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
         self.size = values.size
         self.ufunc = ufunc
+        self.calc_dtype = calc_dtype
 
     def _del_sources(self):
         self.values = None

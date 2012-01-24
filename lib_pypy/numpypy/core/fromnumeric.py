@@ -30,7 +30,7 @@ __all__ = ['take', 'reshape', 'choose', 'repeat', 'put',
            'rank', 'size', 'around', 'round_', 'mean', 'std', 'var', 'squeeze',
            'amax', 'amin',
           ]
-          
+
 def take(a, indices, axis=None, out=None, mode='raise'):
     """
     Take elements from an array along an axis.

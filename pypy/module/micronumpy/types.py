@@ -23,6 +23,16 @@ def simple_unary_op(func):
         )
     return dispatcher
 
+def raw_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v):
+        return func(
+            self,
+            self.for_computation(self.unbox(v))
+        )
+    return dispatcher
+
 def simple_binary_op(func):
     specialize.argtype(1, 2)(func)
     @functools.wraps(func)
@@ -136,6 +146,14 @@ class Primitive(object):
     @simple_unary_op
     def abs(self, v):
         return abs(v)
+
+    @raw_unary_op
+    def isnan(self, v):
+        return False
+
+    @raw_unary_op
+    def isinf(self, v):
+        return False
 
     @raw_binary_op
     def eq(self, v1, v2):
@@ -447,6 +465,14 @@ class Float(Primitive):
             return math.sqrt(v)
         except ValueError:
             return rfloat.NAN
+
+    @raw_unary_op
+    def isnan(self, v):
+        return rfloat.isnan(v)
+
+    @raw_unary_op
+    def isinf(self, v):
+        return rfloat.isinf(v)
 
 
 class Float32(BaseType, Float):

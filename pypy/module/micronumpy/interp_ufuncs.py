@@ -248,10 +248,11 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None):
+        identity=None, bool_result=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
+        self.bool_result = bool_result
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call1,
@@ -259,15 +260,19 @@ class W_Ufunc1(W_Ufunc):
 
         [w_obj] = args_w
         w_obj = convert_to_array(space, w_obj)
-        res_dtype = find_unaryop_result_dtype(space,
-            w_obj.find_dtype(),
-            promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools,
-        )
+        calc_dtype = find_unaryop_result_dtype(space,
+                                  w_obj.find_dtype(),
+                                  promote_to_float=self.promote_to_float,
+                                  promote_bools=self.promote_bools)
+        if self.bool_result:
+            res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+        else:
+            res_dtype = calc_dtype
         if isinstance(w_obj, Scalar):
-            return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
+            return self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
 
-        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj)
+        w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
+                      w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -433,12 +438,16 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
-def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
+def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
+                       bool_result):
+    dtype_cache = interp_dtype.get_dtype_cache(space)
     if argcount == 1:
         def impl(res_dtype, value):
-            return getattr(res_dtype.itemtype, op_name)(value)
+            res = getattr(res_dtype.itemtype, op_name)(value)
+            if bool_result:
+                return dtype_cache.w_booldtype.box(res)
+            return res
     elif argcount == 2:
-        dtype_cache = interp_dtype.get_dtype_cache(space)
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
             if comparison_func:
@@ -468,6 +477,8 @@ class UfuncState(object):
             ("less_equal", "le", 2, {"comparison_func": True}),
             ("greater", "gt", 2, {"comparison_func": True}),
             ("greater_equal", "ge", 2, {"comparison_func": True}),
+            ("isnan", "isnan", 1, {"bool_result": True}),
+            ("isinf", "isinf", 1, {"bool_result": True}),
 
             ("maximum", "max", 2),
             ("minimum", "min", 2),
@@ -510,6 +521,7 @@ class UfuncState(object):
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
             comparison_func=extra_kwargs.get("comparison_func", False),
+            bool_result=extra_kwargs.get("bool_result", False),
         )
         if argcount == 1:
             ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
