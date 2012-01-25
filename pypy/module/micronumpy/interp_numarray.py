@@ -1509,9 +1509,6 @@ class W_FlatIterator(ViewArray):
         for i in range(lngth):
             # TODO: add jit_merge_point
             v = arr.getitem(ai).convert_to(self.base.dtype)
-            print i, basei.offset, basei.indices, v.value
-            if basei.offset >= self.base.size:
-                xxx
             self.base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
             ai = (ai + 1) % arr.size
