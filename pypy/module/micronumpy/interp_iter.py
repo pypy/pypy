@@ -133,6 +133,13 @@ class ViewIterator(BaseIterator):
         res._done = done
         return res
 
+    @jit.unroll_safe
+    def next_skip_x(self, shapelen, step):
+        res = self.next(shapelen)
+        for x in range(step-1):
+            res = res.next(shapelen)
+        return res
+
     def apply_transformations(self, arr, transformations):
         v = BaseIterator.apply_transformations(self, arr, transformations)
         if len(arr.shape) == 1:

@@ -1335,6 +1335,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b.next()
         b.next()
         assert b[3] == 3
+        assert (b[::3] == [0, 3, 6, 9]).all()
+        assert (b[2::5] == [2, 7]).all()
         assert b[-2] == 8
         raises(IndexError, "b[11]")
         raises(IndexError, "b[-11]")
@@ -1350,9 +1352,22 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)
         assert(a[1,0] == 100)
-        raises(NotImplementedError, 'b[array([10, 11])] == [-20, -40]')
-        
+        raises(IndexError, 'b[array([10, 11])] == [-20, -40]')
 
+    def test_flatiter_ops(self):
+        from _numpypy import arange, array
+        a = arange(12).reshape(3,4)
+        b = a.T.flat
+        assert (b == [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).all()
+        assert not (b != [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).any()
+        assert ((b >= range(12)) == [True, True, True,False, True, True, 
+                             False, False, True, False, False, True]).all()
+        assert ((b < range(12)) != [True, True, True,False, True, True, 
+                             False, False, True, False, False, True]).all()
+        assert ((b <= range(12)) != [False, True, True,False, True, True, 
+                            False, False, True, False, False, False]).all()
+        assert ((b > range(12)) == [False, True, True,False, True, True, 
+                            False, False, True, False, False, False]).all()
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
