@@ -422,13 +422,11 @@ class AppTestFunction(py.test.collect.Function):
 
     def runtest(self):
         target = self.obj
+        src = extract_docstring_if_empty_function(target)
         if self.config.option.runappdirect:
-            if self.config.option.appdirect:
-                return run_with_python(self.config.option.appdirect, target)
-            return target()
+            return run_appdirect_or_skip(self.config, target, src)
         space = gettestobjspace()
         filename = self._getdynfilename(target)
-        src = extract_docstring_if_empty_function(target)
         func = app2interp_temp(src, filename=filename)
         print "executing", func
         self.execute_appex(space, func, space)
@@ -468,16 +466,26 @@ class AppTestMethod(AppTestFunction):
 
     def runtest(self):
         target = self.obj
+        src = extract_docstring_if_empty_function(target.im_func)
         if self.config.option.runappdirect:
-            if self.config.option.appdirect:
-                return run_with_python(self.config.option.appdirect, target)
-            return target()
+            return run_appdirect_or_skip(self.config, target, src)
         space = target.im_self.space
         filename = self._getdynfilename(target)
-        src = extract_docstring_if_empty_function(target.im_func)
         func = app2interp_temp(src, filename=filename)
         w_instance = self.parent.w_instance
         self.execute_appex(space, func, space, w_instance)
+
+def run_appdirect_or_skip(config, target, src):
+    if config.option.appdirect:
+        return run_with_python(self.config.option.appdirect, target)
+    if isinstance(src, str):
+        # we are trying to directly run a test whose code is inside
+        # the docstring. This cannot work because the code might
+        # contain py3k-only syntax, while we are on a python2 hosting
+        # python. So, we just skip the test
+        py.test.skip('Cannot run docstring-tests with -A')
+    return target()
+
 
 def extract_docstring_if_empty_function(fn):
     def empty_func():

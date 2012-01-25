@@ -59,3 +59,13 @@ class TestPyPyTests:
         assert skipped == []
         assert "app_test_code_in_docstring_failing" in failed[0].nodeid
 
+    def test_docstring_runappdirect(self, testdir):
+        sorter = testdir.inline_run(innertest,
+                                    '-k', 'test_code_in_docstring',
+                                    '--runappdirect')
+        passed, skipped, failed = sorter.listoutcomes()
+        assert len(passed) == 1
+        assert len(skipped) == 2
+        assert "test_code_in_docstring_ignored" in passed[0].nodeid
+        assert "app_test_code_in_docstring" in skipped[0].nodeid
+        assert "test_code_in_docstring_failing" in skipped[1].nodeid
