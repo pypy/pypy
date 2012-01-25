@@ -396,9 +396,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
             if self._visit_alias(alias):
                 if self.scope.note_import_star(imp):
                     msg = "import * only allowed at module level"
-                    misc.syntax_warning(
-                        self.space, msg, self.compile_info.filename,
-                        imp.lineno, imp.col_offset)
+                    raise SyntaxError(msg, imp.lineno, imp.col_offset,
+                                      filename=self.compile_info.filename)
 
     def _visit_alias(self, alias):
         assert isinstance(alias, ast.alias)

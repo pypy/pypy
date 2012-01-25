@@ -251,10 +251,6 @@ class TestSymbolTable:
         self.check_unknown(scp, "a", "b")
         scp = self.mod_scope("from x import *")
         self.check_unknown("x")
-        scp = self.func_scope("def f(): from x import *")
-        self.check_unknown(scp, "x")
-        assert not scp.optimized
-        assert scp.import_star
 
     def test_global(self):
         scp = self.func_scope("def f():\n   global x\n   x = 4")
@@ -307,45 +303,28 @@ class TestSymbolTable:
         assert not self.class_scope("class x: pass").can_be_optimized
         assert self.func_scope("def f(): pass").can_be_optimized
 
-    def test_unoptimization_with_nested_scopes(self):
-        table = (
-            ("from x import *", "import * is not allowed in function 'f' " \
-                 "because it"),
-         )
-        for line, error in table:
-            input = """def n():
-    x = 4
-    def f():
-         %s
-         return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " is a nested function"
-            input = """def f():
-     %s
-     x = 4
-     def n():
-         return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " contains a nested function with free variables"
-            input = """def f():
-     %s
-     x = 4
-     class Y:
-         def n():
-             return x""" % (line,)
-            exc = py.test.raises(SyntaxError, self.mod_scope, input).value
-            assert exc.msg == error + " contains a nested function with free variables"
+    def test_importstar_nonglobal(self):
+        src = str(py.code.Source("""
+                     def f():
+                         from re import *
+                     """))
+        exc = py.test.raises(SyntaxError, self.mod_scope, src)
+        assert exc.value.msg == "import * only allowed at module level"
+        #
+        src = str(py.code.Source("""
+                     def f():
+                         def g():
+                             from re import *
+                     """))
+        exc = py.test.raises(SyntaxError, self.mod_scope, src)
+        assert exc.value.msg == "import * only allowed at module level"
 
-    def test_importstar_warning(self, capfd):
-        self.mod_scope("def f():\n    from re import *")
-        _, err1 = capfd.readouterr()
-
-        self.mod_scope("if 1:\n    from re import *")
-        _, err2 = capfd.readouterr()
-
-        capfd.close()
-        assert     "import * only allowed at module level" in err1
-        assert not "import * only allowed at module level" in err2
+        src = str(py.code.Source("""
+                     if True:
+                         from re import *
+                     """))
+        scp = self.mod_scope(src)
+        assert scp # did not raise
 
     def test_yield(self):
         scp = self.func_scope("def f(): yield x")
