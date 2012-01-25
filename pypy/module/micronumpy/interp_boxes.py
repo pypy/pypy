@@ -9,6 +9,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
+MIXIN_32 = () if LONG_BIT == 64 else (int_typedef,)
 
 def new_dtype_getter(name):
     def get_dtype(space):
@@ -231,7 +232,7 @@ W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntegerBox.typedef,
     __new__ = interp2app(W_UInt16Box.descr__new__.im_func),
 )
 
-W_Int32Box.typedef = TypeDef("int32", W_SignedIntegerBox.typedef,
+W_Int32Box.typedef = TypeDef("int32", (W_SignedIntegerBox.typedef,) + MIXIN_32,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int32Box.descr__new__.im_func),
 )
@@ -241,23 +242,17 @@ W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntegerBox.typedef,
     __new__ = interp2app(W_UInt32Box.descr__new__.im_func),
 )
 
-if LONG_BIT == 32:
-    long_name = "int32"
-elif LONG_BIT == 64:
-    long_name = "int64"
-W_LongBox.typedef = TypeDef(long_name, (W_SignedIntegerBox.typedef, int_typedef,),
-    __module__ = "numpypy",
-   __new__ = interp2app(W_LongBox.descr__new__.im_func),
-)
-
-W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntegerBox.typedef,
-    __module__ = "numpypy",
-)
-
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int64Box.descr__new__.im_func),
 )
+
+if LONG_BIT == 32:
+    W_LongBox = W_Int32Box
+    W_ULongBox = W_UInt32Box
+elif LONG_BIT == 64:
+    W_LongBox = W_Int64Box
+    W_ULongBox = W_UInt64Box
 
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",

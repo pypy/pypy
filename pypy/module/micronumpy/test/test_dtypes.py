@@ -376,3 +376,14 @@ class AppTestTypes(BaseNumpyAppTest):
         b = X(10)
         assert type(b) is X
         assert b.m() == 12
+
+    def test_int(self):
+        import sys
+        from _numpypy import int32, int64, int_
+        assert issubclass(int_, int)
+        if sys.maxint == (1<<31) - 1:
+            assert issubclass(int32, int)
+            assert int_ is int32
+        else:
+            assert issubclass(int64, int)
+            assert int_ is int64
