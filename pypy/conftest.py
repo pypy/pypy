@@ -473,9 +473,23 @@ class AppTestMethod(AppTestFunction):
             return target()
         space = target.im_self.space
         filename = self._getdynfilename(target)
-        func = app2interp_temp(target.im_func, filename=filename)
+        src = extract_docstring_if_empty_function(target.im_func)
+        func = app2interp_temp(src, filename=filename)
         w_instance = self.parent.w_instance
         self.execute_appex(space, func, space, w_instance)
+
+def extract_docstring_if_empty_function(fn):
+    def empty_func():
+        ""
+        pass
+    co_code = fn.func_code.co_code
+    if co_code == empty_func.func_code.co_code and fn.__doc__ is not None:
+        head = '%s(self):' % fn.func_name
+        body = py.code.Source(fn.__doc__)
+        return head + str(body.indent())
+    else:
+        return fn
+
 
 class PyPyClassCollector(py.test.collect.Class):
     def setup(self):
