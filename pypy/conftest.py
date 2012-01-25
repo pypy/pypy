@@ -477,7 +477,7 @@ class AppTestMethod(AppTestFunction):
 
 def run_appdirect_or_skip(config, target, src):
     if config.option.appdirect:
-        return run_with_python(self.config.option.appdirect, target)
+        return run_with_python(config.option.appdirect, src)
     if isinstance(src, str):
         # we are trying to directly run a test whose code is inside
         # the docstring. This cannot work because the code might
