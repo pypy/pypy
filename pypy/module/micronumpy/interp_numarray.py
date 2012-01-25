@@ -1438,8 +1438,7 @@ def _to_coords(space, arr, w_item_or_slice):
     if i != 0:
         raise OperationError(space.w_IndexError, space.wrap("invalid index"))
 
-    retval = [coords, start, step, lngth]
-    return retval
+    return coords, start, step, lngth
 
 
 class W_FlatIterator(ViewArray):
@@ -1469,7 +1468,7 @@ class W_FlatIterator(ViewArray):
         return space.wrap(self.index)
 
     def descr_coords(self, space):
-        coords = _to_coords(space, self.base, space.wrap(self.index))[0]
+        coords, start, step, lngth = _to_coords(space, self.base, space.wrap(self.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
     def descr_getitem(self, space, w_idx):
