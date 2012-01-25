@@ -428,7 +428,8 @@ class AppTestFunction(py.test.collect.Function):
             return target()
         space = gettestobjspace()
         filename = self._getdynfilename(target)
-        func = app2interp_temp(target, filename=filename)
+        src = extract_docstring_if_empty_function(target)
+        func = app2interp_temp(src, filename=filename)
         print "executing", func
         self.execute_appex(space, func, space)
 
@@ -482,9 +483,11 @@ def extract_docstring_if_empty_function(fn):
     def empty_func():
         ""
         pass
-    co_code = fn.func_code.co_code
-    if co_code == empty_func.func_code.co_code and fn.__doc__ is not None:
-        head = '%s(self):' % fn.func_name
+    empty_func_code = empty_func.func_code
+    fn_code = fn.func_code
+    if fn_code.co_code == empty_func_code.co_code and fn.__doc__ is not None:
+        fnargs = py.std.inspect.getargs(fn_code).args
+        head = '%s(%s):' % (fn.func_name, ', '.join(fnargs))
         body = py.code.Source(fn.__doc__)
         return head + str(body.indent())
     else:

@@ -5,6 +5,11 @@ def test_something(space):
 def app_test_something(): 
     assert 42 == 42 
 
+def app_test_code_in_docstring_failing():
+    """
+    assert False
+    """
+
 class AppTestSomething: 
     def test_method_app(self): 
         assert 23 == 23

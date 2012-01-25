@@ -42,10 +42,20 @@ class TestPyPyTests:
         assert "test_method_app" in passed[1].nodeid
         
     def test_docstring_in_methods(self, testdir): 
-        sorter = testdir.inline_run("-k", "test_code_in_docstring", innertest)
+        sorter = testdir.inline_run("-k", "AppTestSomething test_code_in_docstring",
+                                    innertest)
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 1
         assert len(failed) == 1
         assert skipped == []
         assert "test_code_in_docstring_ignored" in passed[0].nodeid
         assert "test_code_in_docstring_failing" in failed[0].nodeid
+
+    def test_docstring_in_functions(self, testdir): 
+        sorter = testdir.inline_run("-k", "app_test_code_in_docstring", innertest)
+        passed, skipped, failed = sorter.listoutcomes()
+        assert passed == []
+        assert len(failed) == 1
+        assert skipped == []
+        assert "app_test_code_in_docstring_failing" in failed[0].nodeid
+
