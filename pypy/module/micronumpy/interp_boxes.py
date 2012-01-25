@@ -6,7 +6,7 @@ from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rpython.lltypesystem import rffi, lltype
 
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
@@ -104,7 +104,8 @@ class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
-    pass
+    def int_w(self, space):
+        return rffi.cast(lltype.Signed, self.value)
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass

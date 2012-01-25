@@ -376,3 +376,7 @@ class AppTestTypes(BaseNumpyAppTest):
         b = X(10)
         assert type(b) is X
         assert b.m() == 12
+
+    def test_long_as_index(self):
+        from _numpypy import int_
+        assert (1, 2, 3)[int_(1)] == 2

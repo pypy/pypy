@@ -1401,7 +1401,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (arange(6).reshape(2, 3).ravel() == arange(6)).all()
         print arange(6).reshape(2, 3).T.ravel()
         assert (arange(6).reshape(2, 3).T.ravel() == [0, 3, 1, 4, 2, 5]).all()
-        
+
+    def test_take(self):
+        from _numpypy import arange
+        assert(arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1])
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
