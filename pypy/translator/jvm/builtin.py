@@ -84,6 +84,9 @@ built_in_methods = {
     (ootype.StringBuilder.__class__, "ll_build"):
     jvm.Method.v(jStringBuilder, "toString", (), jString),
 
+    (ootype.StringBuilder.__class__, "ll_getlength"):
+    jvm.Method.v(jStringBuilder, "length", (), jInt),
+
     (ootype.String.__class__, "ll_hash"):
     jvm.Method.v(jString, "hashCode", (), jInt),
 
