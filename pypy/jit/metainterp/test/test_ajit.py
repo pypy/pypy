@@ -3569,7 +3569,6 @@ class BaseLLtypeTests(BasicTests):
         translationoptions = {'withsmallfuncsets': 3}
         self.interp_operations(f, [5], translationoptions=translationoptions)
 
-
     def test_annotation_gives_class_knowledge_to_tracer(self):
         py.test.skip("disabled")
         class Base(object):
@@ -3696,7 +3695,6 @@ class BaseLLtypeTests(BasicTests):
         self.check_operations_history(guard_class=0, record_known_class=1)
 
 
-class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
         from pypy.rlib.objectmodel import UnboxedValue
         class Base(object):
@@ -3821,3 +3819,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return 42
         self.interp_operations(f, [1, 2, 3])
         self.check_operations_history(call=1, guard_no_exception=0)
+
+class TestLLtype(BaseLLtypeTests, LLJitMixin):
+    pass # should be empty

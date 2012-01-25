@@ -290,6 +290,10 @@ class Transformer(object):
         op1 = SpaceOperation('-live-', [], None)
         return [op, op1]
 
+    def rewrite_op_int_tag_ovf(self, op):
+        op1 = SpaceOperation('-live-', [], None)
+        return [op, op1]
+
     # ----------
     # Various kinds of calls
 

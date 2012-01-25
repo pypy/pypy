@@ -207,6 +207,8 @@ LL_OPERATIONS = {
     'int_abs':              LLOp(canfold=True),
     'int_abs_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_invert':           LLOp(canfold=True),
+    'int_tag_ovf':          LLOp(canraise=(OverflowError, ), tryfold=True),
+    'int_untag':            LLOp(canfold=True),
 
     'int_add':              LLOp(canfold=True),
     'int_sub':              LLOp(canfold=True),

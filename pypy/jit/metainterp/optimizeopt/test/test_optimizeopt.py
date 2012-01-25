@@ -205,7 +205,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
             args = []
             for argtype in argtypes:
                 assert argtype in ('int', 'bool')
-                args.append(random.randrange(1, 20))
+                arg = random.randrange(1, 20)
+                if opnum == rop.INT_UNTAG:
+                    arg = arg | 1 # must be an odd int
+                args.append(arg)
             assert restype in ('int', 'bool')
             ops = """
             []
@@ -5217,6 +5220,137 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops, ops)
 
+    def test_int_tag_untag_reverses(self):
+        ops = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i2 = int_untag(i1)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i2 = int_add(i0, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i0]
+        i1 = int_untag(i0)
+        i2 = int_tag_ovf(i1)
+        guard_no_overflow() []
+        i3 = int_untag(i2)
+        i4 = int_add(i3, 1)
+        jump(i4)
+        """
+        expected = """
+        [i0]
+        i1 = int_untag(i0)
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_tag_remove_overflow_checking(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 1000)
+        guard_true(i1), []
+        i2 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i3 = int_untag(i2)
+        i4 = int_add_ovf(i3, 1)
+        guard_no_overflow() []
+        jump(i4)
+        """
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 1000)
+        guard_true(i1), []
+        i2 = int_tag(i0)
+        i3 = int_add(i0, 1)
+        jump(i3)
+        """
+        preamble = """
+        [i0]
+        i1 = int_lt(i0, 1000)
+        guard_true(i1), []
+        i2 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i3 = int_add(i0, 1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_int_tag_remove_overflow_checking2(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 1000)
+        guard_true(i1), []
+        i2 = int_gt(i0, 0)
+        guard_true(i2), []
+        i3 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i4 = escape(i3)
+        jump(i4)
+        """
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 1000)
+        guard_true(i1), []
+        i2 = int_gt(i0, 0)
+        guard_true(i2), []
+        i3 = int_tag(i0)
+        i4 = escape(i3)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_tag_removes_int_and(self):
+        ops = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i2 = int_and(i1, 1)
+        i3 = int_is_true(i2)
+        guard_true(i3) []
+        i4 = int_untag(i1)
+        i5 = int_add(i4, 1)
+        jump(i5)
+        """
+        expected = """
+        [i0]
+        i1 = int_tag_ovf(i0)
+        guard_no_overflow() []
+        i2 = int_add(i0, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_tag_constfold(self):
+        ops = """
+        [i0]
+        i1 = int_tag_ovf(1)
+        guard_no_overflow() []
+        i4 = int_untag(i1)
+        i5 = int_add(i4, 1)
+        escape(i5)
+        jump(i5)
+        """
+        expected = """
+        []
+        escape(2)
+        jump()
+        """
+        preamble = """
+        [i0]
+        escape(2)
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_mul_ovf(self):
         ops = """

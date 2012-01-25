@@ -692,3 +692,27 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         self.run(loop, 4, 7)
         assert self.getint(0) == 29
 
+    def test_int_untag(self):
+        ops = '''
+        [i0]
+        i1 = int_untag(i0)
+        finish(i1)
+        '''
+        self.interpret(ops, [1129])
+        assert self.getint(0) == 564
+        self.interpret(ops, [-1129])
+        assert self.getint(0) == -565
+
+    def test_int_tag(self):
+        ops = '''
+        [i0]
+        i1 = int_tag(i0)
+        i2 = int_tag(i0)
+        finish(i1, i2)
+        '''
+        self.interpret(ops, [1129])
+        assert self.getint(0) == 1129 * 2 + 1
+        assert self.getint(1) == 1129 * 2 + 1
+        self.interpret(ops, [-1129])
+        assert self.getint(0) == -1129 * 2 + 1
+        assert self.getint(1) == -1129 * 2 + 1

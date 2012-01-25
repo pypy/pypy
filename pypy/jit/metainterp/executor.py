@@ -224,6 +224,18 @@ def do_int_mul_ovf(cpu, metainterp, box1, box2):
         z = 0
     return BoxInt(z)
 
+def do_int_tag_ovf(cpu, metainterp, box1):
+    # the overflow operations can be called without a metainterp, if an
+    # overflow cannot occur
+    a = box1.getint()
+    try:
+        z = ovfcheck(a << 1)
+    except OverflowError:
+        assert metainterp is not None
+        metainterp.execute_raised(OverflowError(), constant=True)
+        z = 0
+    return BoxInt(z + 1)
+
 def do_same_as(cpu, _, box):
     return box.clonebox()
 

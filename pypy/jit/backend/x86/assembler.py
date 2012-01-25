@@ -1208,6 +1208,18 @@ class Assembler386(object):
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
 
+
+    def genop_int_tag(self, op, arglocs, resloc):
+        loc, = arglocs
+        assert isinstance(loc, RegLoc)
+        assert isinstance(resloc, RegLoc)
+        # res = loc + (loc << 0) + 1
+        self.mc.LEA_ra(resloc.value, (loc.value, loc.value, 0, 1))
+
+    def genop_int_untag(self, op, arglocs, resloc):
+        loc, = arglocs
+        self.mc.SAR(loc, imm1)
+
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
@@ -1626,6 +1638,11 @@ class Assembler386(object):
 
     def genop_guard_int_mul_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
         self.genop_int_mul(op, arglocs, result_loc)
+        return self._gen_guard_overflow(guard_op, guard_token)
+
+    def genop_guard_int_tag_ovf(self, op, guard_op, guard_token, arglocs, result_loc):
+        self.mc.STC()
+        self.mc.ADC(arglocs[0], arglocs[0])
         return self._gen_guard_overflow(guard_op, guard_token)
 
     def genop_guard_guard_false(self, ign_1, guard_op, guard_token, locs, ign_2):

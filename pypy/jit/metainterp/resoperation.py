@@ -441,6 +441,8 @@ _oplist = [
     'INT_IS_TRUE/1b',
     'INT_NEG/1',
     'INT_INVERT/1',
+    'INT_UNTAG/1',
+    'INT_TAG/1',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
     'CAST_PTR_TO_INT/1',
@@ -523,6 +525,7 @@ _oplist = [
     'INT_ADD_OVF/2',
     'INT_SUB_OVF/2',
     'INT_MUL_OVF/2',
+    'INT_TAG_OVF/1',
     '_OVF_LAST', # ----- end of is_ovf operations -----
     '_LAST',     # for the backend to add more internal operations
 ]

@@ -101,8 +101,32 @@ class IntBound(object):
         return res
 
     def mul(self, value):
-        return self.mul_bound(IntBound(value, value))
-    
+        upper = 0
+        has_upper = False
+        if self.has_upper:
+            try:
+                upper = ovfcheck(self.upper * value)
+            except OverflowError:
+                pass
+            else:
+                has_upper = True
+        lower = 0
+        has_lower = False
+        if self.has_lower:
+            try:
+                lower = ovfcheck(self.lower * value)
+            except OverflowError:
+                pass
+            else:
+                has_lower = True
+        if value < 0:
+            has_upper, has_lower = has_lower, has_upper
+            upper, lower = lower, upper
+        result = IntBound(lower, upper)
+        result.has_lower = has_lower
+        result.has_upper = has_upper
+        return result
+
     def add_bound(self, other):
         res = self.clone()
         if other.has_upper:

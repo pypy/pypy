@@ -160,7 +160,7 @@ def ll_unerase_int(gcref):
     from pypy.rlib.debug import ll_assert
     x = llop.cast_ptr_to_int(lltype.Signed, gcref)
     ll_assert((x&1) != 0, "unerased_int(): not an integer")
-    return x >> 1
+    return llop.int_untag(lltype.Signed, x)
 
 
 class Entry(ExtRegistryEntry):
@@ -220,11 +220,9 @@ class ErasedRepr(Repr):
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_add_ovf', [v_value, v_value],
+        v2 = hop.genop('int_tag_ovf', [v_value],
                        resulttype = lltype.Signed)
-        v2p1 = hop.genop('int_add', [v2, c_one],
-                         resulttype = lltype.Signed)
-        v_instance = hop.genop('cast_int_to_ptr', [v2p1],
+        v_instance = hop.genop('cast_int_to_ptr', [v2],
                                resulttype=self.lowleveltype)
         return v_instance
 

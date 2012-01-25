@@ -92,10 +92,13 @@ TYPES = {
     'int_is_true'     : (('int',), 'bool'),
     'int_is_zero'     : (('int',), 'bool'),
     'int_neg'         : (('int',), 'int'),
+    'int_tag'         : (('int', ), 'int'),
+    'int_untag'       : (('int', ), 'int'),
     'int_invert'      : (('int',), 'int'),
     'int_add_ovf'     : (('int', 'int'), 'int'),
     'int_sub_ovf'     : (('int', 'int'), 'int'),
     'int_mul_ovf'     : (('int', 'int'), 'int'),
+    'int_tag_ovf'     : (('int', ), 'int'),
     'uint_add'        : (('int', 'int'), 'int'),
     'uint_sub'        : (('int', 'int'), 'int'),
     'uint_mul'        : (('int', 'int'), 'int'),
@@ -746,6 +749,17 @@ class Frame(object):
         del self.overflow_flag
         if not flag:
             raise GuardFailed
+
+    def op_int_tag_ovf(self, _, x):
+        try:
+            z = ovfcheck(x << 1) + 1
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
 
     def op_int_add_ovf(self, _, x, y):
         try:

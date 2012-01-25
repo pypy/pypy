@@ -62,6 +62,14 @@ class OptIntBounds(Optimization):
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        if (self.optimizer.metainterp_sd.config.translation.taggedpointers and
+                v2.is_constant() and v2.box.getint() == 1):
+            if self.has_pure_result(rop.INT_UNTAG, [v1.box], None):
+                # the result of untagging the int is known, so the box must be
+                # tagged, so int_and(x, 1) == 1
+                value = self.getvalue(ConstInt(1))
+                self.optimizer.make_equal_to(op.result, value)
+                return
         self.emit_operation(op)
 
         r = self.getvalue(op.result)
@@ -163,18 +171,16 @@ class OptIntBounds(Optimization):
     def optimize_GUARD_NO_OVERFLOW(self, op):
         lastop = self.last_emitted_operation
         if lastop is not None:
+            # If the INT_xxx_OVF was replaced with INT_xxx, then we can kill
+            # the GUARD_NO_OVERFLOW.
+            if not lastop.is_ovf():
+                return
             opnum = lastop.getopnum()
             args = lastop.getarglist()
             result = lastop.result
-            # If the INT_xxx_OVF was replaced with INT_xxx, then we can kill
-            # the GUARD_NO_OVERFLOW.
-            if (opnum == rop.INT_ADD or
-                opnum == rop.INT_SUB or
-                opnum == rop.INT_MUL):
-                return
             # Else, synthesize the non overflowing op for optimize_default to
-            # reuse, as well as the reverse op
-            elif opnum == rop.INT_ADD_OVF:
+            # reuse, as well as the reverse ops
+            if opnum == rop.INT_ADD_OVF:
                 self.pure(rop.INT_ADD, args[:], result)
                 self.pure(rop.INT_SUB, [result, args[1]], args[0])
                 self.pure(rop.INT_SUB, [result, args[0]], args[1])
@@ -184,6 +190,11 @@ class OptIntBounds(Optimization):
                 self.pure(rop.INT_SUB, [args[0], result], args[1])
             elif opnum == rop.INT_MUL_OVF:
                 self.pure(rop.INT_MUL, args[:], result)
+            elif opnum == rop.INT_TAG_OVF:
+                v1 = self.getvalue(lastop.getarg(0))
+                maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
+                v1.intbound.intersect(maxbounds)
+                self.pure(rop.INT_UNTAG, [result], args[0])
         self.emit_operation(op)
 
     def optimize_GUARD_OVERFLOW(self, op):
@@ -193,7 +204,7 @@ class OptIntBounds(Optimization):
         if lastop is None:
             raise InvalidLoop
         opnum = lastop.getopnum()
-        if opnum not in (rop.INT_ADD_OVF, rop.INT_SUB_OVF, rop.INT_MUL_OVF):
+        if not lastop.is_ovf():
             raise InvalidLoop
         self.emit_operation(op)
 
@@ -293,6 +304,32 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             self.emit_operation(op)
+
+    def optimize_INT_TAG_OVF(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        resbound = v1.intbound.mul(2).add(1)
+        if resbound.bounded():
+            op = op.copy_and_change(rop.INT_TAG)
+            self.optimize_INT_TAG(op) # emit the op
+        else:
+            self.emit_operation(op)
+
+    def optimize_INT_TAG(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        self.emit_operation(op)
+        r = self.getvalue(op.result)
+        resbound = v1.intbound.mul(2).add(1)
+        r.intbound.intersect(resbound)
+        maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
+        v1.intbound.intersect(maxbounds)
+        self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
+
+    def optimize_INT_UNTAG(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        self.pure(rop.INT_TAG, [op.result], op.getarg(0))
+        self.emit_operation(op)
+        r = self.getvalue(op.result)
+        r.intbound.intersect(v1.intbound.rshift_bound(IntBound(1, 1)))
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)

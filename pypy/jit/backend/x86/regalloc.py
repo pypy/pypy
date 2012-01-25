@@ -619,11 +619,22 @@ class RegAlloc(object):
     consider_int_sub_ovf = _consider_binop_with_guard
     consider_int_add_ovf = _consider_binop_with_guard
 
+    def consider_int_tag_ovf(self, op, guard_op):
+        loc = self.rm.force_result_in_reg(op.result, op.getarg(0))
+        self.perform_with_guard(op, guard_op, [loc], loc)
+
+    def consider_int_tag(self, op):
+        loc = self.rm.make_sure_var_in_reg(op.getarg(0))
+        self.rm.possibly_free_vars_for_op(op)
+        res = self.rm.force_allocate_reg(op.result)
+        self.Perform(op, [loc], res)
+
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [res], res)
 
     consider_int_invert = consider_int_neg
+    consider_int_untag = consider_int_neg
 
     def consider_int_lshift(self, op):
         if isinstance(op.getarg(1), Const):

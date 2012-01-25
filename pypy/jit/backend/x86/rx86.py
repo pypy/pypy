@@ -470,6 +470,7 @@ class AbstractX86CodeBuilder(object):
     # ------------------------------ Arithmetic ------------------------------
 
     ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
+    ADC_ri,ADC_rr,ADC_rb,_,_,ADC_rm,ADC_rj,_,_ = common_modes(2)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
     SUB_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
@@ -576,6 +577,8 @@ class AbstractX86CodeBuilder(object):
     # x87 instructions
     FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
     FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
+
+    STC = insn('\xF9')
 
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')

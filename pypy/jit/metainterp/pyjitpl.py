@@ -218,7 +218,7 @@ class MIFrame(object):
                 return resbox
         ''' % (_opimpl, _opimpl.upper())).compile()
 
-    for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
+    for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert', 'int_untag',
                     'cast_float_to_int', 'cast_int_to_float',
                     'cast_float_to_singlefloat', 'cast_singlefloat_to_float',
                     'float_neg', 'float_abs',
@@ -229,6 +229,15 @@ class MIFrame(object):
             def opimpl_%s(self, b):
                 return self.execute(rop.%s, b)
         ''' % (_opimpl, _opimpl.upper())).compile()
+
+    @arguments("box")
+    def opimpl_int_tag_ovf(self, b1):
+        self.metainterp.clear_exception()
+        resbox = self.execute(rop.INT_TAG_OVF, b1)
+        self.make_result_of_lastop(resbox)
+        if not isinstance(resbox, Const):
+            self.metainterp.handle_possible_overflow_error()
+        return resbox
 
     @arguments("box")
     def opimpl_ptr_nonzero(self, box):

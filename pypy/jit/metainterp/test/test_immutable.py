@@ -64,7 +64,7 @@ class ImmutableFieldsTests:
             l[2] = 30
             a = escape(X(l))
             return a.y[index]
-        res = self.interp_operations(f, [2], listops=True)
+        res = self.interp_operations(f, [2])
         assert res == 30
         self.check_operations_history(getfield_gc=0, getfield_gc_pure=1,
                             getarrayitem_gc=0, getarrayitem_gc_pure=1)
@@ -82,7 +82,7 @@ class ImmutableFieldsTests:
         def f(x, index):
             y = escape(X([x], x+1))
             return y.lst[index] + y.y + 5
-        res = self.interp_operations(f, [23, 0], listops=True)
+        res = self.interp_operations(f, [23, 0])
         assert res == 23 + 24 + 5
         self.check_operations_history(getfield_gc=0, getfield_gc_pure=2,
                             getarrayitem_gc=0, getarrayitem_gc_pure=1,

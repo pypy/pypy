@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.rclass import InstanceRepr, CLASSTYPE, ll_inst_type
 from pypy.rpython.lltypesystem.rclass import MissingRTypeAttribute
 from pypy.rpython.lltypesystem.rclass import ll_issubclass_const
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.rmodel import TyperError, inputconst
 
 
@@ -43,24 +44,22 @@ class TaggedInstanceRepr(InstanceRepr):
         v_value = hop.inputarg(lltype.Signed, arg=1)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_add_ovf', [v_value, v_value],
+        v2 = hop.genop('int_tag_ovf', [v_value],
                        resulttype = lltype.Signed)
-        v2p1 = hop.genop('int_add', [v2, c_one],
-                         resulttype = lltype.Signed)
-        v_instance =  hop.genop('cast_int_to_ptr', [v2p1],
+        v_instance =  hop.genop('cast_int_to_ptr', [v2],
                                 resulttype = self.lowleveltype)
         return v_instance, False   # don't call __init__
 
     def convert_const_exact(self, value):
         self.setup()
         number = value.get_untagged_value()
-        return ll_int_to_unboxed(self.lowleveltype, number)
+        tagged = number * 2 + 1
+        return lltype.cast_int_to_ptr(self.lowleveltype, tagged)
 
     def getvalue_from_unboxed(self, llops, vinst):
         assert not self.is_parent
         v2 = llops.genop('cast_ptr_to_int', [vinst],  resulttype=lltype.Signed)
-        c_one = inputconst(lltype.Signed, 1)
-        return llops.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
+        return llops.genop('int_untag', [v2], resulttype=lltype.Signed)
 
     def gettype_from_unboxed(self, llops, vinst, can_be_none=False):
         unboxedclass_repr = getclassrepr(self.rtyper, self.unboxedclassdef)
@@ -142,11 +141,9 @@ class TaggedInstanceRepr(InstanceRepr):
                                  minid, maxid, c_answer_if_unboxed)
 
 
-def ll_int_to_unboxed(PTRTYPE, value):
-    return lltype.cast_int_to_ptr(PTRTYPE, value*2+1)
 
 def ll_unboxed_to_int(p):
-    return lltype.cast_ptr_to_int(p) >> 1
+    return llop.int_untag(lltype.Signed, lltype.cast_ptr_to_int(p))
 
 def ll_unboxed_getclass_canbenone(instance, class_if_unboxed):
     if instance:

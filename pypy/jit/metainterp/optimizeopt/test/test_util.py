@@ -346,6 +346,7 @@ class FakeMetaInterpStaticData(object):
         self.globaldata = Fake()
         self.config = get_pypy_config(translating=True)
         self.config.translation.jit_ffi = True
+        self.config.translation.taggedpointers = True
 
     class logger_noopt:
         @classmethod

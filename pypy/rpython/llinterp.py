@@ -1101,6 +1101,16 @@ class LLFrame(object):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
 
+    def op_int_tag_ovf(self, x):
+        try:
+            return ovfcheck(x + x + 1)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_untag(self, x):
+        assert x & 1, "argument has to be tagged!"
+        return x >> 1
+
     def op_int_is_true(self, x):
         # special case
         if type(x) is CDefinedIntSymbolic:
