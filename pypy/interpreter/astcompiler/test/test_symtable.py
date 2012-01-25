@@ -274,6 +274,34 @@ class TestSymbolTable:
         exc = py.test.raises(SyntaxError, self.func_scope, input).value
         assert exc.msg == "name 'x' is parameter and global"
 
+    def test_nonlocal(self):
+        src = str(py.code.Source("""
+                     def f():
+                         nonlocal x
+                         global x
+                 """))
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is nonlocal and global"
+        #
+        src = str(py.code.Source("""
+                     def f(x):
+                         nonlocal x
+                 """))
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "name 'x' is parameter and nonlocal"
+        #
+        src = str(py.code.Source("""
+                     def f():
+                         nonlocal x
+                 """))
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "no binding for nonlocal 'x' found"
+        #
+        src = "nonlocal x"
+        exc = py.test.raises(SyntaxError, self.func_scope, src).value
+        assert exc.msg == "nonlocal declaration not allowed at module level"
+        
+
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
         assert not self.class_scope("class x: pass").can_be_optimized
