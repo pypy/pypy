@@ -27,7 +27,7 @@ class TestPyPyTests:
         sorter = testdir.inline_run(innertest, '-k', 'applevel -docstring',
                                     '--runappdirect')
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 3
+        assert len(passed) == 2
         print passed
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
@@ -36,7 +36,7 @@ class TestPyPyTests:
         sorter = testdir.inline_run(innertest, '-k', 'applevel -docstring',
                                     '--appdirect=%s' % (sys.executable,))
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 3
+        assert len(passed) == 2
         print passed
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
