@@ -9,8 +9,9 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
 from pypy.rlib.listsort import make_timsort_class
-from pypy.rlib import rerased, jit
+from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
+from pypy.tool.sourcetools import func_with_new_name
 
 UNROLL_CUTOFF = 5
 
@@ -169,6 +170,19 @@ class W_ListObject(W_AbstractListObject):
         """Returns a list of all items after wrapping them. The result can
         share with the storage, if possible."""
         return self.strategy.getitems(self)
+
+    def getitems_fixedsize(self):
+        """Returns a fixed-size list of all items after wrapping them."""
+        l = self.strategy.getitems_fixedsize(self)
+        debug.make_sure_not_resized(l)
+        return l
+
+    def getitems_unroll(self):
+        """Returns a fixed-size list of all items after wrapping them. The JIT
+        will fully unroll this function.  """
+        l = self.strategy.getitems_unroll(self)
+        debug.make_sure_not_resized(l)
+        return l
 
     def getitems_copy(self):
         """Returns a copy of all items in the list. Same as getitems except for
@@ -366,6 +380,8 @@ class EmptyListStrategy(ListStrategy):
 
     def getitems_copy(self, w_list):
         return []
+    getitems_fixedsize = func_with_new_name(getitems_copy, "getitems_fixedsize")
+    getitems_unroll = getitems_fixedsize
 
     def getstorage_copy(self, w_list):
         return self.erase(None)
@@ -496,7 +512,6 @@ class RangeListStrategy(ListStrategy):
         # tuple is unmutable
         return w_list.lstorage
 
-
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
         l = self.unerase(w_list.lstorage)
@@ -518,6 +533,13 @@ class RangeListStrategy(ListStrategy):
             n += 1
 
         return r
+
+    @jit.dont_look_inside
+    def getitems_fixedsize(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+    def getitems_unroll(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+    _getitems_range_unroll = jit.unroll_safe(func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def getslice(self, w_list, start, stop, step, length):
         v = self.unerase(w_list.lstorage)
@@ -672,9 +694,18 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+
+    @jit.look_inside_iff(lambda self, w_list:
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+    def getitems_fixedsize(self, w_list):
+        return self.getitems_unroll(w_list)
 
     def getstorage_copy(self, w_list):
         items = self.unerase(w_list.lstorage)[:]
@@ -773,10 +804,11 @@ class AbstractUnwrappedStrategy(object):
                 while i >= lim:
                     items[i] = items[i-delta]
                     i -= 1
-            elif start >= 0:
-                del items[start:start+delta]
+            elif delta == 0:
+                pass
             else:
-                assert delta==0   # start<0 is only possible with slicelength==0
+                assert start >= 0 # start<0 is only possible with slicelength==0
+                del items[start:start+delta]
         elif len2 != slicelength:  # No resize for extended slices
             raise operationerrfmt(self.space.w_ValueError, "attempt to "
                   "assign sequence of size %d to extended slice of size %d",
@@ -820,8 +852,8 @@ class AbstractUnwrappedStrategy(object):
 
         if step == 1:
             assert start >= 0
-            assert slicelength >= 0
-            del items[start:start+slicelength]
+            if slicelength > 0:
+                del items[start:start+slicelength]
         else:
             n = len(items)
             i = start

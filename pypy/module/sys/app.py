@@ -66,11 +66,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2011 PyPy development team.
+Copyright 2003-2012 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2008 Python Software Foundation.
+Portions Copyright (c) 2001-2012 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.

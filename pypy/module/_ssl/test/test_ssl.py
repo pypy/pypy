@@ -64,8 +64,8 @@ class AppTestSSL:
 
     def test_sslwrap(self):
         import _ssl, _socket, sys, gc
-        if sys.platform == 'darwin':
-            skip("hangs indefinitely on OSX (also on CPython)")
+        if sys.platform == 'darwin' or 'freebsd' in sys.platform:
+            skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
         s = _socket.socket()
         ss = _ssl.sslwrap(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
@@ -161,11 +161,16 @@ class AppTestConnectedSSL:
 
     def test_shutdown(self):
         import socket, ssl, sys, gc
-        if sys.platform == 'darwin':
-            skip("get also on CPython: error: [Errno 0]")
         ss = socket.ssl(self.s)
         ss.write("hello\n")
-        assert ss.shutdown() is self.s._sock
+        try:
+            result = ss.shutdown()
+        except socket.error, e:
+            # xxx obscure case; throwing errno 0 is pretty odd...
+            if e.errno == 0:
+                skip("Shutdown raised errno 0. CPython does this too")
+            raise
+        assert result is self.s._sock
         raises(ssl.SSLError, ss.write, "hello\n")
         del ss; gc.collect()
 

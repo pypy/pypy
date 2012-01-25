@@ -275,6 +275,14 @@ class TestTypedTestCase(CompilationTestCase):
         fn = self.getcompiled(f, [r_longlong])
         assert fn(0) == 0
 
+    def test_upcast_int(self):
+        from pypy.rpython.lltypesystem import rffi
+        def f(v):
+            v = rffi.cast(rffi.USHORT, v)
+            return intmask(v)
+        fn = self.getcompiled(f, [int])
+        assert fn(0x1234CDEF) == 0xCDEF
+
     def test_function_ptr(self):
         def f1():
             return 1

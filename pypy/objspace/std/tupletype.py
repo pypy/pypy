@@ -5,6 +5,14 @@ from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 
 def wraptuple(space, list_w):
     from pypy.objspace.std.tupleobject import W_TupleObject
+
+    if space.config.objspace.std.withspecialisedtuple:
+        from specialisedtupleobject import makespecialisedtuple, NotSpecialised
+        try:
+            return makespecialisedtuple(space, list_w)
+        except NotSpecialised:
+            pass
+
     if space.config.objspace.std.withsmalltuple:
         from pypy.objspace.std.smalltupleobject import W_SmallTupleObject2
         from pypy.objspace.std.smalltupleobject import W_SmallTupleObject3

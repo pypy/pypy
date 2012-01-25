@@ -3,9 +3,10 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
+from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
@@ -21,7 +22,6 @@ class AbstractX86CPU(AbstractLLCPU):
     supports_floats = True
     supports_singlefloats = True
 
-    BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
     with_threads = False
 
@@ -91,15 +91,6 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log=log)
 
-    def set_future_value_int(self, index, intvalue):
-        self.assembler.fail_boxes_int.setitem(index, intvalue)
-
-    def set_future_value_float(self, index, floatvalue):
-        self.assembler.fail_boxes_float.setitem(index, floatvalue)
-
-    def set_future_value_ref(self, index, ptrvalue):
-        self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
-
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)
 
@@ -122,27 +113,28 @@ class AbstractX86CPU(AbstractLLCPU):
         # the FORCE_TOKEN operation and this helper both return 'ebp'.
         return self.assembler.fail_ebp
 
-    def execute_token(self, executable_token):
-        addr = executable_token._x86_bootstrap_code
-        #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        fail_index = self._execute_call(func)
-        #llop.debug_print(lltype.Void, "<<<< Back")
-        return self.get_fail_descr_from_number(fail_index)
-
-    def _execute_call(self, func):
-        # help flow objspace
-        prev_interpreter = None
-        if not self.translate_support_code:
-            prev_interpreter = LLInterpreter.current_interpreter
-            LLInterpreter.current_interpreter = self.debug_ll_interpreter
-        res = 0
-        try:
-            res = func()
-        finally:
+    def make_execute_token(self, *ARGS):
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
+        #
+        def execute_token(executable_token, *args):
+            clt = executable_token.compiled_loop_token
+            assert len(args) == clt._debug_nbargs
+            #
+            addr = executable_token._x86_function_addr
+            func = rffi.cast(FUNCPTR, addr)
+            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            prev_interpreter = None   # help flow space
             if not self.translate_support_code:
-                LLInterpreter.current_interpreter = prev_interpreter
-        return res
+                prev_interpreter = LLInterpreter.current_interpreter
+                LLInterpreter.current_interpreter = self.debug_ll_interpreter
+            try:
+                fail_index = func(*args)
+            finally:
+                if not self.translate_support_code:
+                    LLInterpreter.current_interpreter = prev_interpreter
+            #llop.debug_print(lltype.Void, "<<<< Back")
+            return self.get_fail_descr_from_number(fail_index)
+        return execute_token
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
@@ -150,7 +142,9 @@ class AbstractX86CPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
+    all_null_registers = lltype.malloc(rffi.LONGP.TO,
+                                       IS_X86_32 and (16+8)  # 16 + 8 regs
+                                                 or (16+16), # 16 + 16 regs
                                        flavor='raw', zero=True,
                                        immortal=True)
 
@@ -215,14 +209,3 @@ class CPU_X86_64(AbstractX86CPU):
         super(CPU_X86_64, self).__init__(*args, **kwargs)
 
 CPU = CPU386
-
-# silence warnings
-##history.LoopToken._x86_param_depth = 0
-##history.LoopToken._x86_arglocs = (None, None)
-##history.LoopToken._x86_frame_depth = 0
-##history.LoopToken._x86_bootstrap_code = 0
-##history.LoopToken._x86_direct_bootstrap_code = 0
-##history.LoopToken._x86_loop_code = 0
-##history.LoopToken._x86_debug_checksum = 0
-##compile.AbstractFailDescr._x86_current_depths = (0, 0)
-##compile.AbstractFailDescr._x86_adr_jump_offset = 0

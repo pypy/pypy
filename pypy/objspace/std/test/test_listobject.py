@@ -48,6 +48,46 @@ class TestW_ListObject(object):
         for i in range(7):
             assert self.space.eq_w(l[i], l2[i])
 
+    def test_getitems_fixedsize(self):
+        w = self.space.wrap
+        from pypy.objspace.std.listobject import make_range_list
+        rangelist = make_range_list(self.space, 1,1,7)
+        emptylist = W_ListObject(self.space, [])
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        strlist = W_ListObject(self.space, [w('1'),w('2'),w('3'),w('4'),w('5'),w('6'),w('7')])
+        floatlist = W_ListObject(self.space, [w(1.0),w(2.0),w(3.0),w(4.0),w(5.0),w(6.0),w(7.0)])
+        objlist = W_ListObject(self.space, [w(1),w('2'),w(3.0),w(4),w(5),w(6),w(7)])
+
+        emptylist_copy = emptylist.getitems_fixedsize()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_fixedsize()
+        intlist_copy = intlist.getitems_fixedsize()
+        strlist_copy = strlist.getitems_fixedsize()
+        floatlist_copy = floatlist.getitems_fixedsize()
+        objlist_copy = objlist.getitems_fixedsize()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
+
+        emptylist_copy = emptylist.getitems_unroll()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_unroll()
+        intlist_copy = intlist.getitems_unroll()
+        strlist_copy = strlist.getitems_unroll()
+        floatlist_copy = floatlist.getitems_unroll()
+        objlist_copy = objlist.getitems_unroll()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
+
     def test_random_getitem(self):
         w = self.space.wrap
         s = list('qedx387tn3uixhvt 7fh387fymh3dh238 dwd-wq.dwq9')
@@ -357,6 +397,7 @@ class AppTestW_ListObject(object):
         on_cpython = (option.runappdirect and
                             not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
@@ -857,6 +898,18 @@ class AppTestW_ListObject(object):
         l = [1,2,3,4,5,6]
         l[::-1] = l
         assert l == [6,5,4,3,2,1]
+
+    def test_setitem_slice_performance(self):
+        # because of a complexity bug, this used to take forever on a
+        # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        if self.runappdirect:
+            count = 16*1024*1024
+        else:
+            count = 1024
+        b = [None] * count
+        for i in range(count):
+            b[i:i+1] = ['y']
+        assert b == ['y'] * count
 
     def test_recursive_repr(self):
         l = []

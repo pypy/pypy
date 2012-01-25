@@ -1,7 +1,7 @@
 from pypy.config.pypyoption import get_pypy_config
-from pypy.jit.metainterp.history import LoopToken, ConstInt, History, Stats
+from pypy.jit.metainterp.history import TargetToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
-from pypy.jit.metainterp.compile import insert_loop_token, compile_new_loop
+from pypy.jit.metainterp.compile import compile_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
@@ -9,23 +9,6 @@ from pypy.jit.metainterp import jitprof, typesystem, compile
 from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
-
-def test_insert_loop_token():
-    # XXX this test is a bit useless now that there are no specnodes
-    lst = []
-    #
-    tok1 = LoopToken()
-    insert_loop_token(lst, tok1)
-    assert lst == [tok1]
-    #
-    tok2 = LoopToken()
-    insert_loop_token(lst, tok2)
-    assert lst == [tok1, tok2]
-    #
-    tok3 = LoopToken()
-    insert_loop_token(lst, tok3)
-    assert lst == [tok1, tok2, tok3]
-
 
 class FakeCPU(object):
     ts = typesystem.llhelper
@@ -35,7 +18,7 @@ class FakeCPU(object):
         self.seen.append((inputargs, operations, token))
 
 class FakeLogger(object):
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         pass
 
     def repr_of_resop(self, op):
@@ -70,10 +53,9 @@ class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
-        on_compile = staticmethod(lambda *args: None)
-        on_compile_bridge = staticmethod(lambda *args: None)
+        virtualizable_info = None
 
-def test_compile_new_loop():
+def test_compile_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
     staticdata.cpu = cpu
@@ -93,34 +75,26 @@ def test_compile_new_loop():
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
     metainterp.history = History()
-    metainterp.history.operations = loop.operations[:]
+    metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
     cpu._all_size_descrs_with_vtable = (
         LLtypeMixin.cpu._all_size_descrs_with_vtable)
     #
-    loop_tokens = []
-    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0, None)
-    assert loop_tokens == [loop_token]
-    assert loop_token.number == 1
+    greenkey = 'faked'
+    target_token = compile_loop(metainterp, greenkey, 0,
+                                loop.inputargs,
+                                loop.operations[-1].getarglist(),
+                                None)
+    jitcell_token = target_token.targeting_jitcell_token
+    assert jitcell_token == target_token.original_jitcell_token
+    assert jitcell_token.target_tokens == [target_token]
+    assert jitcell_token.number == 1
     assert staticdata.globaldata.loopnumbering == 2
     #
     assert len(cpu.seen) == 1
-    assert cpu.seen[0][2] == loop_token
+    assert cpu.seen[0][2] == jitcell_token
     #
     del cpu.seen[:]
-    metainterp = FakeMetaInterp()
-    metainterp.staticdata = staticdata
-    metainterp.cpu = cpu
-    metainterp.history = History()
-    metainterp.history.operations = loop.operations[:]
-    metainterp.history.inputargs = loop.inputargs[:]
-    #
-    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0, None)
-    assert loop_token_2 is loop_token
-    assert loop_tokens == [loop_token]
-    assert len(cpu.seen) == 0
-    assert staticdata.globaldata.loopnumbering == 2
-
 
 def test_resume_guard_counters():
     rgc = ResumeGuardCountersInt()
@@ -196,23 +170,17 @@ def test_compile_tmp_callback():
         result_type = INT
     #
     loop_token = compile_tmp_callback(cpu, FakeJitDriverSD(),
-                                      [ConstInt(12), ConstInt(34)],
-                                      [BoxInt(56), ConstInt(78), BoxInt(90)])
+                                      [ConstInt(12), ConstInt(34)], "ii")
     #
     raiseme = None
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)     # passed in, but dropped
-    fail_descr = cpu.execute_token(loop_token)
+    # only two arguments must be passed in
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     assert fail_descr is FakeJitDriverSD().portal_finishtoken
     #
     EXC = lltype.GcStruct('EXC')
     llexc = lltype.malloc(EXC)
     raiseme = LLException("exception class", llexc)
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     assert isinstance(fail_descr, compile.PropagateExceptionDescr)
     got = cpu.grab_exc_value()
     assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), got) == llexc
@@ -221,10 +189,7 @@ def test_compile_tmp_callback():
         class ExitFrameWithExceptionRef(Exception):
             pass
     FakeMetaInterpSD.cpu = cpu
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     try:
         fail_descr.handle_fail(FakeMetaInterpSD(), None)
     except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:

@@ -321,7 +321,7 @@ class VRefTests:
         assert res == 13
         self.check_resops(new_with_vtable=2,   # the vref, but not XY()
                           new_array=0)         # and neither next1/2/3
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_aborted_count(0)
 
     def test_blackhole_forces(self):
@@ -363,7 +363,7 @@ class VRefTests:
         assert res == 13
         self.check_resops(new_with_vtable=0, # all virtualized in the n!=13 loop
                          new_array=0)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_aborted_count(0)
 
     def test_bridge_forces(self):
@@ -410,7 +410,7 @@ class VRefTests:
         #
         res = self.meta_interp(f, [72])
         assert res == 6
-        self.check_loop_count(2)     # the loop and the bridge
+        self.check_trace_count(2)     # the loop and the bridge
         self.check_resops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
                          new_array=2)        # bridge: next4, next5
         self.check_aborted_count(0)

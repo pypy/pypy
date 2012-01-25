@@ -371,6 +371,8 @@ class AppTestPosix:
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
             import sys
+            if 'freebsd' in sys.platform:
+                skip("hangs indifinitly on FreeBSD (also on CPython).")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)
@@ -656,7 +658,11 @@ class AppTestPosix:
                 os.fsync(f)     # <- should also work with a file, or anything
             finally:            #    with a fileno() method
                 f.close()
-            raises(OSError, os.fsync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fsync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
@@ -668,7 +674,11 @@ class AppTestPosix:
                 os.fdatasync(fd)
             finally:
                 f.close()
-            raises(OSError, os.fdatasync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fdatasync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fdatasync, -1)
 
     if hasattr(os, 'fchdir'):

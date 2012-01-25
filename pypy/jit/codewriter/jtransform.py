@@ -498,27 +498,29 @@ class Transformer(object):
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
+    def _rewrite_raw_malloc(self, op, name, args):
+        d = op.args[1].value.copy()
+        d.pop('flavor')
+        add_memory_pressure = d.pop('add_memory_pressure', False)
+        zero = d.pop('zero', False)
+        track_allocation = d.pop('track_allocation', True)
+        if d:
+            raise UnsupportedMallocFlags(d)
+        TYPE = op.args[0].value
+        if zero:
+            name += '_zero'
+        if add_memory_pressure:
+            name += '_add_memory_pressure'
+        if not track_allocation:
+            name += '_no_track_allocation'
+        return self._do_builtin_call(op, name, args,
+                                     extra = (TYPE,),
+                                     extrakey = TYPE)
+
     def rewrite_op_malloc_varsize(self, op):
         if op.args[1].value['flavor'] == 'raw':
-            d = op.args[1].value.copy()
-            d.pop('flavor')
-            add_memory_pressure = d.pop('add_memory_pressure', False)
-            zero = d.pop('zero', False)
-            track_allocation = d.pop('track_allocation', True)
-            if d:
-                raise UnsupportedMallocFlags(d)
-            ARRAY = op.args[0].value
-            name = 'raw_malloc'
-            if zero:
-                name += '_zero'
-            if add_memory_pressure:
-                name += '_add_memory_pressure'
-            if not track_allocation:
-                name += '_no_track_allocation'
-            return self._do_builtin_call(op, name,
-                                         [op.args[2]],
-                                         extra = (ARRAY,),
-                                         extrakey = ARRAY)
+            return self._rewrite_raw_malloc(op, 'raw_malloc_varsize',
+                                            [op.args[2]])
         if op.args[0].value == rstr.STR:
             return SpaceOperation('newstr', [op.args[2]], op.result)
         elif op.args[0].value == rstr.UNICODE:
@@ -531,11 +533,18 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_free(self, op):
-        flags = op.args[1].value
-        assert flags['flavor'] == 'raw'
-        ARRAY = op.args[0].concretetype.TO
-        return self._do_builtin_call(op, 'raw_free', [op.args[0]],
-                                     extra = (ARRAY,), extrakey = ARRAY)
+        d = op.args[1].value.copy()
+        assert d['flavor'] == 'raw'
+        d.pop('flavor')
+        track_allocation = d.pop('track_allocation', True)
+        if d:
+            raise UnsupportedMallocFlags(d)
+        STRUCT = op.args[0].concretetype.TO
+        name = 'raw_free'
+        if not track_allocation:
+            name += '_no_track_allocation'
+        return self._do_builtin_call(op, name, [op.args[0]],
+                                     extra = (STRUCT,), extrakey = STRUCT)
 
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
@@ -736,6 +745,9 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_malloc(self, op):
+        if op.args[1].value['flavor'] == 'raw':
+            return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
+        #
         assert op.args[1].value == {'flavor': 'gc'}
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)

@@ -17,6 +17,26 @@ def collect(space):
     rgc.collect()
     return space.wrap(0)
 
+def enable(space):
+    """Non-recursive version.  Enable finalizers now.
+    If they were already enabled, no-op.
+    If they were disabled even several times, enable them anyway.
+    """
+    if not space.user_del_action.enabled_at_app_level:
+        space.user_del_action.enabled_at_app_level = True
+        enable_finalizers(space)
+
+def disable(space):
+    """Non-recursive version.  Disable finalizers now.  Several calls
+    to this function are ignored.
+    """
+    if space.user_del_action.enabled_at_app_level:
+        space.user_del_action.enabled_at_app_level = False
+        disable_finalizers(space)
+
+def isenabled(space):
+    return space.newbool(space.user_del_action.enabled_at_app_level)
+
 def enable_finalizers(space):
     if space.user_del_action.finalizers_lock_count == 0:
         raise OperationError(space.w_ValueError,

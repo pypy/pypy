@@ -1,4 +1,3 @@
-import itertools
 import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
@@ -191,8 +190,8 @@ class W_Root(object):
     def is_w(self, space, w_other):
         return self is w_other
 
-    def unique_id(self, space):
-        return space.wrap(compute_unique_id(self))
+    def immutable_unique_id(self, space):
+        return None
 
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
@@ -488,6 +487,16 @@ class ObjSpace(object):
         'parser', 'fcntl', '_codecs', 'binascii'
     ]
 
+    # These modules are treated like CPython treats built-in modules,
+    # i.e. they always shadow any xx.py.  The other modules are treated
+    # like CPython treats extension modules, and are loaded in sys.path
+    # order by the fake entry '.../lib_pypy/__extensions__'.
+    MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
+        '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
+        '_weakref', 'errno', 'exceptions', 'gc', 'imp', 'marshal',
+        'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
+    ], None)
+
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
@@ -519,8 +528,8 @@ class ObjSpace(object):
         exception_types_w = self.export_builtin_exceptions()
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
-        types_w = itertools.chain(self.get_builtin_types().iteritems(),
-                                  exception_types_w.iteritems())
+        types_w = (self.get_builtin_types().items() +
+                   exception_types_w.items())
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
@@ -697,7 +706,10 @@ class ObjSpace(object):
         return w_two.is_w(self, w_one)
 
     def id(self, w_obj):
-        return w_obj.unique_id(self)
+        w_result = w_obj.immutable_unique_id(self)
+        if w_result is None:
+            w_result = self.wrap(compute_unique_id(w_obj))
+        return w_result
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
@@ -1579,12 +1591,15 @@ ObjSpace.ExceptionTable = [
     'ArithmeticError',
     'AssertionError',
     'AttributeError',
+    'BaseException',
+    'DeprecationWarning',
     'EOFError',
     'EnvironmentError',
     'Exception',
     'FloatingPointError',
     'IOError',
     'ImportError',
+    'ImportWarning',
     'IndentationError',
     'IndexError',
     'KeyError',
@@ -1605,9 +1620,14 @@ ObjSpace.ExceptionTable = [
     'TabError',
     'TypeError',
     'UnboundLocalError',
+    'UnicodeDecodeError',
     'UnicodeError',
+    'UnicodeEncodeError',
+    'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
+    'UnicodeEncodeError',
+    'UnicodeDecodeError',
     ]
 
 ## Irregular part of the interface:

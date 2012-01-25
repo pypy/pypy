@@ -79,3 +79,28 @@ class AppTestHashlib:
         assert h.digest() == _hashlib.openssl_md5('x' * 20).digest()
         _hashlib.openssl_sha1(b).digest()
 
+    def test_extra_algorithms(self):
+        expected_results = {
+            "md5": "bb649c83dd1ea5c9d9dec9a18df0ffe9",
+            "md4": "c275b8454684ea416b93d7a418b43176",
+            "mdc2": None,   # XXX find the correct expected value
+            "sha": "e2b0a8609b47c58e5d984c9ccfe69f9b654b032b",
+            "ripemd160": "cc4a5ce1b3df48aec5d22d1f16b894a0b894eccc",
+            "whirlpool": ("1a22b79fe5afda02c63a25927193ed01dc718b74"
+                          "026e597608ce431f9c3d2c9e74a7350b7fbb7c5d"
+                          "4effe5d7a31879b8b7a10fd2f544c4ca268ecc6793923583"),
+            }
+        import _hashlib
+        test_string = "Nobody inspects the spammish repetition"
+        for hash_name, expected in sorted(expected_results.items()):
+            try:
+                m = _hashlib.new(hash_name)
+            except ValueError, e:
+                print 'skipped %s: %s' % (hash_name, e)
+                continue
+            m.update(test_string)
+            got = m.hexdigest()
+            assert got and type(got) is str and len(got) % 2 == 0
+            got.decode('hex')
+            if expected is not None:
+                assert got == expected

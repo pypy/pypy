@@ -234,8 +234,11 @@ class OptFfiCall(Optimization):
             # longlongs are treated as floats, see
             # e.g. llsupport/descr.py:getDescrClass
             is_float = True
+        elif kind == 'u' or kind == 's':
+            # they're all False
+            pass
         else:
-            assert False, "unsupported ffitype or kind"
+            raise NotImplementedError("unsupported ffitype or kind: %s" % kind)
         #
         fieldsize = rffi.getintfield(ffitype, 'c_size')
         return self.optimizer.cpu.interiorfielddescrof_dynamic(

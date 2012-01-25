@@ -112,7 +112,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_long),
+        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_byte),
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -1390,7 +1390,8 @@ else:
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
+        elif any(plat in sys.platform
+                 for plat in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9')):
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

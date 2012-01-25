@@ -38,6 +38,7 @@ class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
     w_IndexError = None
+    w_OverflowError = None
     w_None = None
 
     w_bool = "bool"
@@ -148,6 +149,10 @@ class FakeSpace(object):
             return len(w_obj.items)
         # XXX array probably
         assert False
+
+    def exception_match(self, w_exc_type, w_check_class):
+        # Good enough for now
+        raise NotImplementedError
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float
@@ -367,13 +372,17 @@ class FunctionCall(Node):
 
     def execute(self, interp):
         if self.name in SINGLE_ARG_FUNCTIONS:
-            if len(self.args) != 1:
+            if len(self.args) != 1 and self.name != 'sum':
                 raise ArgumentMismatch
             arr = self.args[0].execute(interp)
             if not isinstance(arr, BaseArray):
                 raise ArgumentNotAnArray
             if self.name == "sum":
-                w_res = arr.descr_sum(interp.space)
+                if len(self.args)>1:
+                    w_res = arr.descr_sum(interp.space,
+                                          self.args[1].execute(interp))
+                else:
+                    w_res = arr.descr_sum(interp.space)
             elif self.name == "prod":
                 w_res = arr.descr_prod(interp.space)
             elif self.name == "max":
@@ -411,7 +420,7 @@ _REGEXES = [
     ('\]', 'array_right'),
     ('(->)|[\+\-\*\/]', 'operator'),
     ('=', 'assign'),
-    (',', 'coma'),
+    (',', 'comma'),
     ('\|', 'pipe'),
     ('\(', 'paren_left'),
     ('\)', 'paren_right'),
@@ -499,7 +508,7 @@ class Parser(object):
         return SliceConstant(start, stop, step)
 
 
-    def parse_expression(self, tokens):
+    def parse_expression(self, tokens, accept_comma=False):
         stack = []
         while tokens.remaining():
             token = tokens.pop()
@@ -519,9 +528,13 @@ class Parser(object):
                 stack.append(RangeConstant(tokens.pop().v))
                 end = tokens.pop()
                 assert end.name == 'pipe'
+            elif accept_comma and token.name == 'comma':
+                continue
             else:
                 tokens.push()
                 break
+        if accept_comma:
+            return stack
         stack.reverse()
         lhs = stack.pop()
         while stack:
@@ -535,7 +548,7 @@ class Parser(object):
         args = []
         tokens.pop() # lparen
         while tokens.get(0).name != 'paren_right':
-            args.append(self.parse_expression(tokens))
+            args += self.parse_expression(tokens, accept_comma=True)
         return FunctionCall(name, args)
 
     def parse_array_const(self, tokens):
@@ -551,7 +564,7 @@ class Parser(object):
             token = tokens.pop()
             if token.name == 'array_right':
                 return elems
-            assert token.name == 'coma'
+            assert token.name == 'comma'
 
     def parse_statement(self, tokens):
         if (tokens.get(0).name == 'identifier' and

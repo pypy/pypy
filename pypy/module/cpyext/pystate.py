@@ -2,7 +2,10 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, CConfig, cpython_struct)
 from pypy.rpython.lltypesystem import rffi, lltype
 
-PyInterpreterState = lltype.Ptr(cpython_struct("PyInterpreterState", ()))
+PyInterpreterStateStruct = lltype.ForwardReference()
+PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
+cpython_struct(
+    "PyInterpreterState", [('next', PyInterpreterState)], PyInterpreterStateStruct)
 PyThreadState = lltype.Ptr(cpython_struct("PyThreadState", [('interp', PyInterpreterState)]))
 
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)
@@ -54,7 +57,8 @@ ExecutionContext.cpyext_threadstate = ThreadStateCapsule(alloc=False)
 
 class InterpreterState(object):
     def __init__(self, space):
-        self.interpreter_state = lltype.malloc(PyInterpreterState.TO, flavor='raw', immortal=True)
+        self.interpreter_state = lltype.malloc(
+            PyInterpreterState.TO, flavor='raw', zero=True, immortal=True)
 
     def new_thread_state(self):
         capsule = ThreadStateCapsule()

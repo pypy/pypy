@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
-     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr
+     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr, TargetToken
 
 class Logger(object):
 
@@ -13,14 +13,14 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         if type is None:
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
-            debug_print("# Loop", number, ":", type,
+            debug_print("# Loop", number, '(%s)' % name , ":", type,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
@@ -135,6 +135,13 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
+    def _log_inputarg_setup_ops(self, op):
+        target_token = op.getdescr()
+        if isinstance(target_token, TargetToken):
+            if target_token.exported_state:
+                for op in target_token.exported_state.inputarg_setup_ops:
+                    debug_print('    ' + self.repr_of_resop(op))
+        
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
@@ -146,6 +153,8 @@ class LogOperations(object):
         for i in range(len(operations)):
             op = operations[i]
             debug_print(self.repr_of_resop(operations[i], ops_offset))
+            if op.getopnum() == rop.LABEL:
+                self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)

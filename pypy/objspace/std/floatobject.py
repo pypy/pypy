@@ -34,9 +34,9 @@ class W_AbstractFloatObject(W_Object):
         two = float2longlong(space.float_w(w_other))
         return one == two
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         from pypy.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
@@ -443,6 +443,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     y = w_float2.floatval
 
     # Sort out special cases here instead of relying on pow()
+    if y == 2.0:                      # special case for performance:
+        return W_FloatObject(x * x)   # x * x is always correct
     if y == 0.0:
         # x**0 is 1, even 0**0
         return W_FloatObject(1.0)

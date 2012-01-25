@@ -453,6 +453,7 @@ class Optimizer(Optimization):
 
     def clear_newoperations(self):
         self._newoperations = []
+        self.seen_results = {}
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
@@ -500,8 +501,9 @@ class Optimizer(Optimization):
         else:
             return CVAL_ZERO
 
-    def propagate_all_forward(self):
-        self.clear_newoperations()
+    def propagate_all_forward(self, clear=True):
+        if clear:
+            self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()

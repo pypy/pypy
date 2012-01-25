@@ -180,7 +180,12 @@ class FunctionDesc(Desc):
         if name is None:
             name = pyobj.func_name
         if signature is None:
-            signature = cpython_code_signature(pyobj.func_code)
+            if hasattr(pyobj, '_generator_next_method_of_'):
+                from pypy.interpreter.argument import Signature
+                signature = Signature(['entry'])     # haaaaaack
+                defaults = ()
+            else:
+                signature = cpython_code_signature(pyobj.func_code)
         if defaults is None:
             defaults = pyobj.func_defaults
         self.name = name
@@ -252,7 +257,8 @@ class FunctionDesc(Desc):
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
+            raise TypeError("signature mismatch: %s() %s" % 
+                            (self.name, e.getmsg()))
         return inputcells
 
     def specialize(self, inputcells, op=None):

@@ -52,6 +52,7 @@ def test_pypy_module():
     for modname in 'pypyjit', 'signal', 'micronumpy', 'math', 'imp':
         assert pypypolicy.look_inside_pypy_module(modname)
         assert pypypolicy.look_inside_pypy_module(modname + '.foo')
+    assert not pypypolicy.look_inside_pypy_module('pypyjit.interp_resop')
 
 def test_see_jit_module():
     assert pypypolicy.look_inside_pypy_module('pypyjit.interp_jit')
