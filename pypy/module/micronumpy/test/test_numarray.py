@@ -962,7 +962,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert debug_repr(a + a) == 'Call2(add, Array, Array)'
         assert debug_repr(a[::2]) == 'Slice'
         assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
-        assert debug_repr(a + a.flat) == 'Call2(add, Array, Slice)'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, Flat)'
         assert debug_repr(sin(a)) == 'Call1(sin, Array)'
 
         b = a + a

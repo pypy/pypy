@@ -898,7 +898,6 @@ class Call2(VirtualArray):
         self.size = 1
         for s in self.shape:
             self.size *= s
-        xxx
 
     def _del_sources(self):
         self.left = None
@@ -1513,6 +1512,9 @@ class W_FlatIterator(ViewArray):
             # need to repeat input values until all assignments are done
             ai = (ai + 1) % arr.size
             basei = basei.next_skip_x(shapelen, step)
+
+    def create_sig(self):
+        return signature.FlatSignature(self.base.dtype)
 
     def descr_base(self, space):
         return space.wrap(self.base)
