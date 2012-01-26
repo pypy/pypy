@@ -625,13 +625,12 @@ class BaseArray(Wrappable):
         res = W_NDimArray(size, res_shape[:], self.dtype, self.order)
         res_i = res.create_iter()
         longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        shapelen = len(index.shape)
         while not index_i.done():
             w_item = index.getitem(index_i.offset).convert_to(longdtype)
-            import pdb
-            pdb.set_trace()
             res.setitem(res_i.offset, self.descr_getitem(space, w_item))
-            index_i = index_i.next()
-            res_i = res_i.next()
+            index_i = index_i.next(shapelen)
+            res_i = res_i.next(shapelen)
         return res
 
 def convert_to_array(space, w_obj):
