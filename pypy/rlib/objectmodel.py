@@ -130,18 +130,22 @@ class Symbolic(object):
         if self is other:
             return 0
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics can not be compared! (%r, %r)"
+                            % (self, other))
 
     def __hash__(self):
-        raise TypeError("Symbolics are not hashable!")
+        raise TypeError("Symbolics are not hashable! %r" % (self,))
 
     def __nonzero__(self):
-        raise TypeError("Symbolics are not comparable")
+        raise TypeError("Symbolics are not comparable! %r" % (self,))
 
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):
         self.compute_fn = compute_fn
+
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.compute_fn)
 
     def annotation(self):
         from pypy.annotation import model
@@ -156,6 +160,9 @@ class CDefinedIntSymbolic(Symbolic):
     def __init__(self, expr, default=0):
         self.expr = expr
         self.default = default
+
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.expr)
 
     def annotation(self):
         from pypy.annotation import model
