@@ -1034,7 +1034,7 @@ class ForceOpAssembler(object):
         # Path A: load return value and reset token
         # Fast Path using result boxes
 
-        fast_path_cond=c.EQ
+        fast_path_cond = c.EQ
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
             from pypy.jit.backend.llsupport.descr import FieldDescr
