@@ -1405,6 +1405,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_take(self):
         from _numpypy import arange
         assert (arange(10).take([1, 2, 1, 1]) == [1, 2, 1, 1]).all()
+        raises(IndexError, "arange(3).take([15])")
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
