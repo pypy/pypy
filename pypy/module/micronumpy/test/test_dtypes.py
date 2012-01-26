@@ -9,12 +9,17 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert d.num == 0
         assert d.kind == 'b'
         assert dtype('int8').num == 1
-        assert dtype('int8') == 'int8'
-        assert 'int8' == dtype('int8')
-        assert dtype('int8') != 3
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
         raises(TypeError, dtype, 1042)
+
+    def test_dtype_eq(self):
+        from _numpypy import dtype
+
+        assert dtype("int8") == "int8"
+        assert "int8" == dtype("int8")
+        raises(TypeError, lambda: dtype("int8") == 3)
+        assert dtype(bool) == bool
 
     def test_dtype_with_types(self):
         from _numpypy import dtype
