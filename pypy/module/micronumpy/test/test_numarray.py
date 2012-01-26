@@ -229,6 +229,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         # And check that changes stick.
         a[13] = 5.3
         assert a[13] == 5.3
+        assert zeros(()).shape == ()
 
     def test_size(self):
         from _numpypy import array
@@ -388,6 +389,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == (5,)
         c = a[:3]
         assert c.shape == (3,)
+        assert array([]).shape == (0,)
 
     def test_set_shape(self):
         from _numpypy import array, zeros
@@ -1128,7 +1130,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert _numpypy.array([[1], [2], [3]]).shape == (3, 1)
         assert len(_numpypy.zeros((3, 1, 2))) == 3
         raises(TypeError, len, _numpypy.zeros(()))
-        raises(ValueError, _numpypy.array, [[1, 2], 3])
+        raises(ValueError, _numpypy.array, [[1, 2], 3], dtype=float)
 
     def test_getsetitem(self):
         import _numpypy

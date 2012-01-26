@@ -1250,6 +1250,8 @@ def zeros(space, w_size, w_dtype=None):
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
     size, shape = _find_size_and_shape(space, w_size)
+    if not shape:
+        return scalar_w(space, dtype, space.wrap(0))
     return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
 
 def ones(space, w_size, w_dtype=None):
@@ -1258,6 +1260,8 @@ def ones(space, w_size, w_dtype=None):
     )
 
     size, shape = _find_size_and_shape(space, w_size)
+    if not shape:
+        return scalar_w(space, dtype, space.wrap(1))
     arr = W_NDimArray(size, shape[:], dtype=dtype)
     one = dtype.box(1)
     arr.dtype.fill(arr.storage, one, 0, size)
