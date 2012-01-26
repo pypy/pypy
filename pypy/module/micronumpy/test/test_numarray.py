@@ -167,6 +167,24 @@ class TestNumArrayDirect(object):
         assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
                                     [1, 1, 1, 105, 105]
 
+    def test_to_coords(self):
+        from pypy.module.micronumpy.strides import to_coords
+
+        def _to_coords(index, order):
+            return to_coords(self.space, [2, 3, 4], 24, order,
+                             self.space.wrap(index))[0]
+        
+        assert _to_coords(0, 'C') == [0, 0, 0]
+        assert _to_coords(1, 'C') == [0, 0, 1]
+        assert _to_coords(-1, 'C') == [1, 2, 3]
+        assert _to_coords(5, 'C') == [0, 1, 1]
+        assert _to_coords(13, 'C') == [1, 0, 1]
+        assert _to_coords(0, 'F') == [0, 0, 0]
+        assert _to_coords(1, 'F') == [1, 0, 0]
+        assert _to_coords(-1, 'F') == [1, 2, 3]
+        assert _to_coords(5, 'F') == [1, 2, 0]
+        assert _to_coords(13, 'F') == [1, 0, 2]
+        
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_ndarray(self):
