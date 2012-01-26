@@ -380,7 +380,7 @@ class BaseArray(Wrappable):
 
     def count_all_true(self, arr):
         sig = arr.find_sig()
-        frame = sig.create_frame(self)
+        frame = sig.create_frame(arr)
         shapelen = len(arr.shape)
         s = 0
         iter = None
@@ -394,6 +394,9 @@ class BaseArray(Wrappable):
 
     def getitem_filter(self, space, arr):
         concr = arr.get_concrete()
+        if concr.size > self.size:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("index out of range for array"))
         size = self.count_all_true(concr)
         res = W_NDimArray(size, [size], self.find_dtype())
         ri = ArrayIterator(size)
@@ -402,7 +405,7 @@ class BaseArray(Wrappable):
         sig = self.find_sig()
         frame = sig.create_frame(self)
         v = None
-        while not frame.done():
+        while not ri.done():
             filter_driver.jit_merge_point(concr=concr, argi=argi, ri=ri,
                                           frame=frame, v=v, res=res, sig=sig,
                                           shapelen=shapelen, self=self)
