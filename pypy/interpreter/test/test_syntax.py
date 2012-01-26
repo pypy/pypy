@@ -133,12 +133,12 @@ for i in range(len(VALID)):
 """ % (i, i, VALID[i], VALID[i])
 
 for i in range(len(INVALID)):
-    exec """def test_invalid_%d(space):
+    exec """def test_invalid_%d(space, tmpdir):
+                checkinvalid_cpython(tmpdir, %d, %r)
                 checkinvalid(space, %r)
-""" % (i, INVALID[i])
+""" % (i, i, INVALID[i], INVALID[i])
 
-
-def checkvalid_cpython(tmpdir, i, s):
+def checksyntax_cpython(tmpdir, i, s):
     src = '''
 try:
     exec("""%s
@@ -152,11 +152,23 @@ else:
     pyfile = tmpdir.join('checkvalid_%d.py' % i)
     pyfile.write(src)
     res = commands.getoutput('python3 "%s"' % pyfile)
+    return res
+
+def checkvalid_cpython(tmpdir, i, s):
+    res = checksyntax_cpython(tmpdir, i, s)
     if res != 'OK':
         print s
         print
         print res
         assert False, 'checkvalid_cpython failed'
+
+def checkinvalid_cpython(tmpdir, i, s):
+    res = checksyntax_cpython(tmpdir, i, s)
+    if res == 'OK':
+        print s
+        print
+        print res
+        assert False, 'checkinvalid_cpython failed, did not raise SyntaxError'
 
 
 def checkvalid(space, s):
