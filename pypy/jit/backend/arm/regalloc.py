@@ -988,14 +988,22 @@ class Regalloc(object):
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
         N = op.numargs()
-        # we force all arguments in a reg (unless they are Consts),
-        # because it will be needed anyway by the following setfield_gc
-        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        # we force all arguments in a reg because it will be needed anyway by
+        # the following setfield_gc or setarrayitem_gc. It avoids loading it
+        # twice from the memory.
         arglocs = []
         args = op.getarglist()
         for i in range(N):
             loc = self._ensure_value_is_boxed(op.getarg(i), args)
             arglocs.append(loc)
+        card_marking = False
+        if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
+            card_marking = op.getdescr().jit_wb_cards_set != 0
+        if card_marking:  # allocate scratch registers
+            tmp1 = self.get_scratch_reg(INT)
+            tmp2 = self.get_scratch_reg(INT)
+            arglocs.append(tmp1)
+            arglocs.append(tmp2)
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
