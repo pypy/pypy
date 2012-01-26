@@ -17,6 +17,10 @@ class Chunk(object):
         if self.step != 0:
             shape.append(self.lgt)
 
+    def __repr__(self):
+        return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
+                                          self.lgt)
+
 class BaseTransform(object):
     pass
 

@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
      interp_boxes
@@ -1340,6 +1340,42 @@ def dot(space, w_obj, w_obj2):
     if isinstance(w_arr, Scalar):
         return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
     return w_arr.descr_dot(space, w_obj2)
+
+@unwrap_spec(axis=int)
+def concatenate(space, w_args, axis=0):
+    args_w = space.listview(w_args)
+    if len(args_w) == 0:
+        raise OperationError(space.w_ValueError, space.wrap("concatenation of zero-length sequences is impossible"))
+    args_w = [convert_to_array(space, w_arg) for w_arg in args_w]
+    dtype = args_w[0].find_dtype()
+    shape = args_w[0].shape[:]
+    if len(shape) <= axis:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("bad axis argument"))
+    for arr in args_w[1:]:
+        dtype = interp_ufuncs.find_binop_result_dtype(space, dtype,
+                                                      arr.find_dtype())
+        if len(arr.shape) <= axis:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("bad axis argument"))
+        for i, axis_size in enumerate(arr.shape):
+            if len(arr.shape) != len(shape) or (i != axis and axis_size != shape[i]):
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "array dimensions must agree except for axis being concatenated"))
+            elif i == axis:
+                shape[i] += axis_size
+    size = 1
+    for elem in shape:
+        size *= elem
+    res = W_NDimArray(size, shape, dtype, 'C')
+    chunks = [Chunk(0, i, 1, i) for i in shape]
+    axis_start = 0
+    for arr in args_w:
+        chunks[axis] = Chunk(axis_start, axis_start + arr.shape[axis], 1,
+                             arr.shape[axis])
+        res.create_slice(chunks).setslice(space, arr)
+        axis_start += arr.shape[axis]
+    return res
 
 BaseArray.typedef = TypeDef(
     'ndarray',
