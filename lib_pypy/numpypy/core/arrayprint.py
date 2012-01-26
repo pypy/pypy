@@ -594,7 +594,7 @@ class FloatFormat(object):
                 precision = 0
             precision = min(self.precision, precision)
             self.max_str_len = len(str(int(max_val))) + precision + 2
-            if _nc.any(special):
+            if special.any():
                 self.max_str_len = max(self.max_str_len,
                                        len(_nan_str),
                                        len(_inf_str)+1,

@@ -4,6 +4,8 @@ import sys
 import _numpypy as multiarray # ARGH
 from numpypy.core.arrayprint import array2string
 
+
+
 def asanyarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
     """
     Convert the input to an ndarray, but pass ndarray subclasses through.
