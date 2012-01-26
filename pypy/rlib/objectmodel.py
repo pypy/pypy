@@ -145,7 +145,13 @@ class ComputedIntSymbolic(Symbolic):
         self.compute_fn = compute_fn
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.compute_fn)
+        # repr(self.compute_fn) can arrive back here in an
+        # infinite recursion
+        try:
+            name = self.compute_fn.__name__
+        except (AttributeError, TypeError):
+            name = hex(id(self.compute_fn))
+        return '%s(%r)' % (self.__class__.__name__, name)
 
     def annotation(self):
         from pypy.annotation import model
