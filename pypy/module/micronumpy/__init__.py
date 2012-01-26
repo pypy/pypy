@@ -28,6 +28,7 @@ class Module(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
         'isna': 'interp_numarray.isna',
+        'concatenate': 'interp_numarray.concatenate',
 
         'set_string_function': 'appbridge.set_string_function',
         

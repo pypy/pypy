@@ -59,7 +59,7 @@ def max(a, axis=None):
     if not hasattr(a, "max"):
         a = _numpypy.array(a)
     return a.max(axis)
-
+    
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)
     Generate values in the half-interval [start, stop).
