@@ -591,15 +591,15 @@ class OpAssembler(object):
                 tmp1 = loc_index
                 # store additional scratch reg
                 self.mc.PUSH([tmp1.value])
-                # byte_index
-                self.mc.LSR_ri(tmp1.value, tmp1.value,
-                            imm=descr.jit_wb_card_page_shift)
                 #byteofs
-                self.mc.LSR_ri(r.lr.value, tmp1.value, imm=3)
-                self.mc.MVN_rr(r.lr.value, r.lr.value)
-                #byteval
+                s = 3 + descr.jit_wb_card_page_shift
+                self.mc.MVN_rr(r.lr.value, tmp1.value,
+                                    imm=s, shifttype=shift.LSR)
+                # byte_index
+                self.mc.MOV_ri(r.ip.value, imm=7)
+                self.mc.AND_rr(tmp1.value, r.ip.value, tmp1.value,
+                            imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
                 self.mc.MOV_ri(r.ip.value, imm=1)
-                self.mc.AND_ri(tmp1.value, tmp1.value, imm=7)
                 self.mc.LSL_rr(tmp1.value, r.ip.value, tmp1.value)
 
                 # set the bit
