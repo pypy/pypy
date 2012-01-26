@@ -138,7 +138,13 @@ for i in range(len(INVALID)):
                 checkinvalid(space, %r)
 """ % (i, i, INVALID[i], INVALID[i])
 
+
+PYTHON3 = py.path.local.sysfind('python3')
 def checksyntax_cpython(tmpdir, i, s):
+    if PYTHON3 is None:
+        print 'Warning: cannot run python3 to check syntax'
+        return
+
     src = '''
 try:
     exec("""%s
@@ -151,12 +157,12 @@ else:
 ''' % s
     pyfile = tmpdir.join('checkvalid_%d.py' % i)
     pyfile.write(src)
-    res = commands.getoutput('python3 "%s"' % pyfile)
+    res = commands.getoutput('"%s" "%s"' % (PYTHON3, pyfile))
     return res
 
 def checkvalid_cpython(tmpdir, i, s):
     res = checksyntax_cpython(tmpdir, i, s)
-    if res != 'OK':
+    if res is not None and res != 'OK':
         print s
         print
         print res
@@ -164,7 +170,7 @@ def checkvalid_cpython(tmpdir, i, s):
 
 def checkinvalid_cpython(tmpdir, i, s):
     res = checksyntax_cpython(tmpdir, i, s)
-    if res == 'OK':
+    if res is not None and res == 'OK':
         print s
         print
         print res
