@@ -619,7 +619,8 @@ class BaseArray(Wrappable):
         if space.is_w(w_axis, space.w_None):
             concr = concr.descr_ravel(space)
         else:
-            xxx
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("axis unsupported for take"))
         index_i = index.create_iter()
         res_shape = index.shape
         size = 1
