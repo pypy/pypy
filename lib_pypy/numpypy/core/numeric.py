@@ -201,7 +201,7 @@ def array_repr(arr, max_line_width=None, precision=None, suppress_small=None):
             typename = "'%s'" % typename
 
         lf = ''
-        if 0 or issubclass(arr.dtype.type, flexible):
+        if 0: # or issubclass(arr.dtype.type, flexible):
             if arr.dtype.names:
                 typename = "%s" % str(arr.dtype)
             else:
