@@ -645,6 +645,13 @@ class BaseArray(Wrappable):
             res_i = res_i.next(shapelen)
         return res
 
+    def descr_item(self, space, w_arg=None):
+        if space.is_w(w_arg, space.w_None):
+            if not isinstance(self, Scalar):
+                raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
+            return self.value.wrap(space)
+        xxx
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -1357,6 +1364,7 @@ BaseArray.typedef = TypeDef(
                            BaseArray.descr_set_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
     ndim = GetSetProperty(BaseArray.descr_get_ndim),
+    item = interp2app(BaseArray.descr_item),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
     flat = GetSetProperty(BaseArray.descr_get_flatiter),

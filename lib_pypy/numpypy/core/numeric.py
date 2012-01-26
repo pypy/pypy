@@ -1,5 +1,6 @@
 
 from _numpypy import array, ndarray, int_, float_ #, complex_# , longlong
+from _numpypy import concatenate
 import sys
 import _numpypy as multiarray # ARGH
 from numpypy.core.arrayprint import array2string

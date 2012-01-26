@@ -1455,6 +1455,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.compress([True, False, True]) == [0, 2]).all()
         raises(IndexError, "a.compress([1] * 100)")
 
+    def test_item(self):
+        from _numpypy import array
+        assert array(3).item() == 3
+        assert type(array(3).item()) is int
+        assert type(array(True).item()) is bool
+        assert type(array(3.5).item()) is float
+        raises((ValueError, IndexError), "array(3).item(15)")
+        raises(ValueError, "array([1, 2, 3]).item()")
+        xxx
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
