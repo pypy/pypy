@@ -76,12 +76,15 @@ class TestCompiler:
         w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
-        if not isinstance(expected, float):
-            assert res == expected_repr
-        else:
+        if isinstance(expected, float):
             # Float representation can vary a bit between interpreter
             # versions, compare the numbers instead.
             assert eval(res) == expected
+        elif isinstance(expected, long):
+            assert expected_repr.endswith('L')
+            assert res == expected_repr[:-1] # in py3 we don't have the L suffix
+        else:
+            assert res == expected_repr
 
     def simple_test(self, source, evalexpr, expected):
         w_g = self.run(source)
