@@ -1487,6 +1487,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array([3]).item(0) == 3
         assert type(array([3]).item(0)) is int
         assert array([1, 2, 3]).item(-1) == 3
+        a = array([1, 2, 3])
+        assert a[::2].item(1) == 3
+        assert (a + a).item(1) == 4
+        raises(ValueError, "array(5).item(1)")
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

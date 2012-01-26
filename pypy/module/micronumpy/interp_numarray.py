@@ -651,7 +651,10 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
             return self.value.item(space)
         if space.isinstance_w(w_arg, space.w_int):
-            i = to_coords(space, self.shape, self.size, self.order, w_arg)[0]
+            if isinstance(self, Scalar):
+                raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
+            concr = self.get_concrete()
+            i = to_coords(space, self.shape, concr.size, concr.order, w_arg)[0]
             # XXX a bit around
             return self.descr_getitem(space, space.newtuple([space.wrap(x)
                                                    for x in i])).item(space)
@@ -677,7 +680,6 @@ class Scalar(BaseArray):
     Intermediate class representing a literal.
     """
     size = 1
-    order = 'C'
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
