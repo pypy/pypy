@@ -575,7 +575,7 @@ class BaseArray(Wrappable):
                                       backstrides, shape, concrete))
 
     def descr_ravel(self, space, w_order=None):
-        if space.is_w(w_order, space.w_None):
+        if w_order is None or space.is_w(w_order, space.w_None):
             order = 'C'
         else:
             order = space.str_w(w_order)
@@ -613,22 +613,25 @@ class BaseArray(Wrappable):
     def supports_fast_slicing(self):
         return False
 
-    def descr_take(self, space, w_obj):
+    def descr_take(self, space, w_obj, w_axis=None):
         index = convert_to_array(space, w_obj).get_concrete()
-        if len(self.shape) > 1:
+        concr = self.get_concrete()
+        if space.is_w(w_axis, space.w_None):
+            concr = concr.descr_ravel(space)
+        if len(concr.shape) > 1:
             xxx
         index_i = index.create_iter()
         res_shape = index.shape
         size = 1
         for elem in res_shape:
             size *= elem
-        res = W_NDimArray(size, res_shape[:], self.dtype, self.order)
+        res = W_NDimArray(size, res_shape[:], concr.dtype, concr.order)
         res_i = res.create_iter()
         longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
         shapelen = len(index.shape)
         while not index_i.done():
             w_item = index.getitem(index_i.offset).convert_to(longdtype)
-            res.setitem(res_i.offset, self.descr_getitem(space, w_item))
+            res.setitem(res_i.offset, concr.descr_getitem(space, w_item))
             index_i = index_i.next(shapelen)
             res_i = res_i.next(shapelen)
         return res
