@@ -77,44 +77,44 @@ INVALID = splitcases("""
 
     def f():
         def g():
-            exec "hi"
+            exec("hi")
             x
     # NB. the above one is invalid in CPython, but there is no real reason
 
     def f(x):
         def g():
-            exec "hi"
+            exec("hi")
             x
 
     def f():
-        exec "hi"
+        exec("hi")
         def g():
             x
 
     def f():
-        exec "hi"
+        exec("hi")
         lambda x: y
 
     def f():
-        exec "hi"
+        exec("hi")
         class g:
             x
 
     def f():
-        exec "hi"
+        exec("hi")
         x = 5
         class g:
             def h():
                 x
 
     def f(x):
-        exec "hi"
+        exec("hi")
         x = 4
         class g:
             x
 
     def f(x):
-        exec "hi"
+        exec("hi")
         x = 5
         class g:
             def h():
