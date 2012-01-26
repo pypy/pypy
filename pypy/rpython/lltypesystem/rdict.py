@@ -331,7 +331,8 @@ class DictRepr(AbstractDictRepr):
             v_args = hop.inputargs(self, self.key_repr, self.value_repr)
             target = ll_pop_default
         hop.exception_is_here()
-        return hop.gendirectcall(target, *v_args)
+        v_res = hop.gendirectcall(target, *v_args)
+        return self.recast_value(hop.llops, v_res)
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
