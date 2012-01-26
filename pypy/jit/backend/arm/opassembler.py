@@ -588,26 +588,25 @@ class OpAssembler(object):
             #
             loc_index = arglocs[1]
             if loc_index.is_reg():
-                tmp1 = loc_index
+                tmp1 = regalloc.get_scratch_reg(INT, [loc_index, loc_base])
+                tmp2 = regalloc.get_scratch_reg(INT, [tmp1, loc_base])
                 # store additional scratch reg
-                self.mc.PUSH([tmp1.value])
                 #byteofs
                 s = 3 + descr.jit_wb_card_page_shift
-                self.mc.MVN_rr(r.lr.value, tmp1.value,
+                self.mc.MVN_rr(r.lr.value, loc_index.value,
                                     imm=s, shifttype=shift.LSR)
                 # byte_index
                 self.mc.MOV_ri(r.ip.value, imm=7)
-                self.mc.AND_rr(tmp1.value, r.ip.value, tmp1.value,
-                            imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
-                self.mc.MOV_ri(r.ip.value, imm=1)
-                self.mc.LSL_rr(tmp1.value, r.ip.value, tmp1.value)
+                self.mc.AND_rr(tmp1.value, r.ip.value, loc_index.value,
+                        imm=descr.jit_wb_card_page_shift, shifttype=shift.LSR)
 
                 # set the bit
+                self.mc.MOV_ri(tmp2.value, imm=1)
                 self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
-                self.mc.ORR_rr(r.ip.value, r.ip.value, tmp1.value)
+                self.mc.ORR_rr_sr(r.ip.value, r.ip.value, tmp2.value,
+                                        tmp1.value, shifttype=shift.LSL)
                 self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
                 # done
-                self.mc.POP([tmp1.value])
             elif loc_index.is_imm():
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
