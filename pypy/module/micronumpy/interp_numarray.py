@@ -2,7 +2,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
+from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
+     interp_boxes
 from pypy.module.micronumpy.strides import calculate_slice_strides,\
      shape_agreement, find_shape_and_elems, get_shape_from_iterable,\
      calc_new_strides, to_coords
@@ -445,7 +446,7 @@ class BaseArray(Wrappable):
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item)
         chunks = self._prepare_slice_args(space, w_idx)
-        return space.wrap(self.create_slice(chunks))
+        return self.create_slice(chunks)
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -656,8 +657,10 @@ class BaseArray(Wrappable):
             concr = self.get_concrete()
             i = to_coords(space, self.shape, concr.size, concr.order, w_arg)[0]
             # XXX a bit around
-            return self.descr_getitem(space, space.newtuple([space.wrap(x)
-                                                   for x in i])).item(space)
+            item = self.descr_getitem(space, space.newtuple([space.wrap(x)
+                                             for x in i]))
+            assert isinstance(item, interp_boxes.W_GenericBox)
+            return item.item(space)
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
@@ -686,6 +689,7 @@ class Scalar(BaseArray):
         self.shape = []
         BaseArray.__init__(self, [])
         self.dtype = dtype
+        assert isinstance(value, interp_boxes.W_GenericBox)
         self.value = value
 
     def find_dtype(self):

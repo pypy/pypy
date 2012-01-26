@@ -6,7 +6,6 @@ from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem import rffi, lltype
 
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 MIXIN_32 = () if LONG_BIT == 64 else (int_typedef,)

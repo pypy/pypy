@@ -105,8 +105,9 @@ class Primitive(object):
         ))
 
     def read_bool(self, storage, width, i, offset):
-        return bool(libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                         width, storage, i, offset))
+        return self.for_computation(
+            libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                 width, storage, i, offset)) != 0
 
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
