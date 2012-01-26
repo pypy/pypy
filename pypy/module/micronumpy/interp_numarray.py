@@ -618,7 +618,7 @@ class BaseArray(Wrappable):
         concr = self.get_concrete()
         if space.is_w(w_axis, space.w_None):
             concr = concr.descr_ravel(space)
-        if len(concr.shape) > 1:
+        else:
             xxx
         index_i = index.create_iter()
         res_shape = index.shape
