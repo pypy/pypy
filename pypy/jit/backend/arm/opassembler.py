@@ -559,9 +559,9 @@ class OpAssembler(object):
             self.mc.BL(func)
 
         # patch the JZ above
-        offset = self.mc.currpos() - jz_location
+        offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)
-        pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
+        pmc.B_offs(offset, c.EQ)
         return fcond
 
     emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
