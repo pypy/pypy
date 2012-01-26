@@ -511,7 +511,7 @@ class BaseArray(Wrappable):
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
             arr = W_NDimSlice(concrete.start, new_strides, new_backstrides,
-                              new_shape, self)
+                              new_shape, concrete)
         else:
             # Create copy with contiguous data
             arr = concrete.copy(space)

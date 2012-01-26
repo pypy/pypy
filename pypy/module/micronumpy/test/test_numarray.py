@@ -425,6 +425,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [1000, 1, 2, 3, 1000, 5, 6, 7, 1000, 9, 10, 11]).all()
         a = zeros((4, 2, 3))
         a.shape = (12, 2)
+        (a + a).reshape(2, 12) # assert did not explode
 
     def test_slice_reshape(self):
         from _numpypy import zeros, arange
