@@ -23,12 +23,7 @@ def binary_helper_call(name):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
         addr = rffi.cast(lltype.Signed, function)
-        if c == cond.AL:
-            self.BL(addr)
-        else:
-            self.PUSH(range(2, 4), cond=c)
-            self.BL(addr, c)
-            self.POP(range(2, 4), cond=c)
+        self.BL(addr, c)
     return f
 
 
