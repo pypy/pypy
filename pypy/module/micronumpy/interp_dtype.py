@@ -108,6 +108,7 @@ W_Dtype.typedef = TypeDef("dtype",
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
+    name = interp_attrproperty('name', cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

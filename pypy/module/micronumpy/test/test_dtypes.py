@@ -11,6 +11,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype('int8').num == 1
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
+        assert dtype('int8').name == 'int8'
         raises(TypeError, dtype, 1042)
 
     def test_dtype_with_types(self):
