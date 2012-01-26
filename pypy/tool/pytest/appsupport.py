@@ -236,7 +236,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         #if filename.endswith("pyc"):
         #    filename = filename[:-1]
         try:
-            space.exec_(str(source), frame.w_globals, w_locals,
+            space.exec_(unicode(source).encode('utf-8'), frame.w_globals, w_locals,
                         filename=filename)
         except OperationError, e:
             if e.match(space, w_ExpectedException):
