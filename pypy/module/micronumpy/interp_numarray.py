@@ -613,6 +613,10 @@ class BaseArray(Wrappable):
     def supports_fast_slicing(self):
         return False
 
+    def descr_compress(self, space, w_obj, w_axis=None):
+        index = convert_to_array(space, w_obj)
+        return self.getitem_filter(space, index)
+
     def descr_take(self, space, w_obj, w_axis=None):
         index = convert_to_array(space, w_obj).get_concrete()
         concr = self.get_concrete()
@@ -631,6 +635,7 @@ class BaseArray(Wrappable):
         longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
         shapelen = len(index.shape)
         while not index_i.done():
+            # XXX jitdriver + test_zjit
             w_item = index.getitem(index_i.offset).convert_to(longdtype)
             res.setitem(res_i.offset, concr.descr_getitem(space, w_item))
             index_i = index_i.next(shapelen)
@@ -1176,7 +1181,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
         ownmaskna):
         raise OperationError(space.w_NotImplementedError, space.wrap("Unsupported args"))
     if not space.issequence_w(w_item_or_iterable):
-        if space.is_w(w_dtype, space.w_None):
+        if w_dtype is None or space.is_w(w_dtype, space.w_None):
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
                                                           w_item_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
@@ -1201,7 +1206,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
     shape, elems_w = find_shape_and_elems(space, w_item_or_iterable)
     # they come back in C order
     size = len(elems_w)
-    if space.is_w(w_dtype, space.w_None):
+    if w_dtype is None or space.is_w(w_dtype, space.w_None):
         w_dtype = None
         for w_elem in elems_w:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
@@ -1338,6 +1343,7 @@ BaseArray.typedef = TypeDef(
     reshape = interp2app(BaseArray.descr_reshape),
     tolist = interp2app(BaseArray.descr_tolist),
     take = interp2app(BaseArray.descr_take),
+    compress = interp2app(BaseArray.descr_compress),
 )
 
 

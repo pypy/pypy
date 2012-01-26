@@ -1411,7 +1411,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert ((a + a).take([3]) == [6]).all()
         a = arange(12).reshape(2, 6)
         assert (a[:,::2].take([3, 2, 1]) == [6, 4, 2]).all()
-            
+
+    def test_compress(self):
+        from _numpypy import arange
+        a = arange(10)
+        assert (a.compress([True, False, True]) == [0, 2]).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
