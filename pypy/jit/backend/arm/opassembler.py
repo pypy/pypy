@@ -524,10 +524,12 @@ class OpAssembler(object):
         if opnum == rop.COND_CALL_GC_WB:
             N = 2
             addr = descr.get_write_barrier_fn(self.cpu)
+            card_marking = False
         elif opnum == rop.COND_CALL_GC_WB_ARRAY:
             N = 3
             addr = descr.get_write_barrier_from_array_fn(self.cpu)
             assert addr != 0
+            card_marking = descr.jit_wb_cards_set != 0
         else:
             raise AssertionError(opnum)
         loc_base = arglocs[0]
@@ -545,6 +547,21 @@ class OpAssembler(object):
         jz_location = self.mc.currpos()
         self.mc.BKPT()
 
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking:
+            # calculate the shift value to rotate the ofs according to the ARM
+            # shifted imm values
+            ofs = (((4 - descr.jit_wb_cards_set_byteofs) * 4) & 0xF) << 8
+            ofs |= descr.jit_wb_cards_set_singlebyte
+            self.mc.TST_ri(r.ip.value, imm=ofs)
+            #
+            jnz_location = self.mc.currpos()
+            self.mc.BKPT()
+            #
+        else:
+            jnz_location = 0
+
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         with saved_registers(self.mc, r.caller_resp):
@@ -558,6 +575,53 @@ class OpAssembler(object):
             # barrier is not going to call anything more.
             self.mc.BL(func)
 
+        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
+        # be done in the CALL above with just four instructions, so here
+        # is an inline copy of them
+        if card_marking:
+            jmp_location = self.mc.get_relative_pos()
+            self.mc.BKPT()  # jump to the exit, patched later
+            # patch the JNZ above
+            offset = self.mc.currpos()
+            pmc = OverwritingBuilder(self.mc, jnz_location, WORD)
+            pmc.B_offs(offset, c.NE)  #NZ?
+            #
+            loc_index = arglocs[1]
+            if loc_index.is_reg():
+                tmp1 = loc_index
+                # store additional scratch reg
+                self.mc.PUSH([tmp1.value])
+                # byte_index
+                self.mc.LSR_ri(tmp1.value, tmp1.value,
+                            imm=descr.jit_wb_card_page_shift)
+                #byteofs
+                self.mc.LSR_ri(r.lr.value, tmp1.value, imm=3)
+                self.mc.MVN_rr(r.lr.value, r.lr.value)
+                #byteval
+                self.mc.MOV_ri(r.ip.value, imm=1)
+                self.mc.AND_ri(tmp1.value, tmp1.value, imm=7)
+                self.mc.LSL_rr(tmp1.value, r.ip.value, tmp1.value)
+
+                # set the bit
+                self.mc.LDRB_rr(r.ip.value, loc_base.value, r.lr.value)
+                self.mc.ORR_rr(r.ip.value, r.ip.value, tmp1.value)
+                self.mc.STRB_rr(r.ip.value, loc_base.value, r.lr.value)
+                # done
+                self.mc.POP([tmp1.value])
+            elif loc_index.is_imm():
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                self.mc.LDRB_ri(r.ip.value, loc_base.value, byte_ofs)
+                self.mc.ORR_ri(r.ip.value, r.ip.value, imm=byte_val)
+                self.mc.STRB_ri(r.ip.value, loc_base.value, byte_ofs)
+            else:
+                raise AssertionError("index is neither RegLoc nor ImmedLoc")
+            # patch the JMP above
+            offset = self.mc.currpos()
+            pmc = OverwritingBuilder(self.mc, jmp_location, WORD)
+            pmc.B_offs(offset)
+        #
         # patch the JZ above
         offset = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, jz_location, WORD)

@@ -112,9 +112,6 @@ class TestARM(LLtypeBackendTest):
         self.cpu.execute_token(lt1, 11)
         assert self.cpu.get_latest_value_int(0) == 10
 
-    def test_cond_call_gc_wb_array_card_marking_fast_path(self):
-        py.test.skip('ignore this fast path for now')
-
     SFloat = lltype.GcForwardReference()
     SFloat.become(lltype.GcStruct('SFloat', ('parent', rclass.OBJECT),
           ('v1', lltype.Signed), ('v2', lltype.Signed),
