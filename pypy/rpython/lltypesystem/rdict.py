@@ -321,8 +321,7 @@ class DictRepr(AbstractDictRepr):
         r_tuple = hop.r_result
         cTUPLE = hop.inputconst(lltype.Void, r_tuple.lowleveltype)
         hop.exception_is_here()
-        v_res = hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
-        return self.recast_value(hop.llops, v_res)
+        return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
 
     def rtype_method_pop(self, hop):
         if hop.nb_args == 2:
