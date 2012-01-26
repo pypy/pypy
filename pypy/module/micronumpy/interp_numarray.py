@@ -294,28 +294,6 @@ class BaseArray(Wrappable):
             return space.wrap(self.dump_data())
         return space.call_function(cache.w_array_repr, self)
 
-        res = StringBuilder()
-        res.append("array(")
-        concrete = self.get_concrete_or_scalar()
-        dtype = concrete.find_dtype()
-        if not concrete.size:
-            res.append('[]')
-            if len(self.shape) > 1:
-                # An empty slice reports its shape
-                res.append(", shape=(")
-                self_shape = str(self.shape)
-                res.append_slice(str(self_shape), 1, len(self_shape) - 1)
-                res.append(')')
-        else:
-            concrete.to_str(space, 1, res, indent='       ')
-        if (dtype is not interp_dtype.get_dtype_cache(space).w_float64dtype and
-            not (dtype.kind == interp_dtype.SIGNEDLTR and
-            dtype.itemtype.get_element_size() == rffi.sizeof(lltype.Signed)) or
-            not self.size):
-            res.append(", dtype=" + dtype.name)
-        res.append(")")
-        return space.wrap(res.build())
-
     def dump_data(self):
         concr = self.get_concrete()
         i = concr.create_iter()
@@ -337,11 +315,6 @@ class BaseArray(Wrappable):
         if cache.w_array_str is None:
             return space.wrap(self.dump_data())
         return space.call_function(cache.w_array_str, self)
-        
-        ret = StringBuilder()
-        concrete = self.get_concrete_or_scalar()
-        concrete.to_str(space, 0, ret, ' ')
-        return space.wrap(ret.build())
 
     @jit.unroll_safe
     def _single_item_result(self, space, w_idx):
@@ -695,9 +668,6 @@ class Scalar(BaseArray):
     def find_dtype(self):
         return self.dtype
 
-    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
-        builder.append(self.dtype.itemtype.str_format(self.value))
-
     def copy(self, space):
         return Scalar(self.dtype, self.value)
 
@@ -933,89 +903,6 @@ class ConcreteArray(BaseArray):
             backstrides.reverse()
         self.strides = strides
         self.backstrides = backstrides
-
-    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
-        '''Modifies builder with a representation of the array/slice
-        The items will be seperated by a comma if comma is 1
-        Multidimensional arrays/slices will span a number of lines,
-        each line will begin with indent.
-        '''
-        size = self.size
-        ccomma = ',' * comma
-        ncomma = ',' * (1 - comma)
-        dtype = self.find_dtype()
-        if size < 1:
-            builder.append('[]')
-            return
-        if size > 1000:
-            # Once this goes True it does not go back to False for recursive
-            # calls
-            use_ellipsis = True
-        ndims = len(self.shape)
-        if ndims == 0:
-            builder.append(dtype.itemtype.str_format(self.getitem(0)))
-            return
-        i = 0
-        builder.append('[')
-        if ndims > 1:
-            if use_ellipsis:
-                for i in range(min(3, self.shape[0])):
-                    if i > 0:
-                        builder.append(ccomma + '\n')
-                        if ndims >= 3:
-                            builder.append('\n' + indent)
-                        else:
-                            builder.append(indent)
-                    view = self.create_slice([Chunk(i, 0, 0, 1)]).get_concrete()
-                    view.to_str(space, comma, builder, indent=indent + ' ',
-                                                    use_ellipsis=use_ellipsis)
-                if i < self.shape[0] - 1:
-                    builder.append(ccomma + '\n' + indent + '...' + ncomma)
-                    i = self.shape[0] - 3
-                else:
-                    i += 1
-            while i < self.shape[0]:
-                if i > 0:
-                    builder.append(ccomma + '\n')
-                    if ndims >= 3:
-                        builder.append('\n' + indent)
-                    else:
-                        builder.append(indent)
-                # create_slice requires len(chunks) > 1 in order to reduce
-                # shape
-                view = self.create_slice([Chunk(i, 0, 0, 1)]).get_concrete()
-                view.to_str(space, comma, builder, indent=indent + ' ',
-                                                    use_ellipsis=use_ellipsis)
-                i += 1
-        elif ndims == 1:
-            spacer = ccomma + ' '
-            item = self.start
-            # An iterator would be a nicer way to walk along the 1d array, but
-            # how do I reset it if printing ellipsis? iterators have no
-            # "set_offset()"
-            i = 0
-            if use_ellipsis:
-                for i in range(min(3, self.shape[0])):
-                    if i > 0:
-                        builder.append(spacer)
-                    builder.append(dtype.itemtype.str_format(self.getitem(item)))
-                    item += self.strides[0]
-                if i < self.shape[0] - 1:
-                    # Add a comma only if comma is False - this prevents adding
-                    # two commas
-                    builder.append(spacer + '...' + ncomma)
-                    # Ugly, but can this be done with an iterator?
-                    item = self.start + self.backstrides[0] - 2 * self.strides[0]
-                    i = self.shape[0] - 3
-                else:
-                    i += 1
-            while i < self.shape[0]:
-                if i > 0:
-                    builder.append(spacer)
-                builder.append(dtype.itemtype.str_format(self.getitem(item)))
-                item += self.strides[0]
-                i += 1
-        builder.append(']')
 
     @jit.unroll_safe
     def _index_of_single_item(self, space, w_idx):
