@@ -408,9 +408,9 @@ class Regalloc(object):
         imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0, boxes)
-            l1 = self._ensure_value_is_boxed(a1, boxes)
+            l1 = self.convert_to_imm(a1)
         elif imm_a0 and not imm_a1:
-            l0 = self._ensure_value_is_boxed(a0, boxes)
+            l0 = self.convert_to_imm(a0)
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
             l0 = self._ensure_value_is_boxed(a0, boxes)
@@ -430,9 +430,9 @@ class Regalloc(object):
         imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0, boxes)
-            l1 = self._ensure_value_is_boxed(a1, boxes)
+            l1 = self.convert_to_imm(a1)
         elif imm_a0 and not imm_a1:
-            l0 = self._ensure_value_is_boxed(a0, boxes)
+            l0 = self.convert_to_imm(a0)
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
             l0 = self._ensure_value_is_boxed(a0, boxes)
@@ -612,7 +612,7 @@ class Regalloc(object):
         if not imm_a1:
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
-            l1 = self._ensure_value_is_boxed(a1, boxes)
+            l1 = self.convert_to_imm(a1)
         assert op.result is None
         arglocs = self._prepare_guard(op, [l0, l1])
         self.possibly_free_vars(op.getarglist())
@@ -868,7 +868,7 @@ class Regalloc(object):
         a1 = boxes[1]
         imm_a1 = check_imm_box(a1)
         if imm_a1:
-            ofs_loc = self._ensure_value_is_boxed(a1, boxes)
+            ofs_loc = self.convert_to_imm(a1)
         else:
             ofs_loc = self._ensure_value_is_boxed(a1, boxes)
 
@@ -940,7 +940,7 @@ class Regalloc(object):
         arg = op.getarg(0)
         imm_arg = check_imm_box(arg)
         if imm_arg:
-            argloc = self._ensure_value_is_boxed(arg)
+            argloc = self.convert_to_imm(arg)
         else:
             argloc = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars_for_op(op)
