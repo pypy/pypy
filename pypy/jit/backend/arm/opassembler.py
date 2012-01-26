@@ -2,7 +2,7 @@ from __future__ import with_statement
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import shift
-from pypy.jit.backend.arm.arch import WORD, PC_OFFSET
+from pypy.jit.backend.arm.arch import WORD
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_op_unary_cmp,
