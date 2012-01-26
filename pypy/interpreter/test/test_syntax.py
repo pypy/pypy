@@ -17,48 +17,48 @@ VALID = splitcases("""
     def f():
         def g():
             global x
-            exec "hi"
+            exec("hi")
             x
 
     def f(x):
         def g():
             global x
-            exec "hi"
+            exec("hi")
             x
 
     def f():
         def g():
-            exec "hi"
+            exec("hi")
 
     def f():
-        exec "hi"
+        exec("hi")
 
     def f():
-        exec "hi"
+        exec("hi")
         def g():
             global x
             x
 
     def f():
-        exec "hi"
+        exec("hi")
         def g(x):
             x
 
     def f():
-        exec "hi"
+        exec("hi")
         lambda x: x
 
     def f():
-        exec "hi"
+        exec("hi")
         x
 
     def f():
-        exec "hi"
+        exec("hi")
         (i for i in x)
 
     def f():
         class g:
-            exec "hi"
+            exec("hi")
             x
 
 """)
