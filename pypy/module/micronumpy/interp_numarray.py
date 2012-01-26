@@ -649,12 +649,12 @@ class BaseArray(Wrappable):
         if space.is_w(w_arg, space.w_None):
             if not isinstance(self, Scalar):
                 raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
-            return self.value.wrap(space)
+            return self.value.item(space)
         if space.isinstance_w(w_arg, space.w_int):
             i = to_coords(space, self.shape, self.size, self.order, w_arg)[0]
             # XXX a bit around
-            return self.descr_getitem(space.newtuple([space.wrap(x)
-                                                      for x in i]))
+            return self.descr_getitem(space, space.newtuple([space.wrap(x)
+                                                   for x in i])).item(space)
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 

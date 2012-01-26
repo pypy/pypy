@@ -94,15 +94,12 @@ class W_GenericBox(Wrappable):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
 
-    def descr_tolist(self, space):
+    def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("bool")
-
-    def wrap(self, space):
-        return space.wrap(self.value)
 
 class W_NumberBox(W_GenericBox):
     _attrs_ = ()
@@ -110,9 +107,6 @@ class W_NumberBox(W_GenericBox):
 class W_IntegerBox(W_NumberBox):
     def int_w(self, space):
         return rffi.cast(lltype.Signed, self.value)
-
-    def wrap(self, space):
-        return space.wrap(rffi.cast(lltype.Signed, self.value))
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -156,9 +150,6 @@ class W_InexactBox(W_NumberBox):
 class W_FloatingBox(W_InexactBox):
     _attrs_ = ()
 
-    def wrap(self, space):
-        return space.wrap(rffi.cast(lltype.Float, self.value))
-
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("float32")
 
@@ -198,7 +189,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
 
-    tolist = interp2app(W_GenericBox.descr_tolist),
+    tolist = interp2app(W_GenericBox.item),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
