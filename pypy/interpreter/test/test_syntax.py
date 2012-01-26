@@ -19,53 +19,23 @@ VALID = splitcases("""
             exec "hi"
             x
 
-    def f():
-        def g():
-            global x
-            from a import *
-            x
-
     def f(x):
         def g():
             global x
             exec "hi"
             x
 
-    def f(x):
-        def g():
-            global x
-            from a import *
-            x
-
-    def f():
-        def g():
-            from a import *
-
     def f():
         def g():
             exec "hi"
 
     def f():
-        from a import *
-
-    def f():
         exec "hi"
-
-    def f():
-        from a import *
-        def g():
-            global x
-            x
 
     def f():
         exec "hi"
         def g():
             global x
-            x
-
-    def f():
-        from a import *
-        def g(x):
             x
 
     def f():
@@ -74,24 +44,12 @@ VALID = splitcases("""
             x
 
     def f():
-        from a import *
-        lambda x: x
-
-    def f():
         exec "hi"
         lambda x: x
 
     def f():
-        from a import *
-        x
-
-    def f():
         exec "hi"
         x
-
-    def f():
-        from a import *
-        (i for i in x)
 
     def f():
         exec "hi"
@@ -100,21 +58,12 @@ VALID = splitcases("""
     def f():
         class g:
             exec "hi"
-            x
-
-    def f():
-        class g:
-            from a import *
             x
 
 """)
 
-##    --- the following ones are valid in CPython, but not sensibly so:
+##    --- the following one is valid in CPython, but not sensibly so:
 ##    --- if x is rebound, then it is even rebound in the parent scope!
-##    def f(x):
-##        class g:
-##            from a import *
-##            x
 ##    def f(x):
 ##        class g:
 ##            exec "x=41"
@@ -123,25 +72,17 @@ VALID = splitcases("""
 INVALID = splitcases("""
 
     def f():
-        def g():
-            exec "hi"
-            x
-    # NB. the above one is invalid in CPython, but there is no real reason
-
-    def f(x):
-        def g():
-            exec "hi"
-            x
+        from x import *
 
     def f():
         def g():
-            from a import *
+            exec "hi"
             x
     # NB. the above one is invalid in CPython, but there is no real reason
 
     def f(x):
         def g():
-            from a import *
+            exec "hi"
             x
 
     def f():
@@ -154,36 +95,13 @@ INVALID = splitcases("""
         lambda x: y
 
     def f():
-        from a import *
-        x
-        def g():
-            x
-
-    def f():
-        from a import *
-        lambda x: y
-
-    def f():
         exec "hi"
-        class g:
-            x
-
-    def f():
-        from a import *
-        x
         class g:
             x
 
     def f():
         exec "hi"
         x = 5
-        class g:
-            def h():
-                x
-
-    def f():
-        from a import *
-        x = 4
         class g:
             def h():
                 x
@@ -195,19 +113,7 @@ INVALID = splitcases("""
             x
 
     def f(x):
-        from a import *
-        class g:
-            x
-
-    def f(x):
         exec "hi"
-        x = 5
-        class g:
-            def h():
-                x
-
-    def f(x):
-        from a import *
         x = 5
         class g:
             def h():
@@ -215,12 +121,6 @@ INVALID = splitcases("""
 
     def f():
         (i for i in x) = 10
-
-    def f(x):
-        def g():
-            from a import *
-            def k():
-                return x
 
 """)
 
