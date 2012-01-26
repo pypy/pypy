@@ -5,7 +5,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.module.micronumpy.strides import calculate_slice_strides,\
      shape_agreement, find_shape_and_elems, get_shape_from_iterable,\
-     calc_new_strides
+     calc_new_strides, to_coords
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
@@ -650,6 +650,11 @@ class BaseArray(Wrappable):
             if not isinstance(self, Scalar):
                 raise OperationError(space.w_ValueError, space.wrap("index out of bounds"))
             return self.value.wrap(space)
+        if space.isinstance_w(w_arg, space.w_int):
+            i = to_coords(space, self.shape, self.size, self.order, w_arg)[0]
+            # XXX a bit around
+            return self.descr_getitem(space.newtuple([space.wrap(x)
+                                                      for x in i]))
         xxx
 
 def convert_to_array(space, w_obj):
@@ -671,6 +676,7 @@ class Scalar(BaseArray):
     Intermediate class representing a literal.
     """
     size = 1
+    order = 'C'
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):

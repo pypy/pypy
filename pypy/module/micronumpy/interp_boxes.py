@@ -101,12 +101,18 @@ class W_GenericBox(Wrappable):
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("bool")
 
+    def wrap(self, space):
+        return space.wrap(self.value)
+
 class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
     def int_w(self, space):
         return rffi.cast(lltype.Signed, self.value)
+
+    def wrap(self, space):
+        return space.wrap(rffi.cast(lltype.Signed, self.value))
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -149,6 +155,9 @@ class W_InexactBox(W_NumberBox):
 
 class W_FloatingBox(W_InexactBox):
     _attrs_ = ()
+
+    def wrap(self, space):
+        return space.wrap(rffi.cast(lltype.Float, self.value))
 
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("float32")

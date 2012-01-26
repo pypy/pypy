@@ -1481,7 +1481,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert type(array(3.5).item()) is float
         raises((ValueError, IndexError), "array(3).item(15)")
         raises(ValueError, "array([1, 2, 3]).item()")
-        xxx
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
