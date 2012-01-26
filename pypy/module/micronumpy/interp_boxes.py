@@ -29,6 +29,7 @@ class PrimitiveBox(object):
     def convert_to(self, dtype):
         return dtype.box(self.value)
 
+
 class W_GenericBox(Wrappable):
     _attrs_ = ()
 
@@ -106,7 +107,7 @@ class W_NumberBox(W_GenericBox):
 
 class W_IntegerBox(W_NumberBox):
     def int_w(self, space):
-        return rffi.cast(lltype.Signed, self.value)
+        return space.int_w(self.descr_int(space))
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
