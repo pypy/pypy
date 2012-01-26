@@ -321,7 +321,8 @@ class DictRepr(AbstractDictRepr):
         r_tuple = hop.r_result
         cTUPLE = hop.inputconst(lltype.Void, r_tuple.lowleveltype)
         hop.exception_is_here()
-        return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
+        v_res = hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
+        return self.recast_value(hop.llops, v_res)
 
     def rtype_method_pop(self, hop):
         if hop.nb_args == 2:
@@ -331,7 +332,8 @@ class DictRepr(AbstractDictRepr):
             v_args = hop.inputargs(self, self.key_repr, self.value_repr)
             target = ll_pop_default
         hop.exception_is_here()
-        return hop.gendirectcall(target, *v_args)
+        v_res = hop.gendirectcall(target, *v_args)
+        return self.recast_value(hop.llops, v_res)
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
