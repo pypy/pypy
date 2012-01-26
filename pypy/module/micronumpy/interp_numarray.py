@@ -521,7 +521,7 @@ class BaseArray(Wrappable):
     def descr_tolist(self, space):
         if len(self.shape) == 0:
             assert isinstance(self, Scalar)
-            return self.value.descr_tolist(space)
+            return self.value.item(space)
         w_result = space.newlist([])
         for i in range(self.shape[0]):
             space.call_method(w_result, "append",
