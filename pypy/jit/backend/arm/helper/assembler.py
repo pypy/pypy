@@ -145,6 +145,7 @@ def gen_emit_float_cmp_op_guard(name, true_cond):
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None):
         self.assembler = assembler
+        self.supports_floats = assembler.cpu.supports_floats
         if vfp_regs_to_save is None:
             vfp_regs_to_save = []
         self.regs = regs_to_save
@@ -153,11 +154,11 @@ class saved_registers(object):
     def __enter__(self):
         if len(self.regs) > 0:
             self.assembler.PUSH([r.value for r in self.regs])
-        if len(self.vfp_regs) > 0:
+        if self.supports_floats and len(self.vfp_regs) > 0:
             self.assembler.VPUSH([r.value for r in self.vfp_regs])
 
     def __exit__(self, *args):
-        if len(self.vfp_regs) > 0:
+        if self.supports_floats and len(self.vfp_regs) > 0:
             self.assembler.VPOP([r.value for r in self.vfp_regs])
         if len(self.regs) > 0:
             self.assembler.POP([r.value for r in self.regs])

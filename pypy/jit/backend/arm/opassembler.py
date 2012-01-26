@@ -1068,8 +1068,11 @@ class ForceOpAssembler(object):
 
         # Path B: use assembler helper
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip],
-                                    r.caller_vfp_resp):
+        if self.cpu.supports_floats:
+            floats = r.caller_vfp_resp
+        else:
+            floats = []
+        with saved_registers(self.mc, r.caller_resp[1:] + [r.ip], floats):
             # result of previous call is in r0
             self.mov_loc_loc(arglocs[0], r.r1)
             self.mc.BL(asm_helper_adr)

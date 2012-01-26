@@ -207,8 +207,11 @@ class AssemblerARM(ResOpAssembler):
 
     def _gen_leave_jitted_hook_code(self, save_exc):
         mc = ARMv7Builder()
-        # XXX add a check if cpu supports floats
-        with saved_registers(mc, r.caller_resp + [r.lr], r.caller_vfp_resp):
+        if self.cpu.supports_floats:
+            floats = r.caller_vfp_resp
+        else:
+            floats = []
+        with saved_registers(mc, r.caller_resp + [r.lr], floats):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
             mc.BL(addr)
         assert self._exit_code_addr != 0
@@ -222,8 +225,11 @@ class AssemblerARM(ResOpAssembler):
         #
         mc = ARMv7Builder()
         # call on_leave_jitted_save_exc()
-        # XXX add a check if cpu supports floats
-        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
+        if self.cpu.supports_floats:
+            floats = r.caller_vfp_resp
+        else:
+            floats = []
+        with saved_registers(mc, r.caller_resp + [r.lr], floats):
             addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
                                                 default_to_memoryerror=True)
             mc.BL(addr)
