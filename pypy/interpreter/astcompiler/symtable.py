@@ -246,9 +246,7 @@ class FunctionScope(Scope):
             self.return_with_value = True
             self.ret = ret
 
-    def note_import_star(self, imp):
-        self.optimized = False
-        self.import_star = imp
+    def note_import_star(self):
         return True
 
     def note_variable_arg(self, vararg):
@@ -273,19 +271,7 @@ class FunctionScope(Scope):
 
     def _check_optimization(self):
         if (self.has_free or self.child_has_free) and not self.optimized:
-            err = None
-            if self.child_has_free:
-                trailer = "contains a nested function with free variables"
-            else:
-                trailer = "is a nested function"
-            name = self.name
-            if self.import_star:
-                node = self.import_star
-                err = "import * is not allowed in function '%s' because " \
-                    "it %s" % (name, trailer)
-            else:
-                raise AssertionError("unknown reason for unoptimization")
-            raise SyntaxError(err, node.lineno, node.col_offset)
+            raise AssertionError("unknown reason for unoptimization")
 
 
 class ClassScope(Scope):
