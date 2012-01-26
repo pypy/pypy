@@ -90,6 +90,8 @@ def prepare_op_by_helper_call(name):
         assert fcond is not None
         a0 = op.getarg(0)
         a1 = op.getarg(1)
+        assert isinstance(a0, Box)
+        assert isinstance(a1, Box)
         arg1 = self.rm.make_sure_var_in_reg(a0, selected_reg=r.r0)
         arg2 = self.rm.make_sure_var_in_reg(a1, selected_reg=r.r1)
         assert arg1 == r.r0
