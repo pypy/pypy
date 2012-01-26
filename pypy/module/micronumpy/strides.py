@@ -60,6 +60,29 @@ def find_shape_and_elems(space, w_iterable):
         shape.append(size)
         batch = new_batch
 
+def to_coords(space, shape, size, order, w_item_or_slice):
+    '''Returns a start coord, step, and length.
+    '''
+    start = lngth = step = 0
+    if not (space.isinstance_w(w_item_or_slice, space.w_int) or
+        space.isinstance_w(w_item_or_slice, space.w_slice)):
+        raise OperationError(space.w_IndexError,
+                             space.wrap('unsupported iterator index'))
+            
+    start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
+        
+    coords = [0] * len(shape)
+    i = start
+    if order == 'C':
+        for s in range(len(shape) -1, -1, -1):
+            coords[s] = i % shape[s]
+            i //= shape[s]
+    else:
+        for s in range(len(shape)):
+            coords[s] = i % shape[s]
+            i //= shape[s]
+    return coords, step, lngth
+
 def shape_agreement(space, shape1, shape2):
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):

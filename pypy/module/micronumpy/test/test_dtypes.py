@@ -9,6 +9,9 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert d.num == 0
         assert d.kind == 'b'
         assert dtype('int8').num == 1
+        assert dtype('int8') == 'int8'
+        assert 'int8' == dtype('int8')
+        assert dtype('int8') != 3
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
         assert dtype('int8').name == 'int8'
