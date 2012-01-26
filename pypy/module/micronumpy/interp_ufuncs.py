@@ -272,7 +272,7 @@ class W_Ufunc1(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if isinstance(w_obj, Scalar):
-            return self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
+            return space.wrap(self.func(calc_dtype, w_obj.value.convert_to(calc_dtype)))
 
         w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
                       w_obj)
@@ -310,10 +310,10 @@ class W_Ufunc2(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return self.func(calc_dtype,
+            return space.wrap(self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
-            )
+            ))
 
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(self.func, self.name,
