@@ -90,11 +90,8 @@ class W_Dtype(Wrappable):
         return space.newtuple([])
 
     def eq(self, space, w_other):
-        if space.is_w(self, w_other):
-            return True
-        if space.isinstance_w(w_other, space.w_str):
-            return self.name == space.str_w(w_other)
-        return False
+        w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
+        return space.is_w(self, w_other)
 
     def descr_eq(self, space, w_other):
         return space.wrap(self.eq(space, w_other))
