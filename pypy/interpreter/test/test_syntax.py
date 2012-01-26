@@ -1,4 +1,5 @@
 import py
+import commands
 from pypy.conftest import gettestobjspace
 
 def splitcases(s):
@@ -126,14 +127,36 @@ INVALID = splitcases("""
 
 
 for i in range(len(VALID)):
-    exec """def test_valid_%d(space):
+    exec """def test_valid_%d(space, tmpdir):
+                checkvalid_cpython(tmpdir, %d, %r)
                 checkvalid(space, %r)
-""" % (i, VALID[i])
+""" % (i, i, VALID[i], VALID[i])
 
 for i in range(len(INVALID)):
     exec """def test_invalid_%d(space):
                 checkinvalid(space, %r)
 """ % (i, INVALID[i])
+
+
+def checkvalid_cpython(tmpdir, i, s):
+    src = '''
+try:
+    exec("""%s
+""")
+except SyntaxError as e:
+    print(e)
+    raise SystemExit(1)
+else:
+    print('OK')
+''' % s
+    pyfile = tmpdir.join('checkvalid_%d.py' % i)
+    pyfile.write(src)
+    res = commands.getoutput('python3 "%s"' % pyfile)
+    if res != 'OK':
+        print s
+        print
+        print res
+        assert False, 'checkvalid_cpython failed'
 
 
 def checkvalid(space, s):
