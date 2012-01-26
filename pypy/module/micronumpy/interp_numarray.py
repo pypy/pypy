@@ -655,7 +655,8 @@ class BaseArray(Wrappable):
             # XXX a bit around
             return self.descr_getitem(space.newtuple([space.wrap(x)
                                                       for x in i]))
-        xxx
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "non-int arg not supported"))
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
