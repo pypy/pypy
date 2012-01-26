@@ -1451,7 +1451,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a.compress([True, False, True]) == [0, 2]).all()
         assert (a.compress([1, 0, 13]) == [0, 2]).all()
         assert (a.compress([1, 0, 13.5]) == [0, 2]).all()
+        a = arange(10).reshape(2, 5)
+        assert (a.compress([True, False, True]) == [0, 2]).all()
         raises(IndexError, "a.compress([1] * 100)")
+
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
