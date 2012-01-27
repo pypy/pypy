@@ -168,13 +168,6 @@ class AppTestCondExpr:
             exec(s, ns)
             assert ns['x'] == expected
 
-    def test_condexpr_no_warning(self):
-        import warnings
-
-        warnings.simplefilter('error', SyntaxWarning)
-        exec("1 if True else 2")
-        warnings.simplefilter('default', SyntaxWarning)
-
 class AppTestYield:
     def test_bare_yield(self):
         s = "def f():\n    yield"
