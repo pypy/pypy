@@ -136,7 +136,4 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
-
-    def test_ravel(self):
-        from numpypy import ravel
         
