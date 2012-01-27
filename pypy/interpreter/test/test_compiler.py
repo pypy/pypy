@@ -85,7 +85,7 @@ class BaseTestCompiler:
         flags = self.compiler.getcodeflags(code)
         assert flags & __future__.division.compiler_flag
         # check that we don't get more flags than the compiler can accept back
-        code2 = self.compiler.compile('print 6*7', '<hello>', 'exec', flags)
+        code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
         flags2 = self.compiler.getcodeflags(code2)
         assert flags == flags2
@@ -235,7 +235,7 @@ class BaseTestCompiler:
 
     def test_unicode_docstring(self):
         space = self.space
-        code = self.compiler.compile('u"hello"\n', '<hello>', 'exec', 0)
+        code = self.compiler.compile('"hello"\n', '<hello>', 'exec', 0)
         assert space.eq_w(code.co_consts_w[0], space.wrap("hello"))
         assert space.is_w(space.type(code.co_consts_w[0]), space.w_unicode)
 
@@ -420,7 +420,7 @@ def wrong3():
                     __NameError = NameError
                     try:
                         yield "found: " + __g
-                    except __NameError, __e:
+                    except __NameError as __e:
                         yield "not found: " + str(__e)
                     del __NameError
                     for __i in range(__self.__u * __n):
