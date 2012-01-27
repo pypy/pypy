@@ -105,9 +105,9 @@ class Primitive(object):
         ))
 
     def read_bool(self, storage, width, i, offset):
-        return self.for_computation(
+        return bool(self.for_computation(
             libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                 width, storage, i, offset)) != 0
+                                 width, storage, i, offset)))
 
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
@@ -182,7 +182,7 @@ class Primitive(object):
         return v1 >= v2
 
     def bool(self, v):
-        return self.for_computation(self.unbox(v)) != 0
+        return bool(self.for_computation(self.unbox(v)))
 
     @simple_binary_op
     def max(self, v1, v2):
@@ -228,8 +228,6 @@ class Bool(BaseType, Primitive):
 
     def default_fromstring(self, space):
         return self.box(False)
-
-    # XXX check rpythonization
 
     @simple_binary_op
     def bitwise_and(self, v1, v2):
