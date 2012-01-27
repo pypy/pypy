@@ -389,13 +389,28 @@ class TestNumpyJIt(LLJitMixin):
         return '''
         a = |30|
         b = flat(a)
-        b -> 6
+        b -> 4: -> 6
         '''
 
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
-        assert result == 6.0
-        self.check_trace_count(0)
+        assert result == 10.0
+        #self.check_trace_count(1)
+        #self.check_simple_loop({})
+
+    def define_flat_setitem():
+        return '''
+        a = |30|
+        b = flat(a)
+        b -> 4: = a->:26
+        a -> 5
+        '''
+
+    def test_flat_setitem(self):
+        result = self.run("flat_setitem")
+        assert result == 1.0
+        #self.check_trace_count(1)
+        #self.check_simple_loop({})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

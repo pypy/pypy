@@ -59,6 +59,18 @@ filter_set_driver = jit.JitDriver(
     name='numpy_filterset',
 )
 
+flat_get_driver = jit.JitDriver(
+    greens=['shapelen', 'base'],
+    reds=['step', 'ri', 'basei', 'res'],
+    name='numpy_flatget',
+)
+
+flat_set_driver = jit.JitDriver(
+    greens=['shapelen', 'base'],
+    reds=['step', 'ai', 'lngth', 'arr', 'basei'],
+    name='numpy_flatset',
+)
+
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
@@ -1482,26 +1494,34 @@ class W_FlatIterator(ViewArray):
                             space.wrap(self.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
+    @jit.unroll_safe
     def descr_getitem(self, space, w_idx):
         if not (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             raise OperationError(space.w_IndexError,
                                  space.wrap('unsupported iterator index'))
-        start, stop, step, lngth = space.decode_index4(w_idx, self.base.size)
+        base = self.base
+        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
         # setslice would have been better, but flat[u:v] for arbitrary
         # shapes of array a cannot be represented as a[x1:x2, y1:y2]
-        basei = ViewIterator(self.base.start, self.base.strides,
-                               self.base.backstrides,self.base.shape)
-        shapelen = len(self.base.shape)
+        basei = ViewIterator(base.start, base.strides,
+                               base.backstrides,base.shape)
+        shapelen = len(base.shape)
         basei = basei.next_skip_x(shapelen, start)
         if lngth <2:
-            return self.base.getitem(basei.offset)
+            return base.getitem(basei.offset)
         ri = ArrayIterator(lngth)
-        res = W_NDimArray(lngth, [lngth], self.base.dtype,
-                                    self.base.order)
+        res = W_NDimArray(lngth, [lngth], base.dtype,
+                                    base.order)
         while not ri.done():
-            # TODO: add a jit_merge_point?
-            w_val = self.base.getitem(basei.offset)
+            flat_get_driver.jit_merge_point(shapelen=shapelen,
+                                             base=base,
+                                             basei=basei,
+                                             step=step,
+                                             res=res,
+                                             ri=ri,
+                                            ) 
+            w_val = base.getitem(basei.offset)
             res.setitem(ri.offset,w_val)
             basei = basei.next_skip_x(shapelen, step)
             ri = ri.next(shapelen)
@@ -1512,20 +1532,30 @@ class W_FlatIterator(ViewArray):
             space.isinstance_w(w_idx, space.w_slice)):
             raise OperationError(space.w_IndexError,
                                  space.wrap('unsupported iterator index'))
-        start, stop, step, lngth = space.decode_index4(w_idx, self.base.size)
+        base = self.base
+        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
         arr = convert_to_array(space, w_value)
         ai = 0
-        basei = ViewIterator(self.base.start, self.base.strides,
-                               self.base.backstrides,self.base.shape)
-        shapelen = len(self.base.shape)
+        basei = ViewIterator(base.start, base.strides,
+                               base.backstrides,base.shape)
+        shapelen = len(base.shape)
         basei = basei.next_skip_x(shapelen, start)
-        for i in range(lngth):
+        while lngth > 0:
+            flat_set_driver.jit_merge_point(shapelen=shapelen,
+                                             basei=basei,
+                                             base=base,
+                                             step=step,
+                                             arr=arr,
+                                             ai=ai,
+                                             lngth=lngth,
+                                            ) 
             # TODO: add jit_merge_point?
-            v = arr.getitem(ai).convert_to(self.base.dtype)
-            self.base.setitem(basei.offset, v)
+            v = arr.getitem(ai).convert_to(base.dtype)
+            base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
             ai = (ai + 1) % arr.size
             basei = basei.next_skip_x(shapelen, step)
+            lngth -= 1
 
     def create_sig(self):
         return signature.FlatSignature(self.base.dtype)
