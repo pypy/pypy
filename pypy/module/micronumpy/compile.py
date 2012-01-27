@@ -33,6 +33,7 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
+TWO_ARG_FUNCTIONS = ['take']
 
 class FakeSpace(object):
     w_ValueError = None
@@ -372,12 +373,12 @@ class FunctionCall(Node):
                                                  for arg in self.args]))
 
     def execute(self, interp):
+        arr = self.args[0].execute(interp)
+        if not isinstance(arr, BaseArray):
+            raise ArgumentNotAnArray
         if self.name in SINGLE_ARG_FUNCTIONS:
             if len(self.args) != 1 and self.name != 'sum':
                 raise ArgumentMismatch
-            arr = self.args[0].execute(interp)
-            if not isinstance(arr, BaseArray):
-                raise ArgumentNotAnArray
             if self.name == "sum":
                 if len(self.args)>1:
                     w_res = arr.descr_sum(interp.space,
@@ -399,19 +400,27 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             else:
                 assert False # unreachable code
-            if isinstance(w_res, BaseArray):
-                return w_res
-            if isinstance(w_res, FloatObject):
-                dtype = get_dtype_cache(interp.space).w_float64dtype
-            elif isinstance(w_res, BoolObject):
-                dtype = get_dtype_cache(interp.space).w_booldtype
-            elif isinstance(w_res, interp_boxes.W_GenericBox):
-                dtype = w_res.get_dtype(interp.space)
+        elif self.name in TWO_ARG_FUNCTIONS:
+            arg = self.args[1].execute(interp)
+            if not isinstance(arg, BaseArray):
+                raise ArgumentNotAnArray
+            if self.name == 'take':
+                w_res = arr.descr_take(interp.space, arg)
             else:
-                dtype = None
-            return scalar_w(interp.space, dtype, w_res)
+                assert False # unreachable
         else:
             raise WrongFunctionName
+        if isinstance(w_res, BaseArray):
+            return w_res
+        if isinstance(w_res, FloatObject):
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif isinstance(w_res, BoolObject):
+            dtype = get_dtype_cache(interp.space).w_booldtype
+        elif isinstance(w_res, interp_boxes.W_GenericBox):
+            dtype = w_res.get_dtype(interp.space)
+        else:
+            dtype = None
+        return scalar_w(interp.space, dtype, w_res)
 
 _REGEXES = [
     ('-?[\d\.]+', 'number'),

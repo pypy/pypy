@@ -61,6 +61,11 @@ filter_set_driver = jit.JitDriver(
     reds=['idx', 'idxi', 'frame', 'arr'],
     name='numpy_filterset',
 )
+take_driver = jit.JitDriver(
+    greens=['shapelen', 'sig'],
+    reds=['index_i', 'res_i', 'concr'],
+    name='numpy_take',
+)
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "shape", 'size']
@@ -611,9 +616,14 @@ class BaseArray(Wrappable):
         res_i = res.create_iter()
         longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
         shapelen = len(index.shape)
+        sig = concr.find_sig()
         while not index_i.done():
+            take_driver.jit_merge_point(index_i=index_i,
+                                        res_i=res_i, concr=concr,
+                                        shapelen=shapelen, sig=sig)
             # XXX jitdriver + test_zjit
-            w_item = index.getitem(index_i.offset).convert_to(longdtype)
+            w_item = index.getitem(index_i.offset).convert_to(longdtype).item(
+                space)
             res.setitem(res_i.offset, concr.descr_getitem(space, w_item))
             index_i = index_i.next(shapelen)
             res_i = res_i.next(shapelen)
