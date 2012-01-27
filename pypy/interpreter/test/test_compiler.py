@@ -443,7 +443,7 @@ def wrong3():
         snippet = str(py.code.Source(r'''
             d = {}
             d[...] = 12
-            assert next(iter(d.keys())) is Ellipsis
+            assert next(iter(d)) is Ellipsis
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
