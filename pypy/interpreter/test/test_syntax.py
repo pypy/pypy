@@ -164,39 +164,44 @@ class AppTestCondExpr:
     def test_condexpr(self):
         for s, expected in [("x = 1 if True else 2", 1),
                             ("x = 1 if False else 2", 2)]:
-            exec s
+            exec(s)
             assert x == expected
 
     def test_condexpr_no_warning(self):
         import warnings
 
         warnings.simplefilter('error', SyntaxWarning)
-        exec "1 if True else 2"
+        exec("1 if True else 2")
         warnings.simplefilter('default', SyntaxWarning)
 
 class AppTestYield:
     def test_bare_yield(self):
         s = "def f():\n    yield"
 
-        exec s
+        exec(s)
 
 
 class AppTestDecorators:
 
     def test_function_decorators(self):
+        '''
         def other():
             return 4
         def dec(f):
             return other
         ns = {}
         ns["dec"] = dec
-        exec """@dec
-def g():
-    pass""" in ns
+        exec("""if 1:
+                    @dec
+                    def g():
+                        pass
+             """, ns)
         assert ns["g"] is other
         assert ns["g"]() == 4
+        '''
 
     def test_application_order(self):
+        '''
         def dec1(f):
             record.append(1)
             return f
@@ -205,21 +210,28 @@ def g():
             return f
         record = []
         ns = {"dec1" : dec1, "dec2" : dec2}
-        exec """@dec1
-@dec2
-def g(): pass""" in ns
+        exec("""if 1:
+                    @dec1
+                    @dec2
+                    def g():
+                        pass
+             """, ns)
         assert record == [2, 1]
         del record[:]
-        exec """@dec1
-@dec2
-class x: pass""" in ns
+        exec("""if 1:
+                    @dec1
+                    @dec2
+                    class x:
+                        pass
+             """, ns)
         assert record == [2, 1]
+        '''
 
     def test_class_decorators(self):
         s = """@func
 class x: pass"""
         ns = {"func" : lambda cls: 4}
-        exec s in ns
+        exec(s, ns)
         assert ns["x"] == 4
 
 
@@ -231,7 +243,7 @@ class AppTestPrintFunction:
 x = print
 """
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert ns["x"] is getattr(__builtin__, "print")
 
     def test_print(self):
@@ -241,7 +253,7 @@ s = StringIO.StringIO()
 print("Hello,", "person", file=s)
 """
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert ns["s"].getvalue() == "Hello, person\n"
 
 
@@ -255,7 +267,7 @@ z = u'u'
 b = b'u'
 c = br'u'"""
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert isinstance(ns["x"], unicode)
         assert isinstance(ns["y"], unicode)
         assert isinstance(ns["z"], unicode)
@@ -308,7 +320,7 @@ if 1:
         with acontext:
             pass
         """
-        exec s
+        exec(s)
 
         assert acontext.calls == '__enter__ __exit__'.split()
 
@@ -328,7 +340,7 @@ with c1 as v1, c2 as v2:
     pass
     """
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert ns["v1"] == "blah"
         assert ns["v2"] == "bling"
         assert ns["c1"].record == [("__enter__", "blah"), ("__exit__", "blah")]
@@ -353,7 +365,7 @@ if 1:
         with acontext:
             pass
 """
-        exec s
+        exec(s)
         assert acontext.calls == '__enter__ __exit__'.split()
 
     def test_raw_doc_string(self):
@@ -367,7 +379,7 @@ class Context(object):
         exit = True
 with Context() as w:
     pass"""
-        exec s
+        exec(s)
         assert enter
         assert exit
 
@@ -392,7 +404,7 @@ if 1:
             avar.append('__body__')
             pass
         """
-        exec s
+        exec(s)
 
         assert acontextfact.exit_params == (None, None, None)
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
@@ -425,7 +437,7 @@ if 1:
         else:
             raise AssertionError('With did not raise RuntimeError')
         """
-        exec s
+        exec(s)
 
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
@@ -456,7 +468,7 @@ if 1:
             raise error
             avar.append('__after_raise__')
         """
-        exec s
+        exec(s)
 
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
@@ -489,7 +501,7 @@ if 1:
         else:
             raise AssertionError('Break failed with With, reached else clause')
         """
-        exec s
+        exec(s)
 
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
@@ -520,7 +532,7 @@ if 1:
         else:
             avar.append('__continue__')
         """
-        exec s
+        exec(s)
 
         assert acontextfact.calls == '__enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
@@ -549,14 +561,14 @@ if 1:
                 avar.append('__after_return__')
         acontextfact.calls.append(g(acontextfact))
         """
-        exec s
+        exec(s)
 
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_as_keyword(self):
         try:
-            exec "with = 9"
+            exec("with = 9")
         except SyntaxError:
             pass
         else:
@@ -564,7 +576,7 @@ if 1:
 
     def test_with_as_keyword_compound(self):
         try:
-            exec "from __future__ import generators, with_statement\nwith = 9"
+            exec("from __future__ import generators, with_statement\nwith = 9")
         except SyntaxError:
             pass
         else:
@@ -580,7 +592,7 @@ with foo a bar:
 """]
         for snippet in snippets:
             try:
-                exec snippet
+                exec(snippet)
             except SyntaxError:
                 pass
             else:
@@ -593,14 +605,14 @@ if 1:
         compile('''with x:
         pass''', '', 'exec')
         """
-        exec s
+        exec(s)
 
 class AppTestSyntaxError:
 
     def test_tokenizer_error_location(self):
         line4 = "if ?: pass\n"
         try:
-            exec "print\nprint\nprint\n" + line4
+            exec("print\nprint\nprint\n" + line4)
         except SyntaxError, e:
             assert e.lineno == 4
             assert e.text == line4
@@ -610,12 +622,12 @@ class AppTestSyntaxError:
 
     def test_grammar_error_location(self):
         try:
-            exec """if 1:
+            exec("""if 1:
                 class Foo:
                     bla
                     a b c d e
                     bar
-            """
+            """)
         except SyntaxError, e:
             assert e.lineno == 4
             assert e.text.endswith('a b c d e\n')
@@ -626,7 +638,7 @@ class AppTestSyntaxError:
     def test_astbuilder_error_location(self):
         program = "(1, 2) += (3, 4)\n"
         try:
-            exec program
+            exec(program)
         except SyntaxError, e:
             assert e.lineno == 1
             assert e.text is None
@@ -638,7 +650,7 @@ class AppTestSyntaxError:
 # -*- coding: uft-8 -*-
 pass
 """
-        raises(SyntaxError, "exec program")
+        raises(SyntaxError, "exec(program)")
 
 
 if __name__ == '__main__':
