@@ -110,7 +110,10 @@ class W_ListObject(W_AbstractListObject):
         return list(items)
 
     def switch_to_object_strategy(self):
-        list_w = self.getitems()
+        if self.strategy is self.space.fromcache(EmptyListStrategy):
+            list_w = []
+        else:
+            list_w = self.getitems()
         self.strategy = self.space.fromcache(ObjectListStrategy)
         # XXX this is quite indirect
         self.init_from_list_w(list_w)
