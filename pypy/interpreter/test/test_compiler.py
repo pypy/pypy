@@ -71,8 +71,8 @@ class BaseTestCompiler:
     def test_syntaxerror_attrs(self):
         w_args = self.space.appexec([], r"""():
             try:
-                exec 'if 1:\n  x\n y\n'
-            except SyntaxError, e:
+                exec('if 1:\n  x\n y\n')
+            except SyntaxError as e:
                 return e.args
         """)
         assert self.space.unwrap(w_args) == (
