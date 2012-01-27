@@ -1,48 +1,4 @@
-import py
 from pypy.module.micronumpy.interp_iter import ViewIterator
-
-# This is both a test and a mini-tutorial on iterators, strides, and
-# memory layout. It assumes you are familiar with the terms, see
-# http://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html
-# for a more gentle introduction.
-#
-# Given an array x: x.shape == [5,6],
-#
-# At which byte in x.data does the item x[3,4] begin?
-# if x.strides==[1,5]:
-#     pData = x.pData + (x.start + 3*1 + 4*5)*sizeof(x.pData[0])
-#     pData = x.pData + (x.start + 24) * sizeof(x.pData[0])
-# so the offset of the element is 24 elements after the first
-#
-# What is the next element in x after coordinates [3,4]?
-# if x.order =='C':
-#    next == [3,5] => offset is 28
-# if x.order =='F':
-#    next == [4,4] => offset is 24
-# so for the strides [1,5] x is 'F' contiguous
-# likewise, for the strides [6,1] x would be 'C' contiguous.
-# 
-# Iterators have an internal representation of the current coordinates
-# (indices), the array, strides, and backstrides. A short digression to
-# explain backstrides: what is the coordinate and offset after [3,5] in
-# the example above?
-# if x.order == 'C':
-#    next == [4,0] => offset is 4
-# if x.order == 'F':
-#    next == [4,5] => offset is 25
-# Note that in 'C' order we stepped BACKWARDS 24 while 'overflowing' a
-# shape dimension
-#   which is back 25 and forward 1,
-#   which is x.strides[1] * (x.shape[1] - 1) + x.strides[0]
-# so if we precalculate the overflow backstride as 
-# [x.strides[i] * (x.shape[i] - 1) for i in range(len(x.shape))]
-# we can go faster.
-# All the calculations happen in next()
-#
-# next_step_x() tries to do the iteration for a number of steps at once,
-# but then we cannot gaurentee that we only overflow one single shape 
-# dimension, perhaps we could overflow times in one big step.
-#
 
 class TestIterDirect(object):
     def test_C_viewiterator(self):
