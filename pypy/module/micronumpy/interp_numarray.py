@@ -274,7 +274,8 @@ class BaseArray(Wrappable):
 
     def descr_flatten(self, space, w_order=None):
         if isinstance(self, Scalar):
-            return self.copy(space)
+            # scalars have no storage
+            return self.descr_reshape(space, [space.wrap([1])])
         concr = self.get_concrete()
         w_res = concr.descr_ravel(space, w_order)
         if w_res.storage == concr.storage:
@@ -479,8 +480,11 @@ class BaseArray(Wrappable):
             w_shape = args_w[0]
         else:
             w_shape = space.newtuple(args_w)
+        new_shape = get_shape_from_iterable(space, self.size, w_shape)
+        return self.reshape(space, new_shape)
+        
+    def reshape(self, space, new_shape):
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, concrete.size, w_shape)
         # Since we got to here, prod(new_shape) == self.size
         new_strides = calc_new_strides(new_shape, concrete.shape,
                                      concrete.strides, concrete.order)
@@ -693,6 +697,11 @@ class Scalar(BaseArray):
     def get_concrete_or_scalar(self):
         return self
 
+    def reshape(self, space, new_shape):
+        size = support.product(new_shape)
+        res = W_NDimArray(size, new_shape, self.dtype, 'C')
+        res.setitem(0, self.value)
+        return res
 
 class VirtualArray(BaseArray):
     """

@@ -469,6 +469,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         y = z.reshape(4, 3, 8)
         assert y.shape == (4, 3, 8)
 
+    def test_scalar_reshape(self):
+        from numpypy import array
+        a = array(3)
+        assert a.reshape([1, 1]).shape == (1, 1)
+        assert a.reshape([1]).shape == (1,)
+        raises(ValueError, "a.reshape(3)")
+
     def test_add(self):
         from _numpypy import array
         a = array(range(5))
@@ -1104,6 +1111,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_flatten(self):
         from _numpypy import array
 
+        assert array(3).flatten().shape == (1,)
         a = array([[1, 2], [3, 4]])
         b = a.flatten()
         c = a.ravel()
