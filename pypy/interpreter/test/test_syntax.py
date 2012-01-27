@@ -260,19 +260,17 @@ print("Hello,", "person", file=s)
 class AppTestUnicodeLiterals:
 
     def test_simple(self):
-        s = """from __future__ import unicode_literals
+        s = """
 x = 'u'
 y = r'u'
-z = u'u'
 b = b'u'
 c = br'u'"""
         ns = {}
         exec(s, ns)
-        assert isinstance(ns["x"], unicode)
-        assert isinstance(ns["y"], unicode)
-        assert isinstance(ns["z"], unicode)
-        assert isinstance(ns["b"], str)
-        assert isinstance(ns["c"], str)
+        assert isinstance(ns["x"], str)
+        assert isinstance(ns["y"], str)
+        assert isinstance(ns["b"], bytes)
+        assert isinstance(ns["c"], bytes)
 
 
 class AppTestComprehensions:
