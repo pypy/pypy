@@ -380,6 +380,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_flat_iter(self):
         result = self.run("flat_iter")
         assert result == 6
+        self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
                                 'int_ge': 1, 'guard_false': 1,
@@ -395,22 +396,44 @@ class TestNumpyJIt(LLJitMixin):
     def test_flat_getitem(self):
         result = self.run("flat_getitem")
         assert result == 10.0
-        #self.check_trace_count(1)
-        #self.check_simple_loop({})
+        self.check_trace_count(1)
+        self.check_simple_loop({'getinteriorfield_raw': 1,
+                                'setinteriorfield_raw': 1,
+                                'int_lt': 1,
+                                'int_ge': 1,
+                                'int_add': 3,
+                                'guard_true': 1,
+                                'guard_false': 1,
+                                'arraylen_gc': 2,
+                                'jump': 1})
 
     def define_flat_setitem():
         return '''
         a = |30|
         b = flat(a)
-        b -> 4: = a->:26
+        b[4:] = a->:26
         a -> 5
         '''
 
     def test_flat_setitem(self):
         result = self.run("flat_setitem")
         assert result == 1.0
-        #self.check_trace_count(1)
-        #self.check_simple_loop({})
+        self.check_trace_count(1)
+        # XXX not ideal, but hey, let's ignore it for now
+        self.check_simple_loop({'getinteriorfield_raw': 1,
+                                'setinteriorfield_raw': 1,
+                                'int_lt': 1,
+                                'int_gt': 1,
+                                'int_add': 4,
+                                'guard_true': 2,
+                                'arraylen_gc': 2,
+                                'jump': 1,
+                                'int_sub': 1,
+                                # XXX bad part
+                                'int_and': 1,
+                                'int_mod': 1,
+                                'int_rshift': 1,
+                                })
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

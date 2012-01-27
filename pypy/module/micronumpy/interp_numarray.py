@@ -1549,7 +1549,6 @@ class W_FlatIterator(ViewArray):
                                              ai=ai,
                                              lngth=lngth,
                                             ) 
-            # TODO: add jit_merge_point?
             v = arr.getitem(ai).convert_to(base.dtype)
             base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
