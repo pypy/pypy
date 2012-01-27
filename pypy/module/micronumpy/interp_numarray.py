@@ -272,8 +272,14 @@ class BaseArray(Wrappable):
     def descr_copy(self, space):
         return self.copy(space)
 
-    def descr_flatten(self, space):
-        return self.flatten(space)
+    def descr_flatten(self, space, w_order=None):
+        if isinstance(self, Scalar):
+            return self.copy(space)
+        concr = self.get_concrete()
+        w_res = concr.descr_ravel(space, w_order)
+        if w_res.storage == concr.storage:
+            return w_res.copy(space)
+        return w_res
 
     def copy(self, space):
         return self.get_concrete().copy(space)
@@ -281,9 +287,6 @@ class BaseArray(Wrappable):
     def empty_copy(self, space, dtype):
         shape = self.shape
         return W_NDimArray(support.product(shape), shape[:], dtype, 'C')
-
-    def flatten(self, space):
-        return self.get_concrete().flatten(space)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -681,11 +684,6 @@ class Scalar(BaseArray):
     def copy(self, space):
         return Scalar(self.dtype, self.value)
 
-    def flatten(self, space):
-        array = W_NDimArray(self.size, [self.size], self.dtype)
-        array.setitem(0, self.value)
-        return array
-
     def fill(self, space, w_value):
         self.value = self.dtype.coerce(space, w_value)
 
@@ -979,15 +977,6 @@ class ConcreteArray(BaseArray):
     def copy(self, space):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
         array.setslice(space, self)
-        return array
-
-    def flatten(self, space):
-        array = W_NDimArray(self.size, [self.size], self.dtype, self.order)
-        if self.supports_fast_slicing():
-            array._fast_setslice(space, self)
-        else:
-            arr = SliceArray(array.shape, array.dtype, array, self, no_broadcast=True)
-            array._sliceloop(arr)
         return array
 
     def fill(self, space, w_value):

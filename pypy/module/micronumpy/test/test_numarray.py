@@ -1104,6 +1104,12 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_flatten(self):
         from _numpypy import array
 
+        a = array([[1, 2], [3, 4]])
+        b = a.flatten()
+        c = a.ravel()
+        a[0, 0] = 15
+        assert b[0] == 1
+        assert c[0] == 15
         a = array([[1, 2, 3], [4, 5, 6]])
         assert (a.flatten() == [1, 2, 3, 4, 5, 6]).all()
         a = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
