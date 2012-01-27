@@ -32,7 +32,8 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative", "flat"]
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
+                        "unegative", "flat"]
 
 class FakeSpace(object):
     w_ValueError = None

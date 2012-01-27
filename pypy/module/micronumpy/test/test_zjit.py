@@ -372,12 +372,13 @@ class TestNumpyJIt(LLJitMixin):
     def define_flat_iter():
         return '''
         a = |30|
-        flat(a)
+        b = flat(a)
+        b -> 3
         '''
 
     def test_flat_iter(self):
         result = self.run("flat_iter")
-        assert result == 0
+        assert result == 3
 
     def define_flat_getitem():
         return '''
