@@ -312,8 +312,9 @@ if 1:
         with acontext:
             pass
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontext = ns['acontext']
         assert acontext.calls == '__enter__ __exit__'.split()
 
     def test_compound_with(self):
@@ -357,7 +358,9 @@ if 1:
         with acontext:
             pass
 """
-        exec(s)
+        ns = {}
+        exec(s, ns)
+        acontext = ns['acontext']
         assert acontext.calls == '__enter__ __exit__'.split()
 
     def test_raw_doc_string(self):
@@ -371,9 +374,10 @@ class Context(object):
         exit = True
 with Context() as w:
     pass"""
-        exec(s)
-        assert enter
-        assert exit
+        ns = {}
+        exec(s, ns)
+        assert ns['enter']
+        assert ns['exit']
 
     def test_with_as_var(self):
 
@@ -396,8 +400,9 @@ if 1:
             avar.append('__body__')
             pass
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
         assert acontextfact.exit_params == (None, None, None)
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
 
@@ -429,8 +434,10 @@ if 1:
         else:
             raise AssertionError('With did not raise RuntimeError')
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
+        error = ns['error']
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
@@ -460,8 +467,10 @@ if 1:
             raise error
             avar.append('__after_raise__')
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
+        error = ns['error']
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
@@ -493,8 +502,9 @@ if 1:
         else:
             raise AssertionError('Break failed with With, reached else clause')
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
@@ -524,8 +534,9 @@ if 1:
         else:
             avar.append('__continue__')
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
         assert acontextfact.calls == '__enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
@@ -553,8 +564,9 @@ if 1:
                 avar.append('__after_return__')
         acontextfact.calls.append(g(acontextfact))
         """
-        exec(s)
-
+        ns = {}
+        exec(s, ns)
+        acontextfact = ns['acontextfact']
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
