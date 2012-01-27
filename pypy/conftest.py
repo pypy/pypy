@@ -10,6 +10,10 @@ from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
 from pypy.tool import leakfinder, runsubprocess
 
+PYTHON3 = py.path.local.sysfind('python3')
+if PYTHON3 is not None:
+    PYTHON3 = str(PYTHON3)
+
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
@@ -25,8 +29,6 @@ def pytest_report_header():
 def pytest_configure(config):
     global option
     option = config.option
-    if option.appdirect:
-        option.runappdirect = True
 
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
@@ -41,9 +43,10 @@ def pytest_addoption(parser):
            help="view translation tests' flow graphs with Pygame")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
-           help="run applevel tests directly on python interpreter (not through PyPy)")
-    group.addoption('--appdirect', type="string",
-           help="run applevel tests directly with the specified interpreter")
+           help="run applevel tests directly on the python interpreter " +
+                "specified by --python")
+    group.addoption('--python', type="string", default=PYTHON3,
+           help="python interpreter to run appdirect tests with")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
@@ -195,6 +198,8 @@ def translation_test_so_skip_if_appdirect():
         py.test.skip("translation test, skipped for appdirect")
 
 def run_with_python(python, target):
+    if python is None:
+        py.test.skip("Cannot find the default python3 interpreter to run with -A")
     helpers = """if 1:
     def skip(message):
         print(message)
@@ -424,7 +429,7 @@ class AppTestFunction(py.test.collect.Function):
         target = self.obj
         src = extract_docstring_if_empty_function(target)
         if self.config.option.runappdirect:
-            return run_appdirect_or_skip(self.config, target, src)
+            return run_with_python(self.config.option.python, src)
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
@@ -468,23 +473,12 @@ class AppTestMethod(AppTestFunction):
         target = self.obj
         src = extract_docstring_if_empty_function(target.im_func)
         if self.config.option.runappdirect:
-            return run_appdirect_or_skip(self.config, target, src)
+            return run_with_python(self.config.option.python, src)
         space = target.im_self.space
         filename = self._getdynfilename(target)
         func = app2interp_temp(src, filename=filename)
         w_instance = self.parent.w_instance
         self.execute_appex(space, func, space, w_instance)
-
-def run_appdirect_or_skip(config, target, src):
-    if config.option.appdirect:
-        return run_with_python(config.option.appdirect, src)
-    if isinstance(src, str):
-        # we are trying to directly run a test whose code is inside
-        # the docstring. This cannot work because the code might
-        # contain py3k-only syntax, while we are on a python2 hosting
-        # python. So, we just skip the test
-        py.test.skip('Cannot run docstring-tests with -A')
-    return target()
 
 
 def extract_docstring_if_empty_function(fn):
