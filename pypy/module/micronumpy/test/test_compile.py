@@ -245,3 +245,11 @@ class TestRunner(object):
         a -> 3
         """)
         assert interp.results[0].value == 11
+
+    def test_flat_iter(self):
+        interp = self.run('''
+        a = |30|
+        b = flat(a)
+        b -> 3
+        ''')
+        assert interp.results[0].value == 3

@@ -32,7 +32,8 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
+                        "unegative", "flat"]
 
 class FakeSpace(object):
     w_ValueError = None
@@ -396,6 +397,8 @@ class FunctionCall(Node):
             elif self.name == "unegative":
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
+            elif self.name == "flat":
+                w_res = arr.descr_get_flatiter(interp.space)
             else:
                 assert False # unreachable code
             if isinstance(w_res, BaseArray):

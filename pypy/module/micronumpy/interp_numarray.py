@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
      interp_boxes
-from pypy.module.micronumpy.strides import calculate_slice_strides
+from pypy.module.micronumpy.strides import calculate_slice_strides, to_coords
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
@@ -57,6 +57,18 @@ filter_set_driver = jit.JitDriver(
     virtualizables=['frame'],
     reds=['idx', 'idxi', 'frame', 'arr'],
     name='numpy_filterset',
+)
+
+flat_get_driver = jit.JitDriver(
+    greens=['shapelen', 'base'],
+    reds=['step', 'ri', 'basei', 'res'],
+    name='numpy_flatget',
+)
+
+flat_set_driver = jit.JitDriver(
+    greens=['shapelen', 'base'],
+    reds=['step', 'ai', 'lngth', 'arr', 'basei'],
+    name='numpy_flatset',
 )
 
 def _find_shape_and_elems(space, w_iterable):
@@ -1455,31 +1467,119 @@ class W_FlatIterator(ViewArray):
     @jit.unroll_safe
     def __init__(self, arr):
         arr = arr.get_concrete()
-        size = 1
-        for sh in arr.shape:
-            size *= sh
-        self.strides = [arr.strides[-1]]
-        self.backstrides = [arr.backstrides[-1]]
-        ViewArray.__init__(self, size, [size], arr.dtype, arr.order,
-                               arr)
         self.shapelen = len(arr.shape)
-        self.iter = OneDimIterator(arr.start, self.strides[0],
-                                   self.shape[0])
+        sig = arr.find_sig()
+        self.iter = sig.create_frame(arr).get_final_iter()
+        self.base = arr
+        self.index = 0
+        ViewArray.__init__(self, arr.size, [arr.size], arr.dtype, arr.order, arr)
 
     def descr_next(self, space):
         if self.iter.done():
             raise OperationError(space.w_StopIteration, space.w_None)
-        result = self.getitem(self.iter.offset)
+        result = self.base.getitem(self.iter.offset)
         self.iter = self.iter.next(self.shapelen)
+        self.index += 1
         return result
 
     def descr_iter(self):
         return self
 
+    def descr_index(self, space):
+        return space.wrap(self.index)
+
+    def descr_coords(self, space):
+        coords, step, lngth = to_coords(space, self.base.shape, 
+                            self.base.size, self.base.order, 
+                            space.wrap(self.index))
+        return space.newtuple([space.wrap(c) for c in coords])
+
+    @jit.unroll_safe
+    def descr_getitem(self, space, w_idx):
+        if not (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap('unsupported iterator index'))
+        base = self.base
+        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
+        # setslice would have been better, but flat[u:v] for arbitrary
+        # shapes of array a cannot be represented as a[x1:x2, y1:y2]
+        basei = ViewIterator(base.start, base.strides,
+                               base.backstrides,base.shape)
+        shapelen = len(base.shape)
+        basei = basei.next_skip_x(shapelen, start)
+        if lngth <2:
+            return base.getitem(basei.offset)
+        ri = ArrayIterator(lngth)
+        res = W_NDimArray(lngth, [lngth], base.dtype,
+                                    base.order)
+        while not ri.done():
+            flat_get_driver.jit_merge_point(shapelen=shapelen,
+                                             base=base,
+                                             basei=basei,
+                                             step=step,
+                                             res=res,
+                                             ri=ri,
+                                            ) 
+            w_val = base.getitem(basei.offset)
+            res.setitem(ri.offset,w_val)
+            basei = basei.next_skip_x(shapelen, step)
+            ri = ri.next(shapelen)
+        return res
+
+    def descr_setitem(self, space, w_idx, w_value):
+        if not (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap('unsupported iterator index'))
+        base = self.base
+        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
+        arr = convert_to_array(space, w_value)
+        ai = 0
+        basei = ViewIterator(base.start, base.strides,
+                               base.backstrides,base.shape)
+        shapelen = len(base.shape)
+        basei = basei.next_skip_x(shapelen, start)
+        while lngth > 0:
+            flat_set_driver.jit_merge_point(shapelen=shapelen,
+                                             basei=basei,
+                                             base=base,
+                                             step=step,
+                                             arr=arr,
+                                             ai=ai,
+                                             lngth=lngth,
+                                            ) 
+            v = arr.getitem(ai).convert_to(base.dtype)
+            base.setitem(basei.offset, v)
+            # need to repeat input values until all assignments are done
+            ai = (ai + 1) % arr.size
+            basei = basei.next_skip_x(shapelen, step)
+            lngth -= 1
+
+    def create_sig(self):
+        return signature.FlatSignature(self.base.dtype)
+
+    def descr_base(self, space):
+        return space.wrap(self.base)
+
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
-    next = interp2app(W_FlatIterator.descr_next),
+    #__array__  = #MISSING
     __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __getitem__ = interp2app(W_FlatIterator.descr_getitem),
+    __setitem__ = interp2app(W_FlatIterator.descr_setitem),
+    __eq__ = interp2app(BaseArray.descr_eq),
+    __ne__ = interp2app(BaseArray.descr_ne),
+    __lt__ = interp2app(BaseArray.descr_lt),
+    __le__ = interp2app(BaseArray.descr_le),
+    __gt__ = interp2app(BaseArray.descr_gt),
+    __ge__ = interp2app(BaseArray.descr_ge),
+    #__sizeof__ #MISSING
+    base = GetSetProperty(W_FlatIterator.descr_base),
+    index = GetSetProperty(W_FlatIterator.descr_index),
+    coords = GetSetProperty(W_FlatIterator.descr_coords),
+    next = interp2app(W_FlatIterator.descr_next),
+
 )
 W_FlatIterator.acceptable_as_base_class = False
 

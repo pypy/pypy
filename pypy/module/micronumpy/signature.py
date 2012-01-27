@@ -224,6 +224,18 @@ class ViewSignature(ArraySignature):
         return ViewIterator(arr.start, arr.strides, arr.backstrides,
                             arr.shape).apply_transformations(arr, transforms)
 
+class FlatSignature(ViewSignature):
+    def debug_repr(self):
+        return 'Flat'
+
+    def allocate_iter(self, arr, transforms):
+        from pypy.module.micronumpy.interp_numarray import W_FlatIterator
+        assert isinstance(arr, W_FlatIterator)
+        return ViewIterator(arr.base.start, arr.base.strides, 
+                    arr.base.backstrides,
+                    arr.base.shape).apply_transformations(arr.base,
+                                                         transforms)
+
 class VirtualSliceSignature(Signature):
     def __init__(self, child):
         self.child = child

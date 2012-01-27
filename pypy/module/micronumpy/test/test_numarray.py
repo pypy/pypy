@@ -301,6 +301,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == b[i]
 
+    def test_getitem_nd(self):
+        from _numpypy import arange
+        a = arange(15).reshape(3, 5)
+        assert a[1, 3] == 8
+        assert a.T[1, 2] == 11 
+
     def test_setitem(self):
         from _numpypy import array
         a = array(range(5))
@@ -974,7 +980,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert debug_repr(a + a) == 'Call2(add, Array, Array)'
         assert debug_repr(a[::2]) == 'Slice'
         assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
-        assert debug_repr(a + a.flat) == 'Call2(add, Array, Slice)'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, Flat)'
         assert debug_repr(sin(a)) == 'Call1(sin, Array)'
 
         b = a + a
@@ -1343,7 +1349,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert(b[:, 0] == a[0, :]).all()
 
     def test_flatiter(self):
-        from _numpypy import array, flatiter
+        from _numpypy import array, flatiter, arange
         a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
@@ -1356,6 +1362,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         for k in a.flat:
             s += k
         assert s == 140
+        a = arange(10).reshape(5, 2)
+        raises(IndexError, 'a.flat[(1, 2)]')
+        assert a.flat.base is a
 
     def test_flatiter_array_conv(self):
         from _numpypy import array, dot
@@ -1366,6 +1375,75 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from _numpypy import ones
         a = ones((2, 2))
         assert list(((a + a).flat)) == [2, 2, 2, 2]
+
+    def test_flatiter_getitem(self):
+        from _numpypy import arange
+        a = arange(10)
+        assert a.flat[3] == 3
+        assert a[2:].flat[3] == 5
+        assert (a + a).flat[3] == 6
+        assert a[::2].flat[3] == 6
+        assert a.reshape(2,5).flat[3] == 3
+        b = a.reshape(2,5).flat
+        b.next()
+        b.next()
+        b.next()
+        assert b[3] == 3
+        assert (b[::3] == [0, 3, 6, 9]).all()
+        assert (b[2::5] == [2, 7]).all()
+        assert b[-2] == 8
+        raises(IndexError, "b[11]")
+        raises(IndexError, "b[-11]")
+        raises(IndexError, 'b[0, 1]')
+        assert b.index == 3
+        assert b.coords == (0,3)
+
+    def test_flatiter_setitem(self):
+        from _numpypy import arange, array
+        a = arange(12).reshape(3,4)
+        b = a.T.flat
+        b[6::2] = [-1, -2]
+        assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
+        b[0:2] = [[[100]]]
+        assert(a[0,0] == 100)
+        assert(a[1,0] == 100)
+        raises(IndexError, 'b[array([10, 11])] == [-20, -40]')
+
+    def test_flatiter_ops(self):
+        from _numpypy import arange, array
+        a = arange(12).reshape(3,4)
+        b = a.T.flat
+        assert (b == [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).all()
+        assert not (b != [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).any()
+        assert ((b >= range(12)) == [True, True, True,False, True, True, 
+                             False, False, True, False, False, True]).all()
+        assert ((b < range(12)) != [True, True, True,False, True, True, 
+                             False, False, True, False, False, True]).all()
+        assert ((b <= range(12)) != [False, True, True,False, True, True, 
+                            False, False, True, False, False, False]).all()
+        assert ((b > range(12)) == [False, True, True,False, True, True, 
+                            False, False, True, False, False, False]).all()
+    def test_flatiter_view(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        #no == yet.
+        # a[::2].flat == [0, 1, 4, 5, 8, 9]
+        isequal = True
+        for y,z in zip(a[::2].flat, [0, 1, 4, 5, 8, 9]):
+            if y != z:
+                isequal = False
+        assert isequal == True
+
+    def test_flatiter_transpose(self):
+        from _numpypy import arange
+        a = arange(10).reshape(2,5).T
+        b = a.flat
+        assert (b[:5] == [0, 5, 1, 6, 2]).all()
+        b.next()
+        b.next()
+        b.next()
+        assert b.index == 3
+        assert b.coords == (1,1)
 
     def test_slice_copy(self):
         from _numpypy import zeros
