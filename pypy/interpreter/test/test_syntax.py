@@ -164,8 +164,9 @@ class AppTestCondExpr:
     def test_condexpr(self):
         for s, expected in [("x = 1 if True else 2", 1),
                             ("x = 1 if False else 2", 2)]:
-            exec(s)
-            assert x == expected
+            ns = {}
+            exec(s, ns)
+            assert ns['x'] == expected
 
     def test_condexpr_no_warning(self):
         import warnings
