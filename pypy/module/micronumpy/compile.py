@@ -398,7 +398,7 @@ class FunctionCall(Node):
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "flat":
-                w_res = arr.descr_flat(interp.space)
+                w_res = arr.descr_get_flatiter(interp.space)
             else:
                 assert False # unreachable code
             if isinstance(w_res, BaseArray):
