@@ -30,7 +30,7 @@ class BaseTestCompiler:
     def test_compile_command(self):
         for mode in ('single', 'exec'):
             c0 = self.compiler.compile_command('\t # hello\n ', '?', mode, 0)
-            c1 = self.compiler.compile_command('print 6*7', '?', mode, 0)
+            c1 = self.compiler.compile_command('print(6*7)', '?', mode, 0)
             c2 = self.compiler.compile_command('if 1:\n  x\n', '?', mode, 0)
             c8 = self.compiler.compile_command('x = 5', '?', mode, 0)
             c9 = self.compiler.compile_command('x = 5 ', '?', mode, 0)
