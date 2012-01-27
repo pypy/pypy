@@ -285,7 +285,7 @@ class BaseArray(Wrappable):
     def descr_flatten(self, space, w_order=None):
         if isinstance(self, Scalar):
             # scalars have no storage
-            return self.descr_reshape(space, [space.wrap([1])])
+            return self.descr_reshape(space, [space.wrap(1)])
         concr = self.get_concrete()
         w_res = concr.descr_ravel(space, w_order)
         if w_res.storage == concr.storage:
