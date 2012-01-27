@@ -238,13 +238,13 @@ class x: pass"""
 class AppTestPrintFunction:
 
     def test_simple_print(self):
-        import __builtin__
-        s = """from __future__ import print_function
-x = print
-"""
+        """
+        import builtins
+        s = "x = print"
         ns = {}
         exec(s, ns)
-        assert ns["x"] is getattr(__builtin__, "print")
+        assert ns["x"] is builtins.print
+        """
 
     def test_print(self):
         s = """from __future__ import print_function
