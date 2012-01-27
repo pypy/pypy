@@ -84,14 +84,14 @@ class IDesc(object):
         self.defaults = self.defaults + ((self.fieldmap[f], v),)
         return self
 
-    def call(self, **more_specializatons):
+    def __call__(self, **more_specializatons):
         s = self.specializations.copy()
         ms = {}
         ds = {}
         for fname, v in more_specializatons.iteritems():
             field = self.fieldmap[fname]
             if field not in self.fields:
-                raise FormException, "don't know about '%s' here"%k
+                raise FormException, "don't know about '%s' here" % field
             if isinstance(v, str):
                 ds[field] = self.fieldmap[v]
             else:
