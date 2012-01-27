@@ -287,6 +287,27 @@ class TestNumpyJIt(LLJitMixin):
                                 'jump': 1,
                                 'arraylen_gc': 1})
 
+    def define_take():
+        return """
+        a = |10|
+        b = take(a, [1, 1, 3, 2])
+        b -> 2
+        """
+
+    def test_take(self):
+        result = self.run("take")
+        assert result == 3
+        self.check_simple_loop({'getinteriorfield_raw': 2,
+                                'cast_float_to_int': 1,
+                                'int_lt': 1,
+                                'int_ge': 2,
+                                'guard_false': 3,
+                                'setinteriorfield_raw': 1,
+                                'int_mul': 1,
+                                'int_add': 3,
+                                'jump': 1,
+                                'arraylen_gc': 2})
+
     def define_multidim():
         return """
         a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]

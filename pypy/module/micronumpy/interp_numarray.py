@@ -63,7 +63,7 @@ filter_set_driver = jit.JitDriver(
 )
 take_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
-    reds=['index_i', 'res_i', 'concr'],
+    reds=['index_i', 'res_i', 'concr', 'index', 'res'],
     name='numpy_take',
 )
 
@@ -614,20 +614,24 @@ class BaseArray(Wrappable):
             size *= elem
         res = W_NDimArray(size, res_shape[:], concr.dtype, concr.order)
         res_i = res.create_iter()
-        longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
         shapelen = len(index.shape)
         sig = concr.find_sig()
         while not index_i.done():
-            take_driver.jit_merge_point(index_i=index_i,
+            take_driver.jit_merge_point(index_i=index_i, index=index,
                                         res_i=res_i, concr=concr,
+                                        res=res,
                                         shapelen=shapelen, sig=sig)
-            # XXX jitdriver + test_zjit
-            w_item = index.getitem(index_i.offset).convert_to(longdtype).item(
-                space)
+            w_item = index._getitem_long(space, index_i.offset)
             res.setitem(res_i.offset, concr.descr_getitem(space, w_item))
             index_i = index_i.next(shapelen)
             res_i = res_i.next(shapelen)
         return res
+
+    def _getitem_long(self, space, offset):
+        # an obscure hack to not have longdtype inside a jitted loop
+        longdtype = interp_dtype.get_dtype_cache(space).w_longdtype
+        return self.getitem(offset).convert_to(longdtype).item(
+            space)
 
     def descr_item(self, space, w_arg=None):
         if space.is_w(w_arg, space.w_None):

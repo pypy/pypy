@@ -55,6 +55,9 @@ class FakeSpace(object):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
 
+    def _freeze_(self):
+        return True
+
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
@@ -145,6 +148,9 @@ class FakeSpace(object):
 
     def allocate_instance(self, klass, w_subtype):
         return instantiate(klass)
+
+    def newtuple(self, list_w):
+        raise ValueError
 
     def len_w(self, w_obj):
         if isinstance(w_obj, ListObject):
