@@ -2,18 +2,19 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature,\
-     interp_boxes
-from pypy.module.micronumpy.strides import calculate_slice_strides,\
-     shape_agreement, find_shape_and_elems, get_shape_from_iterable,\
-     calc_new_strides, to_coords
+from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
+    signature, support)
+from pypy.module.micronumpy.strides import (calculate_slice_strides,
+    shape_agreement, find_shape_and_elems, get_shape_from_iterable,
+    calc_new_strides, to_coords)
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import ArrayIterator, OneDimIterator,\
-     SkipLastAxisIterator, Chunk, ViewIterator
+from pypy.module.micronumpy.interp_iter import (ArrayIterator, OneDimIterator,
+    SkipLastAxisIterator, Chunk, ViewIterator)
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
+
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -279,10 +280,7 @@ class BaseArray(Wrappable):
 
     def empty_copy(self, space, dtype):
         shape = self.shape
-        size = 1
-        for elem in shape:
-            size *= elem
-        return W_NDimArray(size, shape[:], dtype, 'C')
+        return W_NDimArray(support.product(shape), shape[:], dtype, 'C')
 
     def flatten(self, space):
         return self.get_concrete().flatten(space)
@@ -609,9 +607,7 @@ class BaseArray(Wrappable):
                                  space.wrap("axis unsupported for take"))
         index_i = index.create_iter()
         res_shape = index.shape
-        size = 1
-        for elem in res_shape:
-            size *= elem
+        size = support.product(res_shape)
         res = W_NDimArray(size, res_shape[:], concr.dtype, concr.order)
         res_i = res.create_iter()
         shapelen = len(index.shape)
@@ -755,12 +751,9 @@ class VirtualArray(BaseArray):
 
 class VirtualSlice(VirtualArray):
     def __init__(self, child, chunks, shape):
-        size = 1
-        for sh in shape:
-            size *= sh
         self.child = child
         self.chunks = chunks
-        self.size = size
+        self.size = support.product(shape)
         VirtualArray.__init__(self, 'slice', shape, child.find_dtype())
 
     def create_sig(self):
@@ -806,9 +799,7 @@ class Call2(VirtualArray):
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
-        self.size = 1
-        for s in self.shape:
-            self.size *= s
+        self.size = support.product(self.shape)
 
     def _del_sources(self):
         self.left = None
@@ -1013,13 +1004,10 @@ class W_NDimSlice(ViewArray):
         assert isinstance(parent, ConcreteArray)
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
-        size = 1
-        for sh in shape:
-            size *= sh
         self.strides = strides
         self.backstrides = backstrides
-        ViewArray.__init__(self, size, shape, parent.dtype, parent.order,
-                               parent)
+        ViewArray.__init__(self, support.product(shape), shape, parent.dtype,
+                           parent.order, parent)
         self.start = start
 
     def create_iter(self):
@@ -1180,10 +1168,7 @@ def count_reduce_items(space, arr, w_axis=None, skipna=False, keepdims=True):
     if not keepdims:
         raise OperationError(space.w_NotImplementedError, space.wrap("unsupported"))
     if space.is_w(w_axis, space.w_None):
-        s = 1
-        for elem in arr.shape:
-            s *= elem
-        return space.wrap(s)
+        return space.wrap(support.product(arr.shape))
     if space.isinstance_w(w_axis, space.w_int):
         return space.wrap(arr.shape[space.int_w(w_axis)])
     s = 1
@@ -1221,10 +1206,7 @@ def concatenate(space, w_args, axis=0):
                     "array dimensions must agree except for axis being concatenated"))
             elif i == axis:
                 shape[i] += axis_size
-    size = 1
-    for elem in shape:
-        size *= elem
-    res = W_NDimArray(size, shape, dtype, 'C')
+    res = W_NDimArray(support.product(shape), shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
@@ -1317,9 +1299,7 @@ class W_FlatIterator(ViewArray):
     @jit.unroll_safe
     def __init__(self, arr):
         arr = arr.get_concrete()
-        size = 1
-        for sh in arr.shape:
-            size *= sh
+        size = support.product(arr.shape)
         self.strides = [arr.strides[-1]]
         self.backstrides = [arr.backstrides[-1]]
         ViewArray.__init__(self, size, [size], arr.dtype, arr.order,

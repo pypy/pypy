@@ -7,8 +7,9 @@ from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
+
+MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
-MIXIN_32 = () if LONG_BIT == 64 else (int_typedef,)
 
 def new_dtype_getter(name):
     def get_dtype(space):

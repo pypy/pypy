@@ -2,12 +2,13 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype
-from pypy.module.micronumpy.signature import ReduceSignature,\
-     find_sig, new_printable_location, AxisReduceSignature, ScalarSignature
+from pypy.module.micronumpy import interp_boxes, interp_dtype, support
+from pypy.module.micronumpy.signature import (ReduceSignature, find_sig,
+    new_printable_location, AxisReduceSignature, ScalarSignature)
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+
 
 reduce_driver = jit.JitDriver(
     greens=['shapelen', "sig"],
@@ -185,10 +186,7 @@ class W_Ufunc(Wrappable):
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
             shape = obj.shape[:dim] + obj.shape[dim + 1:]
-        size = 1
-        for s in shape:
-            size *= s
-        result = W_NDimArray(size, shape, dtype)
+        result = W_NDimArray(support.product(shape), shape, dtype)
         rightsig = obj.create_sig()
         # note - this is just a wrapper so signature can fetch
         #        both left and right, nothing more, especially
