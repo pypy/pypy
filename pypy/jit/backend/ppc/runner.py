@@ -37,6 +37,8 @@ class PPC_64_CPU(AbstractLLCPU):
         self.supports_floats = False
         self.total_compiled_loops = 0
         self.total_compiled_bridges = 0
+
+    def setup(self):
         self.asm = AssemblerPPC(self)
 
     def setup_once(self):
@@ -113,7 +115,13 @@ class PPC_64_CPU(AbstractLLCPU):
 
     def get_latest_value_ref(self, index):
         return self.asm.fail_boxes_ptr.getitem(index)
+
+    def get_latest_force_token(self):
+        return self.asm.fail_force_index
     
+    def get_on_leave_jitted_hook(self):
+        return self.asm.leave_jitted_hook
+
     # walk through the given trace and generate machine code
     def _walk_trace_ops(self, codebuilder, operations):
         for op in operations:
