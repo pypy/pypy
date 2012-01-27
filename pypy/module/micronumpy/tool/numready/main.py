@@ -118,6 +118,6 @@ def main(argv):
         with open(argv[2], 'w') as f:
             f.write(html.encode("utf-8"))
     else:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as f:
             f.write(html.encode("utf-8"))
         print "Saved in: %s" % f.name
