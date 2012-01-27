@@ -246,7 +246,7 @@ class FunctionScope(Scope):
             self.return_with_value = True
             self.ret = ret
 
-    def note_import_star(self):
+    def note_import_star(self, imp):
         return True
 
     def note_variable_arg(self, vararg):
