@@ -79,6 +79,8 @@ def getcpuclassname(backend_name="auto"):
         return "pypy.jit.backend.arm.runner", "ArmCPU"
     elif backend_name == 'ppc64':
         return "pypy.jit.backend.ppc.runner", "PPC_64_CPU"
+    elif backend_name == 'ppc64_64':
+        return "pypy.jit.backend.ppc.runner", "PPC_64_CPU"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
