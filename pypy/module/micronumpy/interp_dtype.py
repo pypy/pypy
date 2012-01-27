@@ -100,7 +100,8 @@ class W_Dtype(Wrappable):
         return space.wrap(not self.eq(space, w_other))
 
     def is_int_type(self):
-        return self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR
+        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
+                self.kind == BOOLLTR)
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -119,6 +120,7 @@ W_Dtype.typedef = TypeDef("dtype",
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
+    name = interp_attrproperty('name', cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

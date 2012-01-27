@@ -305,8 +305,8 @@ class Call1(Signature):
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
-        v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
-        return self.unfunc(arr.res_dtype, v)
+        v = self.child.eval(frame, arr.values).convert_to(arr.calc_dtype)
+        return self.unfunc(arr.calc_dtype, v)
 
 class Call2(Signature):
     _immutable_fields_ = ['binfunc', 'name', 'calc_dtype', 'left', 'right']

@@ -8,8 +8,8 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
 
+MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
-MIXIN_32 = () if LONG_BIT == 64 else (int_typedef,)
 
 def new_dtype_getter(name):
     def get_dtype(space):
@@ -28,6 +28,7 @@ class PrimitiveBox(object):
 
     def convert_to(self, dtype):
         return dtype.box(self.value)
+
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
@@ -94,7 +95,7 @@ class W_GenericBox(Wrappable):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
 
-    def descr_tolist(self, space):
+    def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
 
@@ -105,7 +106,8 @@ class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
-    pass
+    def int_w(self, space):
+        return space.int_w(self.descr_int(space))
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -188,7 +190,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
 
-    tolist = interp2app(W_GenericBox.descr_tolist),
+    tolist = interp2app(W_GenericBox.item),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
@@ -278,3 +280,4 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
+

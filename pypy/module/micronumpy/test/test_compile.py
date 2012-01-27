@@ -253,3 +253,11 @@ class TestRunner(object):
         b -> 3
         ''')
         assert interp.results[0].value == 3
+
+    def test_take(self):
+        interp = self.run("""
+        a = |10|
+        b = take(a, [1, 1, 3, 2])
+        b -> 2
+        """)
+        assert interp.results[0].value == 3

@@ -11,6 +11,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype('int8').num == 1
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
+        assert dtype('int8').name == 'int8'
         raises(TypeError, dtype, 1042)
 
     def test_dtype_eq(self):
@@ -38,7 +39,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from _numpypy import dtype
 
-        assert repr(dtype) == "<type 'numpypy.dtype'>"
+        assert '.dtype' in repr(dtype)
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
@@ -384,6 +385,11 @@ class AppTestTypes(BaseNumpyAppTest):
         b = X(10)
         assert type(b) is X
         assert b.m() == 12
+
+    def test_long_as_index(self):
+        skip("waiting for removal of multimethods of __index__")
+        from _numpypy import int_
+        assert (1, 2, 3)[int_(1)] == 2
 
     def test_int(self):
         import sys

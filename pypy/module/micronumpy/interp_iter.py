@@ -230,8 +230,13 @@ class ConstantIterator(BaseIterator):
 class AxisIterator(BaseIterator):
     def __init__(self, start, dim, shape, strides, backstrides):
         self.res_shape = shape[:]
-        self.strides = strides[:dim] + [0] + strides[dim:]
-        self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
+        if len(shape) == len(strides):
+            # keepdims = True
+            self.strides = strides[:dim] + [0] + strides[dim + 1:]
+            self.backstrides = backstrides[:dim] + [0] + backstrides[dim + 1:]
+        else:
+            self.strides = strides[:dim] + [0] + strides[dim:]
+            self.backstrides = backstrides[:dim] + [0] + backstrides[dim:]
         self.first_line = True
         self.indices = [0] * len(shape)
         self._done = False
