@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.conftest import gettestobjspace
 
-class BaseTestCompiler:
+class TestPythonAstCompiler:
     def setup_method(self, method):
         self.compiler = self.space.createcompiler()
 
@@ -652,11 +652,6 @@ def test():
         assert ex.match(space, space.w_SyntaxError)
         assert 'hello_world' in space.str_w(space.str(ex.get_w_value(space)))
 
-
-class TestPythonAstCompiler_25_grammar(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, "2.5")
-
     def test_from_future_import(self):
         source = """from __future__ import with_statement
 with somtehing as stuff:
@@ -707,10 +702,6 @@ with somtehing as stuff:
         else:
             py.test.fail("Did not raise")
 
-class TestECCompiler(BaseTestCompiler):
-    def setup_method(self, method):
-        self.compiler = self.space.getexecutioncontext().compiler
-
 
 class AppTestCompiler:
 
@@ -756,13 +747,6 @@ class AppTestCompiler:
         assert math.copysign(1., c[0]) == -1.0
         assert math.copysign(1., c[1]) == -1.0
 
-
-##class TestPythonAstCompiler(BaseTestCompiler):
-##    def setup_method(self, method):
-##        self.compiler = PythonAstCompiler(self.space, "2.4")
-
-##    def test_try_except_finally(self):
-##        py.test.skip("unsupported")
 
 class AppTestOptimizer:
 
