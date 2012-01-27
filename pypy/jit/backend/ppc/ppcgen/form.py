@@ -84,7 +84,7 @@ class IDesc(object):
         self.defaults = self.defaults + ((self.fieldmap[f], v),)
         return self
 
-    def __call__(self, **more_specializatons):
+    def call(self, **more_specializatons):
         s = self.specializations.copy()
         ms = {}
         ds = {}

@@ -32,6 +32,7 @@ def autodetect_main_model():
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
                 'ppc64': 'ppc64',
+                'ppc64_64': 'ppc64',
                 'x86_64': 'x86',
                 'amd64': 'x86',    # freebsd
                 'AMD64': 'x86',    # win64
@@ -78,6 +79,8 @@ def getcpuclassname(backend_name="auto"):
     elif backend_name == 'arm':
         return "pypy.jit.backend.arm.runner", "ArmCPU"
     elif backend_name == 'ppc64':
+        return "pypy.jit.backend.ppc.runner", "PPC_64_CPU"
+    elif backend_name == 'ppc64_64':
         return "pypy.jit.backend.ppc.runner", "PPC_64_CPU"
     else:
         raise ProcessorAutodetectError, (
