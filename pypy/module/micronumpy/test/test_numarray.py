@@ -184,7 +184,6 @@ class TestNumArrayDirect(object):
         assert _to_coords(-1, 'F') == [1, 2, 3]
         assert _to_coords(5, 'F') == [1, 2, 0]
         assert _to_coords(13, 'F') == [1, 0, 2]
-        
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_ndarray(self):
@@ -273,6 +272,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a[::2]
         c = b.copy()
         assert (c == b).all()
+        assert ((a + a).copy() == (a + a)).all()
 
         a = arange(15).reshape(5,3)
         b = a.copy()
@@ -1622,3 +1622,24 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
+
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+
+class AppTestRepr(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cache = get_appbridge_cache(cls.space)
+        cls.old_array_repr = cache.w_array_repr
+        cls.old_array_str = cache.w_array_str
+        cache.w_array_str = None
+        cache.w_array_repr = None
+
+    def test_repr_str(self):
+        from _numpypy import array
+        assert repr(array([1, 2, 3])) == 'array([1, 2, 3])'
+        assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
+
+    def teardown_class(cls):
+        cache = get_appbridge_cache(cls.space)
+        cache.w_array_repr = cls.old_array_repr
+        cache.w_array_str = cls.old_array_str
