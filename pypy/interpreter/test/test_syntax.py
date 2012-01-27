@@ -1,5 +1,6 @@
 import py
 import commands
+import pypy.conftest
 from pypy.conftest import gettestobjspace
 
 def splitcases(s):
@@ -94,9 +95,9 @@ for i in range(len(INVALID)):
 """ % (i, i, INVALID[i], INVALID[i])
 
 
-PYTHON3 = py.path.local.sysfind('python3')
 def checksyntax_cpython(tmpdir, i, s):
-    if PYTHON3 is None:
+    python3 = pypy.conftest.option.python
+    if python3 is None:
         print 'Warning: cannot run python3 to check syntax'
         return
 
@@ -112,7 +113,7 @@ else:
 ''' % s
     pyfile = tmpdir.join('checkvalid_%d.py' % i)
     pyfile.write(src)
-    res = commands.getoutput('"%s" "%s"' % (PYTHON3, pyfile))
+    res = commands.getoutput('"%s" "%s"' % (python3, pyfile))
     return res
 
 def checkvalid_cpython(tmpdir, i, s):
