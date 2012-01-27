@@ -25,6 +25,7 @@ from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
 from pypy.jit.backend.x86.support import values_array
 from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.backend.ppc.ppcgen.rassemblermaker import make_rassembler
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -960,7 +961,7 @@ class OverwritingBuilder(PPCAssembler):
         for i, new_inst in enumerate(self.insts):
             self.cb.insts[i + startindex] = new_inst
 
-class PPCBuilder(BlockBuilderMixin, PPCAssembler):
+class PPCBuilder(BlockBuilderMixin, make_rassembler(PPCAssembler)):
     def __init__(self, failargs_limit=1000, r0_in_use=False):
         PPCAssembler.__init__(self)
         self.init_block_builder()
