@@ -247,9 +247,9 @@ class AppTestPrintFunction:
         """
 
     def test_print(self):
-        s = """from __future__ import print_function
-import StringIO
-s = StringIO.StringIO()
+        s = """
+from io import StringIO
+s = StringIO()
 print("Hello,", "person", file=s)
 """
         ns = {}
