@@ -9,7 +9,7 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
-     scalar_w, W_NDimArray, array, W_FlatIterator)
+     scalar_w, W_NDimArray, array)
 from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize, instantiate
 
@@ -32,7 +32,7 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative", "flat"]
 
 class FakeSpace(object):
     w_ValueError = None
@@ -313,21 +313,6 @@ class RangeConstant(Node):
     def __repr__(self):
         return 'Range(%s)' % self.v
 
-class FlatIterFromRange(Node):
-    def __init__(self, v):
-        self.v = int(v)
-
-    def execute(self, interp):
-        w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)]
-        )
-        dtype = get_dtype_cache(interp.space).w_float64dtype
-        return W_FlatIterator(array(interp.space, w_list, w_dtype=dtype, 
-                                w_order=None))
-
-    def __repr__(self):
-        return 'FlatFromRange(%s)' % self.v
-
 class Code(Node):
     def __init__(self, statements):
         self.statements = statements
@@ -411,6 +396,8 @@ class FunctionCall(Node):
             elif self.name == "unegative":
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
+            elif self.name == "flat":
+                w_res = arr.descr_flat(interp.space)
             else:
                 assert False # unreachable code
             if isinstance(w_res, BaseArray):
@@ -437,7 +424,6 @@ _REGEXES = [
     ('=', 'assign'),
     (',', 'comma'),
     ('\|', 'pipe'),
-    ('\!', 'exclaim'),
     ('\(', 'paren_left'),
     ('\)', 'paren_right'),
 ]
@@ -544,10 +530,6 @@ class Parser(object):
                 stack.append(RangeConstant(tokens.pop().v))
                 end = tokens.pop()
                 assert end.name == 'pipe'
-            elif token.name == 'exclaim':
-                stack.append(FlatIterFromRange(tokens.pop().v))
-                end = tokens.pop()
-                assert end.name == 'exclaim'
             elif accept_comma and token.name == 'comma':
                 continue
             else:

@@ -371,7 +371,8 @@ class TestNumpyJIt(LLJitMixin):
                                 'arraylen_gc': 1})
     def define_flat_iter():
         return '''
-        !30!
+        a = |30|
+        flat(a)
         '''
 
     def test_flat_iter(self):
@@ -380,8 +381,9 @@ class TestNumpyJIt(LLJitMixin):
 
     def define_flat_getitem():
         return '''
-        a = !30!
-        a -> 6
+        a = |30|
+        b = flat(a)
+        b -> 6
         '''
 
     def test_flat_getitem(self):
