@@ -78,16 +78,18 @@ class Assembler(object):
                 value = heaptracker.adr2int(value)
             if TYPE is lltype.SingleFloat:
                 value = longlong.singlefloat2int(value)
-            value = lltype.cast_primitive(lltype.Signed, value)
-            if allow_short:
-                try:
-                    short_num = -128 <= value <= 127
-                except TypeError:    # "Symbolics cannot be compared!"
-                    short_num = False
-                if short_num:
-                    # emit the constant as a small integer
-                    self.code.append(chr(value & 0xFF))
-                    return True
+            if not isinstance(value, (llmemory.AddressAsInt,
+                                      ComputedIntSymbolic)):
+                value = lltype.cast_primitive(lltype.Signed, value)
+                if allow_short:
+                    try:
+                        short_num = -128 <= value <= 127
+                    except TypeError:    # "Symbolics cannot be compared!"
+                        short_num = False
+                    if short_num:
+                        # emit the constant as a small integer
+                        self.code.append(chr(value & 0xFF))
+                        return True
             constants = self.constants_i
         elif kind == 'ref':
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
