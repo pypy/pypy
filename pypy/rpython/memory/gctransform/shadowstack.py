@@ -28,15 +28,15 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         root_iterator = get_root_iterator(gctransformer)
-        def walk_stack_root(callback, addr, end):
+        def walk_stack_root(callback, start, end):
             root_iterator.setcontext(NonConstant(llmemory.NULL))
             gc = self.gc
+            addr = end
             while True:
-                addr = root_iterator.next(gc, addr, end)
+                addr = root_iterator.nextleft(gc, start, addr)
                 if addr == llmemory.NULL:
                     return
                 callback(gc, addr)
-                addr += sizeofaddr
         self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
@@ -333,11 +333,11 @@ def get_root_iterator(gctransformer):
                 return True
             def setcontext(self, context):
                 pass
-            def next(self, gc, addr, end):
-                while addr != end:
+            def nextleft(self, gc, start, addr):
+                while addr != start:
+                    addr -= sizeofaddr
                     if gc.points_to_valid_gc_object(addr):
                         return addr
-                    addr += sizeofaddr
                 return llmemory.NULL
         result = RootIterator()
     gctransformer._root_iterator = result
@@ -364,10 +364,8 @@ def get_shadowstackref(gctransformer):
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
         if not prev:
             root_iterator.setcontext(obj.context)
-            next = obj.base
-        else:
-            next = prev + sizeofaddr
-        return root_iterator.next(gc, next, obj.top)
+            prev = obj.top
+        return root_iterator.nextleft(gc, obj.base, prev)
 
     CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                       llmemory.Address)
