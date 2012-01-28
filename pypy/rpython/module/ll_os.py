@@ -526,7 +526,7 @@ class RegisterOs(BaseLazyRegistering):
             else:
                 raise Exception("os.utime() arg 2 must be None or a tuple of "
                                 "2 floats, got %s" % (s_times,))
-        os_utime_normalize_args._default_signature_ = [traits.str, None]
+        os_utime_normalize_args._default_signature_ = [traits.str0, None]
 
         return extdef(os_utime_normalize_args, s_None,
                       "ll_os.ll_os_utime",
@@ -621,7 +621,7 @@ class RegisterOs(BaseLazyRegistering):
             if result == -1:
                 raise OSError(rposix.get_errno(), "os_chroot failed")
 
-        return extdef([str], None, export_name="ll_os.ll_os_chroot",
+        return extdef([str0], None, export_name="ll_os.ll_os_chroot",
                       llimpl=chroot_llimpl)
 
     @registering_if(os, 'uname')
@@ -1059,7 +1059,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_access_oofakeimpl(path, mode):
             return os.access(OOSupport.from_rstr(path), mode)
 
-        return extdef([traits.str, int], s_Bool, llimpl=access_llimpl,
+        return extdef([traits.str0, int], s_Bool, llimpl=access_llimpl,
                       export_name=traits.ll_os_name("access"),
                       oofakeimpl=os_access_oofakeimpl)
 
@@ -1071,8 +1071,8 @@ class RegisterOs(BaseLazyRegistering):
         from pypy.rpython.module.ll_win32file import make_getfullpathname_impl
         getfullpathname_llimpl = make_getfullpathname_impl(traits)
 
-        return extdef([traits.str],  # a single argument which is a str
-                      traits.str,    # returns a string
+        return extdef([traits.str0],  # a single argument which is a str
+                      traits.str0,    # returns a string
                       traits.ll_os_name('_getfullpathname'),
                       llimpl=getfullpathname_llimpl)
 
@@ -1369,7 +1369,7 @@ class RegisterOs(BaseLazyRegistering):
             res = os_system(command)
             return rffi.cast(lltype.Signed, res)
 
-        return extdef([str], int, llimpl=system_llimpl,
+        return extdef([str0], int, llimpl=system_llimpl,
                       export_name="ll_os.ll_os_system")
 
     @registering_str_unicode(os.unlink)
@@ -1391,7 +1391,7 @@ class RegisterOs(BaseLazyRegistering):
                 if not win32traits.DeleteFile(path):
                     raise rwin32.lastWindowsError()
 
-        return extdef([traits.str], s_None, llimpl=unlink_llimpl,
+        return extdef([traits.str0], s_None, llimpl=unlink_llimpl,
                       export_name=traits.ll_os_name('unlink'))
 
     @registering_str_unicode(os.chdir)
@@ -1409,7 +1409,7 @@ class RegisterOs(BaseLazyRegistering):
             from pypy.rpython.module.ll_win32file import make_chdir_impl
             os_chdir_llimpl = make_chdir_impl(traits)
 
-        return extdef([traits.str], s_None, llimpl=os_chdir_llimpl,
+        return extdef([traits.str0], s_None, llimpl=os_chdir_llimpl,
                       export_name=traits.ll_os_name('chdir'))
 
     @registering_str_unicode(os.mkdir)
@@ -1445,7 +1445,7 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_rmdir failed")
 
-        return extdef([traits.str], s_None, llimpl=rmdir_llimpl,
+        return extdef([traits.str0], s_None, llimpl=rmdir_llimpl,
                       export_name=traits.ll_os_name('rmdir'))
 
     @registering_str_unicode(os.chmod)

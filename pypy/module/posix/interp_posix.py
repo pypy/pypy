@@ -369,7 +369,7 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd=str)
+@unwrap_spec(cmd='str0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -512,7 +512,7 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.wrap(key), space.wrap(value))
 
-@unwrap_spec(name=str, value=str)
+@unwrap_spec(name='str0', value='str0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
     try:
@@ -520,7 +520,7 @@ def putenv(space, name, value):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -785,18 +785,18 @@ Execute a path with arguments and environment, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnv(space, mode, path, w_args):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -914,7 +914,7 @@ def setegid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(path=str)
+@unwrap_spec(path='str0')
 def chroot(space, path):
     """ chroot(path)
 
