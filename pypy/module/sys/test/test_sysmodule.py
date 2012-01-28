@@ -29,29 +29,29 @@ class AppTestAppSysTests:
     def test_builtin_in_modules(self):
         import sys
         modules = sys.modules
-        assert '__builtin__' in modules, ( "An entry for __builtin__ "
-                                                    "is not in sys.modules.")
-        import __builtin__
-        builtin2 = sys.modules['__builtin__']
-        assert __builtin__ is builtin2, ( "import __builtin__ "
-                                            "is not sys.modules[__builtin__].")
+        assert 'builtins' in modules, ( "An entry for builtins "
+                                       "is not in sys.modules.")
+        import builtins
+        builtin2 = sys.modules['builtins']
+        assert builtins is builtin2, ( "import builtins "
+                                       "is not sys.modules[builtins].")
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
         assert 'sys' in names, (
-                        "sys is not listed as a builtin module.")
-        assert '__builtin__' in names, (
-                        "__builtin__ is not listed as a builtin module.")
+            "sys is not listed as a builtin module.")
+        assert 'builtins' in names, (
+            "builtins is not listed as a builtin module.")
 
     def test_sys_exc_info(self):
         try:
             raise Exception
-        except Exception,e:
+        except Exception as e:
             import sys
             exc_type,exc_val,tb = sys.exc_info()
         try:
             raise Exception   # 5 lines below the previous one
-        except Exception,e2:
+        except Exception as e2:
             exc_type2,exc_val2,tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
@@ -62,14 +62,14 @@ class AppTestAppSysTests:
     def test_dynamic_attributes(self):
         try:
             raise Exception
-        except Exception,e:
+        except Exception as e:
             import sys
             exc_type = sys.exc_type
             exc_val = sys.exc_value
             tb = sys.exc_traceback
         try:
             raise Exception   # 7 lines below the previous one
-        except Exception,e2:
+        except Exception as e2:
             exc_type2 = sys.exc_type
             exc_val2 = sys.exc_value
             tb2 = sys.exc_traceback
@@ -87,20 +87,20 @@ class AppTestAppSysTests:
             etype, val, tb = sys.exc_info()
             assert isinstance(val, etype)
         else:
-            raise AssertionError, "ZeroDivisionError not caught"
+            raise AssertionError("ZeroDivisionError not caught")
 
     def test_io(self):
-        import sys
-        assert isinstance(sys.__stdout__, file)
-        assert isinstance(sys.__stderr__, file)
-        assert isinstance(sys.__stdin__, file)
+        import sys, io
+        assert isinstance(sys.__stdout__, io.IOBase)
+        assert isinstance(sys.__stderr__, io.IOBase)
+        assert isinstance(sys.__stdin__, io.IOBase)
 
-        if self.appdirect and not isinstance(sys.stdin, file):
+        if self.appdirect and not isinstance(sys.stdin, io.IOBase):
             return
 
-        assert isinstance(sys.stdout, file)
-        assert isinstance(sys.stderr, file)
-        assert isinstance(sys.stdin, file)
+        assert isinstance(sys.stdout, io.IOBase)
+        assert isinstance(sys.stderr, io.IOBase)
+        assert isinstance(sys.stdin, io.IOBase)
 
     def test_getfilesystemencoding(self):
         import sys
@@ -135,9 +135,6 @@ class AppTestAppSysTests:
         assert isinstance(li.inf, int)
         assert isinstance(li.nan, int)
         assert isinstance(li.imag, int)
-        print(li)
-        sys.stdout.flush()
-        assert 0
 
 class AppTestSysModulePortedFromCPython:
 
@@ -145,23 +142,23 @@ class AppTestSysModulePortedFromCPython:
         cls.w_appdirect = cls.space.wrap(option.runappdirect)
 
     def test_original_displayhook(self):
-        import sys, cStringIO, __builtin__
+        import sys, _io, builtins
         savestdout = sys.stdout
-        out = cStringIO.StringIO()
+        out = _io.StringIO()
         sys.stdout = out
 
         dh = sys.__displayhook__
 
         raises(TypeError, dh)
-        if hasattr(__builtin__, "_"):
-            del __builtin__._
+        if hasattr(builtins, "_"):
+            del builtins._
 
         dh(None)
         assert out.getvalue() == ""
-        assert not hasattr(__builtin__, "_")
+        assert not hasattr(builtins, "_")
         dh("hello")
         assert out.getvalue() == "'hello'\n"
-        assert __builtin__._ == "hello"
+        assert builtins._ == "hello"
 
         del sys.stdout
         raises(RuntimeError, dh, 42)
@@ -187,9 +184,9 @@ class AppTestSysModulePortedFromCPython:
         sys.displayhook = olddisplayhook
 
     def test_original_excepthook(self):
-        import sys, cStringIO
+        import sys, _io
         savestderr = sys.stderr
-        err = cStringIO.StringIO()
+        err = _io.StringIO()
         sys.stderr = err
 
         eh = sys.__excepthook__
@@ -197,7 +194,7 @@ class AppTestSysModulePortedFromCPython:
         raises(TypeError, eh)
         try:
             raise ValueError(42)
-        except ValueError, exc:
+        except ValueError as exc:
             eh(*sys.exc_info())
 
         sys.stderr = savestderr
@@ -206,16 +203,16 @@ class AppTestSysModulePortedFromCPython:
     def test_excepthook_failsafe_path(self):
         import traceback
         original_print_exception = traceback.print_exception
-        import sys, cStringIO
+        import sys, _io
         savestderr = sys.stderr
-        err = cStringIO.StringIO()
+        err = _io.StringIO()
         sys.stderr = err
         try:
             traceback.print_exception = "foo"
             eh = sys.__excepthook__
             try:
                 raise ValueError(42)
-            except ValueError, exc:
+            except ValueError as exc:
                 eh(*sys.exc_info())
         finally:
             traceback.print_exception = original_print_exception
@@ -247,8 +244,8 @@ class AppTestSysModulePortedFromCPython:
 
         def clear():
             try:
-                raise ValueError, 42
-            except ValueError, exc:
+                raise ValueError(42)
+            except ValueError as exc:
                 clear_check(exc)
 
         # Raise an exception and check that it can be cleared
@@ -257,8 +254,8 @@ class AppTestSysModulePortedFromCPython:
         # Verify that a frame currently handling an exception is
         # unaffected by calling exc_clear in a nested frame.
         try:
-            raise ValueError, 13
-        except ValueError, exc:
+            raise ValueError(13)
+        except ValueError as exc:
             typ1, value1, traceback1 = sys.exc_info()
             clear()
             typ2, value2, traceback2 = sys.exc_info()
@@ -278,53 +275,53 @@ class AppTestSysModulePortedFromCPython:
         # call without argument
         try:
             sys.exit(0)
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 0
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with tuple argument with one entry
         # entry will be unpacked
         try:
             sys.exit(42)
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 42
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with integer argument
         try:
             sys.exit((42,))
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == 42
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with string argument
         try:
             sys.exit("exit")
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == "exit"
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
         # call with tuple argument with two entries
         try:
             sys.exit((17, 23))
-        except SystemExit, exc:
+        except SystemExit as exc:
             assert exc.code == (17, 23)
         except:
-            raise AssertionError, "wrong exception"
+            raise AssertionError("wrong exception")
         else:
-            raise AssertionError, "no exception"
+            raise AssertionError("no exception")
 
     def test_getdefaultencoding(self):
         import sys
@@ -341,11 +338,11 @@ class AppTestSysModulePortedFromCPython:
         try:
             sys.setdefaultencoding("ascii")
             assert sys.getdefaultencoding() == 'ascii'
-            raises(UnicodeDecodeError, unicode, '\x80')
+            raises(UnicodeDecodeError, unicode, b'\x80')
 
             sys.setdefaultencoding("latin-1")
             assert sys.getdefaultencoding() == 'latin-1'
-            assert unicode('\x80') == u'\u0080'
+            assert unicode(b'\x80') == '\u0080'
 
         finally:
             sys.setdefaultencoding(encoding)
@@ -459,16 +456,16 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(sys.argv, list)
         assert sys.byteorder in ("little", "big")
         assert isinstance(sys.builtin_module_names, tuple)
-        assert isinstance(sys.copyright, basestring)
-        #assert isinstance(sys.exec_prefix, basestring) -- not present!
-        assert isinstance(sys.executable, basestring)
+        assert isinstance(sys.copyright, str)
+        #assert isinstance(sys.exec_prefix, str) -- not present!
+        assert isinstance(sys.executable, str)
         assert isinstance(sys.hexversion, int)
         assert isinstance(sys.maxint, int)
         assert isinstance(sys.maxsize, int)
         assert isinstance(sys.maxunicode, int)
-        assert isinstance(sys.platform, basestring)
-        #assert isinstance(sys.prefix, basestring) -- not present!
-        assert isinstance(sys.version, basestring)
+        assert isinstance(sys.platform, str)
+        #assert isinstance(sys.prefix, str) -- not present!
+        assert isinstance(sys.version, str)
         assert isinstance(sys.warnoptions, list)
         vi = sys.version_info
         assert isinstance(vi, tuple)
@@ -528,24 +525,6 @@ class AppTestSysModulePortedFromCPython:
         if hgid != '':
             assert hgid in sys.version
 
-    def test_trace_exec_execfile(self):
-        import sys
-        found = []
-        def do_tracing(f, *args):
-            print f.f_code.co_filename, f.f_lineno, args
-            if f.f_code.co_filename == 'foobar':
-                found.append(args[0])
-            return do_tracing
-        co = compile("execfile('this-file-does-not-exist!')",
-                     'foobar', 'exec')
-        sys.settrace(do_tracing)
-        try:
-            exec co in {}
-        except IOError:
-            pass
-        sys.settrace(None)
-        assert found == ['call', 'line', 'exception', 'return']
-
     def test_float_repr_style(self):
         import sys
 
@@ -557,7 +536,7 @@ class AppTestCurrentFrames:
 
     def test_current_frames(self):
         try:
-            import thread
+            import _thread
         except ImportError:
             pass
         else:
@@ -567,7 +546,7 @@ class AppTestCurrentFrames:
         def f():
             return sys._current_frames()
         frames = f()
-        assert frames.keys() == [0]
+        assert list(frames) == [0]
         assert frames[0].f_code.co_name in ('f', '?')
 
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
@@ -577,23 +556,23 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
     def test_current_frames(self):
         import sys
         import time
-        import thread
+        import _thread
 
         # XXX workaround for now: to prevent deadlocks, call
         # sys._current_frames() once before starting threads.
         # This is an issue in non-translated versions only.
         sys._current_frames()
 
-        thread_id = thread.get_ident()
+        thread_id = _thread.get_ident()
         def other_thread():
-            print "thread started"
+            print("thread started")
             lock2.release()
             lock1.acquire()
-        lock1 = thread.allocate_lock()
-        lock2 = thread.allocate_lock()
+        lock1 = _thread.allocate_lock()
+        lock2 = _thread.allocate_lock()
         lock1.acquire()
         lock2.acquire()
-        thread.start_new_thread(other_thread, ())
+        _thread.start_new_thread(other_thread, ())
 
         def f():
             lock2.acquire()
