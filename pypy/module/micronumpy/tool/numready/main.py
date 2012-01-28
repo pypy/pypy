@@ -95,7 +95,7 @@ def main(argv):
     pypy_items = find_numpy_items(argv[1], "numpypy")
     all_items = []
 
-    msg = "{:d}/{:d} names".format(len(pypy_items), len(cpy_items))
+    msg = "{:d}/{:d} names".format(len(pypy_items), len(cpy_items)) + " "
     msg += ", ".join(
         "{:d}/{:d} {} attributes".format(
             len(pypy_items[name].subitems), len(cpy_items[name].subitems), name
