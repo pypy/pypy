@@ -131,13 +131,14 @@ class Assembler(object):
         self.code.append("temporary placeholder")
         #
         argcodes = []
+        allow_short = (insn[0] in USE_C_FORM)
         for x in insn[1:]:
             if isinstance(x, Register):
                 self.emit_reg(x)
                 argcodes.append(x.kind[0])
             elif isinstance(x, Constant):
                 kind = getkind(x.concretetype)
-                is_short = self.emit_const(x, kind, allow_short=True)
+                is_short = self.emit_const(x, kind, allow_short=allow_short)
                 if is_short:
                     argcodes.append('c')
                 else:
@@ -257,3 +258,47 @@ class Assembler(object):
         for func in callinfocollection.all_function_addresses_as_int():
             func = heaptracker.int2adr(func)
             self.see_raw_object(func.ptr)
+
+
+# A set of instructions that use the 'c' encoding for small constants.
+# Allowing it anywhere causes the number of instruction variants to
+# expode, growing past 256.  So we list here only the most common
+# instructions where the 'c' variant might be useful.
+USE_C_FORM = set([
+    'copystrcontent',
+    'copyunicodecontent',
+    'getarrayitem_gc_pure_i',
+    'getarrayitem_gc_pure_r',
+    'getarrayitem_gc_i',
+    'getarrayitem_gc_r',
+    'goto_if_not_int_eq',
+    'goto_if_not_int_ge',
+    'goto_if_not_int_gt',
+    'goto_if_not_int_le',
+    'goto_if_not_int_lt',
+    'goto_if_not_int_ne',
+    'int_add',
+    'int_and',
+    'int_copy',
+    'int_eq',
+    'int_ge',
+    'int_gt',
+    'int_le',
+    'int_lt',
+    'int_ne',
+    'int_return',
+    'int_sub',
+    'jit_merge_point',
+    'new_array',
+    'newstr',
+    'recursive_call_i',
+    'recursive_call_r',
+    'recursive_call_v',
+    'setarrayitem_gc_i',
+    'setarrayitem_gc_r',
+    'setfield_gc_i',
+    'strgetitem',
+    'strsetitem',
+
+    'foobar', 'baz',    # for tests
+])
