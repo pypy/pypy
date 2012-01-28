@@ -7,6 +7,7 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords)
+from dot import multidim_dot, match_dot_shapes
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
@@ -786,7 +787,7 @@ class VirtualSlice(VirtualArray):
     def __init__(self, child, chunks, shape):
         self.child = child
         self.chunks = chunks
-        self.size = size
+        self.size = support.product(shape)
         VirtualArray.__init__(self, 'slice', shape, child.find_dtype())
 
     def create_sig(self):
