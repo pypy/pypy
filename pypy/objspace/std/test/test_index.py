@@ -32,12 +32,6 @@ class AppTest_IndexProtocol:
                     return self
             return TrapInt""")
 
-        w_TrapLong = self.space.appexec([], """():
-            class TrapLong(long):
-                def __index__(self):
-                    return self
-            return TrapLong""")
-
         self.w_oldstyle = w_oldstyle
         self.w_o = self.space.call_function(w_oldstyle)
         self.w_o_no_index = self.space.call_function(w_oldstyle_no_index)
@@ -46,7 +40,6 @@ class AppTest_IndexProtocol:
         self.w_n_no_index = self.space.call_function(w_newstyle_no_index)
 
         self.w_TrapInt = w_TrapInt
-        self.w_TrapLong = w_TrapLong
 
     def test_basic(self):
         self.o.ind = -2
@@ -78,16 +71,14 @@ class AppTest_IndexProtocol:
         self.o.ind = 4
         self.n.ind = 5
         assert 6 .__index__() == 6
-        assert -7L.__index__() == -7
+        assert -7 .__index__() == -7
         assert self.o.__index__() == 4
         assert self.n.__index__() == 5
 
     def test_subclasses(self):
         r = range(10)
         assert r[self.TrapInt(5):self.TrapInt(10)] == r[5:10]
-        assert r[self.TrapLong(5):self.TrapLong(10)] == r[5:10]
         assert slice(self.TrapInt()).indices(0) == (0,0,1)
-        assert slice(self.TrapLong(0)).indices(0) == (0,0,1)
 
     def test_error(self):
         self.o.ind = 'dumb'
@@ -121,19 +112,12 @@ class SeqTestCase:
                     return self
             return TrapInt""")
 
-        w_TrapLong = self.space.appexec([], """():
-            class TrapLong(long):
-                def __index__(self):
-                    return self
-            return TrapLong""")
-
         self.w_o = self.space.call_function(w_oldstyle)
         self.w_n = self.space.call_function(w_newstyle)
         self.w_o2 = self.space.call_function(w_oldstyle)
         self.w_n2 = self.space.call_function(w_newstyle)
 
         self.w_TrapInt = w_TrapInt
-        self.w_TrapLong = w_TrapLong
 
     def test_index(self):
         self.o.ind = -2
@@ -169,7 +153,6 @@ class SeqTestCase:
 
     def test_subclasses(self):
         assert self.seq[self.TrapInt()] == self.seq[0]
-        assert self.seq[self.TrapLong()] == self.seq[0]
 
     def test_error(self):
         self.o.ind = 'dumb'
@@ -261,12 +244,6 @@ class AppTest_StringTestCase(SeqTestCase, StringTestCase):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap("this is a test")
         self.w_const = self.space.appexec([], """(): return str""")
-    
-class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
-    def setup_method(self, method):
-        SeqTestCase.setup_method(self, method)
-        self.w_seq = self.space.wrap(u"this is a test")
-        self.w_const = self.space.appexec([], """(): return unicode""")
 
 
 class AppTest_RangeTestCase:
@@ -297,8 +274,6 @@ class AppTest_OverflowTestCase:
                 return maxint
             def __getitem__(self, key):
                 return key
-            def __getslice__(self, i, j):
-                return i, j
         x = GetItem()
         assert x[self.pos] == self.pos
         assert x[self.neg] == self.neg
@@ -307,8 +282,8 @@ class AppTest_OverflowTestCase:
 
     def test_getslice_nolength(self):
         class X(object):
-            def __getslice__(self, i, j):
-                return (i, j)
+            def __getitem__(self, slice):
+                return slice
 
         assert X()[-2:1] == (-2, 1)
 
@@ -320,8 +295,6 @@ class AppTest_OverflowTestCase:
                 return maxint
             def __getitem__(self, key):
                 return key
-            def __getslice__(self, i, j):
-                return i, j
         x = GetItem()
         assert x[self.pos] == self.pos
         assert x[self.neg] == self.neg
