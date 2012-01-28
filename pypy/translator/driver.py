@@ -184,7 +184,8 @@ class TranslationDriver(SimpleTaskEngine):
         self.standalone = standalone
 
         if standalone:
-            inputtypes = [s_list_of_strings]
+            # the 'argv' parameter
+            inputtypes = [[annmodel.s_Str0]]
         self.inputtypes = inputtypes
 
         if policy is None:

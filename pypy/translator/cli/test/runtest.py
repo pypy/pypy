@@ -276,9 +276,11 @@ class ExceptionWrapper:
 
 def get_annotation(x):
     if isinstance(x, basestring) and len(x) > 1:
-        return SomeString()
+        result = SomeString()
     else:
-        return lltype_to_annotation(typeOf(x))
+        result = lltype_to_annotation(typeOf(x))
+    if isinstance(result, SomeString) and '\x00' not in x:
+        result.no_nul = True
 
 class CliTest(BaseRtypingTest, OORtypeMixin):
     def __init__(self):

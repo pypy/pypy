@@ -281,7 +281,7 @@ def register_stat_variant(name, traits):
 
     @func_renamer('os_%s_fake' % (name,))
     def posix_fakeimpl(arg):
-        if s_arg == str:
+        if s_arg == traits.str0:
             arg = hlstr(arg)
         st = getattr(os, name)(arg)
         fields = [TYPE for fieldname, TYPE in STAT_FIELDS]

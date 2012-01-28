@@ -3,6 +3,7 @@ import py
 import os, time, sys
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_longlong
+from pypy.annotation import model as annmodel
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.test.test_standalone import StandaloneTests
 posix = __import__(os.name)
@@ -325,7 +326,7 @@ def test_mkdir_rmdir():
             os.rmdir(path)
         else:
             os.mkdir(path, 0777)
-    f1 = compile(does_stuff, [str, bool])
+    f1 = compile(does_stuff, [annmodel.s_Str0, bool])
     dirname = str(udir.join('test_mkdir_rmdir'))
     f1(dirname, False)
     assert os.path.exists(dirname) and os.path.isdir(dirname)
@@ -743,7 +744,7 @@ def test_listdir():
             raise AssertionError("should have failed!")
         result = os.listdir(s)
         return '/'.join(result)
-    func = compile(mylistdir, [str])
+    func = compile(mylistdir, [annmodel.s_Str0])
     for testdir in [str(udir), os.curdir]:
         result = func(testdir)
         result = result.split('/')

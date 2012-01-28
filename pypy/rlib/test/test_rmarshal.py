@@ -169,7 +169,7 @@ def test_stat_result():
         assert st2.st_mode == st.st_mode
         assert st2[9] == st[9]
         return buf
-    fn = compile(f, [str])
+    fn = compile(f, [annmodel.s_Str0])
     res = fn('.')
     st = os.stat('.')
     sttuple = marshal.loads(res)
