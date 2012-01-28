@@ -266,7 +266,6 @@ class Assembler(object):
 # instructions where the 'c' variant might be useful.
 USE_C_FORM = set([
     'copystrcontent',
-    'copyunicodecontent',
     'getarrayitem_gc_pure_i',
     'getarrayitem_gc_pure_r',
     'getarrayitem_gc_i',
