@@ -46,22 +46,22 @@ class AppTestSmallLong(test_longobject.AppTestLong):
 
     def test_sl_simple(self):
         import __pypy__
-        s = __pypy__.internal_repr(5L)
+        s = __pypy__.internal_repr(5)
         assert 'SmallLong' in s
 
     def test_sl_hash(self):
         import __pypy__
-        x = 5L
+        x = 5
         assert 'SmallLong' in __pypy__.internal_repr(x)
         assert hash(5) == hash(x)
-        biglong = 5L
+        biglong = 5
         biglong ^= 2**100      # hack based on the fact that xor__Long_Long
         biglong ^= 2**100      # does not call newlong()
-        assert biglong == 5L
+        assert biglong == 5
         assert 'SmallLong' not in __pypy__.internal_repr(biglong)
         assert hash(5) == hash(biglong)
         #
-        x = 0x123456789ABCDEFL
+        x = 0x123456789ABCDEF
         assert 'SmallLong' in __pypy__.internal_repr(x)
         biglong = x
         biglong ^= 2**100
@@ -71,7 +71,7 @@ class AppTestSmallLong(test_longobject.AppTestLong):
         assert hash(biglong) == hash(x)
 
     def test_sl_int(self):
-        x = 0x123456789ABCDEFL
+        x = 0x123456789ABCDEF
         two = 2
         assert int(x) == x
         assert type(int(x)) == type(0x1234567 ** two)
@@ -81,42 +81,42 @@ class AppTestSmallLong(test_longobject.AppTestLong):
 
     def test_sl_long(self):
         import __pypy__
-        x = long(0)
+        x = int(0)
         assert 'SmallLong' in __pypy__.internal_repr(x)
 
     def test_sl_add(self):
         import __pypy__
-        x = 0x123456789ABCDEFL
-        assert x + x == 0x2468ACF13579BDEL
+        x = 0x123456789ABCDEF
+        assert x + x == 0x2468ACF13579BDE
         assert 'SmallLong' in __pypy__.internal_repr(x + x)
-        x = -0x123456789ABCDEFL
-        assert x + x == -0x2468ACF13579BDEL
+        x = -0x123456789ABCDEF
+        assert x + x == -0x2468ACF13579BDE
         assert 'SmallLong' in __pypy__.internal_repr(x + x)
-        x = 0x723456789ABCDEF0L
-        assert x + x == 0xE468ACF13579BDE0L
+        x = 0x723456789ABCDEF0
+        assert x + x == 0xE468ACF13579BDE0
         assert 'SmallLong' not in __pypy__.internal_repr(x + x)
-        x = -0x723456789ABCDEF0L
-        assert x + x == -0xE468ACF13579BDE0L
+        x = -0x723456789ABCDEF0
+        assert x + x == -0xE468ACF13579BDE0
         assert 'SmallLong' not in __pypy__.internal_repr(x + x)
 
     def test_sl_add_32(self):
         import sys, __pypy__
         if sys.maxint == 2147483647:
             x = 2147483647
-            assert x + x == 4294967294L
+            assert x + x == 4294967294
             assert 'SmallLong' in __pypy__.internal_repr(x + x)
             y = -1
-            assert x - y == 2147483648L
+            assert x - y == 2147483648
             assert 'SmallLong' in __pypy__.internal_repr(x - y)
 
     def test_sl_lshift(self):
-        for x in [1, 1L]:
-            assert x << 1 == 2L
-            assert x << 30 == 1073741824L
-            assert x << 31 == 2147483648L
-            assert x << 32 == 4294967296L
-            assert x << 62 == 4611686018427387904L
-            assert x << 63 == 9223372036854775808L
-            assert x << 64 == 18446744073709551616L
-            assert (x << 31) << 31 == 4611686018427387904L
-            assert (x << 32) << 32 == 18446744073709551616L
+        x = 1
+        assert x << 1 == 2
+        assert x << 30 == 1073741824
+        assert x << 31 == 2147483648
+        assert x << 32 == 4294967296
+        assert x << 62 == 4611686018427387904
+        assert x << 63 == 9223372036854775808
+        assert x << 64 == 18446744073709551616
+        assert (x << 31) << 31 == 4611686018427387904
+        assert (x << 32) << 32 == 18446744073709551616

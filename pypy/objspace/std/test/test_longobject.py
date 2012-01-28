@@ -212,7 +212,7 @@ class AppTestLong:
         assert repr(12345678901234567890) == '12345678901234567890'
         assert str(12345678901234567890) == '12345678901234567890'
         assert hex(0x1234567890ABCDEF) == '0x1234567890abcdef'
-        assert oct(01234567012345670) == '01234567012345670'
+        assert oct(0o1234567012345670) == '0o1234567012345670'
 
     def test_bits(self):
         x = 0xAAAAAAAA
