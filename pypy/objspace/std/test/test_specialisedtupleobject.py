@@ -79,7 +79,7 @@ class AppTestW_SpecialisedTupleObject:
     def w_isspecialised(self, obj, expected=''):
         import __pypy__
         r = __pypy__.internal_repr(obj)
-        print obj, '==>', r, '   (expected: %r)' % expected
+        print(obj, '==>', r, '   (expected: %r)' % expected)
         return ("SpecialisedTupleObject" + expected) in r
 
     def test_createspecialisedtuple(self):
@@ -105,7 +105,7 @@ class AppTestW_SpecialisedTupleObject:
 
     def test_delegation(self):
         t = self.forbid_delegation((42, 43))
-        raises(ReferenceError, t.__getslice__, 0, 1)
+        raises(ReferenceError, t.__contains__, 0)
 
     def test_len(self):
         t = self.forbid_delegation((42,43))
@@ -147,7 +147,7 @@ class AppTestW_SpecialisedTupleObject:
         b = (1,3,2)
         assert not a == b
 
-        values = [2, 2L, 2.0, 1, 1L, 1.0]
+        values = [2, 2.0, 1, 1.0]
         for x in values:
             for y in values:
                 assert ((1,2) == (x,y)) == (1 == x and 2 == y)
@@ -204,7 +204,7 @@ class AppTestW_SpecialisedTupleObject:
         c = (2,4)
         assert hash(a) != hash(c)
 
-        assert hash(a) == hash((1L, 2L)) == hash((1.0, 2.0)) == hash((1.0, 2L))
+        assert hash(a) == hash((1, 2)) == hash((1.0, 2.0)) == hash((1.0, 2))
 
     def test_getitem(self):
         t = self.forbid_delegation((5,3))

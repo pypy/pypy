@@ -257,10 +257,10 @@ class AppTestW_TupleObject:
     def test_iter(self):
         t = (5,3,99)
         i = iter(t)
-        assert i.next() == 5
-        assert i.next() == 3
-        assert i.next() == 99
-        raises(StopIteration, i.next)
+        assert next(i) == 5
+        assert next(i) == 3
+        assert next(i) == 99
+        raises(StopIteration, next, i)
 
     def test_contains(self):
         t = (5,3,99)
@@ -332,7 +332,7 @@ class AppTestW_TupleObject:
         assert repr((1,2,3)) == '(1, 2, 3)'
 
     def test_getslice(self):
-        assert ('a', 'b', 'c').__getslice__(-17, 2) == ('a', 'b')
+        assert ('a', 'b', 'c')[-17: 2] == ('a', 'b')
 
     def test_count(self):
         assert ().count(4) == 0
