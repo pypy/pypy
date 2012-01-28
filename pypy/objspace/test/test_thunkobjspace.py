@@ -170,12 +170,12 @@ class AppTest_ThunkCallMethod(AppTest_Thunk):
         from __pypy__ import thunk
         d = {}
         # need the method to use the pypy compiler
-        exec """if 1:
+        exec("""if 1:
         def f(x):
             return [x]
         def g(l):
             l.append(1)
-        """ in d
+        """, d)
         l = thunk(d['f'], 10)
         d['g'](l)
         assert l == [10, 1] 
