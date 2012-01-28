@@ -27,6 +27,12 @@ class Module(MixedModule):
         'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
+        'isna': 'interp_numarray.isna',
+        'concatenate': 'interp_numarray.concatenate',
+
+        'set_string_function': 'appbridge.set_string_function',
+        
+        'count_reduce_items': 'interp_numarray.count_reduce_items',
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
@@ -66,10 +72,12 @@ class Module(MixedModule):
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),
+        ("true_divide", "true_divide"),
         ("equal", "equal"),
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("ceil", "ceil"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
@@ -85,12 +93,16 @@ class Module(MixedModule):
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
         ("tan", "tan"),
+        ('bitwise_and', 'bitwise_and'),
+        ('bitwise_or', 'bitwise_or'),
+        ('bitwise_not', 'invert'),
+        ('isnan', 'isnan'),
+        ('isinf', 'isinf'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
         'average': 'app_numpy.average',
-        'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
@@ -99,5 +111,4 @@ class Module(MixedModule):
         'e': 'app_numpy.e',
         'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
-        'reshape': 'app_numpy.reshape',
     }

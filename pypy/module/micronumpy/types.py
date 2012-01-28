@@ -23,6 +23,16 @@ def simple_unary_op(func):
         )
     return dispatcher
 
+def raw_unary_op(func):
+    specialize.argtype(1)(func)
+    @functools.wraps(func)
+    def dispatcher(self, v):
+        return func(
+            self,
+            self.for_computation(self.unbox(v))
+        )
+    return dispatcher
+
 def simple_binary_op(func):
     specialize.argtype(1, 2)(func)
     @functools.wraps(func)
@@ -94,6 +104,11 @@ class Primitive(object):
             width, storage, i, offset
         ))
 
+    def read_bool(self, storage, width, i, offset):
+        return bool(self.for_computation(
+            libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                 width, storage, i, offset)))
+
     def store(self, storage, width, i, offset, box):
         value = self.unbox(box)
         libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
@@ -134,6 +149,14 @@ class Primitive(object):
     def abs(self, v):
         return abs(v)
 
+    @raw_unary_op
+    def isnan(self, v):
+        return False
+
+    @raw_unary_op
+    def isinf(self, v):
+        return False
+
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -168,6 +191,7 @@ class Primitive(object):
     @simple_binary_op
     def min(self, v1, v2):
         return min(v1, v2)
+
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
@@ -204,6 +228,18 @@ class Bool(BaseType, Primitive):
 
     def default_fromstring(self, space):
         return self.box(False)
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return v1 & v2
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return v1 | v2
+
+    @simple_unary_op
+    def invert(self, v):
+        return ~v
 
 class Integer(Primitive):
     _mixin_ = True
@@ -252,6 +288,18 @@ class Integer(Primitive):
         else:
             assert v == 0
             return 0
+
+    @simple_binary_op
+    def bitwise_and(self, v1, v2):
+        return v1 & v2
+
+    @simple_binary_op
+    def bitwise_or(self, v1, v2):
+        return v1 | v2
+
+    @simple_unary_op
+    def invert(self, v):
+        return ~v
 
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
@@ -374,6 +422,10 @@ class Float(Primitive):
         return math.floor(v)
 
     @simple_unary_op
+    def ceil(self, v):
+        return math.ceil(v)
+
+    @simple_unary_op
     def exp(self, v):
         try:
             return math.exp(v)
@@ -426,6 +478,14 @@ class Float(Primitive):
             return math.sqrt(v)
         except ValueError:
             return rfloat.NAN
+
+    @raw_unary_op
+    def isnan(self, v):
+        return rfloat.isnan(v)
+
+    @raw_unary_op
+    def isinf(self, v):
+        return rfloat.isinf(v)
 
 
 class Float32(BaseType, Float):

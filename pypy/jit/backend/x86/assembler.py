@@ -1118,6 +1118,12 @@ class Assembler386(object):
             for src, dst in singlefloats:
                 self.mc.MOVD(dst, src)
         # Finally remap the arguments in the main regs
+        # If x is a register and is in dst_locs, then oups, it needs to
+        # be moved away:
+        if x in dst_locs:
+            src_locs.append(x)
+            dst_locs.append(r10)
+            x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
@@ -2042,10 +2048,7 @@ class Assembler386(object):
         size = sizeloc.value
         signloc = arglocs[1]
 
-        if isinstance(op.getarg(0), Const):
-            x = imm(op.getarg(0).getint())
-        else:
-            x = arglocs[2]
+        x = arglocs[2]     # the function address
         if x is eax:
             tmp = ecx
         else:

@@ -82,6 +82,16 @@ class NumpyEvalFrame(object):
         for i in range(len(self.iterators)):
             self.iterators[i] = self.iterators[i].next(shapelen)
 
+    @unroll_safe
+    def next_from_second(self, shapelen):
+        """ Don't increase the first iterator
+        """
+        for i in range(1, len(self.iterators)):
+            self.iterators[i] = self.iterators[i].next(shapelen)
+
+    def next_first(self, shapelen):
+        self.iterators[0] = self.iterators[0].next(shapelen)
+
     def get_final_iter(self):
         final_iter = promote(self.final_iter)
         if final_iter < 0:
@@ -214,6 +224,18 @@ class ViewSignature(ArraySignature):
         return ViewIterator(arr.start, arr.strides, arr.backstrides,
                             arr.shape).apply_transformations(arr, transforms)
 
+class FlatSignature(ViewSignature):
+    def debug_repr(self):
+        return 'Flat'
+
+    def allocate_iter(self, arr, transforms):
+        from pypy.module.micronumpy.interp_numarray import W_FlatIterator
+        assert isinstance(arr, W_FlatIterator)
+        return ViewIterator(arr.base.start, arr.base.strides, 
+                    arr.base.backstrides,
+                    arr.base.shape).apply_transformations(arr.base,
+                                                         transforms)
+
 class VirtualSliceSignature(Signature):
     def __init__(self, child):
         self.child = child
@@ -283,8 +305,8 @@ class Call1(Signature):
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
-        v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
-        return self.unfunc(arr.res_dtype, v)
+        v = self.child.eval(frame, arr.values).convert_to(arr.calc_dtype)
+        return self.unfunc(arr.calc_dtype, v)
 
 class Call2(Signature):
     _immutable_fields_ = ['binfunc', 'name', 'calc_dtype', 'left', 'right']
