@@ -66,6 +66,8 @@ class CConfig:
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
+    SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
+        "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")
     SSL_VERIFY_FAIL_IF_NO_PEER_CERT = rffi_platform.ConstantInteger("SSL_VERIFY_FAIL_IF_NO_PEER_CERT")
