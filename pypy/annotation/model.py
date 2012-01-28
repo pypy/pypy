@@ -230,7 +230,7 @@ class SomeString(SomeObject):
     knowntype = str
     immutable = True
     can_be_None=False
-    no_NUL = False
+    no_nul = False  # No NUL character in the string.
 
     def __init__(self, can_be_None=False):
         if can_be_None:
@@ -241,15 +241,15 @@ class SomeString(SomeObject):
 
     def nonnoneify(self):
         result = SomeString(can_be_None=False)
-        if self.no_NUL:
-            result.no_NUL = True
+        if self.no_nul:
+            result.no_nul = True
         return result
 
 class SomeUnicodeString(SomeObject):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
     immutable = True
-    no_NUL = False
+    no_nul = False
     def __init__(self, can_be_None=False):
         self.can_be_None = can_be_None
 
@@ -511,7 +511,7 @@ s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
 s_Str0 = SomeString()
-s_Str0.no_NUL = True
+s_Str0.no_nul = True
 
 # ____________________________________________________________
 # weakrefs

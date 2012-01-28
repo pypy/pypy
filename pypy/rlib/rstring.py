@@ -206,7 +206,7 @@ class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
         return SomeUnicodeBuilder(can_be_None=True)
 
 #___________________________________________________________________
-# Support functions for SomeString.no_NUL
+# Support functions for SomeString.no_nul
 
 def assert_str0(fname):
     assert '\x00' not in fname, "NUL byte in string"
@@ -217,11 +217,11 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_obj):
         assert isinstance(s_obj, (SomeString, SomeUnicodeString))
-        if s_obj.no_NUL:
+        if s_obj.no_nul:
             return s_obj
         new_s_obj = SomeObject.__new__(s_obj.__class__)
         new_s_obj.__dict__ = s_obj.__dict__.copy()
-        new_s_obj.no_NUL = True
+        new_s_obj.no_nul = True
         return new_s_obj
 
     def specialize_call(self, hop):
@@ -239,8 +239,8 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_obj):
         if not isinstance(s_obj, SomeString):
             return s_obj
-        if not s_obj.no_NUL:
-            raise ValueError("Value is not no_NUL")
+        if not s_obj.no_nul:
+            raise ValueError("Value is not no_nul")
 
     def specialize_call(self, hop):
         pass

@@ -435,8 +435,8 @@ class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
         result = SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
-        if str1.no_NUL and str2.no_NUL:
-            result.no_NUL = True
+        if str1.no_nul and str2.no_nul:
+            result.no_nul = True
         return result
 
     def add((str1, str2)):
@@ -444,8 +444,8 @@ class __extend__(pairtype(SomeString, SomeString)):
         result = SomeString()
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
-        if str1.no_NUL and str2.no_NUL:
-            result.no_NUL = True
+        if str1.no_nul and str2.no_nul:
+            result.no_nul = True
         return result
 
 class __extend__(pairtype(SomeChar, SomeChar)):
@@ -481,17 +481,17 @@ class __extend__(pairtype(SomeString, SomeTuple)):
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', str, s_tuple)
         result = SomeString()
-        no_NUL = str.no_NUL
+        no_nul = str.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
                 pass
-            elif isinstance(s_item, SomeString) and s_item.no_NUL:
+            elif isinstance(s_item, SomeString) and s_item.no_nul:
                 pass
             else:
-                no_NUL = False
+                no_nul = False
                 break
-        if no_NUL:
-            result.no_NUL = True
+        if no_nul:
+            result.no_nul = True
         return result
 
 
@@ -859,7 +859,7 @@ def _make_none_union(classname, constructor_args='', glob=None,
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'can_be_None=True',
-                 copy_attributes=('no_NUL',))
+                 copy_attributes=('no_nul',))
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')

@@ -32,10 +32,10 @@ from pypy.rlib import rgc
 from pypy.rlib.objectmodel import specialize
 
 str0 = SomeString()
-str0.no_NUL = True
+str0.no_nul = True
 
 unicode0 = SomeUnicodeString()
-unicode0.no_NUL = True
+unicode0.no_nul = True
 
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__

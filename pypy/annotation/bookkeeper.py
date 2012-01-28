@@ -345,11 +345,11 @@ class Bookkeeper(object):
             if len(x) == 1:
                 result = SomeChar()
                 if not '\x00' in x:
-                    result.no_NUL = True
+                    result.no_nul = True
             else:
                 result = SomeString()
                 if not '\x00' in x:
-                    result.no_NUL = True
+                    result.no_nul = True
         elif tp is unicode:
             if len(x) == 1:
                 result = SomeUnicodeCodePoint()

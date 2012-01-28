@@ -456,7 +456,7 @@ class TestAnnotateTestCase:
             return ''.join(g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
-        assert s.no_NUL
+        assert s.no_nul
 
     def test_str_split(self):
         a = self.RPythonAnnotator()
@@ -469,7 +469,7 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeList)
         s_item = s.listdef.listitem.s_value
-        assert s_item.no_NUL
+        assert s_item.no_nul
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
@@ -2041,7 +2041,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
-        assert s.no_NUL
+        assert s.no_nul
 
     def test_str_or_None(self):
         def f(a):
@@ -2061,7 +2061,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.can_be_None
-        assert s.no_NUL
+        assert s.no_nul
 
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
@@ -2127,7 +2127,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
-        assert s.no_NUL
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
