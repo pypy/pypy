@@ -15,7 +15,7 @@ class AppTestTextIO:
         t.__init__(b, encoding="utf8", line_buffering=True)
         assert t.encoding == "utf8"
         assert t.line_buffering == True
-        assert t.readline() == u"\xe9\n"
+        assert t.readline() == "\xe9\n"
         raises(TypeError, t.__init__, b, newline=42)
         raises(ValueError, t.__init__, b, newline='xyzzy')
         t = _io.TextIOWrapper(b)
@@ -62,7 +62,7 @@ class AppTestTextIO:
         r = _io.BytesIO(b"abc\r\ndef\rg")
         b = _io.BufferedReader(r, 1000)
         t = _io.TextIOWrapper(b)
-        assert t.read() == u"abc\ndef\ng"
+        assert t.read() == "abc\ndef\ng"
 
     def test_one_by_one(self):
         import _io
@@ -75,7 +75,7 @@ class AppTestTextIO:
             if not c:
                 break
             reads.append(c)
-        assert u''.join(reads) == u"abc\ndef\ng"
+        assert ''.join(reads) == "abc\ndef\ng"
 
     def test_read_some_then_all(self):
         import _io
@@ -83,7 +83,7 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(r)
         reads = t.read(4)
         reads += t.read()
-        assert reads == u"abc\ndef\n"
+        assert reads == "abc\ndef\n"
 
     def test_read_some_then_readline(self):
         import _io
@@ -91,11 +91,11 @@ class AppTestTextIO:
         t = _io.TextIOWrapper(r)
         reads = t.read(4)
         reads += t.readline()
-        assert reads == u"abc\ndef\n"
+        assert reads == "abc\ndef\n"
 
     def test_encoded_writes(self):
         import _io
-        data = u"1234567890"
+        data = "1234567890"
         tests = ("utf-16",
                  "utf-16-le",
                  "utf-16-be",
@@ -131,7 +131,7 @@ class AppTestTextIO:
                 _io.BytesIO.close(self)
         b = MyBytesIO()
         t = _io.TextIOWrapper(b, encoding="ascii")
-        t.write(u"abc")
+        t.write("abc")
         del t
         import gc; gc.collect()
         assert l == [b"abc"]
@@ -203,7 +203,7 @@ class AppTestTextIO:
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
         t = _io.TextIOWrapper(_io.BytesIO(b""), encoding="ascii")
         assert repr(t) == "<_io.TextIOWrapper encoding='ascii'>"
-        t = _io.TextIOWrapper(_io.BytesIO(b""), encoding=u"utf-8")
+        t = _io.TextIOWrapper(_io.BytesIO(b""), encoding="utf-8")
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
         b = _io.BytesIO(b"")
         t = _io.TextIOWrapper(b, encoding="utf-8")
@@ -311,15 +311,15 @@ class AppTestIncrementalNewlineDecoder:
                 decoder.setstate(state)
                 assert decoder.decode(b, **kwargs) == s
 
-            _check_decode(b'\xe8\xa2\x88', u"\u8888")
+            _check_decode(b'\xe8\xa2\x88', "\u8888")
 
             _check_decode(b'\xe8', "")
             _check_decode(b'\xa2', "")
-            _check_decode(b'\x88', u"\u8888")
+            _check_decode(b'\x88', "\u8888")
 
             _check_decode(b'\xe8', "")
             _check_decode(b'\xa2', "")
-            _check_decode(b'\x88', u"\u8888")
+            _check_decode(b'\x88', "\u8888")
 
             _check_decode(b'\xe8', "")
             raises(UnicodeDecodeError, decoder.decode, b'', final=True)
@@ -338,10 +338,10 @@ class AppTestIncrementalNewlineDecoder:
             _check_decode(b'\r', "\n")
             _check_decode(b'\na', "\na")
 
-            _check_decode(b'\xe8\xa2\x88\r\n', u"\u8888\n")
-            _check_decode(b'\xe8\xa2\x88', u"\u8888")
+            _check_decode(b'\xe8\xa2\x88\r\n', "\u8888\n")
+            _check_decode(b'\xe8\xa2\x88', "\u8888")
             _check_decode(b'\n', "\n")
-            _check_decode(b'\xe8\xa2\x88\r', u"\u8888")
+            _check_decode(b'\xe8\xa2\x88\r', "\u8888")
             _check_decode(b'\n', "\n")
 
         def check_newline_decoding(decoder, encoding):
@@ -359,18 +359,18 @@ class AppTestIncrementalNewlineDecoder:
                     for c in s:
                         result.append(decoder.decode(c))
             assert decoder.newlines == None
-            _decode_bytewise(u"abc\n\r")
+            _decode_bytewise("abc\n\r")
             assert decoder.newlines == '\n'
-            _decode_bytewise(u"\nabc")
+            _decode_bytewise("\nabc")
             assert decoder.newlines == ('\n', '\r\n')
-            _decode_bytewise(u"abc\r")
+            _decode_bytewise("abc\r")
             assert decoder.newlines == ('\n', '\r\n')
-            _decode_bytewise(u"abc")
+            _decode_bytewise("abc")
             assert decoder.newlines == ('\r', '\n', '\r\n')
-            _decode_bytewise(u"abc\r")
+            _decode_bytewise("abc\r")
             assert "".join(result) == "abc\n\nabcabc\nabcabc"
             decoder.reset()
-            input = u"abc"
+            input = "abc"
             if encoder is not None:
                 encoder.reset()
                 input = encoder.encode(input)
@@ -398,9 +398,9 @@ class AppTestIncrementalNewlineDecoder:
         # Issue 5433: Excessive optimization in IncrementalNewlineDecoder
         def _check(dec):
             assert dec.newlines is None
-            assert dec.decode(u"\u0D00") == u"\u0D00"
+            assert dec.decode("\u0D00") == "\u0D00"
             assert dec.newlines is None
-            assert dec.decode(u"\u0A00") == u"\u0A00"
+            assert dec.decode("\u0A00") == "\u0A00"
             assert dec.newlines is None
         dec = _io.IncrementalNewlineDecoder(None, translate=False)
         _check(dec)

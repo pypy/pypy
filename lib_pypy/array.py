@@ -198,7 +198,7 @@ class array(object):
         if self.typecode != "u":
             raise ValueError("tounicode() may only be called on type 'u' arrays")
         # XXX performance is not too good
-        return u"".join(self.tolist())
+        return "".join(self.tolist())
 
     def byteswap(self):
         """Byteswap all items of the array.  If the items in the array are not

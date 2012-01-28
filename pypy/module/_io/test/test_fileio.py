@@ -32,7 +32,7 @@ class AppTestFileIO:
     def test_open_fd(self):
         import _io
         os = self.posix
-        fd = os.open(self.tmpfile, os.O_RDONLY, 0666)
+        fd = os.open(self.tmpfile, os.O_RDONLY, 0o666)
         f = _io.FileIO(fd, "rb", closefd=False)
         assert f.fileno() == fd
         assert f.closefd is False

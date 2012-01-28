@@ -6,7 +6,7 @@ class AppTestBytesIO:
 
     def test_init(self):
         import _io
-        raises(TypeError, _io.BytesIO, u"12345")
+        raises(TypeError, _io.BytesIO, "12345")
 
     def test_init_kwargs(self):
         import _io

@@ -51,7 +51,7 @@ class AppTestIoModule:
         import _io
         try:
             raise _io.BlockingIOError(42, "test blocking", 123)
-        except IOError, e:
+        except IOError as e:
             assert isinstance(e, _io.BlockingIOError)
             assert e.errno == 42
             assert e.strerror == "test blocking"
@@ -234,23 +234,23 @@ class AppTestOpen:
 
         with _io.open(self.tmpfile, "w+", encoding="utf8") as f:
             p0 = f.tell()
-            f.write(u"\xff\n")
+            f.write("\xff\n")
             p1 = f.tell()
-            f.write(u"\xff\n")
+            f.write("\xff\n")
             p2 = f.tell()
             f.seek(0)
 
             assert f.tell() == p0
             res = f.readline()
-            assert res == u"\xff\n"
+            assert res == "\xff\n"
             assert f.tell() == p1
             res = f.readline()
-            assert res == u"\xff\n"
+            assert res == "\xff\n"
             assert f.tell() == p2
             f.seek(0)
 
             for line in f:
-                assert line == u"\xff\n"
+                assert line == "\xff\n"
                 raises(IOError, f.tell)
             assert f.tell() == p2
 
@@ -267,7 +267,7 @@ class AppTestOpen:
         import _io
 
         with _io.open(self.tmpfile, "w+") as f:
-            f.write(u"abc")
+            f.write("abc")
 
         with _io.open(self.tmpfile, "w+") as f:
             f.truncate()
@@ -290,13 +290,13 @@ class AppTestOpen:
         # The BOM is not written again when appending to a non-empty file
         for charset in ["utf-8-sig", "utf-16", "utf-32"]:
             with _io.open(self.tmpfile, "w", encoding=charset) as f:
-                f.write(u"aaa")
+                f.write("aaa")
                 pos = f.tell()
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaa".encode(charset)
             with _io.open(self.tmpfile, "a", encoding=charset) as f:
-                f.write(u"xxx")
+                f.write("xxx")
             with _io.open(self.tmpfile, "rb") as f:
                 res = f.read()
                 assert res == "aaaxxx".encode(charset)
