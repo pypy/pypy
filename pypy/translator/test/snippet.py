@@ -657,7 +657,7 @@ def t_issubclass(x, y):
     return issubclass(type(x), (int, long)) and issubclass(type(y), int)
 
 def t_neg_long():
-    return -132L
+    return -132
 
 def t_attrerror(x):
     try:
