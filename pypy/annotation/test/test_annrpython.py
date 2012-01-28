@@ -456,6 +456,20 @@ class TestAnnotateTestCase:
             return ''.join(g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
+        assert s.no_NUL
+
+    def test_str_split(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return "test string"
+        def f(n):
+            if n:
+                return g(n).split(' ')
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert s_item.no_NUL
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
@@ -1841,7 +1855,7 @@ class TestAnnotateTestCase:
             return obj.indirect()
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
-        assert s == annmodel.SomeString(can_be_None=True)
+        assert annmodel.SomeString(can_be_None=True).contains(s)
 
     def test_dont_see_AttributeError_clause(self):
         class Stuff:
@@ -2018,6 +2032,37 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert not s.can_be_None
 
+    def test_string_noNUL_canbeNone(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_NUL
+
+    def test_str_or_None(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        def g(a):
+            x = f(a)
+            #assert x is not None
+            if x is None:
+                return "abcd"
+            return x
+            if isinstance(x, str):
+                return x
+            return "impossible"
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_NUL
+
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
             return a + b
@@ -2070,6 +2115,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeIterator)
         assert s.variant == ('items',)
+
+    def test_iteritems_str0(self):
+        def it(d):
+            return d.iteritems()
+        def f():
+            d0 = {'1a': '2a', '3': '4'}
+            for item in it(d0):
+                return "%s=%s" % item
+            raise ValueError
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_NUL
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):

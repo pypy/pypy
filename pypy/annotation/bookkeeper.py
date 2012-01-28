@@ -344,8 +344,12 @@ class Bookkeeper(object):
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             if len(x) == 1:
                 result = SomeChar()
+                if not '\x00' in x:
+                    result.no_NUL = True
             else:
                 result = SomeString()
+                if not '\x00' in x:
+                    result.no_NUL = True
         elif tp is unicode:
             if len(x) == 1:
                 result = SomeUnicodeCodePoint()

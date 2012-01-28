@@ -342,7 +342,7 @@ class W_ZipImporter(Wrappable):
         space = self.space
         return space.wrap(self.filename)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str0')
 def descr_new_zipimporter(space, w_type, name):
     w = space.wrap
     ok = False

@@ -434,13 +434,18 @@ class __extend__(pairtype(SomeBool, SomeBool)):
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
-        return SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
+        result = SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
+        if str1.no_NUL and str2.no_NUL:
+            result.no_NUL = True
+        return result
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
         result = SomeString()
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
+        if str1.no_NUL and str2.no_NUL:
+            result.no_NUL = True
         return result
 
 class __extend__(pairtype(SomeChar, SomeChar)):
@@ -475,7 +480,19 @@ class __extend__(pairtype(SomeString, SomeTuple)):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', str, s_tuple)
-        return SomeString()
+        result = SomeString()
+        no_NUL = str.no_NUL
+        for s_item in s_tuple.items:
+            if isinstance(s_item, SomeFloat):
+                pass
+            elif isinstance(s_item, SomeString) and s_item.no_NUL:
+                pass
+            else:
+                no_NUL = False
+                break
+        if no_NUL:
+            result.no_NUL = True
+        return result
 
 
 class __extend__(pairtype(SomeString, SomeObject)):
@@ -806,7 +823,16 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 # mixing Nones with other objects
 
-def _make_none_union(classname, constructor_args='', glob=None):
+def _make_none_union(classname, constructor_args='', glob=None,
+                     copy_attributes=()):
+    if copy_attributes:
+        copy_attrs = (
+            'result.__dict__.update((name, getattr(obj, name)) '
+            'for name in %(copy_attributes)s if name in obj.__dict__)'
+            % locals())
+    else:
+        copy_attrs = ''
+
     if glob is None:
         glob = globals()
     loc = locals()
@@ -814,21 +840,26 @@ def _make_none_union(classname, constructor_args='', glob=None):
         class __extend__(pairtype(%(classname)s, SomePBC)):
             def union((obj, pbc)):
                 if pbc.isNone():
-                    return %(classname)s(%(constructor_args)s)
+                    result = %(classname)s(%(constructor_args)s)
+                    %(copy_attrs)s
+                    return result
                 else:
                     return SomeObject()
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
-                    return %(classname)s(%(constructor_args)s)
+                    result = %(classname)s(%(constructor_args)s)
+                    %(copy_attrs)s
+                    return result
                 else:
                     return SomeObject()
     """ % loc)
     exec source.compile() in glob
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'can_be_None=True')
+_make_none_union('SomeString',      'can_be_None=True',
+                 copy_attributes=('no_NUL',))
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')

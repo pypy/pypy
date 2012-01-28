@@ -31,6 +31,12 @@ from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import specialize
 
+str0 = SomeString()
+str0.no_NUL = True
+
+unicode0 = SomeUnicodeString()
+unicode0.no_NUL = True
+
 def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     func_name = posixfunc.__name__
 
@@ -68,6 +74,7 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
 
 class StringTraits:
     str = str
+    str0 = str0
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
     charp2str = staticmethod(rffi.charp2str)
@@ -85,6 +92,7 @@ class StringTraits:
 
 class UnicodeTraits:
     str = unicode
+    str0 = unicode0
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
     charp2str = staticmethod(rffi.wcharp2unicode)
@@ -301,7 +309,7 @@ class RegisterOs(BaseLazyRegistering):
             rffi.free_charpp(l_args)
             raise OSError(rposix.get_errno(), "execv failed")
 
-        return extdef([str, [str]], s_ImpossibleValue, llimpl=execv_llimpl,
+        return extdef([str0, [str0]], s_ImpossibleValue, llimpl=execv_llimpl,
                       export_name="ll_os.ll_os_execv")
 
 
@@ -319,7 +327,8 @@ class RegisterOs(BaseLazyRegistering):
             # appropriate
             envstrs = []
             for item in env.iteritems():
-                envstrs.append("%s=%s" % item)
+                envstr = "%s=%s" % item
+                envstrs.append(envstr)
 
             l_args = rffi.liststr2charpp(args)
             l_env = rffi.liststr2charpp(envstrs)
@@ -332,7 +341,7 @@ class RegisterOs(BaseLazyRegistering):
             raise OSError(rposix.get_errno(), "execve failed")
 
         return extdef(
-            [str, [str], {str: str}],
+            [str0, [str0], {str0: str0}],
             s_ImpossibleValue,
             llimpl=execve_llimpl,
             export_name="ll_os.ll_os_execve")
@@ -353,7 +362,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_spawnv failed")
             return rffi.cast(lltype.Signed, childpid)
 
-        return extdef([int, str, [str]], int, llimpl=spawnv_llimpl,
+        return extdef([int, str0, [str0]], int, llimpl=spawnv_llimpl,
                       export_name="ll_os.ll_os_spawnv")
 
     @registering_if(os, 'spawnve')
@@ -378,7 +387,7 @@ class RegisterOs(BaseLazyRegistering):
                 raise OSError(rposix.get_errno(), "os_spawnve failed")
             return rffi.cast(lltype.Signed, childpid)
 
-        return extdef([int, str, [str], {str: str}], int,
+        return extdef([int, str0, [str0], {str0: str0}], int,
                       llimpl=spawnve_llimpl,
                       export_name="ll_os.ll_os_spawnve")
 
@@ -816,7 +825,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_open_oofakeimpl(path, flags, mode):
             return os.open(OOSupport.from_rstr(path), flags, mode)
 
-        return extdef([traits.str, int, int], int, traits.ll_os_name('open'),
+        return extdef([str0, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
     @registering_if(os, 'getloadavg')
@@ -1174,8 +1183,8 @@ class RegisterOs(BaseLazyRegistering):
                     raise OSError(error, "os_readdir failed")
                 return result
 
-        return extdef([traits.str],  # a single argument which is a str
-                      [traits.str],  # returns a list of strings
+        return extdef([traits.str0],  # a single argument which is a str
+                      [traits.str0],  # returns a list of strings
                       traits.ll_os_name('listdir'),
                       llimpl=os_listdir_llimpl)
 
@@ -1241,7 +1250,7 @@ class RegisterOs(BaseLazyRegistering):
             if res == -1:
                 raise OSError(rposix.get_errno(), "os_chown failed")
 
-        return extdef([str, int, int], None, "ll_os.ll_os_chown",
+        return extdef([str0, int, int], None, "ll_os.ll_os_chown",
                       llimpl=os_chown_llimpl)
 
     @registering_if(os, 'lchown')
@@ -1254,7 +1263,7 @@ class RegisterOs(BaseLazyRegistering):
             if res == -1:
                 raise OSError(rposix.get_errno(), "os_lchown failed")
 
-        return extdef([str, int, int], None, "ll_os.ll_os_lchown",
+        return extdef([str0, int, int], None, "ll_os.ll_os_lchown",
                       llimpl=os_lchown_llimpl)
 
     @registering_if(os, 'readlink')
@@ -1283,12 +1292,11 @@ class RegisterOs(BaseLazyRegistering):
                     lltype.free(buf, flavor='raw')
                     bufsize *= 4
             # convert the result to a string
-            l = [buf[i] for i in range(res)]
-            result = ''.join(l)
+            result = rffi.charp2strn(buf, res)
             lltype.free(buf, flavor='raw')
             return result
 
-        return extdef([str], str,
+        return extdef([str0], str0,
                       "ll_os.ll_os_readlink",
                       llimpl=os_readlink_llimpl)
 
@@ -1424,7 +1432,7 @@ class RegisterOs(BaseLazyRegistering):
                 if res < 0:
                     raise OSError(rposix.get_errno(), "os_mkdir failed")
 
-        return extdef([traits.str, int], s_None, llimpl=os_mkdir_llimpl,
+        return extdef([traits.str0, int], s_None, llimpl=os_mkdir_llimpl,
                       export_name=traits.ll_os_name('mkdir'))
 
     @registering_str_unicode(os.rmdir)
@@ -1454,7 +1462,7 @@ class RegisterOs(BaseLazyRegistering):
             from pypy.rpython.module.ll_win32file import make_chmod_impl
             chmod_llimpl = make_chmod_impl(traits)
 
-        return extdef([traits.str, int], s_None, llimpl=chmod_llimpl,
+        return extdef([traits.str0, int], s_None, llimpl=chmod_llimpl,
                       export_name=traits.ll_os_name('chmod'))
 
     @registering_str_unicode(os.rename)
@@ -1476,7 +1484,7 @@ class RegisterOs(BaseLazyRegistering):
                 if not win32traits.MoveFile(oldpath, newpath):
                     raise rwin32.lastWindowsError()
 
-        return extdef([traits.str, traits.str], s_None, llimpl=rename_llimpl,
+        return extdef([traits.str0, traits.str0], s_None, llimpl=rename_llimpl,
                       export_name=traits.ll_os_name('rename'))
 
     @registering_str_unicode(getattr(os, 'mkfifo', None))
@@ -1489,7 +1497,7 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_mkfifo failed")
 
-        return extdef([traits.str, int], s_None, llimpl=mkfifo_llimpl,
+        return extdef([traits.str0, int], s_None, llimpl=mkfifo_llimpl,
                       export_name=traits.ll_os_name('mkfifo'))
 
     @registering_str_unicode(getattr(os, 'mknod', None))
@@ -1503,7 +1511,7 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_mknod failed")
 
-        return extdef([traits.str, int, int], s_None, llimpl=mknod_llimpl,
+        return extdef([traits.str0, int, int], s_None, llimpl=mknod_llimpl,
                       export_name=traits.ll_os_name('mknod'))
 
     @registering(os.umask)
@@ -1555,7 +1563,7 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_link failed")
 
-        return extdef([str, str], s_None, llimpl=link_llimpl,
+        return extdef([str0, str0], s_None, llimpl=link_llimpl,
                       export_name="ll_os.ll_os_link")
 
     @registering_if(os, 'symlink')
@@ -1568,7 +1576,7 @@ class RegisterOs(BaseLazyRegistering):
             if res < 0:
                 raise OSError(rposix.get_errno(), "os_symlink failed")
 
-        return extdef([str, str], s_None, llimpl=symlink_llimpl,
+        return extdef([str0, str0], s_None, llimpl=symlink_llimpl,
                       export_name="ll_os.ll_os_symlink")
 
     @registering_if(os, 'fork')

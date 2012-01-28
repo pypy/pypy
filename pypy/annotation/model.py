@@ -229,19 +229,27 @@ class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
     immutable = True
+    can_be_None=False
+    no_NUL = False
+
     def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
+        if can_be_None:
+            self.can_be_None = True
 
     def can_be_none(self):
         return self.can_be_None
 
     def nonnoneify(self):
-        return SomeString(can_be_None=False)
+        result = SomeString(can_be_None=False)
+        if self.no_NUL:
+            result.no_NUL = True
+        return result
 
 class SomeUnicodeString(SomeObject):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
     immutable = True
+    no_NUL = False
     def __init__(self, can_be_None=False):
         self.can_be_None = can_be_None
 
@@ -502,6 +510,8 @@ class SomeImpossibleValue(SomeObject):
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
+s_Str0 = SomeString()
+s_Str0.no_NUL = True
 
 # ____________________________________________________________
 # weakrefs
@@ -716,8 +726,7 @@ def merge_knowntypedata(ktd1, ktd2):
 
 def not_const(s_obj):
     if s_obj.is_constant():
-        new_s_obj = SomeObject()
-        new_s_obj.__class__ = s_obj.__class__
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:
             del new_s_obj.const
