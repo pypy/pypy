@@ -433,6 +433,9 @@ class GcRootMap_shadowstack(object):
         class RootIterator:
             _alloc_flavor_ = "raw"
 
+            def setcontext(iself, context):
+                iself.context = context
+
             def next(iself, gc, next, range_highest):
                 # Return the "next" valid GC object' address.  This usually
                 # means just returning "next", until we reach "range_highest",
