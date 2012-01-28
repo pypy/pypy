@@ -258,15 +258,6 @@ def PyUnicode_GetDefaultEncoding(space):
             i += 1
     return default_encoding
 
-@cpython_api([CONST_STRING], rffi.INT_real, error=-1)
-def PyUnicode_SetDefaultEncoding(space, encoding):
-    """Sets the currently active default encoding. Returns 0 on
-    success, -1 in case of an error."""
-    w_encoding = space.wrap(rffi.charp2str(encoding))
-    setdefaultencoding(space, w_encoding)
-    default_encoding[0] = '\x00'
-    return 0
-
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
     """Encode a Unicode object and return the result as Python object.

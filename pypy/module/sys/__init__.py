@@ -7,7 +7,6 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
-    _immutable_fields_ = ["defaultencoding?"]
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -16,7 +15,7 @@ class Module(MixedModule):
         super(Module, self).__init__(space, w_name) 
         self.recursionlimit = 100
         self.w_default_encoder = None
-        self.defaultencoding = "ascii"
+        self.defaultencoding = "utf-8"
         self.filesystemencoding = None
 
     interpleveldefs = {
@@ -74,7 +73,6 @@ class Module(MixedModule):
         'dont_write_bytecode'   : 'space.w_False',
         
         'getdefaultencoding'    : 'interp_encoding.getdefaultencoding', 
-        'setdefaultencoding'    : 'interp_encoding.setdefaultencoding',
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
 
         'float_info'            : 'system.get_float_info(space)',

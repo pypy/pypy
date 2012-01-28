@@ -7,17 +7,6 @@ def getdefaultencoding(space):
 implementation."""
     return space.wrap(space.sys.defaultencoding)
 
-def setdefaultencoding(space, w_encoding):
-    """Set the current default string encoding used by the Unicode 
-implementation."""
-    encoding = space.str_w(w_encoding)
-    mod = space.getbuiltinmodule("_codecs")
-    w_lookup = space.getattr(mod, space.wrap("lookup"))
-    # check whether the encoding is there
-    space.call_function(w_lookup, w_encoding)
-    space.sys.w_default_encoder = None
-    space.sys.defaultencoding = encoding
-
 def get_w_default_encoder(space):
     assert not (space.config.translating and not we_are_translated()), \
         "get_w_default_encoder() should not be called during translation"

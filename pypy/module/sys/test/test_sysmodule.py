@@ -329,25 +329,6 @@ class AppTestSysModulePortedFromCPython:
         # can't check more than the type, as the user might have changed it
         assert isinstance(sys.getdefaultencoding(), str)
 
-    def test_setdefaultencoding(self):
-        import sys
-        if self.appdirect:
-            skip("not worth running appdirect")
-
-        encoding = sys.getdefaultencoding()
-        try:
-            sys.setdefaultencoding("ascii")
-            assert sys.getdefaultencoding() == 'ascii'
-            raises(UnicodeDecodeError, unicode, b'\x80')
-
-            sys.setdefaultencoding("latin-1")
-            assert sys.getdefaultencoding() == 'latin-1'
-            assert unicode(b'\x80') == '\u0080'
-
-        finally:
-            sys.setdefaultencoding(encoding)
-
-
     # testing sys.settrace() is done in test_trace.py
     # testing sys.setprofile() is done in test_profile.py
 
