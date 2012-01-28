@@ -73,9 +73,8 @@ def find_numpy_items(python, modname="numpy", attr=None):
     for line in lines:
         kind, name = line.split(" : ", 1)
         subitems = None
-        if kind == KINDS["TYPE"]:
-            if name in ['ndarray', 'dtype']:
-                subitems = find_numpy_items(python, modname, name)
+        if kind == KINDS["TYPE"] and name in SPECIAL_NAMES and attr is None:
+            subitems = find_numpy_items(python, modname, name)
         items.add(Item(name, kind, subitems))
     return items
 
@@ -89,15 +88,20 @@ def split(lst):
                 l[i].append(lst[k * lgt + i])
     return l
 
+SPECIAL_NAMES = ["ndarray", "dtype", "generic"]
+
 def main(argv):
     cpy_items = find_numpy_items("/usr/bin/python")
     pypy_items = find_numpy_items(argv[1], "numpypy")
     all_items = []
 
-    msg = '%d/%d names, %d/%d ndarray attributes, %d/%d dtype attributes' % (
-        len(pypy_items), len(cpy_items), len(pypy_items['ndarray'].subitems),
-        len(cpy_items['ndarray'].subitems), len(pypy_items['dtype'].subitems),
-        len(cpy_items['dtype'].subitems))
+    msg = "{:d}/{:d} names".format(len(pypy_items), len(cpy_items)) + " "
+    msg += ", ".join(
+        "{:d}/{:d} {} attributes".format(
+            len(pypy_items[name].subitems), len(cpy_items[name].subitems), name
+        )
+        for name in SPECIAL_NAMES
+    )
     for item in cpy_items:
         pypy_exists = item in pypy_items
         if item.subitems:
@@ -114,6 +118,6 @@ def main(argv):
         with open(argv[2], 'w') as f:
             f.write(html.encode("utf-8"))
     else:
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as f:
             f.write(html.encode("utf-8"))
         print "Saved in: %s" % f.name
