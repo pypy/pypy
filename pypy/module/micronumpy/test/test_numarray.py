@@ -949,6 +949,8 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == 2.5 * a[i]
         c = dot(4, 3.0)
         assert c == 12.0
+        c = array(3.0).dot(array(4))
+        assert c == 12.0
 
     def test_dtype_guessing(self):
         from _numpypy import array, dtype, float64, int8, bool_
