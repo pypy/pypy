@@ -96,7 +96,8 @@ class SSLContext(Wrappable):
 
         # Defaults
         libssl_SSL_CTX_set_verify(self.ctx, SSL_VERIFY_NONE, None)
-        libssl_SSL_CTX_set_options(self.ctx, SSL_OP_ALL)
+        libssl_SSL_CTX_set_options(
+            self.ctx, SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
         libssl_SSL_CTX_set_session_id_context(self.ctx, "Python", len("Python"))
 
     def __del__(self):

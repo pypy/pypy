@@ -1210,3 +1210,11 @@ def test_cast_opaque_ptr():
     assert op1.args == [v1]
     assert op1.result is None
     assert op2 is None
+
+def test_unknown_operation():
+    op = SpaceOperation('foobar', [], varoftype(lltype.Void))
+    tr = Transformer()
+    try:
+        tr.rewrite_operation(op)
+    except Exception, e:
+        assert 'foobar' in str(e)

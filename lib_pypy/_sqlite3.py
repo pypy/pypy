@@ -20,6 +20,8 @@
 # 2. Altered source versions must be plainly marked as such, and must not be
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
+#
+# Note: This software has been modified for use in PyPy.
 
 from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
@@ -27,7 +29,6 @@ from ctypes import sizeof, c_ssize_t
 from collections import OrderedDict
 import datetime
 import sys
-import time
 import weakref
 from threading import _get_ident as thread_get_ident
 
@@ -606,7 +607,7 @@ class Connection(object):
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
                     return int(callback(action, arg1, arg2, dbname, source))
-                except Exception as e:
+                except Exception:
                     return SQLITE_DENY
             c_authorizer = AUTHORIZER(authorizer)
 
@@ -653,7 +654,7 @@ class Connection(object):
                 if not aggregate_ptr[0]:
                     try:
                         aggregate = cls()
-                    except Exception as e:
+                    except Exception:
                         msg = ("user-defined aggregate's '__init__' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -667,7 +668,7 @@ class Connection(object):
                 params = _convert_params(context, argc, c_params)
                 try:
                     aggregate.step(*params)
-                except Exception as e:
+                except Exception:
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
                     sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -683,7 +684,7 @@ class Connection(object):
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
                     try:
                         val = aggregate.finalize()
-                    except Exception as e:
+                    except Exception:
                         msg = ("user-defined aggregate's 'finalize' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -771,7 +772,7 @@ class Cursor(object):
             self.statement.item = None
             self.statement.exhausted = True
 
-        if self.statement.kind == DML or self.statement.kind == DDL:
+        if self.statement.kind == DML:
             self.statement.reset()
 
         self.rowcount = -1
@@ -860,8 +861,6 @@ class Cursor(object):
             return self.statement.next(self)
         except StopIteration:
             return None
-
-        return nextrow
 
     def fetchmany(self, size=None):
         self._check_closed()
@@ -1050,7 +1049,7 @@ class Statement(object):
                 param_name = param_name[1:]
                 try:
                     param = params[param_name]
-                except KeyError as e:
+                except KeyError:
                     raise ProgrammingError("missing parameter '%s'" %param)
                 self.set_param(idx, param)
 
@@ -1261,7 +1260,7 @@ def function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
     try:
         val = real_cb(*params)
-    except Exception as e:
+    except Exception:
         msg = "user-defined function raised exception"
         sqlite.sqlite3_result_error(context, msg, len(msg))
     else:
