@@ -448,10 +448,11 @@ class UnicodeTest(
                 meth('\xff')
             with self.assertRaises(TypeError) as cm:
                 meth(['f'])
-            exc = str(cm.exception)
-            self.assertIn('unicode', exc)
-            self.assertIn('str', exc)
-            self.assertIn('tuple', exc)
+            if test_support.check_impl_detail():
+                exc = str(cm.exception)
+                self.assertIn('unicode', exc)
+                self.assertIn('str', exc)
+                self.assertIn('tuple', exc)
 
     @test_support.run_with_locale('LC_ALL', 'de_DE', 'fr_FR')
     def test_format_float(self):
