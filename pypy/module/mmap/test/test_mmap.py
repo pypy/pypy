@@ -591,6 +591,45 @@ class AppTestMMap:
             assert m.size() == halfsize + 512
         m.close()
 
+    def test_large_offset(self):
+        import mmap
+        import sys
+        size = 0x14FFFFFFF
+        if sys.platform.startswith('win') or sys.platform == 'darwin':
+            self.skip('test requires %s bytes and a long time to run' % size)
+
+        with open(self.tmpname, "w+b") as f:
+            f.seek(size)
+            f.write("A")
+            f.flush()
+        with open(self.tmpname, 'rb') as f2:
+            f2.seek(size)
+            c = f2.read(1)
+            assert c == b'A'
+            m = mmap.mmap(f2.fileno(), 0, offset=0x140000000,
+                          access=mmap.ACCESS_READ)
+            try:
+                assert m[0xFFFFFFF] == b'A'
+            finally:
+                m.close()
+
+    def test_large_filesize(self):
+        import mmap
+        import sys
+        size = 0x17FFFFFFF
+        if sys.platform.startswith('win') or sys.platform == 'darwin':
+            self.skip('test requires %s bytes and a long time to run' % size)
+
+        with open(self.tmpname, "w+b") as f:
+            f.seek(size)
+            f.write(" ")
+            f.flush()
+            m = mmap.mmap(f.fileno(), 0x10000, access=mmap.ACCESS_READ)
+            try:
+                assert m.size() ==  0x180000000
+            finally:
+                m.close()
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap

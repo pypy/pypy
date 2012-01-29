@@ -92,6 +92,11 @@ locals().update(constants)
 
 _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
+if rffi.sizeof(off_t) > rffi.sizeof(lltype.Signed):
+    HAVE_LARGEFILE_SUPPORT = True
+else:
+    HAVE_LARGEFILE_SUPPORT = False
+
 def external(name, args, result):
     unsafe = rffi.llexternal(name, args, result,
                              compilation_info=CConfig._compilation_info_)
@@ -428,10 +433,6 @@ class MMap(object):
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
-            if size > sys.maxint:
-                size = sys.maxint
-            else:
-                size = int(size)
         return size
 
     def write(self, data):
@@ -643,17 +644,15 @@ if _POSIX:
         else:
             mode = st[stat.ST_MODE]
             size = st[stat.ST_SIZE]
-            size -= offset
-            if size > sys.maxint:
-                size = sys.maxint
-            else:
-                size = int(size)
             if stat.S_ISREG(mode):
                 if map_size == 0:
-                    if offset > st[stat.ST_SIZE]:
-                        raise RValueError("mmap offset is greater than file size")
-                    map_size = size
-                elif map_size > size:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
                     raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)

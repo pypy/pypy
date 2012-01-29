@@ -202,7 +202,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
             for n in [sys.maxint, 2**31]:
-                cls.MAX_SIZE = n/64
+                cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
                 except OverflowError, e:
