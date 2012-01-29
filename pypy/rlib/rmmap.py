@@ -97,12 +97,14 @@ if rffi.sizeof(off_t) > rffi.sizeof(lltype.Signed):
 else:
     HAVE_LARGEFILE_SUPPORT = False
 
-def external(name, args, result):
+def external(name, args, result, **kwargs):
     unsafe = rffi.llexternal(name, args, result,
-                             compilation_info=CConfig._compilation_info_)
+                             compilation_info=CConfig._compilation_info_,
+                             **kwargs)
     safe = rffi.llexternal(name, args, result,
                            compilation_info=CConfig._compilation_info_,
-                           sandboxsafe=True, threadsafe=False)
+                           sandboxsafe=True, threadsafe=False,
+                           **kwargs)
     return unsafe, safe
 
 def winexternal(name, args, result, **kwargs):
@@ -118,7 +120,8 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 if _POSIX:
     has_mremap = cConfig['has_mremap']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
-                               rffi.INT, off_t], PTR)
+                               rffi.INT, off_t], PTR, macro=True)
+    # 'mmap' on linux32 is a macro that calls 'mmap64'
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
     if has_mremap:
