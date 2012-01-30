@@ -9,6 +9,7 @@ class Module(MixedModule):
         'set_num_threads': 'interp_transaction.set_num_threads',
         'add': 'interp_transaction.add',
         'run': 'interp_transaction.run',
+        'add_epoll': 'interp_epoll.add_epoll',   # xxx linux only
     }
 
     appleveldefs = {

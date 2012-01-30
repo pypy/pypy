@@ -114,6 +114,19 @@ class State(object):
     def unlock_unfinished(self):
         threadintf.release(self.ll_unfinished_lock)
 
+    def init_exceptions(self):
+        self._reraise_exception = None
+
+    def has_exception(self):
+        return self._reraise_exception is not None
+
+    def must_reraise_exception(self, reraise_callback):
+        self._reraise_exception = reraise_callback
+
+    def close_exceptions(self):
+        if self._reraise_exception is not None:
+            self._reraise_exception()
+
 
 state = State()
 
@@ -125,32 +138,45 @@ def set_num_threads(space, num):
     state.set_num_threads(num)
 
 
-class Pending:
+class AbstractPending(object):
     _alloc_nonmovable_ = True
-
-    def __init__(self, w_callback, args):
-        self.w_callback = w_callback
-        self.args = args
 
     def register(self):
         ec = state.getvalue()
         ec._transaction_pending.append(self)
 
     def run(self):
-        rstm.perform_transaction(Pending._run_in_transaction, Pending, self)
+        # may also be overridden
+        rstm.perform_transaction(AbstractPending._run_in_transaction,
+                                 AbstractPending, self)
 
     @staticmethod
     def _run_in_transaction(pending, retry_counter):
         if retry_counter > 0:
             pending.register() # retrying: will be done later, try others first
             return
-        if state.got_exception is not None:
-            return   # return early if there is already a 'got_exception'
+        if state.has_exception():
+            return   # return early if there is already an exception to reraise
         try:
-            space = state.space
-            space.call_args(pending.w_callback, pending.args)
+            pending.run_in_transaction(state.space)
         except Exception, e:
-            state.got_exception = e
+            state.got_exception_applevel = e
+            state.must_reraise_exception(_reraise_from_applevel)
+
+
+class Pending(AbstractPending):
+    def __init__(self, w_callback, args):
+        self.w_callback = w_callback
+        self.args = args
+
+    def run_in_transaction(self, space):
+        space.call_args(self.w_callback, self.args)
+
+
+def _reraise_from_applevel():
+    e = state.got_exception_applevel
+    state.got_exception_applevel = None
+    raise e
 
 
 def add(space, w_callback, __args__):
@@ -217,7 +243,7 @@ def run(space):
     state.num_waiting_threads = 0
     state.finished = False
     state.running = True
-    state.got_exception = None
+    state.init_exceptions()
     #
     for i in range(state.num_threads):
         threadintf.start_new_thread(_run_thread, ())
@@ -231,7 +257,4 @@ def run(space):
     state.running = False
     #
     # now re-raise the exception that we got in a transaction
-    if state.got_exception is not None:
-        e = state.got_exception
-        state.got_exception = None
-        raise e
+    state.close_exceptions()
