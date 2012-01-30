@@ -792,7 +792,7 @@ def test_immutable_hint():
     #
     class FieldListAccessor(object):
         def __init__(self, fields):
-            self.fields = fields
+            self._fields = fields
     S = GcStruct('S', ('x', lltype.Signed),
                  hints={'immutable_fields': FieldListAccessor({'x': 1234})})
     assert S._immutable_field('x') == 1234
