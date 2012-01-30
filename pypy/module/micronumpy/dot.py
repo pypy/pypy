@@ -1,8 +1,6 @@
-from pypy.module.micronumpy import interp_ufuncs
 from pypy.module.micronumpy.strides import calculate_dot_strides
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.interp_iter import ViewIterator
-from pypy.module.micronumpy.signature import new_printable_location
 from pypy.rlib import jit
 
 
@@ -10,8 +8,9 @@ def dot_printable_location(shapelen, sig):
     return 'numpy dot [%d dims]' % (shapelen)
 
 dot_driver = jit.JitDriver(
-    greens=['shape_len', 'left'],
-    reds=['lefti', 'righti', 'outi', 'result', 'right','sig','dtype'],
+    greens=['shape_len'],
+    reds=['lefti', 'righti', 'outi', 'result', 'right', 'sig', 'dtype',
+          'left'],
     get_printable_location=dot_printable_location,
     name='dot',
 )
@@ -20,12 +19,10 @@ def match_dot_shapes(space, left, right):
     my_critical_dim_size = left.shape[-1]
     right_critical_dim_size = right.shape[0]
     right_critical_dim = 0
-    right_critical_dim_stride = right.strides[0]
     out_shape = []
     if len(right.shape) > 1:
         right_critical_dim = len(right.shape) - 2
         right_critical_dim_size = right.shape[right_critical_dim]
-        right_critical_dim_stride = right.strides[right_critical_dim]
         assert right_critical_dim >= 0
         out_shape += left.shape[:-1] + \
                      right.shape[0:right_critical_dim] + \
@@ -39,7 +36,6 @@ def match_dot_shapes(space, left, right):
     return out_shape, right_critical_dim
 
 
-@jit.unroll_safe
 def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     ''' assumes left, right are concrete arrays
     given left.shape == [3, 5, 7],
@@ -78,14 +74,12 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
                                    outi=outi,
                                    result=result,
                                    dtype=dtype,
-                                   sig=None, #For get_printable_location
                                   )
         lval = left.getitem(lefti.offset).convert_to(dtype) 
         rval = right.getitem(righti.offset).convert_to(dtype) 
         outval = result.getitem(outi.offset).convert_to(dtype) 
         v = dtype.itemtype.mul(lval, rval)
-        value = dtype.itemtype.add(v, outval)
-        #Do I need to convert it to result.dtype or does settiem do that?
+        value = dtype.itemtype.add(v, outval).convert_to(dtype)
         result.setitem(outi.offset, value)
         outi = outi.next(shape_len)
         righti = righti.next(shape_len)
