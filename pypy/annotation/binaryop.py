@@ -434,18 +434,15 @@ class __extend__(pairtype(SomeBool, SomeBool)):
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
-        result = SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
-        if str1.no_nul and str2.no_nul:
-            result.no_nul = True
-        return result
+        can_be_None = str1.can_be_None or str2.can_be_None
+        no_nul = str1.no_nul and str2.no_nul
+        return SomeString(can_be_None=can_be_None, no_nul=no_nul)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
-        result = SomeString()
+        result = SomeString(no_nul=str1.no_nul and str2.no_nul)
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
-        if str1.no_nul and str2.no_nul:
-            result.no_nul = True
         return result
 
 class __extend__(pairtype(SomeChar, SomeChar)):
@@ -480,7 +477,6 @@ class __extend__(pairtype(SomeString, SomeTuple)):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', str, s_tuple)
-        result = SomeString()
         no_nul = str.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
@@ -490,9 +486,7 @@ class __extend__(pairtype(SomeString, SomeTuple)):
             else:
                 no_nul = False
                 break
-        if no_nul:
-            result.no_nul = True
-        return result
+        return SomeString(no_nul=no_nul)
 
 
 class __extend__(pairtype(SomeString, SomeObject)):

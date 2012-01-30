@@ -232,26 +232,30 @@ class SomeString(SomeObject):
     can_be_None=False
     no_nul = False  # No NUL character in the string.
 
-    def __init__(self, can_be_None=False):
+    def __init__(self, can_be_None=False, no_nul=False):
         if can_be_None:
             self.can_be_None = True
+        if no_nul:
+            self.no_nul = True
 
     def can_be_none(self):
         return self.can_be_None
 
     def nonnoneify(self):
-        result = SomeString(can_be_None=False)
-        if self.no_nul:
-            result.no_nul = True
-        return result
+        return SomeString(can_be_None=False, no_nul=self.no_nul)
 
 class SomeUnicodeString(SomeObject):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
     immutable = True
+    can_be_None=False
     no_nul = False
-    def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
+
+    def __init__(self, can_be_None=False, no_nul=False):
+        if can_be_None:
+            self.can_be_None = True
+        if no_nul:
+            self.no_nul = True
 
     def can_be_none(self):
         return self.can_be_None
@@ -262,14 +266,16 @@ class SomeUnicodeString(SomeObject):
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 SomeString.basestringclass = SomeString
 SomeString.basecharclass = SomeChar
@@ -510,8 +516,7 @@ class SomeImpossibleValue(SomeObject):
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
-s_Str0 = SomeString()
-s_Str0.no_nul = True
+s_Str0 = SomeString(no_nul=True)
 
 # ____________________________________________________________
 # weakrefs

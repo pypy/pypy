@@ -223,4 +223,5 @@ class ListDef(object):
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 
-s_list_of_strings = SomeList(ListDef(None, SomeString(), resized = True))
+s_list_of_strings = SomeList(ListDef(None, SomeString(no_nul=True),
+                                     resized = True))

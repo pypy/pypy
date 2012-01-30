@@ -491,10 +491,8 @@ class __extend__(SomeString,
             if isinstance(str, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")
-        result = str.basestringclass()
-        if str.no_nul and s_item.no_nul:
-            result.no_nul = True
-        return result
+        no_nul = str.no_nul and s_item.no_nul
+        return str.basestringclass(no_nul=no_nul)
 
     def iter(str):
         return SomeIterator(str)
@@ -505,27 +503,20 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        s_item = str.basestringclass()
-        if str.no_nul:
-            s_item.no_nul = True
-        result = getbookkeeper().newlist(s_item)
-        return result
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
         getbookkeeper().count("str_rsplit", str, patt)
-        result = getbookkeeper().newlist(str.basestringclass())
-        if str.no_nul:
-            result.no_nul = True
-        return result
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_replace(str, s1, s2):
         return str.basestringclass()
 
     def getslice(str, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
-        result = str.basestringclass()
-        if str.no_nul:
-            result.no_nul = True
+        result = str.basestringclass(no_nul=str.no_nul)
         return result
 
 class __extend__(SomeUnicodeString):
