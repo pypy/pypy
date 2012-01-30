@@ -840,6 +840,12 @@ def test_immutable_interiorfield():
         immut = A._immutable_interiorfield([4, 'a'])
         assert immut == expected
 
+def test_immutable_fixedsizearray():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    assert not A._immutable_field()
+    A = lltype.FixedSizeArray(lltype.Signed, 5, hints={'immutable': True})
+    assert A._immutable_field()
+
 
 def test_typedef():
     T = Typedef(Signed, 'T')

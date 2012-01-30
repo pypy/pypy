@@ -355,10 +355,10 @@ class Struct(ContainerType):
             n = 1
         return _struct(self, n, initialization='example')
 
-    def _immutable_field(self, field):
+    def _immutable_field(self, field=None):
         if self._hints.get('immutable'):
             return True
-        if 'immutable_fields' in self._hints:
+        if field is not None and 'immutable_fields' in self._hints:
             try:
                 return self._hints['immutable_fields']._fields[field]
             except KeyError:
