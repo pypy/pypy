@@ -353,7 +353,6 @@ class Call2(Signature):
         assert isinstance(arr, Call2)
         lhs = self.left.eval(frame, arr.left).convert_to(self.calc_dtype)
         rhs = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
-        
         return self.binfunc(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):

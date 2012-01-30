@@ -7,6 +7,7 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords)
+from dot import multidim_dot, match_dot_shapes
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
@@ -203,6 +204,7 @@ class BaseArray(Wrappable):
                 frame.next(shapelen)
                 idx += 1
             return result
+
         def impl(self, space):
             if self.size == 0:
                 raise OperationError(space.w_ValueError,
@@ -248,13 +250,26 @@ class BaseArray(Wrappable):
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_dot(self, space, w_other):
-        w_other = convert_to_array(space, w_other)
-        if isinstance(w_other, Scalar):
-            return self.descr_mul(space, w_other)
-        else:
-            w_res = self.descr_mul(space, w_other)
+        other = convert_to_array(space, w_other)
+        if isinstance(other, Scalar):
+            return self.descr_mul(space, other)
+        elif len(self.shape) < 2 and len(other.shape) < 2:
+            w_res = self.descr_mul(space, other)
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space, space.wrap(-1))
+        dtype = interp_ufuncs.find_binop_result_dtype(space,
+                                     self.find_dtype(), other.find_dtype())
+        if self.size < 1 and other.size < 1:
+            # numpy compatability
+            return scalar_w(space, dtype, space.wrap(0))
+        # Do the dims match?
+        out_shape, other_critical_dim = match_dot_shapes(space, self, other)
+        out_size = support.product(out_shape)
+        result = W_NDimArray(out_size, out_shape, dtype)
+        # This is the place to add fpypy and blas
+        return multidim_dot(space, self.get_concrete(), 
+                            other.get_concrete(), result, dtype,
+                            other_critical_dim)
 
     def get_concrete(self):
         raise NotImplementedError
@@ -1186,6 +1201,8 @@ def count_reduce_items(space, arr, w_axis=None, skipna=False, keepdims=True):
     return space.wrap(s)
 
 def dot(space, w_obj, w_obj2):
+    '''see numpypy.dot. Does not exist as an ndarray method in numpy.
+    '''
     w_arr = convert_to_array(space, w_obj)
     if isinstance(w_arr, Scalar):
         return convert_to_array(space, w_obj2).descr_dot(space, w_arr)

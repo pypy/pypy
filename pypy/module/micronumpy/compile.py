@@ -34,7 +34,7 @@ class BadToken(Exception):
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
                         "unegative", "flat"]
-TWO_ARG_FUNCTIONS = ['take']
+TWO_ARG_FUNCTIONS = ["dot", 'take']
 
 class FakeSpace(object):
     w_ValueError = None
@@ -410,13 +410,19 @@ class FunctionCall(Node):
             else:
                 assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
             arg = self.args[1].execute(interp)
             if not isinstance(arg, BaseArray):
                 raise ArgumentNotAnArray
-            if self.name == 'take':
+            if not isinstance(arg, BaseArray):
+                raise ArgumentNotAnArray
+            if self.name == "dot":
+                w_res = arr.descr_dot(interp.space, arg)
+            elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
             else:
-                assert False # unreachable
+                assert False # unreachable code
         else:
             raise WrongFunctionName
         if isinstance(w_res, BaseArray):
