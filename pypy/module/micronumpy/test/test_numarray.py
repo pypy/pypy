@@ -942,11 +942,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert sum(a[2,3,2,:] * b[1,2,:,2]) == 499128
 
     def test_dot_constant(self):
-        from _numpypy import array
+        from _numpypy import array, dot
         a = array(range(5))
         b = a.dot(2.5)
         for i in xrange(5):
             assert b[i] == 2.5 * a[i]
+        c = dot(4, 3.0)
+        assert c == 12.0
 
     def test_dtype_guessing(self):
         from _numpypy import array, dtype, float64, int8, bool_
