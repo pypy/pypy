@@ -7,7 +7,7 @@ import sys
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32',
-                 'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
+                 'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32', 'zlib']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
         # need of winsock2.  Remove this when separate compilation is
@@ -54,6 +54,7 @@ else:
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
+ASN1_ITEM_EXP = lltype.FuncType([], ASN1_ITEM)
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 
 class CConfig:
@@ -101,7 +102,6 @@ class CConfig:
     X509_extension_st = rffi_platform.Struct(
         'struct X509_extension_st',
         [('value', ASN1_STRING)])
-    ASN1_ITEM_EXP = lltype.FuncType([], ASN1_ITEM)
     X509V3_EXT_D2I = lltype.FuncType([rffi.VOIDP, rffi.CCHARPP, rffi.LONG], 
                                      rffi.VOIDP)
     v3_ext_method = rffi_platform.Struct(
@@ -224,7 +224,10 @@ ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i', 
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
+if rffi_platform.Defined("OPENSSL_EXPORT_VAR_AS_FUNCTION"):             
+    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
+else:    
+    ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
 
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
