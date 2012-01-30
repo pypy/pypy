@@ -33,6 +33,13 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
+    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
+    if WORD == 4:
+        bridge_loop_instructions = ['lea', 'jmp']
+    else:
+        # the 'mov' is part of the 'jmp' so far
+        bridge_loop_instructions = ['lea', 'mov', 'jmp']
+
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
@@ -416,7 +423,8 @@ class TestX86(LLtypeBackendTest):
             ]
         inputargs = [i0]
         debug._log = dlog = debug.DebugLog()
-        ops_offset = self.cpu.compile_loop(inputargs, operations, looptoken)
+        info = self.cpu.compile_loop(inputargs, operations, looptoken)
+        ops_offset = info.ops_offset
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset

@@ -1,10 +1,13 @@
 """
-Weakref support in RPython.  Supports ref() without callbacks,
+Weakref support in RPython.  Basic regular weakrefs without callbacks
+are supported.  This file contains the following additions:
 a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
 LLType only for now!
 """
 
 import weakref
+
+ref = weakref.ref    # basic regular weakrefs are supported in RPython
 
 
 class RWeakValueDictionary(object):

@@ -27,6 +27,10 @@ class CConstant(Symbolic):
         self.c_name = c_name
         self.TP = TP
 
+    def __repr__(self):
+        return '%s(%r, %s)' % (self.__class__.__name__,
+                               self.c_name, self.TP)
+
     def annotation(self):
         return lltype_to_annotation(self.TP)
 

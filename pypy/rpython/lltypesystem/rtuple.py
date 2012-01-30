@@ -27,6 +27,10 @@ class TupleRepr(AbstractTupleRepr):
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs
+        assert len(r_tuple.items_r) == len(items_v)
+        for r_item, v_item in zip(r_tuple.items_r, items_v):
+            assert r_item.lowleveltype == v_item.concretetype
+        #
         if len(r_tuple.items_r) == 0:
             return inputconst(Void, ())    # a Void empty tuple
         c1 = inputconst(Void, r_tuple.lowleveltype.TO)

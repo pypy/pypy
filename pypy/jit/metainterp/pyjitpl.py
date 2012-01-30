@@ -1553,6 +1553,7 @@ class MetaInterpGlobalData(object):
 
 class MetaInterp(object):
     in_recursion = 0
+    cancel_count = 0
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1793,6 +1794,15 @@ class MetaInterp(object):
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
+        jd_sd = self.jitdriver_sd
+        if not self.current_merge_points:
+            greenkey = None # we're in the bridge
+        else:
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+                                                          jd_sd.jitdriver,
+                                                          greenkey,
+                                                          jd_sd.warmstate.get_location_str(greenkey))
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
@@ -1966,9 +1976,14 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.staticdata.warmrunnerdesc:
+                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
+                    if memmgr:
+                        if self.cancel_count > memmgr.max_unroll_loops:
+                            self.staticdata.log('cancelled too many times!')
+                            raise SwitchToBlackhole(ABORT_BAD_LOOP)
                 self.staticdata.log('cancelled, tracing more...')
-                #self.staticdata.log('cancelled, stopping tracing')
-                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)

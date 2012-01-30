@@ -310,10 +310,7 @@ class INETAddress(IPAddress):
 
     def from_object(space, w_address):
         # Parse an app-level object representing an AF_INET address
-        try:
-            w_host, w_port = space.unpackiterable(w_address, 2)
-        except ValueError:
-            raise TypeError("AF_INET address must be a tuple of length 2")
+        w_host, w_port = space.unpackiterable(w_address, 2)
         host = space.str_w(w_host)
         port = space.int_w(w_port)
         port = Address.make_ushort_port(space, port)
@@ -544,10 +541,7 @@ if 'AF_NETLINK' in constants:
                                    space.wrap(self.get_groups())])
 
         def from_object(space, w_address):
-            try:
-                w_pid, w_groups = space.unpackiterable(w_address, 2)
-            except ValueError:
-                raise TypeError("AF_NETLINK address must be a tuple of length 2")
+            w_pid, w_groups = space.unpackiterable(w_address, 2)
             return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
         from_object = staticmethod(from_object)
 

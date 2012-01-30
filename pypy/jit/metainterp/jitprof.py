@@ -18,8 +18,8 @@ OPT_GUARDS
 OPT_FORCINGS
 ABORT_TOO_LONG
 ABORT_BRIDGE
-ABORT_ESCAPE
 ABORT_BAD_LOOP
+ABORT_ESCAPE
 ABORT_FORCE_QUASIIMMUT
 NVIRTUALS
 NVHOLES
@@ -30,10 +30,13 @@ TOTAL_FREED_LOOPS
 TOTAL_FREED_BRIDGES
 """
 
+counter_names = []
+
 def _setup():
     names = counters.split()
     for i, name in enumerate(names):
         globals()[name] = i
+        counter_names.append(name)
     global ncounters
     ncounters = len(names)
 _setup()

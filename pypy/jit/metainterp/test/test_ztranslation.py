@@ -3,7 +3,9 @@ from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.backend.llgraph import runner
 from pypy.rlib.jit import JitDriver, unroll_parameters, set_param
 from pypy.rlib.jit import PARAMETERS, dont_look_inside, hint
+from pypy.rlib.jit_hooks import boxint_new, resop_new, resop_getopnum
 from pypy.jit.metainterp.jitprof import Profiler
+from pypy.jit.metainterp.resoperation import rop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 class TranslationTest:
@@ -22,6 +24,7 @@ class TranslationTest:
         # - jitdriver hooks
         # - two JITs
         # - string concatenation, slicing and comparison
+        # - jit hooks interface
 
         class Frame(object):
             _virtualizable2_ = ['l[*]']
@@ -91,7 +94,9 @@ class TranslationTest:
             return f.i
         #
         def main(i, j):
-            return f(i) - f2(i+j, i, j)
+            op = resop_new(rop.INT_ADD, [boxint_new(3), boxint_new(5)],
+                           boxint_new(8))
+            return f(i) - f2(i+j, i, j) + resop_getopnum(op)
         res = ll_meta_interp(main, [40, 5], CPUClass=self.CPUClass,
                              type_system=self.type_system,
                              listops=True)
