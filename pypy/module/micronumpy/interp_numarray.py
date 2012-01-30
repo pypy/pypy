@@ -260,13 +260,11 @@ class BaseArray(Wrappable):
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.find_dtype(), other.find_dtype())
         if self.size < 1 and other.size < 1:
-            #numpy compatability
+            # numpy compatability
             return scalar_w(space, dtype, space.wrap(0))
-        #Do the dims match?
+        # Do the dims match?
         out_shape, other_critical_dim = match_dot_shapes(space, self, other)
-        out_size = 1
-        for o in out_shape:
-            out_size *= o
+        out_size = support.product(out_shape)
         result = W_NDimArray(out_size, out_shape, dtype)
         # This is the place to add fpypy and blas
         return multidim_dot(space, self.get_concrete(), 

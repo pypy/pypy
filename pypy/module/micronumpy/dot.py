@@ -3,13 +3,12 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy.interp_iter import ViewIterator
 from pypy.rlib import jit
 
-
-def dot_printable_location(shapelen, sig):
-    return 'numpy dot [%d dims]' % (shapelen)
+def dot_printable_location(shapelen):
+    return 'numpy dot [%d]' % shapelen
 
 dot_driver = jit.JitDriver(
-    greens=['shape_len'],
-    reds=['lefti', 'righti', 'outi', 'result', 'right', 'sig', 'dtype',
+    greens=['shapelen'],
+    reds=['lefti', 'righti', 'outi', 'result', 'right', 'dtype',
           'left'],
     get_printable_location=dot_printable_location,
     name='dot',
@@ -35,7 +34,6 @@ def match_dot_shapes(space, left, right):
                                         "objects are not aligned"))
     return out_shape, right_critical_dim
 
-
 def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     ''' assumes left, right are concrete arrays
     given left.shape == [3, 5, 7],
@@ -51,7 +49,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
      right should skip 0, 1
     '''
     broadcast_shape = left.shape[:-1] + right.shape
-    shape_len = len(broadcast_shape)
+    shapelen = len(broadcast_shape)
     left_skip = [len(left.shape) - 1 + i for i in range(len(right.shape))
                                          if i != right_critical_dim]
     right_skip = range(len(left.shape) - 1)
@@ -68,7 +66,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
     while not outi.done():
         dot_driver.jit_merge_point(left=left,
                                    right=right,
-                                   shape_len=shape_len,
+                                   shapelen=shapelen,
                                    lefti=lefti,
                                    righti=righti,
                                    outi=outi,
@@ -81,7 +79,7 @@ def multidim_dot(space, left, right, result, dtype, right_critical_dim):
         v = dtype.itemtype.mul(lval, rval)
         value = dtype.itemtype.add(v, outval).convert_to(dtype)
         result.setitem(outi.offset, value)
-        outi = outi.next(shape_len)
-        righti = righti.next(shape_len)
-        lefti = lefti.next(shape_len)
+        outi = outi.next(shapelen)
+        righti = righti.next(shapelen)
+        lefti = lefti.next(shapelen)
     return result
