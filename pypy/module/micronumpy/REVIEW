@@ -1,0 +1,7 @@
+
+Please read the basics of our jit in [1]. Essentially assembler will be
+specialized on greens, that's why we do the dance of all the signature stuff,
+so it's compiled for each green. 'left' in green is obviously unacceptable.
+
+
+.. [1] http://doc.pypy.org/en/latest/jit/index.html
