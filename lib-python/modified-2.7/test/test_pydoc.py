@@ -6,12 +6,14 @@ import subprocess
 import re
 import pydoc
 import inspect
+import keyword
 import unittest
 import xml.etree
 import test.test_support
 from contextlib import contextmanager
+from collections import namedtuple
 from test.test_support import (
-    TESTFN, forget, rmtree, EnvironmentVarGuard, reap_children)
+    TESTFN, forget, rmtree, EnvironmentVarGuard, reap_children, captured_stdout)
 
 from test import pydoc_mod
 
@@ -340,10 +342,26 @@ class TestDescriptions(unittest.TestCase):
         expected = 'C in module %s object' % __name__
         self.assertIn(expected, pydoc.render_doc(c))
 
+    def test_namedtuple_public_underscore(self):
+        NT = namedtuple('NT', ['abc', 'def'], rename=True)
+        with captured_stdout() as help_io:
+            help(NT)
+        helptext = help_io.getvalue()
+        self.assertIn('_1', helptext)
+        self.assertIn('_replace', helptext)
+        self.assertIn('_asdict', helptext)
+
+
+class TestHelper(unittest.TestCase):
+    def test_keywords(self):
+        self.assertEqual(sorted(pydoc.Helper.keywords),
+                         sorted(keyword.kwlist))
+
 
 def test_main():
     test.test_support.run_unittest(PyDocDocTest,
-                                   TestDescriptions)
+                                   TestDescriptions,
+                                   TestHelper)
 
 if __name__ == "__main__":
     test_main()

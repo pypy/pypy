@@ -5,6 +5,7 @@ import httplib
 import unittest
 from test import test_support
 import os
+import sys
 import mimetools
 import tempfile
 import StringIO
@@ -148,6 +149,16 @@ class urlopen_HttpTests(unittest.TestCase):
         finally:
             self.unfakehttp()
 
+    def test_url_fragment(self):
+        # Issue #11703: geturl() omits fragments in the original URL.
+        url = 'http://docs.python.org/library/urllib.html#OK'
+        self.fakehttp('Hello!')
+        try:
+            fp = urllib.urlopen(url)
+            self.assertEqual(fp.geturl(), url)
+        finally:
+            self.unfakehttp()
+
     def test_read_bogus(self):
         # urlopen() should raise IOError for many error codes.
         self.fakehttp('''HTTP/1.1 401 Authentication Required
@@ -156,6 +167,20 @@ Server: Apache/1.3.33 (Debian GNU/Linux) mod_ssl/2.8.22 OpenSSL/0.9.7e
 Connection: close
 Content-Type: text/html; charset=iso-8859-1
 ''')
+        try:
+            self.assertRaises(IOError, urllib.urlopen, "http://python.org/")
+        finally:
+            self.unfakehttp()
+
+    def test_invalid_redirect(self):
+        # urlopen() should raise IOError for many error codes.
+        self.fakehttp("""HTTP/1.1 302 Found
+Date: Wed, 02 Jan 2008 03:03:54 GMT
+Server: Apache/1.3.33 (Debian GNU/Linux) mod_ssl/2.8.22 OpenSSL/0.9.7e
+Location: file:README
+Connection: close
+Content-Type: text/html; charset=iso-8859-1
+""")
         try:
             self.assertRaises(IOError, urllib.urlopen, "http://python.org/")
         finally:
@@ -606,6 +631,23 @@ class Pathname_Tests(unittest.TestCase):
                          "url2pathname() failed; %s != %s" %
                          (expect, result))
 
+    @unittest.skipUnless(sys.platform == 'win32',
+                         'test specific to the nturl2path library')
+    def test_ntpath(self):
+        given = ('/C:/', '///C:/', '/C|//')
+        expect = 'C:\\'
+        for url in given:
+            result = urllib.url2pathname(url)
+            self.assertEqual(expect, result,
+                             'nturl2path.url2pathname() failed; %s != %s' %
+                             (expect, result))
+        given = '///C|/path'
+        expect = 'C:\\path'
+        result = urllib.url2pathname(given)
+        self.assertEqual(expect, result,
+                         'nturl2path.url2pathname() failed; %s != %s' %
+                         (expect, result))
+
 class Utility_Tests(unittest.TestCase):
     """Testcase to test the various utility functions in the urllib."""
 
@@ -641,7 +683,7 @@ class URLopener_Tests(unittest.TestCase):
 
 # Just commented them out.
 # Can't really tell why keep failing in windows and sparc.
-# Everywhere else they work ok, but on those machines, someteimes
+# Everywhere else they work ok, but on those machines, sometimes
 # fail in one of the tests, sometimes in other. I have a linux, and
 # the tests go ok.
 # If anybody has one of the problematic enviroments, please help!

@@ -4,6 +4,7 @@ GUI application (as opposed to an X11 application).
 """
 import sys
 import Tkinter
+from os import path
 
 
 _appbundle = None
@@ -19,10 +20,41 @@ def runningAsOSXApp():
         _appbundle = (sys.platform == 'darwin' and '.app' in sys.executable)
     return _appbundle
 
+_carbonaquatk = None
+
+def isCarbonAquaTk(root):
+    """
+    Returns True if IDLE is using a Carbon Aqua Tk (instead of the
+    newer Cocoa Aqua Tk).
+    """
+    global _carbonaquatk
+    if _carbonaquatk is None:
+        _carbonaquatk = (runningAsOSXApp() and
+                         'aqua' in root.tk.call('tk', 'windowingsystem') and
+                         'AppKit' not in root.tk.call('winfo', 'server', '.'))
+    return _carbonaquatk
+
+def tkVersionWarning(root):
+    """
+    Returns a string warning message if the Tk version in use appears to
+    be one known to cause problems with IDLE.  The Apple Cocoa-based Tk 8.5
+    that was shipped with Mac OS X 10.6.
+    """
+
+    if (runningAsOSXApp() and
+            ('AppKit' in root.tk.call('winfo', 'server', '.')) and
+            (root.tk.call('info', 'patchlevel') == '8.5.7') ):
+        return (r"WARNING: The version of Tcl/Tk (8.5.7) in use may"
+                r" be unstable.\n"
+                r"Visit http://www.python.org/download/mac/tcltk/"
+                r" for current information.")
+    else:
+        return False
+
 def addOpenEventSupport(root, flist):
     """
-    This ensures that the application will respont to open AppleEvents, which
-    makes is feaseable to use IDLE as the default application for python files.
+    This ensures that the application will respond to open AppleEvents, which
+    makes is feasible to use IDLE as the default application for python files.
     """
     def doOpenFile(*args):
         for fn in args:
@@ -79,9 +111,6 @@ def overrideRootMenu(root, flist):
         WindowList.add_windows_to_menu(menu)
     WindowList.register_callback(postwindowsmenu)
 
-    menudict['application'] = menu = Menu(menubar, name='apple')
-    menubar.add_cascade(label='IDLE', menu=menu)
-
     def about_dialog(event=None):
         from idlelib import aboutDialog
         aboutDialog.AboutDialog(root, 'About IDLE')
@@ -91,41 +120,45 @@ def overrideRootMenu(root, flist):
         root.instance_dict = flist.inversedict
         configDialog.ConfigDialog(root, 'Settings')
 
+    def help_dialog(event=None):
+        from idlelib import textView
+        fn = path.join(path.abspath(path.dirname(__file__)), 'help.txt')
+        textView.view_file(root, 'Help', fn)
 
     root.bind('<<about-idle>>', about_dialog)
     root.bind('<<open-config-dialog>>', config_dialog)
+    root.createcommand('::tk::mac::ShowPreferences', config_dialog)
     if flist:
         root.bind('<<close-all-windows>>', flist.close_all_callback)
 
+        # The binding above doesn't reliably work on all versions of Tk
+        # on MacOSX. Adding command definition below does seem to do the
+        # right thing for now.
+        root.createcommand('exit', flist.close_all_callback)
 
-    ###check if Tk version >= 8.4.14; if so, use hard-coded showprefs binding
-    tkversion = root.tk.eval('info patchlevel')
-    # Note: we cannot check if the string tkversion >= '8.4.14', because
-    # the string '8.4.7' is greater than the string '8.4.14'.
-    if tuple(map(int, tkversion.split('.'))) >= (8, 4, 14):
-        Bindings.menudefs[0] =  ('application', [
+    if isCarbonAquaTk(root):
+        # for Carbon AquaTk, replace the default Tk apple menu
+        menudict['application'] = menu = Menu(menubar, name='apple')
+        menubar.add_cascade(label='IDLE', menu=menu)
+        Bindings.menudefs.insert(0,
+            ('application', [
                 ('About IDLE', '<<about-idle>>'),
-                None,
-            ])
-        root.createcommand('::tk::mac::ShowPreferences', config_dialog)
+                    None,
+                ]))
+        tkversion = root.tk.eval('info patchlevel')
+        if tuple(map(int, tkversion.split('.'))) < (8, 4, 14):
+            # for earlier AquaTk versions, supply a Preferences menu item
+            Bindings.menudefs[0][1].append(
+                    ('_Preferences....', '<<open-config-dialog>>'),
+                )
     else:
-        for mname, entrylist in Bindings.menudefs:
-            menu = menudict.get(mname)
-            if not menu:
-                continue
-            else:
-                for entry in entrylist:
-                    if not entry:
-                        menu.add_separator()
-                    else:
-                        label, eventname = entry
-                        underline, label = prepstr(label)
-                        accelerator = get_accelerator(Bindings.default_keydefs,
-                        eventname)
-                        def command(text=root, eventname=eventname):
-                            text.event_generate(eventname)
-                        menu.add_command(label=label, underline=underline,
-                        command=command, accelerator=accelerator)
+        # assume Cocoa AquaTk
+        # replace default About dialog with About IDLE one
+        root.createcommand('tkAboutDialog', about_dialog)
+        # replace default "Help" item in Help menu
+        root.createcommand('::tk::mac::ShowHelp', help_dialog)
+        # remove redundant "IDLE Help" from menu
+        del Bindings.menudefs[-1][1][0]
 
 def setupApp(root, flist):
     """

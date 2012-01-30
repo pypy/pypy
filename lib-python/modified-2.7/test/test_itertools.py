@@ -785,12 +785,17 @@ class TestBasicOps(unittest.TestCase):
         self.assertRaises(ValueError, islice, xrange(10), 1, -5, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, -1)
         self.assertRaises(ValueError, islice, xrange(10), 1, 10, 0)
-        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a')
-        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a', 1)
-        self.assertRaises((ValueError,TypeError), islice, xrange(10), 1, 'a')
-        self.assertRaises((ValueError,TypeError), islice, xrange(10), 'a', 1, 1)
-        self.assertRaises((ValueError,TypeError), islice, xrange(10), 1, 'a', 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a')
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a', 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 1, 'a')
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 'a', 1, 1)
+        self.assertRaises((ValueError, TypeError), islice, xrange(10), 1, 'a', 1)
         self.assertEqual(len(list(islice(count(), 1, 10, maxsize))), 1)
+
+        # Issue #10323:  Less islice in a predictable state
+        c = count()
+        self.assertEqual(list(islice(c, 1, 3, 50)), [1])
+        self.assertEqual(next(c), 3)
 
     def test_takewhile(self):
         data = [1, 3, 5, 20, 2, 4, 6, 8]
@@ -1494,7 +1499,7 @@ Samuele
 ...     return chain(iterable, repeat(None))
 
 >>> def ncycles(iterable, n):
-...     "Returns the seqeuence elements n times"
+...     "Returns the sequence elements n times"
 ...     return chain(*repeat(iterable, n))
 
 >>> def dotproduct(vec1, vec2):
