@@ -6,7 +6,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
+from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS, IS_X86_32
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
@@ -142,7 +142,9 @@ class AbstractX86CPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
+    all_null_registers = lltype.malloc(rffi.LONGP.TO,
+                                       IS_X86_32 and (16+8)  # 16 + 8 regs
+                                                 or (16+16), # 16 + 16 regs
                                        flavor='raw', zero=True,
                                        immortal=True)
 

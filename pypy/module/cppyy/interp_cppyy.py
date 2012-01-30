@@ -18,7 +18,7 @@ class FastCallNotPossible(Exception):
 
 def _direct_ptradd(ptr, offset):        # TODO: factor out with convert.py
     address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(rffi.VOIDP, lltype.direct_ptradd(address, offset))
+    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 
 @unwrap_spec(name=str)
 def load_dictionary(space, name):
@@ -135,7 +135,7 @@ class CPPMethod(object):
         if self.arg_converters is None:
             self._build_converters()
         jit.promote(self)
-        funcptr = self.methgetter(rffi.cast(rffi.VOIDP, cppthis))
+        funcptr = self.methgetter(rffi.cast(capi.C_OBJECT, cppthis))
         libffi_func = self._get_libffi_func(funcptr)
         if not libffi_func:
             raise FastCallNotPossible
@@ -252,6 +252,7 @@ class W_CPPOverload(Wrappable):
             offset = capi.c_base_offset(
                 cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
             cppthis = _direct_ptradd(cppinstance.rawobject, offset)
+            assert lltype.typeOf(cppthis) == capi.C_OBJECT
         else:
             cppthis = capi.C_NULL_OBJECT
         return cppthis
@@ -618,7 +619,7 @@ def addressof(space, cppinstance):
 
 @unwrap_spec(address=int, owns=bool)
 def bind_object(space, address, w_type, owns=False):
-    rawobject = rffi.cast(rffi.VOIDP, address)
+    rawobject = rffi.cast(capi.C_OBJECT, address)
     w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
     cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
 

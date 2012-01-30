@@ -247,12 +247,12 @@ class InstancePtrExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(
             func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        ptr_result = rffi.cast(rffi.VOIDP, long_result)
+        ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         from pypy.module.cppyy import interp_cppyy
-        ptr_result = rffi.cast(rffi.VOIDP, libffifunc.call(argchain, rffi.VOIDP))
+        ptr_result = rffi.cast(capi.C_OBJECT, libffifunc.call(argchain, rffi.VOIDP))
         return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False)
 
 
@@ -263,7 +263,7 @@ class InstanceExecutor(InstancePtrExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_o(
             func.cpptype.handle, func.method_index, cppthis, num_args, args, self.cpptype.handle)
-        ptr_result = rffi.cast(rffi.VOIDP, long_result)
+        ptr_result = rffi.cast(capi.C_OBJECT, long_result)
         return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, True)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):

@@ -9,7 +9,7 @@ class PyPyModule(MixedModule):
     appleveldefs = {}
 
 class Module(MixedModule):
-    applevel_name = 'numpypy'
+    applevel_name = '_numpypy'
 
     submodules = {
         'pypy': PyPyModule
@@ -27,6 +27,8 @@ class Module(MixedModule):
         'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
+        'isna': 'interp_numarray.isna',
+        'concatenate': 'interp_numarray.concatenate',
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
@@ -48,6 +50,7 @@ class Module(MixedModule):
         'int_': 'interp_boxes.W_LongBox',
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
+        'float_': 'interp_boxes.W_Float64Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
     }
@@ -69,6 +72,7 @@ class Module(MixedModule):
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("ceil", "ceil"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
@@ -84,12 +88,13 @@ class Module(MixedModule):
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
         ("tan", "tan"),
+        ('bitwise_and', 'bitwise_and'),
+        ('bitwise_or', 'bitwise_or'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
     appleveldefs = {
         'average': 'app_numpy.average',
-        'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
@@ -98,5 +103,4 @@ class Module(MixedModule):
         'e': 'app_numpy.e',
         'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
-        'reshape': 'app_numpy.reshape',
     }

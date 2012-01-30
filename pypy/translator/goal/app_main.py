@@ -139,8 +139,8 @@ def _print_jit_help():
     items = pypyjit.defaults.items()
     items.sort()
     for key, value in items:
-        print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
-            key, ' '*(18-len(key)), value)
+        print '  --jit %s=N %s%s (default %s)' % (
+            key, ' '*(18-len(key)), pypyjit.PARAMETER_DOCS[key], value)
     print '  --jit off                  turn off the JIT'
 
 def print_version(*args):

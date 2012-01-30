@@ -2629,6 +2629,38 @@ class BasicTests:
         self.check_jitcell_token_count(1)
         self.check_target_token_count(5)
 
+    def test_max_unroll_loops(self):
+        from pypy.jit.metainterp.optimize import InvalidLoop
+        from pypy.jit.metainterp import optimizeopt
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
+        #
+        def f(n, limit):
+            set_param(myjitdriver, 'threshold', 5)
+            set_param(myjitdriver, 'max_unroll_loops', limit)
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i)
+                print i
+                i += 1
+            return i
+        #
+        def my_optimize_trace(*args, **kwds):
+            raise InvalidLoop
+        old_optimize_trace = optimizeopt.optimize_trace
+        optimizeopt.optimize_trace = my_optimize_trace
+        try:
+            res = self.meta_interp(f, [23, 4])
+            assert res == 23
+            self.check_trace_count(0)
+            self.check_aborted_count(3)
+            #
+            res = self.meta_interp(f, [23, 20])
+            assert res == 23
+            self.check_trace_count(0)
+            self.check_aborted_count(2)
+        finally:
+            optimizeopt.optimize_trace = old_optimize_trace
+
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
                                                      'node'])

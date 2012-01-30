@@ -4,7 +4,7 @@ from pypy.rlib import rarithmetic, jit
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
-from pypy.module.cppyy import interp_cppyy
+from pypy.module.cppyy import interp_cppyy, capi
 
 class FakeBase(W_Root):
     typename = None
@@ -31,7 +31,7 @@ class FakeType(FakeBase):
 @jit.dont_look_inside
 def _opaque_direct_ptradd(ptr, offset):
     address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(rffi.VOIDP, lltype.direct_ptradd(address, offset))
+    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 interp_cppyy._direct_ptradd = _opaque_direct_ptradd
 
 class FakeUserDelAction(object):
@@ -148,5 +148,4 @@ class TestFastPathJIT(LLJitMixin):
         f()
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_loops(call=0, call_release_gil=1)
-        self.check_loops(getarrayitem_gc_pure=0, everywhere=True)
+        self.check_jitcell_token_count(1)

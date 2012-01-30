@@ -34,8 +34,12 @@ class W_Hash(Wrappable):
 
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
         rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
-        ropenssl.EVP_DigestInit(ctx, digest_type)
-        self.ctx = ctx
+        try:
+            ropenssl.EVP_DigestInit(ctx, digest_type)
+            self.ctx = ctx
+        except:
+            lltype.free(ctx, flavor='raw')
+            raise
 
     def __del__(self):
         # self.lock.free()

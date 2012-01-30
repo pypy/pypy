@@ -16,13 +16,13 @@ def get_rawobject(space, w_obj):
     from pypy.module.cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
-        assert lltype.typeOf(cppinstance.rawobject) == rffi.VOIDP
+        assert lltype.typeOf(cppinstance.rawobject) == capi.C_OBJECT
         return cppinstance.rawobject
-    return lltype.nullptr(rffi.VOIDP.TO)
+    return capi.C_NULL_OBJECT
 
 def _direct_ptradd(ptr, offset):        # TODO: factor out with interp_cppyy.py
     address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(rffi.CCHARP, lltype.direct_ptradd(address, offset))
+    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 
 
 class TypeConverter(object):
@@ -545,7 +545,7 @@ class InstanceConverter(InstancePtrConverter):
     _immutable_ = True
 
     def from_memory(self, space, w_obj, w_type, offset):
-        address = rffi.cast(rffi.VOIDP, self._get_raw_address(space, w_obj, offset))
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
         return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False)
 

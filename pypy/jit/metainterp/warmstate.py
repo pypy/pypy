@@ -244,6 +244,11 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
+    def set_param_max_unroll_loops(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_unroll_loops = value
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
         cell.dont_trace_here = True
@@ -596,20 +601,6 @@ class WarmEnterState(object):
                 return fn(*greenargs)
         self.should_unroll_one_iteration = should_unroll_one_iteration
         
-        if hasattr(jd.jitdriver, 'on_compile'):
-            def on_compile(logger, token, operations, type, greenkey):
-                greenargs = unwrap_greenkey(greenkey)
-                return jd.jitdriver.on_compile(logger, token, operations, type,
-                                               *greenargs)
-            def on_compile_bridge(logger, orig_token, operations, n):
-                return jd.jitdriver.on_compile_bridge(logger, orig_token,
-                                                      operations, n)
-            jd.on_compile = on_compile
-            jd.on_compile_bridge = on_compile_bridge
-        else:
-            jd.on_compile = lambda *args: None
-            jd.on_compile_bridge = lambda *args: None
-
         redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
         def get_assembler_token(greenkey):

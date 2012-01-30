@@ -4,13 +4,13 @@ from pypy.rlib import jit
 import reflex_capi as backend
 #import cint_capi as backend
 
+_C_OPAQUE_PTR = rffi.VOIDP
+_C_OPAQUE_NULL = lltype.nullptr(_C_OPAQUE_PTR.TO)
 
-C_NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
-
-C_TYPEHANDLE = rffi.LONG
-C_NULL_TYPEHANDLE = rffi.cast(C_TYPEHANDLE, C_NULL_VOIDP)
-C_OBJECT = rffi.VOIDP
-C_NULL_OBJECT = C_NULL_VOIDP
+C_TYPEHANDLE = _C_OPAQUE_PTR
+C_NULL_TYPEHANDLE = rffi.cast(C_TYPEHANDLE, _C_OPAQUE_NULL)
+C_OBJECT = _C_OPAQUE_PTR
+C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
@@ -19,7 +19,7 @@ c_load_dictionary = backend.c_load_dictionary
 
 c_get_typehandle = rffi.llexternal(
     "cppyy_get_typehandle",
-    [rffi.CCHARP], C_TYPEHANDLE,
+    [rffi.CCHARP], C_OBJECT,
     compilation_info=backend.eci)
 c_get_templatehandle = rffi.llexternal(
     "cppyy_get_templatehandle",
@@ -28,7 +28,7 @@ c_get_templatehandle = rffi.llexternal(
 
 c_allocate = rffi.llexternal(
     "cppyy_allocate",
-    [C_TYPEHANDLE], rffi.VOIDP,
+    [C_TYPEHANDLE], C_OBJECT,
     compilation_info=backend.eci)
 c_deallocate = rffi.llexternal(
     "cppyy_deallocate",

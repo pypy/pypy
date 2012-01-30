@@ -79,19 +79,23 @@ static unsigned int pypy__singlefloat2uint(float x) {
 longlong2float = rffi.llexternal(
     "pypy__longlong2float", [rffi.LONGLONG], rffi.DOUBLE,
     _callable=longlong2float_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True)
+    _nowrapper=True, elidable_function=True, sandboxsafe=True,
+    oo_primitive="pypy__longlong2float")
 
 float2longlong = rffi.llexternal(
     "pypy__float2longlong", [rffi.DOUBLE], rffi.LONGLONG,
     _callable=float2longlong_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True)
+    _nowrapper=True, elidable_function=True, sandboxsafe=True,
+    oo_primitive="pypy__float2longlong")
 
 uint2singlefloat = rffi.llexternal(
     "pypy__uint2singlefloat", [rffi.UINT], rffi.FLOAT,
     _callable=uint2singlefloat_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True)
+    _nowrapper=True, elidable_function=True, sandboxsafe=True,
+    oo_primitive="pypy__uint2singlefloat")
 
 singlefloat2uint = rffi.llexternal(
     "pypy__singlefloat2uint", [rffi.FLOAT], rffi.UINT,
     _callable=singlefloat2uint_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True)
+    _nowrapper=True, elidable_function=True, sandboxsafe=True,
+    oo_primitive="pypy__singlefloat2uint")
