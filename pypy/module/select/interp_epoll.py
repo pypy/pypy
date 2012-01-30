@@ -57,6 +57,8 @@ epoll_wait = rffi.llexternal(
 
 
 class W_Epoll(Wrappable):
+    epfd = -1
+
     def __init__(self, space, epfd):
         self.epfd = epfd
 
