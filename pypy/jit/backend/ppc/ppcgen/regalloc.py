@@ -727,7 +727,7 @@ class Regalloc(object):
         return [l0, l1, res]
 
     def prepare_unicodegetitem(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
 
@@ -742,7 +742,7 @@ class Regalloc(object):
             imm(scale), imm(basesize), imm(itemsize)]
 
     def prepare_unicodesetitem(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
