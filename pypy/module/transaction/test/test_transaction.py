@@ -59,3 +59,9 @@ class AppTestTransaction:
             pass
         assert len(lst) == 1
         assert lst[0] == e.args[0]
+
+
+class AppTestTransactionEmulator(AppTestTransaction):
+    def setup_class(cls):
+        # test for lib_pypy/transaction.py
+        cls.space = gettestobjspace(usemodules=[])

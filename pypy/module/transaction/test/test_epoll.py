@@ -49,3 +49,9 @@ class AppTestEpoll:
         assert steps == []
         raises(Done, transaction.run)
         assert steps == ['write_stuff', 'callback']
+
+
+class AppTestEpollEmulator(AppTestEpoll):
+    def setup_class(cls):
+        # test for lib_pypy/transaction.py
+        cls.space = gettestobjspace(usemodules=['select'])
