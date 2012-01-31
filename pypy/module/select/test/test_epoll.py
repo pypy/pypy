@@ -1,22 +1,16 @@
 import py
+import sys
 
 from pypy.conftest import gettestobjspace
 
 
 class AppTestEpoll(object):
     def setup_class(cls):
+        # NB. we should ideally py.test.skip() if running on an old linux
+        # where the kernel doesn't support epoll()
+        if not sys.platform.startswith('linux'):
+            py.test.skip("test requires linux (assumed >= 2.6)")
         cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
-
-        import errno
-        import select
-
-        if not hasattr(select, "epoll"):
-            py.test.skip("test requires linux 2.6")
-        try:
-            select.epoll()
-        except IOError, e:
-            if e.errno == errno.ENOSYS:
-                py.test.skip("kernel doesn't support epoll()")
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])
