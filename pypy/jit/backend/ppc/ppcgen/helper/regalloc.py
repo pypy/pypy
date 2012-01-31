@@ -30,7 +30,7 @@ def prepare_cmp_op():
         l0 = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
 
         if imm_a1 and not imm_a0:
-            l1 = self.make_sure_var_in_reg(arg1, boxes)
+            l1 = self._ensure_value_is_boxed(arg1, boxes)
         else:
             l1 = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)
 
@@ -44,7 +44,7 @@ def prepare_unary_cmp():
     def f(self, op):
         a0 = op.getarg(0)
         assert isinstance(a0, Box)
-        reg = self.make_sure_var_in_reg(a0)
+        reg = self._ensure_value_is_boxed(a0)
         self.possibly_free_vars_for_op(op)
         res = self.force_allocate_reg(op.result, [a0])
         return [reg, res]
@@ -65,15 +65,8 @@ def prepare_binary_int_op_with_imm():
         b0, b1 = boxes
         imm_b0 = _check_imm_arg(b0)
         imm_b1 = _check_imm_arg(b1)
-        if not imm_b0 and imm_b1:
-            l0 = self._ensure_value_is_boxed(b0)
-            l1 = self.make_sure_var_in_reg(b1, boxes)
-        elif imm_b0 and not imm_b1:
-            l0 = self.make_sure_var_in_reg(b0)
-            l1 = self._ensure_value_is_boxed(b1, boxes)
-        else:
-            l0 = self._ensure_value_is_boxed(b0)
-            l1 = self._ensure_value_is_boxed(b1, boxes)
+        l0 = self._ensure_value_is_boxed(b0, boxes)
+        l1 = self._ensure_value_is_boxed(b1, boxes)
         locs = [l0, l1]
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
