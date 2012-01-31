@@ -882,32 +882,6 @@ class Regalloc(object):
             arglocs.append(t)
         return arglocs
 
-    def _malloc_varsize(self, ofs_items, ofs_length, itemsize, op):
-        v = op.getarg(0)
-        res_v = op.result
-        boxes = [v, res_v]
-        itemsize_box = ConstInt(itemsize)
-        ofs_items_box = ConstInt(ofs_items)
-        if _check_imm_arg(ofs_items_box):
-            ofs_items_loc = self.convert_to_imm(ofs_items_box)
-        else:
-            ofs_items_loc, ofs_items_box = self._ensure_value_is_boxed(ofs_items_box, boxes)
-            boxes.append(ofs_items_box)
-        vloc, vbox = self._ensure_value_is_boxed(v, [res_v])
-        boxes.append(vbox)
-        size, size_box = self._ensure_value_is_boxed(itemsize_box, boxes)
-        boxes.append(size_box)
-        self.assembler._regalloc_malloc_varsize(size, size_box,
-                                vloc, vbox, ofs_items_loc, self, res_v)
-        base_loc = self.make_sure_var_in_reg(res_v)
-
-        value_loc, vbox = self._ensure_value_is_boxed(v, [res_v])
-        boxes.append(vbox)
-        self.possibly_free_vars(boxes)
-        assert value_loc.is_reg()
-        assert base_loc.is_reg()
-        return [value_loc, base_loc, imm(ofs_length)]
-
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)

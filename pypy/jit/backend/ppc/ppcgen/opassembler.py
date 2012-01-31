@@ -854,24 +854,6 @@ class AllocOpAssembler(object):
         self.emit_call(op, arglocs, regalloc)
         self.propagate_memoryerror_if_r3_is_null()
 
-    # from: ../x86/regalloc.py:750
-    # called from regalloc
-    # XXX kill this function at some point
-    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox,
-            ofs_items_loc, regalloc, result):
-        if IS_PPC_32:
-            self.mc.mullw(size.value, size.value, vloc.value)
-        else:
-            self.mc.mulld(size.value, size.value, vloc.value)
-        if ofs_items_loc.is_imm():
-            self.mc.addi(size.value, size.value, ofs_items_loc.value)
-        else:
-            self.mc.add(size.value, size.value, ofs_items_loc.value)
-        force_index = self.write_new_force_index()
-        regalloc.force_spill_var(vbox)
-        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
-                                    result=result)
-
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
