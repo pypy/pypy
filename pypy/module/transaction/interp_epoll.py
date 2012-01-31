@@ -1,8 +1,8 @@
 
 # Linux-only
 
+from __future__ import with_statement
 import os
-from select import EPOLLIN
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
