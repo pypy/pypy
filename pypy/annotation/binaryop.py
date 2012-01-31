@@ -480,7 +480,7 @@ class __extend__(pairtype(SomeString, SomeTuple)):
         no_nul = str.no_nul
         for s_item in s_tuple.items:
             if isinstance(s_item, SomeFloat):
-                pass
+                pass   # or s_item is a subclass, like SomeInteger
             elif isinstance(s_item, SomeString) and s_item.no_nul:
                 pass
             else:
@@ -817,16 +817,7 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 # mixing Nones with other objects
 
-def _make_none_union(classname, constructor_args='', glob=None,
-                     copy_attributes=()):
-    if copy_attributes:
-        copy_attrs = (
-            'result.__dict__.update((name, getattr(obj, name)) '
-            'for name in %(copy_attributes)s if name in obj.__dict__)'
-            % locals())
-    else:
-        copy_attrs = ''
-
+def _make_none_union(classname, constructor_args='', glob=None):
     if glob is None:
         glob = globals()
     loc = locals()
@@ -834,26 +825,21 @@ def _make_none_union(classname, constructor_args='', glob=None,
         class __extend__(pairtype(%(classname)s, SomePBC)):
             def union((obj, pbc)):
                 if pbc.isNone():
-                    result = %(classname)s(%(constructor_args)s)
-                    %(copy_attrs)s
-                    return result
+                    return %(classname)s(%(constructor_args)s)
                 else:
                     return SomeObject()
 
         class __extend__(pairtype(SomePBC, %(classname)s)):
             def union((pbc, obj)):
                 if pbc.isNone():
-                    result = %(classname)s(%(constructor_args)s)
-                    %(copy_attrs)s
-                    return result
+                    return %(classname)s(%(constructor_args)s)
                 else:
                     return SomeObject()
     """ % loc)
     exec source.compile() in glob
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'can_be_None=True',
-                 copy_attributes=('no_nul',))
+_make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')
