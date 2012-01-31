@@ -109,7 +109,7 @@ class PPCRegisterManager(RegisterManager):
             self.assembler.load(loc, immvalue)
         else:
             loc = self.make_sure_var_in_reg(thing,
-                            forbidden_vars=forbidden_vars)
+                            forbidden_vars=self.temp_boxes + forbidden_vars)
         return loc
 
     def allocate_scratch_reg(self, type=INT, selected_reg=None, forbidden_vars=None):
@@ -765,11 +765,7 @@ class Regalloc(object):
 
     def prepare_same_as(self, op):
         arg = op.getarg(0)
-        imm_arg = _check_imm_arg(arg)
-        if imm_arg:
-            argloc = self.make_sure_var_in_reg(arg)
-        else:
-            argloc = self._ensure_value_is_boxed(arg)
+        argloc = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         resloc = self.force_allocate_reg(op.result)
