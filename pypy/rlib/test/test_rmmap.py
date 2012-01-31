@@ -263,10 +263,23 @@ class TestMMap:
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
         raises(RTypeError, m.write, "foo")
+        m.close()
+        f.close()
+
+    def test_write_without_protwrite(self):
+        if os.name == "nt":
+            skip("Needs PROT_WRITE")
+        f = open(self.tmpname + "l2", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, prot=~mmap.PROT_WRITE)
+        raises(RTypeError, m.write_byte, 'a')
+        raises(RTypeError, m.write, "foo")
+        m.close()
         f.close()
 
     def test_size(self):
-        f = open(self.tmpname + "l", "w+")
+        f = open(self.tmpname + "l3", "w+")
         
         f.write("foobar")
         f.flush()

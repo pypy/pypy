@@ -190,7 +190,7 @@ class Request:
                  origin_req_host=None, unverifiable=False):
         # unwrap('<URL:type://host/path>') --> 'type://host/path'
         self.__original = unwrap(url)
-        self.__original, fragment = splittag(self.__original)
+        self.__original, self.__fragment = splittag(self.__original)
         self.type = None
         # self.__r_type is what's left after doing the splittype
         self.host = None
@@ -236,7 +236,10 @@ class Request:
         return self.data
 
     def get_full_url(self):
-        return self.__original
+        if self.__fragment:
+            return '%s#%s' % (self.__original, self.__fragment)
+        else:
+            return self.__original
 
     def get_type(self):
         if self.type is None:
@@ -299,8 +302,9 @@ class OpenerDirector:
     def __init__(self):
         client_version = "Python-urllib/%s" % __version__
         self.addheaders = [('User-agent', client_version)]
-        # manage the individual handlers
+        # self.handlers is retained only for backward compatibility
         self.handlers = []
+        # manage the individual handlers
         self.handle_open = {}
         self.handle_error = {}
         self.process_response = {}
@@ -350,8 +354,6 @@ class OpenerDirector:
             added = True
 
         if added:
-            # the handlers must work in an specific order, the order
-            # is specified in a Handler attribute
             bisect.insort(self.handlers, handler)
             handler.add_parent(self)
 
@@ -578,6 +580,17 @@ class HTTPRedirectHandler(BaseHandler):
         newurl = urlparse.urlunparse(urlparts)
 
         newurl = urlparse.urljoin(req.get_full_url(), newurl)
+
+        # For security reasons we do not allow redirects to protocols
+        # other than HTTP, HTTPS or FTP.
+        newurl_lower = newurl.lower()
+        if not (newurl_lower.startswith('http://') or
+                newurl_lower.startswith('https://') or
+                newurl_lower.startswith('ftp://')):
+            raise HTTPError(newurl, code,
+                            msg + " - Redirection to url '%s' is not allowed" %
+                            newurl,
+                            headers, fp)
 
         # XXX Probably want to forget about the state of the current
         # request, although that might interact poorly with other

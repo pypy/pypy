@@ -559,6 +559,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+        assert b.dtype is a.dtype
 
         a = _numpypy.array(range(5), dtype=bool)
         b = a * a
@@ -784,8 +785,8 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_sum(self):
         from _numpypy import array
         a = array(range(5))
-        assert a.sum() == 10.0
-        assert a[:4].sum() == 6.0
+        assert a.sum() == 10
+        assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
@@ -910,21 +911,46 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.any() == False
 
     def test_dot(self):
-        from _numpypy import array, dot
+        from _numpypy import array, dot, arange
         a = array(range(5))
-        assert a.dot(a) == 30.0
+        assert dot(a, a) == 30.0
 
         a = array(range(5))
         assert a.dot(range(5)) == 30
         assert dot(range(5), range(5)) == 30
         assert (dot(5, [1, 2, 3]) == [5, 10, 15]).all()
 
+        a = arange(12).reshape(3, 4)
+        b = arange(12).reshape(4, 3)
+        c = a.dot(b)
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+
+        a = arange(24).reshape(2, 3, 4)
+        raises(ValueError, "a.dot(a)")
+        b = a[0, :, :].T
+        #Superfluous shape test makes the intention of the test clearer
+        assert a.shape == (2, 3, 4)
+        assert b.shape == (4, 3)
+        c = dot(a, b)
+        assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
+                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+        c = dot(a, b[:, 2])
+        assert (c == [[62, 214, 366], [518, 670, 822]]).all()
+        a = arange(3*4*5*6).reshape((3,4,5,6))
+        b = arange(3*4*5*6)[::-1].reshape((5,4,6,3))
+        assert dot(a, b)[2,3,2,1,2,2] == 499128
+        assert sum(a[2,3,2,:] * b[1,2,:,2]) == 499128
+
     def test_dot_constant(self):
-        from _numpypy import array
+        from _numpypy import array, dot
         a = array(range(5))
         b = a.dot(2.5)
         for i in xrange(5):
             assert b[i] == 2.5 * a[i]
+        c = dot(4, 3.0)
+        assert c == 12.0
+        c = array(3.0).dot(array(4))
+        assert c == 12.0
 
     def test_dtype_guessing(self):
         from _numpypy import array, dtype, float64, int8, bool_

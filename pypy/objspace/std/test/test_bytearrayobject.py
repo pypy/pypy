@@ -270,7 +270,7 @@ class AppTestBytesArray:
         assert b.pop(0) == ord('w')
         assert b.pop(-2) == ord('r')
         raises(IndexError, b.pop, 10)
-        raises(OverflowError, bytearray().pop)
+        raises(IndexError, bytearray().pop)
         assert bytearray('\xff').pop() == 0xff
 
     def test_remove(self):

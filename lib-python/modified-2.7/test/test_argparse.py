@@ -4,6 +4,7 @@ import codecs
 import inspect
 import os
 import shutil
+import stat
 import sys
 import textwrap
 import tempfile
@@ -46,15 +47,13 @@ class TempDirMixin(object):
 
     def tearDown(self):
         os.chdir(self.old_dir)
-        while True:
-            try:
-                shutil.rmtree(self.temp_dir)
-            except WindowsError:
-                test_support.gc_collect()
-                continue
-            else:
-                break
+        shutil.rmtree(self.temp_dir, True)
 
+    def create_readonly_file(self, filename):
+        file_path = os.path.join(self.temp_dir, filename)
+        with open(file_path, 'w') as file:
+            file.write(filename)
+        os.chmod(file_path, stat.S_IREAD)
 
 class Sig(object):
 
@@ -1452,17 +1451,19 @@ class TestFileTypeR(TempDirMixin, ParserTestCase):
             file = open(os.path.join(self.temp_dir, file_name), 'w')
             file.write(file_name)
             file.close()
+        self.create_readonly_file('readonly')
 
     argument_signatures = [
         Sig('-x', type=argparse.FileType()),
         Sig('spam', type=argparse.FileType('r')),
     ]
-    failures = ['-x', '-x bar']
+    failures = ['-x', '-x bar', 'non-existent-file.txt']
     successes = [
         ('foo', NS(x=None, spam=RFile('foo'))),
         ('-x foo bar', NS(x=RFile('foo'), spam=RFile('bar'))),
         ('bar -x foo', NS(x=RFile('foo'), spam=RFile('bar'))),
         ('-x - -', NS(x=sys.stdin, spam=sys.stdin)),
+        ('readonly', NS(x=None, spam=RFile('readonly'))),
     ]
 
 
@@ -1511,11 +1512,16 @@ class WFile(object):
 class TestFileTypeW(TempDirMixin, ParserTestCase):
     """Test the FileType option/argument type for writing files"""
 
+    def setUp(self):
+        super(TestFileTypeW, self).setUp()
+        self.create_readonly_file('readonly')
+
     argument_signatures = [
         Sig('-x', type=argparse.FileType('w')),
         Sig('spam', type=argparse.FileType('w')),
     ]
     failures = ['-x', '-x bar']
+    failures = ['-x', '-x bar', 'readonly']
     successes = [
         ('foo', NS(x=None, spam=WFile('foo'))),
         ('-x foo bar', NS(x=WFile('foo'), spam=WFile('bar'))),
@@ -2499,6 +2505,46 @@ class TestMutuallyExclusiveOptionalsMixed(MEMixin, TestCase):
         '''
 
 
+class TestMutuallyExclusiveInGroup(MEMixin, TestCase):
+
+    def get_parser(self, required=None):
+        parser = ErrorRaisingArgumentParser(prog='PROG')
+        titled_group = parser.add_argument_group(
+            title='Titled group', description='Group description')
+        mutex_group = \
+            titled_group.add_mutually_exclusive_group(required=required)
+        mutex_group.add_argument('--bar', help='bar help')
+        mutex_group.add_argument('--baz', help='baz help')
+        return parser
+
+    failures = ['--bar X --baz Y', '--baz X --bar Y']
+    successes = [
+        ('--bar X', NS(bar='X', baz=None)),
+        ('--baz Y', NS(bar=None, baz='Y')),
+    ]
+    successes_when_not_required = [
+        ('', NS(bar=None, baz=None)),
+    ]
+
+    usage_when_not_required = '''\
+        usage: PROG [-h] [--bar BAR | --baz BAZ]
+        '''
+    usage_when_required = '''\
+        usage: PROG [-h] (--bar BAR | --baz BAZ)
+        '''
+    help = '''\
+
+        optional arguments:
+          -h, --help  show this help message and exit
+
+        Titled group:
+          Group description
+
+          --bar BAR   bar help
+          --baz BAZ   baz help
+        '''
+
+
 class TestMutuallyExclusiveOptionalsAndPositionalsMixed(MEMixin, TestCase):
 
     def get_parser(self, required):
@@ -2756,16 +2802,22 @@ class TestHelpFormattingMetaclass(type):
                 parser = argparse.ArgumentParser(
                     *tester.parser_signature.args,
                     **tester.parser_signature.kwargs)
-                for argument_sig in tester.argument_signatures:
+                for argument_sig in getattr(tester, 'argument_signatures', []):
                     parser.add_argument(*argument_sig.args,
                                         **argument_sig.kwargs)
-                group_signatures = tester.argument_group_signatures
-                for group_sig, argument_sigs in group_signatures:
+                group_sigs = getattr(tester, 'argument_group_signatures', [])
+                for group_sig, argument_sigs in group_sigs:
                     group = parser.add_argument_group(*group_sig.args,
                                                       **group_sig.kwargs)
                     for argument_sig in argument_sigs:
                         group.add_argument(*argument_sig.args,
                                            **argument_sig.kwargs)
+                subparsers_sigs = getattr(tester, 'subparsers_signatures', [])
+                if subparsers_sigs:
+                    subparsers = parser.add_subparsers()
+                    for subparser_sig in subparsers_sigs:
+                        subparsers.add_parser(*subparser_sig.args,
+                                               **subparser_sig.kwargs)
                 return parser
 
             def _test(self, tester, parser_text):
@@ -3859,6 +3911,77 @@ class TestHelpVersionAction(HelpTestCase):
         '''
     version = ''
 
+class TestHelpSubparsersOrdering(HelpTestCase):
+    """Test ordering of subcommands in help matches the code"""
+    parser_signature = Sig(prog='PROG',
+                           description='display some subcommands',
+                           version='0.1')
+
+    subparsers_signatures = [Sig(name=name)
+                             for name in ('a', 'b', 'c', 'd', 'e')]
+
+    usage = '''\
+        usage: PROG [-h] [-v] {a,b,c,d,e} ...
+        '''
+
+    help = usage + '''\
+
+        display some subcommands
+
+        positional arguments:
+          {a,b,c,d,e}
+
+        optional arguments:
+          -h, --help     show this help message and exit
+          -v, --version  show program's version number and exit
+        '''
+
+    version = '''\
+        0.1
+        '''
+
+class TestHelpSubparsersWithHelpOrdering(HelpTestCase):
+    """Test ordering of subcommands in help matches the code"""
+    parser_signature = Sig(prog='PROG',
+                           description='display some subcommands',
+                           version='0.1')
+
+    subcommand_data = (('a', 'a subcommand help'),
+                       ('b', 'b subcommand help'),
+                       ('c', 'c subcommand help'),
+                       ('d', 'd subcommand help'),
+                       ('e', 'e subcommand help'),
+                       )
+
+    subparsers_signatures = [Sig(name=name, help=help)
+                             for name, help in subcommand_data]
+
+    usage = '''\
+        usage: PROG [-h] [-v] {a,b,c,d,e} ...
+        '''
+
+    help = usage + '''\
+
+        display some subcommands
+
+        positional arguments:
+          {a,b,c,d,e}
+            a            a subcommand help
+            b            b subcommand help
+            c            c subcommand help
+            d            d subcommand help
+            e            e subcommand help
+
+        optional arguments:
+          -h, --help     show this help message and exit
+          -v, --version  show program's version number and exit
+        '''
+
+    version = '''\
+        0.1
+        '''
+
+
 # =====================================
 # Optional/Positional constructor tests
 # =====================================
@@ -3893,10 +4016,12 @@ class TestInvalidArgumentConstructors(TestCase):
 
     def test_invalid_type(self):
         self.assertValueError('--foo', type='int')
+        self.assertValueError('--foo', type=(int, float))
 
     def test_invalid_action(self):
         self.assertValueError('-x', action='foo')
         self.assertValueError('foo', action='baz')
+        self.assertValueError('--foo', action=('store', 'append'))
         parser = argparse.ArgumentParser()
         try:
             parser.add_argument("--foo", action="store-true")
@@ -4271,7 +4396,7 @@ class TestArgumentError(TestCase):
 # ArgumentTypeError tests
 # =======================
 
-class TestArgumentError(TestCase):
+class TestArgumentTypeError(TestCase):
 
     def test_argument_type_error(self):
 
@@ -4312,6 +4437,177 @@ class TestParseKnownArgs(TestCase):
         args, extras = parser.parse_known_args(argv)
         self.assertEqual(NS(v=3, spam=True, badger="B"), args)
         self.assertEqual(["C", "--foo", "4"], extras)
+
+# ==========================
+# add_argument metavar tests
+# ==========================
+
+class TestAddArgumentMetavar(TestCase):
+
+    EXPECTED_MESSAGE = "length of metavar tuple does not match nargs"
+
+    def do_test_no_exception(self, nargs, metavar):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--foo", nargs=nargs, metavar=metavar)
+
+    def do_test_exception(self, nargs, metavar):
+        parser = argparse.ArgumentParser()
+        with self.assertRaises(ValueError) as cm:
+            parser.add_argument("--foo", nargs=nargs, metavar=metavar)
+        self.assertEqual(cm.exception.args[0], self.EXPECTED_MESSAGE)
+
+    # Unit tests for different values of metavar when nargs=None
+
+    def test_nargs_None_metavar_string(self):
+        self.do_test_no_exception(nargs=None, metavar="1")
+
+    def test_nargs_None_metavar_length0(self):
+        self.do_test_exception(nargs=None, metavar=tuple())
+
+    def test_nargs_None_metavar_length1(self):
+        self.do_test_no_exception(nargs=None, metavar=("1"))
+
+    def test_nargs_None_metavar_length2(self):
+        self.do_test_exception(nargs=None, metavar=("1", "2"))
+
+    def test_nargs_None_metavar_length3(self):
+        self.do_test_exception(nargs=None, metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=?
+
+    def test_nargs_optional_metavar_string(self):
+        self.do_test_no_exception(nargs="?", metavar="1")
+
+    def test_nargs_optional_metavar_length0(self):
+        self.do_test_exception(nargs="?", metavar=tuple())
+
+    def test_nargs_optional_metavar_length1(self):
+        self.do_test_no_exception(nargs="?", metavar=("1"))
+
+    def test_nargs_optional_metavar_length2(self):
+        self.do_test_exception(nargs="?", metavar=("1", "2"))
+
+    def test_nargs_optional_metavar_length3(self):
+        self.do_test_exception(nargs="?", metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=*
+
+    def test_nargs_zeroormore_metavar_string(self):
+        self.do_test_no_exception(nargs="*", metavar="1")
+
+    def test_nargs_zeroormore_metavar_length0(self):
+        self.do_test_exception(nargs="*", metavar=tuple())
+
+    def test_nargs_zeroormore_metavar_length1(self):
+        self.do_test_no_exception(nargs="*", metavar=("1"))
+
+    def test_nargs_zeroormore_metavar_length2(self):
+        self.do_test_no_exception(nargs="*", metavar=("1", "2"))
+
+    def test_nargs_zeroormore_metavar_length3(self):
+        self.do_test_exception(nargs="*", metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=+
+
+    def test_nargs_oneormore_metavar_string(self):
+        self.do_test_no_exception(nargs="+", metavar="1")
+
+    def test_nargs_oneormore_metavar_length0(self):
+        self.do_test_exception(nargs="+", metavar=tuple())
+
+    def test_nargs_oneormore_metavar_length1(self):
+        self.do_test_no_exception(nargs="+", metavar=("1"))
+
+    def test_nargs_oneormore_metavar_length2(self):
+        self.do_test_no_exception(nargs="+", metavar=("1", "2"))
+
+    def test_nargs_oneormore_metavar_length3(self):
+        self.do_test_exception(nargs="+", metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=...
+
+    def test_nargs_remainder_metavar_string(self):
+        self.do_test_no_exception(nargs="...", metavar="1")
+
+    def test_nargs_remainder_metavar_length0(self):
+        self.do_test_no_exception(nargs="...", metavar=tuple())
+
+    def test_nargs_remainder_metavar_length1(self):
+        self.do_test_no_exception(nargs="...", metavar=("1"))
+
+    def test_nargs_remainder_metavar_length2(self):
+        self.do_test_no_exception(nargs="...", metavar=("1", "2"))
+
+    def test_nargs_remainder_metavar_length3(self):
+        self.do_test_no_exception(nargs="...", metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=A...
+
+    def test_nargs_parser_metavar_string(self):
+        self.do_test_no_exception(nargs="A...", metavar="1")
+
+    def test_nargs_parser_metavar_length0(self):
+        self.do_test_exception(nargs="A...", metavar=tuple())
+
+    def test_nargs_parser_metavar_length1(self):
+        self.do_test_no_exception(nargs="A...", metavar=("1"))
+
+    def test_nargs_parser_metavar_length2(self):
+        self.do_test_exception(nargs="A...", metavar=("1", "2"))
+
+    def test_nargs_parser_metavar_length3(self):
+        self.do_test_exception(nargs="A...", metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=1
+
+    def test_nargs_1_metavar_string(self):
+        self.do_test_no_exception(nargs=1, metavar="1")
+
+    def test_nargs_1_metavar_length0(self):
+        self.do_test_exception(nargs=1, metavar=tuple())
+
+    def test_nargs_1_metavar_length1(self):
+        self.do_test_no_exception(nargs=1, metavar=("1"))
+
+    def test_nargs_1_metavar_length2(self):
+        self.do_test_exception(nargs=1, metavar=("1", "2"))
+
+    def test_nargs_1_metavar_length3(self):
+        self.do_test_exception(nargs=1, metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=2
+
+    def test_nargs_2_metavar_string(self):
+        self.do_test_no_exception(nargs=2, metavar="1")
+
+    def test_nargs_2_metavar_length0(self):
+        self.do_test_exception(nargs=2, metavar=tuple())
+
+    def test_nargs_2_metavar_length1(self):
+        self.do_test_no_exception(nargs=2, metavar=("1"))
+
+    def test_nargs_2_metavar_length2(self):
+        self.do_test_no_exception(nargs=2, metavar=("1", "2"))
+
+    def test_nargs_2_metavar_length3(self):
+        self.do_test_exception(nargs=2, metavar=("1", "2", "3"))
+
+    # Unit tests for different values of metavar when nargs=3
+
+    def test_nargs_3_metavar_string(self):
+        self.do_test_no_exception(nargs=3, metavar="1")
+
+    def test_nargs_3_metavar_length0(self):
+        self.do_test_exception(nargs=3, metavar=tuple())
+
+    def test_nargs_3_metavar_length1(self):
+        self.do_test_no_exception(nargs=3, metavar=("1"))
+
+    def test_nargs_3_metavar_length2(self):
+        self.do_test_exception(nargs=3, metavar=("1", "2"))
+
+    def test_nargs_3_metavar_length3(self):
+        self.do_test_no_exception(nargs=3, metavar=("1", "2", "3"))
 
 # ============================
 # from argparse import * tests

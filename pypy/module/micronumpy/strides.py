@@ -230,3 +230,18 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
     return new_strides
+
+
+def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
+    rstrides = []
+    rbackstrides = []
+    j=0
+    for i in range(len(res_shape)):
+        if i in skip_dims:
+            rstrides.append(0)
+            rbackstrides.append(0)
+        else:
+            rstrides.append(strides[j])
+            rbackstrides.append(backstrides[j])
+            j += 1
+    return rstrides, rbackstrides

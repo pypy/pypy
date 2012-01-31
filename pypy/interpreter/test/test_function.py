@@ -597,6 +597,17 @@ class TestMethod:
         # --- with an incompatible class
         w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
         assert space.is_w(w_meth5, w_meth3)
+        # Same thing, with an old-style class
+        w_oldclass = space.call_function(
+            space.builtin.get('__metaclass__'),
+            space.wrap('OldClass'), space.newtuple([]), space.newdict())
+        w_meth6 = meth3.descr_method_get(space.wrap('hello'), w_oldclass)
+        assert space.is_w(w_meth6, w_meth3)
+        # Reverse order of old/new styles
+        w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
+        meth7 = space.unwrap(w_meth7)
+        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_str)
+        assert space.is_w(w_meth8, w_meth7)
 
 class TestShortcuts(object):
 
