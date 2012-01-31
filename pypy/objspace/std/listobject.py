@@ -110,7 +110,10 @@ class W_ListObject(W_AbstractListObject):
         return list(items)
 
     def switch_to_object_strategy(self):
-        list_w = self.getitems()
+        if self.strategy is self.space.fromcache(EmptyListStrategy):
+            list_w = []
+        else:
+            list_w = self.getitems()
         self.strategy = self.space.fromcache(ObjectListStrategy)
         # XXX this is quite indirect
         self.init_from_list_w(list_w)
@@ -344,8 +347,6 @@ class EmptyListStrategy(ListStrategy):
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
-        # cache an empty list that is used whenever getitems is called (i.e. sorting)
-        self.cached_emptylist_w = []
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
@@ -373,10 +374,10 @@ class EmptyListStrategy(ListStrategy):
     def getslice(self, w_list, start, stop, step, length):
         # will never be called because the empty list case is already caught in
         # getslice__List_ANY_ANY and getitem__List_Slice
-        return W_ListObject(self.space, self.cached_emptylist_w)
+        return W_ListObject(self.space, [])
 
     def getitems(self, w_list):
-        return self.cached_emptylist_w
+        return []
 
     def getitems_copy(self, w_list):
         return []

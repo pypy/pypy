@@ -8,6 +8,7 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
 
+MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
 def new_dtype_getter(name):
@@ -27,6 +28,7 @@ class PrimitiveBox(object):
 
     def convert_to(self, dtype):
         return dtype.box(self.value)
+
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
@@ -93,7 +95,7 @@ class W_GenericBox(Wrappable):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
 
-    def descr_tolist(self, space):
+    def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
 
 
@@ -104,7 +106,8 @@ class W_NumberBox(W_GenericBox):
     _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
-    pass
+    def int_w(self, space):
+        return space.int_w(self.descr_int(space))
 
 class W_SignedIntegerBox(W_IntegerBox):
     pass
@@ -187,7 +190,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
 
-    tolist = interp2app(W_GenericBox.descr_tolist),
+    tolist = interp2app(W_GenericBox.item),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
@@ -231,7 +234,7 @@ W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntegerBox.typedef,
     __new__ = interp2app(W_UInt16Box.descr__new__.im_func),
 )
 
-W_Int32Box.typedef = TypeDef("int32", W_SignedIntegerBox.typedef,
+W_Int32Box.typedef = TypeDef("int32", (W_SignedIntegerBox.typedef,) + MIXIN_32,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int32Box.descr__new__.im_func),
 )
@@ -241,23 +244,17 @@ W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntegerBox.typedef,
     __new__ = interp2app(W_UInt32Box.descr__new__.im_func),
 )
 
-if LONG_BIT == 32:
-    long_name = "int32"
-elif LONG_BIT == 64:
-    long_name = "int64"
-W_LongBox.typedef = TypeDef(long_name, (W_SignedIntegerBox.typedef, int_typedef,),
-    __module__ = "numpypy",
-   __new__ = interp2app(W_LongBox.descr__new__.im_func),
-)
-
-W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntegerBox.typedef,
-    __module__ = "numpypy",
-)
-
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int64Box.descr__new__.im_func),
 )
+
+if LONG_BIT == 32:
+    W_LongBox = W_Int32Box
+    W_ULongBox = W_UInt32Box
+elif LONG_BIT == 64:
+    W_LongBox = W_Int64Box
+    W_ULongBox = W_UInt64Box
 
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",
@@ -283,3 +280,4 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
+
