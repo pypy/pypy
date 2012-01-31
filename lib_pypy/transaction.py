@@ -30,6 +30,9 @@ def add_epoll(ep, callback):
 
 def run():
     pending = _pending
-    while pending:
-        _, (f, args) = pending.popitem()
-        f(*args)
+    try:
+        while pending:
+            _, (f, args) = pending.popitem()
+            f(*args)
+    finally:
+        pending.clear()   # this is the behavior we get with interp_transaction

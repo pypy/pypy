@@ -60,6 +60,21 @@ class AppTestTransaction:
         assert len(lst) == 1
         assert lst[0] == e.args[0]
 
+    def test_clear_pending_transactions(self):
+        import transaction
+        class Foo(Exception):
+            pass
+        def raiseme():
+            raise Foo
+        for i in range(20):
+            transaction.add(raiseme)
+        try:
+            transaction.run()
+            assert 0, "should have raised Foo"
+        except Foo:
+            pass
+        transaction.run()   # all the other 'raiseme's should have been cleared
+
 
 class AppTestTransactionEmulator(AppTestTransaction):
     def setup_class(cls):
