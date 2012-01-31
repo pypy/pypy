@@ -27,6 +27,10 @@ class CConstant(Symbolic):
         self.c_name = c_name
         self.TP = TP
 
+    def __repr__(self):
+        return '%s(%r, %s)' % (self.__class__.__name__,
+                               self.c_name, self.TP)
+
     def annotation(self):
         return lltype_to_annotation(self.TP)
 
@@ -762,6 +766,7 @@ def make_string_mappings(strtype):
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
+    @jit.dont_look_inside
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -787,6 +792,7 @@ def make_string_mappings(strtype):
         return hlstrtype(new_buf)
 
     # (char*, str) -> None
+    @jit.dont_look_inside
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.

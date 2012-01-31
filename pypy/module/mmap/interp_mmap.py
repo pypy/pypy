@@ -2,8 +2,13 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
-from pypy.rlib import rmmap
+from pypy.rlib import rmmap, rarithmetic
 from pypy.rlib.rmmap import RValueError, RTypeError
+
+if rmmap.HAVE_LARGEFILE_SUPPORT:
+    OFF_T = rarithmetic.r_longlong
+else:
+    OFF_T = int
 
 
 class W_MMap(Wrappable):
@@ -55,7 +60,7 @@ class W_MMap(Wrappable):
             end = space.getindex_w(w_end, None)
         return space.wrap(self.mmap.find(tofind, start, end, True))
 
-    @unwrap_spec(pos='index', whence=int)
+    @unwrap_spec(pos=OFF_T, whence=int)
     def seek(self, pos, whence=0):
         try:
             self.mmap.seek(pos, whence)
@@ -196,8 +201,8 @@ class W_MMap(Wrappable):
 
 if rmmap._POSIX:
 
-    @unwrap_spec(fileno=int, length='index', flags=int,
-                 prot=int, access=int, offset='index')
+    @unwrap_spec(fileno=int, length=int, flags=int,
+                 prot=int, access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
              prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
              access=rmmap._ACCESS_DEFAULT, offset=0):
@@ -216,8 +221,8 @@ if rmmap._POSIX:
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length='index', tagname=str,
-                 access=int, offset='index')
+    @unwrap_spec(fileno=int, length=int, tagname=str,
+                 access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
         self = space.allocate_instance(W_MMap, w_subtype)

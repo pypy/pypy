@@ -224,6 +224,18 @@ class ViewSignature(ArraySignature):
         return ViewIterator(arr.start, arr.strides, arr.backstrides,
                             arr.shape).apply_transformations(arr, transforms)
 
+class FlatSignature(ViewSignature):
+    def debug_repr(self):
+        return 'Flat'
+
+    def allocate_iter(self, arr, transforms):
+        from pypy.module.micronumpy.interp_numarray import W_FlatIterator
+        assert isinstance(arr, W_FlatIterator)
+        return ViewIterator(arr.base.start, arr.base.strides, 
+                    arr.base.backstrides,
+                    arr.base.shape).apply_transformations(arr.base,
+                                                         transforms)
+
 class VirtualSliceSignature(Signature):
     def __init__(self, child):
         self.child = child
@@ -293,8 +305,8 @@ class Call1(Signature):
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
-        v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
-        return self.unfunc(arr.res_dtype, v)
+        v = self.child.eval(frame, arr.values).convert_to(arr.calc_dtype)
+        return self.unfunc(arr.calc_dtype, v)
 
 class Call2(Signature):
     _immutable_fields_ = ['binfunc', 'name', 'calc_dtype', 'left', 'right']
@@ -341,7 +353,6 @@ class Call2(Signature):
         assert isinstance(arr, Call2)
         lhs = self.left.eval(frame, arr.left).convert_to(self.calc_dtype)
         rhs = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
-        
         return self.binfunc(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):

@@ -1,13 +1,14 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype
-from pypy.module.micronumpy.signature import ReduceSignature,\
-     find_sig, new_printable_location, AxisReduceSignature, ScalarSignature
+from pypy.module.micronumpy import interp_boxes, interp_dtype, support
+from pypy.module.micronumpy.signature import (ReduceSignature, find_sig,
+    new_printable_location, AxisReduceSignature, ScalarSignature)
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+
 
 reduce_driver = jit.JitDriver(
     greens=['shapelen', "sig"],
@@ -30,12 +31,14 @@ class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
     _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
 
-    def __init__(self, name, promote_to_float, promote_bools, identity):
+    def __init__(self, name, promote_to_float, promote_bools, identity,
+                 int_only):
         self.name = name
         self.promote_to_float = promote_to_float
         self.promote_bools = promote_bools
 
         self.identity = identity
+        self.int_only = int_only
 
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
@@ -46,19 +49,31 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        if __args__.keywords or len(__args__.arguments_w) < self.argcount:
+        args_w, kwds_w = __args__.unpack()
+        # it occurs to me that we don't support any datatypes that
+        # require casting, change it later when we do
+        kwds_w.pop('casting', None)
+        w_subok = kwds_w.pop('subok', None)
+        w_out = kwds_w.pop('out', space.w_None)
+        if ((w_subok is not None and space.is_true(w_subok)) or
+            not space.is_w(w_out, space.w_None)):
+            raise OperationError(space.w_NotImplementedError,
+                                 space.wrap("parameters unsupported"))
+        if kwds_w or len(args_w) < self.argcount:
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
-        elif len(__args__.arguments_w) > self.argcount:
+        elif len(args_w) > self.argcount:
             # The extra arguments should actually be the output array, but we
             # don't support that yet.
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
-        return self.call(space, __args__.arguments_w)
+        return self.call(space, args_w)
 
-    def descr_reduce(self, space, w_obj, w_dim=0):
+    @unwrap_spec(skipna=bool, keepdims=bool)
+    def descr_reduce(self, space, w_obj, w_axis=NoneNotWrapped, w_dtype=None,
+                     skipna=False, keepdims=False, w_out=None):
         """reduce(...)
         reduce(a, axis=0)
 
@@ -111,15 +126,24 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
-        return self.reduce(space, w_obj, False, False, w_dim)
+        if not space.is_w(w_out, space.w_None):
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "out not supported"))
+        if w_axis is None:
+            axis = 0
+        elif space.is_w(w_axis, space.w_None):
+            axis = -1
+        else:
+            axis = space.int_w(w_axis)
+        return self.reduce(space, w_obj, False, False, axis, keepdims)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, w_dim):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
+               keepdims=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                                            Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
-        dim = space.int_w(w_dim)
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if dim >= len(obj.shape):
@@ -140,7 +164,7 @@ class W_Ufunc(Wrappable):
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
-            res = self.do_axis_reduce(obj, dtype, dim)
+            res = self.do_axis_reduce(obj, dtype, dim, keepdims)
             return space.wrap(res)
         scalarsig = ScalarSignature(dtype)
         sig = find_sig(ReduceSignature(self.func, self.name, dtype,
@@ -154,15 +178,15 @@ class W_Ufunc(Wrappable):
             value = self.identity.convert_to(dtype)
         return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
 
-    def do_axis_reduce(self, obj, dtype, dim):
+    def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
              W_NDimArray
-        
-        shape = obj.shape[0:dim] + obj.shape[dim + 1:len(obj.shape)]
-        size = 1
-        for s in shape:
-            size *= s
-        result = W_NDimArray(size, shape, dtype)
+
+        if keepdims:
+            shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
+        else:
+            shape = obj.shape[:dim] + obj.shape[dim + 1:]
+        result = W_NDimArray(support.product(shape), shape, dtype)
         rightsig = obj.create_sig()
         # note - this is just a wrapper so signature can fetch
         #        both left and right, nothing more, especially
@@ -192,17 +216,17 @@ class W_Ufunc(Wrappable):
                                               sig=sig,
                                               identity=identity,
                                               shapelen=shapelen, arr=arr)
-            iter = frame.get_final_iter()
+            iterator = frame.get_final_iter()
             v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            if iter.first_line:
+            if iterator.first_line:
                 if identity is not None:
                     value = self.func(sig.calc_dtype, identity, v)
                 else:
                     value = v
             else:
-                cur = arr.left.getitem(iter.offset)
+                cur = arr.left.getitem(iterator.offset)
                 value = self.func(sig.calc_dtype, cur, v)
-            arr.left.setitem(iter.offset, value)
+            arr.left.setitem(iterator.offset, value)
             frame.next(shapelen)
 
     def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
@@ -224,10 +248,12 @@ class W_Ufunc1(W_Ufunc):
     _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None):
+        identity=None, bool_result=False, int_only=False):
 
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
+                         int_only)
         self.func = func
+        self.bool_result = bool_result
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call1,
@@ -235,15 +261,19 @@ class W_Ufunc1(W_Ufunc):
 
         [w_obj] = args_w
         w_obj = convert_to_array(space, w_obj)
-        res_dtype = find_unaryop_result_dtype(space,
-            w_obj.find_dtype(),
-            promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools,
-        )
+        calc_dtype = find_unaryop_result_dtype(space,
+                                  w_obj.find_dtype(),
+                                  promote_to_float=self.promote_to_float,
+                                  promote_bools=self.promote_bools)
+        if self.bool_result:
+            res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+        else:
+            res_dtype = calc_dtype
         if isinstance(w_obj, Scalar):
-            return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
+            return space.wrap(self.func(calc_dtype, w_obj.value.convert_to(calc_dtype)))
 
-        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj)
+        w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
+                      w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -255,10 +285,10 @@ class W_Ufunc2(W_Ufunc):
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None, comparison_func=False, int_only=False):
 
-        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity,
+                         int_only)
         self.func = func
         self.comparison_func = comparison_func
-        self.int_only = int_only
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
@@ -278,10 +308,10 @@ class W_Ufunc2(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return self.func(calc_dtype,
+            return space.wrap(self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
-            )
+            ))
 
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(self.func, self.name,
@@ -409,12 +439,16 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
-def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
+def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func,
+                       bool_result):
+    dtype_cache = interp_dtype.get_dtype_cache(space)
     if argcount == 1:
         def impl(res_dtype, value):
-            return getattr(res_dtype.itemtype, op_name)(value)
+            res = getattr(res_dtype.itemtype, op_name)(value)
+            if bool_result:
+                return dtype_cache.w_booldtype.box(res)
+            return res
     elif argcount == 2:
-        dtype_cache = interp_dtype.get_dtype_cache(space)
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
             if comparison_func:
@@ -433,7 +467,9 @@ class UfuncState(object):
                                                'int_only': True}),
             ("bitwise_or", "bitwise_or", 2, {"identity": 0,
                                              'int_only': True}),
+            ("invert", "invert", 1, {"int_only": True}),
             ("divide", "div", 2, {"promote_bools": True}),
+            ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),
 
@@ -443,6 +479,8 @@ class UfuncState(object):
             ("less_equal", "le", 2, {"comparison_func": True}),
             ("greater", "gt", 2, {"comparison_func": True}),
             ("greater_equal", "ge", 2, {"comparison_func": True}),
+            ("isnan", "isnan", 1, {"bool_result": True}),
+            ("isinf", "isinf", 1, {"bool_result": True}),
 
             ("maximum", "max", 2),
             ("minimum", "min", 2),
@@ -485,6 +523,7 @@ class UfuncState(object):
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
             comparison_func=extra_kwargs.get("comparison_func", False),
+            bool_result=extra_kwargs.get("bool_result", False),
         )
         if argcount == 1:
             ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
@@ -494,3 +533,4 @@ class UfuncState(object):
 
 def get(space):
     return space.fromcache(UfuncState)
+

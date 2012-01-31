@@ -306,6 +306,10 @@ class UtilityTests(TestCase):
         self.checkReqURI("http://127.0.0.1/spam", SCRIPT_NAME="/spam")
         self.checkReqURI("http://127.0.0.1/spammity/spam",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam")
+        self.checkReqURI("http://127.0.0.1/spammity/spam;ham",
+            SCRIPT_NAME="/spammity", PATH_INFO="/spam;ham")
+        self.checkReqURI("http://127.0.0.1/spammity/spam;cookie=1234,5678",
+            SCRIPT_NAME="/spammity", PATH_INFO="/spam;cookie=1234,5678")
         self.checkReqURI("http://127.0.0.1/spammity/spam?say=ni",
             SCRIPT_NAME="/spammity", PATH_INFO="/spam",QUERY_STRING="say=ni")
         self.checkReqURI("http://127.0.0.1/spammity/spam", 0,
@@ -477,6 +481,11 @@ class HandlerTests(TestCase):
             s('200 OK',[])(e['wsgi.url_scheme'])
             return []
 
+        def trivial_app4(e,s):
+            # Simulate a response to a HEAD request
+            s('200 OK',[('Content-Length', '12345')])
+            return []
+
         h = TestHandler()
         h.run(trivial_app1)
         self.assertEqual(h.stdout.getvalue(),
@@ -493,10 +502,12 @@ class HandlerTests(TestCase):
             "http")
 
 
-
-
-
-
+        h = TestHandler()
+        h.run(trivial_app4)
+        self.assertEqual(h.stdout.getvalue(),
+            b'Status: 200 OK\r\n'
+            b'Content-Length: 12345\r\n'
+            b'\r\n')
 
     def testBasicErrorOutput(self):
 
