@@ -118,6 +118,8 @@ class CConfig:
          ('block_size', rffi.INT)])
     EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
     EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
+    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
+                                             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
 
 for k, v in rffi_platform.configure(CConfig).items():
@@ -224,7 +226,7 @@ ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i', 
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-if rffi_platform.Defined("OPENSSL_EXPORT_VAR_AS_FUNCTION"):             
+if OPENSSL_EXPORT_VAR_AS_FUNCTION:             
     ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
 else:    
     ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
