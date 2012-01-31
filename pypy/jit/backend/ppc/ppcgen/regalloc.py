@@ -682,7 +682,7 @@ class Regalloc(object):
         return [l0, l1, res]
 
     def prepare_strgetitem(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0])
 
         a1 = boxes[1]
@@ -698,7 +698,7 @@ class Regalloc(object):
         return [res, base_loc, ofs_loc, imm(basesize)]
 
     def prepare_strsetitem(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
