@@ -634,33 +634,30 @@ class Regalloc(object):
         return [res, base_loc, imm(ofs)]
 
     def prepare_setarrayitem_gc(self, op):
-        a0, a1, a2 = list(op.getarglist())
         size, ofs, _ = unpack_arraydescr(op.getdescr())
         scale = get_scale(size)
         args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(a0, args)
-        ofs_loc = self._ensure_value_is_boxed(a1, args)
-        scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
-        value_loc = self._ensure_value_is_boxed(a2, args)
+        base_loc = self._ensure_value_is_boxed(args[0], args)
+        ofs_loc = self._ensure_value_is_boxed(args[1], args)
+        value_loc = self._ensure_value_is_boxed(args[2], args)
+        scratch_loc = self.rm.get_scratch_reg(INT, 
+                [base_loc, ofs_loc, value_loc])
         assert _check_imm_arg(ofs)
-        return [value_loc, base_loc, ofs_loc, scratch_loc,
-                imm(scale), imm(ofs)]
-
+        return [value_loc, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
     def prepare_getarrayitem_gc(self, op):
-        a0, a1 = boxes = list(op.getarglist())
+        boxes = op.getarglist()
         size, ofs, _ = unpack_arraydescr(op.getdescr())
         scale = get_scale(size)
-        base_loc = self._ensure_value_is_boxed(a0, boxes)
-        ofs_loc = self._ensure_value_is_boxed(a1, boxes)
+        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
+        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
         assert _check_imm_arg(ofs)
-        return [res, base_loc, ofs_loc, scratch_loc,
-                imm(scale), imm(ofs)]
+        return [res, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc
