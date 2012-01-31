@@ -3,6 +3,7 @@
 
 from __future__ import with_statement
 import os
+from errno import EINTR
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
@@ -29,9 +30,13 @@ class EPollPending(interp_transaction.AbstractPending):
         with lltype.scoped_alloc(rffi.CArray(epoll_event), maxevents) as evs:
             nfds = epoll_wait(self.epoller.epfd, evs, maxevents, int(timeout))
             if nfds < 0:
-                state.got_exception_errno = rposix.get_errno()
-                state.must_reraise_exception(_reraise_from_errno)
-                return
+                errno = rposix.get_errno()
+                if errno == EINTR:
+                    nfds = 0    # ignore, just wait for more later
+                else:
+                    state.got_exception_errno = errno
+                    state.must_reraise_exception(_reraise_from_errno)
+                    return
             for i in range(nfds):
                 event = evs[i]
                 fd = rffi.cast(lltype.Signed, event.c_data.c_fd)
