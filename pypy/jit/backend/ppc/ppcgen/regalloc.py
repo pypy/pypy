@@ -448,12 +448,8 @@ class Regalloc(object):
     def prepare_guard_value(self, op):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a1 = check_imm_box(a1)
         l0 = self._ensure_value_is_boxed(a0, boxes)
-        if not imm_a1:
-            l1 = self._ensure_value_is_boxed(a1, boxes)
-        else:
-            l1 = self.make_sure_var_in_reg(a1, boxes)
+        l1 = self._ensure_value_is_boxed(a1, boxes)
         assert op.result is None
         arglocs = self._prepare_guard(op, [l0, l1])
         self.possibly_free_vars(op.getarglist())
@@ -693,11 +689,7 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(boxes[0])
 
         a1 = boxes[1]
-        imm_a1 = check_imm_box(a1)
-        if imm_a1:
-            ofs_loc = self.make_sure_var_in_reg(a1, boxes)
-        else:
-            ofs_loc = self._ensure_value_is_boxed(a1, boxes)
+        ofs_loc = self._ensure_value_is_boxed(a1, boxes)
 
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
