@@ -39,12 +39,7 @@ class AbstractAttribute(object):
         attr = self.findmap(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        try:
-            attr.write_attr(obj, w_value)
-        except OperationError, e:
-            if not e.match(self.space, self.space.w_TypeError):
-                raise
-            self._replace(obj, selector, w_value)
+        attr.write_attr(obj, w_value)
         return True
 
     def _replace(self, obj, selector, w_value):
