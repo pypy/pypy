@@ -776,6 +776,16 @@ class AppTestWithMapDict(object):
 
         assert a.x == 5
 
+    def test_too_large_int(self):
+        class A(object):
+            def __init__(self):
+                self.x = 1
+
+        a = A()
+        a.x = 1234567890L
+
+        assert a.x == 1234567890L
+
 class AppTestWithMapDictAndCounters(object):
     def setup_class(cls):
         from pypy.interpreter import gateway

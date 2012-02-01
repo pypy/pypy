@@ -29,25 +29,28 @@ class AbstractAttribute(object):
         self.terminator = terminator
 
     def read(self, obj, selector):
-        attr = self.findmap(selector) # index = self.index(selector)
+        attr = self.findmap(selector)
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
-        return attr.read_attr(obj) #obj._mapdict_read_storage(index)
+        return attr.read_attr(obj)
 
     def write(self, obj, selector, w_value):
         from pypy.interpreter.error import OperationError
-        attr = self.findmap(selector) # index = self.index(selector)
+        attr = self.findmap(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
         try:
-            attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
+            attr.write_attr(obj, w_value)
         except OperationError, e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
-            firstattr = obj._get_mapdict_map()
-            firstattr.delete(obj, selector)
-            firstattr.add_attr(obj, selector, w_value)
+            self._replace(obj, selector, w_value)
         return True
+
+    def _replace(self, obj, selector, w_value):
+        firstattr = obj._get_mapdict_map()
+        firstattr.delete(obj, selector)
+        firstattr.add_attr(obj, selector, w_value)
 
     def delete(self, obj, selector):
         return None
@@ -362,6 +365,9 @@ class IntAttribute(AbstractStoredAttribute):
         return self.space.wrap(value)
 
     def write_attr(self, obj, w_value):
+        if not is_taggable_int(self.space, w_value):
+            self._replace(obj, self.selector, w_value)
+            return
         erased = self.erase_item(self.space.int_w(w_value))
         obj._mapdict_write_storage(self.position, erased)
 
