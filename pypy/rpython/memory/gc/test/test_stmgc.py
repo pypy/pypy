@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gc.stmgc import StmGC
+from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL
 
 
 class FakeStmOperations:
@@ -33,3 +34,24 @@ class TestBasic:
         assert a4 - a3 == 3
         assert a5 - a4 == 4
         assert a6 - a5 == 5
+
+    def test_malloc_fixedsize_clear(self):
+        S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed))
+        gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), gcref)
+        assert s.a == 0
+        assert s.b == 0
+        gcref2 = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
+        assert gcref2 != gcref
+
+    def test_malloc_main_vs_thread(self):
+        S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed))
+        gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
+        obj = llmemory.cast_ptr_to_adr(gcref)
+        assert (self.gc.header(obj).tid & GCFLAG_GLOBAL) != 0
+        #
+        self.gc.setup_thread(False)
+        gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
+        obj = llmemory.cast_ptr_to_adr(gcref)
+        assert (self.gc.header(obj).tid & GCFLAG_GLOBAL) == 0
+        self.gc.teardown_thread()
