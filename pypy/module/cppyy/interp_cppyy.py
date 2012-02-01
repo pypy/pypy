@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi, rdynload, rweakref
 from pypy.rlib import jit, debug
 
-from pypy.module.cppyy import converter, executor, helper
+from pypy.module.cppyy import converter, executor, helper, capi
 
 
 class FastCallNotPossible(Exception):
@@ -183,13 +183,13 @@ class CPPMethod(object):
             w_arg = args_w[i]
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-                conv.convert_argument(space, w_arg, rffi.cast(rffi.VOIDP, arg_i))
+                conv.convert_argument(space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
             except:
                 # fun :-(
                 for j in range(i):
                     conv = self.arg_converters[j]
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
-                    conv.free_argument(rffi.cast(rffi.VOIDP, arg_j))
+                    conv.free_argument(rffi.cast(capi.C_OBJECT, arg_j))
                 capi.c_deallocate_function_args(args)
                 raise
         return args
@@ -200,7 +200,7 @@ class CPPMethod(object):
         for i in range(nargs):
             conv = self.arg_converters[i]
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-            conv.free_argument(rffi.cast(rffi.VOIDP, arg_i))
+            conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i))
         capi.c_deallocate_function_args(args)
 
     def __repr__(self):
