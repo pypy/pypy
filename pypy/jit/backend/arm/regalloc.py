@@ -27,6 +27,7 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
+from pypy.rlib.objectmodel import we_are_translated
 
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
@@ -998,7 +999,11 @@ class Regalloc(object):
             arglocs.append(loc)
         card_marking = False
         if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
-            card_marking = op.getdescr().jit_wb_cards_set != 0
+            descr = op.getdescr()
+            if we_are_translated():
+                cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+                assert cls is not None and isinstance(descr, cls)
+            card_marking = descr.jit_wb_cards_set != 0
         if card_marking:  # allocate scratch registers
             tmp1 = self.get_scratch_reg(INT)
             tmp2 = self.get_scratch_reg(INT)
