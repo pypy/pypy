@@ -370,6 +370,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
         self.visit_sequence(clsdef.bases)
+        self.visit_sequence(clsdef.keywords)
+        if clsdef.starargs:
+            clsdef.starargs.walkabout(self)
+        if clsdef.kwargs:
+            clsdef.kwargs.walkabout(self)
         self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
         self.note_symbol('@__class__', SYM_ASSIGNED)

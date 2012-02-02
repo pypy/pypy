@@ -217,6 +217,15 @@ class TestSymbolTable:
         xscp = cscp.children[1]
         assert xscp.lookup("n") == symtable.SCOPE_FREE
 
+    def test_class_kwargs(self):
+        scp = self.func_scope("""def f(n):
+            class X(meta=Z, *args, **kwargs):
+                 pass""")
+        assert scp.lookup("X") == symtable.SCOPE_LOCAL
+        assert scp.lookup("Z") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("args") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("kwargs") == symtable.SCOPE_GLOBAL_IMPLICIT
+
     def test_lambda(self):
         scp = self.mod_scope("lambda x: y")
         self.check_unknown(scp, "x", "y")

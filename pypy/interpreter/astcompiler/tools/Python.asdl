@@ -1,4 +1,4 @@
--- ASDL's five builtin types are identifier, int, string, object, bool
+-- ASDL's four builtin types are identifier, int, string, object
 
 module Python version "$Revision: 43614 $"
 {
@@ -103,7 +103,7 @@ module Python version "$Revision: 43614 $"
 
 	-- not sure what to call the first argument for raise and except
 	excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
-	                attributes(int lineno, int col_offset)
+	                attributes (int lineno, int col_offset)
 
 	arguments = (expr* args, identifier? vararg, expr* kwonlyargs, 
 		     identifier? kwarg, expr* defaults)
@@ -114,3 +114,4 @@ module Python version "$Revision: 43614 $"
         -- import name with optional 'as' alias.
         alias = (identifier name, identifier? asname)
 }
+

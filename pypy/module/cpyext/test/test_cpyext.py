@@ -204,7 +204,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         filename.
         """
         name = name.encode()
-        init = init.encode()
+        if init is not None:
+            init = init.encode()
         body = body.encode()
         if init is not None:
             code = """
