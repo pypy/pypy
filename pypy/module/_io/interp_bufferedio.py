@@ -74,10 +74,6 @@ class W_BufferedIOBase(W_IOBase):
     def _check_init(self, space):
         raise NotImplementedError
 
-    def _deprecated_max_buffer_size(self, space):
-        space.warn("max_buffer_size is deprecated",
-                   space.w_DeprecationWarning)
-
     def read_w(self, space, w_size=None):
         self._unsupportedoperation(space, "read")
 
@@ -821,12 +817,8 @@ W_BufferedReader.typedef = TypeDef(
 )
 
 class W_BufferedWriter(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
-                   max_buffer_size=-234):
-        if max_buffer_size != -234:
-            self._deprecated_max_buffer_size(space)
-
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
         check_writable_w(space, w_raw)
 
@@ -885,12 +877,9 @@ class W_BufferedRWPair(W_BufferedIOBase):
     w_reader = None
     w_writer = None
 
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
-    def descr_init(self, space, w_reader, w_writer,
-                   buffer_size=DEFAULT_BUFFER_SIZE, max_buffer_size=-234):
-        if max_buffer_size != -234:
-            self._deprecated_max_buffer_size(space)
-
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_reader, w_writer, 
+                   buffer_size=DEFAULT_BUFFER_SIZE):
         try:
             self.w_reader = W_BufferedReader(space)
             self.w_reader.descr_init(space, w_reader, buffer_size)
@@ -943,12 +932,8 @@ W_BufferedRWPair.typedef = TypeDef(
 )
 
 class W_BufferedRandom(BufferedMixin, W_BufferedIOBase):
-    @unwrap_spec(buffer_size=int, max_buffer_size=int)
-    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE,
-                   max_buffer_size = -234):
-        if max_buffer_size != -234:
-            self._deprecated_max_buffer_size(space)
-
+    @unwrap_spec(buffer_size=int)
+    def descr_init(self, space, w_raw, buffer_size=DEFAULT_BUFFER_SIZE):
         self.state = STATE_ZERO
 
         check_readable_w(space, w_raw)
