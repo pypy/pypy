@@ -91,7 +91,7 @@ def letter2tp(space, key):
 
 def unpack_simple_shape(space, w_shape):
     # 'w_shape' must be either a letter or a tuple (struct, 1).
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.is_true(space.isinstance(w_shape, space.w_unicode)):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -102,7 +102,7 @@ def unpack_simple_shape(space, w_shape):
 def unpack_shape_with_length(space, w_shape):
     # Allow 'w_shape' to be a letter or any (shape, number).
     # The result is always a W_Array.
-    if space.is_true(space.isinstance(w_shape, space.w_str)):
+    if space.is_true(space.isinstance(w_shape, space.w_unicode)):
         letter = space.str_w(w_shape)
         return letter2tp(space, letter)
     else:
@@ -166,7 +166,7 @@ class W_CDLL(Wrappable):
         else:
             ffi_restype = ffi_type_void
 
-        if space.is_true(space.isinstance(w_name, space.w_str)):
+        if space.is_true(space.isinstance(w_name, space.w_unicode)):
             name = space.str_w(w_name)
 
             try:
@@ -327,7 +327,7 @@ def unwrap_value(space, push_func, add_arg, argdesc, letter, w_arg):
         push_func(add_arg, argdesc, rffi.cast(rffi.LONGDOUBLE,
                                               space.float_w(w_arg)))
     elif letter == "c":
-        s = space.str_w(w_arg)
+        s = space.bytes_w(w_arg)
         if len(s) != 1:
             raise OperationError(space.w_TypeError, w(
                 "Expected string of length one as character"))
@@ -360,7 +360,9 @@ def wrap_value(space, func, add_arg, argdesc, letter):
             if c in TYPEMAP_PTR_LETTERS:
                 res = func(add_arg, argdesc, rffi.VOIDP)
                 return space.wrap(rffi.cast(lltype.Unsigned, res))
-            elif c == 'q' or c == 'Q' or c == 'L' or c == 'c' or c == 'u':
+            elif c == 'c':
+                return space.wrapbytes(func(add_arg, argdesc, ll_type))
+            elif c == 'q' or c == 'Q' or c == 'L' or c == 'u':
                 return space.wrap(func(add_arg, argdesc, ll_type))
             elif c == 'f' or c == 'd' or c == 'g':
                 return space.wrap(float(func(add_arg, argdesc, ll_type)))

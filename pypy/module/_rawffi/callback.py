@@ -17,7 +17,7 @@ app = gateway.applevel('''
     def tbprint(tb, err):
         import traceback, sys
         traceback.print_tb(tb)
-        print >>sys.stderr, err
+        print(err, file=sys.stderr)
 ''', filename=__file__)
 
 tbprint = app.interphook("tbprint")

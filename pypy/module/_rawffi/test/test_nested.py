@@ -47,14 +47,14 @@ class AppTestNested:
         assert S.fieldoffset('x') == 0
         assert S.fieldoffset('s1') == S1.alignment
         s = S()
-        s.x = 'G'
+        s.x = b'G'
         raises(TypeError, 's.s1')
         assert s.fieldaddress('s1') == s.buffer + S.fieldoffset('s1')
         s1 = S1.fromaddress(s.fieldaddress('s1'))
-        s1.c = 'H'
+        s1.c = b'H'
         rawbuf = _rawffi.Array('c').fromaddress(s.buffer, S.size)
-        assert rawbuf[0] == 'G'
-        assert rawbuf[S1.alignment + S1.fieldoffset('c')] == 'H'
+        assert rawbuf[0] == b'G'
+        assert rawbuf[S1.alignment + S1.fieldoffset('c')] == b'H'
         s.free()
 
     def test_array_of_structures(self):
@@ -64,17 +64,17 @@ class AppTestNested:
         a = A(3)
         raises(TypeError, "a[0]")
         s0 = S.fromaddress(a.buffer)
-        s0.c = 'B'
+        s0.c = b'B'
         assert a.itemaddress(1) == a.buffer + S.size
         s1 = S.fromaddress(a.itemaddress(1))
-        s1.c = 'A'
+        s1.c = b'A'
         s2 = S.fromaddress(a.itemaddress(2))
-        s2.c = 'Z'
+        s2.c = b'Z'
         rawbuf = _rawffi.Array('c').fromaddress(a.buffer, S.size * len(a))
         ofs = S.fieldoffset('c')
-        assert rawbuf[0*S.size+ofs] == 'B'
-        assert rawbuf[1*S.size+ofs] == 'A'
-        assert rawbuf[2*S.size+ofs] == 'Z'
+        assert rawbuf[0*S.size+ofs] == b'B'
+        assert rawbuf[1*S.size+ofs] == b'A'
+        assert rawbuf[2*S.size+ofs] == b'Z'
         a.free()
 
     def test_array_of_array(self):
@@ -107,13 +107,13 @@ class AppTestNested:
         assert S.fieldoffset('x') == 0
         assert S.fieldoffset('ar') == A5alignment
         s = S()
-        s.x = 'G'
+        s.x = b'G'
         raises(TypeError, 's.ar')
         assert s.fieldaddress('ar') == s.buffer + S.fieldoffset('ar')
         a1 = A.fromaddress(s.fieldaddress('ar'), 5)
         a1[4] = 33
         rawbuf = _rawffi.Array('c').fromaddress(s.buffer, S.size)
-        assert rawbuf[0] == 'G'
+        assert rawbuf[0] == b'G'
         sizeofint = struct.calcsize("i")
         v = 0
         for i in range(sizeofint):

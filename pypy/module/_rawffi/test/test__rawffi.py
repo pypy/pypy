@@ -222,8 +222,8 @@ class AppTestFfi:
         import _rawffi
         try:
             _rawffi.CDLL("xxxxx_this_name_does_not_exist_xxxxx")
-        except OSError, e:
-            print e
+        except OSError as e:
+            print(e)
             assert str(e).startswith("xxxxx_this_name_does_not_exist_xxxxx: ")
         else:
             raise AssertionError("did not fail??")
@@ -267,13 +267,13 @@ class AppTestFfi:
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
         A = _rawffi.Array('c')
         B = _rawffi.Array('H')
-        dupa = A(5, 'dupa')
+        dupa = A(5, b'dupa')
         dupaptr = dupa.byptr()
         for i in range(4):
             intptr = B(1)
             intptr[0] = i
             res = get_char(dupaptr, intptr)
-            assert res[0] == 'dupa'[i]
+            assert res[0] == 'dupa'[i:i+1]
             intptr.free()
         dupaptr.free()
         dupa.free()
@@ -283,11 +283,11 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = '*'
-        assert buf[1:5] == '\x00' * 4
-        buf[7:] = 'abc'
-        assert buf[9] == 'c'
-        assert buf[:8] == '*' + '\x00'*6 + 'a'
+        buf[0] = b'*'
+        assert buf[1:5] == b'\x00' * 4
+        buf[7:] = b'abc'
+        assert buf[9] == b'c'
+        assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
         import _rawffi
@@ -296,17 +296,17 @@ class AppTestFfi:
         A = _rawffi.Array('c')
         arg1 = A(1)
         arg2 = A(1)
-        arg1[0] = 'y'
-        arg2[0] = 'x'
+        arg1[0] = b'y'
+        arg2[0] = b'x'
         res = char_check(arg1, arg2)
-        assert _rawffi.charp2string(res[0]) == 'xxxxxx'
-        assert _rawffi.charp2rawstring(res[0]) == 'xxxxxx'
-        assert _rawffi.charp2rawstring(res[0], 3) == 'xxx'
-        a = A(6, 'xx\x00\x00xx')
-        assert _rawffi.charp2string(a.buffer) == 'xx'
-        assert _rawffi.charp2rawstring(a.buffer, 4) == 'xx\x00\x00'
-        arg1[0] = 'x'
-        arg2[0] = 'y'
+        assert _rawffi.charp2string(res[0]) == b'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0]) == b'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0], 3) == b'xxx'
+        a = A(6, b'xx\x00\x00xx')
+        assert _rawffi.charp2string(a.buffer) == b'xx'
+        assert _rawffi.charp2rawstring(a.buffer, 4) == b'xx\x00\x00'
+        arg1[0] = b'x'
+        arg2[0] = b'y'
         res = char_check(arg1, arg2)
         assert res[0] == 0
         assert _rawffi.charp2string(res[0]) is None
@@ -317,10 +317,10 @@ class AppTestFfi:
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')
-        a = A(6, u'xx\x00\x00xx')
+        a = A(6, 'xx\x00\x00xx')
         res = _rawffi.wcharp2unicode(a.buffer)
-        assert isinstance(res, unicode)
-        assert res == u'xx'
+        assert isinstance(res, str)
+        assert res == 'xx'
         a.free()
 
     def test_raw_callable(self):
@@ -450,13 +450,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = 'x'
+        next.x3 = b'x'
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = 'x'
-        assert X.fromaddress(x.next).x3 == 'x'
+        x.x3 = b'x'
+        assert X.fromaddress(x.next).x3 == b'x'
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -585,7 +585,7 @@ class AppTestFfi:
         def compare(a, b):
             a1 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(a, 1)[0], 1)
             a2 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(b, 1)[0], 1)
-            print "comparing", a1[0], "with", a2[0]
+            print("comparing", a1[0], "with", a2[0])
             if a1[0] not in [1,2,3,4] or a2[0] not in [1,2,3,4]:
                 bogus_args.append((a1[0], a2[0]))
             if a1[0] > a2[0]:
@@ -641,9 +641,9 @@ class AppTestFfi:
 
     def test_raising_callback(self):
         import _rawffi, sys
-        import StringIO
+        from io import StringIO
         lib = _rawffi.CDLL(self.lib_name)
-        err = StringIO.StringIO()
+        err = StringIO()
         orig = sys.stderr
         sys.stderr = err
         try:
@@ -659,7 +659,7 @@ class AppTestFfi:
             val = err.getvalue()
             assert 'ZeroDivisionError' in val
             assert 'callback' in val
-            assert res[0] == 0L
+            assert res[0] == 0
         finally:
             sys.stderr = orig
 
@@ -761,23 +761,23 @@ class AppTestFfi:
         import _rawffi, sys
         A = _rawffi.Array('u')
         a = A(3)
-        a[0] = u'x'
-        a[1] = u'y'
-        a[2] = u'z'
-        assert a[0] == u'x'
+        a[0] = 'x'
+        a[1] = 'y'
+        a[2] = 'z'
+        assert a[0] == 'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
-            assert b[0] == 'x'
-            assert b[1] == '\x00'
-            assert b[2] == '\x00'
-            assert b[3] == '\x00'
-            assert b[4] == 'y'
+            assert b[0] == b'x'
+            assert b[1] == b'\x00'
+            assert b[2] == b'\x00'
+            assert b[3] == b'\x00'
+            assert b[4] == b'y'
         else:
             # UCS2 build
-            assert b[0] == 'x'
-            assert b[1] == '\x00'
-            assert b[2] == 'y'
+            assert b[0] == b'x'
+            assert b[1] == b'\x00'
+            assert b[2] == b'y'
         a.free()
 
     def test_truncate(self):
@@ -785,7 +785,7 @@ class AppTestFfi:
         a = _rawffi.Array('b')(1)
         a[0] = -5
         assert a[0] == -5
-        a[0] = 123L
+        a[0] = 123
         assert a[0] == 123
         a[0] = 0x97817182ab128111111111111171817d042
         assert a[0] == 0x42
@@ -798,7 +798,7 @@ class AppTestFfi:
         a.free()
 
         a = _rawffi.Array('B')(1)
-        a[0] = 123L
+        a[0] = 123
         assert a[0] == 123
         a[0] = 0x18329b1718b97d89b7198db817d042
         assert a[0] == 0x42
@@ -811,7 +811,7 @@ class AppTestFfi:
         a.free()
 
         a = _rawffi.Array('h')(1)
-        a[0] = 123L
+        a[0] = 123
         assert a[0] == 123
         a[0] = 0x9112cbc91bd91db19aaaaaaaaaaaaaa8170d42
         assert a[0] == 0x0d42
@@ -824,7 +824,7 @@ class AppTestFfi:
         a.free()
 
         a = _rawffi.Array('H')(1)
-        a[0] = 123L
+        a[0] = 123
         assert a[0] == 123
         a[0] = 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeee817d042
         assert a[0] == 0xd042
@@ -834,7 +834,7 @@ class AppTestFfi:
 
         maxptr = (256 ** struct.calcsize("P")) - 1
         a = _rawffi.Array('P')(1)
-        a[0] = 123L
+        a[0] = 123
         assert a[0] == 123
         a[0] = 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeee817d042
         assert a[0] == 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeee817d042 & maxptr
@@ -889,7 +889,7 @@ class AppTestFfi:
         f = lib.ptr('SetLastError', [], 'i')
         try:
             f()
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with not enough arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -900,7 +900,7 @@ class AppTestFfi:
         arg[0] = 1
         try:
             f(arg)
-        except ValueError, e:
+        except ValueError as e:
             assert "Procedure called with too many arguments" in e.message
         else:
             assert 0, "Did not raise"
@@ -911,13 +911,13 @@ class AppTestFfi:
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
-        print >> sys.stderr, "getting..."
+        print("getting...")
         sum_x_y = lib.ptr('sum_x_y', [(X_Y, 1)], 'l')
         x_y.x = 200
         x_y.y = 220
-        print >> sys.stderr, "calling..."
+        print("calling...")
         res = sum_x_y(x_y)
-        print >> sys.stderr, "done"
+        print("done")
         assert res[0] == 420
         x_y.free()
 
@@ -994,21 +994,21 @@ class AppTestFfi:
         s = S(autofree=True)
         b = buffer(s)
         assert len(b) == 40
-        b[4] = 'X'
-        b[:3] = 'ABC'
-        assert b[:6] == 'ABC\x00X\x00'
+        b[4] = b'X'
+        b[:3] = b'ABC'
+        assert b[:6] == b'ABC\x00X\x00'
 
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
-        a[3] = 'x'
+        a[3] = b'x'
         b = buffer(a)
         assert len(b) == 10
-        assert b[3] == 'x'
-        b[6] = 'y'
-        assert a[6] == 'y'
-        b[3:5] = 'zt'
-        assert a[3] == 'z'
-        assert a[4] == 't'
+        assert b[3] == b'x'
+        b[6] = b'y'
+        assert a[6] == b'y'
+        b[3:5] = b'zt'
+        assert a[3] == b'z'
+        assert a[4] == b't'
 
     def test_union(self):
         import _rawffi
@@ -1054,7 +1054,7 @@ class AppTestAutoFree:
         oldnum = _rawffi._num_of_allocated_objects()
 
         A = _rawffi.Array('c')
-        a = A(6, 'xxyxx\x00', autofree=True)
+        a = A(6, b'xxyxx\x00', autofree=True)
         assert _rawffi.charp2string(a.buffer) == 'xxyxx'
         a = None
         gc.collect()
