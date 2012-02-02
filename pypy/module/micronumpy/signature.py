@@ -4,6 +4,7 @@ from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
      ConstantIterator, AxisIterator, ViewTransform,\
      BroadcastTransform
 from pypy.rlib.jit import hint, unroll_safe, promote
+from pypy.tool.pairtype import extendabletype
 
 """ Signature specifies both the numpy expression that has been constructed
 and the assembler to be compiled. This is a very important observation -
@@ -113,6 +114,8 @@ def new_cache():
     return r_dict(sigeq_no_numbering, sighash)
 
 class Signature(object):
+    __metaclass_ = extendabletype
+    
     _attrs_ = ['iter_no', 'array_no']
     _immutable_fields_ = ['iter_no', 'array_no']
 
@@ -142,7 +145,6 @@ class Signature(object):
         arraylist = []
         self._create_iter(iterlist, arraylist, arr, [])
         return NumpyEvalFrame(iterlist, arraylist)
-
 
 class ConcreteSignature(Signature):
     _immutable_fields_ = ['dtype']
@@ -182,12 +184,9 @@ class ArraySignature(ConcreteSignature):
         assert isinstance(concr, ConcreteArray)
         storage = concr.storage
         if self.iter_no >= len(iterlist):
-            iterlist.append(self.allocate_iter(concr, transforms))
+            iterlist.append(concr.create_iter(transforms))
         if self.array_no >= len(arraylist):
             arraylist.append(storage)
-
-    def allocate_iter(self, arr, transforms):
-        return ArrayIterator(arr.size).apply_transformations(arr, transforms)
 
     def eval(self, frame, arr):
         iter = frame.iterators[self.iter_no]
@@ -220,21 +219,9 @@ class ViewSignature(ArraySignature):
         allnumbers.append(no)
         self.iter_no = no
 
-    def allocate_iter(self, arr, transforms):
-        return ViewIterator(arr.start, arr.strides, arr.backstrides,
-                            arr.shape).apply_transformations(arr, transforms)
-
 class FlatSignature(ViewSignature):
     def debug_repr(self):
         return 'Flat'
-
-    def allocate_iter(self, arr, transforms):
-        from pypy.module.micronumpy.interp_numarray import W_FlatIterator
-        assert isinstance(arr, W_FlatIterator)
-        return ViewIterator(arr.base.start, arr.base.strides, 
-                    arr.base.backstrides,
-                    arr.base.shape).apply_transformations(arr.base,
-                                                         transforms)
 
 class VirtualSliceSignature(Signature):
     def __init__(self, child):
@@ -358,6 +345,17 @@ class Call2(Signature):
     def debug_repr(self):
         return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
                                       self.right.debug_repr())
+
+class ResultSignature(Call2):
+    def __init__(self, dtype, left, right):
+        Call2.__init__(self, None, 'assign', dtype, left, right)
+
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import ResultArray
+
+        assert isinstance(arr, ResultArray)
+        offset = frame.get_final_iter().offset
+        arr.left.setitem(offset, self.right.eval(frame, arr.right))
 
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):

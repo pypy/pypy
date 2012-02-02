@@ -12,7 +12,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import (ArrayIterator, OneDimIterator,
+from pypy.module.micronumpy.interp_iter import (ArrayIterator,
     SkipLastAxisIterator, Chunk, ViewIterator)
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
@@ -750,22 +750,10 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        result = W_NDimArray(self.size, self.shape, self.find_dtype())
-        shapelen = len(self.shape)
-        sig = self.find_sig()
-        frame = sig.create_frame(self)
-        ri = ArrayIterator(self.size)
-        while not ri.done():
-            numpy_driver.jit_merge_point(sig=sig,
-                                         shapelen=shapelen,
-                                         result_size=self.size,
-                                         frame=frame,
-                                         ri=ri,
-                                         self=self, result=result)
-            result.setitem(ri.offset, sig.eval(frame, self))
-            frame.next(shapelen)
-            ri = ri.next(shapelen)
-        return result
+        from pypy.module.micronumpy import loop
+        ra = ResultArray(self, self.size, self.shape, self.res_dtype)
+        loop.compute(ra)
+        return ra.left
 
     def force_if_needed(self):
         if self.forced_result is None:
@@ -864,6 +852,27 @@ class Call2(VirtualArray):
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(), self.right.create_sig())
 
+class ComputationArray(BaseArray):
+    """ A base class for all objects that describe operations for computation
+    """
+
+class ResultArray(Call2):
+    def __init__(self, child, size, shape, dtype, res=None, order='C'): 
+        if res is None:
+            res = W_NDimArray(size, shape, dtype, order)
+        Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
+
+    def create_sig(self):
+        return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
+                                         self.right.create_sig())
+
+class Reduce(ComputationArray):
+    def __init__(self):
+        pass
+    
+    def create_sig(self):
+        return signature.ReduceSignature(self.func)
+
 class SliceArray(Call2):
     def __init__(self, shape, dtype, left, right, no_broadcast=False):
         self.no_broadcast = no_broadcast
@@ -883,10 +892,6 @@ class SliceArray(Call2):
                                             lsig, rsig)
 
 class AxisReduce(Call2):
-    """ NOTE: this is only used as a container, you should never
-    encounter such things in the wild. Remove this comment
-    when we'll make AxisReduce lazy
-    """
     _immutable_fields_ = ['left', 'right']
 
     def __init__(self, ufunc, name, shape, dtype, left, right, dim):
@@ -1039,9 +1044,9 @@ class W_NDimSlice(ViewArray):
                            parent.order, parent)
         self.start = start
 
-    def create_iter(self):
+    def create_iter(self, transforms=None):
         return ViewIterator(self.start, self.strides, self.backstrides,
-                            self.shape)
+                            self.shape).apply_transformations(self, transforms)
 
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
@@ -1090,8 +1095,8 @@ class W_NDimArray(ConcreteArray):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
-    def create_iter(self):
-        return ArrayIterator(self.size)
+    def create_iter(self, transforms=None):
+        return ArrayIterator(self.size).apply_transformations(self, transforms)
 
     def create_sig(self):
         return signature.ArraySignature(self.dtype)
@@ -1426,6 +1431,12 @@ class W_FlatIterator(ViewArray):
 
     def create_sig(self):
         return signature.FlatSignature(self.base.dtype)
+
+    def create_iter(self, transforms=None):
+        return ViewIterator(self.base.start, self.base.strides, 
+                    self.base.backstrides,
+                    self.base.shape).apply_transformations(self.base,
+                                                           transforms)
 
     def descr_base(self, space):
         return space.wrap(self.base)
