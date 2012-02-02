@@ -158,8 +158,7 @@ class W_Ufunc(Wrappable):
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
-            res = self.do_axis_reduce(obj, dtype, dim, keepdims)
-            return space.wrap(res)
+            return self.do_axis_reduce(obj, dtype, dim, keepdims)
         arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
         return loop.compute(arr)
 

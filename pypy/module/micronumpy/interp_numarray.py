@@ -867,7 +867,7 @@ class ReduceArray(Call2):
     def compute_first_step(self, sig, frame):
         assert isinstance(sig, signature.ReduceSignature)
         if self.identity is None:
-            frame.cur_value = sig.right.eval(frame, self).convert_to(
+            frame.cur_value = sig.right.eval(frame, self.right).convert_to(
                 self.calc_dtype)
             frame.next(len(self.right.shape))
         else:
@@ -878,6 +878,17 @@ class ReduceArray(Call2):
         return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
                                  signature.ScalarSignature(self.res_dtype),
                                          self.right.create_sig())
+
+class AxisReduce(Call2):
+    _immutable_fields_ = ['left', 'right']
+
+    def __init__(self, ufunc, name, shape, dtype, left, right, dim):
+        Call2.__init__(self, ufunc, name, shape, dtype, dtype,
+                       left, right)
+        self.dim = dim
+
+#    def create_sig(self):
+#        return signature.AxisReduceSignature(self.ufunc
 
 class SliceArray(Call2):
     def __init__(self, shape, dtype, left, right, no_broadcast=False):
@@ -896,14 +907,6 @@ class SliceArray(Call2):
         return signature.SliceloopSignature(self.ufunc, self.name,
                                             self.calc_dtype,
                                             lsig, rsig)
-
-class AxisReduce(Call2):
-    _immutable_fields_ = ['left', 'right']
-
-    def __init__(self, ufunc, name, shape, dtype, left, right, dim):
-        Call2.__init__(self, ufunc, name, shape, dtype, dtype,
-                       left, right)
-        self.dim = dim
 
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not
