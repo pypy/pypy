@@ -17,13 +17,6 @@ from pypy.module.micronumpy.interp_iter import (ArrayIterator,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
-numpy_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['result_size', 'frame', 'ri', 'self', 'result'],
-    get_printable_location=signature.new_printable_location('numpy'),
-    name='numpy',
-)
 all_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
@@ -685,6 +678,9 @@ class BaseArray(Wrappable):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
+    def compute_first_step(self, sig, frame):
+        pass
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -811,7 +807,8 @@ class Call1(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
-        return signature.Call1(self.ufunc, self.name, self.values.create_sig())
+        return signature.Call1(self.ufunc, self.name, self.calc_dtype,
+                               self.values.create_sig())
 
 class Call2(VirtualArray):
     """
@@ -852,10 +849,6 @@ class Call2(VirtualArray):
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(), self.right.create_sig())
 
-class ComputationArray(BaseArray):
-    """ A base class for all objects that describe operations for computation
-    """
-
 class ResultArray(Call2):
     def __init__(self, child, size, shape, dtype, res=None, order='C'): 
         if res is None:
@@ -866,12 +859,25 @@ class ResultArray(Call2):
         return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
                                          self.right.create_sig())
 
-class Reduce(ComputationArray):
-    def __init__(self):
-        pass
+class ReduceArray(Call2):
+    def __init__(self, func, name, identity, child, dtype):
+        self.identity = identity
+        Call2.__init__(self, func, name, [1], dtype, dtype, None, child)
+
+    def compute_first_step(self, sig, frame):
+        assert isinstance(sig, signature.ReduceSignature)
+        if self.identity is None:
+            frame.cur_value = sig.right.eval(frame, self).convert_to(
+                self.calc_dtype)
+            frame.next(len(self.right.shape))
+        else:
+            frame.cur_value = self.identity.convert_to(self.calc_dtype)
+
     
     def create_sig(self):
-        return signature.ReduceSignature(self.func)
+        return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
+                                 signature.ScalarSignature(self.res_dtype),
+                                         self.right.create_sig())
 
 class SliceArray(Call2):
     def __init__(self, shape, dtype, left, right, no_broadcast=False):

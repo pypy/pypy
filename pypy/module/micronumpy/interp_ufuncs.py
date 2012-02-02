@@ -3,20 +3,12 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, support
-from pypy.module.micronumpy.signature import (ReduceSignature, find_sig,
+from pypy.module.micronumpy.signature import (find_sig,
     new_printable_location, AxisReduceSignature, ScalarSignature)
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
-
-reduce_driver = jit.JitDriver(
-    greens=['shapelen', "sig"],
-    virtualizables=["frame"],
-    reds=["frame", "self", "dtype", "value", "obj"],
-    get_printable_location=new_printable_location('reduce'),
-    name='numpy_reduce',
-)
 
 axisreduce_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -140,7 +132,9 @@ class W_Ufunc(Wrappable):
     def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
                keepdims=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
-                                                           Scalar
+                                                           Scalar, ReduceArray
+        from pypy.module.micronumpy import loop
+        
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -166,17 +160,8 @@ class W_Ufunc(Wrappable):
         if shapelen > 1 and dim >= 0:
             res = self.do_axis_reduce(obj, dtype, dim, keepdims)
             return space.wrap(res)
-        scalarsig = ScalarSignature(dtype)
-        sig = find_sig(ReduceSignature(self.func, self.name, dtype,
-                                       scalarsig,
-                                       obj.create_sig()), obj)
-        frame = sig.create_frame(obj)
-        if self.identity is None:
-            value = sig.eval(frame, obj).convert_to(dtype)
-            frame.next(shapelen)
-        else:
-            value = self.identity.convert_to(dtype)
-        return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
+        arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
+        return loop.compute(arr)
 
     def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
@@ -228,19 +213,6 @@ class W_Ufunc(Wrappable):
                 value = self.func(sig.calc_dtype, cur, v)
             arr.left.setitem(iterator.offset, value)
             frame.next(shapelen)
-
-    def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
-        while not frame.done():
-            reduce_driver.jit_merge_point(sig=sig,
-                                          shapelen=shapelen, self=self,
-                                          value=value, obj=obj, frame=frame,
-                                          dtype=dtype)
-            assert isinstance(sig, ReduceSignature)
-            value = sig.binfunc(dtype, value,
-                                sig.eval(frame, obj).convert_to(dtype))
-            frame.next(shapelen)
-        return value
-
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1

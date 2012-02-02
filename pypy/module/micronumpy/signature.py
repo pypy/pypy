@@ -1,9 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
-from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     ConstantIterator, AxisIterator, ViewTransform,\
-     BroadcastTransform
-from pypy.rlib.jit import hint, unroll_safe, promote
+from pypy.module.micronumpy.interp_iter import ConstantIterator, AxisIterator,\
+     ViewTransform, BroadcastTransform
 from pypy.tool.pairtype import extendabletype
 
 """ Signature specifies both the numpy expression that has been constructed
@@ -55,50 +53,6 @@ def find_sig(sig, arr):
         known_sigs[sig] = sig
         return sig
 
-class NumpyEvalFrame(object):
-    _virtualizable2_ = ['iterators[*]', 'final_iter', 'arraylist[*]',
-                        'value', 'identity']
-
-    @unroll_safe
-    def __init__(self, iterators, arrays):
-        self = hint(self, access_directly=True, fresh_virtualizable=True)
-        self.iterators = iterators[:]
-        self.arrays = arrays[:]
-        for i in range(len(self.iterators)):
-            iter = self.iterators[i]
-            if not isinstance(iter, ConstantIterator):
-                self.final_iter = i
-                break
-        else:
-            self.final_iter = -1
-
-    def done(self):
-        final_iter = promote(self.final_iter)
-        if final_iter < 0:
-            assert False
-        return self.iterators[final_iter].done()
-
-    @unroll_safe
-    def next(self, shapelen):
-        for i in range(len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)
-
-    @unroll_safe
-    def next_from_second(self, shapelen):
-        """ Don't increase the first iterator
-        """
-        for i in range(1, len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)
-
-    def next_first(self, shapelen):
-        self.iterators[0] = self.iterators[0].next(shapelen)
-
-    def get_final_iter(self):
-        final_iter = promote(self.final_iter)
-        if final_iter < 0:
-            assert False
-        return self.iterators[final_iter]
-
 def _add_ptr_to_cache(ptr, cache):
     i = 0
     for p in cache:
@@ -141,10 +95,20 @@ class Signature(object):
         self.iter_no = no
 
     def create_frame(self, arr):
+        from pypy.module.micronumpy.loop import NumpyEvalFrame
+        from pypy.module.micronumpy.interp_numarray import ReduceArray
+        
         iterlist = []
         arraylist = []
         self._create_iter(iterlist, arraylist, arr, [])
-        return NumpyEvalFrame(iterlist, arraylist)
+        if isinstance(arr, ReduceArray):
+            identity = arr.identity
+        else:
+            identity = None
+        f = NumpyEvalFrame(iterlist, arraylist, identity)
+        # hook for cur_value being used by reduce
+        arr.compute_first_step(self, f)
+        return f
 
 class ConcreteSignature(Signature):
     _immutable_fields_ = ['dtype']
@@ -256,12 +220,13 @@ class VirtualSliceSignature(Signature):
         return self.child.eval(frame, arr.child)
 
 class Call1(Signature):
-    _immutable_fields_ = ['unfunc', 'name', 'child']
+    _immutable_fields_ = ['unfunc', 'name', 'child', 'dtype']
 
-    def __init__(self, func, name, child):
+    def __init__(self, func, name, dtype, child):
         self.unfunc = func
         self.child = child
         self.name = name
+        self.dtype = dtype
 
     def hash(self):
         return compute_hash(self.name) ^ intmask(self.child.hash() << 1)
@@ -398,20 +363,14 @@ class BroadcastBoth(Call2):
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr, transforms):
-        self.right._create_iter(iterlist, arraylist, arr, transforms)
-
-    def _invent_numbering(self, cache, allnumbers):
-        self.right._invent_numbering(cache, allnumbers)
-
-    def _invent_array_numbering(self, arr, cache):
-        self.right._invent_array_numbering(arr, cache)
-
     def eval(self, frame, arr):
-        return self.right.eval(frame, arr)
+        from pypy.module.micronumpy.interp_numarray import ReduceArray
+        assert isinstance(arr, ReduceArray)
+        rval = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        frame.cur_value = self.binfunc(self.calc_dtype, frame.cur_value, rval)
 
     def debug_repr(self):
-        return 'ReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
+        return 'ReduceSig(%s)' % (self.name, self.right.debug_repr())
 
 class SliceloopSignature(Call2):
     def eval(self, frame, arr):
