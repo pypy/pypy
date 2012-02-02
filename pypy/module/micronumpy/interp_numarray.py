@@ -267,7 +267,7 @@ class BaseArray(Wrappable):
         out_size = support.product(out_shape)
         result = W_NDimArray(out_size, out_shape, dtype)
         # This is the place to add fpypy and blas
-        return multidim_dot(space, self.get_concrete(), 
+        return multidim_dot(space, self.get_concrete(),
                             other.get_concrete(), result, dtype,
                             other_critical_dim)
 
@@ -279,6 +279,12 @@ class BaseArray(Wrappable):
 
     def descr_get_ndim(self, space):
         return space.wrap(len(self.shape))
+
+    def descr_get_itemsize(self, space):
+        return space.wrap(self.find_dtype().itemtype.get_element_size())
+
+    def descr_get_nbytes(self, space):
+        return space.wrap(self.size * self.find_dtype().itemtype.get_element_size())
 
     @jit.unroll_safe
     def descr_get_shape(self, space):
@@ -507,7 +513,7 @@ class BaseArray(Wrappable):
             w_shape = space.newtuple(args_w)
         new_shape = get_shape_from_iterable(space, self.size, w_shape)
         return self.reshape(space, new_shape)
-        
+
     def reshape(self, space, new_shape):
         concrete = self.get_concrete()
         # Since we got to here, prod(new_shape) == self.size
@@ -1289,11 +1295,13 @@ BaseArray.typedef = TypeDef(
                            BaseArray.descr_set_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
     ndim = GetSetProperty(BaseArray.descr_get_ndim),
-    item = interp2app(BaseArray.descr_item),
+    itemsize = GetSetProperty(BaseArray.descr_get_itemsize),
+    nbytes = GetSetProperty(BaseArray.descr_get_nbytes),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
     flat = GetSetProperty(BaseArray.descr_get_flatiter),
     ravel = interp2app(BaseArray.descr_ravel),
+    item = interp2app(BaseArray.descr_item),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
@@ -1349,8 +1357,8 @@ class W_FlatIterator(ViewArray):
         return space.wrap(self.index)
 
     def descr_coords(self, space):
-        coords, step, lngth = to_coords(space, self.base.shape, 
-                            self.base.size, self.base.order, 
+        coords, step, lngth = to_coords(space, self.base.shape,
+                            self.base.size, self.base.order,
                             space.wrap(self.index))
         return space.newtuple([space.wrap(c) for c in coords])
 
@@ -1380,7 +1388,7 @@ class W_FlatIterator(ViewArray):
                                              step=step,
                                              res=res,
                                              ri=ri,
-                                            ) 
+                                            )
             w_val = base.getitem(basei.offset)
             res.setitem(ri.offset,w_val)
             basei = basei.next_skip_x(shapelen, step)
@@ -1408,7 +1416,7 @@ class W_FlatIterator(ViewArray):
                                              arr=arr,
                                              ai=ai,
                                              lngth=lngth,
-                                            ) 
+                                            )
             v = arr.getitem(ai).convert_to(base.dtype)
             base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
@@ -1424,7 +1432,6 @@ class W_FlatIterator(ViewArray):
 
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
-    #__array__  = #MISSING
     __iter__ = interp2app(W_FlatIterator.descr_iter),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),
@@ -1434,7 +1441,6 @@ W_FlatIterator.typedef = TypeDef(
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
-    #__sizeof__ #MISSING
     base = GetSetProperty(W_FlatIterator.descr_base),
     index = GetSetProperty(W_FlatIterator.descr_index),
     coords = GetSetProperty(W_FlatIterator.descr_coords),
