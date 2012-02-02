@@ -287,7 +287,7 @@ testmap = [
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
-    RegrTest('test_msilib.py'),
+    RegrTest('test_msilib.py', skip=only_win32),
     RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
     RegrTest('test_multibytecodec_support.py', skip="not a test"),
     RegrTest('test_multiprocessing.py', skip="FIXME leaves subprocesses"),

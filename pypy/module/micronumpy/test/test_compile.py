@@ -246,6 +246,15 @@ class TestRunner(object):
         """)
         assert interp.results[0].value == 11
 
+    def test_dot(self):
+        interp = self.run("""
+        a = [[1, 2], [3, 4]]
+        b = [[5, 6], [7, 8]]
+        c = dot(a, b)
+        c -> 0 -> 0
+        """)
+        assert interp.results[0].value == 19
+
     def test_flat_iter(self):
         interp = self.run('''
         a = |30|

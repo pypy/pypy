@@ -76,8 +76,9 @@ class AppTestStreams:
         w = self.HzStreamWriter(FakeFile())
         for input in '!\u5f95\u6c85xyz\u5f50\u73b7':
             w.write(input)
-        assert w.stream.output == [b'!', b'~{ab~}', b'~{cd~}', b'x', b'y', b'z',
-                                   b'~{ef~}', b'~{gh~}']
+        w.reset()
+        assert w.stream.output == [b'!', b'~{ab', b'cd', b'~}x', b'y', b'z',
+                                   b'~{ef', b'gh', b'~}']
 
     def test_no_flush(self):
         class FakeFile:

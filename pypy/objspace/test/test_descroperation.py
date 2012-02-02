@@ -577,6 +577,15 @@ class AppTest_Descroperation:
         assert issubclass(B, B)
         assert issubclass(23, B)
 
+    def test_rebind_method(self):
+        # No check is done on a method copied to another type
+        class A:
+            def method(self):
+                return 42
+        class Dict:
+            method = A.method
+        assert Dict().method() == 42
+
     def test_truth_of_int(self):
         class X(object):
             def __len__(self): return 1

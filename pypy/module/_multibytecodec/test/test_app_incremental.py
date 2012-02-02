@@ -87,7 +87,7 @@ class AppTestClasses:
         raises(UnicodeDecodeError, d.decode, b"~{abc", True)
         d = self.IncrementalHzDecoder("ignore")
         r = d.decode(b"~{abc", True)
-        assert r == u'\u5f95'
+        assert r == '\u5f95'
         d = self.IncrementalHzDecoder()
         d.errors = "replace"
         r = d.decode(b"~{abc", True)
@@ -104,11 +104,11 @@ class AppTestClasses:
         r = e.encode("abcd")
         assert r == b'abcd'
         r = e.encode("\u5f95\u6c85")
-        assert r == b'~{abcd~}'
+        assert r == b'~{abcd'
         r = e.encode("\u5f50")
-        assert r == b'~{ef~}'
-        r = e.encode("\u73b7")
-        assert r == b'~{gh~}'
+        assert r == b'ef'
+        r = e.encode("\u73b7", final=True)
+        assert r == b'gh~}'
 
     def test_encode_hz_final(self):
         e = self.IncrementalHzEncoder()
@@ -127,7 +127,18 @@ class AppTestClasses:
         assert r == b'xyz~{abcd~}'
         e.reset()
         r = e.encode("xyz\u5f95\u6c85")
-        assert r == b'xyz~{abcd~}'
+        assert r == b'xyz~{abcd'
+        r = e.encode('', final=True)
+        assert r == b'~}'
+
+    def test_encode_hz_noreset(self):
+        text = ('\u5df1\u6240\u4e0d\u6b32\uff0c\u52ff\u65bd\u65bc\u4eba\u3002'
+                'Bye.')
+        out = b''
+        e = self.IncrementalHzEncoder()
+        for c in text:
+            out += e.encode(c)
+        assert out == b'~{<:Ky2;S{#,NpJ)l6HK!#~}Bye.'
 
     def test_encode_hz_error(self):
         e = self.IncrementalHzEncoder()

@@ -143,7 +143,7 @@ class AppTestFileIO:
         # Read from stream sould return None
         assert f.read() is None
         assert f.read(10) is None
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         assert f.readinto(a) is None
 
     def test_repr(self):

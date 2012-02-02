@@ -137,9 +137,26 @@ class AppTestIoModule:
         assert r.read(2) == b'ab'
         assert r.read(2) == b'c'
         assert r.read(2) == b'de'
-        assert r.read(2) == None
+        assert r.read(2) is None
         assert r.read(2) == b'fg'
         assert r.read(2) == b''
+
+    def test_rawio_readall_none(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            read_stack = [None, None, b"a"]
+            def readinto(self, buf):
+                v = self.read_stack.pop()
+                if v is None:
+                    return v
+                buf[:len(v)] = v
+                return len(v)
+
+        r = MockRawIO()
+        s = r.readall()
+        assert s == b"a"
+        s = r.readall()
+        assert s is None
 
 class AppTestOpen:
     def setup_class(cls):

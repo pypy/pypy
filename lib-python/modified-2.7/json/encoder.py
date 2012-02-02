@@ -23,15 +23,16 @@ for i in range(0x20):
 INFINITY = float('1e66666')
 FLOAT_REPR = repr
 
-def encode_basestring(s):
+def raw_encode_basestring(s):
     """Return a JSON representation of a Python string
 
     """
     def replace(match):
         return ESCAPE_DCT[match.group(0)]
     return ESCAPE.sub(replace, s)
+encode_basestring = lambda s: '"' + raw_encode_basestring(s) + '"'
 
-def encode_basestring_ascii(s):
+def raw_encode_basestring_ascii(s):
     """Return an ASCII-only JSON representation of a Python string
 
     """
@@ -54,8 +55,8 @@ def encode_basestring_ascii(s):
     if ESCAPE_ASCII.search(s):
         return str(ESCAPE_ASCII.sub(replace, s))
     return s
-py_encode_basestring_ascii = lambda s: '"' + encode_basestring_ascii(s) + '"'
-c_encode_basestring_ascii = None
+encode_basestring_ascii = lambda s: '"' + raw_encode_basestring_ascii(s) + '"'
+
 
 class JSONEncoder(object):
     """Extensible JSON <http://json.org> encoder for Python data structures.
@@ -137,9 +138,9 @@ class JSONEncoder(object):
         self.skipkeys = skipkeys
         self.ensure_ascii = ensure_ascii
         if ensure_ascii:
-            self.encoder = encode_basestring_ascii
+            self.encoder = raw_encode_basestring_ascii
         else:
-            self.encoder = encode_basestring
+            self.encoder = raw_encode_basestring
         if encoding != 'utf-8':
             orig_encoder = self.encoder
             def encoder(o):
