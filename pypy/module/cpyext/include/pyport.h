@@ -64,4 +64,14 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
+#ifdef VA_LIST_IS_ARRAY
+#define Py_VA_COPY(x, y) Py_MEMCPY((x), (y), sizeof(va_list))
+#else
+#ifdef __va_copy
+#define Py_VA_COPY __va_copy
+#else
+#define Py_VA_COPY(x, y) (x) = (y)
+#endif
+#endif
+
 #endif /* Py_PYPORT_H */

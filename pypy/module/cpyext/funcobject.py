@@ -126,6 +126,7 @@ def PyCode_New(space, argcount, nlocals, stacksize, flags,
     version since the definition of the bytecode changes often."""
     return space.wrap(PyCode(space,
                              argcount=rffi.cast(lltype.Signed, argcount),
+                             kwonlyargcount = 0,  # XXX fix signature
                              nlocals=rffi.cast(lltype.Signed, nlocals),
                              stacksize=rffi.cast(lltype.Signed, stacksize),
                              flags=rffi.cast(lltype.Signed, flags),

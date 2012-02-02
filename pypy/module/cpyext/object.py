@@ -229,6 +229,15 @@ def PyObject_Repr(space, w_obj):
     return space.repr(w_obj)
 
 @cpython_api([PyObject], PyObject)
+def PyObject_ASCII(space, w_obj):
+    r"""As PyObject_Repr(), compute a string representation of object
+    o, but escape the non-ASCII characters in the string returned by
+    PyObject_Repr() with \x, \u or \U escapes.  This generates a
+    string similar to that returned by PyObject_Repr() in Python 2.
+    Called by the ascii() built-in function."""
+    return operation.ascii(space, w_obj)
+
+@cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):
     """Compute a Unicode string representation of object o.  Returns the Unicode
     string representation on success, NULL on failure. This is the equivalent of

@@ -25,6 +25,10 @@ extern "C" {
 #define Py_UNICODE_SIZE 2
 #endif
 
+#ifndef _WIN32
+#define VA_LIST_IS_ARRAY
+#endif
+
 #ifdef __cplusplus
 }
 #endif

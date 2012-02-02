@@ -383,7 +383,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 @cpython_api([CONST_STRING], PyObject)
 def PyUnicode_FromString(space, s):
     """Create a Unicode object from an UTF-8 encoded null-terminated char buffer"""
-    w_str = space.wrap(rffi.charp2str(s))
+    w_str = space.wrapbytes(rffi.charp2str(s))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject)

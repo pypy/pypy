@@ -26,6 +26,9 @@ typedef struct {
 } PyUnicodeObject;
 
 
+PyObject *PyUnicode_FromFormatV(const char *format, va_list vargs);
+PyObject *PyUnicode_FromFormat(const char *format, ...);
+
 #ifdef __cplusplus
 }
 #endif

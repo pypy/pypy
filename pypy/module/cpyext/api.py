@@ -910,7 +910,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "pyerrors.c",
                                source_dir / "modsupport.c",
                                source_dir / "getargs.c",
-                               source_dir / "stringobject.c",
+                               source_dir / "unicodeobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
                                source_dir / "sysmodule.c",

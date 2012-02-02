@@ -690,7 +690,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         mod = self.import_extension('foo', [
             ('newexc', 'METH_VARARGS',
              '''
-             char *name = PyString_AsString(PyTuple_GetItem(args, 0));
+             char *name = _PyUnicode_AsString(PyTuple_GetItem(args, 0));
              return PyErr_NewException(name, PyTuple_GetItem(args, 1),
                                        PyTuple_GetItem(args, 2));
              '''

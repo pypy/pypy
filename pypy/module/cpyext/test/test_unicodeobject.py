@@ -74,6 +74,41 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == u'aé\x00c'
 
+    def test_format_v(self):
+        module = self.import_extension('foo', [
+            ("test_unicode_format_v", "METH_VARARGS",
+             '''
+                 return helper("bla %d ble %s\\n",
+                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
+             '''
+             )
+            ], prologue='''
+            PyObject* helper(char* fmt, ...)
+            {
+              va_list va;
+              PyObject* res;
+              va_start(va, fmt);
+              res = PyUnicode_FromFormatV(fmt, va);
+              va_end(va);
+              return res;
+            }
+            ''')
+        res = module.test_unicode_format_v(1, "xyz")
+        assert res == "bla 1 ble xyz\n"
+
+    def test_format(self):
+        module = self.import_extension('foo', [
+            ("test_unicode_format", "METH_VARARGS",
+             '''
+                 return PyUnicode_FromFormat("bla %d ble %s\\n",
+                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
+                        _PyUnicode_AsString(PyTuple_GetItem(args, 1)));
+             '''
+             )
+            ])
+        res = module.test_unicode_format(1, "xyz")
+        assert res == "bla 1 ble xyz\n"
 
 
 class TestUnicode(BaseApiTest):
