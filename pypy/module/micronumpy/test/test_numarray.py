@@ -173,7 +173,7 @@ class TestNumArrayDirect(object):
         def _to_coords(index, order):
             return to_coords(self.space, [2, 3, 4], 24, order,
                              self.space.wrap(index))[0]
-        
+
         assert _to_coords(0, 'C') == [0, 0, 0]
         assert _to_coords(1, 'C') == [0, 0, 1]
         assert _to_coords(-1, 'C') == [1, 2, 3]
@@ -306,7 +306,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import arange
         a = arange(15).reshape(3, 5)
         assert a[1, 3] == 8
-        assert a.T[1, 2] == 11 
+        assert a.T[1, 2] == 11
 
     def test_setitem(self):
         from _numpypy import array
@@ -1121,14 +1121,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         f1 = array([0,1])
         f = concatenate((f1, [2], f1, [7]))
         assert (f == [0,1,2,0,1,7]).all()
-        
+
         bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
         assert str(bad_axis.value) == "bad axis argument"
-        
+
         concat_zero = raises(ValueError, concatenate, ())
         assert str(concat_zero.value) == \
             "concatenation of zero-length sequences is impossible"
-        
+
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
             "array dimensions must agree except for axis being concatenated"
@@ -1162,6 +1162,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.flatten() == [2]).all()
         a = array([[1, 2], [3, 4]])
         assert (a.T.flatten() == [1, 3, 2, 4]).all()
+
+    def test_itemsize(self):
+        from _numpypy import ones, dtype, array
+
+        for obj in [float, bool, int]:
+            assert ones(1, dtype=obj).itemsize == dtype(obj).itemsize
+        assert (ones(1) + ones(1)).itemsize == 8
+        assert array(1).itemsize == 8
+        assert ones(1)[:].itemsize == 8
+
+    def test_nbytes(self):
+        from _numpypy import array, ones
+
+        assert ones(1).nbytes == 8
+        assert ones((2, 2)).nbytes == 32
+        assert ones((2, 2))[1:,].nbytes == 16
+        assert (ones(1) + ones(1)).nbytes == 8
+        assert array(3).nbytes == 8
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -1458,13 +1477,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T.flat
         assert (b == [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).all()
         assert not (b != [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).any()
-        assert ((b >= range(12)) == [True, True, True,False, True, True, 
+        assert ((b >= range(12)) == [True, True, True,False, True, True,
                              False, False, True, False, False, True]).all()
-        assert ((b < range(12)) != [True, True, True,False, True, True, 
+        assert ((b < range(12)) != [True, True, True,False, True, True,
                              False, False, True, False, False, True]).all()
-        assert ((b <= range(12)) != [False, True, True,False, True, True, 
+        assert ((b <= range(12)) != [False, True, True,False, True, True,
                             False, False, True, False, False, False]).all()
-        assert ((b > range(12)) == [False, True, True,False, True, True, 
+        assert ((b > range(12)) == [False, True, True,False, True, True,
                             False, False, True, False, False, False]).all()
     def test_flatiter_view(self):
         from _numpypy import arange
