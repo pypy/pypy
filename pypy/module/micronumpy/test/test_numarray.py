@@ -1169,7 +1169,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         for obj in [float, bool, int]:
             assert ones(1, dtype=obj).itemsize == dtype(obj).itemsize
         assert (ones(1) + ones(1)).itemsize == 8
-        assert array(1).itemsize == 8
+        assert array(1.0).itemsize == 8
         assert ones(1)[:].itemsize == 8
 
     def test_nbytes(self):
@@ -1179,7 +1179,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ones((2, 2)).nbytes == 32
         assert ones((2, 2))[1:,].nbytes == 16
         assert (ones(1) + ones(1)).nbytes == 8
-        assert array(3).nbytes == 8
+        assert array(3.0).nbytes == 8
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
