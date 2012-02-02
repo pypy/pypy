@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
 from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.debug import ll_assert
 
 
 WORD = LONG_BIT // 8
@@ -53,7 +54,9 @@ class StmGC(GCBase):
         GCBase.__init__(self, config, **kwds)
         self.stm_operations = stm_operations
         self.max_nursery_size = max_nursery_size
-
+        #
+        self.declare_readers()
+        self.declare_write_barrier()
 
     def setup(self):
         """Called at run-time to initialize the GC."""
@@ -71,7 +74,7 @@ class StmGC(GCBase):
 
     def setup_thread(self, in_main_thread):
         tls = lltype.malloc(self.GCTLS, flavor='raw')
-        self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls))
+        self.stm_operations.set_tls(self, llmemory.cast_ptr_to_adr(tls))
         tls.nursery_start = self._alloc_nursery()
         tls.nursery_size  = self.max_nursery_size
         tls.nursery_free  = tls.nursery_start
@@ -89,7 +92,7 @@ class StmGC(GCBase):
 
     def teardown_thread(self):
         tls = self.get_tls()
-        self.stm_operations.set_tls(NULL)
+        self.stm_operations.set_tls(self, NULL)
         self._free_nursery(tls.nursery_start)
         lltype.free(tls, flavor='raw')
 
@@ -142,6 +145,17 @@ class StmGC(GCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
+    def _malloc_local_raw(self, size):
+        # for _stm_write_barrier_global(): a version of malloc that does
+        # no initialization of the malloc'ed object
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + size
+        result = self.allocate_bump_pointer(totalsize)
+        llarena.arena_reserve(result, totalsize)
+        obj = result + size_gc_header
+        return obj
+
+
     @always_inline
     def combine(self, typeid16, flags):
         return llop.combine_ushort(lltype.Signed, typeid16, flags)
@@ -150,3 +164,95 @@ class StmGC(GCBase):
     def init_gc_object(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.tid = self.combine(typeid16, flags)
+
+    # ----------
+
+    def declare_readers(self):
+        # Reading functions.  Defined here to avoid the extra burden of
+        # passing 'self' explicitly.
+        stm_operations = self.stm_operations
+        #
+        @always_inline
+        def read_signed(obj, offset):
+            if self.header(obj).tid & GCFLAG_GLOBAL == 0:
+                return (obj + offset).signed[0]    # local obj: read directly
+            else:
+                return _read_word_global(obj, offset)   # else: call a helper
+        self.read_signed = read_signed
+        #
+        @dont_inline
+        def _read_word_global(obj, offset):
+            hdr = self.header(obj)
+            if hdr.tid & GCFLAG_WAS_COPIED != 0:
+                #
+                # Look up in the thread-local dictionary.
+                localobj = stm_operations.tldict_lookup(obj)
+                if localobj:
+                    ll_assert(self.header(localobj).tid & GCFLAG_GLOBAL == 0,
+                              "stm_read: tldict_lookup() -> GLOBAL obj")
+                    return (localobj + offset).signed[0]
+            #
+            return stm_operations.stm_read_word(obj, offset)
+
+
+    def declare_write_barrier(self):
+        # Write barrier.  Defined here to avoid the extra burden of
+        # passing 'self' explicitly.
+        stm_operations = self.stm_operations
+        #
+        @always_inline
+        def write_barrier(obj):
+            if self.header(obj).tid & GCFLAG_GLOBAL != 0:
+                obj = _stm_write_barrier_global(obj)
+            return obj
+        self.write_barrier = write_barrier
+        #
+        @dont_inline
+        def _stm_write_barrier_global(obj):
+            # we need to find of make a local copy
+            hdr = self.header(obj)
+            if hdr.tid & GCFLAG_WAS_COPIED == 0:
+                # in this case, we are sure that we don't have a copy
+                hdr.tid |= GCFLAG_WAS_COPIED
+                # ^^^ non-protected write, but concurrent writes should
+                #     have the same effect, so fine
+            else:
+                # in this case, we need to check first
+                localobj = stm_operations.tldict_lookup(obj)
+                if localobj:
+                    hdr = self.header(localobj)
+                    ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
+                              "stm_write: tldict_lookup() -> GLOBAL obj")
+                    ll_assert(hdr.tid & GCFLAG_WAS_COPIED != 0,
+                              "stm_write: tldict_lookup() -> non-COPIED obj")
+                    return localobj
+            #
+            # Here, we need to really make a local copy
+            size = self.get_size(obj)
+            try:
+                localobj = self._malloc_local_raw(size)
+            except MemoryError:
+                # XXX
+                fatalerror("MemoryError in _stm_write_barrier_global -- sorry")
+                return llmemory.NULL
+            #
+            # Initialize the copy by doing an stm raw copy of the bytes
+            stm_operations.stm_copy_transactional_to_raw(obj, localobj, size)
+            #
+            # The raw copy done above includes all header fields.
+            # Check at least the gc flags of the copy.
+            hdr = self.header(obj)
+            localhdr = self.header(localobj)
+            GCFLAGS = (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED)
+            ll_assert(hdr.tid & GCFLAGS == GCFLAGS,
+                      "stm_write: bogus flags on source object")
+            ll_assert(localhdr.tid & GCFLAGS == GCFLAGS,
+                      "stm_write: flags not copied!")
+            #
+            # Remove the GCFLAG_GLOBAL from the copy
+            localhdr.tid &= ~GCFLAG_GLOBAL
+            #
+            # Register the object as a valid copy
+            stm_operations.tldict_add(obj, localobj)
+            #
+            return localobj
