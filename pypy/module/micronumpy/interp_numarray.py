@@ -888,7 +888,8 @@ class AxisReduce(Call2):
         self.identity = identity
 
     def compute_first_step(self, sig, frame):
-        frame.identity = self.identity.convert_to(self.calc_dtype)
+        if self.identity is not None:
+            frame.identity = self.identity.convert_to(self.calc_dtype)
 
     def create_sig(self):
         return signature.AxisReduceSignature(self.ufunc, self.name,
