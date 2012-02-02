@@ -12,7 +12,7 @@ class NumpyEvalFrame(object):
                         'value', 'identity', 'cur_value']
 
     @unroll_safe
-    def __init__(self, iterators, arrays, identity=None):
+    def __init__(self, iterators, arrays):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         self.iterators = iterators[:]
         self.arrays = arrays[:]
@@ -24,7 +24,7 @@ class NumpyEvalFrame(object):
         else:
             self.final_iter = -1
         self.cur_value = None
-        self.identity = identity
+        self.identity = None
 
     def done(self):
         final_iter = promote(self.final_iter)

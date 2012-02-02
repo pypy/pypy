@@ -96,16 +96,11 @@ class Signature(object):
 
     def create_frame(self, arr):
         from pypy.module.micronumpy.loop import NumpyEvalFrame
-        from pypy.module.micronumpy.interp_numarray import ReduceArray
         
         iterlist = []
         arraylist = []
         self._create_iter(iterlist, arraylist, arr, [])
-        if isinstance(arr, ReduceArray):
-            identity = arr.identity
-        else:
-            identity = None
-        f = NumpyEvalFrame(iterlist, arraylist, identity)
+        f = NumpyEvalFrame(iterlist, arraylist)
         # hook for cur_value being used by reduce
         arr.compute_first_step(self, f)
         return f
@@ -424,7 +419,17 @@ class AxisReduceSignature(Call2):
         from pypy.module.micronumpy.interp_numarray import AxisReduce
 
         assert isinstance(arr, AxisReduce)
-        return self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        iterator = frame.get_final_iter()
+        v = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        if iterator.first_line:
+            if frame.identity is not None:
+                value = self.binfunc(self.calc_dtype, frame.identity, v)
+            else:
+                value = v
+        else:
+            cur = arr.left.getitem(iterator.offset)
+            value = self.binfunc(self.calc_dtype, cur, v)
+        arr.left.setitem(iterator.offset, value)
     
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())

@@ -872,7 +872,6 @@ class ReduceArray(Call2):
             frame.next(len(self.right.shape))
         else:
             frame.cur_value = self.identity.convert_to(self.calc_dtype)
-
     
     def create_sig(self):
         return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
@@ -882,13 +881,20 @@ class ReduceArray(Call2):
 class AxisReduce(Call2):
     _immutable_fields_ = ['left', 'right']
 
-    def __init__(self, ufunc, name, shape, dtype, left, right, dim):
+    def __init__(self, ufunc, name, identity, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
         self.dim = dim
+        self.identity = identity
 
-#    def create_sig(self):
-#        return signature.AxisReduceSignature(self.ufunc
+    def compute_first_step(self, sig, frame):
+        frame.identity = self.identity.convert_to(self.calc_dtype)
+
+    def create_sig(self):
+        return signature.AxisReduceSignature(self.ufunc, self.name,
+                                             self.res_dtype,
+                                 signature.ScalarSignature(self.res_dtype),
+                                             self.right.create_sig())
 
 class SliceArray(Call2):
     def __init__(self, shape, dtype, left, right, no_broadcast=False):

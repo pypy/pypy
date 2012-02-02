@@ -3,21 +3,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, support
-from pypy.module.micronumpy.signature import (find_sig,
-    new_printable_location, AxisReduceSignature, ScalarSignature)
-from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-
-
-axisreduce_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['self','arr', 'identity', 'frame'],
-    name='numpy_axisreduce',
-    get_printable_location=new_printable_location('axisreduce'),
-)
-
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -165,53 +152,17 @@ class W_Ufunc(Wrappable):
     def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
              W_NDimArray
+        from pypy.module.micronumpy import loop
 
         if keepdims:
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
             shape = obj.shape[:dim] + obj.shape[dim + 1:]
         result = W_NDimArray(support.product(shape), shape, dtype)
-        rightsig = obj.create_sig()
-        # note - this is just a wrapper so signature can fetch
-        #        both left and right, nothing more, especially
-        #        this is not a true virtual array, because shapes
-        #        don't quite match
-        arr = AxisReduce(self.func, self.name, obj.shape, dtype,
+        arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
                          result, obj, dim)
-        scalarsig = ScalarSignature(dtype)
-        sig = find_sig(AxisReduceSignature(self.func, self.name, dtype,
-                                           scalarsig, rightsig), arr)
-        assert isinstance(sig, AxisReduceSignature)
-        frame = sig.create_frame(arr)
-        shapelen = len(obj.shape)
-        if self.identity is not None:
-            identity = self.identity.convert_to(dtype)
-        else:
-            identity = None
-        self.reduce_axis_loop(frame, sig, shapelen, arr, identity)
-        return result
-
-    def reduce_axis_loop(self, frame, sig, shapelen, arr, identity):
-        # note - we can be advanterous here, depending on the exact field
-        # layout. For now let's say we iterate the original way and
-        # simply follow the original iteration order
-        while not frame.done():
-            axisreduce_driver.jit_merge_point(frame=frame, self=self,
-                                              sig=sig,
-                                              identity=identity,
-                                              shapelen=shapelen, arr=arr)
-            iterator = frame.get_final_iter()
-            v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            if iterator.first_line:
-                if identity is not None:
-                    value = self.func(sig.calc_dtype, identity, v)
-                else:
-                    value = v
-            else:
-                cur = arr.left.getitem(iterator.offset)
-                value = self.func(sig.calc_dtype, cur, v)
-            arr.left.setitem(iterator.offset, value)
-            frame.next(shapelen)
+        loop.compute(arr)
+        return arr.left
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1
