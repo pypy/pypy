@@ -54,7 +54,7 @@ else:
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
-ASN1_ITEM_EXP = lltype.FuncType([], ASN1_ITEM)
+ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 
 class CConfig:
@@ -106,7 +106,7 @@ class CConfig:
                                      rffi.VOIDP)
     v3_ext_method = rffi_platform.Struct(
         'struct v3_ext_method',
-        [('it', lltype.Ptr(ASN1_ITEM_EXP)),
+        [('it', ASN1_ITEM_EXP),
          ('d2i', lltype.Ptr(X509V3_EXT_D2I))])
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
@@ -227,7 +227,7 @@ ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i', 
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
 if OPENSSL_EXPORT_VAR_AS_FUNCTION:             
-    ssl_external('ASN1_ITEM_ptr', [lltype.Ptr(lltype.FuncType([], ASN1_ITEM))], ASN1_ITEM, macro=True)
+    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
 else:    
     ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
 
