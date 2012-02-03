@@ -404,6 +404,11 @@ class UfuncState(object):
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
 
+            ('logical_and', 'logical_and', 2, {'comparison_func': True}),
+            ('logical_or', 'logical_or', 2, {'comparison_func': True}),
+            ('logical_xor', 'logical_xor', 2, {'comparison_func': True}),
+            ('logical_not', 'logical_not', 1, {'bool_result': True}),
+
             ("maximum", "max", 2),
             ("minimum", "min", 2),
 
