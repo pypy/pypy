@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, support
+from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -120,8 +120,6 @@ class W_Ufunc(Wrappable):
                keepdims=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
                                                            Scalar, ReduceArray
-        from pypy.module.micronumpy import loop
-        
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -132,14 +130,16 @@ class W_Ufunc(Wrappable):
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
-
         size = obj.size
-        dtype = find_unaryop_result_dtype(
-            space, obj.find_dtype(),
-            promote_to_float=self.promote_to_float,
-            promote_to_largest=promote_to_largest,
-            promote_bools=True
-        )
+        if self.comparison_func:
+            dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+        else:
+            dtype = find_unaryop_result_dtype(
+                space, obj.find_dtype(),
+                promote_to_float=self.promote_to_float,
+                promote_to_largest=promote_to_largest,
+                promote_bools=True
+            )
         shapelen = len(obj.shape)
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
@@ -152,8 +152,6 @@ class W_Ufunc(Wrappable):
     def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
              W_NDimArray
-        from pypy.module.micronumpy import loop
-
         if keepdims:
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
@@ -234,7 +232,6 @@ class W_Ufunc2(W_Ufunc):
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
             ))
-
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
@@ -404,8 +401,10 @@ class UfuncState(object):
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
 
-            ('logical_and', 'logical_and', 2, {'comparison_func': True}),
-            ('logical_or', 'logical_or', 2, {'comparison_func': True}),
+            ('logical_and', 'logical_and', 2, {'comparison_func': True,
+                                               'identity': 1}),
+            ('logical_or', 'logical_or', 2, {'comparison_func': True,
+                                             'identity': 0}),
             ('logical_xor', 'logical_xor', 2, {'comparison_func': True}),
             ('logical_not', 'logical_not', 1, {'bool_result': True}),
 

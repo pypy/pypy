@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
-    signature, support)
+    signature, support, loop)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords)
@@ -17,20 +17,6 @@ from pypy.module.micronumpy.interp_iter import (ArrayIterator,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
-all_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype'],
-    get_printable_location=signature.new_printable_location('all'),
-    name='numpy_all',
-)
-any_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['frame', 'self', 'dtype'],
-    get_printable_location=signature.new_printable_location('any'),
-    name='numpy_any',
-)
 slice_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
@@ -166,6 +152,8 @@ class BaseArray(Wrappable):
     descr_prod = _reduce_ufunc_impl("multiply", True)
     descr_max = _reduce_ufunc_impl("maximum")
     descr_min = _reduce_ufunc_impl("minimum")
+    descr_all = _reduce_ufunc_impl('logical_and')
+    descr_any = _reduce_ufunc_impl('logical_or')
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
@@ -204,40 +192,6 @@ class BaseArray(Wrappable):
                     space.wrap("Can't call %s on zero-size arrays" % op_name))
             return space.wrap(loop(self))
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
-
-    def _all(self):
-        dtype = self.find_dtype()
-        sig = self.find_sig()
-        frame = sig.create_frame(self)
-        shapelen = len(self.shape)
-        while not frame.done():
-            all_driver.jit_merge_point(sig=sig,
-                                       shapelen=shapelen, self=self,
-                                       dtype=dtype, frame=frame)
-            if not dtype.itemtype.bool(sig.eval(frame, self)):
-                return False
-            frame.next(shapelen)
-        return True
-
-    def descr_all(self, space):
-        return space.wrap(self._all())
-
-    def _any(self):
-        dtype = self.find_dtype()
-        sig = self.find_sig()
-        frame = sig.create_frame(self)
-        shapelen = len(self.shape)
-        while not frame.done():
-            any_driver.jit_merge_point(sig=sig, frame=frame,
-                                       shapelen=shapelen, self=self,
-                                       dtype=dtype)
-            if dtype.itemtype.bool(sig.eval(frame, self)):
-                return True
-            frame.next(shapelen)
-        return False
-
-    def descr_any(self, space):
-        return space.wrap(self._any())
 
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
@@ -746,7 +700,6 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        from pypy.module.micronumpy import loop
         ra = ResultArray(self, self.size, self.shape, self.res_dtype)
         loop.compute(ra)
         return ra.left
@@ -859,6 +812,12 @@ class ResultArray(Call2):
         return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
                                          self.right.create_sig())
 
+def done_if_true(dtype, val):
+    return dtype.itemtype.bool(val)
+
+def done_if_false(dtype, val):
+    return not dtype.itemtype.bool(val)
+
 class ReduceArray(Call2):
     def __init__(self, func, name, identity, child, dtype):
         self.identity = identity
@@ -874,9 +833,15 @@ class ReduceArray(Call2):
             frame.cur_value = self.identity.convert_to(self.calc_dtype)
     
     def create_sig(self):
+        if self.name == 'logical_and':
+            done_func = done_if_false
+        elif self.name == 'logical_or':
+            done_func = done_if_true
+        else:
+            done_func = None
         return signature.ReduceSignature(self.ufunc, self.name, self.res_dtype,
                                  signature.ScalarSignature(self.res_dtype),
-                                         self.right.create_sig())
+                                         self.right.create_sig(), done_func)
 
 class AxisReduce(Call2):
     _immutable_fields_ = ['left', 'right']

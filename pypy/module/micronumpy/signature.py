@@ -3,6 +3,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ConstantIterator, AxisIterator,\
      ViewTransform, BroadcastTransform
 from pypy.tool.pairtype import extendabletype
+from pypy.module.micronumpy.loop import ComputationDone
 
 """ Signature specifies both the numpy expression that has been constructed
 and the assembler to be compiled. This is a very important observation -
@@ -358,10 +359,20 @@ class BroadcastBoth(Call2):
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
 class ReduceSignature(Call2):
+    _immutable_fields_ = ['binfunc', 'name', 'calc_dtype',
+                          'left', 'right', 'done_func']
+    
+    def __init__(self, func, name, calc_dtype, left, right,
+                 done_func):
+        Call2.__init__(self, func, name, calc_dtype, left, right)
+        self.done_func = done_func
+        
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import ReduceArray
         assert isinstance(arr, ReduceArray)
         rval = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        if self.done_func is not None and self.done_func(self.calc_dtype, rval):
+            raise ComputationDone(rval)
         frame.cur_value = self.binfunc(self.calc_dtype, frame.cur_value, rval)
 
     def debug_repr(self):

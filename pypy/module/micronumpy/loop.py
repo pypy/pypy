@@ -4,7 +4,6 @@ signatures
 """
 
 from pypy.rlib.jit import JitDriver, hint, unroll_safe, promote
-from pypy.module.micronumpy import signature
 from pypy.module.micronumpy.interp_iter import ConstantIterator
 
 class NumpyEvalFrame(object):
@@ -60,18 +59,25 @@ numpy_driver = JitDriver(
     greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['frame', 'arr'],
-    get_printable_location=signature.new_printable_location('numpy'),
+    get_printable_location=get_printable_location,
     name='numpy',
 )
+
+class ComputationDone(Exception):
+    def __init__(self, value):
+        self.value = value
 
 def compute(arr):
     sig = arr.find_sig()
     shapelen = len(arr.shape)
     frame = sig.create_frame(arr)
-    while not frame.done():
-        numpy_driver.jit_merge_point(sig=sig,
-                                     shapelen=shapelen,
-                                     frame=frame, arr=arr)
-        sig.eval(frame, arr)
-        frame.next(shapelen)
-    return frame.cur_value
+    try:
+        while not frame.done():
+            numpy_driver.jit_merge_point(sig=sig,
+                                         shapelen=shapelen,
+                                         frame=frame, arr=arr)
+            sig.eval(frame, arr)
+            frame.next(shapelen)
+        return frame.cur_value
+    except ComputationDone, e:
+        return e.value
