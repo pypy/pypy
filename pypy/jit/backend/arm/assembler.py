@@ -854,7 +854,7 @@ class AssemblerARM(ResOpAssembler):
         return True
 
     def _insert_checks(self, mc=None):
-        if self._debug:
+        if not we_are_translated() and self._debug:
             if mc is None:
                 mc = self.mc
             mc.CMP_rr(r.fp.value, r.sp.value)
