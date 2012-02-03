@@ -17,13 +17,6 @@ from pypy.module.micronumpy.interp_iter import (ArrayIterator,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
-slice_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['self', 'frame', 'arr'],
-    get_printable_location=signature.new_printable_location('slice'),
-    name='numpy_slice',
-)
 count_driver = jit.JitDriver(
     greens=['shapelen'],
     virtualizables=['frame'],
@@ -965,7 +958,7 @@ class ConcreteArray(BaseArray):
             self._fast_setslice(space, w_value)
         else:
             arr = SliceArray(self.shape, self.dtype, self, w_value)
-            self._sliceloop(arr)
+            loop.compute(arr)
 
     def _fast_setslice(self, space, w_value):
         assert isinstance(w_value, ConcreteArray)
@@ -988,17 +981,6 @@ class ConcreteArray(BaseArray):
                 )
                 source.next()
                 dest.next()
-
-    def _sliceloop(self, arr):
-        sig = arr.find_sig()
-        frame = sig.create_frame(arr)
-        shapelen = len(self.shape)
-        while not frame.done():
-            slice_driver.jit_merge_point(sig=sig, frame=frame, self=self,
-                                         arr=arr,
-                                         shapelen=shapelen)
-            sig.eval(frame, arr)
-            frame.next(shapelen)
 
     def copy(self, space):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
