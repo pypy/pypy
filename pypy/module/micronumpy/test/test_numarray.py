@@ -1,11 +1,13 @@
 
 import py
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
-from pypy.module.micronumpy.interp_iter import Chunk
-from pypy.module.micronumpy import signature
+
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.module.micronumpy import signature
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.interp_iter import Chunk
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class MockDtype(object):
@@ -1759,10 +1761,11 @@ class AppTestRanges(BaseNumpyAppTest):
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
 
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
         cls.old_array_repr = cache.w_array_repr
@@ -1776,6 +1779,8 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
 
     def teardown_class(cls):
+        if option.runappdirect:
+            return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str
