@@ -876,26 +876,17 @@ class TestOptimizations:
 
     def test_const_fold_unicode_subscr(self):
         source = """def f():
-        return u"abc"[0]
+        return "abc"[0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
 
         # getitem outside of the BMP should not be optimized
         source = """def f():
-        return u"\U00012345"[0]
+        return "\U00012345"[0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
-                          ops.RETURN_VALUE: 1}
-
-        # getslice is not yet optimized.
-        # Still, check a case which yields the empty string.
-        source = """def f():
-        return u"abc"[:0]
-        """
-        counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 2, ops.SLICE+2: 1,
                           ops.RETURN_VALUE: 1}
 
     def test_remove_dead_code(self):
