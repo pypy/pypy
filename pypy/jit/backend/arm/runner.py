@@ -35,7 +35,7 @@ class ArmCPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken,
                                                     log=True, name=''):
-        return self.assembler.assemble_loop(inputargs, operations,
+        return self.assembler.assemble_loop(name, inputargs, operations,
                                                     looptoken, log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,

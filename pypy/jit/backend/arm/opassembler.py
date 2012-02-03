@@ -194,9 +194,6 @@ class GuardOpAssembler(object):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
-        if not we_are_translated() and hasattr(op, 'getfailargs'):
-            print 'Failargs: ', op.getfailargs()
-
         pos = self.mc.currpos()
         # For all guards that are not GUARD_NOT_INVALIDATED we emit a
         # breakpoint to ensure the location is patched correctly. In the case

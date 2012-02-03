@@ -566,7 +566,7 @@ class AssemblerARM(ResOpAssembler):
         self.gen_func_prolog()
 
     # cpu interface
-    def assemble_loop(self, inputargs, operations, looptoken, log):
+    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
@@ -580,7 +580,6 @@ class AssemblerARM(ResOpAssembler):
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
-            self._dump(operations)
 
         self._call_header()
         sp_patch_location = self._prepare_sp_patch_position()
@@ -607,13 +606,19 @@ class AssemblerARM(ResOpAssembler):
         self.fixup_target_tokens(rawstart)
 
         if log and not we_are_translated():
-            print 'Loop', inputargs, operations
             self.mc._dump_trace(rawstart,
                     'loop_%s.asm' % self.cpu.total_compiled_loops)
-            print 'Done assembling loop with token %r' % looptoken
 
         ops_offset = self.mc.ops_offset
         self.teardown()
+
+        debug_start("jit-backend-addr")
+        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
+            looptoken.number, loopname,
+            rawstart + loop_head,
+            rawstart + size_excluding_failure_stuff,
+            rawstart))
+        debug_stop("jit-backend-addr")
 
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
@@ -635,7 +640,6 @@ class AssemblerARM(ResOpAssembler):
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
-            self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
         code = self._find_failure_recovery_bytecode(faildescr)
         frame_depth = faildescr._arm_current_frame_depth
@@ -670,13 +674,18 @@ class AssemblerARM(ResOpAssembler):
             # for the benefit of tests
             faildescr._arm_bridge_frame_depth = frame_depth
             if log:
-                print 'Bridge', inputargs, operations
                 self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
                 self.cpu.total_compiled_bridges)
         self.current_clt.frame_depth = max(self.current_clt.frame_depth,
                                                                 frame_depth)
         ops_offset = self.mc.ops_offset
         self.teardown()
+
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard %d has address %x to %x" %
+                    (descr_number, rawstart, rawstart + codeendpos))
+        debug_stop("jit-backend-addr")
+
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _find_failure_recovery_bytecode(self, faildescr):
