@@ -3,11 +3,23 @@ from pypy.rpython.memory.gc.stmgc import StmGC
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
 
 
-S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed))
+S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed),
+                         ('c', lltype.Signed))
 ofs_a = llmemory.offsetof(S, 'a')
+
+SR = lltype.GcForwardReference()
+SR.become(lltype.GcStruct('SR', ('s1', lltype.Ptr(S)),
+                                ('sr2', lltype.Ptr(SR)),
+                                ('sr3', lltype.Ptr(SR))))
 
 
 class FakeStmOperations:
+    # The point of this class is to make sure about the distinction between
+    # RPython code in the GC versus C code in translator/stm/src_stm.  This
+    # class contains a fake implementation of what should be in C.  So almost
+    # any use of 'self._gc' is wrong here: it's stmgc.py that should call
+    # et.c, and not the other way around.
+
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
     def set_tls(self, gc, tls):
@@ -17,6 +29,7 @@ class FakeStmOperations:
             assert not hasattr(self, '_gc')
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
+            self._tldicts_iterators = {}
             self._gc = gc
             self._transactional_copies = []
         else:
@@ -38,6 +51,32 @@ class FakeStmOperations:
         tldict = self._tldicts[self.threadnum]
         assert obj not in tldict
         tldict[obj] = localobj
+
+    def enum_tldict_start(self):
+        it = self._tldicts[self.threadnum].iteritems()
+        self._tldicts_iterators[self.threadnum] = [it, None, None]
+
+    def enum_tldict_find_next(self):
+        state = self._tldicts_iterators[self.threadnum]
+        try:
+            next_key, next_value = state[0].next()
+        except StopIteration:
+            state[1] = None
+            state[2] = None
+            return False
+        state[1] = next_key
+        state[2] = next_value
+        return True
+
+    def enum_tldict_globalobj(self):
+        state = self._tldicts_iterators[self.threadnum]
+        assert state[1] is not None
+        return state[1]
+
+    def enum_tldict_localobj(self):
+        state = self._tldicts_iterators[self.threadnum]
+        assert state[2] is not None
+        return state[2]
 
     class stm_read_word:
         def __init__(self, obj, offset):
@@ -67,6 +106,21 @@ def fake_get_size(obj):
     else:
         assert 0
 
+def fake_trace(obj, callback, arg):
+    TYPE = obj.ptr._TYPE.TO
+    if TYPE == S:
+        ofslist = []     # no pointers in S
+    elif TYPE == SR:
+        ofslist = [llmemory.offsetof(SR, 's1'),
+                   llmemory.offsetof(SR, 'sr2'),
+                   llmemory.offsetof(SR, 'sr3')]
+    else:
+        assert 0
+    for ofs in ofslist:
+        addr = obj + ofs
+        if addr.address[0]:
+            callback(addr, arg)
+
 
 class TestBasic:
     GCClass = StmGC
@@ -78,6 +132,7 @@ class TestBasic:
                                translated_to_c=False)
         self.gc.DEBUG = True
         self.gc.get_size = fake_get_size
+        self.gc.trace = fake_trace
         self.gc.setup()
 
     def teardown_method(self, meth):
@@ -97,6 +152,9 @@ class TestBasic:
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
             self.gc.setup_thread(False)
+    def gcsize(self, S):
+        return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
+                llmemory.raw_malloc_usage(llmemory.sizeof(S)))
 
     def test_gc_creation_works(self):
         pass
@@ -193,3 +251,94 @@ class TestBasic:
         #
         u_adr = self.gc.write_barrier(u_adr)  # local object
         assert u_adr == t_adr
+
+    def test_commit_transaction_empty(self):
+        self.select_thread(1)
+        s, s_adr = self.malloc(S)
+        t, t_adr = self.malloc(S)
+        self.gc.collector.commit_transaction()    # no roots
+        main_tls = self.gc.main_thread_tls
+        assert main_tls.nursery_free == main_tls.nursery_start   # empty
+
+    def test_commit_transaction_no_references(self):
+        s, s_adr = self.malloc(S)
+        s.b = 12345
+        self.select_thread(1)
+        t_adr = self.gc.write_barrier(s_adr)   # make a local copy
+        t = llmemory.cast_adr_to_ptr(t_adr, lltype.Ptr(S))
+        assert s != t
+        assert self.gc.header(t_adr).version == s_adr
+        t.b = 67890
+        #
+        main_tls = self.gc.main_thread_tls
+        assert main_tls.nursery_free != main_tls.nursery_start  # contains s
+        old_value = main_tls.nursery_free
+        #
+        self.gc.collector.commit_transaction()
+        #
+        assert main_tls.nursery_free == old_value    # no new object
+        assert s.b == 12345     # not updated by the GC code
+        assert t.b == 67890     # still valid
+
+    def test_commit_transaction_with_one_reference(self):
+        sr, sr_adr = self.malloc(SR)
+        assert sr.s1 == lltype.nullptr(S)
+        assert sr.sr2 == lltype.nullptr(SR)
+        self.select_thread(1)
+        tr_adr = self.gc.write_barrier(sr_adr)   # make a local copy
+        tr = llmemory.cast_adr_to_ptr(tr_adr, lltype.Ptr(SR))
+        assert sr != tr
+        t, t_adr = self.malloc(S)
+        t.b = 67890
+        assert tr.s1 == lltype.nullptr(S)
+        assert tr.sr2 == lltype.nullptr(SR)
+        tr.s1 = t
+        #
+        main_tls = self.gc.main_thread_tls
+        old_value = main_tls.nursery_free
+        #
+        self.gc.collector.commit_transaction()
+        #
+        assert main_tls.nursery_free - old_value == self.gcsize(S)
+
+    def test_commit_transaction_with_graph(self):
+        sr1, sr1_adr = self.malloc(SR)
+        sr2, sr2_adr = self.malloc(SR)
+        self.select_thread(1)
+        tr1_adr = self.gc.write_barrier(sr1_adr)   # make a local copy
+        tr2_adr = self.gc.write_barrier(sr2_adr)   # make a local copy
+        tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
+        tr2 = llmemory.cast_adr_to_ptr(tr2_adr, lltype.Ptr(SR))
+        tr3, tr3_adr = self.malloc(SR)
+        tr4, tr4_adr = self.malloc(SR)
+        t, t_adr = self.malloc(S)
+        #
+        tr1.sr2 = tr3; tr1.sr3 = tr1
+        tr2.sr2 = tr3; tr2.sr3 = tr3
+        tr3.sr2 = tr4; tr3.sr3 = tr2
+        tr4.sr2 = tr3; tr4.sr3 = tr3; tr4.s1 = t
+        #
+        for i in range(4):
+            self.malloc(S)     # forgotten
+        #
+        main_tls = self.gc.main_thread_tls
+        old_value = main_tls.nursery_free
+        #
+        self.gc.collector.commit_transaction()
+        #
+        assert main_tls.nursery_free - old_value == (
+            self.gcsize(SR) + self.gcsize(SR) + self.gcsize(S))
+        #
+        sr3_adr = self.gc.header(tr3_adr).version
+        sr4_adr = self.gc.header(tr4_adr).version
+        s_adr   = self.gc.header(t_adr  ).version
+        assert len(set([sr3_adr, sr4_adr, s_adr])) == 3
+        #
+        sr3 = llmemory.cast_adr_to_ptr(sr3_adr, lltype.Ptr(SR))
+        sr4 = llmemory.cast_adr_to_ptr(sr4_adr, lltype.Ptr(SR))
+        s   = llmemory.cast_adr_to_ptr(s_adr,   lltype.Ptr(S))
+        assert tr1.sr2 == sr3; assert tr1.sr3 == sr1     # roots: local obj
+        assert tr2.sr2 == sr3; assert tr2.sr3 == sr3     #        is modified
+        assert sr3.sr2 == sr4; assert sr3.sr3 == sr2     # non-roots: global
+        assert sr4.sr2 == sr3; assert sr4.sr3 == sr3     #      obj is modified
+        assert sr4.s1 == s
