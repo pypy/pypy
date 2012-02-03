@@ -198,7 +198,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_ne": 1, "int_add": 1,
+                                "int_and": 1, "int_add": 1,
+                                'convert_float_to_int': 1,
                                 "int_ge": 1, "jump": 1,
                                 "guard_false": 2, 'arraylen_gc': 1})
 
