@@ -155,6 +155,15 @@ class TestBasic:
     def gcsize(self, S):
         return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
                 llmemory.raw_malloc_usage(llmemory.sizeof(S)))
+    def checkflags(self, obj, must_have_global, must_have_was_copied,
+                              must_have_version='?'):
+        if lltype.typeOf(obj) != llmemory.Address:
+            obj = llmemory.cast_ptr_to_adr(obj)
+        hdr = self.gc.header(obj)
+        assert (hdr.tid & GCFLAG_GLOBAL != 0) == must_have_global
+        assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
+        if must_have_version != '?':
+            assert hdr.version == must_have_version
 
     def test_gc_creation_works(self):
         pass
@@ -342,3 +351,9 @@ class TestBasic:
         assert sr3.sr2 == sr4; assert sr3.sr3 == sr2     # non-roots: global
         assert sr4.sr2 == sr3; assert sr4.sr3 == sr3     #      obj is modified
         assert sr4.s1 == s
+        #
+        self.checkflags(sr1, 1, 1)
+        self.checkflags(sr2, 1, 1)
+        self.checkflags(sr3, 1, 0, llmemory.NULL)
+        self.checkflags(sr4, 1, 0, llmemory.NULL)
+        self.checkflags(s  , 1, 0, llmemory.NULL)
