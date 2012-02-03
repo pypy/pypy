@@ -1,11 +1,13 @@
 
 import py
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
-from pypy.module.micronumpy.interp_iter import Chunk
-from pypy.module.micronumpy import signature
+
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.module.micronumpy import signature
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.interp_iter import Chunk
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class MockDtype(object):
@@ -1169,7 +1171,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         for obj in [float, bool, int]:
             assert ones(1, dtype=obj).itemsize == dtype(obj).itemsize
         assert (ones(1) + ones(1)).itemsize == 8
-        assert array(1).itemsize == 8
+        assert array(1.0).itemsize == 8
         assert ones(1)[:].itemsize == 8
 
     def test_nbytes(self):
@@ -1179,7 +1181,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ones((2, 2)).nbytes == 32
         assert ones((2, 2))[1:,].nbytes == 16
         assert (ones(1) + ones(1)).nbytes == 8
-        assert array(3).nbytes == 8
+        assert array(3.0).nbytes == 8
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
@@ -1759,10 +1761,11 @@ class AppTestRanges(BaseNumpyAppTest):
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
 
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
         cls.old_array_repr = cache.w_array_repr
@@ -1776,6 +1779,8 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
 
     def teardown_class(cls):
+        if option.runappdirect:
+            return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str
