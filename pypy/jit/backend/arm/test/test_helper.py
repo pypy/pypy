@@ -1,6 +1,4 @@
-from pypy.jit.backend.arm.helper.assembler import count_reg_args, \
-                                                    decode32, encode32, \
-                                                    decode64, encode64
+from pypy.jit.backend.arm.helper.assembler import count_reg_args
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, BoxFloat,
                                         INT, REF, FLOAT)
 from pypy.jit.backend.arm.test.support import skip_unless_arm
