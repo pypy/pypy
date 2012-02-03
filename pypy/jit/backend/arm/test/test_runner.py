@@ -30,10 +30,6 @@ class TestARM(LLtypeBackendTest):
     add_loop_instructions = ['mov', 'adds', 'cmp', 'beq', 'b']
     bridge_loop_instructions = ['movw', 'movt', 'bx']
 
-    def get_machine_code_dump_func(self):
-        from pypy.jit.backend.arm.tool.objdump import machine_code_dump
-        return machine_code_dump
-
     def setup_method(self, meth):
         self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()

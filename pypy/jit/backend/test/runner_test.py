@@ -3219,7 +3219,7 @@ class LLtypeBackendTest(BaseBackendTest):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("pointless test on non-asm")
-        machine_code_dump = self.get_machine_code_dump_func()
+        from pypy.jit.backend.tool.viewcode import machine_code_dump
         import ctypes
         ops = """
         [i3, i2]
