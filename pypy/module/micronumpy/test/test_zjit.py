@@ -84,7 +84,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         result = self.run("add")
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'setinteriorfield_raw': 1, 'int_add': 1,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
         assert result == 3 + 3
@@ -99,7 +99,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("float_add")
         assert result == 3 + 3
         self.check_simple_loop({"getinteriorfield_raw": 1, "float_add": 1,
-                                "setinteriorfield_raw": 1, "int_add": 2,
+                                "setinteriorfield_raw": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1,
                                 'arraylen_gc': 1})
 
@@ -198,7 +198,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_ne": 1, "int_add": 1,
+                                "int_and": 1, "int_add": 1,
+                                'convert_float_to_int': 1,
                                 "int_ge": 1, "jump": 1,
                                 "guard_false": 2, 'arraylen_gc': 1})
 
@@ -239,7 +240,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == -6
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
                                 "float_neg": 1,
-                                "setinteriorfield_raw": 1, "int_add": 2,
+                                "setinteriorfield_raw": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1,
                                 'arraylen_gc': 1})
 
@@ -321,7 +322,7 @@ class TestNumpyJIt(LLJitMixin):
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
         self.check_simple_loop({'float_add': 1, 'getinteriorfield_raw': 2,
-                                'guard_false': 1, 'int_add': 2, 'int_ge': 1,
+                                'guard_false': 1, 'int_add': 1, 'int_ge': 1,
                                 'jump': 1, 'setinteriorfield_raw': 1,
                                 'arraylen_gc': 1})
 
@@ -387,7 +388,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 4
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'setinteriorfield_raw': 1, 'int_add': 1,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
     def define_flat_iter():
@@ -403,7 +404,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 6
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
+                                'setinteriorfield_raw': 1, 'int_add': 2,
                                 'int_ge': 1, 'guard_false': 1,
                                 'arraylen_gc': 1, 'jump': 1})
 

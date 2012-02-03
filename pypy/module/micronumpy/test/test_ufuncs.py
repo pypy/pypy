@@ -347,8 +347,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises((ValueError, TypeError), add.reduce, 1)
 
     def test_reduce_1d(self):
-        from _numpypy import add, maximum
+        from _numpypy import add, maximum, less
 
+        assert less.reduce([5, 4, 3, 2, 1])
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
@@ -433,3 +434,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
+
+    def test_logical_ops(self):
+        from _numpypy import logical_and, logical_or, logical_xor, logical_not
+
+        assert (logical_and([True, False , True, True], [1, 1, 3, 0])
+                == [True, False, True, False]).all()
+        assert (logical_or([True, False, True, False], [1, 2, 0, 0])
+                == [True, True, True, False]).all()
+        assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
+                == [False, True, True, False]).all()
+        assert (logical_not([True, False]) == [False, True]).all()
