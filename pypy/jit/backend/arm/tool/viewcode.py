@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 """
 Try:
-    ./objdump.py file.asm
-    ./objdump.py --decode dumpfile
+    ./viewcode.py file.asm
+    ./viewcode.py --decode dumpfile
 """
 import os, sys, py
 import subprocess
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
-    assert backend_name == 'arm_32'
+    objdump_backend_option = {
+        'arm': 'arm',
+        'arm_32': 'arm',
+    }
+    assert backend_name in objdump_backend_option
     tmpfile = get_tmp_file()
     objdump = 'objdump -M reg-names-std --adjust-vma=%(origin)d -D --architecture=arm --target=binary %(file)s'
     #
