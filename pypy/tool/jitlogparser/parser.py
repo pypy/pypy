@@ -386,6 +386,8 @@ def import_log(logname, ParserCls=SimpleParser):
         if comm.startswith('# bridge'):
             m = re.search('guard \d+', comm)
             name = m.group(0)
+        elif "(" in name:
+            name = comm[2:comm.find('(')-1]
         else:
             name = comm[2:comm.find(':')-1]
         if name in dumps:
