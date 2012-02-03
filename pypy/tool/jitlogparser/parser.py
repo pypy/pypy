@@ -65,9 +65,11 @@ class SimpleParser(OpParser):
             asm = []
             start = 0
             for elem in raw_asm:
-                if len(elem.split("\t")) != 3:
+                if len(elem.split("\t")) < 3:
                     continue
-                adr, _, v = elem.split("\t")
+                e = elem.split("\t")
+                adr = e[0]
+                v = " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
