@@ -2,7 +2,7 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
-from pypy.jit.backend.arm.locations import imm
+from pypy.jit.backend.arm.locations import imm, get_fp_offset
 from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_unary_cmp,
                                                     prepare_op_ri,
@@ -54,13 +54,6 @@ class TempFloat(TempBox):
     def __repr__(self):
         return "<TempFloat at %s>" % (id(self),)
 
-
-def get_fp_offset(i):
-    if i >= 0:
-        # Take the FORCE_TOKEN into account
-        return (1 + i) * WORD
-    else:
-        return i * WORD
 
 
 class ARMFrameManager(FrameManager):

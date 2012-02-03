@@ -6,10 +6,10 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD, FUNC_ALIGN, \
                                     N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
+from pypy.jit.backend.arm.locations import get_fp_offset
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
                     ARMv7RegisterManager, check_imm_arg,
                     operations as regalloc_operations,
-                    get_fp_offset,
                     operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken

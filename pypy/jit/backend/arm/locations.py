@@ -134,3 +134,11 @@ class StackLocation(AssemblerLocation):
 
 def imm(i):
     return ImmLocation(i)
+
+
+def get_fp_offset(i):
+    if i >= 0:
+        # Take the FORCE_TOKEN into account
+        return (1 + i) * WORD
+    else:
+        return i * WORD
