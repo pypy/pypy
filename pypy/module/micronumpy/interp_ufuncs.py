@@ -105,28 +105,32 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
-        if not space.is_w(w_out, space.w_None):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "out not supported"))
         if w_axis is None:
             axis = 0
         elif space.is_w(w_axis, space.w_None):
             axis = -1
         else:
             axis = space.int_w(w_axis)
-        return self.reduce(space, w_obj, False, False, axis, keepdims)
+        if space.is_w(w_out, space.w_None):
+            out = None
+        elif not isinstance(w_out, W_NDimArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+        else:
+            out = w_out
+        return self.reduce(space, w_obj, False, False, axis, keepdims, out)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
-               keepdims=False):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, axis,
+               keepdims=False, out=None):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
-                                                           Scalar, ReduceArray
+                                             Scalar, ReduceArray, W_NDimArray
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
-        if dim >= len(obj.shape):
-            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % dim))
+        if axis >= len(obj.shape):
+            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % axis))
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
@@ -144,21 +148,32 @@ class W_Ufunc(Wrappable):
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-        if shapelen > 1 and dim >= 0:
-            return self.do_axis_reduce(obj, dtype, dim, keepdims)
+        if shapelen > 1 and axis >= 0:
+            if keepdims:
+                shape = obj.shape[:axis] + [1] + obj.shape[axis + 1:]
+            else:
+                shape = obj.shape[:axis] + obj.shape[axis + 1:]
+            if out:
+                #Test for shape agreement
+                return self.do_axis_reduce(obj, dtype, axis, out)
+            else:
+                result = W_NDimArray(support.product(shape), shape, dtype)
+                return self.do_axis_reduce(obj, dtype, axis, result)
         arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
-        return loop.compute(arr)
+        val = loop.compute(arr)
+        if out:
+            if len(out.shape)>0:
+                raise operationerrfmt(space.w_ValueError, "output parameter "
+                              "for reduction operation %s has too many"
+                              " dimensions",self.name)
+            out.setitem(0, out.dtype.coerce(space, val))
+            return out
+        return val 
 
-    def do_axis_reduce(self, obj, dtype, dim, keepdims):
-        from pypy.module.micronumpy.interp_numarray import AxisReduce,\
-             W_NDimArray
-        if keepdims:
-            shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
-        else:
-            shape = obj.shape[:dim] + obj.shape[dim + 1:]
-        result = W_NDimArray(support.product(shape), shape, dtype)
+    def do_axis_reduce(self, obj, dtype, axis, result):
+        from pypy.module.micronumpy.interp_numarray import AxisReduce
         arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
-                         result, obj, dim)
+                         result, obj, axis)
         loop.compute(arr)
         return arr.left
 

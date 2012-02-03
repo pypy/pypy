@@ -131,13 +131,20 @@ class BaseArray(Wrappable):
     descr_rmod = _binop_right_impl("mod")
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
-        def impl(self, space, w_axis=None):
+        def impl(self, space, w_axis=None, w_out=None):
             if space.is_w(w_axis, space.w_None):
                 axis = -1
             else:
                 axis = space.int_w(w_axis)
+            if space.is_w(w_out, space.w_None):
+                out = None
+            elif not isinstance(w_out, W_NDimArray):
+                raise OperationError(space.w_TypeError, space.wrap(
+                                                    'output must be an array'))
+            else:
+                out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, axis)
+                                        self, True, promote_to_largest, axis, False, out)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
@@ -484,14 +491,14 @@ class BaseArray(Wrappable):
             )
         return w_result
 
-    def descr_mean(self, space, w_axis=None):
+    def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_w(w_axis, space.w_None):
             w_axis = space.wrap(-1)
             w_denom = space.wrap(self.size)
         else:
             dim = space.int_w(w_axis)
             w_denom = space.wrap(self.shape[dim])
-        return space.div(self.descr_sum_promote(space, w_axis), w_denom)
+        return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
     def descr_var(self, space, w_axis=None):
         return get_appbridge_cache(space).call_method(space, '_var', self,
