@@ -30,7 +30,7 @@ __all__ = ['take', 'reshape', 'choose', 'repeat', 'put',
            'rank', 'size', 'around', 'round_', 'mean', 'std', 'var', 'squeeze',
            'amax', 'amin',
           ]
-          
+
 def take(a, indices, axis=None, out=None, mode='raise'):
     """
     Take elements from an array along an axis.
@@ -1054,8 +1054,9 @@ def ravel(a, order='C'):
     array([ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11])
 
     """
-    raise NotImplementedError('Waiting on interp level method')
-
+    if not hasattr(a, 'ravel'):
+        a = numpypy.array(a)
+    return a.ravel(order=order)
 
 def nonzero(a):
     """
@@ -2324,13 +2325,12 @@ def std(a, axis=None, dtype=None, out=None, ddof=0):
     0.44999999925552653
 
     """
-    assert axis is None
     assert dtype is None
     assert out is None
     assert ddof == 0
     if not hasattr(a, "std"):
         a = numpypy.array(a)
-    return a.std()
+    return a.std(axis=axis)
 
 
 def var(a, axis=None, dtype=None, out=None, ddof=0):
@@ -2421,10 +2421,9 @@ def var(a, axis=None, dtype=None, out=None, ddof=0):
     0.20250000000000001
 
     """
-    assert axis is None
     assert dtype is None
     assert out is None
     assert ddof == 0
     if not hasattr(a, "var"):
         a = numpypy.array(a)
-    return a.var()
+    return a.var(axis=axis)

@@ -497,9 +497,7 @@ def get_platform():
         # machine is going to compile and link as if it were
         # MACOSX_DEPLOYMENT_TARGET.
         cfgvars = get_config_vars()
-        macver = os.environ.get('MACOSX_DEPLOYMENT_TARGET')
-        if not macver:
-            macver = cfgvars.get('MACOSX_DEPLOYMENT_TARGET')
+        macver = cfgvars.get('MACOSX_DEPLOYMENT_TARGET')
 
         if 1:
             # Always calculate the release of the running machine,
@@ -520,7 +518,6 @@ def get_platform():
                     m = re.search(
                             r'<key>ProductUserVisibleVersion</key>\s*' +
                             r'<string>(.*?)</string>', f.read())
-                    f.close()
                     if m is not None:
                         macrelease = '.'.join(m.group(1).split('.')[:2])
                     # else: fall back to the default behaviour

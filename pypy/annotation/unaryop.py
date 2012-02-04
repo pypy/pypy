@@ -440,6 +440,12 @@ class __extend__(SomeDict):
     def method_popitem(dct):
         return dct.getanyitem('items')
 
+    def method_pop(dct, s_key, s_dfl=None):
+        dct.dictdef.generalize_key(s_key)
+        if s_dfl is not None:
+            dct.dictdef.generalize_value(s_dfl)
+        return dct.dictdef.read_value()
+
     def _can_only_throw(dic, *ignore):
         if dic1.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything

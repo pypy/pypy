@@ -89,8 +89,19 @@ class W_Dtype(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([])
 
+    def eq(self, space, w_other):
+        w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
+        return space.is_w(self, w_other)
+
+    def descr_eq(self, space, w_other):
+        return space.wrap(self.eq(space, w_other))
+
+    def descr_ne(self, space, w_other):
+        return space.wrap(not self.eq(space, w_other))
+
     def is_int_type(self):
-        return self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR
+        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
+                self.kind == BOOLLTR)
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -101,12 +112,15 @@ W_Dtype.typedef = TypeDef("dtype",
 
     __str__= interp2app(W_Dtype.descr_str),
     __repr__ = interp2app(W_Dtype.descr_repr),
+    __eq__ = interp2app(W_Dtype.descr_eq),
+    __ne__ = interp2app(W_Dtype.descr_ne),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
+    name = interp_attrproperty('name', cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

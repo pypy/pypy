@@ -98,15 +98,15 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         from numpypy import array, var
         a = array([[1,2],[3,4]])
         assert var(a) == 1.25
-        #assert (var(a,0) == array([ 1.,  1.])).all()
-        #assert (var(a,1) == array([ 0.25,  0.25])).all()
+        assert (var(a,0) == array([ 1.,  1.])).all()
+        assert (var(a,1) == array([ 0.25,  0.25])).all()
 
     def test_std(self):
         from numpypy import array, std
         a = array([[1, 2], [3, 4]])
         assert std(a) ==  1.1180339887498949
-        #assert (std(a, axis=0) == array([ 1.,  1.])).all()
-        #assert (std(a, axis=1) == array([ 0.5,  0.5])).all()
+        assert (std(a, axis=0) == array([ 1.,  1.])).all()
+        assert (std(a, axis=1) == array([ 0.5,  0.5])).all()
 
     def test_mean(self):
         from numpypy import array, mean, arange
@@ -136,4 +136,4 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
-
+        
