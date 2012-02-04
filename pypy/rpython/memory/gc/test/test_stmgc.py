@@ -22,7 +22,7 @@ class FakeStmOperations:
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
-    def set_tls(self, tls):
+    def set_tls(self, tls, getsize_fn):
         assert lltype.typeOf(tls) == llmemory.Address
         assert tls
         if self.threadnum == 0:
@@ -30,6 +30,7 @@ class FakeStmOperations:
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
             self._tldicts_iterators = {}
+            self._getsize_fn = getsize_fn
             self._transactional_copies = []
         else:
             self._tls_dict[self.threadnum] = tls
@@ -359,3 +360,8 @@ class TestBasic:
         self.checkflags(sr3, 1, 0, llmemory.NULL)
         self.checkflags(sr4, 1, 0, llmemory.NULL)
         self.checkflags(s  , 1, 0, llmemory.NULL)
+
+    def test_do_get_size(self):
+        s1, s1_adr = self.malloc(S)
+        assert (repr(self.gc.stm_operations._getsize_fn(s1_adr)) ==
+                repr(fake_get_size(s1_adr)))

@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop
 from pypy.module.thread import ll_thread
@@ -66,6 +67,11 @@ class StmGC(GCBase):
         self.collector = Collector(self)
         self.max_nursery_size = max_nursery_size
         #
+        def _do_get_size(obj):     # indirection to hide 'self'
+            return self.get_size(obj)
+        GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address],lltype.Signed))
+        self._do_get_size = llhelper(GETSIZE, _do_get_size)
+        #
         self.declare_readers()
         self.declare_write_barrier()
 
@@ -88,7 +94,8 @@ class StmGC(GCBase):
         """Setup a thread.  Allocates the thread-local data structures.
         Must be called only once per OS-level thread."""
         tls = lltype.malloc(self.GCTLS, flavor='raw')
-        self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls))
+        self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls),
+                                    self._do_get_size)
         tls.nursery_start = self._alloc_nursery()
         tls.nursery_size  = self.max_nursery_size
         tls.nursery_free  = tls.nursery_start
