@@ -878,4 +878,15 @@ void stm_tldict_add(void *key, void *value)
   redolog_insert(&d->redolog, key, value);
 }
 
+void stm_tldict_enum(void(*callback)(void*, void*))
+{
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t *item;
+
+  REDOLOG_LOOP_FORWARD(d->redolog, item)
+    {
+      callback(item->addr, item->val);
+    } REDOLOG_LOOP_END;
+}
+
 #endif  /* PYPY_NOT_MAIN_FILE */

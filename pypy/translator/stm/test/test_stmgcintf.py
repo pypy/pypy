@@ -1,6 +1,7 @@
 import random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.translator.stm.stmgcintf import StmOperations
+from pypy.rpython.annlowlevel import llhelper
+from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK
 
 stm_operations = StmOperations()
 
@@ -62,3 +63,16 @@ class TestStmGcIntf:
                 a2 = rffi.cast(llmemory.Address, random.randrange(2000, 9999))
                 stm_operations.tldict_add(a1, a2)
                 content[key] = a2
+        return content
+
+    def get_callback(self):
+        def callback(key, value):
+            seen.append((key, value))
+        seen = []
+        p_callback = llhelper(CALLBACK, callback)
+        return p_callback, seen
+
+    def test_enum_tldict_empty(self):
+        p_callback, seen = self.get_callback()
+        stm_operations.tldict_enum(p_callback)
+        assert seen == []

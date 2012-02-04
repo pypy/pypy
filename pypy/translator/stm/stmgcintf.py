@@ -5,6 +5,8 @@ from pypy.translator.stm import _rffi_stm
 def smexternal(name, args, result):
     return staticmethod(_rffi_stm.llexternal(name, args, result))
 
+CALLBACK = lltype.Ptr(lltype.FuncType([llmemory.Address] * 2, lltype.Void))
+
 
 class StmOperations(object):
 
@@ -19,14 +21,7 @@ class StmOperations(object):
                                llmemory.Address)
     tldict_add = smexternal('stm_tldict_add', [llmemory.Address] * 2,
                             lltype.Void)
-
-    enum_tldict_start = smexternal('stm_enum_tldict_start', [], lltype.Void)
-    enum_tldict_find_next = smexternal('stm_enum_tldict_find_next', [],
-                                       lltype.Signed)
-    enum_tldict_globalobj = smexternal('stm_enum_tldict_globalobj', [],
-                                       llmemory.Address)
-    enum_tldict_localobj  = smexternal('stm_enum_tldict_localobj', [],
-                                       llmemory.Address)
+    tldict_enum = smexternal('stm_tldict_enum', [CALLBACK], lltype.Void)
 
     stm_read_word = smexternal('stm_read_word',
                                [llmemory.Address, lltype.Signed],

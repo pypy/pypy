@@ -18,6 +18,7 @@ void stm_del_tls(void);
 
 void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
+void stm_tlidct_enum(void(*)(void*, void*));
 
 
 
