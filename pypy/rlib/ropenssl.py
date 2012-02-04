@@ -227,7 +227,7 @@ ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i', 
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
 if OPENSSL_EXPORT_VAR_AS_FUNCTION:             
-    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
+    ssl_external('ASN1_ITEM_ptr', [lltype.Ptr(lltype.FuncType([], ASN1_ITEM))], ASN1_ITEM, macro=True)
 else:    
     ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
 
