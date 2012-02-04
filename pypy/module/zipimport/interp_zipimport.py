@@ -123,7 +123,9 @@ class W_ZipImporter(Wrappable):
         self.prefix = prefix
 
     def getprefix(self, space):
-        return space.wrap(self.prefix)
+        if ZIPSEP == os.path.sep:
+            return space.wrap(self.prefix)
+        return space.wrap(self.prefix.replace(ZIPSEP, os.path.sep))    
 
     def _find_relative_path(self, filename):
         if filename.startswith(self.filename):
