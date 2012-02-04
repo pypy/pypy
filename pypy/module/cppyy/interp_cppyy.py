@@ -93,13 +93,13 @@ def get_methptr_getter(handle, method_index):
 class CPPMethod(object):
     """ A concrete function after overloading has been resolved """
     _immutable_ = True
-    _immutable_fields_ = ["arg_types[*]", "arg_converters[*]"]
+    _immutable_fields_ = ["arg_defs[*]", "arg_converters[*]"]
     
-    def __init__(self, cpptype, method_index, result_type, arg_types, args_required):
+    def __init__(self, cpptype, method_index, result_type, arg_defs, args_required):
         self.cpptype = cpptype
         self.space = cpptype.space
         self.method_index = method_index
-        self.arg_types = arg_types
+        self.arg_defs = arg_defs
         self.args_required = args_required
         self.executor = executor.get_executor(self.space, result_type)
         self.arg_converters = None
@@ -114,7 +114,7 @@ class CPPMethod(object):
         if self.executor is None:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("return type not handled"))
-        if len(self.arg_types) < len(args_w) or len(args_w) < self.args_required:
+        if len(self.arg_defs) < len(args_w) or len(args_w) < self.args_required:
             raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of arguments"))
 
         if self.methgetter and cppthis: # only for methods
@@ -142,10 +142,14 @@ class CPPMethod(object):
 
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
+        i = len(self.arg_defs)
         for i in range(len(args_w)):
             conv = self.arg_converters[i]
             w_arg = args_w[i]
             conv.convert_argument_libffi(space, w_arg, argchain)
+        for j in range(i+1, len(self.arg_defs)):
+            conv = self.arg_converters[j]
+            conv.default_argument_libffi(space, argchain)
         return self.executor.execute_libffi(space, w_type, libffi_func, argchain)
 
     @jit.elidable_promote()
@@ -167,8 +171,8 @@ class CPPMethod(object):
         return libffifunc
 
     def _build_converters(self):
-        self.arg_converters = [converter.get_converter(self.space, arg_type)
-                                   for arg_type in self.arg_types]
+        self.arg_converters = [converter.get_converter(self.space, arg_type, arg_dflt)
+                                   for arg_type, arg_dflt in self.arg_defs]
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w):
@@ -205,7 +209,7 @@ class CPPMethod(object):
 
     def __repr__(self):
         return "CPPFunction(%s, %s, %r, %s)" % (
-            self.cpptype, self.method_index, self.executor, self.arg_types)
+            self.cpptype, self.method_index, self.executor, self.arg_defs)
 
     def _freeze_(self):
         assert 0, "you should never have a pre-built instance of this!"
@@ -302,7 +306,7 @@ class W_CPPDataMember(Wrappable):
         self.space = space
         assert lltype.typeOf(scope_handle) == capi.C_TYPEHANDLE
         self.scope_handle = scope_handle
-        self.converter = converter.get_converter(self.space, type_name)
+        self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
         self._is_static = is_static
 
@@ -415,11 +419,12 @@ class W_CPPNamespace(W_CPPScope):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
         num_args = capi.c_method_num_args(self.handle, method_index)
         args_required = capi.c_method_req_args(self.handle, method_index)
-        argtypes = []
+        arg_defs = []
         for i in range(num_args):
-            argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
-            argtypes.append(argtype)
-        return CPPFunction(self, method_index, result_type, argtypes, args_required)
+            arg_type = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
+            arg_dflt = capi.charp2str_free(capi.c_method_arg_default(self.handle, method_index, i))
+            arg_defs.append((arg_type, arg_dflt))
+        return CPPFunction(self, method_index, result_type, arg_defs, args_required)
 
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)
@@ -460,10 +465,11 @@ class W_CPPType(W_CPPScope):
         result_type = capi.charp2str_free(capi.c_method_result_type(self.handle, method_index))
         num_args = capi.c_method_num_args(self.handle, method_index)
         args_required = capi.c_method_req_args(self.handle, method_index)
-        argtypes = []
+        arg_defs = []
         for i in range(num_args):
-            argtype = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
-            argtypes.append(argtype)
+            arg_type = capi.charp2str_free(capi.c_method_arg_type(self.handle, method_index, i))
+            arg_dflt = capi.charp2str_free(capi.c_method_arg_default(self.handle, method_index, i))
+            arg_defs.append((arg_type, arg_dflt))
         if capi.c_is_constructor(self.handle, method_index):
             result_type = "void"       # b/c otherwise CINT v.s. Reflex difference
             cls = CPPConstructor
@@ -471,7 +477,7 @@ class W_CPPType(W_CPPScope):
             cls = CPPFunction
         else:
             cls = CPPMethod
-        return cls(self, method_index, result_type, argtypes, args_required)
+        return cls(self, method_index, result_type, arg_defs, args_required)
 
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)

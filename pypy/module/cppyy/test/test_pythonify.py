@@ -37,7 +37,7 @@ class AppTestPYTHONIFY:
         cl2 = cppyy.gbl.example01
         assert example01_class is cl2
 
-        raises(AttributeError, "cppyy.gbl.nonexistingclass")
+        raises(AttributeError, 'cppyy.gbl.nonexistingclass')
 
     def test03_calling_static_functions(self):
         """Test calling of static methods."""
@@ -244,7 +244,30 @@ class AppTestPYTHONIFY:
 
         # TODO: need ReferenceError on touching pl_a
 
-    def test10_underscore_in_class_name(self):
+    def test10_default_arguments(self):
+        """Test propagation of default function arguments"""
+
+        import cppyy
+        a = cppyy.gbl.ArgPasser()
+
+        # NOTE: when called through the stub, default args are fine
+        f = a.stringRef
+        s = cppyy.gbl.std.string
+        assert f(s("aap"), 0, s("noot")).c_str() == "aap"
+        assert f(s("noot"), 1).c_str() == "default"
+        assert f(s("mies")).c_str() == "mies"
+
+        g = a.intValue
+        raises(TypeError, 'g(1, 2, 3, 4, 6)')
+        assert g(11, 0, 12, 13) == 11
+        assert g(11, 1, 12, 13) == 12
+        assert g(11, 1, 12)     == 12
+        assert g(11, 2, 12)     ==  2
+        assert g(11, 1)         ==  1
+        assert g(11, 2)         ==  2
+        assert g(11)            == 11
+
+    def test12_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
         import cppyy
@@ -255,4 +278,3 @@ class AppTestPYTHONIFY:
 
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
-

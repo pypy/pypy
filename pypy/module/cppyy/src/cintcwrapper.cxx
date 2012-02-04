@@ -462,6 +462,10 @@ int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
 
 
 /* misc helpers ----------------------------------------------------------- */
+int cppyy_atoi(const char* str) {
+    return atoi(str);
+}
+
 void cppyy_free(void* ptr) {
     free(ptr);
 }

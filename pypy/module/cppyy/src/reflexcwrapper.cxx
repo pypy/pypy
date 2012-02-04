@@ -14,6 +14,8 @@
 #include <utility>
 #include <vector>
 
+#include <stdlib.h>
+
 
 /* local helpers ---------------------------------------------------------- */
 static inline char* cppstring_to_cstring(const std::string& name) {
@@ -296,6 +298,13 @@ char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg
     return cppstring_to_cstring(name);
 }
 
+char* cppyy_method_arg_default(cppyy_typehandle_t handle, int method_index, int arg_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    std::string dflt = m.FunctionParameterDefaultAt(arg_index);
+    return cppstring_to_cstring(dflt);
+}
+
 
 int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
@@ -350,7 +359,11 @@ int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
 }
 
 
-/* misc helper ------------------------------------------------------------ */
+/* misc helpers ----------------------------------------------------------- */
+int cppyy_atoi(const char* str) {
+    return atoi(str);
+}
+
 void cppyy_free(void* ptr) {
     free(ptr);
 }

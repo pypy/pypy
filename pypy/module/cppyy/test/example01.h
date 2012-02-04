@@ -1,3 +1,5 @@
+#include <string>
+
 class payload {
 public:
     payload(double d = 0.);
@@ -58,6 +60,19 @@ int globalAddOneToInt(int a);
 namespace ns_example01 {
     int globalAddOneToInt(int a);
 }
+
+
+// argument passing
+class ArgPasser {        // use a class for now as methptrgetter not
+public:                  // implemented for global functions
+   int intValue(int arg0, int argn=0, int arg1=1, int arg2=2);
+
+   std::string stringValue(
+      std::string arg0, int argn=0, std::string arg1 = "default");
+
+   std::string stringRef(
+      const std::string& arg0, int argn=0, const std::string& arg1="default");
+};
 
 
 // special case naming

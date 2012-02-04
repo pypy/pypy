@@ -168,6 +168,10 @@ c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
     [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
+c_method_arg_default = rffi.llexternal(
+    "cppyy_method_arg_default",
+    [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,
+    compilation_info=backend.eci)
 
 c_is_constructor = rffi.llexternal(
     "cppyy_is_constructor",
@@ -202,6 +206,11 @@ c_is_publicdata = rffi.llexternal(
 c_is_staticdata = rffi.llexternal(
     "cppyy_is_staticdata",
     [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    compilation_info=backend.eci)
+
+c_atoi = rffi.llexternal(
+    "cppyy_atoi",
+    [rffi.CCHARP], rffi.INT,
     compilation_info=backend.eci)
 
 c_free = rffi.llexternal(

@@ -6,7 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif // ifdef __cplusplus
-    typedef long cppyy_typehandle_t;
+    typedef void* cppyy_typehandle_t;
     typedef void* cppyy_object_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
@@ -55,6 +55,7 @@ extern "C" {
     int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index);
     int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index);
     char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int index);
+    char* cppyy_method_arg_default(cppyy_typehandle_t handle, int method_index, int index);
 
     /* method properties */
     int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index);
@@ -70,8 +71,9 @@ extern "C" {
     int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index);
     int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index);
 
-    /* misc helper */
+    /* misc helpers */
     void cppyy_free(void* ptr);
+    int cppyy_atoi(const char* str);
 
 #ifdef __cplusplus
 }

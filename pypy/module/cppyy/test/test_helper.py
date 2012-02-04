@@ -1,5 +1,8 @@
 from pypy.module.cppyy import helper
 
+def test_remove_const():
+    assert helper.remove_const("const int") == "int"
+
 def test_compound():
     assert helper.compound("int*") == "*"
     assert helper.compound("int* const *&") == "**&"

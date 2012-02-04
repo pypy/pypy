@@ -5,6 +5,9 @@ from pypy.rlib import rstring
 def _remove_const(name):
     return "".join(rstring.split(name, "const")) # poor man's replace
 
+def remove_const(name):
+    return _remove_const(name).strip(' ')
+
 def compound(name):
     name = _remove_const(name)
     if name.endswith("]"):                       # array type?

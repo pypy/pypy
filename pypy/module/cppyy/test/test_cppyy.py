@@ -24,7 +24,7 @@ class TestCPPYYImplementation:
         adddouble = w_cppyyclass.methods["staticAddToDouble"]
         func, = adddouble.functions
         assert isinstance(func.executor, executor.DoubleExecutor)
-        assert func.arg_types == ["double"]
+        assert func.arg_defs == [("double", "")]
 
 
 class AppTestCPPYY:

@@ -137,5 +137,42 @@ int ns_example01::globalAddOneToInt(int a) {
 }
 
 
+// argument passing
+int ArgPasser::intValue(int arg0, int argn, int arg1, int arg2)
+{
+   switch (argn) {
+   case 0:
+      return arg0;
+   case 1:
+      return arg1;
+   case 2:
+      return arg2;
+   default:
+      break;
+   }
+
+   return -1;
+}
+
+std::string ArgPasser::stringValue(std::string arg0, int argn, std::string arg1)
+{
+   switch (argn) {
+   case 0:
+      return arg0;
+   case 1:
+      return arg1;
+   default:
+      break;
+   }
+
+   return "argn invalid";
+}
+
+std::string ArgPasser::stringRef(const std::string& arg0, int argn, const std::string& arg1)
+{
+   return stringValue(arg0, argn, arg1);
+}
+
+
 // special case naming
 z_& z_::gime_z_(z_& z) { return z; }

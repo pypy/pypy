@@ -32,7 +32,7 @@ class TypeConverter(object):
 
     name = ""
 
-    def __init__(self, space, array_size):
+    def __init__(self, space, extra):
         pass
 
     @jit.dont_look_inside
@@ -221,6 +221,9 @@ class IntConverter(TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.sint
 
+    def __init__(self, space, default):
+        self.default = capi.c_atoi(default)
+
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.INT, space.c_int_w(w_obj))
 
@@ -230,6 +233,9 @@ class IntConverter(TypeConverter):
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
+
+    def default_argument_libffi(self, space, argchain):
+        argchain.arg(self.default)
 
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
@@ -558,11 +564,13 @@ class InstanceConverter(InstancePtrConverter):
         return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False)
 
 
-_converters = {}
-def get_converter(space, name):
+_converters = {}         # builtin and custom types
+_a_converters = {}       # array and ptr versions of above
+def get_converter(space, name, default):
     from pypy.module.cppyy import interp_cppyy
     # The matching of the name to a converter should follow:
     #   1) full, exact match
+    #       1a) const-removed match
     #   2) match of decorated, unqualified type
     #   3) accept const ref as by value
     #   4) accept ref as pointer
@@ -573,7 +581,13 @@ def get_converter(space, name):
 
     #   1) full, exact match
     try:
-        return _converters[name](space, -1)
+        return _converters[name](space, default)
+    except KeyError, k:
+        pass
+
+    #   1a) const-removed match
+    try:
+        return _converters[helper.remove_const(name)](space, default)
     except KeyError, k:
         pass
 
@@ -583,14 +597,14 @@ def get_converter(space, name):
     try:
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(name)
-        return _converters[clean_name+compound](space, array_size)
+        return _a_converters[clean_name+compound](space, array_size)
     except KeyError, k:
         pass
 
     #   3) accept const ref as by value
     if compound and compound[len(compound)-1] == "&":
         try:
-            return _converters[clean_name](space, -1)
+            return _converters[clean_name](space, default)
         except KeyError:
             pass
 
@@ -617,42 +631,44 @@ _converters["char"]                     = CharConverter
 _converters["unsigned char"]            = CharConverter
 _converters["short int"]                = ShortConverter
 _converters["short"]                    = _converters["short int"]
-_converters["short int*"]               = ShortPtrConverter
-_converters["short*"]                   = _converters["short int*"]
-_converters["short int[]"]              = ShortArrayConverter
-_converters["short[]"]                  = _converters["short int[]"]
 _converters["unsigned short int"]       = ShortConverter
 _converters["unsigned short"]           = _converters["unsigned short int"]
-_converters["unsigned short int*"]      = ShortPtrConverter
-_converters["unsigned short*"]          = _converters["unsigned short int*"]
-_converters["unsigned short int[]"]     = ShortArrayConverter
-_converters["unsigned short[]"]         = _converters["unsigned short int[]"]
 _converters["int"]                      = IntConverter
-_converters["int*"]                     = IntPtrConverter
-_converters["int[]"]                    = IntArrayConverter
 _converters["unsigned int"]             = UnsignedIntConverter
-_converters["unsigned int*"]            = UnsignedIntPtrConverter
-_converters["unsigned int[]"]           = UnsignedIntArrayConverter
 _converters["long int"]                 = LongConverter
 _converters["long"]                     = _converters["long int"]
-_converters["long int*"]                = LongPtrConverter
-_converters["long*"]                    = _converters["long int*"]
-_converters["long int[]"]               = LongArrayConverter
-_converters["long[]"]                   = _converters["long int[]"]
 _converters["unsigned long int"]        = UnsignedLongConverter
 _converters["unsigned long"]            = _converters["unsigned long int"]
-_converters["unsigned long int*"]       = LongPtrConverter
-_converters["unsigned long*"]           = _converters["unsigned long int*"]
-_converters["unsigned long int[]"]      = LongArrayConverter
-_converters["unsigned long[]"]          = _converters["unsigned long int[]"]
 _converters["float"]                    = FloatConverter
-_converters["float*"]                   = FloatPtrConverter
-_converters["float[]"]                  = FloatArrayConverter
 _converters["double"]                   = DoubleConverter
-_converters["double*"]                  = DoublePtrConverter
-_converters["double[]"]                 = DoubleArrayConverter
 _converters["const char*"]              = CStringConverter
 _converters["char*"]                    = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
+
+# it should be possible to generate these:
+_a_converters["short int*"]               = ShortPtrConverter
+_a_converters["short*"]                   = _a_converters["short int*"]
+_a_converters["short int[]"]              = ShortArrayConverter
+_a_converters["short[]"]                  = _a_converters["short int[]"]
+_a_converters["unsigned short int*"]      = ShortPtrConverter
+_a_converters["unsigned short*"]          = _a_converters["unsigned short int*"]
+_a_converters["unsigned short int[]"]     = ShortArrayConverter
+_a_converters["unsigned short[]"]         = _a_converters["unsigned short int[]"]
+_a_converters["int*"]                     = IntPtrConverter
+_a_converters["int[]"]                    = IntArrayConverter
+_a_converters["unsigned int*"]            = UnsignedIntPtrConverter
+_a_converters["unsigned int[]"]           = UnsignedIntArrayConverter
+_a_converters["long int*"]                = LongPtrConverter
+_a_converters["long*"]                    = _a_converters["long int*"]
+_a_converters["long int[]"]               = LongArrayConverter
+_a_converters["long[]"]                   = _a_converters["long int[]"]
+_a_converters["unsigned long int*"]       = LongPtrConverter
+_a_converters["unsigned long*"]           = _a_converters["unsigned long int*"]
+_a_converters["unsigned long int[]"]      = LongArrayConverter
+_a_converters["unsigned long[]"]          = _a_converters["unsigned long int[]"]
+_a_converters["float*"]                   = FloatPtrConverter
+_a_converters["float[]"]                  = FloatArrayConverter
+_a_converters["double*"]                  = DoublePtrConverter
+_a_converters["double[]"]                 = DoubleArrayConverter
