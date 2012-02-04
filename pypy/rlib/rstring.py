@@ -216,6 +216,8 @@ class Entry(ExtRegistryEntry):
     _about_ = assert_str0
 
     def compute_result_annotation(self, s_obj):
+        if s_None.contains(s_obj):
+            return s_obj
         assert isinstance(s_obj, (SomeString, SomeUnicodeString))
         if s_obj.no_nul:
             return s_obj
@@ -237,7 +239,7 @@ class Entry(ExtRegistryEntry):
     _about_ = check_str0
 
     def compute_result_annotation(self, s_obj):
-        if not isinstance(s_obj, SomeString):
+        if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
             return s_obj
         if not s_obj.no_nul:
             raise ValueError("Value is not no_nul")
