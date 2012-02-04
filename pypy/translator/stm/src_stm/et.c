@@ -29,29 +29,29 @@
 
 /************************************************************/
 
+/* This is the same as the object header structure HDR
+ * declared in stmgc.py, and the same two flags */
+
+typedef struct {
+  long tid;
+  long version;
+} orec_t;
+
+enum {
+  first_gcflag      = 1 << (PYPY_LONG_BIT / 2),
+  GCFLAG_GLOBAL     = first_gcflag << 0,
+  GCFLAG_WAS_COPIED = first_gcflag << 1
+};
+
+/************************************************************/
+
 #define IS_LOCKED(num)  ((num) < 0)
 #define IS_LOCKED_OR_NEWER(num, max_age) \
   __builtin_expect(((unsigned long)(num)) > ((unsigned long)(max_age)), 0)
+
 typedef long owner_version_t;
 
-typedef volatile owner_version_t orec_t;
-
-/*** Specify the number of orecs in the global array. */
-#define NUM_STRIPES  1048576
-
-/*** declare the table of orecs */
-static char orecs[NUM_STRIPES * sizeof(orec_t)];
-
-/*** map addresses to orec table entries */
-inline static orec_t *get_orec(void* addr)
-{
-  unsigned long index = (unsigned long)addr;
-#ifdef RPY_STM_ASSERT
-  assert(!(index & (sizeof(orec_t)-1)));
-#endif
-  char *p = orecs + (index & ((NUM_STRIPES-1) * sizeof(orec_t)));
-  return (orec_t *)p;
-}
+#define get_orec(addr)  ((volatile orec_t *)(addr))
 
 #include "src_stm/lists.c"
 
@@ -59,40 +59,33 @@ inline static orec_t *get_orec(void* addr)
 
 #define ABORT_REASONS 8
 #define SPINLOOP_REASONS 10
-#define OTHERINEV_REASONS 5
 
 struct tx_descriptor {
   void *rpython_tls_object;
+  long (*rpython_get_size)(void*);
   jmp_buf *setjmp_buf;
   owner_version_t start_time;
   owner_version_t end_time;
-  unsigned long last_known_global_timestamp;
+  /*unsigned long last_known_global_timestamp;*/
   struct OrecList reads;
   unsigned num_commits;
   unsigned num_aborts[ABORT_REASONS];
   unsigned num_spinloops[SPINLOOP_REASONS];
-  unsigned int spinloop_counter;
-  int transaction_active;
+  /*unsigned int spinloop_counter;*/
   owner_version_t my_lock_word;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
 };
 
-static const struct tx_descriptor null_tx = {
-  .transaction_active = 0,
-  .my_lock_word = 0
-};
-#define NULL_TX  ((struct tx_descriptor *)(&null_tx))
-
 /* global_timestamp contains in its lowest bit a flag equal to 1
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
-static __thread struct tx_descriptor *thread_descriptor = NULL_TX;
+static __thread struct tx_descriptor *thread_descriptor = NULL;
 
 /************************************************************/
 
 static unsigned long get_global_timestamp(struct tx_descriptor *d)
 {
-  return (d->last_known_global_timestamp = global_timestamp);
+  return (/*d->last_known_global_timestamp =*/ global_timestamp);
 }
 
 static _Bool change_global_timestamp(struct tx_descriptor *d,
@@ -101,7 +94,7 @@ static _Bool change_global_timestamp(struct tx_descriptor *d,
 {
   if (bool_cas(&global_timestamp, old, new))
     {
-      d->last_known_global_timestamp = new;
+      /*d->last_known_global_timestamp = new;*/
       return 1;
     }
   return 0;
@@ -110,7 +103,7 @@ static _Bool change_global_timestamp(struct tx_descriptor *d,
 static void set_global_timestamp(struct tx_descriptor *d, unsigned long new)
 {
   global_timestamp = new;
-  d->last_known_global_timestamp = new;
+  /*d->last_known_global_timestamp = new;*/
 }
 
 static void tx_abort(int);
@@ -123,7 +116,8 @@ static void tx_spinloop(int num)
   d->num_spinloops[num]++;
 
   //printf("tx_spinloop(%d)\n", num);
-  
+
+#if 0
   c = d->spinloop_counter;
   d->spinloop_counter = c * 9;
   i = c & 0xff0000;
@@ -131,41 +125,41 @@ static void tx_spinloop(int num)
     spinloop();
     i -= 0x10000;
   }
-}
-
-static _Bool is_inevitable_or_inactive(struct tx_descriptor *d)
-{
-  return d->setjmp_buf == NULL;
+#else
+  spinloop();
+#endif
 }
 
 static _Bool is_inevitable(struct tx_descriptor *d)
 {
-  assert(d->transaction_active);
-  return is_inevitable_or_inactive(d);
+  return d->setjmp_buf == NULL;
 }
 
 /*** run the redo log to commit a transaction, and release the locks */
 static void tx_redo(struct tx_descriptor *d)
 {
-  abort();
-#if 0
   owner_version_t newver = d->end_time;
   wlog_t *item;
   /* loop in "forward" order: in this order, if there are duplicate orecs
      then only the last one has p != -1. */
   REDOLOG_LOOP_FORWARD(d->redolog, item)
     {
-      *item->addr = item->val;
+      void *globalobj = item->addr;
+      void *localobj = item->val;
+      owner_version_t p = item->p;
+      long size = d->rpython_get_size(localobj);
+      memcpy(((char *)globalobj) + sizeof(orec_t),
+             ((char *)localobj) + sizeof(orec_t),
+             size - sizeof(orec_t));
       /* but we must only unlock the orec if it's the last time it
          appears in the redolog list.  If it's not, then p == -1. */
-      if (item->p != -1)
+      if (p != -1)
         {
-          orec_t* o = get_orec(item->addr);
+          volatile orec_t* o = get_orec(globalobj);
           CFENCE;
-          *o = newver;
+          o->version = newver;
         }
     } REDOLOG_LOOP_END;
-#endif
 }
 
 /*** on abort, release locks and restore the old version number. */
@@ -176,8 +170,8 @@ static void releaseAndRevertLocks(struct tx_descriptor *d)
     {
       if (item->p != -1)
         {
-          orec_t* o = get_orec(item->addr);
-          *o = item->p;
+          volatile orec_t* o = get_orec(item->addr);
+          o->version = item->p;
         }
     } REDOLOG_LOOP_END;
 }
@@ -190,8 +184,8 @@ static void releaseLocksForRetry(struct tx_descriptor *d)
     {
       if (item->p != -1)
         {
-          orec_t* o = get_orec(item->addr);
-          *o = item->p;
+          volatile orec_t* o = get_orec(item->addr);
+          o->version = item->p;
           item->p = -1;
         }
     } REDOLOG_LOOP_END;
@@ -205,11 +199,11 @@ static void acquireLocks(struct tx_descriptor *d)
   REDOLOG_LOOP_BACKWARD(d->redolog, item)
     {
       // get orec, read its version#
-      orec_t* o = get_orec(item->addr);
+      volatile orec_t* o = get_orec(item->addr);
       owner_version_t ovt;
 
     retry:
-      ovt = *o;
+      ovt = o->version;
 
       // if orec not locked, lock it
       //
@@ -217,7 +211,7 @@ static void acquireLocks(struct tx_descriptor *d)
       // reads.  Since most writes are also reads, we'll just abort under this
       // condition.  This can introduce false conflicts
       if (!IS_LOCKED_OR_NEWER(ovt, d->start_time)) {
-        if (!bool_cas(o, ovt, d->my_lock_word))
+        if (!bool_cas(&o->version, ovt, d->my_lock_word))
           goto retry;
         // save old version to item->p.  Now we hold the lock.
         // in case of duplicate orecs, only the last one has p != -1.
@@ -247,9 +241,6 @@ static void common_cleanup(struct tx_descriptor *d)
 {
   d->reads.size = 0;
   redolog_clear(&d->redolog);
-  assert(d->transaction_active);
-  d->transaction_active = 0;
-  d->setjmp_buf = NULL;
 }
 
 static void tx_cleanup(struct tx_descriptor *d)
@@ -262,10 +253,9 @@ static void tx_cleanup(struct tx_descriptor *d)
 
 static void tx_restart(struct tx_descriptor *d)
 {
-  jmp_buf *env = d->setjmp_buf;
   tx_cleanup(d);
   tx_spinloop(0);
-  longjmp(*env, 1);
+  longjmp(*d->setjmp_buf, 1);
 }
 
 /*** increase the abort count and restart the transaction */
@@ -295,7 +285,7 @@ static void validate_fast(struct tx_descriptor *d, int lognum)
   for (i=0; i<d->reads.size; i++)
     {
     retry:
-      ovt = *(d->reads.items[i]);
+      ovt = d->reads.items[i]->version;
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           // If locked, we wait until it becomes unlocked.  The chances are
@@ -325,7 +315,7 @@ static void validate(struct tx_descriptor *d)
   assert(!is_inevitable(d));
   for (i=0; i<d->reads.size; i++)
     {
-      ovt = *(d->reads.items[i]);      // read this orec
+      ovt = d->reads.items[i]->version;      // read this orec
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           if (!IS_LOCKED(ovt))
@@ -421,28 +411,29 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
 }
 
 /* lazy/lazy read instrumentation */
-long stm_read_word(long* addr)
+long stm_read_word(void* addr, long offset)
 {
   struct tx_descriptor *d = thread_descriptor;
-#ifdef RPY_STM_ASSERT
-  assert((((long)addr) & (sizeof(void*)-1)) == 0);
-#endif
-  if (!d->transaction_active)
-    return *addr;
-
-  // check writeset first
-  wlog_t* found;
-  REDOLOG_FIND(d->redolog, addr, found, goto not_found);
-  return found->val;
-
- not_found:;
-  // get the orec addr
-  orec_t* o = get_orec((void*)addr);
+  volatile orec_t *o = get_orec(addr);
   owner_version_t ovt;
+
+  if ((o->tid & GCFLAG_WAS_COPIED) != 0)
+    {
+      /* Look up in the thread-local dictionary. */
+      wlog_t *found;
+      REDOLOG_FIND(d->redolog, addr, found, goto not_found);
+      orec_t *localobj = (orec_t *)found->val;
+#ifdef RPY_STM_ASSERT
+      assert((localobj->tid & GCFLAG_GLOBAL) == 0);
+#endif
+      return *(long *)(((char *)localobj) + offset);
+
+    not_found:;
+    }
 
  retry:
   // read the orec BEFORE we read anything else
-  ovt = *o;
+  ovt = o->version;
   CFENCE;
 
   // this tx doesn't hold any locks, so if the lock for this addr is held,
@@ -461,33 +452,22 @@ long stm_read_word(long* addr)
     }
 
   // orec is unlocked, with ts <= start_time.  read the location
-  long tmp = *addr;
+  long tmp = *(long *)(((char *)addr) + offset);
 
   // postvalidate AFTER reading addr:
   CFENCE;
-  if (*o != ovt)
+  if (__builtin_expect(o->version != ovt, 0))
     goto retry;       /* oups, try again */
 
-  oreclist_insert(&d->reads, o);
+  oreclist_insert(&d->reads, (orec_t*)o);
 
   return tmp;
-}
-
-void stm_write_word(long* addr, long val)
-{
-  struct tx_descriptor *d = thread_descriptor;
-  assert((((long)addr) & (sizeof(void*)-1)) == 0);
-  if (!d->transaction_active) {
-    *addr = val;
-    return;
-  }
-  redolog_insert(&d->redolog, addr, val);
 }
 
 
 static struct tx_descriptor *descriptor_init(void)
 {
-  assert(thread_descriptor == NULL_TX);
+  assert(thread_descriptor == NULL);
   if (1)  /* for hg diff */
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
@@ -502,7 +482,7 @@ static struct tx_descriptor *descriptor_init(void)
       if (!IS_LOCKED(d->my_lock_word))
         d->my_lock_word = ~d->my_lock_word;
       assert(IS_LOCKED(d->my_lock_word));
-      d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);
+      /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
 
       thread_descriptor = d;
 
@@ -518,9 +498,9 @@ static struct tx_descriptor *descriptor_init(void)
 static void descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(d != NULL_TX);
+  assert(d != NULL);
 
-  thread_descriptor = NULL_TX;
+  thread_descriptor = NULL;
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-done");
@@ -559,10 +539,11 @@ static void descriptor_done(void)
 static void begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(!d->transaction_active);
-  d->transaction_active = 1;
+  /* you need to call descriptor_init() before calling
+     stm_perform_transaction() */
+  assert(d != NULL);
   d->setjmp_buf = buf;
-  d->start_time = d->last_known_global_timestamp & ~1;
+  d->start_time = (/*d->last_known_global_timestamp*/ global_timestamp) & ~1;
 }
 
 static long commit_transaction(void)
@@ -635,9 +616,6 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
   jmp_buf _jmpbuf;
   volatile long v_counter = 0;
   long counter;
-  /* you need to call descriptor_init() before calling
-     stm_perform_transaction() */
-  assert(thread_descriptor != NULL_TX);
   setjmp(_jmpbuf);
   begin_transaction(&_jmpbuf);
   counter = v_counter;
@@ -647,6 +625,7 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
   return result;
 }
 
+#if 0
 void stm_try_inevitable(STM_CCHARP1(why))
 {
   /* when a transaction is inevitable, its start_time is equal to
@@ -703,135 +682,17 @@ void stm_try_inevitable(STM_CCHARP1(why))
   PYPY_DEBUG_STOP("stm-inevitable");
 #endif
 }
+#endif
 
 void stm_abort_and_retry(void)
 {
   tx_abort(7);     /* manual abort */
 }
 
-// XXX little-endian only!
-#define READ_PARTIAL_WORD(T, fieldsize, addr)           \
-  int misalignment = ((long)addr) & (sizeof(void*)-1);  \
-  long *p = (long*)(((char *)addr) - misalignment);     \
-  unsigned long word = stm_read_word(p);                \
-  assert(sizeof(T) == fieldsize);                       \
-  return (T)(word >> (misalignment * 8));
-
-unsigned char stm_read_partial_1(void *addr) {
-  READ_PARTIAL_WORD(unsigned char, 1, addr)
-}
-unsigned short stm_read_partial_2(void *addr) {
-  READ_PARTIAL_WORD(unsigned short, 2, addr)
-}
-#if PYPY_LONG_BIT == 64
-unsigned int stm_read_partial_4(void *addr) {
-  READ_PARTIAL_WORD(unsigned int, 4, addr)
-}
-#endif
-
-// XXX little-endian only!
-#define WRITE_PARTIAL_WORD(fieldsize, addr, nval)                       \
-  int misalignment = ((long)addr) & (sizeof(void*)-1);                  \
-  long *p = (long*)(((char *)addr) - misalignment);                     \
-  long val = ((long)nval) << (misalignment * 8);                        \
-  long word = stm_read_word(p);                                         \
-  long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);      \
-  val = (val & mask) | (word & ~mask);                                  \
-  stm_write_word(p, val);
-
-void stm_write_partial_1(void *addr, unsigned char nval) {
-  WRITE_PARTIAL_WORD(1, addr, nval)
-}
-void stm_write_partial_2(void *addr, unsigned short nval) {
-  WRITE_PARTIAL_WORD(2, addr, nval)
-}
-#if PYPY_LONG_BIT == 64
-void stm_write_partial_4(void *addr, unsigned int nval) {
-  WRITE_PARTIAL_WORD(4, addr, nval)
-}
-#endif
-
-
-#if PYPY_LONG_BIT == 32
-long long stm_read_doubleword(long *addr)
-{
-  /* 32-bit only */
-  unsigned long res0 = (unsigned long)stm_read_word(addr);
-  unsigned long res1 = (unsigned long)stm_read_word(addr + 1);
-  return (((unsigned long long)res1) << 32) | res0;
-}
-
-void stm_write_doubleword(long *addr, long long val)
-{
-  /* 32-bit only */
-  stm_write_word(addr, (long)val);
-  stm_write_word(addr + 1, (long)(val >> 32));
-}
-#endif
-
-double stm_read_double(long *addr)
-{
-  long long x;
-  double dd;
-#if PYPY_LONG_BIT == 32
-  x = stm_read_doubleword(addr);   /* 32 bits */
-#else
-  x = stm_read_word(addr);         /* 64 bits */
-#endif
-  assert(sizeof(double) == 8 && sizeof(long long) == 8);
-  memcpy(&dd, &x, 8);
-  return dd;
-}
-
-void stm_write_double(long *addr, double val)
-{
-  long long ll;
-  assert(sizeof(double) == 8 && sizeof(long long) == 8);
-  memcpy(&ll, &val, 8);
-#if PYPY_LONG_BIT == 32
-  stm_write_doubleword(addr, ll);   /* 32 bits */
-#else
-  stm_write_word(addr, ll);         /* 64 bits */
-#endif
-}
-
-float stm_read_float(long *addr)
-{
-  unsigned int x;
-  float ff;
-#if PYPY_LONG_BIT == 32
-  x = stm_read_word(addr);         /* 32 bits */
-#else
-  if (((long)(char*)addr) & 7) {
-    addr = (long *)(((char *)addr) - 4);
-    x = (unsigned int)(stm_read_word(addr) >> 32);   /* 64 bits, unaligned */
-  }
-  else
-    x = (unsigned int)stm_read_word(addr);           /* 64 bits, aligned */
-#endif
-  assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
-  memcpy(&ff, &x, 4);
-  return ff;
-}
-
-void stm_write_float(long *addr, float val)
-{
-  unsigned int ii;
-  assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
-  memcpy(&ii, &val, 4);
-#if PYPY_LONG_BIT == 32
-  stm_write_word(addr, ii);         /* 32 bits */
-#else
-  stm_write_partial_4(addr, ii);    /* 64 bits */
-#endif
-}
-
 long stm_debug_get_state(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL_TX)
-    return -1;
-  if (!d->transaction_active)
+  if (d == NULL)
     return 0;
   if (!is_inevitable(d))
     return 1;
@@ -846,9 +707,11 @@ long stm_thread_id(void)
 }
 
 
-void stm_set_tls(void *newtls)
+void stm_set_tls(void *newtls, long (*getsize)(void*))
 {
-  descriptor_init()->rpython_tls_object = newtls;
+  struct tx_descriptor *d = descriptor_init();
+  d->rpython_tls_object = newtls;
+  d->rpython_get_size = getsize;
 }
 
 void *stm_get_tls(void)

@@ -12,8 +12,8 @@ NULL = llmemory.NULL
 
 first_gcflag = 1 << (LONG_BIT//2)
 
-GCFLAG_GLOBAL     = first_gcflag << 0
-GCFLAG_WAS_COPIED = first_gcflag << 1
+GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
+GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 
 
 def always_inline(fn):
@@ -199,29 +199,30 @@ class StmGC(GCBase):
     def declare_readers(self):
         # Reading functions.  Defined here to avoid the extra burden of
         # passing 'self' explicitly.
-        stm_operations = self.stm_operations
+        stm_read_word = self.stm_operations.stm_read_word
         #
         @always_inline
         def read_signed(obj, offset):
             if self.header(obj).tid & GCFLAG_GLOBAL == 0:
                 return (obj + offset).signed[0]    # local obj: read directly
             else:
-                return _read_word_global(obj, offset)   # else: call a helper
+                return stm_read_word(obj, offset)  # else: call a helper
         self.read_signed = read_signed
         #
-        @dont_inline
-        def _read_word_global(obj, offset):
-            hdr = self.header(obj)
-            if hdr.tid & GCFLAG_WAS_COPIED != 0:
-                #
-                # Look up in the thread-local dictionary.
-                localobj = stm_operations.tldict_lookup(obj)
-                if localobj:
-                    ll_assert(self.header(localobj).tid & GCFLAG_GLOBAL == 0,
-                              "stm_read: tldict_lookup() -> GLOBAL obj")
-                    return (localobj + offset).signed[0]
-            #
-            return stm_operations.stm_read_word(obj, offset)
+        # the following logic was moved to et.c to avoid a double call
+##        @dont_inline
+##        def _read_word_global(obj, offset):
+##            hdr = self.header(obj)
+##            if hdr.tid & GCFLAG_WAS_COPIED != 0:
+##                #
+##                # Look up in the thread-local dictionary.
+##                localobj = stm_operations.tldict_lookup(obj)
+##                if localobj:
+##                    ll_assert(self.header(localobj).tid & GCFLAG_GLOBAL == 0,
+##                              "stm_read: tldict_lookup() -> GLOBAL obj")
+##                    return (localobj + offset).signed[0]
+##            #
+##            return stm_operations.stm_read_word(obj, offset)
 
 
     def declare_write_barrier(self):

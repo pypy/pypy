@@ -1,7 +1,7 @@
 import random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
-from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK
+from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK, GETSIZE
 
 stm_operations = StmOperations()
 
@@ -12,7 +12,7 @@ def test_set_get_del():
     # assume that they are really thread-local; not checked here
     s = lltype.malloc(lltype.Struct('S'), flavor='raw')
     a = llmemory.cast_ptr_to_adr(s)
-    stm_operations.set_tls(a)
+    stm_operations.set_tls(a, lltype.nullptr(GETSIZE.TO))
     assert stm_operations.get_tls() == a
     stm_operations.del_tls()
     lltype.free(s, flavor='raw')
@@ -25,10 +25,14 @@ class TestStmGcIntf:
         s = lltype.malloc(TLS, flavor='raw', immortal=True)
         self.tls = s
         a = llmemory.cast_ptr_to_adr(s)
-        stm_operations.set_tls(a)
+        getsize = llhelper(GETSIZE, self.getsize)
+        stm_operations.set_tls(a, getsize)
 
     def teardown_method(self, meth):
         stm_operations.del_tls()
+
+    def getsize(self, obj):
+        xxx
 
     def test_set_get_del(self):
         a = llmemory.cast_ptr_to_adr(self.tls)

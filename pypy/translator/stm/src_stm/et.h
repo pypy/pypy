@@ -12,7 +12,7 @@
 #include "src/commondefs.h"
 
 
-void stm_set_tls(void *);
+void stm_set_tls(void *, long(*)(void*));
 void *stm_get_tls(void);
 void stm_del_tls(void);
 
@@ -20,7 +20,10 @@ void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
 void stm_tlidct_enum(void(*)(void*, void*));
 
+long stm_read_word(void *, long);
 
+
+#if 0
 
 #ifdef RPY_STM_ASSERT
 #  define STM_CCHARP1(arg)    char* arg
@@ -68,6 +71,8 @@ void stm_write_float(long *addr, float val);
 long long stm_read_doubleword(long *addr);
 void stm_write_doubleword(long *addr, long long val);
 #endif
+
+#endif  /* 0 */
 
 
 #endif  /* _ET_H */
