@@ -62,6 +62,7 @@ inline static orec_t *get_orec(void* addr)
 #define OTHERINEV_REASONS 5
 
 struct tx_descriptor {
+  void *rpython_tls_object;
   jmp_buf *setjmp_buf;
   owner_version_t start_time;
   owner_version_t end_time;
@@ -481,7 +482,7 @@ void stm_write_word(long* addr, long val)
 }
 
 
-void stm_descriptor_init(void)
+static struct tx_descriptor *descriptor_init(void)
 {
   assert(thread_descriptor == NULL_TX);
   if (1)  /* for hg diff */
@@ -507,10 +508,11 @@ void stm_descriptor_init(void)
                                           (long)pthread_self());
       PYPY_DEBUG_STOP("stm-init");
 #endif
+      return d;
     }
 }
 
-void stm_descriptor_done(void)
+static void descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   assert(d != NULL_TX);
@@ -838,6 +840,22 @@ long stm_thread_id(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   return d->my_lock_word;
+}
+
+
+void stm_set_tls(void *newtls)
+{
+  descriptor_init()->rpython_tls_object = newtls;
+}
+
+void *stm_get_tls(void)
+{
+  return thread_descriptor->rpython_tls_object;
+}
+
+void stm_del_tls(void)
+{
+  descriptor_done();
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */

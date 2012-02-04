@@ -24,11 +24,6 @@ def dont_inline(fn):
     return fn
 
 
-class StmOperations(object):
-    def _freeze_(self):
-        return True
-
-
 class StmGC(GCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
@@ -50,10 +45,23 @@ class StmGC(GCBase):
                                    ('pending_list', llmemory.Address),
                           )
 
-    def __init__(self, config, stm_operations,
+    TRANSLATION_PARAMS = {
+        'stm_operations': 'use_real_one',
+        'max_nursery_size': 400*1024*1024,      # XXX 400MB
+    }
+
+    def __init__(self, config, stm_operations='use_emulator',
                  max_nursery_size=1024,
                  **kwds):
         GCBase.__init__(self, config, **kwds)
+        #
+        if isinstance(stm_operations, str):
+            assert stm_operations == 'use_real_one', (
+                "XXX not provided so far: stm_operations == %r" % (
+                stm_operations,))
+            from pypy.translator.stm.stmgcintf import StmOperations
+            stm_operations = StmOperations()
+        #
         self.stm_operations = stm_operations
         self.collector = Collector(self)
         self.max_nursery_size = max_nursery_size
@@ -80,7 +88,7 @@ class StmGC(GCBase):
         """Setup a thread.  Allocates the thread-local data structures.
         Must be called only once per OS-level thread."""
         tls = lltype.malloc(self.GCTLS, flavor='raw')
-        self.stm_operations.set_tls(self, llmemory.cast_ptr_to_adr(tls))
+        self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls))
         tls.nursery_start = self._alloc_nursery()
         tls.nursery_size  = self.max_nursery_size
         tls.nursery_free  = tls.nursery_start
@@ -107,7 +115,7 @@ class StmGC(GCBase):
         """Teardown a thread.  Call this just before the OS-level thread
         disappears."""
         tls = self.collector.get_tls()
-        self.stm_operations.set_tls(self, NULL)
+        self.stm_operations.del_tls()
         self._free_nursery(tls.nursery_start)
         lltype.free(tls, flavor='raw')
 
@@ -157,6 +165,11 @@ class StmGC(GCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
+    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+                             offset_to_length):
+        raise NotImplementedError
+
+
     def _malloc_local_raw(self, tls, size):
         # for _stm_write_barrier_global(): a version of malloc that does
         # no initialization of the malloc'ed object
@@ -166,6 +179,10 @@ class StmGC(GCBase):
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
         return obj
+
+
+    def collect(self, gen=0):
+        raise NotImplementedError
 
 
     @always_inline

@@ -22,23 +22,25 @@ class FakeStmOperations:
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
-    def set_tls(self, gc, tls):
+    def set_tls(self, tls):
         assert lltype.typeOf(tls) == llmemory.Address
+        assert tls
         if self.threadnum == 0:
             assert not hasattr(self, '_tls_dict')
-            assert not hasattr(self, '_gc')
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
             self._tldicts_iterators = {}
-            self._gc = gc
             self._transactional_copies = []
         else:
-            assert self._gc is gc
             self._tls_dict[self.threadnum] = tls
             self._tldicts[self.threadnum] = {}
 
     def get_tls(self):
         return self._tls_dict[self.threadnum]
+
+    def del_tls(self):
+        del self._tls_dict[self.threadnum]
+        del self._tldicts[self.threadnum]
 
     def tldict_lookup(self, obj):
         assert lltype.typeOf(obj) == llmemory.Address
@@ -48,6 +50,7 @@ class FakeStmOperations:
 
     def tldict_add(self, obj, localobj):
         assert lltype.typeOf(obj) == llmemory.Address
+        assert lltype.typeOf(localobj) == llmemory.Address
         tldict = self._tldicts[self.threadnum]
         assert obj not in tldict
         tldict[obj] = localobj
@@ -63,6 +66,7 @@ class FakeStmOperations:
         except StopIteration:
             state[1] = None
             state[2] = None
+            del self._tldicts_iterators[self.threadnum]
             return False
         state[1] = next_key
         state[2] = next_value
@@ -130,6 +134,7 @@ class TestBasic:
         config = get_pypy_config(translating=True).translation
         self.gc = self.GCClass(config, FakeStmOperations(),
                                translated_to_c=False)
+        self.gc.stm_operations._gc = self.gc
         self.gc.DEBUG = True
         self.gc.get_size = fake_get_size
         self.gc.trace = fake_trace

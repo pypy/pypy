@@ -58,7 +58,8 @@ translation_optiondescription = OptionDescription(
     # gc
     ChoiceOption("gc", "Garbage Collection Strategy",
                  ["boehm", "ref", "marksweep", "semispace", "statistics",
-                  "generation", "hybrid", "markcompact", "minimark", "none"],
+                  "generation", "hybrid", "markcompact", "minimark", "none",
+                  "stmgc"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False), # XXX
                              ("translation.gctransformer", "ref")],
@@ -73,6 +74,8 @@ translation_optiondescription = OptionDescription(
                                ("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
+                     "stmgc": [("translation.gctransformer", "framework"),
+                               ("translation.gcrootfinder", "none")],   # XXX
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
@@ -90,7 +93,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ["n/a", "shadowstack", "asmgcc", "none"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
@@ -103,7 +106,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread"),
     BoolOption("stm", "enable use of Software Transactional Memory",
-               default=False, cmdline="--stm"),
+               default=False, cmdline="--stm",
+               requires=[("translation.gc", "stmgc")]),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],

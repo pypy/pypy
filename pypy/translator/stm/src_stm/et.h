@@ -11,6 +11,13 @@
 #include <setjmp.h>
 #include "src/commondefs.h"
 
+
+void stm_set_tls(void *);
+void *stm_get_tls(void);
+void stm_del_tls(void);
+
+
+
 #ifdef RPY_STM_ASSERT
 #  define STM_CCHARP1(arg)    char* arg
 #  define STM_EXPLAIN1(info)  info
@@ -20,8 +27,6 @@
 #endif
 
 
-void stm_descriptor_init(void);
-void stm_descriptor_done(void);
 void* stm_perform_transaction(void*(*)(void*, long), void*);
 long stm_read_word(long* addr);
 void stm_write_word(long* addr, long val);
