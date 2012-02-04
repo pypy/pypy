@@ -742,7 +742,7 @@ def not_const(s_obj):
 
 def remove_no_nul(s_obj):
     if isinstance(s_obj, SomeList):
-        s_item = s_obj.listdef.read_item()
+        s_item = s_obj.listdef.listitem.s_value
         new_s_item = remove_no_nul(s_item)
         from pypy.annotation.listdef import ListDef
         if s_item is not new_s_item:
