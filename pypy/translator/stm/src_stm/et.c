@@ -25,6 +25,8 @@
 #ifdef PYPY_STANDALONE         /* obscure: cannot include debug_print.h if compiled */
 # define RPY_STM_DEBUG_PRINT   /* via ll2ctypes; only include it in normal builds */
 # include "src/debug_print.h"
+#else
+# define RPY_STM_ASSERT    1
 #endif
 
 /************************************************************/
@@ -62,17 +64,16 @@ typedef long owner_version_t;
 
 struct tx_descriptor {
   void *rpython_tls_object;
-  long (*rpython_get_size)(void*);
   jmp_buf *setjmp_buf;
   owner_version_t start_time;
   owner_version_t end_time;
   /*unsigned long last_known_global_timestamp;*/
+  owner_version_t my_lock_word;
   struct OrecList reads;
   unsigned num_commits;
   unsigned num_aborts[ABORT_REASONS];
   unsigned num_spinloops[SPINLOOP_REASONS];
   /*unsigned int spinloop_counter;*/
-  owner_version_t my_lock_word;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
 };
 
@@ -80,6 +81,7 @@ struct tx_descriptor {
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
 static __thread struct tx_descriptor *thread_descriptor = NULL;
+static long (*rpython_get_size)(void*);
 
 /************************************************************/
 
@@ -130,6 +132,11 @@ static void tx_spinloop(int num)
 #endif
 }
 
+static _Bool is_main_thread(struct tx_descriptor *d)
+{
+  return d->my_lock_word == 0;
+}
+
 static _Bool is_inevitable(struct tx_descriptor *d)
 {
   return d->setjmp_buf == NULL;
@@ -147,7 +154,7 @@ static void tx_redo(struct tx_descriptor *d)
       void *globalobj = item->addr;
       void *localobj = item->val;
       owner_version_t p = item->p;
-      long size = d->rpython_get_size(localobj);
+      long size = rpython_get_size(localobj);
       memcpy(((char *)globalobj) + sizeof(orec_t),
              ((char *)localobj) + sizeof(orec_t),
              size - sizeof(orec_t));
@@ -339,20 +346,26 @@ unsigned long locked_by = 0;
 static void mutex_lock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
+#ifdef RPY_STM_DEBUG_PRINT
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev locking...\n", pself);
+#endif
   assert(locked_by != pself);
   pthread_mutex_lock(&mutex_inevitable);
   locked_by = pself;
+#ifdef RPY_STM_DEBUG_PRINT
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev locked\n", pself);
+#endif
 }
 static void mutex_unlock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
   locked_by = 0;
+#ifdef RPY_STM_DEBUG_PRINT
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev unlocked\n", pself);
+#endif
   pthread_mutex_unlock(&mutex_inevitable);
 }
 # else
@@ -431,6 +444,10 @@ long stm_read_word(void* addr, long offset)
     not_found:;
     }
 
+  // XXX try to remove this check from the main path
+  if (is_main_thread(d))
+    return *(long *)(((char *)addr) + offset);
+
  retry:
   // read the orec BEFORE we read anything else
   ovt = o->version;
@@ -465,7 +482,7 @@ long stm_read_word(void* addr, long offset)
 }
 
 
-static struct tx_descriptor *descriptor_init(void)
+static struct tx_descriptor *descriptor_init(_Bool is_main_thread)
 {
   assert(thread_descriptor == NULL);
   if (1)  /* for hg diff */
@@ -477,11 +494,18 @@ static struct tx_descriptor *descriptor_init(void)
       PYPY_DEBUG_START("stm-init");
 #endif
 
-      /* initialize 'my_lock_word' to be a unique negative number */
-      d->my_lock_word = (owner_version_t)d;
-      if (!IS_LOCKED(d->my_lock_word))
-        d->my_lock_word = ~d->my_lock_word;
-      assert(IS_LOCKED(d->my_lock_word));
+      if (is_main_thread)
+        {
+          d->my_lock_word = 0;
+        }
+      else
+        {
+          /* initialize 'my_lock_word' to be a unique negative number */
+          d->my_lock_word = (owner_version_t)d;
+          if (!IS_LOCKED(d->my_lock_word))
+            d->my_lock_word = ~d->my_lock_word;
+          assert(IS_LOCKED(d->my_lock_word));
+        }
       /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
 
       thread_descriptor = d;
@@ -549,6 +573,7 @@ static void begin_transaction(jmp_buf* buf)
 static long commit_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
+  assert(!is_main_thread(d));
 
   // if I don't have writes, I'm committed
   if (!redolog_any_entry(&d->redolog))
@@ -707,11 +732,10 @@ long stm_thread_id(void)
 }
 
 
-void stm_set_tls(void *newtls, long (*getsize)(void*))
+void stm_set_tls(void *newtls, long is_main_thread)
 {
-  struct tx_descriptor *d = descriptor_init();
+  struct tx_descriptor *d = descriptor_init(is_main_thread);
   d->rpython_tls_object = newtls;
-  d->rpython_get_size = getsize;
 }
 
 void *stm_get_tls(void)
@@ -750,6 +774,11 @@ void stm_tldict_enum(void(*callback)(void*, void*))
     {
       callback(item->addr, item->val);
     } REDOLOG_LOOP_END;
+}
+
+void stm_setup_size_getter(long(*getsize_fn)(void*))
+{
+  rpython_get_size = getsize_fn;
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */

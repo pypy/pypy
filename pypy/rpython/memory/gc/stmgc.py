@@ -67,10 +67,9 @@ class StmGC(GCBase):
         self.collector = Collector(self)
         self.max_nursery_size = max_nursery_size
         #
-        def _do_get_size(obj):     # indirection to hide 'self'
+        def _get_size(obj):     # indirection to hide 'self'
             return self.get_size(obj)
-        GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address],lltype.Signed))
-        self._do_get_size = llhelper(GETSIZE, _do_get_size)
+        self._getsize_fn = _get_size
         #
         self.declare_readers()
         self.declare_write_barrier()
@@ -78,6 +77,9 @@ class StmGC(GCBase):
     def setup(self):
         """Called at run-time to initialize the GC."""
         GCBase.setup(self)
+        GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address],lltype.Signed))
+        self.stm_operations.setup_size_getter(
+                llhelper(GETSIZE, self._getsize_fn))
         self.main_thread_tls = self.setup_thread(True)
         self.mutex_lock = ll_thread.allocate_ll_lock()
 
@@ -95,7 +97,7 @@ class StmGC(GCBase):
         Must be called only once per OS-level thread."""
         tls = lltype.malloc(self.GCTLS, flavor='raw')
         self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls),
-                                    self._do_get_size)
+                                    int(in_main_thread))
         tls.nursery_start = self._alloc_nursery()
         tls.nursery_size  = self.max_nursery_size
         tls.nursery_free  = tls.nursery_start

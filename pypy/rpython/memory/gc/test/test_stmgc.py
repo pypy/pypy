@@ -22,17 +22,21 @@ class FakeStmOperations:
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
-    def set_tls(self, tls, getsize_fn):
+    def setup_size_getter(self, getsize_fn):
+        self._getsize_fn = getsize_fn
+
+    def set_tls(self, tls, in_main_thread):
         assert lltype.typeOf(tls) == llmemory.Address
         assert tls
         if self.threadnum == 0:
+            assert in_main_thread == 1
             assert not hasattr(self, '_tls_dict')
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
             self._tldicts_iterators = {}
-            self._getsize_fn = getsize_fn
             self._transactional_copies = []
         else:
+            assert in_main_thread == 0
             self._tls_dict[self.threadnum] = tls
             self._tldicts[self.threadnum] = {}
 

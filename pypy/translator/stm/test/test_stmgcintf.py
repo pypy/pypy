@@ -2,17 +2,22 @@ import random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK, GETSIZE
+from pypy.rpython.memory.gc import stmgc
 
 stm_operations = StmOperations()
 
 DEFAULT_TLS = lltype.Struct('DEFAULT_TLS')
+
+S1 = lltype.Struct('S1', ('hdr', stmgc.StmGC.HDR),
+                         ('x', lltype.Signed),
+                         ('y', lltype.Signed))
 
 
 def test_set_get_del():
     # assume that they are really thread-local; not checked here
     s = lltype.malloc(lltype.Struct('S'), flavor='raw')
     a = llmemory.cast_ptr_to_adr(s)
-    stm_operations.set_tls(a, lltype.nullptr(GETSIZE.TO))
+    stm_operations.set_tls(a, 1)
     assert stm_operations.get_tls() == a
     stm_operations.del_tls()
     lltype.free(s, flavor='raw')
@@ -25,14 +30,11 @@ class TestStmGcIntf:
         s = lltype.malloc(TLS, flavor='raw', immortal=True)
         self.tls = s
         a = llmemory.cast_ptr_to_adr(s)
-        getsize = llhelper(GETSIZE, self.getsize)
-        stm_operations.set_tls(a, getsize)
+        in_main_thread = getattr(meth, 'in_main_thread', True)
+        stm_operations.set_tls(a, int(in_main_thread))
 
     def teardown_method(self, meth):
         stm_operations.del_tls()
-
-    def getsize(self, obj):
-        xxx
 
     def test_set_get_del(self):
         a = llmemory.cast_ptr_to_adr(self.tls)
@@ -80,3 +82,46 @@ class TestStmGcIntf:
         p_callback, seen = self.get_callback()
         stm_operations.tldict_enum(p_callback)
         assert seen == []
+
+    def stm_read_case(self, flags, copied=False):
+        # doesn't test STM behavior, but just that it appears to work
+        s1 = lltype.malloc(S1, flavor='raw')
+        s1.hdr.tid = stmgc.GCFLAG_GLOBAL | flags
+        s1.hdr.version = llmemory.NULL
+        s1.x = 42042
+        if copied:
+            s2 = lltype.malloc(S1, flavor='raw')
+            s2.hdr.tid = stmgc.GCFLAG_WAS_COPIED
+            s2.hdr.version = llmemory.NULL
+            s2.x = 84084
+            a1 = llmemory.cast_ptr_to_adr(s1)
+            a2 = llmemory.cast_ptr_to_adr(s2)
+            stm_operations.tldict_add(a1, a2)
+        res = stm_operations.stm_read_word(llmemory.cast_ptr_to_adr(s1),
+                                           rffi.sizeof(S1.hdr))  # 'x'
+        lltype.free(s1, flavor='raw')
+        if copied:
+            lltype.free(s2, flavor='raw')
+        return res
+
+    def test_stm_read_word_main_thread(self):
+        res = self.stm_read_case(0)                        # not copied
+        assert res == 42042
+        res = self.stm_read_case(stmgc.GCFLAG_WAS_COPIED)  # but ignored
+        assert res == 42042
+
+    def test_stm_read_word_transactional_thread(self):
+        res = self.stm_read_case(0)                        # not copied
+        assert res == 42042
+        res = self.stm_read_case(stmgc.GCFLAG_WAS_COPIED)  # but ignored
+        assert res == 42042
+        res = self.stm_read_case(stmgc.GCFLAG_WAS_COPIED, copied=True)
+        assert res == 84084
+    test_stm_read_word_transactional_thread.in_main_thread = False
+
+    def test_stm_size_getter(self):
+        def getsize(addr):
+            xxx
+        getter = llhelper(GETSIZE, getsize)
+        stm_operations.setup_size_getter(getter)
+        # just tests that the function is really defined

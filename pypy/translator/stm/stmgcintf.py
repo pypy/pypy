@@ -14,7 +14,10 @@ class StmOperations(object):
     def _freeze_(self):
         return True
 
-    set_tls = smexternal('stm_set_tls', [llmemory.Address, GETSIZE],
+    setup_size_getter = smexternal('stm_setup_size_getter', [GETSIZE],
+                                   lltype.Void)
+
+    set_tls = smexternal('stm_set_tls', [llmemory.Address, lltype.Signed],
                          lltype.Void)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)

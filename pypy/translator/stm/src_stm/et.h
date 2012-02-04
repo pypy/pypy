@@ -12,7 +12,9 @@
 #include "src/commondefs.h"
 
 
-void stm_set_tls(void *, long(*)(void*));
+void stm_setup_size_getter(long(*)(void*));
+
+void stm_set_tls(void *, long);
 void *stm_get_tls(void);
 void stm_del_tls(void);
 
