@@ -434,11 +434,13 @@ class __extend__(pairtype(SomeBool, SomeBool)):
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
-        return SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
+        can_be_None = str1.can_be_None or str2.can_be_None
+        no_nul = str1.no_nul and str2.no_nul
+        return SomeString(can_be_None=can_be_None, no_nul=no_nul)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
-        result = SomeString()
+        result = SomeString(no_nul=str1.no_nul and str2.no_nul)
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result
@@ -475,7 +477,16 @@ class __extend__(pairtype(SomeString, SomeTuple)):
                 raise NotImplementedError(
                     "string formatting mixing strings and unicode not supported")
         getbookkeeper().count('strformat', str, s_tuple)
-        return SomeString()
+        no_nul = str.no_nul
+        for s_item in s_tuple.items:
+            if isinstance(s_item, SomeFloat):
+                pass   # or s_item is a subclass, like SomeInteger
+            elif isinstance(s_item, SomeString) and s_item.no_nul:
+                pass
+            else:
+                no_nul = False
+                break
+        return SomeString(no_nul=no_nul)
 
 
 class __extend__(pairtype(SomeString, SomeObject)):
@@ -828,7 +839,7 @@ def _make_none_union(classname, constructor_args='', glob=None):
     exec source.compile() in glob
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
-_make_none_union('SomeString',      'can_be_None=True')
+_make_none_union('SomeString',      'no_nul=obj.no_nul, can_be_None=True')
 _make_none_union('SomeUnicodeString', 'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')

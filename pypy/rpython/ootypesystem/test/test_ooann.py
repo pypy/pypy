@@ -231,7 +231,7 @@ def test_nullstring():
 
     a = RPythonAnnotator()
     s = a.build_types(oof, [bool])
-    assert s == annmodel.SomeString(can_be_None=True)
+    assert annmodel.SomeString(can_be_None=True).contains(s)
 
 def test_oostring():
     def oof():

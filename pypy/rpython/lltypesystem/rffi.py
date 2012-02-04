@@ -15,7 +15,7 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
@@ -698,7 +698,7 @@ def make_string_mappings(strtype):
         while cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # str -> char*
     # Can't inline this because of the raw address manipulation.
@@ -804,7 +804,7 @@ def make_string_mappings(strtype):
         while i < maxlen and cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
@@ -842,6 +842,7 @@ def liststr2charpp(l):
         array[i] = str2charp(l[i])
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
+liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
 
 def free_charpp(ref):
     """ frees list of char**, NULL terminated

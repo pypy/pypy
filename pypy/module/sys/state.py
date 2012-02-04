@@ -74,7 +74,7 @@ def getinitialpath(state, prefix):
     #
     return importlist
 
-@unwrap_spec(srcdir=str)
+@unwrap_spec(srcdir='str0')
 def pypy_initial_path(space, srcdir):
     try:
         path = getinitialpath(get(space), srcdir)

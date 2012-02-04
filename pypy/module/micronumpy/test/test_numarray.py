@@ -1,11 +1,13 @@
 
 import py
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
-from pypy.module.micronumpy.interp_iter import Chunk
-from pypy.module.micronumpy import signature
+
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.module.micronumpy import signature
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.interp_iter import Chunk
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class MockDtype(object):
@@ -936,10 +938,9 @@ class AppTestNumArray(BaseNumpyAppTest):
                    [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
         c = dot(a, b[:, 2])
         assert (c == [[62, 214, 366], [518, 670, 822]]).all()
-        a = arange(3*4*5*6).reshape((3,4,5,6))
-        b = arange(3*4*5*6)[::-1].reshape((5,4,6,3))
-        assert dot(a, b)[2,3,2,1,2,2] == 499128
-        assert sum(a[2,3,2,:] * b[1,2,:,2]) == 499128
+        a = arange(3*2*6).reshape((3,2,6))
+        b = arange(3*2*6)[::-1].reshape((2,6,3))
+        assert dot(a, b)[2,0,1,2] == 1140
 
     def test_dot_constant(self):
         from _numpypy import array, dot
@@ -1488,24 +1489,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
-        #no == yet.
-        # a[::2].flat == [0, 1, 4, 5, 8, 9]
-        isequal = True
-        for y,z in zip(a[::2].flat, [0, 1, 4, 5, 8, 9]):
-            if y != z:
-                isequal = False
-        assert isequal == True
+        assert (a[::2].flat == [0, 1, 4, 5, 8, 9]).all()
 
     def test_flatiter_transpose(self):
         from _numpypy import arange
-        a = arange(10).reshape(2,5).T
+        a = arange(10).reshape(2, 5).T
         b = a.flat
         assert (b[:5] == [0, 5, 1, 6, 2]).all()
         b.next()
         b.next()
         b.next()
         assert b.index == 3
-        assert b.coords == (1,1)
+        assert b.coords == (1, 1)
+
+    def test_flatiter_len(self):
+        from _numpypy import arange
+
+        assert len(arange(10).flat) == 10
+        assert len(arange(10).reshape(2, 5).flat) == 10
+        assert len(arange(10)[:2].flat) == 2
+        assert len((arange(2) + arange(2)).flat) == 2
 
     def test_slice_copy(self):
         from _numpypy import zeros
@@ -1759,10 +1762,11 @@ class AppTestRanges(BaseNumpyAppTest):
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
 
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
         cls.old_array_repr = cache.w_array_repr
@@ -1776,6 +1780,8 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
 
     def teardown_class(cls):
+        if option.runappdirect:
+            return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str

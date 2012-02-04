@@ -167,3 +167,23 @@ class TestExtFuncEntry:
         a = RPythonAnnotator(policy=policy)
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
+
+    def test_str0(self):
+        str0 = annmodel.SomeString(no_nul=True)
+        def os_open(s):
+            pass
+        register_external(os_open, [str0], None)
+        def f(s):
+            return os_open(s)
+        policy = AnnotatorPolicy()
+        policy.allow_someobjects = False
+        a = RPythonAnnotator(policy=policy)
+        a.build_types(f, [str])  # Does not raise
+        assert a.translator.config.translation.check_str_without_nul == False
+        # Now enable the str0 check, and try again with a similar function
+        a.translator.config.translation.check_str_without_nul=True
+        def g(s):
+            return os_open(s)
+        raises(Exception, a.build_types, g, [str])
+        a.build_types(g, [str0])  # Does not raise
+
