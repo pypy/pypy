@@ -1489,24 +1489,26 @@ class AppTestMultiDim(BaseNumpyAppTest):
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
-        #no == yet.
-        # a[::2].flat == [0, 1, 4, 5, 8, 9]
-        isequal = True
-        for y,z in zip(a[::2].flat, [0, 1, 4, 5, 8, 9]):
-            if y != z:
-                isequal = False
-        assert isequal == True
+        assert (a[::2].flat == [0, 1, 4, 5, 8, 9]).all()
 
     def test_flatiter_transpose(self):
         from _numpypy import arange
-        a = arange(10).reshape(2,5).T
+        a = arange(10).reshape(2, 5).T
         b = a.flat
         assert (b[:5] == [0, 5, 1, 6, 2]).all()
         b.next()
         b.next()
         b.next()
         assert b.index == 3
-        assert b.coords == (1,1)
+        assert b.coords == (1, 1)
+
+    def test_flatiter_len(self):
+        from _numpypy import arange
+
+        assert len(arange(10).flat) == 10
+        assert len(arange(10).reshape(2, 5).flat) == 10
+        assert len(arange(10)[:2].flat) == 2
+        assert len((arange(2) + arange(2)).flat) == 2
 
     def test_slice_copy(self):
         from _numpypy import zeros

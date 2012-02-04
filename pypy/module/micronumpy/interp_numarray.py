@@ -796,7 +796,7 @@ class Call2(VirtualArray):
                                self.left.create_sig(), self.right.create_sig())
 
 class ResultArray(Call2):
-    def __init__(self, child, size, shape, dtype, res=None, order='C'): 
+    def __init__(self, child, size, shape, dtype, res=None, order='C'):
         if res is None:
             res = W_NDimArray(size, shape, dtype, order)
         Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
@@ -824,7 +824,7 @@ class ReduceArray(Call2):
             frame.next(len(self.right.shape))
         else:
             frame.cur_value = self.identity.convert_to(self.calc_dtype)
-    
+
     def create_sig(self):
         if self.name == 'logical_and':
             done_func = done_if_false
@@ -1321,6 +1321,9 @@ class W_FlatIterator(ViewArray):
     def descr_iter(self):
         return self
 
+    def descr_len(self, space):
+        return space.wrap(self.size)
+
     def descr_index(self, space):
         return space.wrap(self.index)
 
@@ -1396,7 +1399,7 @@ class W_FlatIterator(ViewArray):
         return signature.FlatSignature(self.base.dtype)
 
     def create_iter(self, transforms=None):
-        return ViewIterator(self.base.start, self.base.strides, 
+        return ViewIterator(self.base.start, self.base.strides,
                     self.base.backstrides,
                     self.base.shape).apply_transformations(self.base,
                                                            transforms)
@@ -1407,14 +1410,17 @@ class W_FlatIterator(ViewArray):
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     __iter__ = interp2app(W_FlatIterator.descr_iter),
+    __len__ = interp2app(W_FlatIterator.descr_len),
     __getitem__ = interp2app(W_FlatIterator.descr_getitem),
     __setitem__ = interp2app(W_FlatIterator.descr_setitem),
+
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),
     __lt__ = interp2app(BaseArray.descr_lt),
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
+
     base = GetSetProperty(W_FlatIterator.descr_base),
     index = GetSetProperty(W_FlatIterator.descr_index),
     coords = GetSetProperty(W_FlatIterator.descr_coords),
