@@ -391,7 +391,7 @@ _oplist = [
     'GUARD_EXCEPTION/1d',       # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
-    'GUARD_NOT_FORCED/1d',      # may be called with an exception currently set
+    'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
     'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
