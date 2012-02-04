@@ -480,13 +480,13 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_lstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_rstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_join(str, s_list):
         if s_None.contains(s_list):

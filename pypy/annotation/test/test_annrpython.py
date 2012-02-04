@@ -479,6 +479,18 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeList)
         assert s.listdef.listitem.resized
 
+    def test_str_strip(self):
+        a = self.RPythonAnnotator()
+        def f(n, a_str):
+            if n == 0:
+                return a_str.strip(' ')
+            elif n == 1:
+                return a_str.rstrip(' ')
+            else: 
+                return a_str.lstrip(' ')
+        s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
+        assert s.no_nul
+
     def test_str_mul(self):
         a = self.RPythonAnnotator()
         def f(a_str):
