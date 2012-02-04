@@ -82,17 +82,14 @@ class FakeStmOperations:
         assert state[2] is not None
         return state[2]
 
-    class stm_read_word:
-        def __init__(self, obj, offset):
-            self.obj = obj
-            self.offset = offset
-        def __repr__(self):
-            return 'stm_read_word(%r, %r)' % (self.obj, self.offset)
-        def __eq__(self, other):
-            return (type(self) is type(other) and
-                    self.__dict__ == other.__dict__)
-        def __ne__(self, other):
-            return not (self == other)
+    def stm_read_word(self, obj, offset):
+        hdr = self._gc.header(obj)
+        if hdr.tid & GCFLAG_WAS_COPIED != 0:
+            localobj = self.tldict_lookup(obj)
+            if localobj:
+                assert self._gc.header(localobj).tid & GCFLAG_GLOBAL == 0
+                return (localobj + offset).signed[0]
+        return 'stm_ll_read_word(%r, %r)' % (obj, offset)
 
     def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
         sizehdr = self._gc.gcheaderbuilder.size_gc_header
@@ -205,7 +202,7 @@ class TestBasic:
         assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
         s.a = 42
         value = self.gc.read_signed(s_adr, ofs_a)
-        assert value == FakeStmOperations.stm_read_word(s_adr, ofs_a)
+        assert value == 'stm_ll_read_word(%r, %r)' % (s_adr, ofs_a)
         #
         self.select_thread(1)
         s, s_adr = self.malloc(S)
