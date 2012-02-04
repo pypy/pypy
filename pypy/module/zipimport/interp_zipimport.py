@@ -383,7 +383,7 @@ def descr_new_zipimporter(space, w_type, name):
     prefix = name[len(filename):]
     if prefix.startswith(os.path.sep) or prefix.startswith(ZIPSEP):
         prefix = prefix[1:]
-    if prefix and not prefix.endswith(ZIPSEP):
+    if prefix and not prefix.endswith(ZIPSEP) and not prefix.endswith(os.path.sep):
         prefix += ZIPSEP
     w_result = space.wrap(W_ZipImporter(space, name, filename, zip_file, prefix))
     zip_cache.set(filename, w_result)
