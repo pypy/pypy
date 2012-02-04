@@ -3,9 +3,10 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.controllerentry import Controller
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.module import ll_os
 from pypy.rlib import rposix
 
-str0 = annmodel.s_Str0
+str0 = ll_os.str0
 
 # ____________________________________________________________
 #

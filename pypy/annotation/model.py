@@ -740,6 +740,15 @@ def not_const(s_obj):
         s_obj = new_s_obj
     return s_obj
 
+def remove_no_nul(s_obj):
+    if not getattr(s_obj, 'no_nul', False):
+        return s_obj
+    new_s_obj = SomeObject.__new__(s_obj.__class__)
+    new_s_obj.__dict__ = s_obj.__dict__.copy()
+    del new_s_obj.no_nul
+    return new_s_obj
+    
+
 # ____________________________________________________________
 # internal
 

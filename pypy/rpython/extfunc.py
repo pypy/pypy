@@ -2,7 +2,7 @@ from pypy.rpython import extregistry
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
-from pypy.annotation.model import unionof
+from pypy.annotation import model as annmodel
 from pypy.annotation.signature import annotation
 
 import py, sys
@@ -138,7 +138,6 @@ class _ext_callable(ExtRegistryEntry):
     # we defer a bit annotation here
 
     def compute_result_annotation(self):
-        from pypy.annotation import model as annmodel
         return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
                                              for i in self.instance.args],
                            annotation(self.instance.result, self.bookkeeper))
@@ -152,8 +151,17 @@ class ExtFuncEntry(ExtRegistryEntry):
         signature_args = [annotation(arg, None) for arg in args]
         assert len(args_s) == len(signature_args),\
                "Argument number mismatch"
+
+        check_no_nul = False
+        if hasattr(self, 'bookkeeper'):
+            config = self.bookkeeper.annotator.translator.config
+            if config.translation.check_str_without_nul:
+                check_no_nul = True
+            
         for i, expected in enumerate(signature_args):
-            arg = unionof(args_s[i], expected)
+            if not check_no_nul:
+                expected = annmodel.remove_no_nul(expected)
+            arg = annmodel.unionof(args_s[i], expected)
             if not expected.contains(arg):
                 name = getattr(self, 'name', None)
                 if not name:
