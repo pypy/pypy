@@ -1346,12 +1346,15 @@ class MIFrame(object):
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
             self.metainterp.vrefs_after_residual_call()
+            vablebox = None
             if assembler_call:
-                self.metainterp.direct_assembler_call(assembler_call_jd)
+                vablebox = self.metainterp.direct_assembler_call(
+                    assembler_call_jd)
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call()
-            self.generate_guard(rop.GUARD_NOT_FORCED, None)
+            self.generate_guard(rop.GUARD_NOT_FORCED,
+                                extraargs=[vablebox or history.CONST_NULL])
             self.metainterp.handle_possible_exception()
             return resbox
         else:
@@ -2478,6 +2481,15 @@ class MetaInterp(object):
         token = warmrunnerstate.get_assembler_token(greenargs)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
         self.history.operations.append(op)
+        #
+        # To fix an obscure issue, make sure the vable stays alive
+        # longer than the CALL_ASSEMBLER operation.  We stick it
+        # randomly to the GUARD_NOT_FORCED that follows.
+        jd = token.outermost_jitdriver_sd
+        if jd.index_of_virtualizable >= 0:
+            return args[jd.index_of_virtualizable]
+        else:
+            return None
 
 # ____________________________________________________________
 

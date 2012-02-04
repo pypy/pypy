@@ -174,7 +174,7 @@ TYPES = {
     'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
-    'guard_not_forced': ((), None),
+    'guard_not_forced': (('ref',), None),
 }
 
 # ____________________________________________________________
@@ -1053,7 +1053,7 @@ class Frame(object):
         finally:
             self._may_force = -1
 
-    def op_guard_not_forced(self, descr):
+    def op_guard_not_forced(self, descr, vable_ignored):
         forced = self._forced
         self._forced = False
         if forced:
