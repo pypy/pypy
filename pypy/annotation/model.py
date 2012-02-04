@@ -741,6 +741,14 @@ def not_const(s_obj):
     return s_obj
 
 def remove_no_nul(s_obj):
+    if isinstance(s_obj, SomeList):
+        s_item = s_obj.listdef.read_item()
+        new_s_item = remove_no_nul(s_item)
+        from pypy.annotation.listdef import ListDef
+        if s_item is not new_s_item:
+            return SomeList(ListDef(None, new_s_item,
+                                    resized=True))
+
     if not getattr(s_obj, 'no_nul', False):
         return s_obj
     new_s_obj = SomeObject.__new__(s_obj.__class__)
