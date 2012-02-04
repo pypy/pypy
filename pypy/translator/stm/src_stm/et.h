@@ -16,6 +16,9 @@ void stm_set_tls(void *);
 void *stm_get_tls(void);
 void stm_del_tls(void);
 
+void *stm_tldict_lookup(void *);
+void stm_tldict_add(void *, void *);
+
 
 
 #ifdef RPY_STM_ASSERT

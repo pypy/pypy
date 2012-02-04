@@ -21,8 +21,8 @@
 #define TREE_MASK   ((TREE_ARITY - 1) * sizeof(void*))
 
 typedef struct {
-  long* addr;
-  long val;
+  void* addr;
+  void *val;
   owner_version_t p;   // the previous version number (if locked)
 } wlog_t;
 
@@ -120,7 +120,7 @@ static wlog_t *_redolog_find(char *entry, long* addr)
   return (wlog_t *)entry;   /* may be NULL */
 }
 
-static void redolog_insert(struct RedoLog *redolog, long* addr, long val);
+static void redolog_insert(struct RedoLog *redolog, void* addr, void *val);
 
 static void _redolog_grow(struct RedoLog *redolog, long extra)
 {
@@ -156,7 +156,7 @@ static char *_redolog_grab(struct RedoLog *redolog, long size)
   return result;
 }
 
-static void redolog_insert(struct RedoLog *redolog, long* addr, long val)
+static void redolog_insert(struct RedoLog *redolog, void* addr, void *val)
 {
  retry:;
   wlog_t *wlog;
@@ -164,6 +164,7 @@ static void redolog_insert(struct RedoLog *redolog, long* addr, long val)
   int shift = 0;
   char *p = (char *)(redolog->toplevel.items);
   char *entry;
+  assert((key & (sizeof(void*)-1)) == 0);   /* only for aligned keys */
   while (1)
     {
       p += (key >> shift) & TREE_MASK;
@@ -178,12 +179,8 @@ static void redolog_insert(struct RedoLog *redolog, long* addr, long val)
       else
         {
           wlog_t *wlog1 = (wlog_t *)entry;
-          if (wlog1->addr == addr)
-            {
-              /* overwrite and that's it */
-              wlog1->val = val;
-              return;
-            }
+          /* the key must not already be present */
+          assert(wlog1->addr != addr);
           /* collision: there is already a different wlog here */
           wlog_node_t *node = (wlog_node_t *)
                 _redolog_grab(redolog, sizeof(wlog_node_t));

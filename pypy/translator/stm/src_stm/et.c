@@ -147,6 +147,8 @@ static _Bool is_inevitable(struct tx_descriptor *d)
 /*** run the redo log to commit a transaction, and release the locks */
 static void tx_redo(struct tx_descriptor *d)
 {
+  abort();
+#if 0
   owner_version_t newver = d->end_time;
   wlog_t *item;
   /* loop in "forward" order: in this order, if there are duplicate orecs
@@ -163,6 +165,7 @@ static void tx_redo(struct tx_descriptor *d)
           *o = newver;
         }
     } REDOLOG_LOOP_END;
+#endif
 }
 
 /*** on abort, release locks and restore the old version number. */
@@ -856,6 +859,23 @@ void *stm_get_tls(void)
 void stm_del_tls(void)
 {
   descriptor_done();
+}
+
+void *stm_tldict_lookup(void *key)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t* found;
+  REDOLOG_FIND(d->redolog, key, found, goto not_found);
+  return found->val;
+
+ not_found:
+  return NULL;
+}
+
+void stm_tldict_add(void *key, void *value)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  redolog_insert(&d->redolog, key, value);
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */
