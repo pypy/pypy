@@ -254,7 +254,7 @@ def do_read_timestamp(cpu, _):
         assert isinstance(x, r_longlong)  # 32-bit
         return BoxFloat(x)
 
-def do_keepalive(cpu, x):
+def do_keepalive(cpu, _, x):
     pass
 
 # ____________________________________________________________
