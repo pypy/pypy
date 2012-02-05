@@ -225,9 +225,7 @@ class SomeBool(SomeInteger):
     def __init__(self):
         pass
 
-class SomeString(SomeObject):
-    "Stands for an object which is known to be a string."
-    knowntype = str
+class SomeStringOrUnicode(SomeObject):
     immutable = True
     can_be_None=False
     no_nul = False  # No NUL character in the string.
@@ -241,27 +239,29 @@ class SomeString(SomeObject):
     def can_be_none(self):
         return self.can_be_None
 
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        d1 = self.__dict__
+        d2 = other.__dict__
+        if getattr(TLS, 'ignore_no_nul', False):
+            d1 = d1.copy(); d1['no_nul'] = 0
+            d2 = d2.copy(); d2['no_nul'] = 0
+        return d1 == d2
+
+class SomeString(SomeStringOrUnicode):
+    "Stands for an object which is known to be a string."
+    knowntype = str
+
     def nonnoneify(self):
         return SomeString(can_be_None=False, no_nul=self.no_nul)
 
-class SomeUnicodeString(SomeObject):
+class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
-    immutable = True
-    can_be_None=False
-    no_nul = False
-
-    def __init__(self, can_be_None=False, no_nul=False):
-        if can_be_None:
-            self.can_be_None = True
-        if no_nul:
-            self.no_nul = True
-
-    def can_be_none(self):
-        return self.can_be_None
 
     def nonnoneify(self):
-        return SomeUnicodeString(can_be_None=False)
+        return SomeUnicodeString(can_be_None=False, no_nul=self.no_nul)
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
@@ -739,23 +739,6 @@ def not_const(s_obj):
             del new_s_obj.const_box
         s_obj = new_s_obj
     return s_obj
-
-def remove_no_nul(s_obj):
-    if isinstance(s_obj, SomeList):
-        s_item = s_obj.listdef.listitem.s_value
-        new_s_item = remove_no_nul(s_item)
-        from pypy.annotation.listdef import ListDef
-        if s_item is not new_s_item:
-            return SomeList(ListDef(None, new_s_item,
-                                    resized=True))
-
-    if not getattr(s_obj, 'no_nul', False):
-        return s_obj
-    new_s_obj = SomeObject.__new__(s_obj.__class__)
-    new_s_obj.__dict__ = s_obj.__dict__.copy()
-    del new_s_obj.no_nul
-    return new_s_obj
-    
 
 # ____________________________________________________________
 # internal

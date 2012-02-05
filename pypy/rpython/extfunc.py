@@ -152,26 +152,25 @@ class ExtFuncEntry(ExtRegistryEntry):
         assert len(args_s) == len(signature_args),\
                "Argument number mismatch"
 
-        check_no_nul = False
         config = self.bookkeeper.annotator.translator.config
-        if config.translation.check_str_without_nul:
-            check_no_nul = True
-
-        for i, expected in enumerate(signature_args):
-            if not check_no_nul:
-                expected = annmodel.remove_no_nul(expected)
-            arg = annmodel.unionof(args_s[i], expected)
-            if not expected.contains(arg):
-                name = getattr(self, 'name', None)
-                if not name:
-                    try:
-                        name = self.instance.__name__
-                    except AttributeError:
-                        name = '?'
-                raise Exception("In call to external function %r:\n"
-                                "arg %d must be %s,\n"
-                                "          got %s" % (
-                    name, i+1, expected, args_s[i]))
+        if not config.translation.check_str_without_nul:
+            annmodel.TLS.ignore_no_nul = True
+        try:
+            for i, expected in enumerate(signature_args):
+                arg = annmodel.unionof(args_s[i], expected)
+                if not expected.contains(arg):
+                    name = getattr(self, 'name', None)
+                    if not name:
+                        try:
+                            name = self.instance.__name__
+                        except AttributeError:
+                            name = '?'
+                    raise Exception("In call to external function %r:\n"
+                                    "arg %d must be %s,\n"
+                                    "          got %s" % (
+                        name, i+1, expected, args_s[i]))
+        finally:
+            annmodel.TLS.ignore_no_nul = False
         return signature_args
 
     def compute_result_annotation(self, *args_s):
