@@ -37,7 +37,7 @@ def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
         w_obj = space.call_method(w_obj, 'encode',
                                   getfilesystemencoding(space))
-    return space.str_w(w_obj)
+    return space.str0_w(w_obj)
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
@@ -56,7 +56,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str_w(self.w_obj)
+        return self.space.str0_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -71,7 +71,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str_w(w_fname)
+            fname = space.str0_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -369,7 +369,7 @@ def times(space):
                                space.wrap(times[3]),
                                space.wrap(times[4])])
 
-@unwrap_spec(cmd=str)
+@unwrap_spec(cmd='str0')
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -401,7 +401,7 @@ def _getfullpathname(space, w_path):
             fullpath = rposix._getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
         else:
-            path = space.str_w(w_path)
+            path = space.str0_w(w_path)
             fullpath = rposix._getfullpathname(path)
             w_fullpath = space.wrap(fullpath)
     except OSError, e:
@@ -512,7 +512,7 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.wrap(key), space.wrap(value))
 
-@unwrap_spec(name=str, value=str)
+@unwrap_spec(name='str0', value='str0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
     try:
@@ -520,7 +520,7 @@ def putenv(space, name, value):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='str0')
 def unsetenv(space, name):
     """Delete an environment variable."""
     try:
@@ -548,7 +548,7 @@ entries '.' and '..' even if they are present in the directory."""
                 for s in result
             ]
         else:
-            dirname = space.str_w(w_dirname)
+            dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
             result_w = [space.wrap(s) for s in result]
     except OSError, e:
@@ -635,7 +635,7 @@ in the hardest way possible on the hosting operating system."""
     import signal
     os.kill(os.getpid(), signal.SIGABRT)
 
-@unwrap_spec(src=str, dst=str)
+@unwrap_spec(src='str0', dst='str0')
 def link(space, src, dst):
     "Create a hard link to a file."
     try:
@@ -650,7 +650,7 @@ def symlink(space, w_src, w_dst):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path=str)
+@unwrap_spec(path='str0')
 def readlink(space, path):
     "Return a string representing the path to which the symbolic link points."
     try:
@@ -765,7 +765,7 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.str_w(w_key)] = space.str_w(w_value)
+        env[space.str0_w(w_key)] = space.str0_w(w_value)
     return env
 
 def execve(space, w_command, w_args, w_env):
@@ -785,18 +785,18 @@ Execute a path with arguments and environment, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnv(space, mode, path, w_args):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)
 
-@unwrap_spec(mode=int, path=str)
+@unwrap_spec(mode=int, path='str0')
 def spawnve(space, mode, path, w_args, w_env):
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    args = [space.str0_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     env = _env2interp(space, w_env)
     try:
         ret = os.spawnve(mode, path, args, env)
@@ -914,7 +914,7 @@ def setegid(space, arg):
         raise wrap_oserror(space, e)
     return space.w_None
 
-@unwrap_spec(path=str)
+@unwrap_spec(path='str0')
 def chroot(space, path):
     """ chroot(path)
 
@@ -1103,7 +1103,7 @@ def fpathconf(space, fd, w_name):
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def chown(space, path, uid, gid):
     check_uid_range(space, uid)
     check_uid_range(space, gid)
@@ -1113,7 +1113,7 @@ def chown(space, path, uid, gid):
         raise wrap_oserror(space, e, path)
     return space.w_None
 
-@unwrap_spec(path=str, uid=c_uid_t, gid=c_gid_t)
+@unwrap_spec(path='str0', uid=c_uid_t, gid=c_gid_t)
 def lchown(space, path, uid, gid):
     check_uid_range(space, uid)
     check_uid_range(space, gid)

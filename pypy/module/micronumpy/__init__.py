@@ -98,6 +98,10 @@ class Module(MixedModule):
         ('bitwise_not', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
+        ('logical_and', 'logical_and'),
+        ('logical_xor', 'logical_xor'),
+        ('logical_not', 'logical_not'),
+        ('logical_or', 'logical_or'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
