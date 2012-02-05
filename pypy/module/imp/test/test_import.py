@@ -980,6 +980,16 @@ class TestPycStuff:
                 finally:
                     stream.close()
 
+    def test_annotation(self):
+        from pypy.annotation.annrpython import RPythonAnnotator
+        from pypy.annotation import model as annmodel
+        def f():
+            return importing.make_compiled_pathname('abc/foo.py')
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
 
 def test_PYTHONPATH_takes_precedence(space): 
     if sys.platform == "win32":

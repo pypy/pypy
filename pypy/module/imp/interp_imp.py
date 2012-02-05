@@ -181,7 +181,7 @@ def reinit_lock(space):
     if space.config.objspace.usemodules.thread:
         importing.getimportlock(space).reinit_lock()
 
-@unwrap_spec(pathname=str)
+@unwrap_spec(pathname='str0')
 def cache_from_source(space, pathname, w_debug_override=None):
     """cache_from_source(path, [debug_override]) -> path
     Given the path to a .py file, return the path to its .pyc/.pyo file.
@@ -194,7 +194,7 @@ def cache_from_source(space, pathname, w_debug_override=None):
     the value of __debug__ instead."""
     return space.wrap(importing.make_compiled_pathname(pathname))
 
-@unwrap_spec(pathname=str)
+@unwrap_spec(pathname='str0')
 def source_from_cache(space, pathname):
     """source_from_cache(path) -> path
     Given the path to a .pyc./.pyo file, return the path to its .py file.
