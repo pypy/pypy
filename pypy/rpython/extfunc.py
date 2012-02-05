@@ -152,25 +152,19 @@ class ExtFuncEntry(ExtRegistryEntry):
         assert len(args_s) == len(signature_args),\
                "Argument number mismatch"
 
-        config = self.bookkeeper.annotator.translator.config
-        if not config.translation.check_str_without_nul:
-            annmodel.TLS.ignore_no_nul = True
-        try:
-            for i, expected in enumerate(signature_args):
-                arg = annmodel.unionof(args_s[i], expected)
-                if not expected.contains(arg):
-                    name = getattr(self, 'name', None)
-                    if not name:
-                        try:
-                            name = self.instance.__name__
-                        except AttributeError:
-                            name = '?'
-                    raise Exception("In call to external function %r:\n"
-                                    "arg %d must be %s,\n"
-                                    "          got %s" % (
-                        name, i+1, expected, args_s[i]))
-        finally:
-            annmodel.TLS.ignore_no_nul = False
+        for i, expected in enumerate(signature_args):
+            arg = annmodel.unionof(args_s[i], expected)
+            if not expected.contains(arg):
+                name = getattr(self, 'name', None)
+                if not name:
+                    try:
+                        name = self.instance.__name__
+                    except AttributeError:
+                        name = '?'
+                raise Exception("In call to external function %r:\n"
+                                "arg %d must be %s,\n"
+                                "          got %s" % (
+                    name, i+1, expected, args_s[i]))
         return signature_args
 
     def compute_result_annotation(self, *args_s):
@@ -179,7 +173,6 @@ class ExtFuncEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper
-        self.bookkeeper = rtyper.annotator.bookkeeper
         signature_args = self.normalize_args(*hop.args_s)
         args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]

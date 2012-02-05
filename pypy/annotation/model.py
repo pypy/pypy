@@ -39,7 +39,9 @@ import inspect, weakref
 DEBUG = False    # set to False to disable recording of debugging information
 
 class State(object):
-    pass
+    # A global attribute :-(  Patch it with 'True' to enable checking of
+    # the no_nul attribute...
+    check_str_without_nul = False
 TLS = State()
 
 class SomeObject(object):
@@ -244,9 +246,9 @@ class SomeStringOrUnicode(SomeObject):
             return False
         d1 = self.__dict__
         d2 = other.__dict__
-        if getattr(TLS, 'ignore_no_nul', False):
-            d1 = d1.copy(); d1['no_nul'] = 0
-            d2 = d2.copy(); d2['no_nul'] = 0
+        if not TLS.check_str_without_nul:
+            d1 = d1.copy(); d1['no_nul'] = 0   # ignored
+            d2 = d2.copy(); d2['no_nul'] = 0   # ignored
         return d1 == d2
 
 class SomeString(SomeStringOrUnicode):
