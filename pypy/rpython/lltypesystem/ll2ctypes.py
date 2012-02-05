@@ -1036,13 +1036,8 @@ def get_ctypes_callable(funcptr, calling_conv):
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
-    if not libraries:
-        cfunc = get_on_lib(standard_c_lib, funcname)
-        # XXX magic: on Windows try to load the function from 'kernel32' too
-        if cfunc is None and hasattr(ctypes, 'windll'):
-            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
-    else:
-        cfunc = None
+    cfunc = None
+    if libraries:
         not_found = []
         for libname in libraries:
             libpath = None
@@ -1073,6 +1068,12 @@ def get_ctypes_callable(funcptr, calling_conv):
                     break
             else:
                 not_found.append(libname)
+
+    if cfunc is None:
+        cfunc = get_on_lib(standard_c_lib, funcname)
+        # XXX magic: on Windows try to load the function from 'kernel32' too
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries

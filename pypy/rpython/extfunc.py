@@ -152,15 +152,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         assert len(args_s) == len(signature_args),\
                "Argument number mismatch"
 
-        check_no_nul = False
-        if hasattr(self, 'bookkeeper'):
-            config = self.bookkeeper.annotator.translator.config
-            if config.translation.check_str_without_nul:
-                check_no_nul = True
-            
         for i, expected in enumerate(signature_args):
-            if not check_no_nul:
-                expected = annmodel.remove_no_nul(expected)
             arg = annmodel.unionof(args_s[i], expected)
             if not expected.contains(arg):
                 name = getattr(self, 'name', None)
