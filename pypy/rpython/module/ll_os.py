@@ -48,7 +48,10 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
 
     args = ', '.join(arglist)
     transformed_args = ', '.join(transformed_arglist)
-    main_arg = 'arg%d' % (signature.index(unicode),)
+    try:
+        main_arg = 'arg%d' % (signature.index(unicode0),)
+    except ValueError:
+        main_arg = 'arg%d' % (signature.index(unicode),)
 
     source = py.code.Source("""
     def %(func_name)s(%(args)s):
@@ -823,7 +826,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_open_oofakeimpl(path, flags, mode):
             return os.open(OOSupport.from_rstr(path), flags, mode)
 
-        return extdef([str0, int, int], int, traits.ll_os_name('open'),
+        return extdef([traits.str0, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
     @registering_if(os, 'getloadavg')
