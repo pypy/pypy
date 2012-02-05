@@ -153,11 +153,10 @@ class ExtFuncEntry(ExtRegistryEntry):
                "Argument number mismatch"
 
         check_no_nul = False
-        if hasattr(self, 'bookkeeper'):
-            config = self.bookkeeper.annotator.translator.config
-            if config.translation.check_str_without_nul:
-                check_no_nul = True
-            
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.check_str_without_nul:
+            check_no_nul = True
+
         for i, expected in enumerate(signature_args):
             if not check_no_nul:
                 expected = annmodel.remove_no_nul(expected)
@@ -181,6 +180,7 @@ class ExtFuncEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper
+        self.bookkeeper = rtyper.annotator.bookkeeper
         signature_args = self.normalize_args(*hop.args_s)
         args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
