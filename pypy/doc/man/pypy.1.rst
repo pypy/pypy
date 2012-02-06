@@ -146,7 +146,7 @@ ENVIRONMENT
     performance issues under PyPy.
 
 .. include:: ../gc_info.rst
-   :start-line: 5
+   :start-line: 7
 
 SEE ALSO
 ========
