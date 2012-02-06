@@ -208,9 +208,14 @@ c_is_staticdata = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 
-c_atoi = rffi.llexternal(
-    "cppyy_atoi",
-    [rffi.CCHARP], rffi.INT,
+c_strtoll = rffi.llexternal(
+    "cppyy_strtoll",
+    [rffi.CCHARP], rffi.LONGLONG,
+    compilation_info=backend.eci)
+
+c_strtoull = rffi.llexternal(
+    "cppyy_strtoull",
+    [rffi.CCHARP], rffi.ULONGLONG,
     compilation_info=backend.eci)
 
 c_free = rffi.llexternal(

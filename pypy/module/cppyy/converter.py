@@ -137,6 +137,34 @@ class PtrTypeConverterMixin(object):
                                  space.wrap("raw buffer interface not supported"))
 
 
+class IntTypeConverterMixin(object):
+    _mixin_ = True
+    _immutable_ = True
+    
+    def __init__(self, space, default):
+        self.default = rffi.cast(self.rffitype, capi.c_strtoll(default))
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(self.rffiptype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+
+    def convert_argument_libffi(self, space, w_obj, argchain):
+        argchain.arg(self._unwrap_object(space, w_obj))
+
+    def default_argument_libffi(self, space, argchain):
+        argchain.arg(self.default)
+
+    def from_memory(self, space, w_obj, w_type, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        intptr = rffi.cast(self.rffiptype, address)
+        return space.wrap(intptr[0])
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = self._get_raw_address(space, w_obj, offset)
+        intptr = rffi.cast(self.rffiptype, address)
+        intptr[0] = self._unwrap_object(space, w_value)
+
+
 class VoidConverter(TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.void
@@ -217,35 +245,14 @@ class CharConverter(TypeConverter):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         address[0] = self._unwrap_object(space, w_value)
 
-class IntConverter(TypeConverter):
+class IntConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.sint
-
-    def __init__(self, space, default):
-        self.default = capi.c_atoi(default)
+    rffitype = rffi.INT
+    rffiptype = rffi.INTP
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.INT, space.c_int_w(w_obj))
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.INTP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
-
-    def default_argument_libffi(self, space, argchain):
-        argchain.arg(self.default)
-
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        intptr = rffi.cast(rffi.INTP, address)
-        return space.wrap(intptr[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        intptr = rffi.cast(rffi.INTP, address)
-        intptr[0] = self._unwrap_object(space, w_value)
 
 class UnsignedIntConverter(TypeConverter):
     _immutable_ = True
@@ -271,29 +278,14 @@ class UnsignedIntConverter(TypeConverter):
         ulongptr = rffi.cast(rffi.UINTP, address)
         ulongptr[0] = self._unwrap_object(space, w_value)
 
-class LongConverter(TypeConverter):
+class LongConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.slong
+    rffitype = rffi.LONG
+    rffiptype = rffi.LONGP
 
     def _unwrap_object(self, space, w_obj):
         return space.int_w(w_obj)
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.LONGP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
-
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        longptr = rffi.cast(rffi.LONGP, address)
-        return space.wrap(longptr[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        longptr = rffi.cast(rffi.LONGP, address)
-        longptr[0] = self._unwrap_object(space, w_value)
 
 class UnsignedLongConverter(TypeConverter):
     _immutable_ = True

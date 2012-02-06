@@ -257,15 +257,16 @@ class AppTestPYTHONIFY:
         assert f(s("noot"), 1).c_str() == "default"
         assert f(s("mies")).c_str() == "mies"
 
-        g = a.intValue
-        raises(TypeError, 'g(1, 2, 3, 4, 6)')
-        assert g(11, 0, 12, 13) == 11
-        assert g(11, 1, 12, 13) == 12
-        assert g(11, 1, 12)     == 12
-        assert g(11, 2, 12)     ==  2
-        assert g(11, 1)         ==  1
-        assert g(11, 2)         ==  2
-        assert g(11)            == 11
+        for itype in ['int', 'long']:
+            g = getattr(a, '%sValue' % itype)
+            raises(TypeError, 'g(1, 2, 3, 4, 6)')
+            assert g(11, 0, 12, 13) == 11
+            assert g(11, 1, 12, 13) == 12
+            assert g(11, 1, 12)     == 12
+            assert g(11, 2, 12)     ==  2
+            assert g(11, 1)         ==  1
+            assert g(11, 2)         ==  2
+            assert g(11)            == 11
 
     def test12_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""

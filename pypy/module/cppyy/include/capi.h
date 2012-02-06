@@ -73,7 +73,8 @@ extern "C" {
 
     /* misc helpers */
     void cppyy_free(void* ptr);
-    int cppyy_atoi(const char* str);
+    long long cppyy_strtoll(const char* str);
+    unsigned long long cppyy_strtuoll(const char* str);
 
 #ifdef __cplusplus
 }

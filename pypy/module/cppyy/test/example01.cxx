@@ -138,21 +138,25 @@ int ns_example01::globalAddOneToInt(int a) {
 
 
 // argument passing
-int ArgPasser::intValue(int arg0, int argn, int arg1, int arg2)
-{
-   switch (argn) {
-   case 0:
-      return arg0;
-   case 1:
-      return arg1;
-   case 2:
-      return arg2;
-   default:
-      break;
-   }
-
-   return -1;
+#define typeValueImp(itype)                                                   \
+itype ArgPasser::itype##Value(itype arg0, int argn, itype arg1, itype arg2)   \
+{                                                                             \
+   switch (argn) {                                                            \
+   case 0:                                                                    \
+      return arg0;                                                            \
+   case 1:                                                                    \
+      return arg1;                                                            \
+   case 2:                                                                    \
+      return arg2;                                                            \
+   default:                                                                   \
+      break;                                                                  \
+   }                                                                          \
+                                                                              \
+   return itype(-1);                                                          \
 }
+
+typeValueImp(int)
+typeValueImp(long)
 
 std::string ArgPasser::stringValue(std::string arg0, int argn, std::string arg1)
 {
