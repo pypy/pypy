@@ -57,6 +57,10 @@ class TypeConverter(object):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
+    def default_argument_libffi(self, space, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
+
     def from_memory(self, space, w_obj, w_type, offset):
         self._is_abstract(space)
 
@@ -140,9 +144,6 @@ class PtrTypeConverterMixin(object):
 class IntTypeConverterMixin(object):
     _mixin_ = True
     _immutable_ = True
-    
-    def __init__(self, space, default):
-        self.default = rffi.cast(self.rffitype, capi.c_strtoll(default))
 
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(self.rffiptype, address)
@@ -156,13 +157,13 @@ class IntTypeConverterMixin(object):
 
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
-        intptr = rffi.cast(self.rffiptype, address)
-        return space.wrap(intptr[0])
+        rffiptr = rffi.cast(self.rffiptype, address)
+        return space.wrap(rffiptr[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = self._get_raw_address(space, w_obj, offset)
-        intptr = rffi.cast(self.rffiptype, address)
-        intptr[0] = self._unwrap_object(space, w_value)
+        rffiptr = rffi.cast(self.rffiptype, address)
+        rffiptr[0] = self._unwrap_object(space, w_value)
 
 
 class VoidConverter(TypeConverter):
@@ -245,95 +246,72 @@ class CharConverter(TypeConverter):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         address[0] = self._unwrap_object(space, w_value)
 
-class IntConverter(IntTypeConverterMixin, TypeConverter):
-    _immutable_ = True
-    libffitype = libffi.types.sint
-    rffitype = rffi.INT
-    rffiptype = rffi.INTP
 
-    def _unwrap_object(self, space, w_obj):
-        return rffi.cast(rffi.INT, space.c_int_w(w_obj))
-
-class UnsignedIntConverter(TypeConverter):
-    _immutable_ = True
-    libffitype = libffi.types.uint
-
-    def _unwrap_object(self, space, w_obj):
-        return rffi.cast(rffi.UINT, space.uint_w(w_obj))
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.UINTP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
-
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        ulongptr = rffi.cast(rffi.UINTP, address)
-        return space.wrap(ulongptr[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        ulongptr = rffi.cast(rffi.UINTP, address)
-        ulongptr[0] = self._unwrap_object(space, w_value)
-
-class LongConverter(IntTypeConverterMixin, TypeConverter):
-    _immutable_ = True
-    libffitype = libffi.types.slong
-    rffitype = rffi.LONG
-    rffiptype = rffi.LONGP
-
-    def _unwrap_object(self, space, w_obj):
-        return space.int_w(w_obj)
-
-class UnsignedLongConverter(TypeConverter):
-    _immutable_ = True
-    libffitype = libffi.types.ulong
-
-    def _unwrap_object(self, space, w_obj):
-        return space.uint_w(w_obj)
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.ULONGP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
-
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        ulongptr = rffi.cast(rffi.ULONGP, address)
-        return space.wrap(ulongptr[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        ulongptr = rffi.cast(rffi.ULONGP, address)
-        ulongptr[0] = self._unwrap_object(space, w_value)
-
-class ShortConverter(TypeConverter):
+class ShortConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.sshort
+    rffiptype = rffi.SHORTP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.SHORT, capi.c_strtoll(default))
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(rffi.SHORT, space.int_w(w_obj))
 
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.SHORTP, address)
-        x[0] = self._unwrap_object(space, w_obj)
+class UnsignedShortConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.sshort
+    rffiptype = rffi.USHORTP
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.USHORT, capi.c_strtoull(default))
 
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        shortptr = rffi.cast(rffi.SHORTP, address)
-        return space.wrap(shortptr[0])
+    def _unwrap_object(self, space, w_obj):
+        return rffi.cast(rffi.USHORT, space.int_w(w_obj))
 
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        shortptr = rffi.cast(rffi.SHORTP, address)
-        shortptr[0] = self._unwrap_object(space, w_value)
+class IntConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.sint
+    rffiptype = rffi.INTP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.INT, capi.c_strtoll(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return rffi.cast(rffi.INT, space.c_int_w(w_obj))
+
+class UnsignedIntConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.uint
+    rffiptype = rffi.UINTP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.UINT, capi.c_strtoull(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return rffi.cast(rffi.UINT, space.uint_w(w_obj))
+
+class LongConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.slong
+    rffiptype = rffi.LONGP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.LONG, capi.c_strtoll(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return space.int_w(w_obj)
+
+class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.ulong
+    rffiptype = rffi.ULONGP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(rffi.ULONG, capi.c_strtoull(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return space.uint_w(w_obj)
 
 class FloatConverter(TypeConverter):
     _immutable_ = True
@@ -454,6 +432,11 @@ class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     typecode = 'h'
     typesize = rffi.sizeof(rffi.SHORT)
 
+class UnsignedShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    typecode = 'H'
+    typesize = rffi.sizeof(rffi.USHORT)
+
 class IntArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_ = True
     typecode = 'i'
@@ -468,6 +451,11 @@ class LongArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_ = True
     typecode = 'l'
     typesize = rffi.sizeof(rffi.LONG)
+
+class UnsignedLongArrayConverter(ArrayTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    typecode = 'L'
+    typesize = rffi.sizeof(rffi.ULONG)
 
 class FloatArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -485,6 +473,11 @@ class ShortPtrConverter(PtrTypeConverterMixin, TypeConverter):
     typecode = 'h'
     typesize = rffi.sizeof(rffi.SHORT)
 
+class UnsignedShortPtrConverter(PtrTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    typecode = 'H'
+    typesize = rffi.sizeof(rffi.USHORT)
+
 class IntPtrConverter(PtrTypeConverterMixin, TypeConverter):
     _immutable_ = True
     typecode = 'i'
@@ -499,6 +492,11 @@ class LongPtrConverter(PtrTypeConverterMixin, TypeConverter):
     _immutable_ = True
     typecode = 'l'
     typesize = rffi.sizeof(rffi.LONG)
+
+class UnsignedLongPtrConverter(PtrTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    typecode = 'L'
+    typesize = rffi.sizeof(rffi.ULONG)
 
 class FloatPtrConverter(PtrTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -623,7 +621,7 @@ _converters["char"]                     = CharConverter
 _converters["unsigned char"]            = CharConverter
 _converters["short int"]                = ShortConverter
 _converters["short"]                    = _converters["short int"]
-_converters["unsigned short int"]       = ShortConverter
+_converters["unsigned short int"]       = UnsignedShortConverter
 _converters["unsigned short"]           = _converters["unsigned short int"]
 _converters["int"]                      = IntConverter
 _converters["unsigned int"]             = UnsignedIntConverter
@@ -644,9 +642,9 @@ _a_converters["short int*"]               = ShortPtrConverter
 _a_converters["short*"]                   = _a_converters["short int*"]
 _a_converters["short int[]"]              = ShortArrayConverter
 _a_converters["short[]"]                  = _a_converters["short int[]"]
-_a_converters["unsigned short int*"]      = ShortPtrConverter
+_a_converters["unsigned short int*"]      = UnsignedShortPtrConverter
 _a_converters["unsigned short*"]          = _a_converters["unsigned short int*"]
-_a_converters["unsigned short int[]"]     = ShortArrayConverter
+_a_converters["unsigned short int[]"]     = UnsignedShortArrayConverter
 _a_converters["unsigned short[]"]         = _a_converters["unsigned short int[]"]
 _a_converters["int*"]                     = IntPtrConverter
 _a_converters["int[]"]                    = IntArrayConverter
@@ -656,9 +654,9 @@ _a_converters["long int*"]                = LongPtrConverter
 _a_converters["long*"]                    = _a_converters["long int*"]
 _a_converters["long int[]"]               = LongArrayConverter
 _a_converters["long[]"]                   = _a_converters["long int[]"]
-_a_converters["unsigned long int*"]       = LongPtrConverter
+_a_converters["unsigned long int*"]       = UnsignedLongPtrConverter
 _a_converters["unsigned long*"]           = _a_converters["unsigned long int*"]
-_a_converters["unsigned long int[]"]      = LongArrayConverter
+_a_converters["unsigned long int[]"]      = UnsignedLongArrayConverter
 _a_converters["unsigned long[]"]          = _a_converters["unsigned long int[]"]
 _a_converters["float*"]                   = FloatPtrConverter
 _a_converters["float[]"]                  = FloatArrayConverter

@@ -257,7 +257,7 @@ class AppTestPYTHONIFY:
         assert f(s("noot"), 1).c_str() == "default"
         assert f(s("mies")).c_str() == "mies"
 
-        for itype in ['int', 'long']:
+        for itype in ['short', 'ushort', 'int', 'uint', 'long', 'ulong']:
             g = getattr(a, '%sValue' % itype)
             raises(TypeError, 'g(1, 2, 3, 4, 6)')
             assert g(11, 0, 12, 13) == 11

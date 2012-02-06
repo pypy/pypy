@@ -61,14 +61,18 @@ namespace ns_example01 {
     int globalAddOneToInt(int a);
 }
 
-#define typeValue(itype)\
-   itype itype##Value(itype arg0, int argn=0, itype arg1=itype(1), itype arg2=itype(2))
+#define typeValue(itype, tname) \
+   itype tname##Value(itype arg0, int argn=0, itype arg1=1, itype arg2=2)
 
 // argument passing
 class ArgPasser {        // use a class for now as methptrgetter not
 public:                  // implemented for global functions
-   typeValue(int);
-   typeValue(long);
+   typeValue(short, short);
+   typeValue(unsigned short, ushort);
+   typeValue(int, int);
+   typeValue(unsigned int, uint);
+   typeValue(long, long);
+   typeValue(unsigned long, ulong);
 
    std::string stringValue(
       std::string arg0, int argn=0, std::string arg1 = "default");

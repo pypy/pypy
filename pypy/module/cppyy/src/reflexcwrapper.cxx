@@ -364,7 +364,7 @@ long long cppyy_strtoll(const char* str) {
     return strtoll(str, NULL, 0);
 }
 
-unsigned long long cppyy_strtoull(const char* str) {
+extern "C" unsigned long long cppyy_strtoull(const char* str) {
     return strtoull(str, NULL, 0);
 }
 

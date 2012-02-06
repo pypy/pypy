@@ -399,6 +399,11 @@ char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg
     return type_cppstring_to_cstring(arg->GetFullTypeName());
 }
 
+char* cppyy_method_arg_default(cppyy_typehandle_t, int, int) {
+/* unused: libffi does not work with CINT back-end */
+   return cppstring_to_cstring("");
+}
+
 
 int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index) {
     TClassRef cr = type_from_handle(handle);
@@ -466,7 +471,7 @@ long long cppyy_strtoll(const char* str) {
     return strtoll(str, NULL, 0);
 }
 
-unsigned long long cppyy_strtoull(const char* str) {
+extern "C" unsigned long long cppyy_strtoull(const char* str) {
     return strtoull(str, NULL, 0);
 }
 
