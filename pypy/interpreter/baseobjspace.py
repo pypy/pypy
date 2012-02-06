@@ -1638,6 +1638,9 @@ ObjSpace.ExceptionTable = [
     'UnicodeEncodeError',
     'UnicodeDecodeError',
     ]
+    
+if sys.platform.startswith("win"):
+    ObjSpace.ExceptionTable += ['WindowsError']
 
 ## Irregular part of the interface:
 #
