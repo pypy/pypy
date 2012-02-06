@@ -1,6 +1,7 @@
 from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import r_uint
 from pypy.jit.backend.ppc.ppcgen.form import IDesc, IDupDesc
+from pypy.jit.backend.ppc.ppcgen.ppc_field import IField
 
 ##     "opcode": ( 0,  5),
 ##     "rA":     (11, 15, 'unsigned', regname._R),
@@ -37,14 +38,24 @@ def make_func(name, desc):
     #body.append('print %r'%name + ', ' + ', '.join(["'%s:', %s"%(s, s) for s in sig]))
     for field, value in fieldvalues:
         if field.name == 'spr':
-            body.append('spr = (%s&31) << 5 | (%s >> 5 & 31)'%(value, value))
-            value = 'spr'
-        body.append('v |= (%3s & r_uint(%#05x)) << %d'%(value,
-                                           field.mask,
-                                           (32 - field.right - 1)))
+            body.append('spr1 = (%s&31) << 5 | (%s >> 5 & 31)'%(value, value))
+            value = 'spr1'
+        elif field.name == 'mbe':
+            body.append('mbe1 = (%s & 31) << 1 | (%s & 32) >> 5' % (value, value))
+            value = 'mbe1'
+        elif field.name == 'sh':
+            body.append('sh1 = (%s & 31) << 10 | (%s & 32) >> 5' % (value, value))
+            value = 'sh1'
+        if isinstance(field, IField):
+            body.append('v |= ((%3s >> 2) & r_uint(%#05x)) << 2' % (value, field.mask))
+        else:
+            body.append('v |= (%3s & r_uint(%#05x)) << %d'%(value,
+                                                            field.mask,
+                                                            (32 - field.right - 1)))
+    #body.append('self.check(desc, v, %s)' % ', '.join(sig))
     body.append('self.emit(v)')
     src = 'def %s(self, %s):\n    %s'%(name, ', '.join(sig), '\n    '.join(body))
-    d = {'r_uint':r_uint}
+    d = {'r_uint':r_uint, 'desc': desc}
     #print src
     exec compile2(src) in d
     return d[name]

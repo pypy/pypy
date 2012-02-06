@@ -27,6 +27,7 @@ from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.jit.backend.ppc.ppcgen.rassemblermaker import make_rassembler
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -888,10 +889,7 @@ class PPCAssembler(BasicPPCAssembler):
 
     mtcr = BA.mtcrf(CRM=0xFF)
 
-    def emit(self, insn):
-        bytes = struct.pack("i", insn)
-        for byte in bytes:
-            self.writechar(byte)
+PPCAssembler = make_rassembler(PPCAssembler)
 
 def hi(w):
     return w >> 16
@@ -966,6 +964,14 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.init_block_builder()
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.r0_in_use = r0_in_use
+
+    def check(self, desc, v, *args):
+        desc.__get__(self)(*args)
+        ins = self.insts.pop()
+        expected = ins.assemble()
+        if expected < 0:
+            expected += 1<<32
+        assert v == expected
 
     def load_imm(self, rD, word):
         rD = rD.as_key()
@@ -1075,7 +1081,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.assemble(show)
         insts = self.insts
         for inst in insts:
-            self.write32(inst.assemble())
+            self.write32(inst)#.assemble())
 
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():

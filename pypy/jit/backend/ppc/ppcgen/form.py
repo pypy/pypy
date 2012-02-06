@@ -14,8 +14,8 @@ class Instruction(object):
         self.fields = fields
         self.lfields = [k for (k,v) in fields.iteritems()
                         if isinstance(v, str)]
-        if not self.lfields:
-            self.assemble() # for error checking only
+        #if not self.lfields:
+        #    self.assemble() # for error checking only
     def assemble(self):
         r = 0
         for field in self.fields:

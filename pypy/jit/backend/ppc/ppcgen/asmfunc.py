@@ -5,6 +5,7 @@ from pypy.jit.backend.ppc.codebuf import MachineCodeBlockWrapper
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, IS_PPC_64, WORD
+from pypy.rlib.rarithmetic import r_uint
 
 _ppcgen = None
 
@@ -19,17 +20,14 @@ class AsmCode(object):
         self.code = MachineCodeBlockWrapper()
         if IS_PPC_64:
             # allocate function descriptor - 3 doublewords
-            self.emit(0)
-            self.emit(0)
-            self.emit(0)
-            self.emit(0)
-            self.emit(0)
-            self.emit(0)
+            for i in range(6):
+                self.emit(r_uint(0))
 
-    def emit(self, insn):
-        bytes = struct.pack("i", insn)
-        for byte in bytes:
-            self.code.writechar(byte)
+    def emit(self, word):
+        self.code.writechar(chr((word >> 24) & 0xFF))
+        self.code.writechar(chr((word >> 16) & 0xFF))
+        self.code.writechar(chr((word >> 8) & 0xFF))
+        self.code.writechar(chr(word & 0xFF))
 
     def get_function(self):
         i = self.code.materialize(AsmMemoryManager(), [])
