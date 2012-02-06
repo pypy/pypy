@@ -60,6 +60,7 @@ class Module(MixedModule):
         'float_': 'interp_boxes.W_Float64Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
+        'intp': 'types.IntP.BoxType',
         #'str_': 'interp_boxes.W_StringBox',
         #'unicode_': 'interp_boxes.W_UnicodeBox',
         #'void': 'interp_boxes.W_VoidBox',

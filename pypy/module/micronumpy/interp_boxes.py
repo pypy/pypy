@@ -7,7 +7,6 @@ from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
-
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
@@ -280,4 +279,3 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
-

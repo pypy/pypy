@@ -513,3 +513,9 @@ class Float64(BaseType, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
+
+for tp in [Int32, Int64]:
+    if tp.T == lltype.Signed:
+        IntP = tp
+        break
+del tp
