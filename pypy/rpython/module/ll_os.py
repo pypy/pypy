@@ -43,7 +43,7 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     arglist = ['arg%d' % (i,) for i in range(len(signature))]
     transformed_arglist = arglist[:]
     for i, arg in enumerate(signature):
-        if arg is unicode:
+        if arg in (unicode, unicode0):
             transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
 
     args = ', '.join(arglist)
@@ -67,7 +67,7 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     exec source.compile() in miniglobals
     new_func = miniglobals[func_name]
     specialized_args = [i for i in range(len(signature))
-                        if signature[i] in (unicode, None)]
+                        if signature[i] in (unicode, unicode0, None)]
     new_func = specialize.argtype(*specialized_args)(new_func)
 
     # Monkeypatch the function in pypy.rlib.rposix
