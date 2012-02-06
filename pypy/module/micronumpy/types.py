@@ -518,4 +518,8 @@ for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
         IntP = tp
         break
+for tp in [UInt32, UInt64]:
+    if tp.T == lltype.Unsigned:
+        UIntP = tp
+        break
 del tp
