@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
@@ -15,6 +15,11 @@ first_gcflag = 1 << (LONG_BIT//2)
 
 GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
+
+PRIMITIVE_SIZES   = {1: lltype.Char,
+                     2: rffi.SHORT,
+                     4: rffi.INT,
+                     8: lltype.SignedLongLong}
 
 
 def always_inline(fn):
@@ -71,7 +76,8 @@ class StmGC(GCBase):
             return self.get_size(obj)
         self._getsize_fn = _get_size
         #
-        self.declare_readers()
+        for size, TYPE in PRIMITIVE_SIZES.items():
+            self.declare_reader(size, TYPE)
         self.declare_write_barrier()
 
     def setup(self):
@@ -205,18 +211,22 @@ class StmGC(GCBase):
 
     # ----------
 
-    def declare_readers(self):
+    def declare_reader(self, size, TYPE):
         # Reading functions.  Defined here to avoid the extra burden of
         # passing 'self' explicitly.
-        stm_read_word = self.stm_operations.stm_read_word
+        assert rffi.sizeof(TYPE) == size
+        PTYPE = rffi.CArrayPtr(TYPE)
+        stm_read_int = getattr(self.stm_operations, 'stm_read_int%d' % size)
         #
         @always_inline
-        def read_signed(obj, offset):
+        def reader(obj, offset):
             if self.header(obj).tid & GCFLAG_GLOBAL == 0:
-                return (obj + offset).signed[0]    # local obj: read directly
+                # local obj: read directly
+                adr = rffi.cast(PTYPE, obj + offset)
+                return adr[0]
             else:
-                return stm_read_word(obj, offset)  # else: call a helper
-        self.read_signed = read_signed
+                return stm_read_int(obj, offset)   # else: call a helper
+        setattr(self, 'read_int%d' % size, reader)
         #
         # the following logic was moved to et.c to avoid a double call
 ##        @dont_inline

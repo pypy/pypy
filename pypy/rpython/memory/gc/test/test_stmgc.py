@@ -1,5 +1,5 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.memory.gc.stmgc import StmGC
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.memory.gc.stmgc import StmGC, PRIMITIVE_SIZES, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
 
 
@@ -87,14 +87,23 @@ class FakeStmOperations:
         assert state[2] is not None
         return state[2]
 
-    def stm_read_word(self, obj, offset):
-        hdr = self._gc.header(obj)
-        if hdr.tid & GCFLAG_WAS_COPIED != 0:
-            localobj = self.tldict_lookup(obj)
-            if localobj:
-                assert self._gc.header(localobj).tid & GCFLAG_GLOBAL == 0
-                return (localobj + offset).signed[0]
-        return 'stm_ll_read_word(%r, %r)' % (obj, offset)
+    def _get_stm_reader(size, TYPE):
+        assert rffi.sizeof(TYPE) == size
+        PTYPE = rffi.CArrayPtr(TYPE)
+        def stm_reader(self, obj, offset):
+            hdr = self._gc.header(obj)
+            if hdr.tid & GCFLAG_WAS_COPIED != 0:
+                localobj = self.tldict_lookup(obj)
+                if localobj:
+                    assert self._gc.header(localobj).tid & GCFLAG_GLOBAL == 0
+                    adr = rffi.cast(PTYPE, localobj + offset)
+                    return adr[0]
+            return 'stm_ll_read_int%d(%r, %r)' % (size, obj, offset)
+        return stm_reader
+
+    for _size, _TYPE in PRIMITIVE_SIZES.items():
+        _func = _get_stm_reader(_size, _TYPE)
+        locals()['stm_read_int%d' % _size] = _func
 
     def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
         sizehdr = self._gc.gcheaderbuilder.size_gc_header
@@ -143,6 +152,8 @@ class TestBasic:
         self.gc.setup()
 
     def teardown_method(self, meth):
+        if not hasattr(self, 'gc'):
+            return
         for key in self.gc.stm_operations._tls_dict.keys():
             if key != 0:
                 self.gc.stm_operations.threadnum = key
@@ -151,7 +162,8 @@ class TestBasic:
     # ----------
     # test helpers
     def malloc(self, STRUCT):
-        gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(STRUCT))
+        size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
+        gcref = self.gc.malloc_fixedsize_clear(123, size)
         realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
         addr = llmemory.cast_ptr_to_adr(realobj)
         return realobj, addr
@@ -171,6 +183,9 @@ class TestBasic:
         assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
         if must_have_version != '?':
             assert hdr.version == must_have_version
+    def read_signed(self, obj, offset):
+        meth = getattr(self.gc, 'read_int%d' % WORD)
+        return meth(obj, offset)
 
     def test_gc_creation_works(self):
         pass
@@ -206,15 +221,15 @@ class TestBasic:
         s, s_adr = self.malloc(S)
         assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
         s.a = 42
-        value = self.gc.read_signed(s_adr, ofs_a)
-        assert value == 'stm_ll_read_word(%r, %r)' % (s_adr, ofs_a)
+        value = self.read_signed(s_adr, ofs_a)
+        assert value == 'stm_ll_read_int%d(%r, %r)' % (WORD, s_adr, ofs_a)
         #
         self.select_thread(1)
         s, s_adr = self.malloc(S)
         assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL == 0
         self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED   # should be ignored
         s.a = 42
-        value = self.gc.read_signed(s_adr, ofs_a)
+        value = self.read_signed(s_adr, ofs_a)
         assert value == 42
 
     def test_reader_through_dict(self):
@@ -228,8 +243,29 @@ class TestBasic:
         self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED
         self.gc.stm_operations._tldicts[1][s_adr] = t_adr
         #
-        value = self.gc.read_signed(s_adr, ofs_a)
+        value = self.read_signed(s_adr, ofs_a)
         assert value == 84
+
+    def test_reader_sizes(self):
+        for size, TYPE in PRIMITIVE_SIZES.items():
+            T = lltype.GcStruct('T', ('a', TYPE))
+            ofs_a = llmemory.offsetof(T, 'a')
+            #
+            self.select_thread(0)
+            t, t_adr = self.malloc(T)
+            assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL != 0
+            t.a = lltype.cast_primitive(TYPE, 42)
+            #
+            value = getattr(self.gc, 'read_int%d' % size)(t_adr, ofs_a)
+            assert value == 'stm_ll_read_int%d(%r, %r)' % (size, t_adr, ofs_a)
+            #
+            self.select_thread(1)
+            t, t_adr = self.malloc(T)
+            assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL == 0
+            t.a = lltype.cast_primitive(TYPE, 42)
+            value = getattr(self.gc, 'read_int%d' % size)(t_adr, ofs_a)
+            assert lltype.typeOf(value) == TYPE
+            assert lltype.cast_primitive(lltype.Signed, value) == 42
 
     def test_write_barrier_exists(self):
         self.select_thread(1)
