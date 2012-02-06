@@ -188,10 +188,11 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
         exc = raises(TypeError, numpy.signedinteger, 0)
-        assert str(exc.value) == "cannot create 'signedinteger' instances"
+        assert 'cannot create' in str(exc.value)
+        assert 'signedinteger' in str(exc.value)
         exc = raises(TypeError, numpy.unsignedinteger, 0)
-        assert str(exc.value) == "cannot create 'unsignedinteger' instances"
-
+        assert 'cannot create' in str(exc.value)
+        assert 'unsignedinteger' in str(exc.value)
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
 
@@ -401,3 +402,19 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             assert issubclass(int64, int)
             assert int_ is int64
+
+    def test_various_types(self):
+        import _numpypy as numpy
+        
+        assert numpy.int16 is numpy.short
+        assert numpy.int8 is numpy.byte
+        assert numpy.bool_ is numpy.bool8
+
+    def test_mro(self):
+        import _numpypy as numpy
+        
+        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
+                                       numpy.integer, numpy.number,
+                                       numpy.generic, object)
+        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
+        #assert numpy.str_.__mro__ == 

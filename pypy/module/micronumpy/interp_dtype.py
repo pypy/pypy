@@ -13,6 +13,7 @@ UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
 BOOLLTR = "b"
 FLOATINGLTR = "f"
+VOID = 'V'
 
 
 VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True})
@@ -69,6 +70,8 @@ class W_Dtype(Wrappable):
             for dtype in cache.builtin_dtypes:
                 if dtype.name == name or dtype.char == name or name in dtype.aliases:
                     return dtype
+        elif space.isinstance_w(w_dtype, space.w_list):
+            xxx
         else:
             for dtype in cache.builtin_dtypes:
                 if w_dtype in dtype.alternate_constructors:

@@ -43,9 +43,12 @@ class Module(MixedModule):
         'signedinteger': 'interp_boxes.W_SignedIntegerBox',
         'unsignedinteger': 'interp_boxes.W_UnsignedIntegerBox',
         'bool_': 'interp_boxes.W_BoolBox',
+        'bool8': 'interp_boxes.W_BoolBox',
         'int8': 'interp_boxes.W_Int8Box',
+        'byte': 'interp_boxes.W_Int8Box',
         'uint8': 'interp_boxes.W_UInt8Box',
         'int16': 'interp_boxes.W_Int16Box',
+        'short': 'interp_boxes.W_Int16Box',
         'uint16': 'interp_boxes.W_UInt16Box',
         'int32': 'interp_boxes.W_Int32Box',
         'uint32': 'interp_boxes.W_UInt32Box',
@@ -57,6 +60,9 @@ class Module(MixedModule):
         'float_': 'interp_boxes.W_Float64Box',
         'float32': 'interp_boxes.W_Float32Box',
         'float64': 'interp_boxes.W_Float64Box',
+        #'str_': 'interp_boxes.W_StringBox',
+        #'unicode_': 'interp_boxes.W_UnicodeBox',
+        #'void': 'interp_boxes.W_VoidBox',
     }
 
     # ufuncs
