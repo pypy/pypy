@@ -1,5 +1,5 @@
 ============================
-PyPy 1.7 - business as usual
+PyPy 1.8 - business as usual
 ============================
 
 We're pleased to announce the 1.8 release of PyPy. As became a habit, this
