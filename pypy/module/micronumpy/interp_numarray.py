@@ -138,7 +138,7 @@ class BaseArray(Wrappable):
                 axis = space.int_w(w_axis)
             if space.is_w(w_out, space.w_None):
                 out = None
-            elif not isinstance(w_out, W_NDimArray):
+            elif not isinstance(w_out, BaseArray):
                 raise OperationError(space.w_TypeError, space.wrap(
                                                     'output must be an array'))
             else:

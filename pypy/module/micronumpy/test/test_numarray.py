@@ -794,10 +794,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 5
 
         raises(TypeError, 'a.sum(2, 3)')
-        skip('fails since Scalar is not a subclass of W_NDimArray')
-        d = zeros(())
+        d = array(0.)
         b = a.sum(out=d)
         assert b == d
+        assert b.dtype == d.dtype
 
     def test_reduce_nd(self):
         from numpypy import arange, array, multiply
@@ -826,12 +826,20 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_reduce_out(self):
-        from numpypy import arange, array, multiply
+        from numpypy import arange, array
         a = arange(15).reshape(5, 3)
-        b = arange(3)
-        c = a.sum(0, out=b)
+        b = arange(12).reshape(4,3)
+        c = a.sum(0, out=b[1])
         assert (c == [30, 35, 40]).all()
-        assert (c == b).all()
+        assert (c == b[1]).all()
+        raises(ValueError, 'a.prod(0, out=arange(10, dtype=float))')
+
+    def test_reduce_intermediary(self):
+        from numpypy import arange, array
+        a = arange(15).reshape(5, 3)
+        b = array(range(3), dtype=bool)
+        c = a.prod(0, out=b)
+        assert(b == [False,  True,  True]).all()
 
     def test_identity(self):
         from _numpypy import identity, array

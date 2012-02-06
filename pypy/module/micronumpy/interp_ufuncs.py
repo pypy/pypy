@@ -155,6 +155,10 @@ class W_Ufunc(Wrappable):
                 shape = obj.shape[:axis] + obj.shape[axis + 1:]
             if out:
                 #Test for shape agreement
+                #Test for dtype agreement, perhaps create an itermediate
+                if out.dtype != dtype:
+                    raise OperationError(space.w_TypeError, space.wrap(
+                        "mismatched  dtypes"))
                 return self.do_axis_reduce(obj, dtype, axis, out)
             else:
                 result = W_NDimArray(support.product(shape), shape, dtype)
@@ -166,7 +170,7 @@ class W_Ufunc(Wrappable):
                 raise operationerrfmt(space.w_ValueError, "output parameter "
                               "for reduction operation %s has too many"
                               " dimensions",self.name)
-            out.setitem(0, out.dtype.coerce(space, val))
+            out.value = out.dtype.coerce(space, val)
             return out
         return val 
 
