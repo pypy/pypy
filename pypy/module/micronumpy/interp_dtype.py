@@ -214,7 +214,6 @@ class DtypeCache(object):
             name="int64",
             char="q",
             w_box_type=space.gettypefor(interp_boxes.W_Int64Box),
-            alternate_constructors=[space.w_long],
         )
         self.w_uint64dtype = W_Dtype(
             types.UInt64(),
@@ -242,12 +241,30 @@ class DtypeCache(object):
             alternate_constructors=[space.w_float],
             aliases=["float"],
         )
+        self.w_longlongdtype = W_Dtype(
+            types.Int64(),
+            num=9,
+            kind=SIGNEDLTR,
+            name='int64',
+            char='q',
+            w_box_type = space.gettypefor(interp_boxes.W_LongLongBox),
+            alternate_constructors=[space.w_long],
+        )
+        self.w_ulonglongdtype = W_Dtype(
+            types.UInt64(),
+            num=10,
+            kind=UNSIGNEDLTR,
+            name='uint64',
+            char='Q',
+            w_box_type = space.gettypefor(interp_boxes.W_ULongLongBox),
+        )
 
         self.builtin_dtypes = [
             self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
-            self.w_int64dtype, self.w_uint64dtype, self.w_float32dtype,
+            self.w_longlongdtype, self.w_ulonglongdtype,
+            self.w_float32dtype,
             self.w_float64dtype
         ]
         self.dtypes_by_num_bytes = sorted(

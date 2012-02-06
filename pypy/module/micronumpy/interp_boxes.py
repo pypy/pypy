@@ -141,8 +141,14 @@ class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
 class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("int64")
 
+class W_LongLongBox(W_SignedIntegerBox, PrimitiveBox):
+    descr__new__, get_dtype = new_dtype_getter('longlong')
+
 class W_UInt64Box(W_UnsignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("uint64")
+
+class W_ULongLongBox(W_SignedIntegerBox, PrimitiveBox):
+    descr__new__, get_dtype = new_dtype_getter('ulonglong')
 
 class W_InexactBox(W_NumberBox):
     _attrs_ = ()

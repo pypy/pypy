@@ -54,6 +54,8 @@ class Module(MixedModule):
         'uint32': 'interp_boxes.W_UInt32Box',
         'int64': 'interp_boxes.W_Int64Box',
         'uint64': 'interp_boxes.W_UInt64Box',
+        'longlong': 'interp_boxes.W_LongLongBox',
+        'ulonglong': 'interp_boxes.W_ULongLongBox',
         'int_': 'interp_boxes.W_LongBox',
         'inexact': 'interp_boxes.W_InexactBox',
         'floating': 'interp_boxes.W_FloatingBox',
