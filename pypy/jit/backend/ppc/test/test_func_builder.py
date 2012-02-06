@@ -1,11 +1,11 @@
 import py
 import random, sys, os
 
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import MyPPCAssembler
-from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.func_builder import make_func
-from pypy.jit.backend.ppc.ppcgen import form, func_builder
-from pypy.jit.backend.ppc.ppcgen.regname import *
+from pypy.jit.backend.ppc.ppc_assembler import MyPPCAssembler
+from pypy.jit.backend.ppc.symbol_lookup import lookup
+from pypy.jit.backend.ppc.func_builder import make_func
+from pypy.jit.backend.ppc import form, func_builder
+from pypy.jit.backend.ppc.regname import *
 from pypy.jit.backend.detect_cpu import autodetect_main_model
 
 class TestFuncBuilderTest(object):

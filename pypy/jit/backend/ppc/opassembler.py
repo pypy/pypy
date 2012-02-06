@@ -1,19 +1,19 @@
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
+from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
                                                           gen_emit_unary_cmp_op)
-import pypy.jit.backend.ppc.ppcgen.condition as c
-import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
+import pypy.jit.backend.ppc.condition as c
+import pypy.jit.backend.ppc.register as r
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               MAX_REG_PARAMS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
+from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)
-from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
-from pypy.jit.backend.ppc.ppcgen.codebuilder import OverwritingBuilder
-from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr, TempInt
+from pypy.jit.backend.ppc.jump import remap_frame_layout
+from pypy.jit.backend.ppc.codebuilder import OverwritingBuilder
+from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
 from pypy.jit.metainterp.resoperation import rop

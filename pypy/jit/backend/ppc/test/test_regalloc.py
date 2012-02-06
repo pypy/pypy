@@ -1,10 +1,10 @@
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.backend.ppc.ppcgen.locations import (imm, RegisterLocation,
-                                                   ImmLocation, StackLocation)
-from pypy.jit.backend.ppc.ppcgen.register import *
-from pypy.jit.backend.ppc.ppcgen.codebuilder import hi, lo
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.ppcgen.arch import WORD
+from pypy.jit.backend.ppc.locations import (imm, RegisterLocation,
+                                            ImmLocation, StackLocation)
+from pypy.jit.backend.ppc.register import *
+from pypy.jit.backend.ppc.codebuilder import hi, lo
+from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
+from pypy.jit.backend.ppc.arch import WORD
 
 class MockBuilder(object):
     

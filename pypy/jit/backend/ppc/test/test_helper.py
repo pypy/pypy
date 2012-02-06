@@ -1,4 +1,4 @@
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (encode32, decode32)
+from pypy.jit.backend.ppc.helper.assembler import (encode32, decode32)
                                                           #encode64, decode64)
 
 def test_encode32():

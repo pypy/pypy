@@ -1,5 +1,5 @@
-from pypy.jit.backend.ppc.ppcgen.form import Form
-from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
+from pypy.jit.backend.ppc.form import Form
+from pypy.jit.backend.ppc.ppc_field import ppc_fields
 
 class PPCForm(Form):
     fieldmap = ppc_fields

@@ -1,5 +1,5 @@
-from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import MyPPCAssembler
-from pypy.jit.codegen.ppc.ppcgen.func_builder import make_func
+from pypy.jit.codegen.ppc.ppc_assembler import MyPPCAssembler
+from pypy.jit.codegen.ppc.func_builder import make_func
 
 from regname import *
 

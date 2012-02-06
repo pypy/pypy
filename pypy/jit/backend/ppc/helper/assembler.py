@@ -1,10 +1,10 @@
-import pypy.jit.backend.ppc.ppcgen.condition as c
+import pypy.jit.backend.ppc.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
-from pypy.jit.backend.ppc.ppcgen.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
+from pypy.jit.backend.ppc.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
                                               BACKCHAIN_SIZE)
 from pypy.jit.metainterp.history import FLOAT
 from pypy.rlib.unroll import unrolling_iterable
-import pypy.jit.backend.ppc.ppcgen.register as r
+import pypy.jit.backend.ppc.register as r
 from pypy.rpython.lltypesystem import rffi, lltype
 
 def gen_emit_cmp_op(condition, signed=True):

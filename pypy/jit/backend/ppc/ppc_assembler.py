@@ -1,27 +1,27 @@
 import os
 import struct
-from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
-from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
-from pypy.jit.backend.ppc.ppcgen.regalloc import (TempInt, PPCFrameManager,
-                                                  Regalloc)
-from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
-from pypy.jit.backend.ppc.ppcgen.opassembler import OpAssembler
-from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                              NONVOLATILES, MAX_REG_PARAMS,
-                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                              FPR_SAVE_AREA,
-                                              FLOAT_INT_CONVERSION, FORCE_INDEX,
-                                              SIZE_LOAD_IMM_PATCH_SP)
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, encode64,
-                                                          decode32, decode64,
-                                                          count_reg_args,
-                                                          Saved_Volatiles)
-import pypy.jit.backend.ppc.ppcgen.register as r
-import pypy.jit.backend.ppc.ppcgen.condition as c
+from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
+from pypy.jit.backend.ppc.ppc_field import ppc_fields
+from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
+                                           Regalloc)
+from pypy.jit.backend.ppc.assembler import Assembler
+from pypy.jit.backend.ppc.opassembler import OpAssembler
+from pypy.jit.backend.ppc.symbol_lookup import lookup
+from pypy.jit.backend.ppc.codebuilder import PPCBuilder
+from pypy.jit.backend.ppc.jump import remap_frame_layout
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
+                                       NONVOLATILES, MAX_REG_PARAMS,
+                                       GPR_SAVE_AREA, BACKCHAIN_SIZE,
+                                       FPR_SAVE_AREA,
+                                       FLOAT_INT_CONVERSION, FORCE_INDEX,
+                                       SIZE_LOAD_IMM_PATCH_SP)
+from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
+                                                   encode32, encode64,
+                                                   decode32, decode64,
+                                                   count_reg_args,
+                                                   Saved_Volatiles)
+import pypy.jit.backend.ppc.register as r
+import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
                                          TargetToken, AbstractFailDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, 
@@ -40,7 +40,7 @@ from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.backend.ppc.ppcgen.locations import StackLocation, get_spp_offset
+from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
