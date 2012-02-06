@@ -155,8 +155,20 @@ class W_Ufunc(Wrappable):
                 shape = obj.shape[:axis] + obj.shape[axis + 1:]
             if out:
                 #Test for shape agreement
+                if len(out.shape) > len(shape):
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter for reduction operation %s' +
+                        ' has too many dimensions', self.name)
+                elif len(out.shape) < len(shape):
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter for reduction operation %s' +
+                        ' does not have enough dimensions', self.name)
+                elif out.shape != shape:
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter shape mismatch, expecting %s' +
+                        ' , got %s', str(shape), str(out.shape))
                 #Test for dtype agreement, perhaps create an itermediate
-                if out.dtype != dtype:
+                if out.dtype != dtype
                     raise OperationError(space.w_TypeError, space.wrap(
                         "mismatched  dtypes"))
                 return self.do_axis_reduce(obj, dtype, axis, out)

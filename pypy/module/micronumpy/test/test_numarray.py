@@ -832,7 +832,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = a.sum(0, out=b[1])
         assert (c == [30, 35, 40]).all()
         assert (c == b[1]).all()
-        raises(ValueError, 'a.prod(0, out=arange(10, dtype=float))')
+        raises(ValueError, 'a.prod(0, out=arange(10))')
+        a=arange(12).reshape(3,2,2)
+        raises(ValueError, 'a.sum(0, out=arange(12).reshape(3,2,2))')
+        raises(ValueError, 'a.sum(0, out=arange(3))')
 
     def test_reduce_intermediary(self):
         from numpypy import arange, array
