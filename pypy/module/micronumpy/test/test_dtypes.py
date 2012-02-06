@@ -53,13 +53,13 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        from _numpypy import array, False_, True_, int64
+        from _numpypy import array, False_, longlong
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
-        assert isinstance(a[0], int64)
+        assert isinstance(a[0], longlong)
         b = a.copy()
-        assert isinstance(b[0], int64)
+        assert isinstance(b[0], longlong)
 
         a = array([0, 1, 2, 3], dtype=bool)
         assert a[0] is False_
@@ -81,17 +81,17 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_zeros_long(self):
-        from _numpypy import zeros, int64
+        from _numpypy import zeros, longlong
         a = zeros(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], int64)
+            assert isinstance(a[i], longlong)
             assert a[1] == 0
 
     def test_ones_long(self):
-        from _numpypy import ones, int64
+        from _numpypy import ones, longlong
         a = ones(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], int64)
+            assert isinstance(a[i], longlong)
             assert a[1] == 1
 
     def test_overflow(self):
