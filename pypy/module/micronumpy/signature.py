@@ -326,8 +326,10 @@ class ToStringSignature(Call1):
         from pypy.module.micronumpy.interp_numarray import ToStringArray
 
         assert isinstance(arr, ToStringArray)
-        arr.s.append(self.dtype.itemtype.pack_str(
-            self.child.eval(frame, arr.values)))
+        arr.res.setitem(0, self.child.eval(frame, arr.values).convert_to(
+            self.dtype))
+        for i in range(arr.itemsize):
+            arr.s.append(arr.res_casted[i])
 
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):
