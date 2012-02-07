@@ -162,6 +162,9 @@ typeValueImp(unsigned int, uint)
 typeValueImp(long, long)
 typeValueImp(unsigned long, ulong)
 
+typeValueImp(float, float)
+typeValueImp(double, double)
+
 std::string ArgPasser::stringValue(std::string arg0, int argn, std::string arg1)
 {
    switch (argn) {

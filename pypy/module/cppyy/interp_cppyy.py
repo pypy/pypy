@@ -1,3 +1,5 @@
+import pypy.module.cppyy.capi as capi
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -8,13 +10,14 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi, rdynload, rweakref
 from pypy.rlib import jit, debug
 
-from pypy.module.cppyy import converter, executor, helper, capi
+from pypy.module.cppyy import converter, executor, helper
 
 
 class FastCallNotPossible(Exception):
     pass
 
 def _direct_ptradd(ptr, offset):        # TODO: factor out with convert.py
+    assert lltype.typeOf(ptr) == capi.C_OBJECT
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 

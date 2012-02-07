@@ -268,7 +268,18 @@ class AppTestPYTHONIFY:
             assert g(11, 2)         ==  2
             assert g(11)            == 11
 
-    def test12_underscore_in_class_name(self):
+        for ftype in ['float', 'double']:
+            g = getattr(a, '%sValue' % ftype)
+            raises(TypeError, 'g(1., 2, 3., 4., 6.)')
+            assert g(11., 0, 12., 13.) == 11.
+            assert g(11., 1, 12., 13.) == 12.
+            assert g(11., 1, 12.)      == 12.
+            assert g(11., 2, 12.)      ==  2.
+            assert g(11., 1)           ==  1.
+            assert g(11., 2)           ==  2.
+            assert g(11.)              == 11.
+
+    def test11_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
         import cppyy

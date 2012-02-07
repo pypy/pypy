@@ -3,7 +3,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
-from pypy.rlib import jit, libffi, clibffi
+from pypy.rlib import jit, libffi, clibffi, rfloat
 
 from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
 from pypy.module._rawffi.array import W_Array
@@ -140,13 +140,9 @@ class PtrTypeConverterMixin(object):
                                  space.wrap("raw buffer interface not supported"))
 
 
-class IntTypeConverterMixin(object):
+class NumericTypeConverterMixin(object):
     _mixin_ = True
     _immutable_ = True
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(self.rffiptype, address)
-        x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
@@ -163,6 +159,25 @@ class IntTypeConverterMixin(object):
         address = self._get_raw_address(space, w_obj, offset)
         rffiptr = rffi.cast(self.rffiptype, address)
         rffiptr[0] = self._unwrap_object(space, w_value)
+
+class IntTypeConverterMixin(NumericTypeConverterMixin):
+    _mixin_ = True
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(self.rffiptype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+
+class FloatTypeConverterMixin(NumericTypeConverterMixin):
+    _mixin_ = True
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(self.rffiptype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+        typecode = rffi.cast(rffi.CCHARP,
+            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+        typecode[0] = self.typecode
 
 
 class VoidConverter(TypeConverter):
@@ -312,62 +327,42 @@ class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
     def _unwrap_object(self, space, w_obj):
         return space.uint_w(w_obj)
 
-class FloatConverter(TypeConverter):
+
+class FloatConverter(FloatTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.float
+    rffiptype = rffi.FLOATP
+    typecode = 'f'
+
+    def __init__(self, space, default):
+        if default:
+            fval = float(rfloat.rstring_to_float(default))
+        else:
+            fval = float(0.)
+        self.default = r_singlefloat(fval)
 
     def _unwrap_object(self, space, w_obj):
         return r_singlefloat(space.float_w(w_obj))
 
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.FLOATP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-        typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'f'
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        from pypy.rlib.rarithmetic import r_singlefloat
-        fval = space.float_w(w_obj)
-        sfval = r_singlefloat(fval)
-        argchain.arg(sfval)
-
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
-        floatptr = rffi.cast(rffi.FLOATP, address)
-        return space.wrap(float(floatptr[0]))
+        rffiptr = rffi.cast(self.rffiptype, address)
+        return space.wrap(float(rffiptr[0]))
 
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        floatptr = rffi.cast(rffi.FLOATP, address)
-        floatptr[0] = self._unwrap_object(space, w_value)
-
-class DoubleConverter(TypeConverter):
+class DoubleConverter(FloatTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.double
+    rffiptype = rffi.DOUBLEP
+    typecode = 'd'
+
+    def __init__(self, space, default):
+        if default:
+            self.default = rffi.cast(rffi.DOUBLE, rfloat.rstring_to_float(default))
+        else:
+            self.default = rffi.cast(rffi.DOUBLE, 0.)
 
     def _unwrap_object(self, space, w_obj):
         return space.float_w(w_obj)
-
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.DOUBLEP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-        typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'd'
-
-    def convert_argument_libffi(self, space, w_obj, argchain):
-        argchain.arg(self._unwrap_object(space, w_obj))
-
-    def from_memory(self, space, w_obj, w_type, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        doubleptr = rffi.cast(rffi.DOUBLEP, address)
-        return space.wrap(doubleptr[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = self._get_raw_address(space, w_obj, offset)
-        doubleptr = rffi.cast(rffi.DOUBLEP, address)
-        doubleptr[0] = self._unwrap_object(space, w_value)
 
 
 class CStringConverter(TypeConverter):
