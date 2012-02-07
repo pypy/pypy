@@ -430,6 +430,38 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
 }
 
 /* lazy/lazy read instrumentation */
+#define STM_DO_READ(READ_OPERATION)                                     \
+ retry:                                                                 \
+  /* read the orec BEFORE we read anything else */                      \
+  ovt = o->version;                                                     \
+  CFENCE;                                                               \
+                                                                        \
+  /* this tx doesn't hold any locks, so if the lock for this addr is    \
+     held, there is contention.  A lock is never hold for too long,     \
+     so spinloop until it is released. */                               \
+  if (IS_LOCKED_OR_NEWER(ovt, d->start_time))                           \
+    {                                                                   \
+      if (IS_LOCKED(ovt)) {                                             \
+        tx_spinloop(7);                                                 \
+        goto retry;                                                     \
+      }                                                                 \
+      /* else this location is too new, scale forward */                \
+      owner_version_t newts = get_global_timestamp(d) & ~1;             \
+      validate_fast(d, 1);                                              \
+      d->start_time = newts;                                            \
+    }                                                                   \
+                                                                        \
+  /* orec is unlocked, with ts <= start_time.  read the location */     \
+  READ_OPERATION;                                                       \
+                                                                        \
+  /* postvalidate AFTER reading addr: */                                \
+  CFENCE;                                                               \
+  if (__builtin_expect(o->version != ovt, 0))                           \
+    goto retry;       /* oups, try again */                             \
+                                                                        \
+  oreclist_insert(&d->reads, (orec_t*)o);
+
+
 #define STM_READ_WORD(SIZE, TYPE)                                       \
 TYPE stm_read_int##SIZE(void* addr, long offset)                        \
 {                                                                       \
@@ -455,36 +487,7 @@ TYPE stm_read_int##SIZE(void* addr, long offset)                        \
   if (is_main_thread(d))                                                \
     return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
- retry:                                                                 \
-  /* read the orec BEFORE we read anything else */                      \
-  ovt = o->version;                                                     \
-  CFENCE;                                                               \
-                                                                        \
-  /* this tx doesn't hold any locks, so if the lock for this addr is    \
-     held, there is contention.  A lock is never hold for too long,     \
-     so spinloop until it is released. */                               \
-  if (IS_LOCKED_OR_NEWER(ovt, d->start_time))                           \
-    {                                                                   \
-      if (IS_LOCKED(ovt)) {                                             \
-        tx_spinloop(7);                                                 \
-        goto retry;                                                     \
-      }                                                                 \
-      /* else this location is too new, scale forward */                \
-      owner_version_t newts = get_global_timestamp(d) & ~1;             \
-      validate_fast(d, 1);                                              \
-      d->start_time = newts;                                            \
-    }                                                                   \
-                                                                        \
-  /* orec is unlocked, with ts <= start_time.  read the location */     \
-  TYPE tmp = *(TYPE *)(((char *)addr) + offset);                        \
-                                                                        \
-  /* postvalidate AFTER reading addr: */                                \
-  CFENCE;                                                               \
-  if (__builtin_expect(o->version != ovt, 0))                           \
-    goto retry;       /* oups, try again */                             \
-                                                                        \
-  oreclist_insert(&d->reads, (orec_t*)o);                               \
-                                                                        \
+  STM_DO_READ(TYPE tmp = *(TYPE *)(((char *)addr) + offset));           \
   return tmp;                                                           \
 }
 
@@ -492,6 +495,22 @@ STM_READ_WORD(1, char)
 STM_READ_WORD(2, short)
 STM_READ_WORD(4, int)
 STM_READ_WORD(8, long long)
+
+void stm_copy_transactional_to_raw(void *src, void *dst, long size)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  volatile orec_t *o = get_orec(src);
+  owner_version_t ovt;
+
+  assert(!is_main_thread(d));
+
+  /* don't copy the header */
+  src = ((char *)src) + sizeof(orec_t);
+  dst = ((char *)dst) + sizeof(orec_t);
+  size -= sizeof(orec_t);
+
+  STM_DO_READ(memcpy(dst, src, size));
+}
 
 
 static struct tx_descriptor *descriptor_init(_Bool is_main_thread)

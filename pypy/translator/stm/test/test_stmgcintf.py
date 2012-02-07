@@ -144,7 +144,32 @@ class TestStmGcIntf:
 
     def test_stm_size_getter(self):
         def getsize(addr):
-            xxx
+            dont_call_me
         getter = llhelper(GETSIZE, getsize)
         stm_operations.setup_size_getter(getter)
-        # just tests that the function is really defined
+        # ^^^ just tests that the function is really defined
+
+    def test_stm_copy_transactional_to_raw(self):
+        # doesn't test STM behavior, but just that it appears to work
+        s1 = lltype.malloc(S1, flavor='raw')
+        s1.hdr.tid = stmgc.GCFLAG_GLOBAL
+        s1.hdr.version = llmemory.NULL
+        s1.x = 909
+        s1.y = 808
+        s2 = lltype.malloc(S1, flavor='raw')
+        s2.hdr.tid = -42    # non-initialized
+        s2.x = -42          # non-initialized
+        s2.y = -42          # non-initialized
+        #
+        s1_adr = llmemory.cast_ptr_to_adr(s1)
+        s2_adr = llmemory.cast_ptr_to_adr(s2)
+        size   = llmemory.sizeof(S1)
+        stm_operations.stm_copy_transactional_to_raw(s1_adr, s2_adr, size)
+        #
+        assert s2.hdr.tid == -42    # not touched
+        assert s2.x == 909
+        assert s2.y == 808
+        #
+        lltype.free(s2, flavor='raw')
+        lltype.free(s1, flavor='raw')
+    test_stm_copy_transactional_to_raw.in_main_thread = False

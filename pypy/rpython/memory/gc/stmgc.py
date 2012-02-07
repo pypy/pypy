@@ -288,18 +288,15 @@ class StmGC(GCBase):
             # Initialize the copy by doing an stm raw copy of the bytes
             stm_operations.stm_copy_transactional_to_raw(obj, localobj, size)
             #
-            # The raw copy done above includes all header fields.
-            # Check at least the gc flags of the copy.
+            # The raw copy done above does not include the header fields.
             hdr = self.header(obj)
             localhdr = self.header(localobj)
             GCFLAGS = (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED)
             ll_assert(hdr.tid & GCFLAGS == GCFLAGS,
                       "stm_write: bogus flags on source object")
-            ll_assert(localhdr.tid & GCFLAGS == GCFLAGS,
-                      "stm_write: flags not copied!")
             #
             # Remove the GCFLAG_GLOBAL from the copy
-            localhdr.tid &= ~GCFLAG_GLOBAL
+            localhdr.tid = hdr.tid & ~GCFLAG_GLOBAL
             #
             # Set the 'version' field of the local copy to be a pointer
             # to the global obj.  (The field is called 'version' because

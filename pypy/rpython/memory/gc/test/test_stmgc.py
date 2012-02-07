@@ -106,10 +106,6 @@ class FakeStmOperations:
         locals()['stm_read_int%d' % _size] = _func
 
     def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
-        sizehdr = self._gc.gcheaderbuilder.size_gc_header
-        srchdr = srcobj - sizehdr
-        dsthdr = dstobj - sizehdr
-        llmemory.raw_memcopy(srchdr, dsthdr, sizehdr)
         llmemory.raw_memcopy(srcobj, dstobj, size)
         self._transactional_copies.append((srcobj, dstobj))
 
