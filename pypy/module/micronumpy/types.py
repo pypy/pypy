@@ -423,7 +423,7 @@ class NonNativeInt64(BaseType, NonNativeInteger):
 
 def _uint64_coerce(self, space, w_item):
     try:
-        return self._base_coerce(self, space, w_item)
+        return self._base_coerce(space, w_item)
     except OperationError, e:
         if not e.match(space, space.w_OverflowError):
             raise
