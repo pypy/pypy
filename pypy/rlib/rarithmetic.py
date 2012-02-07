@@ -514,7 +514,7 @@ def int_between(n, m, p):
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
 
-@objectmodel.specialize.argtype(0)
+@objectmodel.specialize.ll_and_arg(0)
 def byteswap(arg):
     """ Convert little->big endian and the opposite
     """
