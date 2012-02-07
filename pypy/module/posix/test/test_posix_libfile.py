@@ -19,7 +19,7 @@ class AppTestPosix:
     def test_fdopen(self):
         path = self.path 
         posix = self.posix 
-        fd = posix.open(path, posix.O_RDONLY, 0777)
+        fd = posix.open(path, posix.O_RDONLY, 0o777)
         f = posix.fdopen(fd, "r")
         result = f.read()
         assert result == "this is a test"
@@ -56,12 +56,12 @@ class AppTestPosix:
         if sys.platform.startswith('win'):
             skip("unix specific")
         #
-        import __builtin__
+        import builtins
         posix = self.posix
         orig_file = file
         try:
             f = posix.popen('true')
-            __builtin__.file = lambda x : explode
+            builtins.file = lambda x : explode
             f.close()
         finally:
-            __builtin__.file = orig_file
+            builtins.file = orig_file
