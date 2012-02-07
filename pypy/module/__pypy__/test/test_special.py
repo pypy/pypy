@@ -5,7 +5,7 @@ class AppTest(object):
     def setup_class(cls):
         if option.runappdirect:
             py.test.skip("does not make sense on pypy-c")
-        cls.space = gettestobjspace(**{"objspace.usemodules.select": False, "objspace.std.withrangelist": True})
+        cls.space = gettestobjspace(**{"objspace.usemodules.select": False})
 
     def test__isfake(self):
         from __pypy__ import isfake
@@ -32,9 +32,9 @@ class AppTest(object):
         assert my.b() == ()
         assert A.a(my) == (my,)
         assert A.b(my) == (my,)
-        assert A.a.im_func(my) == (my,)
+        assert not hasattr(A.a, 'im_func')
         assert not hasattr(A.b, 'im_func')
-        assert A.a is not A.__dict__['a']
+        assert A.a is A.__dict__['a']
         assert A.b is A.__dict__['b']
 
     def test_lookup_special(self):

@@ -10,10 +10,9 @@ class AppTestIdentityDict:
         d = identity_dict()
         d[0] = 1
         d[0.0] = 2
-        d[long(0)] = 3
 
         assert d
-        assert len(d) == 3
+        assert len(d) == 2
         del d[0]
         d.clear()
         assert not d

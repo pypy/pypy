@@ -38,9 +38,12 @@ def create_builder(name, strtype, builder_cls):
 
         def descr_build(self, space):
             self._check_done(space)
-            w_s = space.wrap(self.builder.build())
+            s = self.builder.build()
             self.builder = None
-            return w_s
+            if strtype is str:
+                return space.wrapbytes(s)
+            else:
+                return space.wrap(s)
 
         def descr_len(self, space):
             if self.builder is None:

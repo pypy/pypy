@@ -10,10 +10,10 @@ class AppTest(object):
         b = bytebuffer(12)
         assert isinstance(b, buffer)
         assert len(b) == 12
-        b[3] = '!'
-        b[5] = '?'
-        assert b[2:7] == '\x00!\x00?\x00'
-        b[9:] = '+-*'
-        assert b[-1] == '*'
-        assert b[-2] == '-'
-        assert b[-3] == '+'
+        b[3] = b'!'
+        b[5] = b'?'
+        assert b[2:7] == b'\x00!\x00?\x00'
+        b[9:] = b'+-*'
+        assert b[-1] == b'*'
+        assert b[-2] == b'-'
+        assert b[-3] == b'+'
