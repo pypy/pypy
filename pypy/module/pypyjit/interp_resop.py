@@ -127,6 +127,7 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
             l_w.append(DebugMergePoint(space, jit_hooks._cast_to_gcref(op),
                                        logops.repr_of_resop(op),
                                        jd_sd.jitdriver.name,
+                                       op.getarg(1).getint(),
                                        w_greenkey))
         else:
             l_w.append(WrappedOp(jit_hooks._cast_to_gcref(op), ofs,
@@ -163,14 +164,14 @@ def descr_new_resop(space, w_tp, num, w_args, res, offset=-1,
         llres = res.llbox
     return WrappedOp(jit_hooks.resop_new(num, args, llres), offset, repr)
 
-@unwrap_spec(repr=str, jd_name=str)
-def descr_new_dmp(space, w_tp, w_args, repr, jd_name, w_greenkey):
+@unwrap_spec(repr=str, jd_name=str, call_depth=int)
+def descr_new_dmp(space, w_tp, w_args, repr, jd_name, call_depth, w_greenkey):
     args = [space.interp_w(WrappedBox, w_arg).llbox for w_arg in
             space.listview(w_args)]
     num = rop.DEBUG_MERGE_POINT
     return DebugMergePoint(space,
                            jit_hooks.resop_new(num, args, jit_hooks.emptyval()),
-                           repr, jd_name, w_greenkey)
+                           repr, jd_name, call_depth, w_greenkey)
 
 class WrappedOp(Wrappable):
     """ A class representing a single ResOperation, wrapped nicely
@@ -205,10 +206,11 @@ class WrappedOp(Wrappable):
         jit_hooks.resop_setresult(self.op, box.llbox)
 
 class DebugMergePoint(WrappedOp):
-    def __init__(self, space, op, repr_of_resop, jd_name, w_greenkey):
+    def __init__(self, space, op, repr_of_resop, jd_name, call_depth, w_greenkey):
         WrappedOp.__init__(self, op, -1, repr_of_resop)
-        self.w_greenkey = w_greenkey
         self.jd_name = jd_name
+        self.call_depth = call_depth
+        self.w_greenkey = w_greenkey
 
     def get_pycode(self, space):
         if self.jd_name == pypyjitdriver.name:
@@ -243,6 +245,7 @@ DebugMergePoint.typedef = TypeDef(
     greenkey = interp_attrproperty_w("w_greenkey", cls=DebugMergePoint),
     pycode = GetSetProperty(DebugMergePoint.get_pycode),
     bytecode_no = GetSetProperty(DebugMergePoint.get_bytecode_no),
+    call_depth = interp_attrproperty("call_depth", cls=DebugMergePoint),
     jitdriver_name = GetSetProperty(DebugMergePoint.get_jitdriver_name),
 )
 DebugMergePoint.acceptable_as_base_class = False

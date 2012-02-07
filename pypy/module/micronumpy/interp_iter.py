@@ -86,8 +86,9 @@ class BaseIterator(object):
 
     def apply_transformations(self, arr, transformations):
         v = self
-        for transform in transformations:
-            v = v.transform(arr, transform)
+        if transformations is not None:
+            for transform in transformations:
+                v = v.transform(arr, transform)
         return v
 
     def transform(self, arr, t):

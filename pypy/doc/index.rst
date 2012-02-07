@@ -353,10 +353,12 @@ Directory                          explanation/links
    getting-started-dev.rst
    windows.rst
    faq.rst
+   commandline_ref.rst
    architecture.rst
    coding-guide.rst
    cpython_differences.rst
    garbage_collection.rst
+   gc_info.rst
    interpreter.rst
    objspace.rst
    __pypy__-module.rst

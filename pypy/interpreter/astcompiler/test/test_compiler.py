@@ -838,7 +838,7 @@ class TestOptimizations:
         # Just checking this doesn't crash out
         self.count_instructions(source)
 
-    def test_const_fold_unicode_subscr(self):
+    def test_const_fold_unicode_subscr(self, monkeypatch):
         source = """def f():
         return u"abc"[0]
         """
@@ -852,6 +852,14 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
                           ops.RETURN_VALUE: 1}
+
+        monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
+        source = """def f():
+        return u"\uE01F"[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+        monkeypatch.undo()
 
         # getslice is not yet optimized.
         # Still, check a case which yields the empty string.

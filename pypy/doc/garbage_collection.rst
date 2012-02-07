@@ -142,10 +142,9 @@ generation objects without needing to store a list of pointers to them.
 So as a first approximation, when compared to the Hybrid GC, the
 Minimark GC saves one word of memory per old object.
 
-There are a number of environment variables that can be tweaked to
-influence the GC.  (Their default value should be ok for most usages.)
-You can read more about them at the start of
-`pypy/rpython/memory/gc/minimark.py`_.
+There are :ref:`a number of environment variables
+<minimark-environment-variables>` that can be tweaked to influence the
+GC.  (Their default value should be ok for most usages.)
 
 In more detail:
 
@@ -210,6 +209,5 @@ In more detail:
   next minor collection, we move it there, and so its id() and hash()
   are preserved.  If the object dies then the pre-reserved location
   becomes free garbage, to be collected at the next major collection.
-
 
 .. include:: _ref.txt

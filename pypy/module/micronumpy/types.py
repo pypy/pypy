@@ -181,6 +181,22 @@ class Primitive(object):
     def ge(self, v1, v2):
         return v1 >= v2
 
+    @raw_binary_op
+    def logical_and(self, v1, v2):
+        return bool(v1) and bool(v2)
+
+    @raw_binary_op
+    def logical_or(self, v1, v2):
+        return bool(v1) or bool(v2)
+
+    @raw_unary_op
+    def logical_not(self, v):
+        return not bool(v)
+
+    @raw_binary_op
+    def logical_xor(self, v1, v2):
+        return bool(v1) ^ bool(v2)
+
     def bool(self, v):
         return bool(self.for_computation(self.unbox(v)))
 
