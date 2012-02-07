@@ -522,7 +522,8 @@ class Regalloc(object):
         self.assembler.emit_call(op, args, self, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
+            assert 0, "not implemented yet"
+            # self.assembler.call_reacquire_gil(gcrootmap, registers)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs
