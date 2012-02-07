@@ -212,7 +212,9 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-class NonNativePrimitive(object):
+class NonNativePrimitive(Primitive):
+    _mixin_ = True
+    
     def _read(self, storage, width, i, offset):
         return byteswap(Primitive._read(self, storage, width, i, offset))
 
@@ -516,7 +518,6 @@ class Float(Primitive):
     def isinf(self, v):
         return rfloat.isinf(v)
 
-
 class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
@@ -538,15 +539,15 @@ for tp in [UInt32, UInt64]:
 del tp
 
 def _setup():
-    from pypy.tool.sourcetools import func_with_new_name
+    #from pypy.tool.sourcetools import func_with_new_name
     
     for name, tp in globals().items():
-        if isinstance(tp, type):
-            class NonNative(tp):
+        if isinstance(tp, type) and issubclass(tp, BaseType):
+            class NonNative(NonNativePrimitive, tp):
                 pass
-            for item, v in NonNativePrimitive.__dict__.items():
-                if not item.startswith('__'):
-                    setattr(NonNative, item, func_with_new_name(v, item))
+            #for item, v in NonNativePrimitive.__dict__.items():
+            #    if not item.startswith('__'):
+            #        setattr(NonNative, item, func_with_new_name(v, item))
             NonNative.__name__ = 'NonNative' + name
             globals()[NonNative.__name__] = NonNative
 
