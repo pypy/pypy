@@ -74,7 +74,7 @@ class W_Dtype(Wrappable):
             except KeyError:
                 pass
         elif space.isinstance_w(w_dtype, space.w_list):
-            xxx
+            raise NotImplementedError
         else:
             for dtype in cache.builtin_dtypes:
                 if w_dtype in dtype.alternate_constructors:
