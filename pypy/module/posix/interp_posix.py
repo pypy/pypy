@@ -48,7 +48,7 @@ class FileEncoder(object):
         return fsencode_w(self.space, self.w_obj)
 
     def as_unicode(self):
-        return self.space.unicode_w(self.w_obj)
+        return self.space.unicode0_w(self.w_obj)
 
 class FileDecoder(object):
     def __init__(self, space, w_obj):
@@ -62,7 +62,7 @@ class FileDecoder(object):
         space = self.space
         w_unicode = space.call_method(self.w_obj, 'decode',
                                       getfilesystemencoding(space))
-        return space.unicode_w(w_unicode)
+        return space.unicode0_w(w_unicode)
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
