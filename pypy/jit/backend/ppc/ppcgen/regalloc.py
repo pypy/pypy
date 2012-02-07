@@ -763,11 +763,13 @@ class Regalloc(object):
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex == EffectInfo.OS_MATH_SQRT:
-                args = self.prepare_op_math_sqrt(op, fcond)
-                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
-                return
+	    # XXX TODO
+            #oopspecindex = effectinfo.oopspecindex
+            #if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            #    args = self.prepare_op_math_sqrt(op, fcond)
+            #    self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+            #    return
+            pass
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
