@@ -7,10 +7,10 @@ from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, libffi, clibffi
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import LONG_BIT, widen, byteswap
+from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
-
+from pypy.tool.sourcetools import func_with_new_name
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -71,7 +71,7 @@ class Primitive(object):
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
-    @specialize.argtype(0)
+    @specialize.argtype(1)
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
@@ -272,6 +272,8 @@ class Bool(BaseType, Primitive):
     def invert(self, v):
         return ~v
 
+NonNativeBool = Bool
+
 class Integer(Primitive):
     _mixin_ = True
 
@@ -336,13 +338,20 @@ class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
+NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
+NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
+    T = rffi.SHORT
+    BoxType = interp_boxes.W_Int16Box
+    format_code = "h"
+
+class NonNativeInt16(BaseType, NonNativePrimitive, Integer):
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
@@ -352,7 +361,17 @@ class UInt16(BaseType, Integer):
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
+class NonNativeUInt16(BaseType, NonNativePrimitive, Integer):
+    T = rffi.USHORT
+    BoxType = interp_boxes.W_UInt16Box
+    format_code = "H"
+
 class Int32(BaseType, Integer):
+    T = rffi.INT
+    BoxType = interp_boxes.W_Int32Box
+    format_code = "i"
+
+class NonNativeInt32(BaseType, NonNativePrimitive, Integer):
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
@@ -362,7 +381,17 @@ class UInt32(BaseType, Integer):
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
+class NonNativeUInt32(BaseType, NonNativePrimitive, Integer):
+    T = rffi.UINT
+    BoxType = interp_boxes.W_UInt32Box
+    format_code = "I"
+
 class Long(BaseType, Integer):
+    T = rffi.LONG
+    BoxType = interp_boxes.W_LongBox
+    format_code = "l"
+
+class NonNativeLong(BaseType, NonNativePrimitive, Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
@@ -372,28 +401,47 @@ class ULong(BaseType, Integer):
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
+class NonNativeULong(BaseType, NonNativePrimitive, Integer):
+    T = rffi.ULONG
+    BoxType = interp_boxes.W_ULongBox
+    format_code = "L"
+
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
+
+class NonNativeInt64(BaseType, NonNativePrimitive, Integer):
+    T = rffi.LONGLONG
+    BoxType = interp_boxes.W_Int64Box
+    format_code = "q"    
+
+def _uint64_coerce(self, space, w_item):
+    try:
+        return Integer._coerce(self, space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.toulonglong()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
 
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
 
-    def _coerce(self, space, w_item):
-        try:
-            return Integer._coerce(self, space, w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_OverflowError):
-                raise
-        bigint = space.bigint_w(w_item)
-        try:
-            value = bigint.toulonglong()
-        except OverflowError:
-            raise OperationError(space.w_OverflowError, space.w_None)
-        return self.box(value)
+    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
+
+class NonNativeUInt64(BaseType, NonNativePrimitive, Integer):
+    T = rffi.ULONGLONG
+    BoxType = interp_boxes.W_UInt64Box
+    format_code = "Q"
+    
+    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True
@@ -523,7 +571,17 @@ class Float32(BaseType, Float):
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
 
+class NonNativeFloat32(BaseType, NonNativePrimitive, Float):
+    T = rffi.FLOAT
+    BoxType = interp_boxes.W_Float32Box
+    format_code = "f"    
+
 class Float64(BaseType, Float):
+    T = rffi.DOUBLE
+    BoxType = interp_boxes.W_Float64Box
+    format_code = "d"
+
+class NonNativeFloat64(BaseType, NonNativePrimitive, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
@@ -537,21 +595,3 @@ for tp in [UInt32, UInt64]:
         UIntP = tp
         break
 del tp
-
-def _setup():
-    #from pypy.tool.sourcetools import func_with_new_name
-    
-    for name, tp in globals().items():
-        if isinstance(tp, type) and issubclass(tp, BaseType):
-            class NonNative(BaseType):
-                pass
-            NonNative.__bases__ = ((BaseType, NonNativePrimitive) +
-                                   tp.__bases__[1:])
-            for item, v in tp.__dict__.items():
-                if not item.startswith('__'):
-                    setattr(NonNative, item, v)
-            NonNative.__name__ = 'NonNative' + name
-            globals()[NonNative.__name__] = NonNative
-
-_setup()
-del _setup
