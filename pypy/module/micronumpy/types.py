@@ -213,8 +213,6 @@ class Primitive(object):
         return min(v1, v2)
 
 class NonNativePrimitive(object):
-    _mixin_ = True
-    
     def _read(self, storage, width, i, offset):
         return byteswap(Primitive._read(self, storage, width, i, offset))
 
@@ -540,13 +538,15 @@ for tp in [UInt32, UInt64]:
 del tp
 
 def _setup():
+    from pypy.tool.sourcetools import func_with_new_name
+    
     for name, tp in globals().items():
         if isinstance(tp, type):
             class NonNative(tp):
                 pass
             for item, v in NonNativePrimitive.__dict__.items():
                 if not item.startswith('__'):
-                    setattr(NonNative, item, v)
+                    setattr(NonNative, item, func_with_new_name(v, item))
             NonNative.__name__ = 'NonNative' + name
             globals()[NonNative.__name__] = NonNative
 
