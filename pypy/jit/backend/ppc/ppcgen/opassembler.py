@@ -1031,16 +1031,16 @@ class ForceOpAssembler(object):
 
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, BaseFieldDescr)
+            assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
-            self.alloc_scratch_reg()
+            self.mc.alloc_scratch_reg()
             self.mov_loc_loc(arglocs[1], r.SCRATCH)
             self.mc.li(resloc.value, 0)
             self.mc.storex(resloc.value, 0, r.SCRATCH.value)
-            self.free_scratch_reg()
+            self.mc.free_scratch_reg()
             regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
