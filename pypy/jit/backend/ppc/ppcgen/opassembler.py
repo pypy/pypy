@@ -1088,6 +1088,15 @@ class ForceOpAssembler(object):
 
     emit_guard_call_release_gil = emit_guard_call_may_force
 
+    def call_release_gil(self, gcrootmap, save_registers):
+        # XXX don't know whether this is correct
+        # XXX use save_registers here
+        assert gcrootmap.is_shadow_stack
+        with Saved_Volatiles(self.mc):
+            self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
+                            [], self._regalloc)
+
+
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
