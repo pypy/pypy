@@ -33,7 +33,7 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
-                        "unegative", "flat"]
+                        "unegative", "flat", "tostring"]
 TWO_ARG_FUNCTIONS = ["dot", 'take']
 
 class FakeSpace(object):
@@ -407,6 +407,9 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
+            elif self.name == "tostring":
+                arr.descr_tostring(interp.space)
+                w_res = None
             else:
                 assert False # unreachable code
         elif self.name in TWO_ARG_FUNCTIONS:
