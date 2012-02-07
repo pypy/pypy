@@ -212,7 +212,7 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
-class NonNativePrimitive(Primitive):
+class NonNativePrimitive(object):
     _mixin_ = True
     
     def _read(self, storage, width, i, offset):
