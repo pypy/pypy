@@ -1,5 +1,6 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-
+from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix
+from pypy.interpreter.gateway import interp2app
 
 class AppTestDtypes(BaseNumpyAppTest):
     def test_dtype(self):
@@ -182,6 +183,20 @@ class AppTestDtypes(BaseNumpyAppTest):
 
 
 class AppTestTypes(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
+        def check_non_native(w_obj, w_obj2):
+            assert w_obj.storage[0] == w_obj2.storage[1]
+            assert w_obj.storage[1] == w_obj2.storage[0]
+            if w_obj.storage[0] == '\x00':
+                assert w_obj2.storage[1] == '\x00'
+                assert w_obj2.storage[0] == '\x01'
+            else:
+                assert w_obj2.storage[1] == '\x01'
+                assert w_obj2.storage[0] == '\x00'
+        cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
+    
     def test_abstract_types(self):
         import _numpypy as numpy
         raises(TypeError, numpy.generic, 0)
@@ -427,4 +442,11 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_alternate_constructs(self):
         from _numpypy import dtype
         assert dtype('i8') == dtype('<i8')# XXX should be equal == dtype(long)
-        assert dtype('>i8') != dtype('i8')
+        assert dtype(self.non_native_prefix + 'i8') != dtype('i8')
+
+    def test_non_native(self):
+        from _numpypy import array
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'i2')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        self.check_non_native(a, array([1, 2, 3], 'i2'))

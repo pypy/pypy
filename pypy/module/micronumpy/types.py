@@ -1,5 +1,6 @@
 import functools
 import math
+import struct
 
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
@@ -125,6 +126,9 @@ class Primitive(object):
     def runpack_str(self, s):
         return self.box(runpack(self.format_code, s))
 
+    def pack_str(self, box):
+        return struct.pack(self.format_code, self.unbox(box))
+
     @simple_binary_op
     def add(self, v1, v2):
         return v1 + v2
@@ -216,6 +220,9 @@ class NonNativePrimitive(Primitive):
 
     def _write(self, storage, width, i, offset, value):
         Primitive._write(self, storage, width, i, offset, byteswap(value))
+
+    def pack_str(self, box):
+        return struct.pack(self.format_code, byteswap(self.unbox(box)))
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool

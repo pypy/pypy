@@ -625,6 +625,11 @@ class BaseArray(Wrappable):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
+    def descr_tostring(self, space):
+        ra = ToStringArray(self)
+        loop.compute(ra)
+        return space.wrap(ra.s.build())
+
     def compute_first_step(self, sig, frame):
         pass
 
@@ -804,6 +809,18 @@ class ResultArray(Call2):
     def create_sig(self):
         return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
                                          self.right.create_sig())
+
+class ToStringArray(Call1):
+    def __init__(self, child):
+        dtype = child.find_dtype()
+        self.itemsize = dtype.itemtype.get_element_size()
+        self.s = StringBuilder(child.size * self.itemsize)
+        Call1.__init__(self, None, 'tostring', child.shape, dtype, dtype,
+                       child)
+
+    def create_sig(self):
+        return signature.ToStringSignature(self.calc_dtype,
+                                           self.values.create_sig())
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -1285,6 +1302,7 @@ BaseArray.typedef = TypeDef(
     std = interp2app(BaseArray.descr_std),
 
     fill = interp2app(BaseArray.descr_fill),
+    tostring = interp2app(BaseArray.descr_tostring),
 
     copy = interp2app(BaseArray.descr_copy),
     flatten = interp2app(BaseArray.descr_flatten),

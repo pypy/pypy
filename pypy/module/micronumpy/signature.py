@@ -318,6 +318,17 @@ class ResultSignature(Call2):
         offset = frame.get_final_iter().offset
         arr.left.setitem(offset, self.right.eval(frame, arr.right))
 
+class ToStringSignature(Call1):
+    def __init__(self, dtype, child):
+        Call1.__init__(self, None, 'tostring', dtype, child)
+
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import ToStringArray
+
+        assert isinstance(arr, ToStringArray)
+        arr.s.append(self.dtype.itemtype.pack_str(
+            self.child.eval(frame, arr.values)))
+
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):
         self.left._invent_numbering(new_cache(), allnumbers)

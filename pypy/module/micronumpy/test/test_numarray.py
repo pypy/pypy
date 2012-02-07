@@ -1740,6 +1740,12 @@ class AppTestSupport(BaseNumpyAppTest):
         #5 bytes is larger than 3 bytes
         raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype=uint8)
 
+    def test_tostring(self):
+        from _numpypy import array
+        assert array([1, 2, 3], 'i2').tostring() == '\x01\x00\x02\x00\x03\x00'
+        assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
+        assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
+        assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
 
 class AppTestRanges(BaseNumpyAppTest):
     def test_arange(self):
