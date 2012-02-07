@@ -68,7 +68,6 @@ def attach_next_method(GeneratorIterator, graph):
         (next_entry, return_value) = func(entry)
         self.current = next_entry
         return return_value
-    next._jit_look_inside_ = True
     GeneratorIterator.next = next
     return func   # for debugging
 
