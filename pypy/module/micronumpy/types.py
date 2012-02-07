@@ -277,8 +277,10 @@ NonNativeBool = Bool
 class Integer(Primitive):
     _mixin_ = True
 
-    def _coerce(self, space, w_item):
+    def _base_coerce(self, space, w_item):
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
+    def _coerce(self, space, w_item):
+        return self._base_coerce(space, w_item)
 
     def str_format(self, box):
         value = self.unbox(box)
@@ -419,41 +421,32 @@ class NonNativeInt64(BaseType, NonNativeInteger):
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"    
 
+def _uint64_coerce(self, space, w_item):
+    try:
+        return self._base_coerce(self, space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.toulonglong()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
+
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
 
-    def _coerce(self, space, w_item):
-        try:
-            return Integer._coerce(self, space, w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_OverflowError):
-                raise
-        bigint = space.bigint_w(w_item)
-        try:
-            value = bigint.toulonglong()
-        except OverflowError:
-            raise OperationError(space.w_OverflowError, space.w_None)
-        return self.box(value)
+    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class NonNativeUInt64(BaseType, NonNativeInteger):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
-    
-    def _coerce(self, space, w_item):
-        try:
-            return NonNativeInteger._coerce(self, space, w_item)
-        except OperationError, e:
-            if not e.match(space, space.w_OverflowError):
-                raise
-        bigint = space.bigint_w(w_item)
-        try:
-            value = bigint.toulonglong()
-        except OverflowError:
-            raise OperationError(space.w_OverflowError, space.w_None)
-        return self.box(value)
+
+    _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class Float(Primitive):
     _mixin_ = True
