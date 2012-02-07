@@ -543,11 +543,13 @@ def _setup():
     
     for name, tp in globals().items():
         if isinstance(tp, type) and issubclass(tp, BaseType):
-            class NonNative(NonNativePrimitive, tp):
+            class NonNative(BaseType):
                 pass
-            #for item, v in NonNativePrimitive.__dict__.items():
-            #    if not item.startswith('__'):
-            #        setattr(NonNative, item, func_with_new_name(v, item))
+            NonNative.__bases__ = ((BaseType, NonNativePrimitive) +
+                                   tp.__bases__[1:])
+            for item, v in tp.__dict__.items():
+                if not item.startswith('__'):
+                    setattr(NonNative, item, v)
             NonNative.__name__ = 'NonNative' + name
             globals()[NonNative.__name__] = NonNative
 
