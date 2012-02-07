@@ -71,7 +71,7 @@ class Primitive(object):
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
-    @specialize.argtype(1)
+    @specialize.argtype(0)
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
