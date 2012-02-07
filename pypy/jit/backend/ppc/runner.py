@@ -97,7 +97,7 @@ class PPC_64_CPU(AbstractLLCPU):
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
 
         # start of "no gc operation!" block
-        fail_index_2 = self.asm.failure_recovery_func(
+        fail_index_2 = self.asm.decode_registers_and_descr(
                 faildescr._failure_recovery_code, spilling_pointer)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block

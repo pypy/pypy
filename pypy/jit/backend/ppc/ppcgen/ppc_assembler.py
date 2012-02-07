@@ -238,6 +238,7 @@ class AssemblerPPC(OpAssembler):
         descr = decode32(enc, i+1)
         self.fail_boxes_count = fail_index
         self.fail_force_index = spp_loc
+        assert isinstance(descr, int)
         return descr
 
     def decode_inputargs(self, enc):
@@ -600,8 +601,7 @@ class AssemblerPPC(OpAssembler):
             if op.is_ovf():
                 if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
                     operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    not_implemented("int_xxx_ovf not followed by "
-                                    "guard_(no)_overflow")
+                    assert 0, "int_xxx_ovf not followed by guard_(no)_overflow"
                 return True
             return False
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and

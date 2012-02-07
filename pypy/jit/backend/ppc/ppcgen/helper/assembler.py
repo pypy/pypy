@@ -83,7 +83,7 @@ def encode64(mem, i, n):
 
 def decode64(mem, index):
     value = 0
-    for x in unrolling_iterable(range(8)):
+    for x in range(8):
         value |= (ord(mem[index + x]) << (56 - x * 8))
     return intmask(value)
 

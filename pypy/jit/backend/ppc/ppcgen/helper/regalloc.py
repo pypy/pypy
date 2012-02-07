@@ -10,7 +10,7 @@ def check_imm_box(arg, size=IMM_SIZE, allow_zero=True):
     return False
 
 def _check_imm_arg(arg, size=IMM_SIZE, allow_zero=True):
-    #assert not isinstance(arg, ConstInt)
+    assert not isinstance(arg, ConstInt)
     #if not we_are_translated():
     #    if not isinstance(arg, int):
     #        import pdb; pdb.set_trace()
@@ -25,8 +25,8 @@ def prepare_cmp_op():
     def f(self, op):
         boxes = op.getarglist()
         arg0, arg1 = boxes
-        imm_a0 = _check_imm_arg(arg0)
-        imm_a1 = _check_imm_arg(arg1)
+        imm_a0 = check_imm_box(arg0)
+        imm_a1 = check_imm_box(arg1)
         l0 = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
 
         if imm_a1 and not imm_a0:
@@ -63,8 +63,8 @@ def prepare_binary_int_op_with_imm():
     def f(self, op):
         boxes = op.getarglist()
         b0, b1 = boxes
-        imm_b0 = _check_imm_arg(b0)
-        imm_b1 = _check_imm_arg(b1)
+        imm_b0 = check_imm_box(b0)
+        imm_b1 = check_imm_box(b1)
         l0 = self._ensure_value_is_boxed(b0, boxes)
         l1 = self._ensure_value_is_boxed(b1, boxes)
         locs = [l0, l1]
