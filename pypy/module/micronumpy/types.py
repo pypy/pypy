@@ -542,8 +542,11 @@ del tp
 def _setup():
     for name, tp in globals().items():
         if isinstance(tp, type):
-            class NonNative(NonNativePrimitive, tp):
+            class NonNative(tp):
                 pass
+            for item, v in NonNativePrimitive.__dict__.items():
+                if not item.startswith('__'):
+                    setattr(NonNative, item, v)
             NonNative.__name__ = 'NonNative' + name
             globals()[NonNative.__name__] = NonNative
 
