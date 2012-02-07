@@ -4,6 +4,8 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK, GETSIZE
 from pypy.rpython.memory.gc import stmgc
 
+WORD = stmgc.WORD
+
 stm_operations = StmOperations()
 
 DEFAULT_TLS = lltype.Struct('DEFAULT_TLS')
@@ -11,6 +13,10 @@ DEFAULT_TLS = lltype.Struct('DEFAULT_TLS')
 S1 = lltype.Struct('S1', ('hdr', stmgc.StmGC.HDR),
                          ('x', lltype.Signed),
                          ('y', lltype.Signed))
+
+# xxx a lot of casts to convince rffi to give us a regular integer :-(
+SIZEOFHDR = rffi.cast(lltype.Signed, rffi.cast(rffi.SHORT,
+                                               rffi.sizeof(S1.hdr)))
 
 
 def test_set_get_del():
@@ -57,7 +63,6 @@ class TestStmGcIntf:
 
     def test_tldict_large(self):
         content = {}
-        WORD = rffi.sizeof(lltype.Signed)
         for i in range(12000):
             key = random.randrange(1000, 2000) * WORD
             a1 = rffi.cast(llmemory.Address, key)
@@ -97,8 +102,8 @@ class TestStmGcIntf:
             a1 = llmemory.cast_ptr_to_adr(s1)
             a2 = llmemory.cast_ptr_to_adr(s2)
             stm_operations.tldict_add(a1, a2)
-        res = stm_operations.stm_read_word(llmemory.cast_ptr_to_adr(s1),
-                                           rffi.sizeof(S1.hdr))  # 'x'
+        reader = getattr(stm_operations, 'stm_read_int%d' % WORD)
+        res = reader(llmemory.cast_ptr_to_adr(s1), SIZEOFHDR)   # 'x'
         lltype.free(s1, flavor='raw')
         if copied:
             lltype.free(s2, flavor='raw')
@@ -118,6 +123,24 @@ class TestStmGcIntf:
         res = self.stm_read_case(stmgc.GCFLAG_WAS_COPIED, copied=True)
         assert res == 84084
     test_stm_read_word_transactional_thread.in_main_thread = False
+
+    def test_stm_read_int1(self):
+        S2 = lltype.Struct('S2', ('hdr', stmgc.StmGC.HDR),
+                                 ('c1', lltype.Char),
+                                 ('c2', lltype.Char),
+                                 ('c3', lltype.Char))
+        s2 = lltype.malloc(S2, flavor='raw')
+        s2.hdr.tid = stmgc.GCFLAG_GLOBAL | stmgc.GCFLAG_WAS_COPIED
+        s2.hdr.version = llmemory.NULL
+        s2.c1 = 'A'
+        s2.c2 = 'B'
+        s2.c3 = 'C'
+        reader = stm_operations.stm_read_int1
+        r1 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 0)  # c1
+        r2 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 1)  # c2
+        r3 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 2)  # c3
+        lltype.free(s2, flavor='raw')
+        assert r1 == 'A' and r2 == 'B' and r3 == 'C'
 
     def test_stm_size_getter(self):
         def getsize(addr):

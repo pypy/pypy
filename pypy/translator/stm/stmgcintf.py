@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.memory.gc.stmgc import PRIMITIVE_SIZES
 from pypy.translator.stm import _rffi_stm
 
 
@@ -28,9 +29,10 @@ class StmOperations(object):
                             lltype.Void)
     tldict_enum = smexternal('stm_tldict_enum', [CALLBACK], lltype.Void)
 
-    stm_read_word = smexternal('stm_read_word',
-                               [llmemory.Address, lltype.Signed],
-                               lltype.Signed)
+    for _size, _TYPE in PRIMITIVE_SIZES.items():
+        _name = 'stm_read_int%d' % _size
+        locals()[_name] = smexternal(_name, [llmemory.Address, lltype.Signed],
+                                     _TYPE)
 
     stm_copy_transactional_to_raw = smexternal('stm_copy_transactional_to_raw',
                                                [llmemory.Address,
