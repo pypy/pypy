@@ -535,7 +535,7 @@ def byteswap(arg):
     elif rffi.sizeof(T) == 8:
         a, b, c, d = arg & 0xFF, arg & 0xFF00, arg & 0xFF0000, arg & 0xFF000000
         e, f, g, h = (arg & (0xFF << 32), arg & (0xFF << 40),
-                      arg & (0xFF << 48), arg & (0xFF << 56))
+                      arg & (0xFF << 48), arg & (r_uint(0xFF) << 56))
         res = ((a << 56) | (b << 40) | (c << 24) | (d << 8) | (e >> 8) |
                (f >> 24) | (g >> 40) | (h >> 56))
     else:
