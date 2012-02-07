@@ -64,5 +64,5 @@ def create_builder(name, strtype, builder_cls):
     W_Builder.typedef.acceptable_as_base_class = False
     return W_Builder
 
-W_StringBuilder = create_builder("StringBuilder", str, StringBuilder)
-W_UnicodeBuilder = create_builder("UnicodeBuilder", unicode, UnicodeBuilder)
+W_StringBuilder = create_builder("StringBuilder", unicode, UnicodeBuilder)
+W_BytesBuilder = create_builder("BytesBuilder", str, StringBuilder)
