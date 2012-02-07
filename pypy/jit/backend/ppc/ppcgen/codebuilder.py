@@ -22,7 +22,6 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
-from pypy.jit.backend.x86.support import values_array
 from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -962,7 +961,6 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def __init__(self, failargs_limit=1000, r0_in_use=False):
         PPCAssembler.__init__(self)
         self.init_block_builder()
-        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.r0_in_use = r0_in_use
 
     def check(self, desc, v, *args):
@@ -996,7 +994,8 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.ldx(rD.value, 0, rD.value)
 
     def store_reg(self, source_reg, addr):
-        self.alloc_scratch_reg(addr)
+        self.alloc_scratch_reg()
+        self.load_imm(r.SCRATCH, addr)
         if IS_PPC_32:
             self.stwx(source_reg.value, 0, r.SCRATCH.value)
         else:
@@ -1021,13 +1020,15 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         BI = condition[0]
         BO = condition[1]
 
-        self.alloc_scratch_reg(addr)
+        self.alloc_scratch_reg()
+        self.load_imm(r.SCRATCH, addr)
         self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
         self.bcctr(BO, BI)
 
     def b_abs(self, address, trap=False):
-        self.alloc_scratch_reg(address)
+        self.alloc_scratch_reg()
+        self.load_imm(r.SCRATCH, address)
         self.mtctr(r.SCRATCH.value)
         self.free_scratch_reg()
         if trap:
@@ -1154,11 +1155,9 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                     # 64 bit unsigned
                     self.cmpld(block, a, b)
                 
-    def alloc_scratch_reg(self, value=None):
+    def alloc_scratch_reg(self):
         assert not self.r0_in_use
         self.r0_in_use = True
-        if value is not None:
-            self.load_imm(r.r0, value)
 
     def free_scratch_reg(self):
         assert self.r0_in_use

@@ -288,7 +288,8 @@ class MiscOpAssembler(object):
                     adr = self.fail_boxes_int.get_addr_for_num(i)
                 else:
                     assert 0
-                self.mc.alloc_scratch_reg(adr)
+                self.mc.alloc_scratch_reg()
+                self.mc.load_imm(r.SCRATCH, adr)
                 self.mc.storex(loc.value, 0, r.SCRATCH.value)
                 self.mc.free_scratch_reg()
             elif loc.is_vfp_reg():
@@ -372,7 +373,8 @@ class MiscOpAssembler(object):
         if resloc:
             self.mc.load(resloc.value, loc.value, 0)
 
-        self.mc.alloc_scratch_reg(0)
+        self.mc.alloc_scratch_reg()
+        self.mc.load_imm(r.SCRATCH, 0)
         self.mc.store(r.SCRATCH.value, loc.value, 0)
         self.mc.store(r.SCRATCH.value, loc1.value, 0)
         self.mc.free_scratch_reg()
@@ -748,7 +750,8 @@ class StrOpAssembler(object):
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()
-            self.mc.alloc_scratch_reg(1 << scale)
+            self.mc.alloc_scratch_reg()
+            self.mc.load_imm(r.SCRATCH, 1 << scale)
             if IS_PPC_32:
                 self.mc.mullw(bytes_loc.value, r.SCRATCH.value, length_loc.value)
             else:
@@ -857,7 +860,8 @@ class AllocOpAssembler(object):
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
-            self.mc.alloc_scratch_reg(adr)
+            self.mc.alloc_scratch_reg()
+            self.mc.load_imm(r.SCRATCH, adr)
             self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
             self.mc.free_scratch_reg()
 
@@ -986,7 +990,8 @@ class ForceOpAssembler(object):
         # check value
         resloc = regalloc.try_allocate_reg(resbox)
         assert resloc is r.RES
-        self.mc.alloc_scratch_reg(value)
+        self.mc.alloc_scratch_reg()
+        self.mc.load_imm(r.SCRATCH, value)
         self.mc.cmp_op(0, resloc.value, r.SCRATCH.value)
         self.mc.free_scratch_reg()
         regalloc.possibly_free_var(resbox)
@@ -1051,7 +1056,8 @@ class ForceOpAssembler(object):
                 raise AssertionError(kind)
             resloc = regalloc.force_allocate_reg(op.result)
             regalloc.possibly_free_var(resbox)
-            self.mc.alloc_scratch_reg(adr)
+            self.mc.alloc_scratch_reg()
+            self.mc.load_imm(r.SCRATCH, adr)
             if op.result.type == FLOAT:
                 assert 0, "not implemented yet"
             else:

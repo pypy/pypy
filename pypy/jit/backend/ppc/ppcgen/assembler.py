@@ -66,7 +66,7 @@ class Assembler(object):
         c = asmfunc.AsmCode(len(self.insts)*4)
         for i in self.insts:
             c.emit(i)#.assemble())
-        return c.get_function()
+        #return c.get_function()
 
     def get_idescs(cls):
         r = []
