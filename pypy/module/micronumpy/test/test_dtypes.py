@@ -450,3 +450,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
+
+    def test_alignment(self):
+        from _numpypy import dtype
+        assert dtype('i4').alignment == 4

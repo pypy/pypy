@@ -60,29 +60,6 @@ class W_Dtype(Wrappable):
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.itemtype.get_element_size(), box, start, stop, 0)
 
-    def descr__new__(space, w_subtype, w_dtype):
-        cache = get_dtype_cache(space)
-
-        if space.is_w(w_dtype, space.w_None):
-            return cache.w_float64dtype
-        elif space.isinstance_w(w_dtype, w_subtype):
-            return w_dtype
-        elif space.isinstance_w(w_dtype, space.w_str):
-            name = space.str_w(w_dtype)
-            try:
-                return cache.dtypes_by_name[name]
-            except KeyError:
-                pass
-        elif space.isinstance_w(w_dtype, space.w_list):
-            raise NotImplementedError
-        else:
-            for dtype in cache.builtin_dtypes:
-                if w_dtype in dtype.alternate_constructors:
-                    return dtype
-                if w_dtype is dtype.w_box_type:
-                    return dtype
-        raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
-
     def descr_str(self, space):
         return space.wrap(self.name)
 
@@ -91,6 +68,9 @@ class W_Dtype(Wrappable):
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())
+
+    def descr_get_alignment(self, space):
+        return space.wrap(self.itemtype.alignment)
 
     def descr_get_shape(self, space):
         return space.newtuple([])
@@ -112,9 +92,38 @@ class W_Dtype(Wrappable):
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
+def dtype_from_list(space, w_lst):
+    lst_w = space.listview(w_lst)
+    fieldlist = []
+    for w_elem in lst_w:
+        fldname, flddesc = space.fixedview(w_elem, 2)
+
+def descr__new__(space, w_subtype, w_dtype):
+    cache = get_dtype_cache(space)
+
+    if space.is_w(w_dtype, space.w_None):
+        return cache.w_float64dtype
+    elif space.isinstance_w(w_dtype, w_subtype):
+        return w_dtype
+    elif space.isinstance_w(w_dtype, space.w_str):
+        name = space.str_w(w_dtype)
+        try:
+            return cache.dtypes_by_name[name]
+        except KeyError:
+            pass
+    elif space.isinstance_w(w_dtype, space.w_list):
+        return dtype_from_list(space, w_dtype)
+    else:
+        for dtype in cache.builtin_dtypes:
+            if w_dtype in dtype.alternate_constructors:
+                return dtype
+            if w_dtype is dtype.w_box_type:
+                return dtype
+    raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
+
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
-    __new__ = interp2app(W_Dtype.descr__new__.im_func),
+    __new__ = interp2app(descr__new__),
 
     __str__= interp2app(W_Dtype.descr_str),
     __repr__ = interp2app(W_Dtype.descr_repr),
@@ -125,6 +134,7 @@ W_Dtype.typedef = TypeDef("dtype",
     kind = interp_attrproperty("kind", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
+    alignment = GetSetProperty(W_Dtype.descr_get_alignment),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     name = interp_attrproperty('name', cls=W_Dtype),
 )

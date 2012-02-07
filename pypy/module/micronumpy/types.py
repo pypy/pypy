@@ -603,3 +603,11 @@ for tp in [UInt32, UInt64]:
         UIntP = tp
         break
 del tp
+
+def _setup():
+    # compute alignment
+    for tp in globals().values():
+        if isinstance(tp, type) and hasattr(tp, 'T'):
+            tp.alignment = clibffi.cast_type_to_ffitype(tp.T).c_alignment
+_setup()
+del _setup
