@@ -221,9 +221,8 @@ class StmGC(GCBase):
         @always_inline
         def reader(obj, offset):
             if self.header(obj).tid & GCFLAG_GLOBAL == 0:
-                # local obj: read directly
                 adr = rffi.cast(PTYPE, obj + offset)
-                return adr[0]
+                return adr[0]                      # local obj: read directly
             else:
                 return stm_read_int(obj, offset)   # else: call a helper
         setattr(self, 'read_int%d' % size, reader)
