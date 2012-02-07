@@ -1,19 +1,19 @@
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
+from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
                                                           gen_emit_unary_cmp_op)
-import pypy.jit.backend.ppc.ppcgen.condition as c
-import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
+import pypy.jit.backend.ppc.condition as c
+import pypy.jit.backend.ppc.register as r
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               MAX_REG_PARAMS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
+from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)
-from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
-from pypy.jit.backend.ppc.ppcgen.codebuilder import OverwritingBuilder
-from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr, TempInt
+from pypy.jit.backend.ppc.jump import remap_frame_layout
+from pypy.jit.backend.ppc.codebuilder import OverwritingBuilder
+from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
 from pypy.jit.metainterp.resoperation import rop
@@ -853,24 +853,6 @@ class AllocOpAssembler(object):
     def emit_call_malloc_gc(self, op, arglocs, regalloc):
         self.emit_call(op, arglocs, regalloc)
         self.propagate_memoryerror_if_r3_is_null()
-
-    # from: ../x86/regalloc.py:750
-    # called from regalloc
-    # XXX kill this function at some point
-    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox,
-            ofs_items_loc, regalloc, result):
-        if IS_PPC_32:
-            self.mc.mullw(size.value, size.value, vloc.value)
-        else:
-            self.mc.mulld(size.value, size.value, vloc.value)
-        if ofs_items_loc.is_imm():
-            self.mc.addi(size.value, size.value, ofs_items_loc.value)
-        else:
-            self.mc.add(size.value, size.value, ofs_items_loc.value)
-        force_index = self.write_new_force_index()
-        regalloc.force_spill_var(vbox)
-        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
-                                    result=result)
 
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:

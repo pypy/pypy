@@ -6,16 +6,16 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history, compile
 from pypy.jit.metainterp.history import BoxPtr
 from pypy.jit.backend.x86.assembler import Assembler386
-from pypy.jit.backend.ppc.ppcgen.arch import FORCE_INDEX_OFS
+from pypy.jit.backend.ppc.arch import FORCE_INDEX_OFS
 from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
-from pypy.jit.backend.ppc.ppcgen.regalloc import PPCRegisterManager, PPCFrameManager
-from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen import register as r
+from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
+from pypy.jit.backend.ppc.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
+from pypy.jit.backend.ppc.regalloc import PPCRegisterManager, PPCFrameManager
+from pypy.jit.backend.ppc.codebuilder import PPCBuilder
+from pypy.jit.backend.ppc import register as r
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -37,6 +37,8 @@ class PPC_64_CPU(AbstractLLCPU):
         self.supports_floats = False
         self.total_compiled_loops = 0
         self.total_compiled_bridges = 0
+
+    def setup(self):
         self.asm = AssemblerPPC(self)
 
     def setup_once(self):
@@ -113,7 +115,13 @@ class PPC_64_CPU(AbstractLLCPU):
 
     def get_latest_value_ref(self, index):
         return self.asm.fail_boxes_ptr.getitem(index)
+
+    def get_latest_force_token(self):
+        return self.asm.fail_force_index
     
+    def get_on_leave_jitted_hook(self):
+        return self.asm.leave_jitted_hook
+
     # walk through the given trace and generate machine code
     def _walk_trace_ops(self, codebuilder, operations):
         for op in operations:

@@ -1,10 +1,11 @@
 from pypy.rlib.objectmodel import instantiate
-from pypy.jit.backend.ppc.ppcgen.locations import (imm, RegisterLocation,
-                                                   ImmLocation, StackLocation)
-from pypy.jit.backend.ppc.ppcgen.register import *
-from pypy.jit.backend.ppc.ppcgen.codebuilder import hi, lo
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.ppcgen.arch import WORD
+from pypy.jit.backend.ppc.locations import (imm, RegisterLocation,
+                                            ImmLocation, StackLocation)
+from pypy.jit.backend.ppc.register import *
+from pypy.jit.backend.ppc.codebuilder import hi, lo
+from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
+from pypy.jit.backend.ppc.arch import WORD
+from pypy.jit.backend.ppc.locations import get_spp_offset
 
 class MockBuilder(object):
     
@@ -94,23 +95,31 @@ class TestRegallocMov(object):
         big = 2 << 28
         self.asm.regalloc_mov(imm(big), stack(7))
 
-        exp_instr = [MI("load_imm", 0, 5),
-                     MI("stw", r0.value, SPP.value, -(6 * WORD + WORD)),
-                     MI("load_imm", 0, big),
-                     MI("stw", r0.value, SPP.value, -(7 * WORD + WORD))]
+        exp_instr = [MI("alloc_scratch_reg"),
+                     MI("load_imm", r0, 5),
+                     MI("store", r0.value, SPP.value, get_spp_offset(6)),
+                     MI("free_scratch_reg"),
+
+                     MI("alloc_scratch_reg"),
+                     MI("load_imm", r0, big),
+                     MI("store", r0.value, SPP.value, get_spp_offset(7)),
+                     MI("free_scratch_reg")]
         assert self.asm.mc.instrs == exp_instr
 
     def test_mem_to_reg(self):
         self.asm.regalloc_mov(stack(5), reg(10))
         self.asm.regalloc_mov(stack(0), reg(0))
-        exp_instrs = [MI("lwz", r10.value, SPP.value, -(5 * WORD + WORD)),
-                      MI("lwz", r0.value, SPP.value, -(WORD))]
+        exp_instrs = [MI("load", r10.value, SPP.value, -(5 * WORD + WORD)),
+                      MI("load", r0.value, SPP.value, -(WORD))]
         assert self.asm.mc.instrs == exp_instrs
 
     def test_mem_to_mem(self):
         self.asm.regalloc_mov(stack(5), stack(6))
-        exp_instrs = [MI("lwz", r0.value, SPP.value, -(5 * WORD + WORD)),
-                      MI("stw", r0.value, SPP.value, -(6 * WORD + WORD))]
+        exp_instrs = [
+                      MI("alloc_scratch_reg"),
+                      MI("load", r0.value, SPP.value, get_spp_offset(5)),
+                      MI("store", r0.value, SPP.value, get_spp_offset(6)),
+                      MI("free_scratch_reg")]
         assert self.asm.mc.instrs == exp_instrs
 
     def test_reg_to_reg(self):
@@ -123,8 +132,8 @@ class TestRegallocMov(object):
     def test_reg_to_mem(self):
         self.asm.regalloc_mov(reg(5), stack(10))
         self.asm.regalloc_mov(reg(0), stack(2))
-        exp_instrs = [MI("stw", r5.value, SPP.value, -(10 * WORD + WORD)),
-                      MI("stw", r0.value, SPP.value, -(2 * WORD + WORD))]
+        exp_instrs = [MI("store", r5.value, SPP.value, -(10 * WORD + WORD)),
+                      MI("store", r0.value, SPP.value, -(2 * WORD + WORD))]
         assert self.asm.mc.instrs == exp_instrs
 
 def reg(i):

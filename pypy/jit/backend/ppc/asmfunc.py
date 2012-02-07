@@ -4,7 +4,7 @@ import mmap, struct
 from pypy.jit.backend.ppc.codebuf import MachineCodeBlockWrapper
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, IS_PPC_64, WORD
+from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
 
 _ppcgen = None
 

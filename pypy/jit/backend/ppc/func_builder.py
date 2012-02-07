@@ -1,6 +1,6 @@
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCAssembler
-from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.regname import *
+from pypy.jit.backend.ppc.ppc_assembler import PPCAssembler
+from pypy.jit.backend.ppc.symbol_lookup import lookup
+from pypy.jit.backend.ppc.regname import *
 
 def load_arg(code, argi, typecode):
     rD = r3+argi

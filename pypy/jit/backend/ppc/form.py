@@ -91,7 +91,7 @@ class IDesc(object):
         for fname, v in more_specializatons.iteritems():
             field = self.fieldmap[fname]
             if field not in self.fields:
-                raise FormException, "don't know about '%s' here"%k
+                raise FormException, "don't know about '%s' here" % field
             if isinstance(v, str):
                 ds[field] = self.fieldmap[v]
             else:
