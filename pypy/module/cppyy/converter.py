@@ -1,7 +1,6 @@
 import sys
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.buffer import Buffer
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import jit, libffi, clibffi
@@ -557,7 +556,6 @@ class InstanceConverter(InstancePtrConverter):
 _converters = {}         # builtin and custom types
 _a_converters = {}       # array and ptr versions of above
 def get_converter(space, name, default):
-    from pypy.module.cppyy import interp_cppyy
     # The matching of the name to a converter should follow:
     #   1) full, exact match
     #       1a) const-removed match
@@ -572,13 +570,13 @@ def get_converter(space, name, default):
     #   1) full, exact match
     try:
         return _converters[name](space, default)
-    except KeyError, k:
+    except KeyError:
         pass
 
     #   1a) const-removed match
     try:
         return _converters[helper.remove_const(name)](space, default)
-    except KeyError, k:
+    except KeyError:
         pass
 
     #   2) match of decorated, unqualified type
@@ -588,7 +586,7 @@ def get_converter(space, name, default):
         # array_index may be negative to indicate no size or no size found
         array_size = helper.array_size(name)
         return _a_converters[clean_name+compound](space, array_size)
-    except KeyError, k:
+    except KeyError:
         pass
 
     #   3) accept const ref as by value

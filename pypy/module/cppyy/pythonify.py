@@ -74,7 +74,7 @@ def make_datamember(cppdm):
     else:                                        # return instance
         try:
             cppclass = get_cppclass(rettype)
-        except AttributeError, e:
+        except AttributeError:
             import warnings
             warnings.warn("class %s unknown: no data member access" % rettype,
                           RuntimeWarning)

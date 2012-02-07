@@ -1,7 +1,5 @@
-import pypy.module.cppyy.capi as capi
-
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
@@ -227,7 +225,7 @@ class CPPConstructor(CPPMethod):
         assert lltype.typeOf(newthis) == capi.C_OBJECT
         try:
             CPPMethod.call(self, newthis, None, args_w)
-        except Exception, e:
+        except Exception:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
         return new_instance(self.space, w_type, self.cpptype, newthis, True)
