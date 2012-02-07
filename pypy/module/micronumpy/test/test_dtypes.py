@@ -423,3 +423,8 @@ class AppTestTypes(BaseNumpyAppTest):
                                        numpy.generic, object)
         assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
         #assert numpy.str_.__mro__ == 
+
+    def test_alternate_constructs(self):
+        from _numpypy import dtype
+        assert dtype('i8') == dtype('<i8')# XXX should be equal == dtype(long)
+        assert dtype('>i8') != dtype('i8')

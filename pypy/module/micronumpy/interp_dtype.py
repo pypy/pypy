@@ -1,3 +1,5 @@
+
+import sys
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
@@ -67,9 +69,10 @@ class W_Dtype(Wrappable):
             return w_dtype
         elif space.isinstance_w(w_dtype, space.w_str):
             name = space.str_w(w_dtype)
-            for dtype in cache.builtin_dtypes:
-                if dtype.name == name or dtype.char == name or name in dtype.aliases:
-                    return dtype
+            try:
+                return cache.dtypes_by_name[name]
+            except KeyError:
+                pass
         elif space.isinstance_w(w_dtype, space.w_list):
             xxx
         else:
@@ -126,6 +129,13 @@ W_Dtype.typedef = TypeDef("dtype",
     name = interp_attrproperty('name', cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
+
+if sys.byteorder == 'little':
+    byteorder_prefix = '<'
+    nonnative_byteorder_prefix = '>'
+else:
+    byteorder_prefix = '>'
+    nonnative_byteorder_prefix = '<'
 
 class DtypeCache(object):
     def __init__(self, space):
@@ -258,7 +268,6 @@ class DtypeCache(object):
             char='Q',
             w_box_type = space.gettypefor(interp_boxes.W_ULongLongBox),
         )
-
         self.builtin_dtypes = [
             self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
@@ -271,6 +280,20 @@ class DtypeCache(object):
             (dtype.itemtype.get_element_size(), dtype)
             for dtype in self.builtin_dtypes
         )
+        self.dtypes_by_name = {}
+        for dtype in self.builtin_dtypes:
+            self.dtypes_by_name[dtype.name] = dtype
+            can_name = dtype.kind + str(dtype.itemtype.get_element_size())
+            self.dtypes_by_name[can_name] = dtype
+            self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+            new_name = nonnative_byteorder_prefix + can_name
+            itemtypename = dtype.itemtype.__class__.__name__
+            self.dtypes_by_name[new_name] = W_Dtype(
+                getattr(types, 'NonNative' + itemtypename)(),
+                dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type)
+            for alias in dtype.aliases:
+                self.dtypes_by_name[alias] = dtype
+            self.dtypes_by_name[dtype.char] = dtype
 
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)

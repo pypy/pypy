@@ -6,7 +6,7 @@ from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, libffi, clibffi
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import LONG_BIT, widen
+from pypy.rlib.rarithmetic import LONG_BIT, widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 
@@ -99,28 +99,28 @@ class Primitive(object):
     def default_fromstring(self, space):
         raise NotImplementedError
 
+    def _read(self, storage, width, i, offset):
+        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                    width, storage, i, offset)
+
     def read(self, storage, width, i, offset):
-        return self.box(libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-            width, storage, i, offset
-        ))
+        return self.box(self._read(storage, width, i, offset))
 
     def read_bool(self, storage, width, i, offset):
-        return bool(self.for_computation(
-            libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                 width, storage, i, offset)))
+        return bool(self.for_computation(self._read(storage, width, i, offset)))
+
+    def _write(self, storage, width, i, offset, value):
+        libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+                             width, storage, i, offset, value)
+        
 
     def store(self, storage, width, i, offset, box):
-        value = self.unbox(box)
-        libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-            width, storage, i, offset, value
-        )
+        self._write(storage, width, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
         for i in xrange(start, stop):
-            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-                width, storage, i, offset, value
-            )
+            self._write(storage, width, i, offset, value)
 
     def runpack_str(self, s):
         return self.box(runpack(self.format_code, s))
@@ -208,6 +208,14 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+class NonNativePrimitive(Primitive):
+    _mixin_ = True
+    
+    def _read(self, storage, width, i, offset):
+        return byteswap(Primitive._read(self, storage, width, i, offset))
+
+    def _write(self, storage, width, i, offset, value):
+        Primitive._write(self, storage, width, i, offset, byteswap(value))
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
@@ -523,3 +531,14 @@ for tp in [UInt32, UInt64]:
         UIntP = tp
         break
 del tp
+
+def _setup():
+    for name, tp in globals().items():
+        if isinstance(tp, type):
+            class NonNative(NonNativePrimitive, tp):
+                pass
+            NonNative.__name__ = 'NonNative' + name
+            globals()[NonNative.__name__] = NonNative
+
+_setup()
+del _setup
