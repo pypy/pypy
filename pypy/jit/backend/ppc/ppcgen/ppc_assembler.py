@@ -106,6 +106,7 @@ class AssemblerPPC(OpAssembler):
         self._regalloc = None
         self.max_stack_params = 0
         self.propagate_exception_path = 0
+        self.setup_failure_recovery()
 
     def _save_nonvolatiles(self):
         """ save nonvolatile GPRs in GPR SAVE AREA 
@@ -382,7 +383,6 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr.initialize()
         self._build_propagate_exception_path()
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
