@@ -32,7 +32,7 @@
 # include <assert.h>
 #else
 # undef assert
-# define assert /* nothing */
+# define assert(x) /* nothing */
 #endif
 
 /************************************************************/
