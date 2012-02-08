@@ -457,11 +457,23 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
 
+class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
         
         assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
         assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
+
+    def test_str_dtype(self):
+        from _numpypy import dtype, str_
+
+        d = dtype('S8')
+        assert d.itemsize == 8
+        assert dtype(str) == dtype('S')
+        assert d.kind == 'S'
+        assert d.type is str_
+        assert d.name == "string64"
+        assert d.num == 18
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
