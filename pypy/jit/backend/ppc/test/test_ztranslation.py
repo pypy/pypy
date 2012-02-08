@@ -8,7 +8,7 @@ from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.translator.translator import TranslationContext
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, IS_PPC_64
+from pypy.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64
 from pypy.config.translationoption import DEFL_GC
 from pypy.rlib import rgc
 

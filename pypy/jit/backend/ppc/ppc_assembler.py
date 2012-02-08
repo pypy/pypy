@@ -16,9 +16,9 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP)
 from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, encode64,
-                                                          decode32, decode64,
-                                                          count_reg_args,
+                                                   encode32, encode64,
+                                                   decode32, decode64,
+                                                   count_reg_args,
                                                           Saved_Volatiles)
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c

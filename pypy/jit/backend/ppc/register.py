@@ -1,5 +1,5 @@
 from pypy.jit.backend.ppc.locations import (RegisterLocation,
-                                                   FPRegisterLocation)
+                                            FPRegisterLocation)
 
 ALL_REGS        = [RegisterLocation(i) for i in range(32)]
 ALL_FLOAT_REGS  = [FPRegisterLocation(i) for i in range(32)]
