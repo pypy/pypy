@@ -404,6 +404,17 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_operators(self):
         from operator import truediv
-        from _numpypy import float64, int_
+        from _numpypy import float64, int_, True_, False_
 
         assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert 2 ** int_(3) == int_(8)
+        assert int_(3) & int_(1) == int_(1)
+        raises(TypeError, lambda: float64(3) & 1)
+        assert int_(8) % int_(3) == int_(2)
+        assert int_(2) | int_(1) == int_(3)
+        assert int_(3) ^ int_(5) == int_(6)
+        assert True_ ^ False_ is True_
+
+        assert +int_(3) == int_(3)
+        assert ~int_(3) == int_(-4)
+
