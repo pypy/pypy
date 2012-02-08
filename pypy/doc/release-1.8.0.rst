@@ -44,9 +44,19 @@ Highlights
   consult the `numpy status page`_. A tentative list of things that has
   been done:
 
-  xxxx # list it, multidim arrays in particular
+  * multi dimensional arrays
 
-* Fundraising XXX
+  * various sizes of dtypes
 
-.. _`numpy status page`: xxx
-.. _`numpy status update blog report`: xxx
+  * a lot of ufuncs
+
+  * a lot of other minor changes
+
+* Since the last release there was a significant breakthrough in PyPy's
+  fundraising. We now have enough funds to work on first stages of `numpypy`_
+  and `py3k`_
+
+.. _`numpy status page`: http://buildbot.pypy.org/numpy-status/latest.html
+.. _`numpy status update blog report`: http://morepypy.blogspot.com/2012/01/numpypy-status-update.html
+.. _`numpypy`: http://pypy.org/numpydonate.html
+.. _`py3k`: http://pypy.org/py3donate.html
