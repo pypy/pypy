@@ -81,8 +81,11 @@ class W_GenericBox(Wrappable):
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_truediv = _binop_impl("true_divide")
+    descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
-    descr_and = _binop_right_impl("bitwise_and")
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+    descr_xor = _binop_impl("bitwise_xor")
 
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
@@ -181,8 +184,11 @@ W_GenericBox.typedef = TypeDef("generic",
     __mul__ = interp2app(W_GenericBox.descr_mul),
     __div__ = interp2app(W_GenericBox.descr_div),
     __truediv__ = interp2app(W_GenericBox.descr_truediv),
+    __mod__ = interp2app(W_GenericBox.descr_mod),
     __pow__ = interp2app(W_GenericBox.descr_pow),
     __and__ = interp2app(W_GenericBox.descr_and),
+    __or__ = interp2app(W_GenericBox.descr_or),
+    __xor__ = interp2app(W_GenericBox.descr_xor),
 
     __radd__ = interp2app(W_GenericBox.descr_radd),
     __rsub__ = interp2app(W_GenericBox.descr_rsub),

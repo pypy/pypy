@@ -59,10 +59,6 @@ def raw_binary_op(func):
 class BaseType(object):
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
-    # add = sub = mul = div = mod = pow = eq = ne = lt = le = gt = ge = max = \
-    #     min = copysign = pos = neg = abs = sign = reciprocal = fabs = floor = \
-    #     exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
-    #     arctanh = _unimplemented_ufunc
 
 class Primitive(object):
     _mixin_ = True
@@ -253,6 +249,10 @@ class Bool(BaseType, Primitive):
     def bitwise_or(self, v1, v2):
         return v1 | v2
 
+    @simple_binary_op
+    def bitwise_xor(self, v1, v2):
+        return v1 ^ v2
+
     @simple_unary_op
     def invert(self, v):
         return ~v
@@ -312,6 +312,10 @@ class Integer(Primitive):
     @simple_binary_op
     def bitwise_or(self, v1, v2):
         return v1 | v2
+
+    @simple_binary_op
+    def bitwise_xor(self, v1, v2):
+        return v1 ^ v2
 
     @simple_unary_op
     def invert(self, v):
