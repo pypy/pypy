@@ -69,8 +69,9 @@ class Module(MixedModule):
         'intp': 'types.IntP.BoxType',
         'uintp': 'types.UIntP.BoxType',
         'flexible': 'interp_boxes.W_FlexibleBox',
-        #'str_': 'interp_boxes.W_StringBox',
-        #'unicode_': 'interp_boxes.W_UnicodeBox',
+        'character': 'interp_boxes.W_CharacterBox',
+        'str_': 'interp_boxes.W_StringBox',
+        'unicode_': 'interp_boxes.W_UnicodeBox',
         'void': 'interp_boxes.W_VoidBox',
     }
 

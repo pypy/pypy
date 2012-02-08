@@ -440,7 +440,6 @@ class AppTestTypes(BaseNumpyAppTest):
                                        numpy.integer, numpy.number,
                                        numpy.generic, object)
         assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
-        #assert numpy.str_.__mro__ == 
 
     def test_alternate_constructs(self):
         from _numpypy import dtype
@@ -457,6 +456,12 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_alignment(self):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
+
+    def test_str_unicode(self):
+        from _numpypy import str_, unicode_, character, flexible, generic
+        
+        assert str_.mro() == [str_, str, basestring, character, flexible, generic, object]
+        assert unicode_.mro() == [unicode_, unicode, basestring, character, flexible, generic, object]
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
@@ -476,3 +481,4 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.names == ("x", "y", "z", "value")
         raises(KeyError, 'd["xyz"]')
         raises(KeyError, 'd.fields["xyz"]')
+

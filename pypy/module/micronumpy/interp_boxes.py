@@ -3,6 +3,8 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.floattype import float_typedef
+from pypy.objspace.std.stringtype import str_typedef
+from pypy.objspace.std.unicodetype import unicode_typedef
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -169,6 +171,14 @@ class W_FlexibleBox(W_GenericBox):
 class W_VoidBox(W_FlexibleBox):
     pass
 
+class W_CharacterBox(W_FlexibleBox):
+    pass
+
+class W_StringBox(W_CharacterBox):
+    pass
+
+class W_UnicodeBox(W_CharacterBox):
+    pass
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
@@ -300,3 +310,16 @@ W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
 W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
     __module__ = "numpypy",
 )
+
+W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
+    __module__ = "numpypy",
+)
+
+W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
+    __module__ = "numpypy",
+)
+
+W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
+    __module__ = "numpypy",
+)
+                                          

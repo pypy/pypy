@@ -603,6 +603,21 @@ class CompositeType(BaseType):
     def get_element_size(self):
         return self.size
 
+class BaseStringType(object):
+    _mixin_ = True
+    
+    def __init__(self, size):
+        self.size = size
+
+    def get_element_size(self):
+        return self.size * rffi.sizeof(self.T)
+
+class StringType(BaseType, BaseStringType):
+    T = lltype.Char
+
+class UnicodeType(BaseType, BaseStringType):
+    T = lltype.UniChar
+
 class RecordType(CompositeType):
     pass
 
