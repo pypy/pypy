@@ -407,3 +407,4 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import float64, int_
 
         assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert 2 ** int_(3) == int_(8)
