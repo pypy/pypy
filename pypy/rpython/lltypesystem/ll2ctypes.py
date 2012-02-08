@@ -202,7 +202,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
             for n in [sys.maxint, 2**31]:
-                cls.MAX_SIZE = n/64
+                cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
                 except OverflowError, e:
@@ -1036,13 +1036,8 @@ def get_ctypes_callable(funcptr, calling_conv):
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
 
     FUNCTYPE = lltype.typeOf(funcptr).TO
-    if not libraries:
-        cfunc = get_on_lib(standard_c_lib, funcname)
-        # XXX magic: on Windows try to load the function from 'kernel32' too
-        if cfunc is None and hasattr(ctypes, 'windll'):
-            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
-    else:
-        cfunc = None
+    cfunc = None
+    if libraries:
         not_found = []
         for libname in libraries:
             libpath = None
@@ -1073,6 +1068,12 @@ def get_ctypes_callable(funcptr, calling_conv):
                     break
             else:
                 not_found.append(libname)
+
+    if cfunc is None:
+        cfunc = get_on_lib(standard_c_lib, funcname)
+        # XXX magic: on Windows try to load the function from 'kernel32' too
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
 
     if cfunc is None:
         # function name not found in any of the libraries

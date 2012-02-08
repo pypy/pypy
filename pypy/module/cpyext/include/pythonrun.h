@@ -13,6 +13,7 @@ extern "C" {
 
 #define Py_FrozenFlag 0
 #define Py_VerboseFlag 0
+#define Py_DebugFlag 1
 
 typedef struct {
     int cf_flags;  /* bitmask of CO_xxx flags relevant to future */

@@ -130,7 +130,7 @@ class Symbolic(object):
         if self is other:
             return 0
         else:
-            raise TypeError("Symbolics can not be compared! (%r, %r)"
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
                             % (self, other))
 
     def __hash__(self):

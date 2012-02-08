@@ -119,7 +119,7 @@ class AppTestZipImport:
             zip_importer = zipimport.zipimporter(path)
             assert isinstance(zip_importer, zipimport.zipimporter)
             assert zip_importer.archive == zip_path
-            assert zip_importer.prefix == prefix
+            assert zip_importer.prefix == prefix.replace('/', os.path.sep)
             assert zip_path in zipimport._zip_directory_cache
         finally:
             self.cleanup_zipfile(self.created_paths)

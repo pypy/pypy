@@ -11,6 +11,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype('int8').num == 1
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
+        assert dtype('int8').name == 'int8'
         raises(TypeError, dtype, 1042)
 
     def test_dtype_eq(self):
@@ -38,7 +39,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from _numpypy import dtype
 
-        assert repr(dtype) == "<type 'numpypy.dtype'>"
+        assert '.dtype' in repr(dtype)
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
@@ -385,6 +386,11 @@ class AppTestTypes(BaseNumpyAppTest):
         assert type(b) is X
         assert b.m() == 12
 
+    def test_long_as_index(self):
+        skip("waiting for removal of multimethods of __index__")
+        from _numpypy import int_
+        assert (1, 2, 3)[int_(1)] == 2
+
     def test_int(self):
         import sys
         from _numpypy import int32, int64, int_
@@ -395,3 +401,20 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             assert issubclass(int64, int)
             assert int_ is int64
+
+    def test_operators(self):
+        from operator import truediv
+        from _numpypy import float64, int_, True_, False_
+
+        assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert 2 ** int_(3) == int_(8)
+        assert int_(3) & int_(1) == int_(1)
+        raises(TypeError, lambda: float64(3) & 1)
+        assert int_(8) % int_(3) == int_(2)
+        assert int_(2) | int_(1) == int_(3)
+        assert int_(3) ^ int_(5) == int_(6)
+        assert True_ ^ False_ is True_
+
+        assert +int_(3) == int_(3)
+        assert ~int_(3) == int_(-4)
+

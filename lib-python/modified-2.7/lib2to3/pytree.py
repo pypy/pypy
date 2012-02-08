@@ -658,8 +658,8 @@ class WildcardPattern(BasePattern):
             content: optional sequence of subsequences of patterns;
                      if absent, matches one node;
                      if present, each subsequence is an alternative [*]
-            min: optinal minumum number of times to match, default 0
-            max: optional maximum number of times tro match, default HUGE
+            min: optional minimum number of times to match, default 0
+            max: optional maximum number of times to match, default HUGE
             name: optional name assigned to this match
 
         [*] Thus, if content is [[a, b, c], [d, e], [f, g, h]] this is
@@ -741,12 +741,13 @@ class WildcardPattern(BasePattern):
         elif self.name == "bare_name":
             yield self._bare_name_matches(nodes)
         else:
-            # There used to be some monkey patching of sys.stderr here, to
-            # silence the error message from the RuntimError, PyPy has removed
-            # this because it relied on reference counting.  This is because the
-            # caller of this function doesn't consume this generator fully, so
-            # the finally statement that used to be here would only be executed
-            # when the gc happened to run.
+            # The reason for this is that hitting the recursion limit usually
+            # results in some ugly messages about how RuntimeErrors are being
+            # ignored. We don't do this on non-CPython implementation because
+            # they don't have this problem.
+            if hasattr(sys, "getrefcount"):
+                save_stderr = sys.stderr
+                sys.stderr = StringIO()
             try:
                 for count, r in self._recursive_matches(nodes, 0):
                     if self.name:
@@ -759,6 +760,9 @@ class WildcardPattern(BasePattern):
                     if self.name:
                         r[self.name] = nodes[:count]
                     yield count, r
+            finally:
+                if hasattr(sys, "getrefcount"):
+                    sys.stderr = save_stderr
 
     def _iterative_matches(self, nodes):
         """Helper to iteratively yield the matches."""

@@ -1,6 +1,9 @@
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import interp2app
 from pypy.tool.udir import udir
+from pypy.module._io import interp_bufferedio
+from pypy.interpreter.error import OperationError
+import py.test
 
 class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
@@ -191,13 +194,33 @@ class AppTestBufferedReader:
         f = _io.BufferedReader(raw)
         assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
 
+    def test_read_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def readable(self):
+                return True
+            def readinto(self, buf):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    buf[:3] = "abc"
+                    return 3
+        rawio = MockRawIO()
+        bufio = _io.BufferedReader(rawio)
+        r = bufio.read(4)
+        assert r == "abca"
+        assert rawio.count == 4
+
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread'])
 
 
 class AppTestBufferedWriter:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io'])
+        cls.space = gettestobjspace(usemodules=['_io', 'thread'])
         tmpfile = udir.join('tmpfile')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
         if option.runappdirect:
@@ -386,6 +409,41 @@ class AppTestBufferedWriter:
         assert bufio.read() is None
         assert bufio.read() == ""
 
+    def test_write_interrupted(self):
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self):
+                self.count = 0
+            def writable(self):
+                return True
+            def write(self, data):
+                self.count += 1
+                if self.count < 3:
+                    raise IOError(errno.EINTR, "interrupted")
+                else:
+                    return len(data)
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        assert bufio.write("test") == 4
+        bufio.flush()
+        assert rawio.count == 3
+
+    def test_reentrant_write(self):
+        import thread  # Reentrant-safe is only enabled with threads
+        import _io, errno
+        class MockRawIO(_io._RawIOBase):
+            def writable(self):
+                return True
+            def write(self, data):
+                bufio.write("something else")
+                return len(data)
+
+        rawio = MockRawIO()
+        bufio = _io.BufferedWriter(rawio)
+        bufio.write("test")
+        exc = raises(RuntimeError, bufio.flush)
+        assert "reentrant" in str(exc.value)  # And not e.g. recursion limit.
+
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
@@ -428,3 +486,42 @@ class AppTestBufferedRandom:
         f.write('xxxx')
         f.seek(0)
         assert f.read() == 'a\nbxxxx'
+
+    def test_write_rewind_write(self):
+        # Various combinations of reading / writing / seeking
+        # backwards / writing again
+        import _io, errno
+        def mutate(bufio, pos1, pos2):
+            assert pos2 >= pos1
+            # Fill the buffer
+            bufio.seek(pos1)
+            bufio.read(pos2 - pos1)
+            bufio.write(b'\x02')
+            # This writes earlier than the previous write, but still inside
+            # the buffer.
+            bufio.seek(pos1)
+            bufio.write(b'\x01')
+
+        b = b"\x80\x81\x82\x83\x84"
+        for i in range(0, len(b)):
+            for j in range(i, len(b)):
+                raw = _io.BytesIO(b)
+                bufio = _io.BufferedRandom(raw, 100)
+                mutate(bufio, i, j)
+                bufio.flush()
+                expected = bytearray(b)
+                expected[j] = 2
+                expected[i] = 1
+                assert raw.getvalue() == str(expected)
+        
+
+class TestNonReentrantLock:
+    def test_trylock(self):
+        space = gettestobjspace(usemodules=['thread'])
+        lock = interp_bufferedio.TryLock(space)
+        with lock:
+            pass
+        with lock:
+            exc = py.test.raises(OperationError, "with lock: pass")
+        assert exc.value.match(space, space.w_RuntimeError)
+
