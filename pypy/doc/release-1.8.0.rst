@@ -33,8 +33,8 @@ Highlights
   the JIT performance in places that use such lists. There are also special
   strategies for unicode and string lists.
 
-* As usual, numerous performance improvements. There are too many examples
-  of python constructs that now should behave faster to list them.
+* As usual, numerous performance improvements. There are many examples
+  of python constructs that now should behave faster; too many to list them.
 
 * Bugfixes and compatibility fixes with CPython.
 
