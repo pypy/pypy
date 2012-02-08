@@ -112,10 +112,9 @@ class CPPMethod(object):
     @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
-        if self.executor is None:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap("return type not handled"))
-        if len(self.arg_defs) < len(args_w) or len(args_w) < self.args_required:
+	args_expected = len(self.arg_defs)
+	args_given = len(args_w)
+        if args_expected < args_given or args_given < self.args_required:
             raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of arguments"))
 
         if self.methgetter and cppthis: # only for methods

@@ -34,12 +34,10 @@ class TypeConverter(object):
     def __init__(self, space, extra):
         pass
 
-    @jit.dont_look_inside
     def _get_raw_address(self, space, w_obj, offset):
         rawobject = get_rawobject(space, w_obj)
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
         if rawobject:
-            
             fieldptr = _direct_ptradd(rawobject, offset)
         else:
             fieldptr = rffi.cast(capi.C_OBJECT, offset)
