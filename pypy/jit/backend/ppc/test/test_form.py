@@ -1,5 +1,5 @@
 import autopath
-from pypy.jit.backend.ppc.ppc_assembler import b
+from pypy.jit.backend.ppc.codebuilder import b
 import random
 import sys
 
@@ -25,8 +25,8 @@ test_fieldmap = {
 
 def p(w):
     import struct
+    w = w.assemble()
     return struct.pack('>i', w)
-
 
 class TestForm(Form):
     fieldmap = test_fieldmap
