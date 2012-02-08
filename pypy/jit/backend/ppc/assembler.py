@@ -1,5 +1,6 @@
 import os
 from pypy.jit.backend.ppc import form
+from pypy.jit.backend.ppc import asmfunc
 
 # don't be fooled by the fact that there's some separation between a
 # generic assembler class and a PPC assembler class... there's
@@ -51,7 +52,7 @@ class Assembler(object):
                 inst.fields[f] = l
         buf = []
         for inst in self.insts:
-            buf.append(inst)#.assemble())
+            buf.append(inst)
         if dump:
             for i in range(len(buf)):
                 inst = self.disassemble(buf[i], self.rlabels, i*4)
@@ -61,12 +62,8 @@ class Assembler(object):
         return buf
 
     def assemble(self, dump=os.environ.has_key('PPY_DEBUG')):
-        #insns = self.assemble0(dump)
-        from pypy.jit.backend.ppc import asmfunc
         c = asmfunc.AsmCode(len(self.insts)*4)
         for i in self.insts:
-            c.emit(i)#.assemble())
-        #return c.get_function()
 
     def get_idescs(cls):
         r = []
