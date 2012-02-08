@@ -64,6 +64,13 @@ class Assembler(object):
     def assemble(self, dump=os.environ.has_key('PPY_DEBUG')):
         c = asmfunc.AsmCode(len(self.insts)*4)
         for i in self.insts:
+            c.emit(i)
+
+    def get_assembler_function(self):
+        c = asmfunc.AsmCode(len(self.insts)*4)
+        for i in self.insts:
+            c.emit(i)
+        return c.get_function()
 
     def get_idescs(cls):
         r = []

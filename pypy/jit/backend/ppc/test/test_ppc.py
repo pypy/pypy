@@ -33,7 +33,8 @@ def asmtest(expected=-1):
         def newtest(self):
             a = PPCBuilder()
             test(self, a)
-            f = a.assemble()
+            #f = a.assemble()
+            f = a.get_assembler_function()
             assert f() == expected
         return newtest
     return testmaker
@@ -59,7 +60,7 @@ class TestAssemble(object):
     def setup_class(cls):
         if autodetect_main_model() not in ["ppc", "ppc64"]: 
             py.test.skip("can't test all of ppcgen on non-PPC!")
-        py.test.xfail("assemble does not return a function any longer, fix tests")
+        #py.test.xfail("assemble does not return a function any longer, fix tests")
 
     """
     Tests are build like this:
@@ -202,7 +203,7 @@ class TestAssemble(object):
         a.bctr()
         a.blr()
 
-        f = a.assemble()
+        f = a.get_assembler_function()
         assert f() == 65
 
     @asmtest(expected=0)
@@ -263,7 +264,7 @@ class TestAssemble(object):
         a.load_imm(r10, 0x0000F0F0)
         a.neg(3, 10)
         a.blr()
-        f = a.assemble()
+        f = a.get_assembler_function()
         assert f() == hex_to_signed_int("FFFF0F10")
 
     def test_load_and_store(self):
@@ -284,7 +285,7 @@ class TestAssemble(object):
         a.lwz(5, 9, 0)
         a.add(3, 4, 5)
         a.blr()
-        f = a.assemble()
+        f = a.get_assembler_function()
         assert f() == word1 + word2
         lltype.free(p, flavor="raw")
 
@@ -297,7 +298,7 @@ class TestAssemble(object):
 
         a.load_from_addr(r3, addr)
         a.blr()
-        f = a.assemble()
+        f = a.get_assembler_function()
         assert f() == 200
         p[0] = rffi.cast(rffi.LONG, 300)
         assert f() == 300
