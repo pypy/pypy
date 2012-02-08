@@ -6,7 +6,7 @@ We're pleased to announce the 1.8 release of PyPy. As has become a habit, this
 release brings a lot of bugfixes, and performance and memory improvements over
 the 1.7 release. The main highlight of the release is the introduction of
 list strategies which makes homogenous lists more efficient both in terms
-of performance and memory. This release also upgrades us from Python 2.7.1 compatibility to 2.7.2, you can read the details of this at XXX. Otherwise it's "business as usual" in the sense
+of performance and memory. This release also upgrades us from Python 2.7.1 compatibility to 2.7.2. Otherwise it's "business as usual" in the sense
 that performance improved roughly 10% on average since the previous release.
 You can download the PyPy 1.8 release here:
 
@@ -66,6 +66,8 @@ Highlights
 
   It's also probably worth noting, we're considering donations for the STM
   project.
+
+* Standard library upgrade from 2.7.1 to 2.7.2.
 
 Ongoing work
 ============
