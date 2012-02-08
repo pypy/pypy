@@ -35,7 +35,7 @@ Highlights
   strategies for unicode and string lists.
 
 * As usual, numerous performance improvements. There are many examples
-  of python constructs that now should behave faster; too many to list them.
+  of python constructs that now should be faster; too many to list them.
 
 * Bugfixes and compatibility fixes with CPython.
 
@@ -72,6 +72,8 @@ Ongoing work
 
 As usual, there is quite a bit of ongoing work that either didn't make it to
 the release or is not ready yet. Highlights include:
+
+* Non-x86 backends for the JIT: ARMv7 (almost ready) and PPC64 (in progress)
 
 * Specialized type instances - allocate instances as efficient as C structs,
   including type specialization
