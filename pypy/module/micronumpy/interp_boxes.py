@@ -163,6 +163,12 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("float64")
 
 
+class W_FlexibleBox(W_GenericBox):
+    pass
+
+class W_VoidBox(W_FlexibleBox):
+    pass
+
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
@@ -284,4 +290,13 @@ W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef)
     __module__ = "numpypy",
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
+)
+
+
+W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
+    __module__ = "numpypy",
+)
+
+W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
+    __module__ = "numpypy",
 )

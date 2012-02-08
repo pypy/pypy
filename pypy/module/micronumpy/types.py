@@ -594,6 +594,18 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
+class CompositeType(BaseType):
+    def __init__(self, offsets_and_types):
+        self.offsets_and_types = offsets_and_types
+        last_item = offsets_and_types[-1]
+        self.size = last_item[0] + last_item[1].get_element_size()
+
+    def get_element_size(self):
+        return self.size
+
+class RecordType(CompositeType):
+    pass
+
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
         IntP = tp

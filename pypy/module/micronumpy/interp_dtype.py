@@ -2,7 +2,7 @@
 import sys
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
 from pypy.module.micronumpy import types, interp_boxes
@@ -15,7 +15,7 @@ UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
 BOOLLTR = "b"
 FLOATINGLTR = "f"
-VOID = 'V'
+VOIDLTR = 'V'
 
 
 VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True})
@@ -23,7 +23,8 @@ VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_voi
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
-    def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[], aliases=[]):
+    def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[], aliases=[],
+                 fields=None, fieldnames=None):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -32,6 +33,8 @@ class W_Dtype(Wrappable):
         self.w_box_type = w_box_type
         self.alternate_constructors = alternate_constructors
         self.aliases = aliases
+        self.fields = fields
+        self.fieldnames = fieldnames
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations
@@ -85,6 +88,29 @@ class W_Dtype(Wrappable):
     def descr_ne(self, space, w_other):
         return space.wrap(not self.eq(space, w_other))
 
+    def descr_get_fields(self, space):
+        if self.fields is None:
+            return space.w_None
+        w_d = space.newdict()
+        for name, (offset, subdtype) in self.fields.iteritems():
+            space.setitem(w_d, space.wrap(name), space.newtuple([subdtype,
+                                                                 space.wrap(offset)]))
+        return w_d
+
+    def descr_get_names(self, space):
+        if self.fieldnames is None:
+            return space.w_None
+        return space.newtuple([space.wrap(name) for name in self.fieldnames])
+
+    @unwrap_spec(item=str)
+    def descr_getitem(self, item):
+        if self.fields is None:
+            raise OperationError(space.w_KeyError, space.wrap("There are no keys in dtypes %s" % self.name))
+        try:
+            return self.fields[item][1]
+        except KeyError:
+            raise OperationError(space.w_KeyError, space.wrap("Field named %s not found" % item))
+
     def is_int_type(self):
         return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
                 self.kind == BOOLLTR)
@@ -94,15 +120,24 @@ class W_Dtype(Wrappable):
 
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
-    fieldlist = []
+    fields = {}
     offset = 0
+    ofs_and_items = []
+    fieldnames = []
     for w_elem in lst_w:
         w_fldname, w_flddesc = space.fixedview(w_elem, 2)
-        subdtype = descr__new__(space.gettypefor(W_Dtype), w_flddesc)
-        align = subdtype.alignment
-        offset = (offset + (align-1)) & ~ (align-1)
-        fieldlist.append((offset, space.str_w(w_fldname), subdtype))
-    xxx
+        subdtype = descr__new__(space, space.gettypefor(W_Dtype), w_flddesc)
+        fldname = space.str_w(w_fldname)
+        if fldname in fields:
+            raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
+        fields[fldname] = (offset, subdtype)
+        ofs_and_items.append((offset, subdtype.itemtype))
+        offset += subdtype.itemtype.get_element_size()
+        fieldnames.append(fldname)
+    itemtype = types.RecordType(ofs_and_items)
+    return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
+                   "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
+                   fieldnames=fieldnames)
 
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
@@ -135,14 +170,18 @@ W_Dtype.typedef = TypeDef("dtype",
     __repr__ = interp2app(W_Dtype.descr_repr),
     __eq__ = interp2app(W_Dtype.descr_eq),
     __ne__ = interp2app(W_Dtype.descr_ne),
+    __getitem__ = interp2app(W_Dtype.descr_getitem),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
+    char = interp_attrproperty("char", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
     name = interp_attrproperty('name', cls=W_Dtype),
+    fields = GetSetProperty(W_Dtype.descr_get_fields),
+    names = GetSetProperty(W_Dtype.descr_get_names),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 

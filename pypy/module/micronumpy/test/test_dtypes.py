@@ -13,6 +13,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
         assert dtype('int8').name == 'int8'
+        assert dtype(int).fields is None
         raises(TypeError, dtype, 1042)
 
     def test_dtype_eq(self):
@@ -454,3 +455,21 @@ class AppTestTypes(BaseNumpyAppTest):
     def test_alignment(self):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
+
+class AppTestRecordDtypes(BaseNumpyAppTest):
+    def test_create(self):
+        from _numpypy import dtype, void
+
+        raises(ValueError, "dtype([('x', int), ('x', float)])")
+        d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
+        assert d.fields['x'] == (dtype('int32'), 0)
+        assert d.fields['value'] == (dtype(float), 12)
+        assert d['x'] == dtype('int32')
+        assert d.name == "void160"
+        assert d.num == 20
+        assert d.itemsize == 20
+        assert d.kind == 'V'
+        assert d.type is void
+        assert d.char == 'V'
+        assert d.names == ("x", "y", "z", "value")
+        

@@ -68,9 +68,10 @@ class Module(MixedModule):
         'float64': 'interp_boxes.W_Float64Box',
         'intp': 'types.IntP.BoxType',
         'uintp': 'types.UIntP.BoxType',
+        'flexible': 'interp_boxes.W_FlexibleBox',
         #'str_': 'interp_boxes.W_StringBox',
         #'unicode_': 'interp_boxes.W_UnicodeBox',
-        #'void': 'interp_boxes.W_VoidBox',
+        'void': 'interp_boxes.W_VoidBox',
     }
 
     # ufuncs
