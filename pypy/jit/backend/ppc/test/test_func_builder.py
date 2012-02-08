@@ -1,11 +1,11 @@
 import py
 import random, sys, os
 
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import MyPPCAssembler
-from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.func_builder import make_func
-from pypy.jit.backend.ppc.ppcgen import form, func_builder
-from pypy.jit.backend.ppc.ppcgen.regname import *
+from pypy.jit.backend.ppc.ppc_assembler import MyPPCAssembler
+from pypy.jit.backend.ppc.symbol_lookup import lookup
+from pypy.jit.backend.ppc.func_builder import make_func
+from pypy.jit.backend.ppc import form, func_builder
+from pypy.jit.backend.ppc.regname import *
 from pypy.jit.backend.detect_cpu import autodetect_main_model
 
 class TestFuncBuilderTest(object):
@@ -78,7 +78,7 @@ class TestFuncBuilderTest(object):
         f = make_func(a, "O", "O")
         assert f(1) == 1
         b = MyPPCAssembler()
-        from pypy.jit.backend.ppc.ppcgen import util
+        from pypy.jit.backend.ppc import util
         # eurgh!:
         b.load_word(r0, util.access_at(id(f.code), 8) + f.FAST_ENTRY_LABEL)
         b.mtctr(r0)

@@ -1,16 +1,16 @@
 import os
 import struct
-from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
-from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
-from pypy.jit.backend.ppc.ppcgen.regalloc import (TempInt, PPCFrameManager,
+from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
+from pypy.jit.backend.ppc.ppc_field import ppc_fields
+from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
                                                   Regalloc)
-from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
-from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
+from pypy.jit.backend.ppc.assembler import Assembler
+from pypy.jit.backend.ppc.symbol_lookup import lookup
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, NONVOLATILES,
                                               GPR_SAVE_AREA, IS_PPC_64)
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
-import pypy.jit.backend.ppc.ppcgen.register as r
-import pypy.jit.backend.ppc.ppcgen.condition as c
+from pypy.jit.backend.ppc.helper.assembler import gen_emit_cmp_op
+import pypy.jit.backend.ppc.register as r
+import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
                                          TargetToken, AbstractFailDescr)
 from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, AsmMemoryManager, MachineDataBlockWrapper)
@@ -26,7 +26,7 @@ from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.jit.backend.ppc.ppcgen.rassemblermaker import make_rassembler
+from pypy.jit.backend.ppc.rassemblermaker import make_rassembler
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")

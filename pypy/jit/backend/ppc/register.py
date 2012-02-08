@@ -1,4 +1,4 @@
-from pypy.jit.backend.ppc.ppcgen.locations import (RegisterLocation,
+from pypy.jit.backend.ppc.locations import (RegisterLocation,
                                                    FPRegisterLocation)
 
 ALL_REGS        = [RegisterLocation(i) for i in range(32)]

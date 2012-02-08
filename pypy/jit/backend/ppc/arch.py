@@ -1,6 +1,6 @@
 # Constants that depend on whether we are on 32-bit or 64-bit
 
-from pypy.jit.backend.ppc.ppcgen.register import (NONVOLATILES,
+from pypy.jit.backend.ppc.register import (NONVOLATILES,
                                                   NONVOLATILES_FLOAT,
                                                   MANAGED_REGS)
 

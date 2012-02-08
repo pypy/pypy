@@ -1,5 +1,5 @@
 import os
-from pypy.jit.backend.ppc.ppcgen import form
+from pypy.jit.backend.ppc import form
 
 # don't be fooled by the fact that there's some separation between a
 # generic assembler class and a PPC assembler class... there's
@@ -62,7 +62,7 @@ class Assembler(object):
 
     def assemble(self, dump=os.environ.has_key('PPY_DEBUG')):
         #insns = self.assemble0(dump)
-        from pypy.jit.backend.ppc.ppcgen import asmfunc
+        from pypy.jit.backend.ppc import asmfunc
         c = asmfunc.AsmCode(len(self.insts)*4)
         for i in self.insts:
             c.emit(i)#.assemble())

@@ -1,7 +1,7 @@
 from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import r_uint
-from pypy.jit.backend.ppc.ppcgen.form import IDesc, IDupDesc
-from pypy.jit.backend.ppc.ppcgen.ppc_field import IField
+from pypy.jit.backend.ppc.form import IDesc, IDupDesc
+from pypy.jit.backend.ppc.ppc_field import IField
 
 ##     "opcode": ( 0,  5),
 ##     "rA":     (11, 15, 'unsigned', regname._R),

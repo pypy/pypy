@@ -1,10 +1,10 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
-from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
-from pypy.jit.backend.ppc.ppcgen.jump import (remap_frame_layout_mixed,
+from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS)
+from pypy.jit.backend.ppc.jump import (remap_frame_layout_mixed,
                                               remap_frame_layout)
-from pypy.jit.backend.ppc.ppcgen.locations import imm
-from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg,
+from pypy.jit.backend.ppc.locations import imm
+from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                          check_imm_box,
                                                          prepare_cmp_op,
                                                          prepare_unary_int_op,
@@ -15,12 +15,12 @@ from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt,
                                          ConstPtr, Box)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.backend.ppc.ppcgen import locations
+from pypy.jit.backend.ppc import locations
 from pypy.rpython.lltypesystem import rffi, lltype, rstr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import ArrayDescr
 from pypy.jit.codewriter.effectinfo import EffectInfo
-import pypy.jit.backend.ppc.ppcgen.register as r
+import pypy.jit.backend.ppc.register as r
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr

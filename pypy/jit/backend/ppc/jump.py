@@ -76,7 +76,7 @@ def remap_frame_layout_mixed(assembler,
                              src_locations2, dst_locations2, tmpreg2):
     # find and push the xmm stack locations from src_locations2 that
     # are going to be overwritten by dst_locations1
-    from pypy.jit.backend.ppc.ppcgen.arch import WORD
+    from pypy.jit.backend.ppc.arch import WORD
     extrapushes = []
     dst_keys = {}
     for loc in dst_locations1:
