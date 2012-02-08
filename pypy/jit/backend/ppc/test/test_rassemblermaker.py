@@ -1,11 +1,12 @@
 from pypy.jit.backend.ppc.rassemblermaker import make_rassembler
-from pypy.jit.backend.ppc.ppc_assembler import PPCAssembler
+#from pypy.jit.backend.ppc.ppc_assembler import PPCAssembler
+from pypy.jit.backend.ppc.codebuilder import PPCAssembler
 
 RPPCAssembler = make_rassembler(PPCAssembler)
 
 _a = PPCAssembler()
 _a.add(3, 3, 4)
-add_r3_r3_r4 = _a.insts[0].assemble()
+add_r3_r3_r4 = _a.insts[0]
 
 def test_simple():
     ra = RPPCAssembler()
@@ -28,7 +29,7 @@ def test_mnemonic():
         a = A()
         a.mr(3, 4)
         mrs.append(a.insts[0])
-    assert mrs[0].assemble() == mrs[1]
+    assert mrs[0] == mrs[1]
 
 def test_spr_coding():
     mrs = []
@@ -36,4 +37,4 @@ def test_spr_coding():
         a = A()
         a.mtctr(3)
         mrs.append(a.insts[0])
-    assert mrs[0].assemble() == mrs[1]
+    assert mrs[0] == mrs[1]
