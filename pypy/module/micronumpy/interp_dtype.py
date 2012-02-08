@@ -95,8 +95,14 @@ class W_Dtype(Wrappable):
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fieldlist = []
+    offset = 0
     for w_elem in lst_w:
-        fldname, flddesc = space.fixedview(w_elem, 2)
+        w_fldname, w_flddesc = space.fixedview(w_elem, 2)
+        subdtype = descr__new__(space.gettypefor(W_Dtype), w_flddesc)
+        align = subdtype.alignment
+        offset = (offset + (align-1)) & ~ (align-1)
+        fieldlist.append((offset, space.str_w(w_fldname), subdtype))
+    xxx
 
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
