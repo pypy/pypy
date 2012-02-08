@@ -20,7 +20,8 @@ CPython 2.7. It's fast (`pypy 1.8 and cpython 2.7.1`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
 This release supports x86 machines running Linux 32/64, Mac OS X 32/64 or
-Windows 32. Windows 64 work is ongoing, but not yet natively supported.
+Windows 32. Windows 64 work has been stalled, we would welcome a volunteer
+to handle that.
 
 .. _`pypy 1.8 and cpython 2.7.1`: http://speed.pypy.org
 
@@ -52,11 +53,36 @@ Highlights
 
   * a lot of other minor changes
 
+  Right now the `numpy` module is available under both `numpy` and `numpypy`
+  names. However, because it's incomplete, you have to `import numpypy` first
+  before doing any imports from `numpy`.
+
+* New JIT hooks that allow you to hook into the JIT process from your python
+  program. There is a `brief overview`_ of what they offer.
+
 * Since the last release there was a significant breakthrough in PyPy's
   fundraising. We now have enough funds to work on first stages of `numpypy`_
-  and `py3k`_
+  and `py3k`_. We would like to thank again to everyone who donated.
 
+  It's also probably worth noting, we're considering donations for the STM
+  project.
+
+Ongoing work
+============
+
+As usual, there is quite a bit of ongoing work that either didn't make it to
+the release or is not ready yet. Highlights include:
+
+* Specialized type instances - allocate instances as efficient as C structs,
+  including type specialization
+
+* More numpy work
+
+* Software Transactional Memory, you can read more about `our plans`_
+
+.. _`brief overview`: http://doc.pypy.org/en/latest/jit-hooks.html
 .. _`numpy status page`: http://buildbot.pypy.org/numpy-status/latest.html
 .. _`numpy status update blog report`: http://morepypy.blogspot.com/2012/01/numpypy-status-update.html
 .. _`numpypy`: http://pypy.org/numpydonate.html
 .. _`py3k`: http://pypy.org/py3donate.html
+.. _`our plans`: http://morepypy.blogspot.com/2012/01/transactional-memory-ii.html
