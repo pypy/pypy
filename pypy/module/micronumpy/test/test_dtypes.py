@@ -401,3 +401,9 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             assert issubclass(int64, int)
             assert int_ is int64
+
+    def test_operators(self):
+        from operator import truediv
+        from _numpypy import float64, int_
+
+        assert truediv(int_(3), int_(2)) == float64(1.5)
