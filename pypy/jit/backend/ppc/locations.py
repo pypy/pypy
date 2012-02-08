@@ -110,4 +110,7 @@ def imm(val):
     return ImmLocation(val)
 
 def get_spp_offset(pos):
-    return -(pos + 1) * WORD
+    if pos < 0:
+        return -pos * WORD
+    else:
+        return -(pos + 1) * WORD
