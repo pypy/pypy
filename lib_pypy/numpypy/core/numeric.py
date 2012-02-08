@@ -1,5 +1,5 @@
 
-from _numpypy import array, ndarray, int_, float_ #, complex_# , longlong
+from _numpypy import array, ndarray, int_, float_, bool_ #, complex_# , longlong
 from _numpypy import concatenate
 import sys
 import _numpypy as multiarray # ARGH
@@ -309,3 +309,8 @@ set_string_function(array_str, 0)
 set_string_function(array_repr, 1)
 
 little_endian = (sys.byteorder == 'little')
+
+Inf = inf = infty = Infinity = PINF = float('inf')
+nan = NaN = NAN = float('nan')
+False_ = bool_(False)
+True_ = bool_(True)
