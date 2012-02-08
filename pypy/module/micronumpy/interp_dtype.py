@@ -103,7 +103,7 @@ class W_Dtype(Wrappable):
         return space.newtuple([space.wrap(name) for name in self.fieldnames])
 
     @unwrap_spec(item=str)
-    def descr_getitem(self, item):
+    def descr_getitem(self, space, item):
         if self.fields is None:
             raise OperationError(space.w_KeyError, space.wrap("There are no keys in dtypes %s" % self.name))
         try:

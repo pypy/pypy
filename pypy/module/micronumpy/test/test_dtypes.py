@@ -14,7 +14,9 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype(None) is dtype(float)
         assert dtype('int8').name == 'int8'
         assert dtype(int).fields is None
+        assert dtype(int).names is None
         raises(TypeError, dtype, 1042)
+        raises(KeyError, 'dtype(int)["asdasd"]')
 
     def test_dtype_eq(self):
         from _numpypy import dtype
@@ -472,4 +474,5 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert d.type is void
         assert d.char == 'V'
         assert d.names == ("x", "y", "z", "value")
-        
+        raises(KeyError, 'd["xyz"]')
+        raises(KeyError, 'd.fields["xyz"]')
