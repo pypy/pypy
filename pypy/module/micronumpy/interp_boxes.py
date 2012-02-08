@@ -96,8 +96,10 @@ class W_GenericBox(Wrappable):
     descr_rmul = _binop_right_impl("multiply")
     descr_rpow = _binop_right_impl("power")
 
+    descr_pos = _unaryop_impl("positive")
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
+    descr_invert = _unaryop_impl("invert")
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
@@ -194,8 +196,10 @@ W_GenericBox.typedef = TypeDef("generic",
     __gt__ = interp2app(W_GenericBox.descr_gt),
     __ge__ = interp2app(W_GenericBox.descr_ge),
 
+    __pos__ = interp2app(W_GenericBox.descr_pos),
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
+    __invert__ = interp2app(W_GenericBox.descr_invert),
 
     tolist = interp2app(W_GenericBox.item),
 )

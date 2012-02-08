@@ -410,3 +410,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 2 ** int_(3) == int_(8)
         assert int_(3) & int_(1) == int_(1)
         raises(TypeError, lambda: float64(3) & 1)
+
+        assert +int_(3) == int_(3)
+        assert ~int_(3) == int_(-4)
+
