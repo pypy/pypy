@@ -2,15 +2,15 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS)
 from pypy.jit.backend.ppc.jump import (remap_frame_layout_mixed,
-                                       remap_frame_layout)
+                                              remap_frame_layout)
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
-                                                   check_imm_box,
-                                                   prepare_cmp_op,
-                                                   prepare_unary_int_op,
-                                                   prepare_binary_int_op,
-                                                   prepare_binary_int_op_with_imm,
-                                                   prepare_unary_cmp)
+                                                         check_imm_box,
+                                                         prepare_cmp_op,
+                                                         prepare_unary_int_op,
+                                                         prepare_binary_int_op,
+                                                         prepare_binary_int_op_with_imm,
+                                                         prepare_unary_cmp)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
                                          ConstPtr, Box)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
@@ -512,7 +512,7 @@ class Regalloc(object):
                 loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
                 arglocs.append(loc)
                 argboxes.append(box)
-            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
+            self.assembler.call_release_gil(gcrootmap, arglocs)
             self.possibly_free_vars(argboxes)
         # do the call
         faildescr = guard_op.getdescr()
@@ -522,7 +522,8 @@ class Regalloc(object):
         self.assembler.emit_call(op, args, self, fail_index)
         # then reopen the stack
         if gcrootmap:
-            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
+            assert 0, "not implemented yet"
+            # self.assembler.call_reacquire_gil(gcrootmap, registers)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs
@@ -595,11 +596,10 @@ class Regalloc(object):
         args = op.getarglist()
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
         index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
+        if _check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
+            ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         result_loc = self.force_allocate_reg(op.result)
@@ -614,11 +614,10 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
         index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
         value_loc = self._ensure_value_is_boxed(op.getarg(2), args)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
+        if _check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
+            ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
 
@@ -640,8 +639,7 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(args[0], args)
         ofs_loc = self._ensure_value_is_boxed(args[1], args)
         value_loc = self._ensure_value_is_boxed(args[2], args)
-        scratch_loc = self.rm.get_scratch_reg(INT, 
-                [base_loc, ofs_loc, value_loc])
+        scratch_loc = self.rm.get_scratch_reg(INT, args)
         assert _check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
@@ -652,7 +650,7 @@ class Regalloc(object):
         scale = get_scale(size)
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-        scratch_loc = self.rm.get_scratch_reg(INT, [base_loc, ofs_loc])
+        scratch_loc = self.rm.get_scratch_reg(INT, boxes)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
@@ -766,11 +764,13 @@ class Regalloc(object):
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex == EffectInfo.OS_MATH_SQRT:
-                args = self.prepare_op_math_sqrt(op, fcond)
-                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
-                return
+	    # XXX TODO
+            #oopspecindex = effectinfo.oopspecindex
+            #if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            #    args = self.prepare_op_math_sqrt(op, fcond)
+            #    self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+            #    return
+            pass
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 

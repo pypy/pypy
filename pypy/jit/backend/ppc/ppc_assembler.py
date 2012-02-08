@@ -3,23 +3,23 @@ import struct
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
-                                           Regalloc)
+                                                  Regalloc)
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
 from pypy.jit.backend.ppc.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                       NONVOLATILES, MAX_REG_PARAMS,
-                                       GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                       FPR_SAVE_AREA,
-                                       FLOAT_INT_CONVERSION, FORCE_INDEX,
-                                       SIZE_LOAD_IMM_PATCH_SP)
+                                              NONVOLATILES, MAX_REG_PARAMS,
+                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
+                                              FPR_SAVE_AREA,
+                                              FLOAT_INT_CONVERSION, FORCE_INDEX,
+                                              SIZE_LOAD_IMM_PATCH_SP)
 from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
                                                    encode32, encode64,
                                                    decode32, decode64,
                                                    count_reg_args,
-                                                   Saved_Volatiles)
+                                                          Saved_Volatiles)
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
@@ -106,6 +106,7 @@ class AssemblerPPC(OpAssembler):
         self._regalloc = None
         self.max_stack_params = 0
         self.propagate_exception_path = 0
+        self.setup_failure_recovery()
 
     def _save_nonvolatiles(self):
         """ save nonvolatile GPRs in GPR SAVE AREA 
@@ -237,6 +238,7 @@ class AssemblerPPC(OpAssembler):
         descr = decode32(enc, i+1)
         self.fail_boxes_count = fail_index
         self.fail_force_index = spp_loc
+        assert isinstance(descr, int)
         return descr
 
     def decode_inputargs(self, enc):
@@ -382,7 +384,6 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr.initialize()
         self._build_propagate_exception_path()
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
@@ -600,8 +601,7 @@ class AssemblerPPC(OpAssembler):
             if op.is_ovf():
                 if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
                     operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    not_implemented("int_xxx_ovf not followed by "
-                                    "guard_(no)_overflow")
+                    assert 0, "int_xxx_ovf not followed by guard_(no)_overflow"
                 return True
             return False
         if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
@@ -682,7 +682,8 @@ class AssemblerPPC(OpAssembler):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field
-        self.mc.alloc_scratch_reg(memaddr)
+        self.mc.alloc_scratch_reg()
+        self.mc.load_imm(r.SCRATCH, memaddr)
         self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
 
@@ -886,7 +887,8 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.alloc_scratch_reg(fail_index)
+        self.mc.alloc_scratch_reg()
+        self.mc.load_imm(r.SCRATCH, fail_index)
         self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
             

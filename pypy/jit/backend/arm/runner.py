@@ -112,7 +112,7 @@ class ArmCPU(AbstractLLCPU):
                             (frame_depth +
                             len(all_regs) * WORD +
                             len(all_vfp_regs) * 2 * WORD))
-        fail_index_2 = self.assembler.failure_recovery_func(
+        fail_index_2 = self.assembler.decode_registers_and_descr(
             faildescr._failure_recovery_code,
             addr_of_force_index,
             addr_end_of_frame)

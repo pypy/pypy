@@ -78,7 +78,7 @@ class TestFuncBuilderTest(object):
         f = make_func(a, "O", "O")
         assert f(1) == 1
         b = MyPPCAssembler()
-        from pypy.jit.backend.ppc.ppcgen import util
+        from pypy.jit.backend.ppc import util
         # eurgh!:
         b.load_word(r0, util.access_at(id(f.code), 8) + f.FAST_ENTRY_LABEL)
         b.mtctr(r0)

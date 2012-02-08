@@ -44,7 +44,7 @@ class PPC_64_CPU(AbstractLLCPU):
     def setup_once(self):
         self.asm.setup_once()
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=""):
         self.asm.assemble_loop(inputargs, operations, looptoken, log)
 
     def compile_bridge(self, faildescr, inputargs, operations, 
@@ -97,7 +97,7 @@ class PPC_64_CPU(AbstractLLCPU):
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
 
         # start of "no gc operation!" block
-        fail_index_2 = self.asm.failure_recovery_func(
+        fail_index_2 = self.asm.decode_registers_and_descr(
                 faildescr._failure_recovery_code, spilling_pointer)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block
