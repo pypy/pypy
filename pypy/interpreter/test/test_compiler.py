@@ -800,10 +800,8 @@ class AppTestOptimizer:
         assert len(co.co_consts) == 2
         assert co.co_consts[0] == 2
         co = code("x = 10/4")
-        assert len(co.co_consts) == 3
-        assert co.co_consts[:2] == (10, 4)
-        co = code("from __future__ import division\nx = 10/4")
-        assert co.co_consts[2] == 2.5
+        assert len(co.co_consts) == 2
+        assert co.co_consts[0] == 2.5
 
     def test_tuple_folding(self):
         co = compile("x = (1, 2, 3)", "<test>", "exec")
