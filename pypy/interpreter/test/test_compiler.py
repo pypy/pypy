@@ -611,14 +611,21 @@ def test():
         assert space.eq_w(w_res, space.wrap("var"))
 
     def test_dont_inherit_flag(self):
+        # this test checks that compile() don't inherit the __future__ flags
+        # of the hosting code. However, in Python3 we don't have any
+        # meaningful __future__ flag to check that (they are all enabled). The
+        # only candidate could be barry_as_FLUFL, but it's not implemented yet
+        # (and not sure it'll ever be)
+        py.test.skip("we cannot actually check the result of this test (see comment)")
         space = self.space
         s1 = str(py.code.Source("""
             from __future__ import division
-            exec compile('x = 1/2', '?', 'exec', 0, 1)
+            exec(compile('x = 1/2', '?', 'exec', 0, 1))
         """))
         w_result = space.appexec([space.wrap(s1)], """(s1):
-            exec s1
-            return x
+            ns = {}
+            exec(s1, ns)
+            return ns['x']
         """)
         assert space.float_w(w_result) == 0
 
