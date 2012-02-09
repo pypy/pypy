@@ -543,10 +543,16 @@ entries '.' and '..' even if they are present in the directory."""
             dirname = FileEncoder(space, w_dirname)
             result = rposix.listdir(dirname)
             w_fs_encoding = getfilesystemencoding(space)
-            result_w = [
-                space.call_method(space.wrap(s), "decode", w_fs_encoding)
-                for s in result
-            ]
+            len_result = len(result)
+            result_w = [None] * len_result
+            for i in range(len_result):
+                w_bytes = space.wrap(result[i])
+                try:
+                    result_w[i] = space.call_method(w_bytes,
+                                                    "decode", w_fs_encoding)
+                except OperationError, e:
+                    # fall back to the original byte string
+                    result_w[i] = w_bytes
         else:
             dirname = space.str0_w(w_dirname)
             result = rposix.listdir(dirname)
