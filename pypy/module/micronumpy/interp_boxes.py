@@ -106,6 +106,7 @@ class W_GenericBox(Wrappable):
     descr_rrshift = _binop_right_impl("right_shift")
     descr_rand = _binop_right_impl("bitwise_and")
     descr_ror = _binop_right_impl("bitwise_or")
+    descr_rxor = _binop_right_impl("bitwise_xor")
 
     descr_pos = _unaryop_impl("positive")
     descr_neg = _unaryop_impl("negative")
@@ -222,6 +223,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __rrshift__ = interp2app(W_GenericBox.descr_rrshift),
     __rand__ = interp2app(W_GenericBox.descr_rand),
     __ror__ = interp2app(W_GenericBox.descr_ror),
+    __rxor__ = interp2app(W_GenericBox.descr_rxor),
 
     __eq__ = interp2app(W_GenericBox.descr_eq),
     __ne__ = interp2app(W_GenericBox.descr_ne),

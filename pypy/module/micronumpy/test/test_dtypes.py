@@ -423,6 +423,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 2 | int_(1) == int_(3)
         assert int_(3) ^ int_(5) == int_(6)
         assert True_ ^ False_ is True_
+        assert 5 ^ int_(3) == int_(6)
 
         assert +int_(3) == int_(3)
         assert ~int_(3) == int_(-4)

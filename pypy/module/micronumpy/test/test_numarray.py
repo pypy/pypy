@@ -734,8 +734,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import arange
 
         a = arange(5)
-
         assert (3 | a == [3, 3, 3, 3, 7]).all()
+
+    def test_xor(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (a ^ 3 == [3, 2, 1, 0, 7]).all()
+
+    def test_rxor(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (3 ^ a == [3, 2, 1, 0, 7]).all()
 
     def test_pos(self):
         from _numpypy import array

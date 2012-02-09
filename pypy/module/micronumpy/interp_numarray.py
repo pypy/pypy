@@ -105,6 +105,9 @@ class BaseArray(Wrappable):
     descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
     descr_rshift = _binop_impl("right_shift")
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+    descr_xor = _binop_impl("bitwise_xor")
 
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
@@ -112,9 +115,6 @@ class BaseArray(Wrappable):
     descr_le = _binop_impl("less_equal")
     descr_gt = _binop_impl("greater")
     descr_ge = _binop_impl("greater_equal")
-
-    descr_and = _binop_impl("bitwise_and")
-    descr_or = _binop_impl("bitwise_or")
 
     def descr_divmod(self, space, w_other):
         w_quotient = self.descr_div(space, w_other)
@@ -138,9 +138,9 @@ class BaseArray(Wrappable):
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
     descr_rrshift = _binop_right_impl("right_shift")
-
     descr_rand = _binop_right_impl("bitwise_and")
     descr_ror = _binop_right_impl("bitwise_or")
+    descr_rxor = _binop_right_impl("bitwise_xor")
 
     def descr_rdivmod(self, space, w_other):
         w_quotient = self.descr_rdiv(space, w_other)
@@ -1256,9 +1256,9 @@ BaseArray.typedef = TypeDef(
     __pow__ = interp2app(BaseArray.descr_pow),
     __lshift__ = interp2app(BaseArray.descr_lshift),
     __rshift__ = interp2app(BaseArray.descr_rshift),
-
     __and__ = interp2app(BaseArray.descr_and),
     __or__ = interp2app(BaseArray.descr_or),
+    __xor__ = interp2app(BaseArray.descr_xor),
 
     __radd__ = interp2app(BaseArray.descr_radd),
     __rsub__ = interp2app(BaseArray.descr_rsub),
@@ -1269,9 +1269,9 @@ BaseArray.typedef = TypeDef(
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rlshift__ = interp2app(BaseArray.descr_rlshift),
     __rrshift__ = interp2app(BaseArray.descr_rrshift),
-
     __rand__ = interp2app(BaseArray.descr_rand),
     __ror__ = interp2app(BaseArray.descr_ror),
+    __rxor__ = interp2app(BaseArray.descr_rxor),
 
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),
