@@ -138,6 +138,7 @@ class BaseArray(Wrappable):
     descr_rlshift = _binop_right_impl("left_shift")
 
     descr_rand = _binop_right_impl("bitwise_and")
+    descr_ror = _binop_right_impl("bitwise_or")
 
     def descr_rdivmod(self, space, w_other):
         w_quotient = self.descr_rdiv(space, w_other)
@@ -1266,6 +1267,7 @@ BaseArray.typedef = TypeDef(
     __rlshift__ = interp2app(BaseArray.descr_rlshift),
 
     __rand__ = interp2app(BaseArray.descr_rand),
+    __ror__ = interp2app(BaseArray.descr_ror),
 
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),

@@ -714,6 +714,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(5)
         assert (3 & a == [0, 1, 2, 3, 0]).all()
 
+    def test_ror(self):
+        from _numpypy import arange
+
+        a = arange(5)
+
+        assert (3 | a == [3, 3, 3, 3, 7]).all()
+
     def test_pos(self):
         from _numpypy import array
         a = array([1., -2., 3., -4., -5.])
