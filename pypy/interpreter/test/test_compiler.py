@@ -821,7 +821,7 @@ class AppTestOptimizer:
 
     def test_folding_of_binops_on_constants(self):
         def disassemble(func):
-            from StringIO import StringIO
+            from io import StringIO
             import sys, dis
             f = StringIO()
             tmp = sys.stdout
@@ -853,7 +853,7 @@ class AppTestOptimizer:
             ('a = 13 | 7', '(15)'),                 # binary or
             ):
             asm = dis_single(line)
-            print asm
+            print(asm)
             assert elem in asm, 'ELEMENT not in asm'
             assert 'BINARY_' not in asm, 'BINARY_in_asm'
 
