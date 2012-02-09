@@ -721,18 +721,18 @@ class AppTestCompiler:
         assert ns["x"] == .5
 
     def test_values_of_different_types(self):
-        exec "a = 0; b = 0L; c = 0.0; d = 0j"
-        assert type(a) is int
-        assert type(b) is long
-        assert type(c) is float
-        assert type(d) is complex
+        ns = {}
+        exec("a = 0; c = 0.0; d = 0j", ns)
+        assert type(ns['a']) is int
+        assert type(ns['c']) is float
+        assert type(ns['d']) is complex
 
     def test_values_of_different_types_in_tuples(self):
-        exec "a = ((0,),); b = ((0L,),); c = ((0.0,),); d = ((0j,),)"
-        assert type(a[0][0]) is int
-        assert type(b[0][0]) is long
-        assert type(c[0][0]) is float
-        assert type(d[0][0]) is complex
+        ns = {}
+        exec("a = ((0,),); c = ((0.0,),); d = ((0j,),)", ns)
+        assert type(ns['a'][0][0]) is int
+        assert type(ns['c'][0][0]) is float
+        assert type(ns['d'][0][0]) is complex
 
     def test_zeros_not_mixed(self):
         import math
