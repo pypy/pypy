@@ -392,8 +392,8 @@ class UfuncState(object):
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),
-
             ("left_shift", "lshift", 2, {"int_only": True}),
+            ("right_shift", "rshift", 2, {"int_only": True}),
 
             ("equal", "eq", 2, {"comparison_func": True}),
             ("not_equal", "ne", 2, {"comparison_func": True}),

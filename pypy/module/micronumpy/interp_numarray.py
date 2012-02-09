@@ -104,6 +104,7 @@ class BaseArray(Wrappable):
     descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
+    descr_rshift = _binop_impl("right_shift")
 
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
@@ -136,6 +137,7 @@ class BaseArray(Wrappable):
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
+    descr_rrshift = _binop_right_impl("right_shift")
 
     descr_rand = _binop_right_impl("bitwise_and")
     descr_ror = _binop_right_impl("bitwise_or")
@@ -1253,6 +1255,7 @@ BaseArray.typedef = TypeDef(
     __divmod__ = interp2app(BaseArray.descr_divmod),
     __pow__ = interp2app(BaseArray.descr_pow),
     __lshift__ = interp2app(BaseArray.descr_lshift),
+    __rshift__ = interp2app(BaseArray.descr_rshift),
 
     __and__ = interp2app(BaseArray.descr_and),
     __or__ = interp2app(BaseArray.descr_or),
@@ -1265,6 +1268,7 @@ BaseArray.typedef = TypeDef(
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rlshift__ = interp2app(BaseArray.descr_rlshift),
+    __rrshift__ = interp2app(BaseArray.descr_rrshift),
 
     __rand__ = interp2app(BaseArray.descr_rand),
     __ror__ = interp2app(BaseArray.descr_ror),

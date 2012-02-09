@@ -655,6 +655,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = arange(3)
         assert (2 << a == [2, 4, 8]).all()
 
+    def test_rshift(self):
+        from _numpypy import arange, array
+
+        a = arange(10)
+        assert (a >> 2 == [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]).all()
+        a = array([True, False])
+        assert (a >> 1 == [0, 0]).all()
+        a = arange(3, dtype=float)
+        raises(TypeError, lambda: a >> 1)
+
+    def test_rrshift(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (2 >> a == [2, 1, 0, 0, 0]).all()
+
     def test_pow(self):
         from _numpypy import array
         a = array(range(5), float)
