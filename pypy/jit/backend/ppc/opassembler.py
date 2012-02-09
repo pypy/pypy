@@ -1078,6 +1078,21 @@ class ForceOpAssembler(object):
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
 
+    # ../x86/assembler.py:668
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # some minimal sanity checking
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
+        # we overwrite the instructions at the old _ppc_func_addr
+        # to start with a JMP to the new _ppc_func_addr.
+        # Ideally we should rather patch all existing CALLs, but well.
+        oldadr = oldlooptoken._ppc_func_addr
+        target = newlooptoken._ppc_func_addr
+        mc = PPCBuilder()
+        mc.b_abs(target)
+        mc.copy_to_raw_memory(oldadr)
+
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         self.mc.alloc_scratch_reg()
