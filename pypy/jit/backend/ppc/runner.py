@@ -134,6 +134,9 @@ class PPC_64_CPU(AbstractLLCPU):
         self.patch_list = None
         self.reg_map = None
 
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
     def invalidate_loop(self, looptoken):
         """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
         bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
