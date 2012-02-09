@@ -135,6 +135,7 @@ class BaseArray(Wrappable):
     descr_rdiv = _binop_right_impl("divide")
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
+    descr_rlshift = _binop_right_impl("left_shift")
 
     descr_rand = _binop_right_impl("bitwise_and")
 
@@ -1262,6 +1263,7 @@ BaseArray.typedef = TypeDef(
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),
+    __rlshift__ = interp2app(BaseArray.descr_rlshift),
 
     __rand__ = interp2app(BaseArray.descr_rand),
 

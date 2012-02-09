@@ -649,6 +649,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([1.0])
         raises(TypeError, lambda: a << 2)
 
+    def test_rlshift(self):
+        from _numpypy import arange
+
+        a = arange(3)
+        assert (2 << a == [2, 4, 8]).all()
+
     def test_pow(self):
         from _numpypy import array
         a = array(range(5), float)
