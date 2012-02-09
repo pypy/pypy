@@ -868,15 +868,16 @@ class AppTestOptimizer:
 
     def test_dis_stopcode(self):
         source = """def _f(a):
-                print a
+                print(a)
                 return 1
             """
+        ns = {}
+        exec(source, ns)
+        code = ns['_f'].func_code
 
-        exec source
-        code = _f.func_code
-
-        import StringIO, sys, dis
-        s = StringIO.StringIO()
+        import sys, dis
+        from io import StringIO
+        s = StringIO()
         save_stdout = sys.stdout
         sys.stdout = s
         try:
