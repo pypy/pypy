@@ -625,6 +625,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_lshift(self):
+        from _numpypy import array
+
+        a = array([0, 1, 2, 3])
+        assert (a << 2 == [0, 4, 8, 12]).all()
+        a = array([True, False])
+        assert (a << 2 == [4, 0]).all()
+        a = array([1.0])
+        raises(TypeError, lambda: a << 2)
+
     def test_pow(self):
         from _numpypy import array
         a = array(range(5), float)
