@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
@@ -15,6 +15,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 
 GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
+GCFLAG_HAS_HASH   = first_gcflag << 2
 
 PRIMITIVE_SIZES   = {1: lltype.Char,
                      2: rffi.SHORT,
@@ -41,7 +42,7 @@ class StmGC(GCBase):
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('version', llmemory.Address))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', 'XXX'
+    withhash_flag_is_in_field = 'tid', GCFLAG_HAS_HASH
 
     GCTLS = lltype.Struct('GCTLS', ('nursery_free', llmemory.Address),
                                    ('nursery_top', llmemory.Address),
@@ -80,12 +81,13 @@ class StmGC(GCBase):
             self.declare_reader(size, TYPE)
         self.declare_write_barrier()
 
+    GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+
     def setup(self):
         """Called at run-time to initialize the GC."""
         GCBase.setup(self)
-        GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address],lltype.Signed))
         self.stm_operations.setup_size_getter(
-                llhelper(GETSIZE, self._getsize_fn))
+                llhelper(self.GETSIZE, self._getsize_fn))
         self.main_thread_tls = self.setup_thread(True)
         self.mutex_lock = ll_thread.allocate_ll_lock()
 
@@ -201,6 +203,11 @@ class StmGC(GCBase):
 
 
     @always_inline
+    def get_type_id(self, obj):
+        tid = self.header(obj).tid
+        return llop.extract_ushort(llgroup.HALFWORD, tid)
+
+    @always_inline
     def combine(self, typeid16, flags):
         return llop.combine_ushort(lltype.Signed, typeid16, flags)
 
@@ -208,6 +215,10 @@ class StmGC(GCBase):
     def init_gc_object(self, addr, typeid16, flags=0):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.tid = self.combine(typeid16, flags)
+
+    def init_gc_object_immortal(self, addr, typeid16, flags=0):
+        flags |= GCFLAG_GLOBAL
+        self.init_gc_object(addr, typeid16, flags)
 
     # ----------
 
@@ -317,6 +328,10 @@ class StmGC(GCBase):
     def release(self, lock):
         ll_thread.c_thread_releaselock(lock)
 
+    # ----------
+
+    def identityhash(self, gcobj):
+        raise NotImplementedError("XXX")
 
 # ------------------------------------------------------------
 

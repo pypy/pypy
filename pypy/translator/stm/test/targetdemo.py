@@ -57,10 +57,10 @@ def increment_done(arg, retry_counter):
     glob.done += 1
 
 def run_me():
-    debug_print("thread starting...")
-    arg = Arg()
     rstm.descriptor_init()
     try:
+        debug_print("thread starting...")
+        arg = Arg()
         for i in range(glob.LENGTH):
             arg.anchor = glob.anchor
             arg.value = i
