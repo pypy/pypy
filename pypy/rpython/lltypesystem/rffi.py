@@ -326,6 +326,7 @@ aroundstate = AroundState()
 aroundstate._freeze_()
 
 class StackCounter:
+    _alloc_flavor_ = "raw"
     def _freeze_(self):
         self.stacks_counter = 1     # number of "stack pieces": callbacks
         return False                # and threads increase it by one

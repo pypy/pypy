@@ -682,7 +682,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
-  if (is_main_thread(d))
+  if (d == NULL || is_main_thread(d))
     return;
 
 #ifdef RPY_STM_DEBUG_PRINT
@@ -696,7 +696,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
 #  endif
 #endif
 
-  if (is_inevitable(d))
+  if (is_inevitable(d))   /* also when the transaction is inactive */
     {
 #ifdef RPY_STM_DEBUG_PRINT
       PYPY_DEBUG_STOP("stm-inevitable");
