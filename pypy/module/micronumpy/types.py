@@ -295,6 +295,14 @@ class Integer(Primitive):
             v1 *= v1
         return res
 
+    @simple_binary_op
+    def lshift(self, v1, v2):
+        return v1 << v2
+
+    @simple_binary_op
+    def rshift(self, v1, v2):
+        return v1 >> v2
+
     @simple_unary_op
     def sign(self, v):
         if v > 0:

@@ -625,6 +625,52 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_divmod(self):
+        from _numpypy import arange
+
+        a, b = divmod(arange(10), 3)
+        assert (a == [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]).all()
+        assert (b == [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]).all()
+
+    def test_rdivmod(self):
+        from _numpypy import arange
+
+        a, b = divmod(3, arange(1, 5))
+        assert (a == [3, 1, 1, 0]).all()
+        assert (b == [0, 1, 0, 3]).all()
+
+    def test_lshift(self):
+        from _numpypy import array
+
+        a = array([0, 1, 2, 3])
+        assert (a << 2 == [0, 4, 8, 12]).all()
+        a = array([True, False])
+        assert (a << 2 == [4, 0]).all()
+        a = array([1.0])
+        raises(TypeError, lambda: a << 2)
+
+    def test_rlshift(self):
+        from _numpypy import arange
+
+        a = arange(3)
+        assert (2 << a == [2, 4, 8]).all()
+
+    def test_rshift(self):
+        from _numpypy import arange, array
+
+        a = arange(10)
+        assert (a >> 2 == [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]).all()
+        a = array([True, False])
+        assert (a >> 1 == [0, 0]).all()
+        a = arange(3, dtype=float)
+        raises(TypeError, lambda: a >> 1)
+
+    def test_rrshift(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (2 >> a == [2, 1, 0, 0, 0]).all()
+
     def test_pow(self):
         from _numpypy import array
         a = array(range(5), float)
@@ -677,6 +723,30 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a % 2
         for i in range(5):
             assert b[i] == i % 2
+
+    def test_rand(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (3 & a == [0, 1, 2, 3, 0]).all()
+
+    def test_ror(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (3 | a == [3, 3, 3, 3, 7]).all()
+
+    def test_xor(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (a ^ 3 == [3, 2, 1, 0, 7]).all()
+
+    def test_rxor(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (3 ^ a == [3, 2, 1, 0, 7]).all()
 
     def test_pos(self):
         from _numpypy import array

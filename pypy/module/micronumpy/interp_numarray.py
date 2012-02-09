@@ -101,8 +101,13 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl("subtract")
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
-    descr_pow = _binop_impl("power")
     descr_mod = _binop_impl("mod")
+    descr_pow = _binop_impl("power")
+    descr_lshift = _binop_impl("left_shift")
+    descr_rshift = _binop_impl("right_shift")
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+    descr_xor = _binop_impl("bitwise_xor")
 
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
@@ -111,8 +116,10 @@ class BaseArray(Wrappable):
     descr_gt = _binop_impl("greater")
     descr_ge = _binop_impl("greater_equal")
 
-    descr_and = _binop_impl("bitwise_and")
-    descr_or = _binop_impl("bitwise_or")
+    def descr_divmod(self, space, w_other):
+        w_quotient = self.descr_div(space, w_other)
+        w_remainder = self.descr_mod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
@@ -127,8 +134,18 @@ class BaseArray(Wrappable):
     descr_rsub = _binop_right_impl("subtract")
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
-    descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
+    descr_rpow = _binop_right_impl("power")
+    descr_rlshift = _binop_right_impl("left_shift")
+    descr_rrshift = _binop_right_impl("right_shift")
+    descr_rand = _binop_right_impl("bitwise_and")
+    descr_ror = _binop_right_impl("bitwise_or")
+    descr_rxor = _binop_right_impl("bitwise_xor")
+
+    def descr_rdivmod(self, space, w_other):
+        w_quotient = self.descr_rdiv(space, w_other)
+        w_remainder = self.descr_rmod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None):
@@ -1227,21 +1244,34 @@ BaseArray.typedef = TypeDef(
     __pos__ = interp2app(BaseArray.descr_pos),
     __neg__ = interp2app(BaseArray.descr_neg),
     __abs__ = interp2app(BaseArray.descr_abs),
+    __invert__ = interp2app(BaseArray.descr_invert),
     __nonzero__ = interp2app(BaseArray.descr_nonzero),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
-    __pow__ = interp2app(BaseArray.descr_pow),
     __mod__ = interp2app(BaseArray.descr_mod),
+    __divmod__ = interp2app(BaseArray.descr_divmod),
+    __pow__ = interp2app(BaseArray.descr_pow),
+    __lshift__ = interp2app(BaseArray.descr_lshift),
+    __rshift__ = interp2app(BaseArray.descr_rshift),
+    __and__ = interp2app(BaseArray.descr_and),
+    __or__ = interp2app(BaseArray.descr_or),
+    __xor__ = interp2app(BaseArray.descr_xor),
 
     __radd__ = interp2app(BaseArray.descr_radd),
     __rsub__ = interp2app(BaseArray.descr_rsub),
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
-    __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+    __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
+    __rpow__ = interp2app(BaseArray.descr_rpow),
+    __rlshift__ = interp2app(BaseArray.descr_rlshift),
+    __rrshift__ = interp2app(BaseArray.descr_rrshift),
+    __rand__ = interp2app(BaseArray.descr_rand),
+    __ror__ = interp2app(BaseArray.descr_ror),
+    __rxor__ = interp2app(BaseArray.descr_rxor),
 
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),
@@ -1249,10 +1279,6 @@ BaseArray.typedef = TypeDef(
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
-
-    __and__ = interp2app(BaseArray.descr_and),
-    __or__ = interp2app(BaseArray.descr_or),
-    __invert__ = interp2app(BaseArray.descr_invert),
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
