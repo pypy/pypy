@@ -213,8 +213,10 @@ def run_with_python(python, target):
             raise AssertionError("DID NOT RAISE")
 """
     source = py.code.Source(target)[1:].deindent()
+    pyfile = udir.join('src.py')
+    pyfile.write(helpers + str(source))
     res, stdout, stderr = runsubprocess.run_subprocess(
-        python, ["-c", helpers + str(source)])
+        python, [str(pyfile)])
     print source
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
