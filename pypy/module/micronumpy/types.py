@@ -606,7 +606,7 @@ class CompositeType(BaseType):
 class BaseStringType(object):
     _mixin_ = True
     
-    def __init__(self, size):
+    def __init__(self, size=0):
         self.size = size
 
     def get_element_size(self):
@@ -614,9 +614,14 @@ class BaseStringType(object):
 
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
+VoidType = StringType # why not?
+NonNativeVoidType = VoidType
+NonNativeStringType = StringType
 
 class UnicodeType(BaseType, BaseStringType):
     T = lltype.UniChar
+
+NonNativeUnicodeType = UnicodeType
 
 class RecordType(CompositeType):
     pass

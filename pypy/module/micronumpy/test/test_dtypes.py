@@ -467,6 +467,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_dtype(self):
         from _numpypy import dtype, str_
 
+        raises(TypeError, "dtype('Sx')")
         d = dtype('S8')
         assert d.itemsize == 8
         assert dtype(str) == dtype('S')
@@ -474,6 +475,18 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.type is str_
         assert d.name == "string64"
         assert d.num == 18
+
+    def test_unicode_dtype(self):
+        from _numpypy import dtype, unicode_
+
+        raises(TypeError, "dtype('Ux')")
+        d = dtype('U8')
+        assert d.itemsize == 8 * 4
+        assert dtype(unicode) == dtype('U')
+        assert d.kind == 'U'
+        assert d.type is unicode_
+        assert d.name == "unicode256"
+        assert d.num == 19
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):

@@ -16,7 +16,8 @@ SIGNEDLTR = "i"
 BOOLLTR = "b"
 FLOATINGLTR = "f"
 VOIDLTR = 'V'
-
+STRINGLTR = 'S'
+UNICODELTR = 'U'
 
 VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True})
 
@@ -139,6 +140,41 @@ def dtype_from_list(space, w_lst):
                    "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
                    fieldnames=fieldnames)
 
+def variable_dtype(space, name):
+    if name[0] in '<>':
+        # ignore byte order, not sure if it's worth it for unicode only
+        if name[0] != byteorder_prefix and name[1] == 'U':
+            xxx
+        name = name[1:]
+    char = name[0]
+    if len(name) == 1:
+        size = 0
+    else:
+        try:
+            size = int(name[1:])
+        except ValueError:
+            raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
+    if char == 'S':
+        itemtype = types.StringType(size)
+        basename = 'string'
+        num = 18
+        w_box_type = space.gettypefor(interp_boxes.W_StringBox)
+    elif char == 'V':
+        num = 20
+        basename = 'void'
+        w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
+        xxx
+    else:
+        assert char == 'U'
+        basename = 'unicode'
+        itemtype = types.UnicodeType(size)
+        num = 19
+        w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox)
+    return W_Dtype(itemtype, num, char,
+                   basename + str(8 * itemtype.get_element_size()),
+                   char, w_box_type)
+
+
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
 
@@ -148,12 +184,18 @@ def descr__new__(space, w_subtype, w_dtype):
         return w_dtype
     elif space.isinstance_w(w_dtype, space.w_str):
         name = space.str_w(w_dtype)
+        if ',' in name:
+            return dtype_from_spec(space, name)
         try:
             return cache.dtypes_by_name[name]
         except KeyError:
             pass
+        if name[0] in 'VSU' or name[0] in '<>' and name[1] in 'VSU':
+            return variable_dtype(space, name)
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
+    elif space.isinstance_w(w_dtype, space.w_dict):
+        return dtype_from_dict(space, w_dtype)
     else:
         for dtype in cache.builtin_dtypes:
             if w_dtype in dtype.alternate_constructors:
@@ -323,13 +365,42 @@ class DtypeCache(object):
             char='Q',
             w_box_type = space.gettypefor(interp_boxes.W_ULongLongBox),
         )
+        self.w_stringdtype = W_Dtype(
+            types.StringType(0),
+            num=18,
+            kind=STRINGLTR,
+            name='string',
+            char='S',
+            w_box_type = space.gettypefor(interp_boxes.W_StringBox),
+            alternate_constructors=[space.w_str],
+        )
+        self.w_unicodedtype = W_Dtype(
+            types.UnicodeType(0),
+            num=19,
+            kind=UNICODELTR,
+            name='unicode',
+            char='U',
+            w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
+            alternate_constructors=[space.w_unicode],
+        )
+        self.w_voiddtype = W_Dtype(
+            types.VoidType(0),
+            num=20,
+            kind=VOIDLTR,
+            name='void',
+            char='V',
+            w_box_type = space.gettypefor(interp_boxes.W_VoidBox),
+            #alternate_constructors=[space.w_buffer],
+            # XXX no buffer in space
+        )
         self.builtin_dtypes = [
             self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
             self.w_longlongdtype, self.w_ulonglongdtype,
             self.w_float32dtype,
-            self.w_float64dtype
+            self.w_float64dtype, self.w_stringdtype, self.w_unicodedtype,
+            self.w_voiddtype,
         ]
         self.dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
@@ -343,8 +414,9 @@ class DtypeCache(object):
             self.dtypes_by_name[byteorder_prefix + can_name] = dtype
             new_name = nonnative_byteorder_prefix + can_name
             itemtypename = dtype.itemtype.__class__.__name__
+            itemtype = getattr(types, 'NonNative' + itemtypename)()
             self.dtypes_by_name[new_name] = W_Dtype(
-                getattr(types, 'NonNative' + itemtypename)(),
+                itemtype,
                 dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type)
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
