@@ -187,7 +187,20 @@ class StmGC(GCBase):
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
                              offset_to_length):
-        raise NotImplementedError
+        # XXX blindly copied from malloc_fixedsize_clear() for now.
+        # XXX Be more subtle, e.g. detecting overflows, at least
+        tls = self.collector.get_tls()
+        flags = tls.malloc_flags
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        nonvarsize = size_gc_header + size
+        totalsize = nonvarsize + itemsize * length
+        totalsize = llarena.round_up_for_allocation(totalsize)
+        result = self._allocate_bump_pointer(tls, totalsize)
+        llarena.arena_reserve(result, totalsize)
+        obj = result + size_gc_header
+        self.init_gc_object(result, typeid, flags=flags)
+        (obj + offset_to_length).signed[0] = length
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
     def _malloc_local_raw(self, tls, size):
