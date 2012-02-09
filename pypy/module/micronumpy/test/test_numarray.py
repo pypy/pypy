@@ -579,7 +579,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_div(self):
         from math import isnan
-        from _numpypy import array, dtype, inf
+        from _numpypy import array, dtype
 
         a = array(range(1, 6))
         b = a / a
@@ -600,15 +600,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([-1.0, 0.0, 1.0])
         b = array([0.0, 0.0, 0.0])
         c = a / b
-        assert c[0] == -inf
+        assert c[0] == float('-inf')
         assert isnan(c[1])
-        assert c[2] == inf
+        assert c[2] == float('inf')
 
         b = array([-0.0, -0.0, -0.0])
         c = a / b
-        assert c[0] == inf
+        assert c[0] == float('inf')
         assert isnan(c[1])
-        assert c[2] == -inf
+        assert c[2] == float('-inf')
 
     def test_div_other(self):
         from _numpypy import array

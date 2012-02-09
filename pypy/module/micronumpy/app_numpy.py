@@ -3,11 +3,6 @@ import math
 import _numpypy
 
 
-inf = float("inf")
-e = math.e
-pi = math.pi
-
-
 def average(a):
     # This implements a weighted average, for now we don't implement the
     # weighting, just the average part!
@@ -59,7 +54,7 @@ def max(a, axis=None):
     if not hasattr(a, "max"):
         a = _numpypy.array(a)
     return a.max(axis)
-    
+
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)
     Generate values in the half-interval [start, stop).
