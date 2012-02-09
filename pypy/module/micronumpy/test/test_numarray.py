@@ -632,6 +632,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a == [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]).all()
         assert (b == [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]).all()
 
+    def test_rdivmod(self):
+        from _numpypy import arange
+
+        a, b = divmod(3, arange(1, 5))
+        assert (a == [3, 1, 1, 0]).all()
+        assert (b == [0, 1, 0, 3]).all()
+
     def test_lshift(self):
         from _numpypy import array
 

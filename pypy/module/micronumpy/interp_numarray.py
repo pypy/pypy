@@ -138,6 +138,11 @@ class BaseArray(Wrappable):
 
     descr_rand = _binop_right_impl("bitwise_and")
 
+    def descr_rdivmod(self, space, w_other):
+        w_quotient = self.descr_rdiv(space, w_other)
+        w_remainder = self.descr_rmod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
+
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None):
             if space.is_w(w_axis, space.w_None):
@@ -1255,6 +1260,7 @@ BaseArray.typedef = TypeDef(
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+    __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),
 
     __rand__ = interp2app(BaseArray.descr_rand),
