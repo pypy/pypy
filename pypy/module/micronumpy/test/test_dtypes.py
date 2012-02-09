@@ -401,3 +401,32 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             assert issubclass(int64, int)
             assert int_ is int64
+
+    def test_operators(self):
+        from operator import truediv
+        from _numpypy import float64, int_, True_, False_
+
+        assert 5 / int_(2) == int_(2)
+        assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert int_(8) % int_(3) == int_(2)
+        assert 8 % int_(3) == int_(2)
+        assert divmod(int_(8), int_(3)) == (int_(2), int_(2))
+        assert divmod(8, int_(3)) == (int_(2), int_(2))
+        assert 2 ** int_(3) == int_(8)
+        assert int_(3) << int_(2) == int_(12)
+        assert 3 << int_(2) == int_(12)
+        assert int_(8) >> int_(2) == int_(2)
+        assert 8 >> int_(2) == int_(2)
+        assert int_(3) & int_(1) == int_(1)
+        assert 2 & int_(3) == int_(2)
+        assert int_(2) | int_(1) == int_(3)
+        assert 2 | int_(1) == int_(3)
+        assert int_(3) ^ int_(5) == int_(6)
+        assert True_ ^ False_ is True_
+        assert 5 ^ int_(3) == int_(6)
+
+        assert +int_(3) == int_(3)
+        assert ~int_(3) == int_(-4)
+
+        raises(TypeError, lambda: float64(3) & 1)
+
