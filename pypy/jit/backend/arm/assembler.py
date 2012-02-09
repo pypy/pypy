@@ -535,17 +535,20 @@ class AssemblerARM(ResOpAssembler):
             self.gen_shadowstack_header(gcrootmap)
 
     def gen_shadowstack_header(self, gcrootmap):
-        # we need to put two words into the shadowstack: the MARKER
+        # we need to put two words into the shadowstack: the MARKER_FRAME
         # and the address of the frame (fp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         self.mc.gen_load_int(r.ip.value, rst)
         self.mc.LDR_ri(r.r4.value, r.ip.value)  # LDR r4, [rootstacktop]
+        #
+        MARKER = gcrootmap.MARKER_FRAME
         self.mc.ADD_ri(r.r5.value, r.r4.value,
                                     imm=2 * WORD)  # ADD r5, r4 [2*WORD]
-        self.mc.gen_load_int(r.r6.value, gcrootmap.MARKER)
-        self.mc.STR_ri(r.r6.value, r.r4.value)
-        self.mc.STR_ri(r.fp.value, r.r4.value, WORD)
-        self.mc.STR_ri(r.r5.value, r.ip.value)
+        self.mc.gen_load_int(r.r6.value, MARKER)
+        self.mc.STR_ri(r.r6.value, r.r4.value, WORD)  # STR MARKER, r4 [WORD]
+        self.mc.STR_ri(r.fp.value, r.r4.value)  # STR fp, r4
+        #
+        self.mc.STR_ri(r.r5.value, r.ip.value)  # STR r5 [rootstacktop]
 
     def gen_footer_shadowstack(self, gcrootmap, mc):
         rst = gcrootmap.get_root_stack_top_addr()
