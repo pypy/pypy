@@ -782,7 +782,7 @@ class AppTestOptimizer:
         co = compile("def f(): return None", "<test>", "exec").co_consts[0]
         assert "None" not in co.co_names
         co = co.co_code
-        op = ord(co[0]) + (ord(co[1]) << 8)
+        op = co[0] + (co[1] << 8)
         assert op == opcode.opmap["LOAD_CONST"]
 
     def test_tuple_constants(self):
