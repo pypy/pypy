@@ -687,11 +687,13 @@ void stm_try_inevitable(STM_CCHARP1(why))
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-inevitable");
+#  ifdef RPY_STM_ASSERT
   if (PYPY_HAVE_DEBUG_PRINTS)
     {
       fprintf(PYPY_DEBUG_FILE, "%s%s\n", why,
               is_inevitable(d) ? "" : " <====");
     }
+#  endif
 #endif
 
   if (is_inevitable(d))
