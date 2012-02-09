@@ -141,11 +141,9 @@ class STMTransformer(object):
         elif (STRUCT._immutable_field(op.args[1].value) or
               'stm_access_directly' in STRUCT._hints):
             op1 = op
-        elif STRUCT._gckind == 'raw':
+        else:
             turn_inevitable(newoperations, "setfield-raw")
             op1 = op
-        else:
-            op1 = SpaceOperation('stm_setfield', op.args, op.result)
         newoperations.append(op1)
 
     def stt_getarrayitem(self, newoperations, op):
@@ -171,11 +169,9 @@ class STMTransformer(object):
             op1 = op
         #elif op.args[0] in self.access_directly:
         #    op1 = op
-        elif ARRAY._gckind == 'raw':
+        else:
             turn_inevitable(newoperations, "setarrayitem-raw")
             op1 = op
-        else:
-            op1 = SpaceOperation('stm_setarrayitem', op.args, op.result)
         newoperations.append(op1)
 
     def stt_getinteriorfield(self, newoperations, op):

@@ -1,6 +1,7 @@
 import thread
 from pypy.rlib.objectmodel import specialize, we_are_translated, keepalive_until_here
 from pypy.rpython.lltypesystem import rffi, lltype, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       cast_instance_to_base_ptr,
                                       llhelper)
@@ -45,12 +46,12 @@ def perform_transaction(func, argcls, arg):
 
 def descriptor_init():
     if not we_are_translated(): _global_lock.acquire()
-    _rffi_stm.stm_descriptor_init()
+    llop.stm_descriptor_init(lltype.Void)
     if not we_are_translated(): _global_lock.release()
 
 def descriptor_done():
     if not we_are_translated(): _global_lock.acquire()
-    _rffi_stm.stm_descriptor_done()
+    llop.stm_descriptor_done(lltype.Void)
     if not we_are_translated(): _global_lock.release()
 
 def debug_get_state():

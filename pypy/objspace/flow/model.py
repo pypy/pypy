@@ -166,7 +166,7 @@ class Link(object):
 
     def show(self):
         from pypy.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
 
 class Block(object):
@@ -241,7 +241,7 @@ class Block(object):
 
     def show(self):
         from pypy.translator.tool.graphpage import try_show
-        try_show(self)
+        return try_show(self)
 
 
 class Variable(object):

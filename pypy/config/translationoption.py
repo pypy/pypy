@@ -75,7 +75,7 @@ translation_optiondescription = OptionDescription(
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      "stmgc": [("translation.gctransformer", "framework"),
-                               ("translation.gcrootfinder", "none")],   # XXX
+                               ("translation.gcrootfinder", "stm")],
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",
@@ -93,7 +93,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc", "none"],
+                 ["n/a", "shadowstack", "asmgcc", "stm"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={

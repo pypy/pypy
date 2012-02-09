@@ -396,12 +396,11 @@ LL_OPERATIONS = {
     # to keep them as operations until the genc stage)
 
     'stm_getfield':         LLOp(sideeffects=False, canrun=True),
-    'stm_setfield':         LLOp(),
     'stm_getarrayitem':     LLOp(sideeffects=False, canrun=True),
-    'stm_setarrayitem':     LLOp(),
     'stm_getinteriorfield': LLOp(sideeffects=False, canrun=True),
-    'stm_setinteriorfield': LLOp(),
     'stm_become_inevitable':LLOp(),
+    'stm_descriptor_init':  LLOp(),
+    'stm_descriptor_done':  LLOp(),
 
     # __________ address operations __________
 

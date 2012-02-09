@@ -77,8 +77,8 @@ class StmGC(GCBase):
             return self.get_size(obj)
         self._getsize_fn = _get_size
         #
-        for size, TYPE in PRIMITIVE_SIZES.items():
-            self.declare_reader(size, TYPE)
+        ##for size, TYPE in PRIMITIVE_SIZES.items():
+        ##    self.declare_reader(size, TYPE)
         self.declare_write_barrier()
 
     GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
@@ -120,6 +120,9 @@ class StmGC(GCBase):
         else:
             tls.malloc_flags = 0
         return tls
+
+    def _setup_secondary_thread(self):
+        self.setup_thread(False)
 
     @staticmethod
     def reset_nursery(tls):
@@ -222,23 +225,25 @@ class StmGC(GCBase):
 
     # ----------
 
-    def declare_reader(self, size, TYPE):
-        # Reading functions.  Defined here to avoid the extra burden of
-        # passing 'self' explicitly.
-        assert rffi.sizeof(TYPE) == size
-        PTYPE = rffi.CArrayPtr(TYPE)
-        stm_read_int = getattr(self.stm_operations, 'stm_read_int%d' % size)
-        #
-        @always_inline
-        def reader(obj, offset):
-            if self.header(obj).tid & GCFLAG_GLOBAL == 0:
-                adr = rffi.cast(PTYPE, obj + offset)
-                return adr[0]                      # local obj: read directly
-            else:
-                return stm_read_int(obj, offset)   # else: call a helper
-        setattr(self, 'read_int%d' % size, reader)
-        #
-        # the following logic was moved to et.c to avoid a double call
+##    TURNED OFF, maybe temporarily: the following logic is now entirely
+##    done by C macros and functions.
+##
+##    def declare_reader(self, size, TYPE):
+##        # Reading functions.  Defined here to avoid the extra burden of
+##        # passing 'self' explicitly.
+##        assert rffi.sizeof(TYPE) == size
+##        PTYPE = rffi.CArrayPtr(TYPE)
+##        stm_read_int = getattr(self.stm_operations, 'stm_read_int%d' % size)
+##        #
+##        @always_inline
+##        def reader(obj, offset):
+##            if self.header(obj).tid & GCFLAG_GLOBAL == 0:
+##                adr = rffi.cast(PTYPE, obj + offset)
+##                return adr[0]                      # local obj: read directly
+##            else:
+##                return stm_read_int(obj, offset)   # else: call a helper
+##        setattr(self, 'read_int%d' % size, reader)
+##        #
 ##        @dont_inline
 ##        def _read_word_global(obj, offset):
 ##            hdr = self.header(obj)

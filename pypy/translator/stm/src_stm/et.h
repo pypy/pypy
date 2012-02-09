@@ -22,10 +22,11 @@ void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
 void stm_tlidct_enum(void(*)(void*, void*));
 
-long stm_read_word(void *, long);
+char      stm_read_int1(void *, long);
+short     stm_read_int2(void *, long);
+int       stm_read_int4(void *, long);
+long long stm_read_int8(void *, long);
 
-
-#if 0
 
 #ifdef RPY_STM_ASSERT
 #  define STM_CCHARP1(arg)    char* arg
@@ -37,8 +38,6 @@ long stm_read_word(void *, long);
 
 
 void* stm_perform_transaction(void*(*)(void*, long), void*);
-long stm_read_word(long* addr);
-void stm_write_word(long* addr, long val);
 void stm_try_inevitable(STM_CCHARP1(why));
 void stm_abort_and_retry(void);
 long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
@@ -48,33 +47,27 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
 long stm_thread_id(void);  /* returns a unique thread id,
                               or 0 if descriptor_init() was not called */
 
-// XXX little-endian only!
-/* this macro is used if 'base' is a word-aligned pointer and 'offset'
-   is a compile-time constant */
-#define stm_fx_read_partial(base, offset)                               \
-       (stm_read_word(                                                  \
-           (long*)(((char*)(base)) + ((offset) & ~(sizeof(void*)-1))))  \
-        >> (8 * ((offset) & (sizeof(void*)-1))))
 
-unsigned char stm_read_partial_1(void *addr);
-unsigned short stm_read_partial_2(void *addr);
-void stm_write_partial_1(void *addr, unsigned char nval);
-void stm_write_partial_2(void *addr, unsigned short nval);
-#if PYPY_LONG_BIT == 64
-unsigned int stm_read_partial_4(void *addr);
-void stm_write_partial_4(void *addr, unsigned int nval);
-#endif
+/************************************************************/
 
-double stm_read_double(long *addr);
-void stm_write_double(long *addr, double val);
-float stm_read_float(long *addr);
-void stm_write_float(long *addr, float val);
-#if PYPY_LONG_BIT == 32
-long long stm_read_doubleword(long *addr);
-void stm_write_doubleword(long *addr, long long val);
-#endif
+/* These are the same two flags as defined in stmgc.py */
 
-#endif  /* 0 */
+enum {
+  first_gcflag      = 1L << (PYPY_LONG_BIT / 2),
+  GCFLAG_GLOBAL     = first_gcflag << 0,
+  GCFLAG_WAS_COPIED = first_gcflag << 1
+};
+
+
+#define RPY_STM_ARRAY(T, size, ptr, field)                      \
+    _RPY_STM(T, size, ptr, ((char*)&field)-((char*)ptr), field)
+
+#define RPY_STM_FIELD(T, size, STRUCT, ptr, field)              \
+    _RPY_STM(T, size, ptr, offsetof(STRUCT, field), ptr->field)
+
+#define _RPY_STM(T, size, ptr, offset, field)   \
+    (*(long*)ptr & GCFLAG_GLOBAL ? field :      \
+     (T)stm_read_int##size(ptr, offset))
 
 
 #endif  /* _ET_H */

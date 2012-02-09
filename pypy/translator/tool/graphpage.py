@@ -439,7 +439,7 @@ def try_show(obj):
             for y in gc.get_referrers(x):
                 if isinstance(y, FunctionGraph):
                     y.show()
-                    return
+                    return y
                 elif isinstance(y, Link):
                     block = y.prevblock
                     if block not in seen:

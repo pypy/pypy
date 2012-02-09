@@ -38,18 +38,12 @@
 /************************************************************/
 
 /* This is the same as the object header structure HDR
- * declared in stmgc.py, and the same two flags */
+ * declared in stmgc.py */
 
 typedef struct {
   long tid;
   long version;
 } orec_t;
-
-enum {
-  first_gcflag      = 1L << (PYPY_LONG_BIT / 2),
-  GCFLAG_GLOBAL     = first_gcflag << 0,
-  GCFLAG_WAS_COPIED = first_gcflag << 1
-};
 
 /************************************************************/
 
@@ -681,7 +675,6 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
   return result;
 }
 
-#if 0
 void stm_try_inevitable(STM_CCHARP1(why))
 {
   /* when a transaction is inevitable, its start_time is equal to
@@ -689,7 +682,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
-  if (!d->transaction_active)
+  if (is_main_thread(d))
     return;
 
 #ifdef RPY_STM_ASSERT
@@ -697,17 +690,16 @@ void stm_try_inevitable(STM_CCHARP1(why))
   if (PYPY_HAVE_DEBUG_PRINTS)
     {
       fprintf(PYPY_DEBUG_FILE, "%s%s\n", why,
-              (!d->transaction_active) ? " (inactive)" :
-              is_inevitable(d) ? " (already inevitable)" : "");
+              is_inevitable(d) ? "" : " <====");
     }
 #endif
 
-  if (is_inevitable_or_inactive(d))
+  if (is_inevitable(d))
     {
 #ifdef RPY_STM_ASSERT
       PYPY_DEBUG_STOP("stm-inevitable");
 #endif
-      return;  /* I am already inevitable, or not in a transaction at all */
+      return;  /* I am already inevitable */
     }
 
   while (1)
@@ -738,7 +730,6 @@ void stm_try_inevitable(STM_CCHARP1(why))
   PYPY_DEBUG_STOP("stm-inevitable");
 #endif
 }
-#endif
 
 void stm_abort_and_retry(void)
 {

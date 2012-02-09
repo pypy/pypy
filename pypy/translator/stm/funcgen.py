@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl, c_string_constant
 from pypy.translator.stm.llstm import size_of_voidp
 
 
-def _stm_generic_get(funcgen, op, expr, simple_struct=False):
+def _stm_generic_get(funcgen, op, (expr_type, expr_ptr, expr_field)):
     T = funcgen.lltypemap(op.result)
     resulttypename = funcgen.db.gettype(T)
     cresulttypename = cdecl(resulttypename, '')
@@ -12,116 +12,49 @@ def _stm_generic_get(funcgen, op, expr, simple_struct=False):
     #
     assert T is not lltype.Void     # XXX
     fieldsize = rffi.sizeof(T)
-    if fieldsize >= size_of_voidp or T == lltype.SingleFloat:
-        assert 1      # xxx assert somehow that the field is aligned
-        if T == lltype.Float:
-            funcname = 'stm_read_double'
-        elif T == lltype.SingleFloat:
-            funcname = 'stm_read_float'
-        elif fieldsize == size_of_voidp:
-            funcname = 'stm_read_word'
-        elif fieldsize == 8:    # 32-bit only: read a 64-bit field
-            funcname = 'stm_read_doubleword'
-        else:
-            raise NotImplementedError(fieldsize)
-        return '%s = (%s)%s((long*)&%s);' % (
-            newvalue, cresulttypename, funcname, expr)
+    assert fieldsize in (1, 2, 4, 8)
+    if T == lltype.Float:
+        assert fieldsize == 8
+        fieldsize = '8f'
+    elif T == lltype.SingleFloat:
+        assert fieldsize == 4
+        fieldsize = '4f'
+    if expr_type is not None:     # optimization for the common case
+        return '%s = RPY_STM_FIELD(%s, %s, %s, %s, %s);' % (
+            newvalue, cresulttypename, fieldsize,
+            expr_type, expr_ptr, expr_field)
     else:
-        assert fieldsize in (1, 2, 4)
-        if simple_struct:
-            # assume that the object is aligned, and any possible misalignment
-            # comes from the field offset, so that it can be resolved at
-            # compile-time (by using C macros)
-            STRUCT = funcgen.lltypemap(op.args[0]).TO
-            structdef = funcgen.db.gettypedefnode(STRUCT)
-            basename = funcgen.expr(op.args[0])
-            fieldname = op.args[1].value
-            trailing = ''
-            if T == lltype.Bool:
-                trailing = ' & 1'    # needed in this case, otherwise casting
-                                     # a several-bytes value to bool_t would
-                                     # take into account all the several bytes
-            return '%s = (%s)(stm_fx_read_partial(%s, offsetof(%s, %s))%s);'% (
-                newvalue, cresulttypename, basename,
-                cdecl(funcgen.db.gettype(STRUCT), ''),
-                structdef.c_struct_field_name(fieldname),
-                trailing)
-        #
-        else:
-            return '%s = (%s)stm_read_partial_%d(&%s);' % (
-                newvalue, cresulttypename, fieldsize, expr)
-
-def _stm_generic_set(funcgen, op, targetexpr, T):
-    basename = funcgen.expr(op.args[0])
-    newvalue = funcgen.expr(op.args[-1], special_case_void=False)
-    #
-    assert T is not lltype.Void     # XXX
-    fieldsize = rffi.sizeof(T)
-    if fieldsize >= size_of_voidp or T == lltype.SingleFloat:
-        assert 1      # xxx assert somehow that the field is aligned
-        if T == lltype.Float:
-            funcname = 'stm_write_double'
-            newtype = 'double'
-        elif T == lltype.SingleFloat:
-            funcname = 'stm_write_float'
-            newtype = 'float'
-        elif fieldsize == size_of_voidp:
-            funcname = 'stm_write_word'
-            newtype = 'long'
-        elif fieldsize == 8:    # 32-bit only: read a 64-bit field
-            funcname = 'stm_write_doubleword'
-            newtype = 'long long'
-        else:
-            raise NotImplementedError(fieldsize)
-        return '%s((long*)&%s, (%s)%s);' % (
-            funcname, targetexpr, newtype, newvalue)
-    else:
-        assert fieldsize in (1, 2, 4)
-        return ('stm_write_partial_%d(&%s, (unsigned long)%s);' % (
-            fieldsize, targetexpr, newvalue))
+        return '%s = RPY_STM_ARRAY(%s, %s, %s, %s);' % (
+            newvalue, cresulttypename, fieldsize,
+            expr_ptr, expr_field)
 
 
 def field_expr(funcgen, args):
     STRUCT = funcgen.lltypemap(args[0]).TO
     structdef = funcgen.db.gettypedefnode(STRUCT)
-    baseexpr_is_const = isinstance(args[0], Constant)
-    return structdef.ptr_access_expr(funcgen.expr(args[0]),
-                                     args[1].value,
-                                     baseexpr_is_const)
+    fldname = structdef.c_struct_field_name(args[1].value)
+    ptr = funcgen.expr(args[0])
+    return ('%s %s' % (structdef.typetag, structdef.name), ptr, fldname)
 
 def stm_getfield(funcgen, op):
-    expr = field_expr(funcgen, op.args)
-    return _stm_generic_get(funcgen, op, expr, simple_struct=True)
-
-def stm_setfield(funcgen, op):
-    expr = field_expr(funcgen, op.args)
-    T = op.args[2].concretetype
-    return _stm_generic_set(funcgen, op, expr, T)
+    access_info = field_expr(funcgen, op.args)
+    return _stm_generic_get(funcgen, op, access_info)
 
 def array_expr(funcgen, args):
     ARRAY = funcgen.lltypemap(args[0]).TO
     ptr = funcgen.expr(args[0])
     index = funcgen.expr(args[1])
     arraydef = funcgen.db.gettypedefnode(ARRAY)
-    return arraydef.itemindex_access_expr(ptr, index)
+    return (None, ptr, arraydef.itemindex_access_expr(ptr, index))
 
 def stm_getarrayitem(funcgen, op):
-    expr = array_expr(funcgen, op.args)
-    return _stm_generic_get(funcgen, op, expr)
-
-def stm_setarrayitem(funcgen, op):
-    expr = array_expr(funcgen, op.args)
-    T = op.args[2].concretetype
-    return _stm_generic_set(funcgen, op, expr, T)
+    access_info = array_expr(funcgen, op.args)
+    return _stm_generic_get(funcgen, op, access_info)
 
 def stm_getinteriorfield(funcgen, op):
+    xxx
     expr = funcgen.interior_expr(op.args)
     return _stm_generic_get(funcgen, op, expr)
-
-def stm_setinteriorfield(funcgen, op):
-    expr = funcgen.interior_expr(op.args[:-1])
-    T = op.args[-1].concretetype
-    return _stm_generic_set(funcgen, op, expr, T)
 
 
 def stm_become_inevitable(funcgen, op):
