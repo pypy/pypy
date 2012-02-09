@@ -685,7 +685,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
   if (is_main_thread(d))
     return;
 
-#ifdef RPY_STM_ASSERT
+#ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-inevitable");
   if (PYPY_HAVE_DEBUG_PRINTS)
     {
@@ -696,7 +696,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
 
   if (is_inevitable(d))
     {
-#ifdef RPY_STM_ASSERT
+#ifdef RPY_STM_DEBUG_PRINT
       PYPY_DEBUG_STOP("stm-inevitable");
 #endif
       return;  /* I am already inevitable */
@@ -726,7 +726,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
       mutex_unlock();
     }
   d->setjmp_buf = NULL;   /* inevitable from now on */
-#ifdef RPY_STM_ASSERT
+#ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_STOP("stm-inevitable");
 #endif
 }
@@ -801,6 +801,12 @@ void stm_tldict_enum(void(*callback)(void*, void*))
 void stm_setup_size_getter(long(*getsize_fn)(void*))
 {
   rpython_get_size = getsize_fn;
+}
+
+long stm_in_main_thread(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return is_main_thread(d);
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */

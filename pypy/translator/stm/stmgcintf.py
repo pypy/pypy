@@ -18,6 +18,8 @@ class StmOperations(object):
     setup_size_getter = smexternal('stm_setup_size_getter', [GETSIZE],
                                    lltype.Void)
 
+    in_main_thread = smexternal('stm_in_main_thread', [], lltype.Signed)
+
     set_tls = smexternal('stm_set_tls', [llmemory.Address, lltype.Signed],
                          lltype.Void)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)

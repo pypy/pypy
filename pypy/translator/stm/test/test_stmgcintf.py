@@ -173,3 +173,10 @@ class TestStmGcIntf:
         lltype.free(s2, flavor='raw')
         lltype.free(s1, flavor='raw')
     test_stm_copy_transactional_to_raw.in_main_thread = False
+
+    def test_in_main_thread(self):
+        assert stm_operations.in_main_thread()
+
+    def test_not_in_main_thread(self):
+        assert not stm_operations.in_main_thread()
+    test_not_in_main_thread.in_main_thread = False

@@ -26,6 +26,9 @@ class FakeStmOperations:
     def setup_size_getter(self, getsize_fn):
         self._getsize_fn = getsize_fn
 
+    def in_main_thread(self):
+        return self.threadnum == 0
+
     def set_tls(self, tls, in_main_thread):
         assert lltype.typeOf(tls) == llmemory.Address
         assert tls
@@ -303,6 +306,11 @@ class TestBasic:
         #
         u_adr = self.gc.stm_writebarrier(u_adr)  # local object
         assert u_adr == t_adr
+
+    def test_write_barrier_main_thread(self):
+        t, t_adr = self.malloc(S)
+        obj = self.gc.stm_writebarrier(t_adr)     # main thread
+        assert obj == t_adr
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)
