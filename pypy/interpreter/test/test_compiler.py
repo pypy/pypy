@@ -630,6 +630,8 @@ def test():
         assert space.float_w(w_result) == 0
 
     def test_dont_inherit_across_import(self):
+        # see the comment for test_dont_inherit_flag
+        py.test.skip("we cannot actually check the result of this test (see comment)")
         from pypy.tool.udir import udir
         udir.join('test_dont_inherit_across_import.py').write('x = 1/2\n')
         space = self.space
