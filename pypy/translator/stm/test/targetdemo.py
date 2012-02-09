@@ -34,6 +34,7 @@ def add_at_end_of_chained_list(arg, retry_counter):
 def check_chained_list(node):
     seen = [0] * (glob.LENGTH+1)
     seen[-1] = glob.NUM_THREADS
+    errors = glob.LENGTH
     while node is not None:
         value = node.value
         #print value
@@ -42,10 +43,14 @@ def check_chained_list(node):
             raise AssertionError
         seen[value] += 1
         if seen[value] > seen[value-1]:
-            print "seen[%d] = %d, seen[%d] = %d" % (value-1, seen[value-1],
-                                                    value, seen[value])
-            raise AssertionError
+            errors = min(errors, value)
         node = node.next
+    if errors < glob.LENGTH:
+        value = errors
+        print "seen[%d] = %d, seen[%d] = %d" % (value-1, seen[value-1],
+                                                value, seen[value])
+        raise AssertionError
+
     if seen[glob.LENGTH-1] != glob.NUM_THREADS:
         print "seen[LENGTH-1] != NUM_THREADS"
         raise AssertionError
