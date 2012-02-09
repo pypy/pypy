@@ -1,13 +1,10 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.memory.gc.stmgc import PRIMITIVE_SIZES
+from pypy.rpython.memory.gc.stmgc import PRIMITIVE_SIZES, GETSIZE, CALLBACK
 from pypy.translator.stm import _rffi_stm
 
 
 def smexternal(name, args, result):
     return staticmethod(_rffi_stm.llexternal(name, args, result))
-
-CALLBACK = lltype.Ptr(lltype.FuncType([llmemory.Address] * 2, lltype.Void))
-GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
 
 
 class StmOperations(object):

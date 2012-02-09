@@ -77,7 +77,8 @@ class TestStmGcIntf:
         return content
 
     def get_callback(self):
-        def callback(key, value):
+        def callback(tls, key, value):
+            assert tls == llmemory.cast_ptr_to_adr(self.tls)
             seen.append((key, value))
         seen = []
         p_callback = llhelper(CALLBACK, callback)
@@ -87,6 +88,19 @@ class TestStmGcIntf:
         p_callback, seen = self.get_callback()
         stm_operations.tldict_enum(p_callback)
         assert seen == []
+
+    def test_enum_tldict_nonempty(self):
+        a1 = rffi.cast(llmemory.Address, 0x4020)
+        a2 = rffi.cast(llmemory.Address, 10002)
+        a3 = rffi.cast(llmemory.Address, 0x4028)
+        a4 = rffi.cast(llmemory.Address, 10004)
+        #
+        stm_operations.tldict_add(a1, a2)
+        stm_operations.tldict_add(a3, a4)
+        p_callback, seen = self.get_callback()
+        stm_operations.tldict_enum(p_callback)
+        assert (seen == [(a1, a2), (a3, a4)] or
+                seen == [(a3, a4), (a1, a2)])
 
     def stm_read_case(self, flags, copied=False):
         # doesn't test STM behavior, but just that it appears to work

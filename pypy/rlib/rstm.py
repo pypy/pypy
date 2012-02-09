@@ -12,6 +12,7 @@ _global_lock = thread.allocate_lock()
 @specialize.memo()
 def _get_stm_callback(func, argcls):
     def _stm_callback(llarg, retry_counter):
+        llop.stm_start_transaction(lltype.Void)
         if we_are_translated():
             llarg = rffi.cast(rclass.OBJECTPTR, llarg)
             arg = cast_base_ptr_to_instance(argcls, llarg)
@@ -19,6 +20,7 @@ def _get_stm_callback(func, argcls):
             arg = lltype.TLS.stm_callback_arg
         res = func(arg, retry_counter)
         assert res is None
+        llop.stm_commit_transaction(lltype.Void)
         return lltype.nullptr(rffi.VOIDP.TO)
     return _stm_callback
 

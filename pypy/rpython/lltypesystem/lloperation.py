@@ -395,13 +395,15 @@ LL_OPERATIONS = {
     # direct_calls and maybe several casts, but it looks less heavy-weight
     # to keep them as operations until the genc stage)
 
-    'stm_getfield':         LLOp(sideeffects=False, canrun=True),
-    'stm_getarrayitem':     LLOp(sideeffects=False, canrun=True),
-    'stm_getinteriorfield': LLOp(sideeffects=False, canrun=True),
-    'stm_become_inevitable':LLOp(),
-    'stm_descriptor_init':  LLOp(),
-    'stm_descriptor_done':  LLOp(),
-    'stm_writebarrier':     LLOp(sideeffects=False),
+    'stm_getfield':           LLOp(sideeffects=False, canrun=True),
+    'stm_getarrayitem':       LLOp(sideeffects=False, canrun=True),
+    'stm_getinteriorfield':   LLOp(sideeffects=False, canrun=True),
+    'stm_become_inevitable':  LLOp(),
+    'stm_descriptor_init':    LLOp(),
+    'stm_descriptor_done':    LLOp(),
+    'stm_writebarrier':       LLOp(sideeffects=False),
+    'stm_start_transaction':  LLOp(),
+    'stm_commit_transaction': LLOp(),
 
     # __________ address operations __________
 

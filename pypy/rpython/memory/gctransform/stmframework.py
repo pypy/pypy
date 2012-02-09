@@ -18,6 +18,12 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_writebarrier_ptr = getfn(
             self.gcdata.gc.stm_writebarrier,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
+        self.stm_start_ptr = getfn(
+            self.gcdata.gc.start_transaction.im_func,
+            [s_gc], annmodel.s_None)
+        self.stm_commit_ptr = getfn(
+            self.gcdata.gc.commit_transaction.im_func,
+            [s_gc], annmodel.s_None)
 
     def push_roots(self, hop, keep_current_args=False):
         pass
@@ -43,6 +49,12 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
                                [self.stm_writebarrier_ptr, v_adr],
                                resulttype=llmemory.Address)
         hop.genop('cast_adr_to_ptr', [v_localadr], resultvar=op.result)
+
+    def gct_stm_start_transaction(self, hop):
+        hop.genop("direct_call", [self.stm_start_ptr, self.c_const_gc])
+
+    def gct_stm_commit_transaction(self, hop):
+        hop.genop("direct_call", [self.stm_commit_ptr, self.c_const_gc])
 
 
 class StmStackRootWalker(BaseRootWalker):

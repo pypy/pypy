@@ -22,6 +22,9 @@ PRIMITIVE_SIZES   = {1: lltype.Char,
                      4: rffi.INT,
                      8: lltype.SignedLongLong}
 
+CALLBACK = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3, lltype.Void))
+GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+
 
 def always_inline(fn):
     fn._always_inline_ = True
@@ -81,13 +84,11 @@ class StmGC(GCBase):
         ##    self.declare_reader(size, TYPE)
         self.declare_write_barrier()
 
-    GETSIZE = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
-
     def setup(self):
         """Called at run-time to initialize the GC."""
         GCBase.setup(self)
         self.stm_operations.setup_size_getter(
-                llhelper(self.GETSIZE, self._getsize_fn))
+                llhelper(GETSIZE, self._getsize_fn))
         self.main_thread_tls = self.setup_thread(True)
         self.mutex_lock = ll_thread.allocate_ll_lock()
 
@@ -216,6 +217,12 @@ class StmGC(GCBase):
 
     def collect(self, gen=0):
         raise NotImplementedError
+
+    def start_transaction(self):
+        self.collector.start_transaction()
+
+    def commit_transaction(self):
+        self.collector.commit_transaction()
 
 
     @always_inline
@@ -428,20 +435,27 @@ class Collector(object):
         tls.pending_list = NULL
         # Enumerate the roots, which are the local copies of global objects.
         # For each root, trace it.
-        self.stm_operations.enum_tldict_start()
-        while self.stm_operations.enum_tldict_find_next():
-            globalobj = self.stm_operations.enum_tldict_globalobj()
-            localobj = self.stm_operations.enum_tldict_localobj()
-            #
-            localhdr = self.header(localobj)
-            ll_assert(localhdr.version == globalobj,
-                      "in a root: localobj.version != globalobj")
-            ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
-                      "in a root: unexpected GCFLAG_GLOBAL")
-            ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
-                      "in a root: missing GCFLAG_WAS_COPIED")
-            #
-            self.trace_and_drag_out_of_nursery(tls, localobj)
+        callback = llhelper(CALLBACK, self._enum_entries)
+        # xxx hack hack hack!  Stores 'self' in a global place... but it's
+        # pointless after translation because 'self' is a Void.
+        _global_collector.collector = self
+        self.stm_operations.tldict_enum(callback)
+
+
+    @staticmethod
+    def _enum_entries(tls_addr, globalobj, localobj):
+        self = _global_collector.collector
+        tls = llmemory.cast_adr_to_ptr(tls_addr, lltype.Ptr(StmGC.GCTLS))
+        #
+        localhdr = self.header(localobj)
+        ll_assert(localhdr.version == globalobj,
+                  "in a root: localobj.version != globalobj")
+        ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
+                  "in a root: unexpected GCFLAG_GLOBAL")
+        ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
+                  "in a root: missing GCFLAG_WAS_COPIED")
+        #
+        self.trace_and_drag_out_of_nursery(tls, localobj)
 
 
     def collect_from_pending_list(self, tls):
@@ -519,3 +533,8 @@ class Collector(object):
         #
         # Fix the original root.address[0] to point to the globalobj
         root.address[0] = globalobj
+
+
+class _GlobalCollector(object):
+    pass
+_global_collector = _GlobalCollector()

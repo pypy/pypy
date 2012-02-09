@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
-from pypy.rpython.memory.gc.stmgc import StmGC, PRIMITIVE_SIZES, WORD
+from pypy.rpython.memory.gc.stmgc import StmGC, PRIMITIVE_SIZES, WORD, CALLBACK
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
 
 
@@ -37,7 +37,6 @@ class FakeStmOperations:
             assert not hasattr(self, '_tls_dict')
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
-            self._tldicts_iterators = {}
             self._transactional_copies = []
         else:
             assert in_main_thread == 0
@@ -64,32 +63,11 @@ class FakeStmOperations:
         assert obj not in tldict
         tldict[obj] = localobj
 
-    def enum_tldict_start(self):
-        it = self._tldicts[self.threadnum].iteritems()
-        self._tldicts_iterators[self.threadnum] = [it, None, None]
-
-    def enum_tldict_find_next(self):
-        state = self._tldicts_iterators[self.threadnum]
-        try:
-            next_key, next_value = state[0].next()
-        except StopIteration:
-            state[1] = None
-            state[2] = None
-            del self._tldicts_iterators[self.threadnum]
-            return False
-        state[1] = next_key
-        state[2] = next_value
-        return True
-
-    def enum_tldict_globalobj(self):
-        state = self._tldicts_iterators[self.threadnum]
-        assert state[1] is not None
-        return state[1]
-
-    def enum_tldict_localobj(self):
-        state = self._tldicts_iterators[self.threadnum]
-        assert state[2] is not None
-        return state[2]
+    def tldict_enum(self, callback):
+        assert lltype.typeOf(callback) == CALLBACK
+        tls = self.get_tls()
+        for key, value in self._tldicts[self.threadnum].iteritems():
+            callback(tls, key, value)
 
     def _get_stm_reader(size, TYPE):
         assert rffi.sizeof(TYPE) == size

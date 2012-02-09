@@ -789,14 +789,15 @@ void stm_tldict_add(void *key, void *value)
   redolog_insert(&d->redolog, key, value);
 }
 
-void stm_tldict_enum(void(*callback)(void*, void*))
+void stm_tldict_enum(void(*callback)(void*, void*, void*))
 {
   struct tx_descriptor *d = thread_descriptor;
   wlog_t *item;
+  void *tls = stm_get_tls();
 
   REDOLOG_LOOP_FORWARD(d->redolog, item)
     {
-      callback(item->addr, item->val);
+      callback(tls, item->addr, item->val);
     } REDOLOG_LOOP_END;
 }
 
