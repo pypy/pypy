@@ -505,6 +505,7 @@ class OpAssembler(object):
     def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point
+    emit_op_keepalive = emit_op_debug_merge_point
 
     def emit_op_cond_call_gc_wb(self, op, arglocs, regalloc, fcond):
         # Write code equivalent to write_barrier() in the GC: it checks

@@ -978,6 +978,7 @@ class Regalloc(object):
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
+    prepare_keepalive = void
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
