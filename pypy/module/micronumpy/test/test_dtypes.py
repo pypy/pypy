@@ -509,4 +509,5 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
     def test_create_from_dict(self):
         from _numpypy import dtype
-        d = dtype({...})
+        d = dtype({'names': ['a', 'b', 'c'],
+                   })

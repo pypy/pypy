@@ -140,6 +140,9 @@ def dtype_from_list(space, w_lst):
                    "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
                    fieldnames=fieldnames)
 
+def dtype_from_dict(space, w_dict):
+    xxx
+
 def variable_dtype(space, name):
     if name[0] in '<>':
         # ignore byte order, not sure if it's worth it for unicode only
