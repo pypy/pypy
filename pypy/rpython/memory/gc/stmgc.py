@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT
-from pypy.rlib.debug import ll_assert, debug_start, debug_stop
+from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.module.thread import ll_thread
 
 
@@ -35,7 +35,7 @@ class StmGC(GCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
-    needs_write_barrier = "stm"
+    #needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx?
 
@@ -265,11 +265,11 @@ class StmGC(GCBase):
         stm_operations = self.stm_operations
         #
         @always_inline
-        def write_barrier(obj):
+        def stm_writebarrier(obj):
             if self.header(obj).tid & GCFLAG_GLOBAL != 0:
                 obj = _stm_write_barrier_global(obj)
             return obj
-        self.write_barrier = write_barrier
+        self.stm_writebarrier = stm_writebarrier
         #
         @dont_inline
         def _stm_write_barrier_global(obj):

@@ -134,6 +134,15 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_getfield', op.args, op.result)
         newoperations.append(op1)
 
+    def with_writebarrier(self, newoperations, op):
+        v_arg = op.args[0]
+        v_local = varoftype(v_arg.concretetype)
+        op0 = SpaceOperation('stm_writebarrier', [v_arg], v_local)
+        newoperations.append(op0)
+        op1 = SpaceOperation('bare_' + op.opname, [v_local] + op.args[1:],
+                             op.result)
+        return op1
+
     def stt_setfield(self, newoperations, op):
         STRUCT = op.args[0].concretetype.TO
         if op.args[2].concretetype is lltype.Void:
@@ -141,9 +150,11 @@ class STMTransformer(object):
         elif (STRUCT._immutable_field(op.args[1].value) or
               'stm_access_directly' in STRUCT._hints):
             op1 = op
-        else:
+        elif STRUCT._gckind == 'raw':
             turn_inevitable(newoperations, "setfield-raw")
             op1 = op
+        else:
+            op1 = self.with_writebarrier(newoperations, op)
         newoperations.append(op1)
 
     def stt_getarrayitem(self, newoperations, op):
@@ -169,9 +180,11 @@ class STMTransformer(object):
             op1 = op
         #elif op.args[0] in self.access_directly:
         #    op1 = op
-        else:
+        elif ARRAY._gckind == 'raw':
             turn_inevitable(newoperations, "setarrayitem-raw")
             op1 = op
+        else:
+            op1 = self.with_writebarrier(newoperations, op)
         newoperations.append(op1)
 
     def stt_getinteriorfield(self, newoperations, op):
@@ -197,7 +210,7 @@ class STMTransformer(object):
             turn_inevitable(newoperations, "setinteriorfield-raw")
             op1 = op
         else:
-            op1 = SpaceOperation('stm_setinteriorfield', op.args, op.result)
+            op1 = self.with_writebarrier(newoperations, op)
         newoperations.append(op1)
 
 ##    def stt_stm_transaction_boundary(self, newoperations, op):

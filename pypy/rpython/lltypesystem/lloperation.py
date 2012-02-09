@@ -401,6 +401,7 @@ LL_OPERATIONS = {
     'stm_become_inevitable':LLOp(),
     'stm_descriptor_init':  LLOp(),
     'stm_descriptor_done':  LLOp(),
+    'stm_writebarrier':     LLOp(sideeffects=False),
 
     # __________ address operations __________
 

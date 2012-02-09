@@ -1,5 +1,6 @@
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.framework import BaseRootWalker
+from pypy.rpython.lltypesystem import llmemory
 from pypy.annotation import model as annmodel
 
 
@@ -14,6 +15,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.teardown_thread_ptr = getfn(
             GCClass.teardown_thread.im_func,
             [s_gc], annmodel.s_None)
+        self.stm_writebarrier_ptr = getfn(
+            self.gcdata.gc.stm_writebarrier,
+            [annmodel.SomeAddress()], annmodel.SomeAddress())
 
     def push_roots(self, hop, keep_current_args=False):
         pass
@@ -30,6 +34,15 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def gct_stm_descriptor_done(self, hop):
         hop.genop("direct_call", [self.teardown_thread_ptr, self.c_const_gc])
+
+    def gct_stm_writebarrier(self, hop):
+        op = hop.spaceop
+        v_adr = hop.genop('cast_ptr_to_adr',
+                          [op.args[0]], resulttype=llmemory.Address)
+        v_localadr = hop.genop("direct_call",
+                               [self.stm_writebarrier_ptr, v_adr],
+                               resulttype=llmemory.Address)
+        hop.genop('cast_adr_to_ptr', [v_localadr], resultvar=op.result)
 
 
 class StmStackRootWalker(BaseRootWalker):
