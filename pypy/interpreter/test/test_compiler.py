@@ -934,7 +934,7 @@ class AppTestExceptions:
          y
         """
         try:
-            exec source
+            exec(source)
         except IndentationError:
             pass
         else:
@@ -949,8 +949,8 @@ class AppTestExceptions:
          z
         """
         try:
-            exec source
-        except IndentationError, e:
+            exec(source)
+        except IndentationError as e:
             assert e.msg == 'unindent does not match any outer indentation level'
         else:
             raise Exception("DID NOT RAISE")
@@ -960,14 +960,14 @@ class AppTestExceptions:
         source1 = "x = (\n"
         source2 = "x = (\n\n"
         try:
-            exec source1
-        except SyntaxError, err1:
+            exec(source1)
+        except SyntaxError as err1:
             pass
         else:
             raise Exception("DID NOT RAISE")
         try:
-            exec source2
-        except SyntaxError, err2:
+            exec(source2)
+        except SyntaxError as err2:
             pass
         else:
             raise Exception("DID NOT RAISE")
