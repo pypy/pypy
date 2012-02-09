@@ -65,8 +65,8 @@ enum {
 #define RPY_STM_FIELD(T, size, STRUCT, ptr, field)              \
     _RPY_STM(T, size, ptr, offsetof(STRUCT, field), ptr->field)
 
-#define _RPY_STM(T, size, ptr, offset, field)   \
-    (*(long*)ptr & GCFLAG_GLOBAL ? field :      \
+#define _RPY_STM(T, size, ptr, offset, field)           \
+    (((*(long*)ptr) & GCFLAG_GLOBAL) == 0 ? field :     \
      (T)stm_read_int##size(ptr, offset))
 
 
