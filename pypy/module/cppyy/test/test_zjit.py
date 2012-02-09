@@ -32,7 +32,7 @@ class FakeType(FakeBase):
 def _opaque_direct_ptradd(ptr, offset):
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
-interp_cppyy._direct_ptradd = _opaque_direct_ptradd
+capi.direct_ptradd = _opaque_direct_ptradd
 
 class FakeUserDelAction(object):
     def __init__(self, space):

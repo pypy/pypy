@@ -19,11 +19,6 @@ def get_rawobject(space, w_obj):
         return cppinstance.rawobject
     return capi.C_NULL_OBJECT
 
-def _direct_ptradd(ptr, offset):        # TODO: factor out with interp_cppyy.py
-    assert lltype.typeOf(ptr) == capi.C_OBJECT
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
-
 
 class TypeConverter(object):
     _immutable_ = True
@@ -38,7 +33,7 @@ class TypeConverter(object):
         rawobject = get_rawobject(space, w_obj)
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
         if rawobject:
-            fieldptr = _direct_ptradd(rawobject, offset)
+            fieldptr = capi.direct_ptradd(rawobject, offset)
         else:
             fieldptr = rffi.cast(capi.C_OBJECT, offset)
         return fieldptr
@@ -129,7 +124,7 @@ class PtrTypeConverterMixin(object):
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
         rawobject = get_rawobject(space, w_obj)
-        byteptr = rffi.cast(rffi.CCHARPP, _direct_ptradd(rawobject, offset))
+        byteptr = rffi.cast(rffi.CCHARPP, capi.direct_ptradd(rawobject, offset))
         buf = space.buffer_w(w_value)
         try:
             byteptr[0] = buf.get_raw_address()
@@ -174,7 +169,7 @@ class FloatTypeConverterMixin(NumericTypeConverterMixin):
         x = rffi.cast(self.rffiptype, address)
         x[0] = self._unwrap_object(space, w_obj)
         typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = self.typecode
 
 
@@ -371,7 +366,7 @@ class CStringConverter(TypeConverter):
         arg = space.str_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
         typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = 'a'
 
     def from_memory(self, space, w_obj, w_type, offset):
@@ -390,7 +385,7 @@ class VoidPtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         typecode = rffi.cast(rffi.CCHARP,
-           _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+           capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = 'a'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
@@ -404,7 +399,7 @@ class VoidPtrPtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = 'p'
 
 
@@ -415,7 +410,7 @@ class VoidPtrRefConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = 'r'
 
 
@@ -518,7 +513,7 @@ class InstancePtrConverter(TypeConverter):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
                 offset = capi.c_base_offset(
                     obj.cppclass.handle, self.cpptype.handle, obj.rawobject)
-                obj_address = _direct_ptradd(obj.rawobject, offset)
+                obj_address = capi.direct_ptradd(obj.rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise OperationError(space.w_TypeError,
                              space.wrap("cannot pass %s as %s" % (
@@ -530,7 +525,7 @@ class InstancePtrConverter(TypeConverter):
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
         address = rffi.cast(capi.C_OBJECT, address)
         typecode = rffi.cast(rffi.CCHARP,
-            _direct_ptradd(address, capi.c_function_arg_typeoffset()))
+            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
         typecode[0] = 'o'
 
     def convert_argument_libffi(self, space, w_obj, argchain):

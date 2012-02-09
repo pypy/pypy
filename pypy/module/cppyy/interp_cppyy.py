@@ -16,10 +16,6 @@ from pypy.module.cppyy import converter, executor, helper
 class FastCallNotPossible(Exception):
     pass
 
-def _direct_ptradd(ptr, offset):        # TODO: factor out with convert.py
-    assert lltype.typeOf(ptr) == capi.C_OBJECT
-    address = rffi.cast(rffi.CCHARP, ptr)
-    return rffi.cast(capi.C_OBJECT, lltype.direct_ptradd(address, offset))
 
 @unwrap_spec(name=str)
 def load_dictionary(space, name):
@@ -48,8 +44,10 @@ def type_byname(space, name):
         final_name = capi.charp2str_free(capi.c_final_name(handle))
         if capi.c_is_namespace(handle):
             cpptype = W_CPPNamespace(space, final_name, handle)
-        else:
-            cpptype = W_CPPType(space, final_name, handle)
+        elif capi.c_has_complex_hierarchy(handle):
+            cpptype = W_ComplexCPPType(space, final_name, handle)
+	else:
+	    cpptype = W_CPPType(space, final_name, handle)
         state.cpptype_cache[name] = cpptype
         cpptype._find_methods()
         cpptype._find_data_members()
@@ -249,22 +247,14 @@ class W_CPPOverload(Wrappable):
     def get_returntype(self):
         return self.space.wrap(self.functions[0].executor.name)
 
-    @jit.elidable_promote()
-    def _get_cppthis(self, cppinstance):
-        if cppinstance is not None:
-            cppinstance._nullcheck()
-            offset = capi.c_base_offset(
-                cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
-            cppthis = _direct_ptradd(cppinstance.rawobject, offset)
-            assert lltype.typeOf(cppthis) == capi.C_OBJECT
-        else:
-            cppthis = capi.C_NULL_OBJECT
-        return cppthis
-
     @jit.unroll_safe
     def call(self, w_cppinstance, w_type, args_w):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
-        cppthis = self._get_cppthis(cppinstance)
+        if cppinstance is not None:
+            cppinstance._nullcheck()
+            cppthis = cppinstance.cppclass.get_cppthis(cppinstance, self.scope_handle)
+        else:
+            cppthis = capi.C_NULL_OBJECT
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         space = self.space
@@ -491,6 +481,10 @@ class W_CPPType(W_CPPScope):
             data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, is_static)
             self.data_members[data_member_name] = data_member
 
+    @jit.elidable_promote()
+    def get_cppthis(self, cppinstance, scope_handle):
+        return cppinstance.rawobject
+
     def is_namespace(self):
         return self.space.w_False
 
@@ -513,6 +507,26 @@ W_CPPType.typedef = TypeDef(
     is_namespace = interp2app(W_CPPType.is_namespace, unwrap_spec=['self']),
 )
 W_CPPType.typedef.acceptable_as_base_class = False
+
+
+class W_ComplexCPPType(W_CPPType):
+    @jit.elidable_promote()
+    def get_cppthis(self, cppinstance, scope_handle):
+        offset = capi.c_base_offset(
+            cppinstance.cppclass.handle, scope_handle, cppinstance.rawobject)
+        return capi.direct_ptradd(cppinstance.rawobject, offset)
+
+W_ComplexCPPType.typedef = TypeDef(
+    'ComplexCPPType',
+    type_name = interp_attrproperty('name', W_CPPType),
+    get_base_names = interp2app(W_ComplexCPPType.get_base_names, unwrap_spec=['self']),
+    get_method_names = interp2app(W_ComplexCPPType.get_method_names, unwrap_spec=['self']),
+    get_overload = interp2app(W_ComplexCPPType.get_overload, unwrap_spec=['self', str]),
+    get_data_member_names = interp2app(W_ComplexCPPType.get_data_member_names, unwrap_spec=['self']),
+    get_data_member = interp2app(W_ComplexCPPType.get_data_member, unwrap_spec=['self', str]),
+    is_namespace = interp2app(W_ComplexCPPType.is_namespace, unwrap_spec=['self']),
+)
+W_ComplexCPPType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):

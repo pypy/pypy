@@ -43,6 +43,7 @@ extern "C" {
 
     /* type/class reflection information -------------------------------------- */
     char* cppyy_final_name(cppyy_typehandle_t handle);
+    int cppyy_has_complex_hierarchy(cppyy_typehandle_t handle);
     int cppyy_num_bases(cppyy_typehandle_t handle);
     char* cppyy_base_name(cppyy_typehandle_t handle, int base_index);
     int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh);

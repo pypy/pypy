@@ -9,7 +9,6 @@
 #include "Reflex/PropertyList.h"
 #include "Reflex/TypeTemplate.h"
 
-#include <iostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -206,6 +205,30 @@ char* cppyy_final_name(cppyy_typehandle_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     std::string name = s.Name(Reflex::FINAL);
     return cppstring_to_cstring(name);
+}
+
+static int cppyy_has_complex_hierarchy(const Reflex::Type& t) {
+    int is_complex = 1;
+    
+    size_t nbases = t.BaseSize();
+    if (1 < nbases)
+        is_complex = 1;
+    else if (nbases == 0)
+        is_complex = 0;
+    else {         // one base class only
+        Reflex::Base b = t.BaseAt(0);
+        if (b.IsVirtual())
+            is_complex = 1;       // TODO: verify; can be complex, need not be.
+        else
+            is_complex = cppyy_has_complex_hierarchy(t.BaseAt(0).ToType());
+    }
+
+    return is_complex;
+}   
+
+int cppyy_has_complex_hierarchy(cppyy_typehandle_t handle) {
+    Reflex::Type t = type_from_handle(handle);
+    return cppyy_has_complex_hierarchy(t);
 }
 
 int cppyy_num_bases(cppyy_typehandle_t handle) {

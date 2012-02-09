@@ -15,6 +15,13 @@ C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
 
+def direct_ptradd(ptr, offset):
+    offset = rffi.cast(rffi.SIZE_T, offset)
+    jit.promote(offset)
+    assert lltype.typeOf(ptr) == C_OBJECT
+    address = rffi.cast(rffi.CCHARP, ptr)
+    return rffi.cast(C_OBJECT, lltype.direct_ptradd(address, offset))
+
 c_load_dictionary = backend.c_load_dictionary
 
 c_get_typehandle = rffi.llexternal(
@@ -48,6 +55,10 @@ c_final_name = rffi.llexternal(
     [C_TYPEHANDLE], rffi.CCHARP,
     compilation_info=backend.eci)
 
+c_has_complex_hierarchy = rffi.llexternal(
+    "cppyy_has_complex_hierarchy",
+    [C_TYPEHANDLE], rffi.INT,
+    compilation_info=backend.eci)
 c_num_bases = rffi.llexternal(
     "cppyy_num_bases",
     [C_TYPEHANDLE], rffi.INT,

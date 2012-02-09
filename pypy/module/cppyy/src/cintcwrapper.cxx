@@ -300,6 +300,12 @@ char* cppyy_final_name(cppyy_typehandle_t handle) {
     return cppstring_to_cstring(cr.GetClassName());
 }
 
+int cppyy_has_complex_hierarchy(cppyy_typehandle_t handle) {
+// as long as no fast path is supported for CINT, calculating offsets (which
+// are cached by the JIT) is not going to hurt 
+    return 1;
+}
+
 int cppyy_num_bases(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfBases() != 0)
