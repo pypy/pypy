@@ -133,8 +133,10 @@ class BaseArray(Wrappable):
     descr_rsub = _binop_right_impl("subtract")
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
-    descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
+    descr_rpow = _binop_right_impl("power")
+
+    descr_rand = _binop_right_impl("bitwise_and")
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
         def impl(self, space, w_axis=None):
@@ -1233,6 +1235,7 @@ BaseArray.typedef = TypeDef(
     __pos__ = interp2app(BaseArray.descr_pos),
     __neg__ = interp2app(BaseArray.descr_neg),
     __abs__ = interp2app(BaseArray.descr_abs),
+    __invert__ = interp2app(BaseArray.descr_invert),
     __nonzero__ = interp2app(BaseArray.descr_nonzero),
 
     __add__ = interp2app(BaseArray.descr_add),
@@ -1244,12 +1247,17 @@ BaseArray.typedef = TypeDef(
     __pow__ = interp2app(BaseArray.descr_pow),
     __lshift__ = interp2app(BaseArray.descr_lshift),
 
+    __and__ = interp2app(BaseArray.descr_and),
+    __or__ = interp2app(BaseArray.descr_or),
+
     __radd__ = interp2app(BaseArray.descr_radd),
     __rsub__ = interp2app(BaseArray.descr_rsub),
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
-    __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+    __rpow__ = interp2app(BaseArray.descr_rpow),
+
+    __rand__ = interp2app(BaseArray.descr_rand),
 
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),
@@ -1257,10 +1265,6 @@ BaseArray.typedef = TypeDef(
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
-
-    __and__ = interp2app(BaseArray.descr_and),
-    __or__ = interp2app(BaseArray.descr_or),
-    __invert__ = interp2app(BaseArray.descr_invert),
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),

@@ -695,6 +695,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i % 2
 
+    def test_rand(self):
+        from _numpypy import arange
+
+        a = arange(5)
+        assert (3 & a == [0, 1, 2, 3, 0]).all()
+
     def test_pos(self):
         from _numpypy import array
         a = array([1., -2., 3., -4., -5.])
