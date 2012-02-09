@@ -912,11 +912,13 @@ class AppTestCallMethod(object):
         source = """def _f(a):
             return a.f(a=a)
         """
-        exec source
-        code = _f.func_code
+        ns = {}
+        exec(source, ns)
+        code = ns['_f'].__code__
         
-        import StringIO, sys, dis
-        s = StringIO.StringIO()
+        import sys, dis
+        from io import StringIO
+        s = StringIO()
         out = sys.stdout
         sys.stdout = s
         try:
