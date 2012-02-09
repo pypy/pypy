@@ -1084,14 +1084,22 @@ class ForceOpAssembler(object):
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
-        # we overwrite the instructions at the old _ppc_func_addr
-        # to start with a JMP to the new _ppc_func_addr.
-        # Ideally we should rather patch all existing CALLs, but well.
         oldadr = oldlooptoken._ppc_func_addr
         target = newlooptoken._ppc_func_addr
-        mc = PPCBuilder()
-        mc.b_abs(target)
-        mc.copy_to_raw_memory(oldadr)
+        if IS_PPC_64:
+            # PPC64 trampolines are data so overwrite the code address
+            # in the function descriptor at the old address
+            # (TOC and static chain pointer are the same).
+            odata = rffi.cast(rffi.CArrayPtr(lltype.Signed), oldadr)
+            tdata = rffi.cast(rffi.CArrayPtr(lltype.Signed), target)
+            odata[0] = tdata[0]
+        else:
+            # we overwrite the instructions at the old _ppc_func_addr
+            # to start with a JMP to the new _ppc_func_addr.
+            # Ideally we should rather patch all existing CALLs, but well.
+            mc = PPCBuilder()
+            mc.b_abs(target)
+            mc.copy_to_raw_memory(oldadr)
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
