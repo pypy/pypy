@@ -715,9 +715,9 @@ with somtehing as stuff:
 class AppTestCompiler:
 
     def test_bom_with_future(self):
-        s = '\xef\xbb\xbffrom __future__ import division\nx = 1/2'
+        s = b'\xef\xbb\xbffrom __future__ import division\nx = 1/2'
         ns = {}
-        exec s in ns
+        exec(s, ns)
         assert ns["x"] == .5
 
     def test_values_of_different_types(self):
