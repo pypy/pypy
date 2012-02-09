@@ -764,10 +764,12 @@ class AppTestOptimizer:
         source = """def f():
             return 3
 """
-        exec source
-        code = f.func_code
-        import dis, sys, StringIO
-        s = StringIO.StringIO()
+        ns = {}
+        exec(source, ns)
+        code = ns['f'].func_code
+        import dis, sys
+        from io import StringIO
+        s = StringIO()
         so = sys.stdout
         sys.stdout = s
         try:
