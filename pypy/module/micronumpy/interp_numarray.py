@@ -101,8 +101,8 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl("subtract")
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
-    descr_pow = _binop_impl("power")
     descr_mod = _binop_impl("mod")
+    descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
 
     descr_eq = _binop_impl("equal")
@@ -114,6 +114,11 @@ class BaseArray(Wrappable):
 
     descr_and = _binop_impl("bitwise_and")
     descr_or = _binop_impl("bitwise_or")
+
+    def descr_divmod(self, space, w_other):
+        w_quotient = self.descr_div(space, w_other)
+        w_remainder = self.descr_mod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
@@ -1234,8 +1239,9 @@ BaseArray.typedef = TypeDef(
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
-    __pow__ = interp2app(BaseArray.descr_pow),
     __mod__ = interp2app(BaseArray.descr_mod),
+    __divmod__ = interp2app(BaseArray.descr_divmod),
+    __pow__ = interp2app(BaseArray.descr_pow),
     __lshift__ = interp2app(BaseArray.descr_lshift),
 
     __radd__ = interp2app(BaseArray.descr_radd),

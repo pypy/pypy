@@ -625,6 +625,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_divmod(self):
+        from _numpypy import arange
+
+        a, b = divmod(arange(10), 3)
+        assert (a == [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]).all()
+        assert (b == [0, 1, 2, 0, 1, 2, 0, 1, 2, 0]).all()
+
     def test_lshift(self):
         from _numpypy import array
 
