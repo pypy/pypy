@@ -159,6 +159,8 @@ class PyPyTarget(object):
         ## if config.translation.type_system == 'ootype':
         ##     config.objspace.usemodules.suggest(rbench=True)
 
+        config.translation.suggest(check_str_without_nul=True)
+
         if config.translation.thread:
             config.objspace.usemodules.thread = True
         elif config.objspace.usemodules.thread:

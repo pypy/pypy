@@ -81,6 +81,7 @@ latex:
 	      "run these through (pdf)latex."
 
 man:
+	python config/generate.py
 	$(SPHINXBUILD) -b man $(ALLSPHINXOPTS) $(BUILDDIR)/man
 	@echo
 	@echo "Build finished. The manual pages are in $(BUILDDIR)/man"

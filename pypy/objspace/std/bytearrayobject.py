@@ -414,8 +414,8 @@ def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
         result = w_bytearray.data.pop(index)
     except IndexError:
         if not w_bytearray.data:
-            raise OperationError(space.w_OverflowError, space.wrap(
-                "cannot pop an empty bytearray"))
+            raise OperationError(space.w_IndexError, space.wrap(
+                "pop from empty bytearray"))
         raise OperationError(space.w_IndexError, space.wrap(
             "pop index out of range"))
     return space.wrap(ord(result))

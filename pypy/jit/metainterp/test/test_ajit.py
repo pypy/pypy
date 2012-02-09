@@ -322,6 +322,17 @@ class BasicTests:
         res = self.interp_operations(f, [42])
         assert res == ord(u"?")
 
+    def test_char_in_constant_string(self):
+        def g(string):
+            return '\x00' in string
+        def f():
+            if g('abcdef'): return -60
+            if not g('abc\x00ef'): return -61
+            return 42
+        res = self.interp_operations(f, [])
+        assert res == 42
+        self.check_operations_history({'finish': 1})   # nothing else
+
     def test_residual_call(self):
         @dont_look_inside
         def externfn(x, y):
@@ -3694,6 +3705,18 @@ class BaseLLtypeTests(BasicTests):
         assert res1 == res2
         # here it works again
         self.check_operations_history(guard_class=0, record_known_class=1)
+
+    def test_generator(self):
+        def g(n):
+            yield n+1
+            yield n+2
+            yield n+3
+        def f(n):
+            gen = g(n)
+            return gen.next() * gen.next() * gen.next()
+        res = self.interp_operations(f, [10])
+        assert res == 11 * 12 * 13
+        self.check_operations_history(int_add=3, int_mul=2)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

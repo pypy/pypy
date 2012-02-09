@@ -292,10 +292,6 @@ def ll_math_pow(x, y):
     # deal directly with IEEE specials, to cope with problems on various
     # platforms whose semantics don't exactly match C99
 
-    if y == 2.0:
-        return x * x     # this is always a correct answer, and is relatively
-                         # common in user programs.
-
     if isnan(y):
         if x == 1.0:
             return 1.0   # 1**Nan = 1

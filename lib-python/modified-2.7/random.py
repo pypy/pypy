@@ -316,7 +316,7 @@ class Random(_random.Random):
 
         n = len(population)
         if not 0 <= k <= n:
-            raise ValueError, "sample larger than population"
+            raise ValueError("sample larger than population")
         random = self.random
         _int = int
         result = [None] * k
@@ -489,6 +489,12 @@ class Random(_random.Random):
 
         Conditions on the parameters are alpha > 0 and beta > 0.
 
+        The probability distribution function is:
+
+                    x ** (alpha - 1) * math.exp(-x / beta)
+          pdf(x) =  --------------------------------------
+                      math.gamma(alpha) * beta ** alpha
+
         """
 
         # alpha > 0, beta > 0, mean is alpha*beta, variance is alpha*beta**2
@@ -591,7 +597,7 @@ class Random(_random.Random):
 
 ## -------------------- beta --------------------
 ## See
-## http://sourceforge.net/bugs/?func=detailbug&bug_id=130030&group_id=5470
+## http://mail.python.org/pipermail/python-bugs-list/2001-January/003752.html
 ## for Ivan Frohne's insightful analysis of why the original implementation:
 ##
 ##    def betavariate(self, alpha, beta):

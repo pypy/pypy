@@ -18,8 +18,8 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         from numpypy import array, arange, argmin
         a = arange(6).reshape((2,3))
         assert argmin(a) == 0
-        assert (argmin(a, axis=0) == array([0, 0, 0])).all()
-        assert (argmin(a, axis=1) == array([0, 0])).all()
+        #assert (argmin(a, axis=0) == array([0, 0, 0])).all()
+        #assert (argmin(a, axis=1) == array([0, 0])).all()
         b = arange(6)
         b[1] = 0
         assert argmin(b) == 0
@@ -40,8 +40,8 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         assert sum([0.5, 1.5])== 2.0
         assert sum([[0, 1], [0, 5]]) == 6
         # assert sum([0.5, 0.7, 0.2, 1.5], dtype=int32) == 1
-        # assert (sum([[0, 1], [0, 5]], axis=0) == array([0, 6])).all()
-        # assert (sum([[0, 1], [0, 5]], axis=1) == array([1, 5])).all()
+        assert (sum([[0, 1], [0, 5]], axis=0) == array([0, 6])).all()
+        assert (sum([[0, 1], [0, 5]], axis=1) == array([1, 5])).all()
         # If the accumulator is too small, overflow occurs:
         # assert ones(128, dtype=int8).sum(dtype=int8) == -128
 
@@ -98,20 +98,22 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         from numpypy import array, var
         a = array([[1,2],[3,4]])
         assert var(a) == 1.25
-        # assert (np.var(a,0) == array([ 1.,  1.])).all()
-        # assert (np.var(a,1) == array([ 0.25,  0.25])).all()
+        assert (var(a,0) == array([ 1.,  1.])).all()
+        assert (var(a,1) == array([ 0.25,  0.25])).all()
 
     def test_std(self):
         from numpypy import array, std
         a = array([[1, 2], [3, 4]])
         assert std(a) ==  1.1180339887498949
-        # assert (std(a, axis=0) == array([ 1.,  1.])).all()
-        # assert (std(a, axis=1) == array([ 0.5,  0.5]).all()
+        assert (std(a, axis=0) == array([ 1.,  1.])).all()
+        assert (std(a, axis=1) == array([ 0.5,  0.5])).all()
 
     def test_mean(self):
-        from numpypy import array, mean
+        from numpypy import array, mean, arange
         assert mean(array(range(5))) == 2.0
         assert mean(range(5)) == 2.0
+        assert (mean(arange(10).reshape(5, 2), axis=0) == [4, 5]).all()
+        assert (mean(arange(10).reshape(5, 2), axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
     def test_reshape(self):
         from numpypy import arange, array, dtype, reshape
@@ -134,4 +136,4 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
-
+        

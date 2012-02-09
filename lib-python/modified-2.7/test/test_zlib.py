@@ -1,11 +1,17 @@
 import unittest
-from test import test_support
+from test.test_support import TESTFN, run_unittest, import_module, unlink, requires
 import binascii
 import os
 import random
-from test.test_support import precisionbigmemtest, _1G
+from test.test_support import precisionbigmemtest, _1G, _4G
+import sys
 
-zlib = test_support.import_module('zlib')
+try:
+    import mmap
+except ImportError:
+    mmap = None
+
+zlib = import_module('zlib')
 
 
 class ChecksumTestCase(unittest.TestCase):
@@ -298,6 +304,15 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         self.assertRaises(ValueError, dco.decompress, "", -1)
         self.assertEqual('', dco.unconsumed_tail)
 
+    def test_clear_unconsumed_tail(self):
+        # Issue #12050: calling decompress() without providing max_length
+        # should clear the unconsumed_tail attribute.
+        cdata = "x\x9cKLJ\x06\x00\x02M\x01"     # "abc"
+        dco = zlib.decompressobj()
+        ddata = dco.decompress(cdata, 1)
+        ddata += dco.decompress(dco.unconsumed_tail)
+        self.assertEqual(dco.unconsumed_tail, "")
+
     def test_flushes(self):
         # Test flush() with the various options, using all the
         # different levels in order to provide more variations.
@@ -540,7 +555,7 @@ LAERTES
 
 
 def test_main():
-    test_support.run_unittest(
+    run_unittest(
         ChecksumTestCase,
         ExceptionTestCase,
         CompressTestCase,

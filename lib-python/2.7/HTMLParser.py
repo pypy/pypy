@@ -26,7 +26,7 @@ commentclose = re.compile(r'--\s*>')
 tagfind = re.compile('[a-zA-Z][-.a-zA-Z0-9:_]*')
 attrfind = re.compile(
     r'\s*([a-zA-Z_][-.:a-zA-Z_0-9]*)(\s*=\s*'
-    r'(\'[^\']*\'|"[^"]*"|[-a-zA-Z0-9./,:;+*%?!&$\(\)_#=~@]*))?')
+    r'(\'[^\']*\'|"[^"]*"|[^\s"\'=<>`]*))?')
 
 locatestarttagend = re.compile(r"""
   <[a-zA-Z][-.a-zA-Z0-9:_]*          # tag name
@@ -99,7 +99,7 @@ class HTMLParser(markupbase.ParserBase):
         markupbase.ParserBase.reset(self)
 
     def feed(self, data):
-        """Feed data to the parser.
+        r"""Feed data to the parser.
 
         Call this as often as you want, with as little or as much text
         as you want (may include '\n').
@@ -367,13 +367,16 @@ class HTMLParser(markupbase.ParserBase):
             return s
         def replaceEntities(s):
             s = s.groups()[0]
-            if s[0] == "#":
-                s = s[1:]
-                if s[0] in ['x','X']:
-                    c = int(s[1:], 16)
-                else:
-                    c = int(s)
-                return unichr(c)
+            try:
+                if s[0] == "#":
+                    s = s[1:]
+                    if s[0] in ['x','X']:
+                        c = int(s[1:], 16)
+                    else:
+                        c = int(s)
+                    return unichr(c)
+            except ValueError:
+                return '&#'+s+';'
             else:
                 # Cannot use name2codepoint directly, because HTMLParser supports apos,
                 # which is not part of HTML 4

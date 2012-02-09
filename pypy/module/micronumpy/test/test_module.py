@@ -21,13 +21,3 @@ class AppTestNumPyModule(BaseNumpyAppTest):
         from _numpypy import array, max
         assert max(range(10)) == 9
         assert max(array(range(10))) == 9
-
-    def test_constants(self):
-        import math
-        from _numpypy import inf, e, pi
-        assert type(inf) is float
-        assert inf == float("inf")
-        assert e == math.e
-        assert type(e) is float
-        assert pi == math.pi
-        assert type(pi) is float

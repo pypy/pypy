@@ -7,6 +7,7 @@ from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp import quasiimmut
 from pypy.jit.metainterp.history import getkind
 from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.jit.metainterp.blackhole import BlackholeInterpreter
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
@@ -199,9 +200,9 @@ class Transformer(object):
         try:
             rewrite = _rewrite_ops[op.opname]
         except KeyError:
-            return op     # default: keep the operation unchanged
-        else:
-            return rewrite(self, op)
+            raise Exception("the JIT doesn't support the operation %r"
+                            " in %r" % (op, getattr(self, 'graph', '?')))
+        return rewrite(self, op)
 
     def rewrite_op_same_as(self, op):
         if op.args[0] in self.vable_array_vars:
@@ -1720,4 +1721,18 @@ def _with_prefix(prefix):
             result[name[len(prefix):]] = getattr(Transformer, name)
     return result
 
+def keep_operation_unchanged(jtransform, op):
+    return op
+
+def _add_default_ops(rewrite_ops):
+    # All operations present in the BlackholeInterpreter as bhimpl_xxx
+    # but not explicitly listed in this file are supposed to be just
+    # passed in unmodified.  All other operations are forbidden.
+    for key, value in BlackholeInterpreter.__dict__.items():
+        if key.startswith('bhimpl_'):
+            opname = key[len('bhimpl_'):]
+            rewrite_ops.setdefault(opname, keep_operation_unchanged)
+    rewrite_ops.setdefault('-live-', keep_operation_unchanged)
+
 _rewrite_ops = _with_prefix('rewrite_op_')
+_add_default_ops(_rewrite_ops)

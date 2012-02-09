@@ -205,3 +205,45 @@ class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
         assert p.const is None
         return SomeUnicodeBuilder(can_be_None=True)
 
+#___________________________________________________________________
+# Support functions for SomeString.no_nul
+
+def assert_str0(fname):
+    assert '\x00' not in fname, "NUL byte in string"
+    return fname
+
+class Entry(ExtRegistryEntry):
+    _about_ = assert_str0
+
+    def compute_result_annotation(self, s_obj):
+        if s_None.contains(s_obj):
+            return s_obj
+        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
+        if s_obj.no_nul:
+            return s_obj
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
+        new_s_obj.__dict__ = s_obj.__dict__.copy()
+        new_s_obj.no_nul = True
+        return new_s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_str0(fname):
+    """A 'probe' to trigger a failure at translation time, if the
+    string was not proved to not contain NUL characters."""
+    assert '\x00' not in fname, "NUL byte in string"
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_str0
+
+    def compute_result_annotation(self, s_obj):
+        if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
+            return s_obj
+        if not s_obj.no_nul:
+            raise ValueError("Value is not no_nul")
+
+    def specialize_call(self, hop):
+        pass
+
