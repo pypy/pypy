@@ -742,19 +742,20 @@ class AppTestCompiler:
         assert isinstance(x, float) and isinstance(y, float)
         assert math.copysign(1, x) != math.copysign(1, y)
         ns = {}
-        exec "z1, z2 = 0j, -0j" in ns
+        exec("z1, z2 = 0j, -0j", ns)
         assert math.atan2(ns["z1"].imag, -1.) == math.atan2(0., -1.)
         assert math.atan2(ns["z2"].imag, -1.) == math.atan2(-0., -1.)
 
     def test_zeros_not_mixed_in_tuples(self):
         import math
-        exec "a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)"
-        assert math.copysign(1., a[0]) == 1.0
-        assert math.copysign(1., a[1]) == 1.0
-        assert math.copysign(1., b[0]) == -1.0
-        assert math.copysign(1., b[1]) == 1.0
-        assert math.copysign(1., c[0]) == -1.0
-        assert math.copysign(1., c[1]) == -1.0
+        ns = {}
+        exec("a = (0.0, 0.0); b = (-0.0, 0.0); c = (-0.0, -0.0)", ns)
+        assert math.copysign(1., ns['a'][0]) == 1.0
+        assert math.copysign(1., ns['a'][1]) == 1.0
+        assert math.copysign(1., ns['b'][0]) == -1.0
+        assert math.copysign(1., ns['b'][1]) == 1.0
+        assert math.copysign(1., ns['c'][0]) == -1.0
+        assert math.copysign(1., ns['c'][1]) == -1.0
 
 
 class AppTestOptimizer:
