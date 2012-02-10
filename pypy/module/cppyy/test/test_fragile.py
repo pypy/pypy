@@ -67,10 +67,8 @@ class AppTestFRAGILE:
         raises(TypeError, d.overload, None)
         raises(TypeError, d.overload, None, None, None)
 
-        # TODO: the following fails in the fast path, b/c the default
-        # arguments are not properly filled
-        #d.overload('a')
-        #d.overload(1)
+        d.overload('a')
+        d.overload(1)
 
     def test04_unsupported_arguments(self):
         """Test arguments that are yet unsupported"""
