@@ -2125,7 +2125,3 @@ perverse time zone returns a negative dst()).  So a breaking case must be
 pretty bizarre, and a tzinfo subclass can override fromutc() if it is.
 """
 
-if not hasattr(_time, '__datetime__dict'):
-    _time.__datetime__dict = globals()
-else:
-    globals().update(_time.__datetime__dict)
