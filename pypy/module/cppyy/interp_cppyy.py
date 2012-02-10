@@ -46,8 +46,8 @@ def type_byname(space, name):
             cpptype = W_CPPNamespace(space, final_name, handle)
         elif capi.c_has_complex_hierarchy(handle):
             cpptype = W_ComplexCPPType(space, final_name, handle)
-	else:
-	    cpptype = W_CPPType(space, final_name, handle)
+        else:
+            cpptype = W_CPPType(space, final_name, handle)
         state.cpptype_cache[name] = cpptype
         cpptype._find_methods()
         cpptype._find_data_members()
@@ -110,8 +110,8 @@ class CPPMethod(object):
     @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
-	args_expected = len(self.arg_defs)
-	args_given = len(args_w)
+        args_expected = len(self.arg_defs)
+        args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
             raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of arguments"))
 
