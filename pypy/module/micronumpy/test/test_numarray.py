@@ -625,6 +625,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_truediv(self):
+        from operator import truediv
+        from _numpypy import arange
+
+        assert (truediv(arange(5), 2) == [0., .5, 1., 1.5, 2.]).all()
+        assert (truediv(2, arange(3)) == [float("inf"), 2., 1.]).all()
+
     def test_divmod(self):
         from _numpypy import arange
 
