@@ -4,17 +4,17 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
     signature, support, loop)
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
+from pypy.module.micronumpy.interp_iter import (ArrayIterator,
+    SkipLastAxisIterator, Chunk, ViewIterator)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords)
-from dot import multidim_dot, match_dot_shapes
 from pypy.rlib import jit
+from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
 count_driver = jit.JitDriver(
