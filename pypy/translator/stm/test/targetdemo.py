@@ -14,7 +14,6 @@ class Global:
     LENGTH      = 5000
     USE_MEMORY  = False
     anchor      = Node(-1)
-    lock        = ll_thread.allocate_ll_lock()
 glob = Global()
 
 class Arg:
@@ -67,7 +66,8 @@ def run_me():
     rstm.descriptor_init()
     try:
         debug_print("thread starting...")
-        arg = Arg()
+        arg = glob._arg
+        ll_thread.release_NOAUTO(glob.lock)
         arg.foobar = 41
         i = 0
         while i < glob.LENGTH:
@@ -92,8 +92,12 @@ def entry_point(argv):
             if len(argv) > 3:
                 glob.USE_MEMORY = bool(int(argv[3]))
     glob.done = 0
+    glob.lock = ll_thread.allocate_ll_lock()
+    ll_thread.acquire_NOAUTO(glob.lock, 1)
     for i in range(glob.NUM_THREADS):
+        glob._arg = Arg()
         ll_thread.start_new_thread(run_me, ())
+        ll_thread.acquire_NOAUTO(glob.lock, 1)
     print "sleeping..."
     while glob.done < glob.NUM_THREADS:    # poor man's lock
         time.sleep(1)
