@@ -54,4 +54,27 @@ class TestPPC(LLtypeBackendTest):
             args = [i+1 for i in range(numargs)]
             res = self.cpu.execute_token(looptoken, *args)
             assert self.cpu.get_latest_value_int(0) == sum(args)
+  
+    def test_return_spilled_args(self):
+        numargs = 50
+        for _ in range(numargs):
+            self.cpu.reserve_some_free_fail_descr_number()
+        ops = []
+        arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
+        ops.append(arglist)
+        # spill every inputarg
+        for i in range(numargs):
+            ops.append("force_spill(i%d)\n" % i)
+        ops.append("guard_value(i0, -1) %s" % arglist)
+        ops = "".join(ops)
+        loop = parse(ops)
+        looptoken = JitCellToken()
+        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        ARGS = [lltype.Signed] * numargs
+        RES = lltype.Signed
+        args = [i+1 for i in range(numargs)]
+        res = self.cpu.execute_token(looptoken, *args)
+        for i in range(numargs):
+            assert self.cpu.get_latest_value_int(i) == i + 1
         
