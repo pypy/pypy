@@ -5,6 +5,7 @@ class no_such_class;
 class A {
 public:
     virtual int check() { return (int)'A'; }
+    virtual A* gime_null() { return (A*)0; }
 };
 
 class B {

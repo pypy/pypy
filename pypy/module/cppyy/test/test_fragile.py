@@ -106,3 +106,22 @@ class AppTestFRAGILE:
         raises(TypeError, cppyy.addressof, 0)
         raises(TypeError, cppyy.addressof, 1)
         raises(TypeError, cppyy.addressof, None)
+
+    def test06_wrong_this(self):
+        """Test that using an incorrect self argument raises"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile == cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+
+        a = fragile.A()
+        assert fragile.A.check(a) == ord('A')
+
+        b = fragile.B()
+        assert fragile.B.check(b) == ord('B')
+        raises(TypeError, fragile.A.check, b)
+        raises(TypeError, fragile.B.check, a)
+
+        assert isinstance(a.gime_null(), fragile.A)
+        raises(ReferenceError, fragile.A.check, a.gime_null())
