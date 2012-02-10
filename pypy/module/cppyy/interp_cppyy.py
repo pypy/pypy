@@ -263,11 +263,7 @@ class W_CPPOverload(Wrappable):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                cppresult = cppyyfunc.call(cppthis, w_type, args_w)
-                if cppinstance and isinstance(cppresult, W_CPPInstance):
-                    if cppresult.rawobject == cppinstance.rawobject:
-                        return cppinstance  # recycle object to preserve identity
-                return cppresult
+                return cppyyfunc.call(cppthis, w_type, args_w)
             except OperationError, e:
                 if not (e.match(space, space.w_TypeError) or \
                         e.match(space, space.w_NotImplementedError)):
