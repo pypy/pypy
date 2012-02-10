@@ -62,6 +62,7 @@ class TestPPC(LLtypeBackendTest):
         ops = []
         arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
         ops.append(arglist)
+        
         # spill every inputarg
         for i in range(numargs):
             ops.append("force_spill(i%d)\n" % i)
@@ -69,12 +70,26 @@ class TestPPC(LLtypeBackendTest):
         ops = "".join(ops)
         loop = parse(ops)
         looptoken = JitCellToken()
-        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
+        faildescr = loop.operations[-1].getdescr()
+        done_number = self.cpu.get_fail_descr_number(faildescr)
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ARGS = [lltype.Signed] * numargs
         RES = lltype.Signed
         args = [i+1 for i in range(numargs)]
         res = self.cpu.execute_token(looptoken, *args)
+        assert res is faildescr
         for i in range(numargs):
             assert self.cpu.get_latest_value_int(i) == i + 1
-        
+
+        bridgeops = [arglist]
+        bridgeops.append("guard_value(i1, -5) %s" % arglist)
+        bridgeops = "".join(bridgeops)
+        bridge = parse(bridgeops)
+        faildescr2 = bridge.operations[-1].getdescr()
+
+        self.cpu.compile_bridge(faildescr, bridge.inputargs, bridge.operations, looptoken)
+        res2 = self.cpu.execute_token(looptoken, *args)
+        assert res2 is faildescr2
+        for i in range(numargs):
+            assert self.cpu.get_latest_value_int(i) == i + 1
+
