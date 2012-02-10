@@ -164,7 +164,7 @@ class StmGC(GCBase):
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        assert not needs_finalizer, "XXX"
+        #assert not needs_finalizer, "XXX" --- finalizer is just ignored
         assert not contains_weakptr, "XXX"
         #
         # Check the mode: either in a transactional thread, or in
@@ -354,12 +354,15 @@ class StmGC(GCBase):
     # ----------
 
     def acquire(self, lock):
-        ll_thread.c_thread_acquirelock_NOAUTO(lock, 1)
+        ll_thread.acquire_NOAUTO(lock, 1)
 
     def release(self, lock):
-        ll_thread.c_thread_releaselock_NOAUTO(lock)
+        ll_thread.release_NOAUTO(lock)
 
     # ----------
+
+    def id(self, gcobj):
+        raise NotImplementedError("XXX")
 
     def identityhash(self, gcobj):
         raise NotImplementedError("XXX")
