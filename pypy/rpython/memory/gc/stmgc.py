@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase
+from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
@@ -15,7 +16,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 
 GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
-GCFLAG_HAS_HASH   = first_gcflag << 2
+GCFLAG_HAS_SHADOW = first_gcflag << 2
+GCFLAG_FIXED_HASH = first_gcflag << 3
 
 PRIMITIVE_SIZES   = {1: lltype.Char,
                      2: rffi.SHORT,
@@ -45,7 +47,7 @@ class StmGC(GCBase):
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('version', llmemory.Address))
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', GCFLAG_HAS_HASH
+    withhash_flag_is_in_field = 'tid', GCFLAG_FIXED_HASH
 
     GCTLS = lltype.Struct('GCTLS', ('nursery_free', llmemory.Address),
                                    ('nursery_top', llmemory.Address),
@@ -360,12 +362,63 @@ class StmGC(GCBase):
         ll_thread.release_NOAUTO(lock)
 
     # ----------
+    # id() and identityhash() support
+
+    def id_or_identityhash(self, gcobj, is_hash):
+        """Implement the common logic of id() and identityhash()
+        of an object, given as a GCREF.
+        """
+        obj = llmemory.cast_ptr_to_adr(gcobj)
+        hdr = self.header(obj)
+        #
+        if hdr.tid & GCFLAG_GLOBAL == 0:
+            #
+            # The object is a local object.  Find or allocate a corresponding
+            # global object.
+            if hdr.tid & (GCFLAG_WAS_COPIED | GCFLAG_HAS_SHADOW) == 0:
+                #
+                # We need to allocate a global object here.  We only allocate
+                # it for now; it is left completely uninitialized.
+                size = self.get_size(obj)
+                self.acquire(self.mutex_lock)
+                main_tls = self.main_thread_tls
+                globalobj = self._malloc_local_raw(main_tls, size)
+                self.header(globalobj).tid = GCFLAG_GLOBAL
+                self.release(self.mutex_lock)
+                #
+                # Update the header of the local 'obj'
+                hdr.tid |= GCFLAG_HAS_SHADOW
+                hdr.version = globalobj
+                #
+            else:
+                # There is already a corresponding globalobj
+                globalobj = hdr.version
+            #
+            obj = globalobj
+        #
+        ll_assert(self.header(obj).tid & GCFLAG_GLOBAL != 0,
+                  "id_or_identityhash: unexpected local object")
+        i = llmemory.cast_adr_to_int(obj)
+        if is_hash:
+            # For identityhash(), we need a special case for some
+            # prebuilt objects: their hash must be the same before
+            # and after translation.  It is stored as an extra word
+            # after the object.  But we cannot use it for id()
+            # because the stored value might clash with a real one.
+            if self.header(obj).tid & GCFLAG_FIXED_HASH:
+                size = self.get_size(obj)
+                i = (obj + size).signed[0]
+            else:
+                # mangle the hash value to increase the dispertion
+                # on the trailing bits, but only if !GCFLAG_FIXED_HASH
+                i = mangle_hash(i)
+        return i
 
     def id(self, gcobj):
-        raise NotImplementedError("XXX")
+        return self.id_or_identityhash(gcobj, False)
 
     def identityhash(self, gcobj):
-        raise NotImplementedError("XXX")
+        return self.id_or_identityhash(gcobj, True)
 
 # ------------------------------------------------------------
 
@@ -512,17 +565,31 @@ class Collector(object):
         ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
                   "trace_and_mark: GLOBAL obj in nursery")
         #
-        if hdr.tid & GCFLAG_WAS_COPIED != 0:
-            # this local object is a root or was already marked.  Either
-            # way, its 'version' field should point to the corresponding
-            # global object.
-            globalobj = hdr.version
-            #
-        else:
-            # First visit to a local-only 'obj': copy it into the global area
+        if hdr.tid & (GCFLAG_WAS_COPIED | GCFLAG_HAS_SHADOW) == 0:
+            # First visit to a local-only 'obj': allocate a corresponding
+            # global object
             size = self.gc.get_size(obj)
             main_tls = self.gc.main_thread_tls
             globalobj = self.gc._malloc_local_raw(main_tls, size)
+            need_to_copy = True
+            #
+        else:
+            globalobj = hdr.version
+            if hdr.tid & GCFLAG_WAS_COPIED != 0:
+                # this local object is a root or was already marked.  Either
+                # way, its 'version' field should point to the corresponding
+                # global object. 
+                size = 0
+                need_to_copy = False
+            else:
+                # this local object has a shadow made by id_or_identityhash();
+                # and the 'version' field points to the global shadow.
+                ll_assert(hdr.tid & GCFLAG_HAS_SHADOW != 0, "uh?")
+                size = self.gc.get_size(obj)
+                need_to_copy = True
+        #
+        if need_to_copy:
+            # Copy the data of the object from the local to the global
             llmemory.raw_memcopy(obj, globalobj, size)
             #
             # Initialize the header of the 'globalobj'

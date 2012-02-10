@@ -2,6 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rpython.memory.gc.stmgc import StmGC, PRIMITIVE_SIZES, WORD, CALLBACK
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
+from pypy.rpython.memory.support import mangle_hash
 
 
 S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed),
@@ -392,3 +393,88 @@ class TestBasic:
         s1, s1_adr = self.malloc(S)
         assert (repr(self.gc.stm_operations._getsize_fn(s1_adr)) ==
                 repr(fake_get_size(s1_adr)))
+
+    def test_id_of_global(self):
+        s, s_adr = self.malloc(S)
+        i = self.gc.id(s)
+        assert i == llmemory.cast_adr_to_int(s_adr)
+
+    def test_id_of_globallocal(self):
+        s, s_adr = self.malloc(S)
+        self.select_thread(1)
+        t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
+        t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
+        i = self.gc.id(t)
+        assert i == llmemory.cast_adr_to_int(s_adr)
+        assert i == self.gc.id(s)
+        self.gc.commit_transaction()
+        assert i == self.gc.id(s)
+
+    def test_id_of_local_nonsurviving(self):
+        self.select_thread(1)
+        s, s_adr = self.malloc(S)
+        i = self.gc.id(s)
+        assert i != llmemory.cast_adr_to_int(s_adr)
+        assert i == self.gc.id(s)
+        self.gc.commit_transaction()
+
+    def test_id_of_local_surviving(self):
+        sr1, sr1_adr = self.malloc(SR)
+        self.select_thread(1)
+        t2, t2_adr = self.malloc(S)
+        tr1_adr = self.gc.stm_writebarrier(sr1_adr)
+        assert tr1_adr != sr1_adr
+        tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
+        tr1.s1 = t2
+        i = self.gc.id(t2)
+        assert i not in (llmemory.cast_adr_to_int(sr1_adr),
+                         llmemory.cast_adr_to_int(t2_adr),
+                         llmemory.cast_adr_to_int(tr1_adr))
+        assert i == self.gc.id(t2)
+        self.gc.commit_transaction()
+        s2 = tr1.s1       # tr1 is a root, so not copied yet
+        assert s2 and s2 != t2
+        assert self.gc.id(s2) == i
+
+    def test_hash_of_global(self):
+        s, s_adr = self.malloc(S)
+        i = self.gc.identityhash(s)
+        assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))
+
+    def test_hash_of_globallocal(self):
+        s, s_adr = self.malloc(S)
+        self.select_thread(1)
+        t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
+        t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
+        i = self.gc.identityhash(t)
+        assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))
+        assert i == self.gc.identityhash(s)
+        self.gc.commit_transaction()
+        assert i == self.gc.identityhash(s)
+
+    def test_hash_of_local_nonsurviving(self):
+        self.select_thread(1)
+        s, s_adr = self.malloc(S)
+        i = self.gc.identityhash(s)
+        assert i != mangle_hash(llmemory.cast_adr_to_int(s_adr))
+        assert i == self.gc.identityhash(s)
+        self.gc.commit_transaction()
+
+    def test_hash_of_local_surviving(self):
+        sr1, sr1_adr = self.malloc(SR)
+        self.select_thread(1)
+        t2, t2_adr = self.malloc(S)
+        tr1_adr = self.gc.stm_writebarrier(sr1_adr)
+        assert tr1_adr != sr1_adr
+        tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
+        tr1.s1 = t2
+        i = self.gc.identityhash(t2)
+        assert i not in map(mangle_hash,
+                        (llmemory.cast_adr_to_int(sr1_adr),
+                         llmemory.cast_adr_to_int(t2_adr),
+                         llmemory.cast_adr_to_int(tr1_adr)))
+        assert i == self.gc.identityhash(t2)
+        self.gc.commit_transaction()
+        s2 = tr1.s1       # tr1 is a root, so not copied yet
+        assert s2 and s2 != t2
+        assert self.gc.identityhash(s2) == i
