@@ -50,19 +50,20 @@ class AppTestRaise:
         else:
             raise AssertionError("shouldn't be able to raise 1")
 
-    def test_raise_three_args(self):
+    def test_raise_with___traceback__(self):
         import sys
         try:
             raise ValueError
         except:
             exc_type,exc_val,exc_tb = sys.exc_info()
         try:
-            raise exc_type,exc_val,exc_tb
+            exc_val.__traceback__ = exc_tb
+            raise exc_val
         except:
             exc_type2,exc_val2,exc_tb2 = sys.exc_info()
-        assert exc_type ==exc_type2
-        assert exc_val ==exc_val2
-        assert exc_tb ==exc_tb2
+        assert exc_type is exc_type2
+        assert exc_val is exc_val2
+        assert exc_tb is exc_tb2.tb_next
 
     def test_reraise(self):
         # some collection of funny code
