@@ -453,31 +453,6 @@ class AppTestPyFrame:
         assert len(l) == 1
         assert issubclass(l[0][0], Exception)
 
-    def test_dont_trace_on_raise_with_tb(self):
-        import sys
-        l = []
-        def ltrace(a,b,c): 
-            if b == 'exception':
-                l.append(c)
-            return ltrace
-        def trace(a,b,c): return ltrace
-        def f():
-            try:
-                raise Exception
-            except:
-                return sys.exc_info()
-        def g():
-            exc, val, tb = f()
-            try:
-                raise exc, val, tb
-            except:
-                pass
-        sys.settrace(trace)
-        g()
-        sys.settrace(None)
-        assert len(l) == 1
-        assert isinstance(l[0][1], Exception)
-
     def test_trace_changes_locals(self):
         import sys
         def trace(frame, what, arg):
