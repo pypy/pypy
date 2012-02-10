@@ -22,3 +22,7 @@ def test_utcfromtimestamp():
             del os.environ["TZ"]
         else:
             os.environ["TZ"] = prev_tz
+
+def test_utcfromtimestamp_microsecond():
+    dt = datetime.datetime.utcfromtimestamp(0)
+    assert isinstance(dt.microsecond, int)

@@ -1520,7 +1520,7 @@ class datetime(date):
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = int(round(frac * 1e6))
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -2125,3 +2125,7 @@ perverse time zone returns a negative dst()).  So a breaking case must be
 pretty bizarre, and a tzinfo subclass can override fromutc() if it is.
 """
 
+if not hasattr(_time, '__datetime__dict'):
+    _time.__datetime__dict = globals()
+else:
+    globals().update(_time.__datetime__dict)
