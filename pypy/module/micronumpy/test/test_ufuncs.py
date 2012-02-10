@@ -368,14 +368,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert b.shape == (1, 4)
         assert (add.reduce(a, 0, keepdims=True) == [12, 15, 18, 21]).all()
 
-
     def test_bitwise(self):
-        from _numpypy import bitwise_and, bitwise_or, arange, array
+        from _numpypy import bitwise_and, bitwise_or, bitwise_xor, arange, array
         a = arange(6).reshape(2, 3)
         assert (a & 1 == [[0, 1, 0], [1, 0, 1]]).all()
         assert (a & 1 == bitwise_and(a, 1)).all()
         assert (a | 1 == [[1, 1, 3], [3, 5, 5]]).all()
         assert (a | 1 == bitwise_or(a, 1)).all()
+        assert (a ^ 3 == bitwise_xor(a, 3)).all()
         raises(TypeError, 'array([1.0]) & 1')
 
     def test_unary_bitops(self):
