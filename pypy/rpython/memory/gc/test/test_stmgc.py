@@ -26,8 +26,8 @@ class FakeStmOperations:
     def setup_size_getter(self, getsize_fn):
         self._getsize_fn = getsize_fn
 
-    def in_main_thread(self):
-        return self.threadnum == 0
+    def in_transaction(self):
+        return self.threadnum != 0
 
     def set_tls(self, tls, in_main_thread):
         assert lltype.typeOf(tls) == llmemory.Address
@@ -149,6 +149,7 @@ class TestBasic:
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
             self.gc.setup_thread(False)
+            self.gc.start_transaction()
     def gcsize(self, S):
         return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
                 llmemory.raw_malloc_usage(llmemory.sizeof(S)))

@@ -14,6 +14,7 @@ class Global:
     LENGTH      = 5000
     USE_MEMORY  = False
     anchor      = Node(-1)
+    lock        = ll_thread.allocate_ll_lock()
 glob = Global()
 
 class Arg:

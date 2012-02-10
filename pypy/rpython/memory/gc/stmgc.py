@@ -297,7 +297,7 @@ class StmGC(GCBase):
         #
         @dont_inline
         def _stm_write_barrier_global(obj):
-            if stm_operations.in_main_thread():
+            if not stm_operations.in_transaction():
                 return obj
             # we need to find of make a local copy
             hdr = self.header(obj)

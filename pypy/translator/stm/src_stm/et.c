@@ -81,6 +81,7 @@ struct tx_descriptor {
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
 static __thread struct tx_descriptor *thread_descriptor = NULL;
+static __thread struct tx_descriptor *active_thread_descriptor = NULL;
 static long (*rpython_get_size)(void*);
 
 /************************************************************/
@@ -114,7 +115,7 @@ static void tx_spinloop(int num)
 {
   unsigned int c;
   int i;
-  struct tx_descriptor *d = thread_descriptor;
+  struct tx_descriptor *d = active_thread_descriptor;
   d->num_spinloops[num]++;
 
   //printf("tx_spinloop(%d)\n", num);
@@ -130,11 +131,6 @@ static void tx_spinloop(int num)
 #else
   spinloop();
 #endif
-}
-
-static _Bool is_main_thread(struct tx_descriptor *d)
-{
-  return d->my_lock_word == 0;
 }
 
 static _Bool is_inevitable(struct tx_descriptor *d)
@@ -268,7 +264,7 @@ static void tx_restart(struct tx_descriptor *d)
 /*** increase the abort count and restart the transaction */
 static void tx_abort(int reason)
 {
-  struct tx_descriptor *d = thread_descriptor;
+  struct tx_descriptor *d = active_thread_descriptor;
   assert(!is_inevitable(d));
   d->num_aborts[reason]++;
 #ifdef RPY_STM_DEBUG_PRINT
@@ -459,11 +455,15 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
 #define STM_READ_WORD(SIZE, TYPE)                                       \
 TYPE stm_read_int##SIZE(void* addr, long offset)                        \
 {                                                                       \
-  struct tx_descriptor *d = thread_descriptor;                          \
+  struct tx_descriptor *d = active_thread_descriptor;                   \
   volatile orec_t *o = get_orec(addr);                                  \
   owner_version_t ovt;                                                  \
                                                                         \
   assert(sizeof(TYPE) == SIZE);                                         \
+                                                                        \
+  /* XXX try to remove this check from the main path */                 \
+  if (d == NULL)                                                        \
+    return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
   if ((o->tid & GCFLAG_WAS_COPIED) != 0)                                \
     {                                                                   \
@@ -477,10 +477,6 @@ TYPE stm_read_int##SIZE(void* addr, long offset)                        \
     not_found:;                                                         \
     }                                                                   \
                                                                         \
-  /* XXX try to remove this check from the main path */                 \
-  if (is_main_thread(d))                                                \
-    return *(TYPE *)(((char *)addr) + offset);                          \
-                                                                        \
   STM_DO_READ(TYPE tmp = *(TYPE *)(((char *)addr) + offset));           \
   return tmp;                                                           \
 }
@@ -492,11 +488,11 @@ STM_READ_WORD(8, long long)
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size)
 {
-  struct tx_descriptor *d = thread_descriptor;
+  struct tx_descriptor *d = active_thread_descriptor;
   volatile orec_t *o = get_orec(src);
   owner_version_t ovt;
 
-  assert(!is_main_thread(d));
+  assert(d != NULL);
 
   /* don't copy the header */
   src = ((char *)src) + sizeof(orec_t);
@@ -507,9 +503,10 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
 }
 
 
-static struct tx_descriptor *descriptor_init(_Bool is_main_thread)
+static struct tx_descriptor *descriptor_init()
 {
   assert(thread_descriptor == NULL);
+  assert(active_thread_descriptor == NULL);
   if (1)  /* for hg diff */
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
@@ -519,21 +516,15 @@ static struct tx_descriptor *descriptor_init(_Bool is_main_thread)
       PYPY_DEBUG_START("stm-init");
 #endif
 
-      if (is_main_thread)
-        {
-          d->my_lock_word = 0;
-        }
-      else
-        {
-          /* initialize 'my_lock_word' to be a unique negative number */
-          d->my_lock_word = (owner_version_t)d;
-          if (!IS_LOCKED(d->my_lock_word))
-            d->my_lock_word = ~d->my_lock_word;
-          assert(IS_LOCKED(d->my_lock_word));
-        }
+      /* initialize 'my_lock_word' to be a unique negative number */
+      d->my_lock_word = (owner_version_t)d;
+      if (!IS_LOCKED(d->my_lock_word))
+        d->my_lock_word = ~d->my_lock_word;
+      assert(IS_LOCKED(d->my_lock_word));
       /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
 
       thread_descriptor = d;
+      /* active_thread_descriptor stays NULL */
 
 #ifdef RPY_STM_DEBUG_PRINT
       if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx starting\n",
@@ -548,6 +539,7 @@ static void descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   assert(d != NULL);
+  assert(active_thread_descriptor == NULL);
 
   thread_descriptor = NULL;
 
@@ -593,12 +585,13 @@ static void begin_transaction(jmp_buf* buf)
   assert(d != NULL);
   d->setjmp_buf = buf;
   d->start_time = (/*d->last_known_global_timestamp*/ global_timestamp) & ~1;
+  active_thread_descriptor = d;
 }
 
 static long commit_transaction(void)
 {
-  struct tx_descriptor *d = thread_descriptor;
-  assert(!is_main_thread(d));
+  struct tx_descriptor *d = active_thread_descriptor;
+  assert(d != NULL);
 
   // if I don't have writes, I'm committed
   if (!redolog_any_entry(&d->redolog))
@@ -612,6 +605,7 @@ static long commit_transaction(void)
         }
       d->num_commits++;
       common_cleanup(d);
+      active_thread_descriptor = NULL;
       return d->start_time;
     }
 
@@ -657,6 +651,7 @@ static long commit_transaction(void)
 
   // reset all lists
   common_cleanup(d);
+  active_thread_descriptor = NULL;
   return d->end_time;
 }
 
@@ -666,6 +661,7 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
   jmp_buf _jmpbuf;
   volatile long v_counter = 0;
   long counter;
+  assert(active_thread_descriptor == NULL);
   setjmp(_jmpbuf);
   begin_transaction(&_jmpbuf);
   counter = v_counter;
@@ -681,8 +677,8 @@ void stm_try_inevitable(STM_CCHARP1(why))
      global_timestamp and global_timestamp cannot be incremented
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
-  struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL || is_main_thread(d))
+  struct tx_descriptor *d = active_thread_descriptor;
+  if (d == NULL)
     return;
 
 #ifdef RPY_STM_DEBUG_PRINT
@@ -742,7 +738,10 @@ long stm_debug_get_state(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   if (d == NULL)
+    return -1;
+  if (active_thread_descriptor == NULL)
     return 0;
+  assert(d == active_thread_descriptor);
   if (!is_inevitable(d))
     return 1;
   else
@@ -756,9 +755,10 @@ long stm_thread_id(void)
 }
 
 
-void stm_set_tls(void *newtls, long is_main_thread)
+void stm_set_tls(void *newtls, long in_main_thread)
 {
-  struct tx_descriptor *d = descriptor_init(is_main_thread);
+  /* 'in_main_thread' is ignored so far */
+  struct tx_descriptor *d = descriptor_init();
   d->rpython_tls_object = newtls;
 }
 
@@ -785,7 +785,8 @@ void *stm_tldict_lookup(void *key)
 
 void stm_tldict_add(void *key, void *value)
 {
-  struct tx_descriptor *d = thread_descriptor;
+  struct tx_descriptor *d = active_thread_descriptor;
+  assert(d != NULL);
   redolog_insert(&d->redolog, key, value);
 }
 
@@ -806,10 +807,25 @@ void stm_setup_size_getter(long(*getsize_fn)(void*))
   rpython_get_size = getsize_fn;
 }
 
-long stm_in_main_thread(void)
+long stm_in_transaction(void)
 {
-  struct tx_descriptor *d = thread_descriptor;
-  return is_main_thread(d);
+  struct tx_descriptor *d = active_thread_descriptor;
+  return d != NULL;
+}
+
+void _stm_activate_transaction(long activate)
+{
+  assert(thread_descriptor != NULL);
+  if (activate)
+    {
+      assert(active_thread_descriptor == NULL);
+      active_thread_descriptor = thread_descriptor;
+    }
+  else
+    {
+      assert(active_thread_descriptor != NULL);
+      active_thread_descriptor = NULL;
+    }
 }
 
 #endif  /* PYPY_NOT_MAIN_FILE */

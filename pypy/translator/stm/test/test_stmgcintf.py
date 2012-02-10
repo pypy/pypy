@@ -30,16 +30,23 @@ def test_set_get_del():
 
 
 class TestStmGcIntf:
+    _in_transaction = False
 
     def setup_method(self, meth):
         TLS = getattr(meth, 'TLS', DEFAULT_TLS)
         s = lltype.malloc(TLS, flavor='raw', immortal=True)
         self.tls = s
         a = llmemory.cast_ptr_to_adr(s)
-        in_main_thread = getattr(meth, 'in_main_thread', True)
+        in_transaction = getattr(meth, 'in_transaction', False)
+        in_main_thread = getattr(meth, 'in_main_thread', not in_transaction)
         stm_operations.set_tls(a, int(in_main_thread))
+        if in_transaction:
+            stm_operations._activate_transaction(1)
+            self._in_transaction = True
 
     def teardown_method(self, meth):
+        if self._in_transaction:
+            stm_operations._activate_transaction(0)
         stm_operations.del_tls()
 
     def test_set_get_del(self):
@@ -60,6 +67,7 @@ class TestStmGcIntf:
         stm_operations.tldict_add(a3, a4)
         assert stm_operations.tldict_lookup(a3) == a4
         assert stm_operations.tldict_lookup(a1) == a2
+    test_tldict.in_transaction = True
 
     def test_tldict_large(self):
         content = {}
@@ -74,7 +82,7 @@ class TestStmGcIntf:
                 a2 = rffi.cast(llmemory.Address, random.randrange(2000, 9999))
                 stm_operations.tldict_add(a1, a2)
                 content[key] = a2
-        return content
+    test_tldict_large.in_transaction = True
 
     def get_callback(self):
         def callback(tls, key, value):
@@ -101,6 +109,7 @@ class TestStmGcIntf:
         stm_operations.tldict_enum(p_callback)
         assert (seen == [(a1, a2), (a3, a4)] or
                 seen == [(a3, a4), (a1, a2)])
+    test_enum_tldict_nonempty.in_transaction = True
 
     def stm_read_case(self, flags, copied=False):
         # doesn't test STM behavior, but just that it appears to work
@@ -136,7 +145,7 @@ class TestStmGcIntf:
         assert res == 42042
         res = self.stm_read_case(stmgc.GCFLAG_WAS_COPIED, copied=True)
         assert res == 84084
-    test_stm_read_word_transactional_thread.in_main_thread = False
+    test_stm_read_word_transactional_thread.in_transaction = True
 
     def test_stm_read_int1(self):
         S2 = lltype.Struct('S2', ('hdr', stmgc.StmGC.HDR),
@@ -186,11 +195,16 @@ class TestStmGcIntf:
         #
         lltype.free(s2, flavor='raw')
         lltype.free(s1, flavor='raw')
-    test_stm_copy_transactional_to_raw.in_main_thread = False
+    test_stm_copy_transactional_to_raw.in_transaction = True
 
-    def test_in_main_thread(self):
-        assert stm_operations.in_main_thread()
+    def test_in_transaction(self):
+        assert stm_operations.in_transaction()
+    test_in_transaction.in_transaction = True
 
-    def test_not_in_main_thread(self):
-        assert not stm_operations.in_main_thread()
-    test_not_in_main_thread.in_main_thread = False
+    def test_not_in_transaction(self):
+        assert not stm_operations.in_transaction()
+    test_not_in_transaction.in_main_thread = False
+
+    def test_not_in_transaction_main(self):
+        assert not stm_operations.in_transaction()
+    test_not_in_transaction.in_main_thread = True

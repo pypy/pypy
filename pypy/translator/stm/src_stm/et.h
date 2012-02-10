@@ -46,6 +46,8 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
                                      2: in an inevitable transaction */
 long stm_thread_id(void);  /* returns a unique thread id,
                               or 0 if descriptor_init() was not called */
+long stm_in_transaction(void);
+void _stm_activate_transaction(long);
 
 
 /************************************************************/

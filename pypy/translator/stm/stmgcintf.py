@@ -15,7 +15,9 @@ class StmOperations(object):
     setup_size_getter = smexternal('stm_setup_size_getter', [GETSIZE],
                                    lltype.Void)
 
-    in_main_thread = smexternal('stm_in_main_thread', [], lltype.Signed)
+    in_transaction = smexternal('stm_in_transaction', [], lltype.Signed)
+    _activate_transaction = smexternal('_stm_activate_transaction',
+                                       [lltype.Signed], lltype.Void)
 
     set_tls = smexternal('stm_set_tls', [llmemory.Address, lltype.Signed],
                          lltype.Void)
