@@ -477,7 +477,13 @@ class AssemblerPPC(OpAssembler):
         self.current_clt.frame_depth = max(self.current_clt.frame_depth,
                 spilling_area)
         self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
-	self._patch_sp_offset(sp_patch_location, rawstart)
+
+        if not we_are_translated():
+            # for the benefit of tests
+            faildescr._ppc_bridge_frame_depth = self.current_clt.frame_depth
+            faildescr._ppc_bridge_param_depth = self.current_clt.param_depth
+
+        self._patch_sp_offset(sp_patch_location, rawstart)
         if not we_are_translated():
             print 'Loop', inputargs, operations
             self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
