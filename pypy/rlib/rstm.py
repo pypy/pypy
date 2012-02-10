@@ -18,9 +18,11 @@ def _get_stm_callback(func, argcls):
             arg = cast_base_ptr_to_instance(argcls, llarg)
         else:
             arg = lltype.TLS.stm_callback_arg
-        res = func(arg, retry_counter)
-        assert res is None
-        llop.stm_commit_transaction(lltype.Void)
+        try:
+            res = func(arg, retry_counter)
+            assert res is None
+        finally:
+            llop.stm_commit_transaction(lltype.Void)
         return lltype.nullptr(rffi.VOIDP.TO)
     return _stm_callback
 

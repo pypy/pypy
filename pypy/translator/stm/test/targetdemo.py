@@ -17,10 +17,11 @@ class Global:
 glob = Global()
 
 class Arg:
-    _alloc_nonmovable_ = True
+    _alloc_nonmovable_ = True     # XXX kill me
 
 
 def add_at_end_of_chained_list(arg, retry_counter):
+    assert arg.foobar == 42
     node = arg.anchor
     value = arg.value
     x = Node(value)
@@ -66,10 +67,14 @@ def run_me():
     try:
         debug_print("thread starting...")
         arg = Arg()
-        for i in range(glob.LENGTH):
+        arg.foobar = 41
+        i = 0
+        while i < glob.LENGTH:
             arg.anchor = glob.anchor
             arg.value = i
+            arg.foobar = 42
             rstm.perform_transaction(add_at_end_of_chained_list, Arg, arg)
+            i += 1
         rstm.perform_transaction(increment_done, Arg, arg)
     finally:
         rstm.descriptor_done()

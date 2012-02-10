@@ -119,7 +119,7 @@ class StmGC(GCBase):
         if in_main_thread:
             tls.malloc_flags = GCFLAG_GLOBAL
         else:
-            tls.malloc_flags = 0
+            tls.malloc_flags = -1   # don't malloc outside a transaction!
         return tls
 
     def _setup_secondary_thread(self):
@@ -172,6 +172,8 @@ class StmGC(GCBase):
         # modes, but set different flags.
         tls = self.collector.get_tls()
         flags = tls.malloc_flags
+        ll_assert(flags != -1, "malloc() in a transactional thread but "
+                               "outside a transaction")
         #
         # Get the memory from the nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -192,6 +194,8 @@ class StmGC(GCBase):
         # XXX Be more subtle, e.g. detecting overflows, at least
         tls = self.collector.get_tls()
         flags = tls.malloc_flags
+        ll_assert(flags != -1, "malloc() in a transactional thread but "
+                               "outside a transaction")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         totalsize = nonvarsize + itemsize * length
@@ -350,10 +354,10 @@ class StmGC(GCBase):
     # ----------
 
     def acquire(self, lock):
-        ll_thread.c_thread_acquirelock(lock, 1)
+        ll_thread.c_thread_acquirelock_NOAUTO(lock, 1)
 
     def release(self, lock):
-        ll_thread.c_thread_releaselock(lock)
+        ll_thread.c_thread_releaselock_NOAUTO(lock)
 
     # ----------
 
@@ -392,6 +396,7 @@ class Collector(object):
         """Start a transaction, by clearing and resetting the tls nursery."""
         tls = self.get_tls()
         self.gc.reset_nursery(tls)
+        tls.malloc_flags = 0
 
 
     def commit_transaction(self):
@@ -402,6 +407,7 @@ class Collector(object):
         debug_start("gc-collect-commit")
         #
         tls = self.get_tls()
+        tls.malloc_flags = -1
         #
         # Do a mark-and-move minor collection out of the tls' nursery
         # into the main thread's global area (which is right now also
