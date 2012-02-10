@@ -206,7 +206,10 @@ def run_with_python(python, target):
         raise SystemExit(0)
     def raises(exc, func, *args, **kwargs):
         try:
-            func(*args, **kwargs)
+            if isinstance(func, str):
+                exec("if 1:\\n" + func)
+            else:
+                func(*args, **kwargs)
         except exc:
             pass
         else:

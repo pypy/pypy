@@ -65,9 +65,7 @@ class AppTestRaise:
         assert exc_val is exc_val2
         assert exc_tb is exc_tb2.tb_next
 
-    def test_reraise(self):
-        # some collection of funny code
-        import sys
+    def test_reraise_1(self):
         raises(ValueError, """
             import sys
             try:
@@ -79,6 +77,8 @@ class AppTestRaise:
                     assert sys.exc_info()[0] is ValueError
                     raise
         """)
+
+    def test_reraise_2(self):
         raises(ValueError, """
             def foo():
                 import sys
@@ -92,6 +92,8 @@ class AppTestRaise:
                 finally:
                     foo()
         """)
+
+    def test_reraise_3(self):
         raises(IndexError, """
             def spam():
                 import sys
@@ -109,6 +111,8 @@ class AppTestRaise:
                     spam()
         """)
 
+    def test_reraise_4(self):
+        import sys
         try:
             raise ValueError
         except:
@@ -118,6 +122,7 @@ class AppTestRaise:
                 ok = sys.exc_info()[0] is KeyError
         assert ok
 
+    def test_reraise_5(self):
         raises(IndexError, """
             import sys
             try:
