@@ -73,7 +73,7 @@ def template_byname(space, name):
 
 
 class W_CPPLibrary(Wrappable):
-    _immutable_fields_ = ["cdll"]
+    _immutable_ = True
 
     def __init__(self, space, cdll):
         self.cdll = cdll
@@ -232,7 +232,7 @@ class CPPConstructor(CPPMethod):
 
 
 class W_CPPOverload(Wrappable):
-    _immutable_fields_ = ["scope_handle", "func_name", "functions[*]"]
+    _immutable_ = True
 
     def __init__(self, space, scope_handle, func_name, functions):
         self.space = space
@@ -286,7 +286,7 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _immutable_fields_ = ["scope_handle", "converter", "offset", "_is_static"]
+    _immutable_ = True
 
     def __init__(self, space, scope_handle, type_name, offset, is_static):
         self.space = space
@@ -333,7 +333,8 @@ W_CPPDataMember.typedef.acceptable_as_base_class = False
 
 
 class W_CPPScope(Wrappable):
-    _immutable_fields_ = ["name", "handle"]
+    _immutable_ = True
+    _immutable_fields_ = ["methods[*]", "data_members[*]"]
 
     kind = "scope"
 
@@ -399,6 +400,8 @@ class W_CPPScope(Wrappable):
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class W_CPPNamespace(W_CPPScope):
+    _immutable_ = True
+
     kind = "namespace"
 
     def _make_cppfunction(self, method_index):
@@ -445,6 +448,8 @@ W_CPPNamespace.typedef.acceptable_as_base_class = False
 
 
 class W_CPPType(W_CPPScope):
+    _immutable_ = True
+
     kind = "class"
 
     def _make_cppfunction(self, method_index):
@@ -506,6 +511,8 @@ W_CPPType.typedef.acceptable_as_base_class = False
 
 
 class W_ComplexCPPType(W_CPPType):
+    _immutable_ = True
+
     @jit.elidable_promote()
     def get_cppthis(self, cppinstance, scope_handle):
         offset = capi.c_base_offset(
@@ -526,7 +533,7 @@ W_ComplexCPPType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPTemplateType(Wrappable):
-    _immutable_fields_ = ["name", "handle"]
+    _immutable_ = True
 
     def __init__(self, space, name, handle):
         self.space = space

@@ -128,7 +128,7 @@ class OptFfiCall(Optimization):
     optimize_CALL_MAY_FORCE = optimize_CALL
 
     def optimize_FORCE_TOKEN(self, op):
-        # The handling of force_token needs a bit of exaplanation.
+        # The handling of force_token needs a bit of explanation.
         # The original trace which is getting optimized looks like this:
         #    i1 = force_token()
         #    setfield_gc(p0, i1, ...)
