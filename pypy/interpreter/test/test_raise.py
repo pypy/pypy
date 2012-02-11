@@ -165,7 +165,7 @@ class AppTestRaise:
             pass
 
     def test_catch_tuple(self):
-        class A:
+        class A(Exception):
             pass
         
         try:
