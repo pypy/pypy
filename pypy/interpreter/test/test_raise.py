@@ -164,51 +164,6 @@ class AppTestRaise:
         except KeyError:
             pass
 
-    def test_oldstyle_userclass(self):
-        class A:
-            def __init__(self, val=None):
-                self.val = val
-        class Sub(A):
-            pass
-
-        try:
-            raise Sub
-        except IndexError:
-            assert 0
-        except A, a:
-            assert a.__class__ is Sub
-
-        sub = Sub()
-        try:
-            raise sub
-        except IndexError:
-            assert 0
-        except A, a:
-            assert a is sub
-
-        try:
-            raise A, sub
-        except IndexError:
-            assert 0
-        except A, a:
-            assert a is sub
-            assert sub.val is None
-
-        try:
-            raise Sub, 42
-        except IndexError:
-            assert 0
-        except A, a:
-            assert a.__class__ is Sub
-            assert a.val == 42
-
-        try:
-            {}[5]
-        except A, a:
-            assert 0
-        except KeyError:
-            pass
-
     def test_catch_tuple(self):
         class A:
             pass
