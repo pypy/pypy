@@ -865,20 +865,6 @@ class AllocOpAssembler(object):
             self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
             self.mc.free_scratch_reg()
 
-    def write_new_force_index(self):
-        # for shadowstack only: get a new, unused force_index number and
-        # write it to FORCE_INDEX_OFS.  Used to record the call shape
-        # (i.e. where the GC pointers are in the stack) around a CALL
-        # instruction that doesn't already have a force_index.
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            clt = self.current_clt
-            force_index = clt.reserve_and_record_some_faildescr_index()
-            self._write_fail_index(force_index)
-            return force_index
-        else:
-            return 0
-
     def emit_debug_merge_point(self, op, arglocs, regalloc):
         pass
 
@@ -1119,6 +1105,14 @@ class ForceOpAssembler(object):
             self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
                             [], self._regalloc)
 
+    def call_reacquire_gil(self, gcrootmap, save_loc):
+        # save the previous result into the stack temporarily.
+        # XXX like with call_release_gil(), we assume that we don't need
+        # to save vfp regs in this case. Besides the result location
+        assert gcrootmap.is_shadow_stack
+        with Saved_Volatiles(self.mc):
+            self._emit_call(NO_FORCE_INDEX, self.reacqgil_addr,
+                            [], self._regalloc)
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
