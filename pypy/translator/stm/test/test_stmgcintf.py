@@ -156,9 +156,9 @@ class TestStmGcIntf:
         s2 = lltype.malloc(S2, flavor='raw')
         s2.hdr.tid = stmgc.GCFLAG_GLOBAL | stmgc.GCFLAG_WAS_COPIED
         s2.hdr.version = llmemory.NULL
-        s2.c1 = A = rffi.cast(TYPE, 65)
-        s2.c2 = B = rffi.cast(TYPE, 66)
-        s2.c3 = C = rffi.cast(TYPE, 67)
+        s2.c1 = A = rffi.cast(TYPE, -65)
+        s2.c2 = B = rffi.cast(TYPE, -66)
+        s2.c3 = C = rffi.cast(TYPE, -67)
         size = rffi.sizeof(TYPE)
         assert sizesuffix in (size, '%df' % size)
         reader = getattr(stm_operations, 'stm_read_int%s' % sizesuffix)
