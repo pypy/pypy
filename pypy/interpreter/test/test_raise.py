@@ -139,11 +139,6 @@ class AppTestRaise:
                     assert sys.exc_info()[2].tb_next is some_traceback
         """)
 
-    def test_tuple_type(self):
-        def f():
-            raise ((StopIteration, 123), 456, 789)
-        raises(StopIteration, f)
-
     def test_userclass(self):
         # new-style classes can't be raised unless they inherit from
         # BaseException
