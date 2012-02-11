@@ -11,7 +11,7 @@ from pypy.module.select import interp_epoll
 from pypy.module.select.interp_epoll import W_Epoll, FD_SETSIZE
 from pypy.module.select.interp_epoll import epoll_event
 from pypy.module.transaction import interp_transaction
-from pypy.rlib import rposix
+from pypy.rlib import rstm, rposix
 
 
 # a _nowrapper version, to be sure that it does not allocate anything
@@ -19,8 +19,8 @@ _epoll_wait = rffi.llexternal(
     "epoll_wait",
     [rffi.INT, lltype.Ptr(rffi.CArray(epoll_event)), rffi.INT, rffi.INT],
     rffi.INT,
-    compilation_info=eci,
-    _nowrapper=True
+    compilation_info = interp_epoll.eci,
+    _nowrapper = True
 )
 
 
@@ -54,6 +54,8 @@ class EPollPending(interp_transaction.AbstractPending):
             if errno == EINTR:
                 nfds = 0    # ignore, just wait for more later
             else:
+                # unsure how to trigger this case
+                state = interp_transaction.state
                 state.got_exception_errno = errno
                 state.must_reraise_exception(_reraise_from_errno)
                 return
@@ -65,6 +67,8 @@ class EPollPending(interp_transaction.AbstractPending):
         self.nfds = nfds
         rstm.perform_transaction(EPollPending._add_real_transactions,
                                  EPollPending, self)
+        # XXX could be avoided in the common case with some pool of
+        # PendingCallback instances
 
     @staticmethod
     def _add_real_transactions(self, retry_counter):
