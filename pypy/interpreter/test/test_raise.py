@@ -206,8 +206,6 @@ class AppTestRaise:
             a = A()
             flag = True
             raise a
-        except 42:
-            pass
         except A:
             pass
 
