@@ -133,10 +133,10 @@ class AppTestRaise:
                 raise KeyError
             except:
                 try:
-                    raise IndexError, IndexError(), some_traceback
+                    raise IndexError().with_traceback(some_traceback)
                 finally:
-                    assert sys.exc_info()[0] is KeyError
-                    assert sys.exc_info()[2] is not some_traceback
+                    assert sys.exc_info()[0] is IndexError
+                    assert sys.exc_info()[2].tb_next is some_traceback
         """)
 
     def test_tuple_type(self):
