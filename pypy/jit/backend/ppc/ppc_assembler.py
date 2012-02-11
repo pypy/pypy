@@ -383,10 +383,37 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
         self._build_propagate_exception_path()
+        #if gc_ll_descr.get_malloc_slowpath_addr is not None:
+        #    self._build_malloc_slowpath()
+        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
+            self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self.exit_code_adr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
+
+    @staticmethod
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+    def _build_release_gil(self, gcrootmap):
+        assert gcrootmap.is_shadow_stack
+        releasegil_func = llhelper(self._NOARG_FUNC,
+                                   self._release_gil_shadowstack)
+        reacqgil_func = llhelper(self._NOARG_FUNC,
+                                 self._reacquire_gil_shadowstack)
+        self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
+        self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
