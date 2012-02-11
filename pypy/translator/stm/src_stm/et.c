@@ -503,7 +503,7 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
 }
 
 
-static struct tx_descriptor *descriptor_init()
+static struct tx_descriptor *descriptor_init(long in_main_thread)
 {
   assert(thread_descriptor == NULL);
   assert(active_thread_descriptor == NULL);
@@ -516,11 +516,18 @@ static struct tx_descriptor *descriptor_init()
       PYPY_DEBUG_START("stm-init");
 #endif
 
-      /* initialize 'my_lock_word' to be a unique negative number */
-      d->my_lock_word = (owner_version_t)d;
-      if (!IS_LOCKED(d->my_lock_word))
-        d->my_lock_word = ~d->my_lock_word;
-      assert(IS_LOCKED(d->my_lock_word));
+      if (in_main_thread)
+        {
+          d->my_lock_word = 0;   /* special value for the main thread */
+        }
+      else
+        {
+          /* initialize 'my_lock_word' to be a unique negative number */
+          d->my_lock_word = (owner_version_t)d;
+          if (!IS_LOCKED(d->my_lock_word))
+            d->my_lock_word = ~d->my_lock_word;
+          assert(IS_LOCKED(d->my_lock_word));
+        }
       /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
 
       thread_descriptor = d;
@@ -751,14 +758,15 @@ long stm_debug_get_state(void)
 long stm_thread_id(void)
 {
   struct tx_descriptor *d = thread_descriptor;
+  if (d == NULL)
+    return 0;    /* no thread_descriptor yet, assume it's the main thread */
   return d->my_lock_word;
 }
 
 
 void stm_set_tls(void *newtls, long in_main_thread)
 {
-  /* 'in_main_thread' is ignored so far */
-  struct tx_descriptor *d = descriptor_init();
+  struct tx_descriptor *d = descriptor_init(in_main_thread);
   d->rpython_tls_object = newtls;
 }
 

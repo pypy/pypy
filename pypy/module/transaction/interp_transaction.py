@@ -77,7 +77,7 @@ class State(object):
         self.threadobjs[id] = value
 
     def getmainthreadvalue(self):
-        return self.threadobjs[self.main_thread_id]
+        return self.threadobjs.get(self.main_thread_id, None)
 
     def getallvalues(self):
         return self.threadobjs
@@ -267,6 +267,7 @@ def run(space):
             state.w_error,
             space.wrap("recursive invocation of transaction.run()"))
     state.startup_run()
+    assert state.main_thread_id == rstm.thread_id()
     assert not state.is_locked_no_tasks_pending()
     if state.pending.is_empty():
         return
@@ -291,10 +292,8 @@ def run(space):
     #
     assert state.num_waiting_threads == 0
     assert state.pending.is_empty()
-    assert state.threadobjs.keys() == [MAIN_THREAD_ID]
+    assert state.threadobjs.keys() == [state.main_thread_id]
     assert not state.is_locked_no_tasks_pending()
-    assert state.threadobjects == []
-    state.threadobjects = None
     state.running = False
     #
     # now re-raise the exception that we got in a transaction

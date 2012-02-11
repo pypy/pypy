@@ -1,5 +1,7 @@
 import thread
-from pypy.rlib.objectmodel import specialize, we_are_translated, keepalive_until_here
+from pypy.rlib.objectmodel import specialize, we_are_translated
+from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.debug import ll_assert
 from pypy.rpython.lltypesystem import rffi, lltype, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
@@ -20,7 +22,7 @@ def _get_stm_callback(func, argcls):
             arg = lltype.TLS.stm_callback_arg
         try:
             res = func(arg, retry_counter)
-            assert res is None
+            ll_assert(res is None, "stm_callback should return None")
         finally:
             llop.stm_commit_transaction(lltype.Void)
         return lltype.nullptr(rffi.VOIDP.TO)
@@ -28,8 +30,10 @@ def _get_stm_callback(func, argcls):
 
 @specialize.arg(0, 1)
 def perform_transaction(func, argcls, arg):
-    assert isinstance(arg, argcls)
-    assert argcls._alloc_nonmovable_
+    ll_assert(arg is None or isinstance(arg, argcls),
+              "perform_transaction: wrong class")
+    ll_assert(argcls._alloc_nonmovable_,
+              "perform_transaction: XXX")    # XXX kill me
     if we_are_translated():
         llarg = cast_instance_to_base_ptr(arg)
         llarg = rffi.cast(rffi.VOIDP, llarg)

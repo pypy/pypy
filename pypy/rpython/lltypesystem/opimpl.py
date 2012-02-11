@@ -608,6 +608,21 @@ def op_ll_read_timestamp():
     from pypy.rlib.rtimer import read_timestamp
     return read_timestamp()
 
+def op_stm_descriptor_init():
+    # for direct testing only
+    from pypy.translator.stm import stmgcintf
+    stmgcintf.StmOperations().set_tls(llmemory.NULL, 0)
+
+def op_stm_descriptor_done():
+    from pypy.translator.stm import stmgcintf
+    stmgcintf.StmOperations().del_tls()
+
+def op_stm_start_transaction():
+    pass
+
+def op_stm_commit_transaction():
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

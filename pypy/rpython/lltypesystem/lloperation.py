@@ -399,11 +399,11 @@ LL_OPERATIONS = {
     'stm_getarrayitem':       LLOp(sideeffects=False, canrun=True),
     'stm_getinteriorfield':   LLOp(sideeffects=False, canrun=True),
     'stm_become_inevitable':  LLOp(),
-    'stm_descriptor_init':    LLOp(),
-    'stm_descriptor_done':    LLOp(),
+    'stm_descriptor_init':    LLOp(canrun=True),
+    'stm_descriptor_done':    LLOp(canrun=True),
     'stm_writebarrier':       LLOp(sideeffects=False),
-    'stm_start_transaction':  LLOp(),
-    'stm_commit_transaction': LLOp(),
+    'stm_start_transaction':  LLOp(canrun=True),
+    'stm_commit_transaction': LLOp(canrun=True),
 
     # __________ address operations __________
 
