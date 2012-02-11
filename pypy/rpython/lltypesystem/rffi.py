@@ -813,6 +813,7 @@ def make_string_mappings(strtype):
             b.append(cp[i])
             i += 1
         return assert_str0(b.build())
+    charp2strn._annenforceargs_ = [None, int]
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):

@@ -356,7 +356,7 @@ class StmGC(GCBase):
     # ----------
 
     def acquire(self, lock):
-        ll_thread.acquire_NOAUTO(lock, 1)
+        ll_thread.acquire_NOAUTO(lock, True)
 
     def release(self, lock):
         ll_thread.release_NOAUTO(lock)

@@ -93,11 +93,11 @@ def entry_point(argv):
                 glob.USE_MEMORY = bool(int(argv[3]))
     glob.done = 0
     glob.lock = ll_thread.allocate_ll_lock()
-    ll_thread.acquire_NOAUTO(glob.lock, 1)
+    ll_thread.acquire_NOAUTO(glob.lock, True)
     for i in range(glob.NUM_THREADS):
         glob._arg = Arg()
         ll_thread.start_new_thread(run_me, ())
-        ll_thread.acquire_NOAUTO(glob.lock, 1)
+        ll_thread.acquire_NOAUTO(glob.lock, True)
     print "sleeping..."
     while glob.done < glob.NUM_THREADS:    # poor man's lock
         time.sleep(1)
