@@ -66,7 +66,7 @@ class AppTestRaise:
         assert exc_tb is exc_tb2.tb_next
 
     def test_reraise_1(self):
-        raises(ValueError, """
+        raises(IndexError, """
             import sys
             try:
                 raise ValueError
@@ -74,15 +74,15 @@ class AppTestRaise:
                 try:
                     raise IndexError
                 finally:
-                    assert sys.exc_info()[0] is ValueError
+                    assert sys.exc_info()[0] is IndexError
                     raise
         """)
 
     def test_reraise_2(self):
-        raises(ValueError, """
+        raises(IndexError, """
             def foo():
                 import sys
-                assert sys.exc_info()[0] is ValueError
+                assert sys.exc_info()[0] is IndexError
                 raise
             try:
                 raise ValueError
