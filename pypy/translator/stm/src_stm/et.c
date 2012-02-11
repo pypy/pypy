@@ -452,8 +452,8 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
   oreclist_insert(&d->reads, (orec_t*)o);
 
 
-#define STM_READ_WORD(SIZE, TYPE)                                       \
-TYPE stm_read_int##SIZE(void* addr, long offset)                        \
+#define STM_READ_WORD(SIZE, SUFFIX, TYPE)                               \
+TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
 {                                                                       \
   struct tx_descriptor *d = active_thread_descriptor;                   \
   volatile orec_t *o = get_orec(addr);                                  \
@@ -481,10 +481,12 @@ TYPE stm_read_int##SIZE(void* addr, long offset)                        \
   return tmp;                                                           \
 }
 
-STM_READ_WORD(1, char)
-STM_READ_WORD(2, short)
-STM_READ_WORD(4, int)
-STM_READ_WORD(8, long long)
+STM_READ_WORD(1, , char)
+STM_READ_WORD(2, , short)
+STM_READ_WORD(4, , int)
+STM_READ_WORD(8, , long long)
+STM_READ_WORD(8,f, double)
+STM_READ_WORD(4,f, float)
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size)
 {
