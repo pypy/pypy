@@ -10,7 +10,7 @@ def _stm_generic_get(funcgen, op, (expr_type, expr_ptr, expr_field)):
     cresulttypename = cdecl(resulttypename, '')
     newvalue = funcgen.expr(op.result, special_case_void=False)
     #
-    assert T is not lltype.Void     # XXX
+    assert T is not lltype.Void
     fieldsize = rffi.sizeof(T)
     assert fieldsize in (1, 2, 4, 8)
     if T == lltype.Float:
@@ -52,9 +52,10 @@ def stm_getarrayitem(funcgen, op):
     return _stm_generic_get(funcgen, op, access_info)
 
 def stm_getinteriorfield(funcgen, op):
-    xxx
+    ptr = funcgen.expr(op.args[0])
     expr = funcgen.interior_expr(op.args)
-    return _stm_generic_get(funcgen, op, expr)
+    access_info = (None, ptr, expr)
+    return _stm_generic_get(funcgen, op, access_info)
 
 
 def stm_become_inevitable(funcgen, op):
