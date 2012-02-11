@@ -101,7 +101,7 @@ class AppTestRaise:
                     raise KeyError
                 except KeyError:
                     pass
-                assert sys._getframe().f_exc_type is ValueError
+                assert sys.exc_info()[0] is IndexError
             try:
                 raise ValueError
             except:
