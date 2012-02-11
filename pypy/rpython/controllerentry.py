@@ -83,7 +83,18 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
 
+    def bound_method_controller(self, attr):
+        class BoundMethod(object): pass
+        class BoundMethodController(Controller):
+            knowntype = BoundMethod
+            def call(_self, obj, *args):
+                return getattr(self, 'method_' + attr)(obj, *args)
+        return BoundMethodController()
+    bound_method_controller._annspecialcase_ = 'specialize:memo'
+
     def getattr(self, obj, attr):
+        if hasattr(self, 'method_' + attr):
+            return self.bound_method_controller(attr).box(obj)
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 

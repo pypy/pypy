@@ -30,6 +30,9 @@ class C_Controller(Controller):
     def set_foo(self, obj, value):
         value.append(obj)
 
+    def method_compute(self, obj, value):
+        return obj + value
+
     def getitem(self, obj, key):
         return obj + key
 
@@ -112,3 +115,16 @@ def test_getsetitem_specialize():
     assert ''.join(res.item0.chars) == "4_bar"
     assert ''.join(res.item1.chars) == "4_foo"
     assert ''.join(res.item2.chars) == "4_baz"
+
+def fun4(a):
+    c = C(a)
+    return c.compute('bar')
+
+def test_boundmethods_annotate():
+    a = RPythonAnnotator()
+    s = a.build_types(fun4, [a.bookkeeper.immutablevalue("5")])
+    assert s.const == "5_bar"
+
+def test_boundmethods_specialize():
+    res = interpret(fun4, ["5"])
+    assert ''.join(res.chars) == "5_bar"
