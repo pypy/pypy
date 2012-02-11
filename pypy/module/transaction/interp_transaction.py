@@ -8,6 +8,8 @@ from pypy.rlib.debug import ll_assert
 
 NUM_THREADS_DEFAULT = 4     # by default
 
+MAIN_THREAD_ID = 0
+
 
 class State(object):
 
@@ -21,7 +23,6 @@ class State(object):
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
-        self.main_thread_id = 0
         self.pending = Fifo()
 
     def _freeze_(self):
@@ -69,15 +70,11 @@ class State(object):
 
     def setvalue(self, value):
         id = rstm.thread_id()
-        if self.main_thread_id == 0:
-            self.main_thread_id = id
-        else:
-            # this should not be used from a transaction
-            assert id == self.main_thread_id
+        assert id == MAIN_THREAD_ID   # should not be used from a transaction
         self.threadobjs[id] = value
 
     def getmainthreadvalue(self):
-        return self.threadobjs.get(self.main_thread_id, None)
+        return self.threadobjs.get(MAIN_THREAD_ID, None)
 
     def getallvalues(self):
         return self.threadobjs
@@ -267,7 +264,7 @@ def run(space):
             state.w_error,
             space.wrap("recursive invocation of transaction.run()"))
     state.startup_run()
-    assert state.main_thread_id == rstm.thread_id()
+    assert rstm.thread_id() == MAIN_THREAD_ID
     assert not state.is_locked_no_tasks_pending()
     if state.pending.is_empty():
         return
@@ -292,7 +289,7 @@ def run(space):
     #
     assert state.num_waiting_threads == 0
     assert state.pending.is_empty()
-    assert state.threadobjs.keys() == [state.main_thread_id]
+    assert state.threadobjs.keys() == [MAIN_THREAD_ID]
     assert not state.is_locked_no_tasks_pending()
     state.running = False
     #
