@@ -826,12 +826,10 @@ void _stm_activate_transaction(long activate)
   assert(thread_descriptor != NULL);
   if (activate)
     {
-      assert(active_thread_descriptor == NULL);
       active_thread_descriptor = thread_descriptor;
     }
   else
     {
-      assert(active_thread_descriptor != NULL);
       active_thread_descriptor = NULL;
     }
 }

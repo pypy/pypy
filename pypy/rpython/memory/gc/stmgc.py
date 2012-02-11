@@ -22,7 +22,9 @@ GCFLAG_FIXED_HASH = first_gcflag << 3
 PRIMITIVE_SIZES   = {1: lltype.Char,
                      2: rffi.SHORT,
                      4: rffi.INT,
-                     8: lltype.SignedLongLong}
+                     8: lltype.SignedLongLong,
+                     '8f': rffi.DOUBLE,
+                     '4f': rffi.FLOAT}
 
 CALLBACK = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3, lltype.Void))
 GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))

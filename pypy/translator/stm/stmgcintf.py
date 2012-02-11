@@ -31,7 +31,7 @@ class StmOperations(object):
     tldict_enum = smexternal('stm_tldict_enum', [CALLBACK], lltype.Void)
 
     for _size, _TYPE in PRIMITIVE_SIZES.items():
-        _name = 'stm_read_int%d' % _size
+        _name = 'stm_read_int%s' % _size
         locals()[_name] = smexternal(_name, [llmemory.Address, lltype.Signed],
                                      _TYPE)
 

@@ -147,23 +147,30 @@ class TestStmGcIntf:
         assert res == 84084
     test_stm_read_word_transactional_thread.in_transaction = True
 
-    def test_stm_read_int1(self):
+    def stm_read_intX(self, TYPE, sizesuffix):
+        print TYPE, sizesuffix
         S2 = lltype.Struct('S2', ('hdr', stmgc.StmGC.HDR),
-                                 ('c1', lltype.Char),
-                                 ('c2', lltype.Char),
-                                 ('c3', lltype.Char))
+                                 ('c1', TYPE),
+                                 ('c2', TYPE),
+                                 ('c3', TYPE))
         s2 = lltype.malloc(S2, flavor='raw')
         s2.hdr.tid = stmgc.GCFLAG_GLOBAL | stmgc.GCFLAG_WAS_COPIED
         s2.hdr.version = llmemory.NULL
-        s2.c1 = 'A'
-        s2.c2 = 'B'
-        s2.c3 = 'C'
-        reader = stm_operations.stm_read_int1
-        r1 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 0)  # c1
-        r2 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 1)  # c2
-        r3 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 2)  # c3
+        s2.c1 = A = rffi.cast(TYPE, 65)
+        s2.c2 = B = rffi.cast(TYPE, 66)
+        s2.c3 = C = rffi.cast(TYPE, 67)
+        size = rffi.sizeof(TYPE)
+        assert sizesuffix in (size, '%df' % size)
+        reader = getattr(stm_operations, 'stm_read_int%s' % sizesuffix)
+        r1 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 0 * size)  # c1
+        r2 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 1 * size)  # c2
+        r3 = reader(llmemory.cast_ptr_to_adr(s2), SIZEOFHDR + 2 * size)  # c3
         lltype.free(s2, flavor='raw')
-        assert r1 == 'A' and r2 == 'B' and r3 == 'C'
+        assert r1 == A and r2 == B and r3 == C
+
+    def test_stm_read_int(self):
+        for size, TYPE in stmgc.PRIMITIVE_SIZES.items():
+            yield self.stm_read_intX, TYPE, size
 
     def test_stm_size_getter(self):
         def getsize(addr):

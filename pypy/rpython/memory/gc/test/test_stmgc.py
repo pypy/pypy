@@ -71,7 +71,8 @@ class FakeStmOperations:
             callback(tls, key, value)
 
     def _get_stm_reader(size, TYPE):
-        assert rffi.sizeof(TYPE) == size
+        realsize = rffi.sizeof(TYPE)
+        assert size in (realsize, '%df' % realsize)
         PTYPE = rffi.CArrayPtr(TYPE)
         def stm_reader(self, obj, offset):
             hdr = self._gc.header(obj)
@@ -81,12 +82,12 @@ class FakeStmOperations:
                     assert self._gc.header(localobj).tid & GCFLAG_GLOBAL == 0
                     adr = rffi.cast(PTYPE, localobj + offset)
                     return adr[0]
-            return 'stm_ll_read_int%d(%r, %r)' % (size, obj, offset)
+            return 'stm_ll_read_int%s(%r, %r)' % (size, obj, offset)
         return stm_reader
 
     for _size, _TYPE in PRIMITIVE_SIZES.items():
         _func = _get_stm_reader(_size, _TYPE)
-        locals()['stm_read_int%d' % _size] = _func
+        locals()['stm_read_int%s' % _size] = _func
 
     def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
         llmemory.raw_memcopy(srcobj, dstobj, size)
