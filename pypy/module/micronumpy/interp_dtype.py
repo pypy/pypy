@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, interp_attrproperty_w)
 from pypy.module.micronumpy import types, interp_boxes
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype
 
 
@@ -115,6 +115,9 @@ class W_Dtype(Wrappable):
     def is_int_type(self):
         return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
                 self.kind == BOOLLTR)
+
+    def is_signed(self):
+        return self.kind == SIGNEDLTR
 
     def is_bool_type(self):
         return self.kind == BOOLLTR
@@ -424,6 +427,74 @@ class DtypeCache(object):
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype
+
+        typeinfo_full = {
+            'LONGLONG': self.w_int64dtype,
+            'SHORT': self.w_int16dtype,
+            'VOID': self.w_voiddtype,
+            #'LONGDOUBLE':,
+            'UBYTE': self.w_uint8dtype,
+            'UINTP': self.w_ulongdtype,
+            'ULONG': self.w_ulongdtype,
+            'LONG': self.w_longdtype,
+            'UNICODE': self.w_unicodedtype,
+            #'OBJECT',
+            'ULONGLONG': self.w_ulonglongdtype,
+            'STRING': self.w_stringdtype,
+            #'CDOUBLE',
+            #'DATETIME',
+            'UINT': self.w_uint32dtype,
+            'INTP': self.w_longdtype,
+            #'HALF',
+            'BYTE': self.w_int8dtype,
+            #'CFLOAT': ,
+            #'TIMEDELTA',
+            'INT': self.w_int32dtype,
+            'DOUBLE': self.w_float64dtype,
+            'USHORT': self.w_uint16dtype,
+            'FLOAT': self.w_float32dtype,
+            'BOOL': self.w_booldtype,
+            #, 'CLONGDOUBLE']
+        }
+        typeinfo_partial = {
+            'Generic': interp_boxes.W_GenericBox,
+            'Character': interp_boxes.W_CharacterBox,
+            'Flexible': interp_boxes.W_FlexibleBox,
+            'Inexact': interp_boxes.W_InexactBox,
+            'Integer': interp_boxes.W_IntegerBox,
+            'SignedInteger': interp_boxes.W_SignedIntegerBox,
+            'UnsignedInteger': interp_boxes.W_UnsignedIntegerBox,
+            #'ComplexFloating',
+            'Number': interp_boxes.W_NumberBox,
+            'Floating': interp_boxes.W_FloatingBox
+        }
+        w_typeinfo = space.newdict()
+        for k, v in typeinfo_partial.iteritems():
+            space.setitem(w_typeinfo, space.wrap(k), space.gettypefor(v))
+        for k, dtype in typeinfo_full.iteritems():
+            itemsize = dtype.itemtype.get_element_size()
+            items_w = [space.wrap(dtype.char),
+                       space.wrap(dtype.num),
+                       space.wrap(itemsize * 8), # in case of changing
+                       # number of bits per byte in the future
+                       space.wrap(itemsize or 1)]
+            if dtype.is_int_type():
+                if dtype.kind == BOOLLTR:
+                    w_maxobj = space.wrap(1)
+                    w_minobj = space.wrap(0)
+                elif dtype.is_signed():
+                    w_maxobj = space.wrap(r_longlong((1 << (itemsize*8 - 1))
+                                          - 1))
+                    w_minobj = space.wrap(r_longlong(-1) << (itemsize*8 - 1))
+                else:
+                    w_maxobj = space.wrap(r_ulonglong(1 << (itemsize*8)) - 1)
+                    w_minobj = space.wrap(0)
+                items_w = items_w + [w_maxobj, w_minobj]
+            items_w = items_w + [dtype.w_box_type]
+                       
+            w_tuple = space.newtuple(items_w)
+            space.setitem(w_typeinfo, space.wrap(k), w_tuple)
+        self.w_typeinfo = w_typeinfo
 
 def get_dtype_cache(space):
     return space.fromcache(DtypeCache)

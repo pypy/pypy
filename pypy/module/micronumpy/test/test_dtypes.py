@@ -457,6 +457,13 @@ class AppTestTypes(BaseNumpyAppTest):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
 
+    def test_typeinfo(self):
+        from _numpypy import typeinfo, void, number, int64, bool_
+        assert typeinfo['Number'] == number
+        assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L, -9223372036854775808L, int64)
+        assert typeinfo['VOID'] == ('V', 20, 0, 1, void)
+        assert typeinfo['BOOL'] == ('?', 0, 8, 1, 1, 0, bool_)
+
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
@@ -511,3 +518,4 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         from _numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })
+        
