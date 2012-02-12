@@ -1,3 +1,5 @@
+import py
+py.test.skip("llstminterp disabled")
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLFrame, LLException
 ##from pypy.translator.stm import rstm

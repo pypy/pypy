@@ -1,4 +1,5 @@
 import py
+py.test.skip("llstminterp disabled")
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.translator.stm.llstminterp import eval_stm_graph

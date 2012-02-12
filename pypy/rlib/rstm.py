@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       cast_instance_to_base_ptr,
                                       llhelper)
-from pypy.translator.stm import _rffi_stm
+from pypy.translator.stm.stmgcintf import StmOperations
 
 _global_lock = thread.allocate_lock()
 
@@ -46,8 +46,8 @@ def perform_transaction(func, argcls, arg):
         lltype.TLS.stm_callback_arg = arg
         llarg = lltype.nullptr(rffi.VOIDP.TO)
     callback = _get_stm_callback(func, argcls)
-    llcallback = llhelper(_rffi_stm.CALLBACK, callback)
-    _rffi_stm.stm_perform_transaction(llcallback, llarg)
+    llcallback = llhelper(StmOperations.CALLBACK_TX, callback)
+    StmOperations.perform_transaction(llcallback, llarg)
     keepalive_until_here(arg)
     if not we_are_translated():
         _global_lock.release()
@@ -62,8 +62,8 @@ def descriptor_done():
     llop.stm_descriptor_done(lltype.Void)
     if not we_are_translated(): _global_lock.release()
 
-def debug_get_state():
-    return _rffi_stm.stm_debug_get_state()
+def _debug_get_state():
+    return StmOperations._debug_get_state()
 
 def thread_id():
-    return _rffi_stm.stm_thread_id()
+    return StmOperations.thread_id()

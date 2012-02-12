@@ -1,7 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.objspace.flow.model import Constant
 from pypy.translator.c.support import cdecl, c_string_constant
-from pypy.translator.stm.llstm import size_of_voidp
 
 
 def _stm_generic_get(funcgen, op, (expr_type, expr_ptr, expr_field)):

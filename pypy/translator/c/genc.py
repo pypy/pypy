@@ -186,7 +186,7 @@ class CBuilder(object):
         self.merge_eci(db.gcpolicy.compilation_info())
 
         if self.config.translation.stm:
-            from pypy.translator.stm._rffi_stm import eci
+            from pypy.translator.stm.stmgcintf import eci
             self.merge_eci(eci)
 
         all = []
