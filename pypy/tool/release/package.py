@@ -126,7 +126,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
