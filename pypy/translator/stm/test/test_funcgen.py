@@ -2,64 +2,9 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
 from pypy.rlib.objectmodel import compute_identity_hash
 from pypy.translator.stm.test.support import CompiledSTMTests
-from pypy.translator.stm._rffi_stm import (CALLBACK, stm_perform_transaction,
-                                           stm_descriptor_init, stm_descriptor_done)
-from pypy.translator.c.test.test_standalone import StandaloneTests
 from pypy.rlib.debug import debug_print
 from pypy.rpython.annlowlevel import llhelper
 
-
-class TestRStm(object):
-
-    def compile(self, entry_point):
-        from pypy.translator.translator import TranslationContext
-        from pypy.annotation.listdef import s_list_of_strings
-        from pypy.translator.c.genc import CStandaloneBuilder
-        from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        t = TranslationContext()
-        t.config.translation.gc = 'boehm'
-        t.buildannotator().build_types(entry_point, [s_list_of_strings])
-        t.buildrtyper().specialize()
-        t.stm_transformation_applied = True   # not really, but for these tests
-        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        force_debug = ExternalCompilationInfo(pre_include_bits=[
-            "#define RPY_ASSERT 1\n"
-            "#define RPY_LL_ASSERT 1\n"
-            ])
-        cbuilder.eci = cbuilder.eci.merge(force_debug)
-        cbuilder.generate_source()
-        cbuilder.compile()
-        return t, cbuilder
-
-    def test_compiled_stm_getfield(self):
-        from pypy.translator.stm.test import test_llstm
-        def entry_point(argv):
-            test_llstm.test_stm_getfield()
-            debug_print('ok!')
-            return 0
-        t, cbuilder = self.compile(entry_point)
-        _, data = cbuilder.cmdexec('', err=True)
-        assert data.endswith('ok!\n')
-
-    def test_compiled_stm_setfield(self):
-        from pypy.translator.stm.test import test_llstm
-        def entry_point(argv):
-            test_llstm.test_stm_setfield()
-            debug_print('ok!')
-            return 0
-        t, cbuilder = self.compile(entry_point)
-        _, data = cbuilder.cmdexec('', err=True)
-        assert data.endswith('ok!\n')
-
-    def test_compile_identity_hash(self):
-        class A:
-            pass
-        def entry_point(argv):
-            a = A()
-            debug_print(compute_identity_hash(a))
-            return 0
-        t, cbuilder = self.compile(entry_point)
-        _, data = cbuilder.cmdexec('', err=True)
 
 # ____________________________________________________________
 

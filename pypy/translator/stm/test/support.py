@@ -4,7 +4,7 @@ from pypy.translator.c.test.test_standalone import StandaloneTests
 
 
 class CompiledSTMTests(StandaloneTests):
-    gc = "none"
+    gc = "stmgc"
 
     def compile(self, entry_point):
         from pypy.config.pypyoption import get_pypy_config

@@ -1,7 +1,7 @@
-import random
+import py, random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
-from pypy.translator.stm.stmgcintf import StmOperations, CALLBACK, GETSIZE
+from pypy.translator.stm.stmgcintf import StmOperations
 from pypy.rpython.memory.gc import stmgc
 
 WORD = stmgc.WORD
@@ -84,16 +84,16 @@ class TestStmGcIntf:
                 content[key] = a2
     test_tldict_large.in_transaction = True
 
-    def get_callback(self):
+    def get_callback_enum(self):
         def callback(tls, key, value):
             assert tls == llmemory.cast_ptr_to_adr(self.tls)
             seen.append((key, value))
         seen = []
-        p_callback = llhelper(CALLBACK, callback)
+        p_callback = llhelper(StmOperations.CALLBACK_ENUM, callback)
         return p_callback, seen
 
     def test_enum_tldict_empty(self):
-        p_callback, seen = self.get_callback()
+        p_callback, seen = self.get_callback_enum()
         stm_operations.tldict_enum(p_callback)
         assert seen == []
 
@@ -105,7 +105,7 @@ class TestStmGcIntf:
         #
         stm_operations.tldict_add(a1, a2)
         stm_operations.tldict_add(a3, a4)
-        p_callback, seen = self.get_callback()
+        p_callback, seen = self.get_callback_enum()
         stm_operations.tldict_enum(p_callback)
         assert (seen == [(a1, a2), (a3, a4)] or
                 seen == [(a3, a4), (a1, a2)])
@@ -169,13 +169,13 @@ class TestStmGcIntf:
         assert r1 == A and r2 == B and r3 == C
 
     def test_stm_read_int(self):
-        for size, TYPE in stmgc.PRIMITIVE_SIZES.items():
+        for size, TYPE in StmOperations.PRIMITIVE_SIZES.items():
             yield self.stm_read_intX, TYPE, size
 
     def test_stm_size_getter(self):
         def getsize(addr):
             dont_call_me
-        getter = llhelper(GETSIZE, getsize)
+        getter = llhelper(StmOperations.GETSIZE, getsize)
         stm_operations.setup_size_getter(getter)
         # ^^^ just tests that the function is really defined
 
@@ -215,3 +215,73 @@ class TestStmGcIntf:
     def test_not_in_transaction_main(self):
         assert not stm_operations.in_transaction()
     test_not_in_transaction.in_main_thread = True
+
+    def test_stm_perform_transaction(self):
+        def callback1(x, retry_counter):
+            return rffi.cast(rffi.VOIDP, -123)
+        x = stm_operations.perform_transaction(
+            llhelper(StmOperations.CALLBACK_TX, callback1),
+            lltype.nullptr(rffi.VOIDP.TO))
+        assert x == rffi.cast(rffi.VOIDP, -123)
+
+    def test_stm_try_inevitable(self):
+        # not really testing anything more than the presence of the function
+        stm_operations.try_inevitable()
+    test_stm_try_inevitable.in_transaction = True
+
+    def test_thread_id_main(self):
+        assert stm_operations.thread_id() == 0
+    test_thread_id_main.in_main_thread = True
+
+    def test_thread_id_nonmain(self):
+        assert stm_operations.thread_id() != 0
+    test_thread_id_nonmain.in_main_thread = False
+
+    def test_abort_and_retry(self):
+        def callback1(x, retry_counter):
+            assert 0 <= retry_counter <= 10
+            if retry_counter == 10:
+                return rffi.cast(rffi.VOIDP, -42)
+            stm_operations.abort_and_retry()
+            assert 0   # not reachable
+        x = stm_operations.perform_transaction(
+            llhelper(StmOperations.CALLBACK_TX, callback1),
+            lltype.nullptr(rffi.VOIDP.TO))
+        assert x == rffi.cast(rffi.VOIDP, -42)
+
+    def test_debug_get_state_main_thread(self):
+        st = stm_operations._debug_get_state()
+        assert st == stm_operations.STATE_MAIN_THREAD
+    test_debug_get_state_main_thread.in_main_thread = True
+
+    def test_debug_get_state_inactive(self):
+        st = stm_operations._debug_get_state()
+        assert st == stm_operations.STATE_INACTIVE
+    test_debug_get_state_inactive.in_main_thread = False
+
+    def test_debug_get_state_active(self):
+        def callback1(x, retry_counter):
+            st = stm_operations._debug_get_state()
+            return rffi.cast(rffi.VOIDP, st)
+        x = stm_operations.perform_transaction(
+            llhelper(StmOperations.CALLBACK_TX, callback1),
+            lltype.nullptr(rffi.VOIDP.TO))
+        assert rffi.cast(lltype.Signed, x) == stm_operations.STATE_ACTIVE
+    test_debug_get_state_active.in_main_thread = False
+
+    def test_debug_get_state_active_inevitable(self):
+        def callback1(x, retry_counter):
+            stm_operations.try_inevitable()
+            st = stm_operations._debug_get_state()
+            return rffi.cast(rffi.VOIDP, st)
+        x = stm_operations.perform_transaction(
+            llhelper(StmOperations.CALLBACK_TX, callback1),
+            lltype.nullptr(rffi.VOIDP.TO))
+        assert (rffi.cast(lltype.Signed, x) ==
+                stm_operations.STATE_ACTIVE_INEVITABLE)
+    test_debug_get_state_active_inevitable.in_main_thread = False
+
+
+def test_debug_get_state_not_initialized():
+    st = stm_operations._debug_get_state()
+    assert st == stm_operations.STATE_NOT_INITIALIZED

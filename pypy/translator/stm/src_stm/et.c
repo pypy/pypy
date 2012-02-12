@@ -747,10 +747,16 @@ long stm_debug_get_state(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   if (d == NULL)
-    return -1;
+    return -2;
   if (active_thread_descriptor == NULL)
-    return 0;
+    {
+      if (d->my_lock_word == 0)
+        return -1;
+      else
+        return 0;
+    }
   assert(d == active_thread_descriptor);
+  assert(d->my_lock_word != 0);
   if (!is_inevitable(d))
     return 1;
   else

@@ -1,7 +1,6 @@
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 from pypy.objspace.flow.model import Block, Link, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.translator.stm import _rffi_stm
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython import rclass
