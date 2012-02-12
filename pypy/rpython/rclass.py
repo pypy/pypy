@@ -38,11 +38,7 @@ class ImmutableRanking(object):
     def __repr__(self):
         return '<%s>' % self.name
 
-# IR_MUTABLE_OWNED means that the field is a regular mutable pointer field,
-# but as a pointer it is the only reference to whatever it points to.  This
-# is useful for STM support in PyFrame.
 IR_MUTABLE              = ImmutableRanking('mutable', False)
-IR_MUTABLE_OWNED        = ImmutableRanking("mutable_owned", False)
 IR_IMMUTABLE            = ImmutableRanking('immutable', True)
 IR_IMMUTABLE_ARRAY      = ImmutableRanking('immutable_array', True)
 IR_QUASIIMMUTABLE       = ImmutableRanking('quasiimmutable', False)
@@ -210,8 +206,6 @@ class AbstractInstanceRepr(Repr):
                 self.immutable_field_set = set(immutable_fields.value)
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
-        if self.classdef.classdesc.lookup('_stm_access_directly_') is not None:
-            hints['stm_access_directly'] = True
         return hints
 
     def __repr__(self):
@@ -256,9 +250,6 @@ class AbstractInstanceRepr(Repr):
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
                 rank = IR_QUASIIMMUTABLE
-            elif name.endswith('->...'):  # for stm_access_directly:
-                name = name[:-5]          # a mutable but owned object
-                rank = IR_MUTABLE_OWNED
             else:                       # a regular immutable/green field
                 rank = IR_IMMUTABLE
             try:
