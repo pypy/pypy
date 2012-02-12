@@ -10,7 +10,5 @@ def checkmodule(modname):
     module = mod.Module(space, W_Root())
     for name in module.loaders:
         module._load_lazily(space, name)
-    if hasattr(module, 'translating_for_checkmodule'):
-        module.translating_for_checkmodule(space)
     #
     space.translates(**{'translation.list_comprehension_operations':True})
