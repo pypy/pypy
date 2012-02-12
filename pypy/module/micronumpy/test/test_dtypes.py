@@ -408,6 +408,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert 5 / int_(2) == int_(2)
         assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert truediv(3, int_(2)) == float64(1.5)
         assert int_(8) % int_(3) == int_(2)
         assert 8 % int_(3) == int_(2)
         assert divmod(int_(8), int_(3)) == (int_(2), int_(2))

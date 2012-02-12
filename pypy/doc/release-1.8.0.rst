@@ -3,13 +3,15 @@ PyPy 1.8 - business as usual
 ============================
 
 We're pleased to announce the 1.8 release of PyPy. As habitual this
-release brings a lot of bugfixes, together with performance and memory improvements over
-the 1.7 release. The main highlight of the release is the introduction of
-`list strategies`_ which makes homogenous lists more efficient both in terms
-of performance and memory. This release also upgrades us from Python 2.7.1 compatibility to 2.7.2. Otherwise it's "business as usual" in the sense
-that performance improved roughly 10% on average since the previous release.
+release brings a lot of bugfixes, together with performance and memory
+improvements over the 1.7 release. The main highlight of the release
+is the introduction of `list strategies`_ which makes homogenous lists
+more efficient both in terms of performance and memory. This release
+also upgrades us from Python 2.7.1 compatibility to 2.7.2. Otherwise
+it's "business as usual" in the sense that performance improved
+roughly 10% on average since the previous release.
 
-You can download the PyPy 1.8 release here:
+you can download the PyPy 1.8 release here:
 
     http://pypy.org/download.html
 
@@ -84,6 +86,9 @@ the release or is not ready yet. Highlights include:
 
 * It's also probably worth noting, we're considering donations for the
   Software Transactional Memory project. You can read more about `our plans`_
+
+Cheers,
+The PyPy Team
 
 .. _`brief overview`: http://doc.pypy.org/en/latest/jit-hooks.html
 .. _`numpy status page`: http://buildbot.pypy.org/numpy-status/latest.html

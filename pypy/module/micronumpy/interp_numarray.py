@@ -4,17 +4,17 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
     signature, support, loop)
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
+from pypy.module.micronumpy.interp_iter import (ArrayIterator,
+    SkipLastAxisIterator, Chunk, ViewIterator)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords)
-from dot import multidim_dot, match_dot_shapes
 from pypy.rlib import jit
+from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
 count_driver = jit.JitDriver(
@@ -101,6 +101,7 @@ class BaseArray(Wrappable):
     descr_sub = _binop_impl("subtract")
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
+    descr_truediv = _binop_impl("true_divide")
     descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
@@ -134,6 +135,7 @@ class BaseArray(Wrappable):
     descr_rsub = _binop_right_impl("subtract")
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
+    descr_rtruediv = _binop_right_impl("true_divide")
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
@@ -1258,6 +1260,7 @@ BaseArray.typedef = TypeDef(
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
+    __truediv__ = interp2app(BaseArray.descr_truediv),
     __mod__ = interp2app(BaseArray.descr_mod),
     __divmod__ = interp2app(BaseArray.descr_divmod),
     __pow__ = interp2app(BaseArray.descr_pow),
@@ -1271,6 +1274,7 @@ BaseArray.typedef = TypeDef(
     __rsub__ = interp2app(BaseArray.descr_rsub),
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
+    __rtruediv__ = interp2app(BaseArray.descr_rtruediv),
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),

@@ -55,11 +55,13 @@ file, with no need to install it in any specific location::
 
     $ tar xf pypy-1.8-linux.tar.bz2
     $ ./pypy-1.8/bin/pypy
-    Python 2.7.1 (48ebdce33e1b, Feb 09 2012, 00:55:31)
+    Python 2.7.2 (0e28b379d8b3, Feb 09 2012, 19:41:03)
     [PyPy 1.8.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    And now for something completely different: ``implementing LOGO in LOGO:
-    "turtles all the way down"''
+    And now for something completely different: ``it seems to me that once you
+    settle on an execution / object model and / or bytecode format, you've already
+    decided what languages (where the 's' seems superfluous) support is going to be
+    first class for''
     >>>>
 
 If you want to make PyPy available system-wide, you can put a symlink to the

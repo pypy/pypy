@@ -134,7 +134,10 @@ class AppTestFileIO:
         assert a == 'a\nbxxxxxxx'
 
     def test_nonblocking_read(self):
-        import os, fcntl
+        try:
+            import os, fcntl
+        except ImportError:
+            skip("need fcntl to set nonblocking mode")
         r_fd, w_fd = os.pipe()
         # set nonblocking
         fcntl.fcntl(r_fd, fcntl.F_SETFL, os.O_NONBLOCK)
