@@ -896,7 +896,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
     def test_reduce_out(self):
-        from numpypy import arange, array
+        from numpypy import arange, zeros, array
         a = arange(15).reshape(5, 3)
         b = arange(12).reshape(4,3)
         c = a.sum(0, out=b[1])
@@ -906,6 +906,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         a=arange(12).reshape(3,2,2)
         raises(ValueError, 'a.sum(0, out=arange(12).reshape(3,2,2))')
         raises(ValueError, 'a.sum(0, out=arange(3))')
+        c = array([-1, 0, 1]).sum(out=zeros([], dtype=bool))
+        #You could argue that this should product False, but
+        # that would require an itermediate result. Cpython numpy
+        # gives True.
+        assert c == True
+        a = array([[-1, 0, 1], [1, 0, -1]])
+        c = a.sum(0, out=zeros((3,), dtype=bool))
+        assert (c == [True, False, True]).all()
+        c = a.sum(1, out=zeros((2,), dtype=bool))
+        assert (c == [True, True]).all()
 
     def test_reduce_intermediary(self):
         from numpypy import arange, array

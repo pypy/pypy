@@ -441,6 +441,5 @@ class AxisReduceSignature(Call2):
             cur = arr.left.getitem(iterator.offset)
             value = self.binfunc(self.calc_dtype, cur, v)
         arr.left.setitem(iterator.offset, value)
-    
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())

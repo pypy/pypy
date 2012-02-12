@@ -168,22 +168,23 @@ class W_Ufunc(Wrappable):
                         'output parameter shape mismatch, expecting %s' +
                         ' , got %s', str(shape), str(out.shape))
                 #Test for dtype agreement, perhaps create an itermediate
-                if out.dtype != dtype
-                    raise OperationError(space.w_TypeError, space.wrap(
-                        "mismatched  dtypes"))
-                return self.do_axis_reduce(obj, dtype, axis, out)
+                #if out.dtype != dtype:
+                #    raise OperationError(space.w_TypeError, space.wrap(
+                #        "mismatched  dtypes"))
+                return self.do_axis_reduce(obj, out.find_dtype(), axis, out)
             else:
                 result = W_NDimArray(support.product(shape), shape, dtype)
                 return self.do_axis_reduce(obj, dtype, axis, result)
-        arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
-        val = loop.compute(arr)
         if out:
             if len(out.shape)>0:
                 raise operationerrfmt(space.w_ValueError, "output parameter "
                               "for reduction operation %s has too many"
                               " dimensions",self.name)
-            out.value = out.dtype.coerce(space, val)
-            return out
+            arr = ReduceArray(self.func, self.name, self.identity, obj,
+                                                            out.find_dtype())
+        else:
+            arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
+        val = loop.compute(arr)
         return val 
 
     def do_axis_reduce(self, obj, dtype, axis, result):
