@@ -162,7 +162,9 @@ class GraphFlattener(object):
         if len(block.exits) == 1:
             # A single link, fall-through
             link = block.exits[0]
-            assert link.exitcase is None
+            assert link.exitcase in (None, False, True)
+            # the cases False or True should not really occur, but can show
+            # up in the manually hacked graphs for generators...
             self.make_link(link)
         #
         elif block.exitswitch is c_last_exception:

@@ -48,7 +48,7 @@ class JitPolicy(object):
         mod = func.__module__ or '?'
         if mod.startswith('pypy.rpython.module.'):
             return True
-        if mod.startswith('pypy.translator.'): # XXX wtf?
+        if mod == 'pypy.translator.goal.nanos':    # more helpers
             return True
         return False
 

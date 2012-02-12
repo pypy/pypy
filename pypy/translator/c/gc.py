@@ -46,8 +46,7 @@ class BasicGcPolicy(object):
         return ExternalCompilationInfo(
             pre_include_bits=['/* using %s */' % (gct.__class__.__name__,),
                               '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,),
-                              ],
-            post_include_bits=['typedef void *GC_hidden_pointer;']
+                              ]
             )
 
     def get_prebuilt_hash(self, obj):
