@@ -82,7 +82,7 @@ class StmGC(GCBase):
         """Called at run-time to initialize the GC."""
         GCBase.setup(self)
         self.stm_operations.setup_size_getter(
-                llhelper(GETSIZE, self._getsize_fn))
+                llhelper(self.stm_operations.GETSIZE, self._getsize_fn))
         self.main_thread_tls = self.setup_thread(True)
         self.mutex_lock = ll_thread.allocate_ll_lock()
 
@@ -489,6 +489,7 @@ class Collector(object):
         tls.pending_list = NULL
         # Enumerate the roots, which are the local copies of global objects.
         # For each root, trace it.
+        CALLBACK = self.stm_operations.CALLBACK_ENUM
         callback = llhelper(CALLBACK, self._enum_entries)
         # xxx hack hack hack!  Stores 'self' in a global place... but it's
         # pointless after translation because 'self' is a Void.

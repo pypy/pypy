@@ -1,6 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
-from pypy.rpython.memory.gc.stmgc import StmGC, PRIMITIVE_SIZES, WORD, CALLBACK
+from pypy.rpython.memory.gc.stmgc import StmGC, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
 from pypy.rpython.memory.support import mangle_hash
 
@@ -21,6 +21,12 @@ class FakeStmOperations:
     # class contains a fake implementation of what should be in C.  So almost
     # any use of 'self._gc' is wrong here: it's stmgc.py that should call
     # et.c, and not the other way around.
+
+    PRIMITIVE_SIZES = {1: lltype.Char,
+                       WORD: lltype.Signed}
+    CALLBACK_ENUM = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3,
+                                               lltype.Void))
+    GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
@@ -65,7 +71,7 @@ class FakeStmOperations:
         tldict[obj] = localobj
 
     def tldict_enum(self, callback):
-        assert lltype.typeOf(callback) == CALLBACK
+        assert lltype.typeOf(callback) == self.CALLBACK_ENUM
         tls = self.get_tls()
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
