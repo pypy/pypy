@@ -83,8 +83,9 @@ class BaseArray(Wrappable):
         return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
 
     def _unaryop_impl(ufunc_name):
-        def impl(self, space):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
+        def impl(self, space, w_out=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                                [self, w_out])
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_pos = _unaryop_impl("positive")
@@ -93,8 +94,9 @@ class BaseArray(Wrappable):
     descr_invert = _unaryop_impl("invert")
 
     def _binop_impl(ufunc_name):
-        def impl(self, space, w_other):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
+        def impl(self, space, w_other, w_out=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                        [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -123,12 +125,12 @@ class BaseArray(Wrappable):
         return space.newtuple([w_quotient, w_remainder])
 
     def _binop_right_impl(ufunc_name):
-        def impl(self, space, w_other):
+        def impl(self, space, w_other, w_out=None):
             w_other = scalar_w(space,
                 interp_ufuncs.find_dtype_for_scalar(space, w_other, self.find_dtype()),
                 w_other
             )
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self])
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")
@@ -155,11 +157,11 @@ class BaseArray(Wrappable):
                 axis = -1
             else:
                 axis = space.int_w(w_axis)
-            if space.is_w(w_out, space.w_None):
+            if space.is_w(w_out, space.w_None) or not w_out:
                 out = None
             elif not isinstance(w_out, BaseArray):
-                raise OperationError(space.w_TypeError, space.wrap(
-                                                    'output must be an array'))
+                raise OperationError(space.w_TypeError, space.wrap( 
+                        'output must be an array'))
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
@@ -215,14 +217,15 @@ class BaseArray(Wrappable):
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
-    def descr_dot(self, space, w_other):
+    def descr_dot(self, space, w_other, w_out=None):
         other = convert_to_array(space, w_other)
         if isinstance(other, Scalar):
+            #Note: w_out is not modified, this is numpy compliant.
             return self.descr_mul(space, other)
         elif len(self.shape) < 2 and len(other.shape) < 2:
-            w_res = self.descr_mul(space, other)
+            w_res = self.descr_mul(space, other, w_out)
             assert isinstance(w_res, BaseArray)
-            return w_res.descr_sum(space, space.wrap(-1))
+            return w_res.descr_sum(space, space.wrap(-1), w_out)
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.find_dtype(), other.find_dtype())
         if self.size < 1 and other.size < 1:
@@ -707,11 +710,12 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, name, shape, res_dtype):
+    def __init__(self, name, shape, res_dtype, out_arg=None):
         BaseArray.__init__(self, shape)
         self.forced_result = None
         self.res_dtype = res_dtype
         self.name = name
+        self.res = out_arg
 
     def _del_sources(self):
         # Function for deleting references to source arrays,
@@ -719,7 +723,8 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        ra = ResultArray(self, self.size, self.shape, self.res_dtype)
+        ra = ResultArray(self, self.size, self.shape, self.res_dtype,
+                                                                self.res)
         loop.compute(ra)
         return ra.left
 
@@ -766,8 +771,9 @@ class VirtualSlice(VirtualArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values):
-        VirtualArray.__init__(self, name, shape, res_dtype)
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values,
+                                                            out_arg=None):
+        VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
         self.size = values.size
         self.ufunc = ufunc
@@ -788,8 +794,9 @@ class Call2(VirtualArray):
     """
     _immutable_fields_ = ['left', 'right']
 
-    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, name, shape, res_dtype)
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right,
+            out_arg=None):
+        VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.ufunc = ufunc
         self.left = left
         self.right = right

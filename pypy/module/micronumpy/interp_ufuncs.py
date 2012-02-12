@@ -28,14 +28,18 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
+        from interp_numarray import BaseArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
         kwds_w.pop('casting', None)
         w_subok = kwds_w.pop('subok', None)
         w_out = kwds_w.pop('out', space.w_None)
-        if ((w_subok is not None and space.is_true(w_subok)) or
-            not space.is_w(w_out, space.w_None)):
+        if space.is_w(w_out, space.w_None):
+            out = None
+        else:
+            out = w_out
+        if (w_subok is not None and space.is_true(w_subok)):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("parameters unsupported"))
         if kwds_w or len(args_w) < self.argcount:
@@ -43,11 +47,14 @@ class W_Ufunc(Wrappable):
                 space.wrap("invalid number of arguments")
             )
         elif len(args_w) > self.argcount:
-            # The extra arguments should actually be the output array, but we
-            # don't support that yet.
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
+        elif out is not None:
+            args_w = args_w[:] + [out]
+        if args_w[-1] and not isinstance(args_w[-1], BaseArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                            'output must be an array'))
         return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
@@ -105,6 +112,7 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
+        from pypy.module.micronumpy.interp_numarray import BaseArray
         if w_axis is None:
             axis = 0
         elif space.is_w(w_axis, space.w_None):
@@ -113,7 +121,7 @@ class W_Ufunc(Wrappable):
             axis = space.int_w(w_axis)
         if space.is_w(w_out, space.w_None):
             out = None
-        elif not isinstance(w_out, W_NDimArray):
+        elif not isinstance(w_out, BaseArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                                 'output must be an array'))
         else:
@@ -165,8 +173,11 @@ class W_Ufunc(Wrappable):
                         ' does not have enough dimensions', self.name)
                 elif out.shape != shape:
                     raise operationerrfmt(space.w_ValueError,
-                        'output parameter shape mismatch, expecting %s' +
-                        ' , got %s', str(shape), str(out.shape))
+                        'output parameter shape mismatch, expecting [%s]' +
+                        ' , got [%s]', 
+                        ",".join([str(x) for x in shape]),
+                        ",".join([str(x) for x in out.shape]),
+                        )
                 #Test for dtype agreement, perhaps create an itermediate
                 #if out.dtype != dtype:
                 #    raise OperationError(space.w_TypeError, space.wrap(
@@ -182,9 +193,12 @@ class W_Ufunc(Wrappable):
                               " dimensions",self.name)
             arr = ReduceArray(self.func, self.name, self.identity, obj,
                                                             out.find_dtype())
+            val = loop.compute(arr)
+            assert isinstance(out, Scalar)
+            out.value = val
         else:
             arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
-        val = loop.compute(arr)
+            val = loop.compute(arr)
         return val 
 
     def do_axis_reduce(self, obj, dtype, axis, result):
@@ -211,7 +225,7 @@ class W_Ufunc1(W_Ufunc):
         from pypy.module.micronumpy.interp_numarray import (Call1,
             convert_to_array, Scalar)
 
-        [w_obj] = args_w
+        [w_obj, w_out] = args_w
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.find_dtype(),
@@ -244,17 +258,25 @@ class W_Ufunc2(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar, shape_agreement)
+            convert_to_array, Scalar, shape_agreement, BaseArray)
 
-        [w_lhs, w_rhs] = args_w
+        [w_lhs, w_rhs, w_out] = args_w
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        calc_dtype = find_binop_result_dtype(space,
-            w_lhs.find_dtype(), w_rhs.find_dtype(),
-            int_only=self.int_only,
-            promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools,
-        )
+        if space.is_w(w_out, space.w_None) or not w_out:
+            out = None
+            calc_dtype = find_binop_result_dtype(space,
+                w_lhs.find_dtype(), w_rhs.find_dtype(),
+                int_only=self.int_only,
+                promote_to_float=self.promote_to_float,
+                promote_bools=self.promote_bools,
+            )
+        elif not isinstance(w_out, BaseArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'output must be an array'))
+        else:
+            out = w_out
+            calc_dtype = out.find_dtype()
         if self.comparison_func:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
@@ -265,9 +287,10 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             ))
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        # Test correctness of out.shape
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs)
+                      res_dtype, w_lhs, w_rhs, out)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

@@ -862,7 +862,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
     def test_sum(self):
-        from _numpypy import array,zeros
+        from _numpypy import array
         a = array(range(5))
         assert a.sum() == 10
         assert a[:4].sum() == 6
@@ -874,7 +874,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = array(0.)
         b = a.sum(out=d)
         assert b == d
-        assert b.dtype == d.dtype
+        assert isinstance(b, float)
 
     def test_reduce_nd(self):
         from numpypy import arange, array, multiply
