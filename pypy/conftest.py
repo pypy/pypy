@@ -200,14 +200,18 @@ def translation_test_so_skip_if_appdirect():
 def run_with_python(python, target):
     if python is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
-    helpers = """if 1:
+    helpers = r"""if 1:
     def skip(message):
         print(message)
         raise SystemExit(0)
     def raises(exc, func, *args, **kwargs):
         try:
             if isinstance(func, str):
-                exec("if 1:\\n" + func)
+                if func.startswith(" ") or func.startswith("\n"):
+                    # it's probably an indented block, so we prefix if True:
+                    # to avoid SyntaxError
+                    func = "if True:\n" + func
+                exec(func)
             else:
                 func(*args, **kwargs)
         except exc:
