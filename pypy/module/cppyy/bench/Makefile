@@ -17,10 +17,10 @@ endif
 
 ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
   genreflexflags=
-  cppflags2=-O3
+  cppflags2=-O3 -fPIC
 else
   genreflexflags=--with-methptrgetter
-  cppflags2=-Wno-pmf-conversions -O3
+  cppflags2=-Wno-pmf-conversions -O3 -fPIC
 endif
 
 
