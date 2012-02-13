@@ -44,6 +44,8 @@ class FakeUserDelAction(object):
     def perform(self, executioncontext, frame):
         pass
 
+class FakeReturnType(object):
+    pass
 
 class FakeSpace(object):
     fake = True
@@ -123,7 +125,7 @@ class FakeSpace(object):
         return None
 
     def allocate_instance(self, cls, w_type):
-        assert w_type == "stuff"
+        assert isinstance(w_type, FakeReturnType)
         return instantiate(cls)
 
     def _freeze_(self):
@@ -136,7 +138,7 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, "stuff", [FakeInt(0)])
+            inst = cls.get_overload("example01").call(None, FakeReturnType(), [FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
