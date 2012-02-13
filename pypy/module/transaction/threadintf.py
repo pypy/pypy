@@ -24,6 +24,7 @@ def release(lock):
         lock.release()
 
 def start_new_thread(callback, args):
+    assert args == ()
     if we_are_translated():
         ll_thread.start_new_thread(callback, args)
     else:
