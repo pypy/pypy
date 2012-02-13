@@ -1298,9 +1298,16 @@ class FinallyBlock(FrameBlock):
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
+        operationerr = None
+        if isinstance(unroller, SApplicationException):
+            operationerr = unroller.operr
+            if frame.space.full_exceptions:
+                operationerr.normalize_exception(frame.space)
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
+        if operationerr:
+            frame.last_exception = operationerr
         return self.handlerposition   # jump to the handler
 
 
