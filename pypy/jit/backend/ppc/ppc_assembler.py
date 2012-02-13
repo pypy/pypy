@@ -930,7 +930,7 @@ class AssemblerPPC(OpAssembler):
             self.mc.add(r.r4.value, r.r3.value, r.r4.value)
 
         # XXX maybe use an offset from the value nursery_free_addr
-        self.mc.load_imm(r.r3.value, nursery_top_adr)
+        self.mc.load_imm(r.r3, nursery_top_adr)
         self.mc.load(r.r3.value, r.r3.value, 0)
 
         self.mc.cmp_op(0, r.r4.value, r.r3.value, signed=False)
@@ -957,7 +957,7 @@ class AssemblerPPC(OpAssembler):
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
         pmc.bc(4, 1, offset) # jump if LE (not GT)
 
-        self.mc.gen_imm(r.r3, nursery_free_adr)
+        self.mc.load_imm(r.r3, nursery_free_adr)
         self.mc.store(r.r4.value, r.r3.value, 0)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
