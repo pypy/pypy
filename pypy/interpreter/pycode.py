@@ -262,8 +262,9 @@ class PyCode(eval.Code):
             else:
                 consts[num] = self.space.unwrap(w)
             num += 1
+        assert self.co_kwonlyargcount == 0, 'kwonlyargcount is py3k only, cannot turn this code object into a Python2 one'
         return new.code( self.co_argcount,
-                         self.co_kwonlyargcount,
+                         #self.co_kwonlyargcount, # this does not exists in python2
                          self.co_nlocals,
                          self.co_stacksize,
                          self.co_flags,
@@ -276,7 +277,7 @@ class PyCode(eval.Code):
                          self.co_firstlineno,
                          self.co_lnotab,
                          tuple(self.co_freevars),
-                         tuple(self.co_cellvars) )
+                         tuple(self.co_cellvars))
 
     def exec_host_bytecode(self, w_globals, w_locals):
         from pypy.interpreter.pyframe import CPythonFrame
