@@ -467,6 +467,8 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
+        if nbargs > 2:
+            raise BytecodeCorruption("bad RAISE_VARARGS oparg")
         if nbargs == 0:
             frame = self
             ec = self.space.getexecutioncontext()
@@ -481,12 +483,10 @@ class __extend__(pyframe.PyFrame):
             # re-raise, no new traceback obj will be attached
             self.last_exception = operror
             raise Reraise
-
         w_value = w_cause = space.w_None
-        if nbargs >= 2:
+        if nbargs == 2:
             w_cause = self.popvalue()
-        if 1:
-            w_value = self.popvalue()
+        w_value = self.popvalue()
         if space.exception_is_valid_obj_as_class_w(w_value):
             w_type = w_value
             w_value = space.call_function(w_type)
@@ -494,16 +494,7 @@ class __extend__(pyframe.PyFrame):
             w_type = space.type(w_value)
         operror = OperationError(w_type, w_value, w_cause=w_cause)
         operror.normalize_exception(space)
-        w_traceback = space.w_None # XXX with_traceback?
-        if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
-            # common case
-            raise operror
-        else:
-            msg = "raise: arg 3 must be a traceback or None"
-            tb = pytraceback.check_traceback(space, w_traceback, msg)
-            operror.set_traceback(tb)
-            # special 3-arguments raise, no new traceback obj will be attached
-            raise RaiseWithExplicitTraceback(operror)
+        raise operror
 
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.w_locals)
