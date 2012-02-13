@@ -1791,3 +1791,11 @@ class AppTestRepr(BaseNumpyAppTest):
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str
+
+class AppTestRecordDtype(BaseNumpyAppTest):
+    def test_zeros(self):
+        from _numpypy import zeros
+        a = zeros(2, dtype=[('x', int), ('y', float)])
+        raises(KeyError, 'a[0]["xyz"]')
+        assert a[0]['x'] == 0
+        assert a[0]['y'] == 0

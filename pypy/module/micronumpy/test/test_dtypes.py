@@ -515,6 +515,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         raises(KeyError, 'd.fields["xyz"]')
 
     def test_create_from_dict(self):
+        skip("not yet")
         from _numpypy import dtype
         d = dtype({'names': ['a', 'b', 'c'],
                    })

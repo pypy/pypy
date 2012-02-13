@@ -104,7 +104,7 @@ class Primitive(object):
         return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
                                     width, storage, i, offset)
 
-    def read(self, storage, width, i, offset):
+    def read(self, dtype, storage, width, i, offset):
         return self.box(self._read(storage, width, i, offset))
 
     def read_bool(self, storage, width, i, offset):
@@ -624,7 +624,11 @@ class UnicodeType(BaseType, BaseStringType):
 NonNativeUnicodeType = UnicodeType
 
 class RecordType(CompositeType):
-    pass
+    def read(self, dtype, storage, width, i, offset):
+        arr = dtype.malloc(1)
+        for j in range(width):
+            arr[j] = storage[i + j]
+        return interp_boxes.W_VoidBox(dtype, arr)
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:

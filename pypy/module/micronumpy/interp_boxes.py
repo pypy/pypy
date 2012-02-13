@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.error import operationerrfmt, OperationError
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.stringtype import str_typedef
@@ -8,6 +8,7 @@ from pypy.objspace.std.unicodetype import unicode_typedef
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem import lltype
 
 MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
@@ -169,7 +170,24 @@ class W_FlexibleBox(W_GenericBox):
     pass
 
 class W_VoidBox(W_FlexibleBox):
-    pass
+    def __init__(self, dtype, arr):
+        self.arr = arr
+        self.dtype = dtype
+
+    def get_dtype(self, space):
+        return self.dtype
+
+    @unwrap_spec(item=str)
+    def descr_getitem(self, space, item):
+        try:
+            ofs, dtype = self.dtype.fields[item]
+        except KeyError:
+            raise OperationError(space.w_KeyError, space.wrap("Field %s does not exist" % item))
+        return dtype.itemtype.read(dtype, self.arr,
+                                   dtype.itemtype.get_element_size(), 0, ofs)         
+
+    def __del__(self):
+        lltype.free(self.arr, flavor='raw', track_allocation=False)
 
 class W_CharacterBox(W_FlexibleBox):
     pass
@@ -309,6 +327,7 @@ W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
 
 W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
     __module__ = "numpypy",
+    __getitem__ = interp2app(W_VoidBox.descr_getitem),
 )
 
 W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,

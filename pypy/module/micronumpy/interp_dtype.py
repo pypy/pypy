@@ -39,10 +39,10 @@ class W_Dtype(Wrappable):
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations
-        return lltype.malloc(VOID_STORAGE, self.itemtype.get_element_size() * length,
-            zero=True, flavor="raw",
-            track_allocation=False, add_memory_pressure=True
-        )
+        return lltype.malloc(VOID_STORAGE,
+                             self.itemtype.get_element_size() * length,
+                             zero=True, flavor="raw",
+                             track_allocation=False, add_memory_pressure=True)
 
     @specialize.argtype(1)
     def box(self, value):
@@ -52,7 +52,7 @@ class W_Dtype(Wrappable):
         return self.itemtype.coerce(space, w_item)
 
     def getitem(self, storage, i):
-        return self.itemtype.read(storage, self.itemtype.get_element_size(), i, 0)
+        return self.itemtype.read(self, storage, self.itemtype.get_element_size(), i, 0)
 
     def getitem_bool(self, storage, i):
         isize = self.itemtype.get_element_size()
