@@ -508,17 +508,14 @@ class Regalloc(object):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             arglocs = []
-            argboxes = []
+            args = op.getarglist()
             for i in range(op.numargs()):
-                loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+                loc = self._ensure_value_is_boxed(op.getarg(i), args)
                 arglocs.append(loc)
-                argboxes.append(box)
             self.assembler.call_release_gil(gcrootmap, arglocs)
-            self.possibly_free_vars(argboxes)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         self.assembler.emit_call(op, args, self, fail_index)
         # then reopen the stack
@@ -825,11 +822,10 @@ class Regalloc(object):
         # because it will be needed anyway by the following setfield_gc
         # or setarrayitem_gc. It avoids loading it twice from the memory.
         arglocs = []
-        argboxes = []
+        args = op.getarglist()
         for i in range(N):
-            loc = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+            loc = self._ensure_value_is_boxed(op.getarg(i), args)
             arglocs.append(loc)
-        self.rm.possibly_free_vars(argboxes)
         return arglocs
 
     prepare_cond_call_gc_wb_array = prepare_cond_call_gc_wb
