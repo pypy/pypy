@@ -8,7 +8,6 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
 from pypy.module.micronumpy import types, interp_boxes
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT, r_longlong, r_ulonglong
-from pypy.rpython.lltypesystem import lltype
 
 
 UNSIGNEDLTR = "u"
@@ -18,8 +17,6 @@ FLOATINGLTR = "f"
 VOIDLTR = 'V'
 STRINGLTR = 'S'
 UNICODELTR = 'U'
-
-VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True})
 
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
@@ -37,29 +34,22 @@ class W_Dtype(Wrappable):
         self.fields = fields
         self.fieldnames = fieldnames
 
-    def malloc(self, length):
-        # XXX find out why test_zjit explodes with tracking of allocations
-        return lltype.malloc(VOID_STORAGE,
-                             self.itemtype.get_element_size() * length,
-                             zero=True, flavor="raw",
-                             track_allocation=False, add_memory_pressure=True)
-
     @specialize.argtype(1)
     def box(self, value):
         return self.itemtype.box(value)
 
     def coerce(self, space, w_item):
-        return self.itemtype.coerce(space, w_item)
+        return self.itemtype.coerce(space, self, w_item)
 
-    def getitem(self, storage, i):
-        return self.itemtype.read(self, storage, self.itemtype.get_element_size(), i, 0)
+    def getitem(self, arr, i):
+        return self.itemtype.read(arr, self.itemtype.get_element_size(), i, 0)
 
-    def getitem_bool(self, storage, i):
+    def getitem_bool(self, arr, i):
         isize = self.itemtype.get_element_size()
-        return self.itemtype.read_bool(storage, isize, i, 0)
+        return self.itemtype.read_bool(arr.storage, isize, i, 0)
 
-    def setitem(self, storage, i, box):
-        self.itemtype.store(storage, self.itemtype.get_element_size(), i, 0, box)
+    def setitem(self, arr, i, box):
+        self.itemtype.store(arr, self.itemtype.get_element_size(), i, 0, box)
 
     def fill(self, storage, box, start, stop):
         self.itemtype.fill(storage, self.itemtype.get_element_size(), box, start, stop, 0)
@@ -138,7 +128,7 @@ def dtype_from_list(space, w_lst):
         ofs_and_items.append((offset, subdtype.itemtype))
         offset += subdtype.itemtype.get_element_size()
         fieldnames.append(fldname)
-    itemtype = types.RecordType(ofs_and_items)
+    itemtype = types.RecordType(ofs_and_items, offset)
     return W_Dtype(itemtype, 20, VOIDLTR, "void" + str(8 * itemtype.get_element_size()),
                    "V", space.gettypefor(interp_boxes.W_VoidBox), fields=fields,
                    fieldnames=fieldnames)

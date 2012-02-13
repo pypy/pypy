@@ -11,6 +11,10 @@ from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib import jit
+
+VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
+                                                'render_as_void': True})
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -65,6 +69,13 @@ class BaseType(object):
     #     exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
     #     arctanh = _unimplemented_ufunc
 
+    def malloc(self, length):
+        # XXX find out why test_zjit explodes with tracking of allocations
+        return lltype.malloc(VOID_STORAGE,
+                             self.get_element_size() * length,
+                             zero=True, flavor="raw",
+                             track_allocation=False, add_memory_pressure=True)
+
 class Primitive(object):
     _mixin_ = True
 
@@ -79,7 +90,7 @@ class Primitive(object):
         assert isinstance(box, self.BoxType)
         return box.value
 
-    def coerce(self, space, w_item):
+    def coerce(self, space, dtype, w_item):
         if isinstance(w_item, self.BoxType):
             return w_item
         return self.coerce_subtype(space, space.gettypefor(self.BoxType), w_item)
@@ -104,19 +115,19 @@ class Primitive(object):
         return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
                                     width, storage, i, offset)
 
-    def read(self, dtype, storage, width, i, offset):
-        return self.box(self._read(storage, width, i, offset))
+    def read(self, arr, width, i, offset):
+        return self.box(self._read(arr.storage, width, i, offset))
 
-    def read_bool(self, storage, width, i, offset):
-        return bool(self.for_computation(self._read(storage, width, i, offset)))
+    def read_bool(self, arr, width, i, offset):
+        return bool(self.for_computation(self._read(arr.storage, width, i, offset)))
 
     def _write(self, storage, width, i, offset, value):
         libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
                              width, storage, i, offset, value)
         
 
-    def store(self, storage, width, i, offset, box):
-        self._write(storage, width, i, offset, self.unbox(box))
+    def store(self, arr, width, i, offset, box):
+        self._write(arr.storage, width, i, offset, self.unbox(box))
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
@@ -595,10 +606,9 @@ class NonNativeFloat64(BaseType, NonNativeFloat):
     format_code = "d"
 
 class CompositeType(BaseType):
-    def __init__(self, offsets_and_types):
-        self.offsets_and_types = offsets_and_types
-        last_item = offsets_and_types[-1]
-        self.size = last_item[0] + last_item[1].get_element_size()
+    def __init__(self, offsets_and_fields, size):
+        self.offsets_and_fields = offsets_and_fields
+        self.size = size
 
     def get_element_size(self):
         return self.size
@@ -614,7 +624,10 @@ class BaseStringType(object):
 
 class StringType(BaseType, BaseStringType):
     T = lltype.Char
-VoidType = StringType # why not?
+
+class VoidType(BaseType, BaseStringType):
+    T = lltype.Char
+
 NonNativeVoidType = VoidType
 NonNativeStringType = StringType
 
@@ -624,11 +637,41 @@ class UnicodeType(BaseType, BaseStringType):
 NonNativeUnicodeType = UnicodeType
 
 class RecordType(CompositeType):
-    def read(self, dtype, storage, width, i, offset):
-        arr = dtype.malloc(1)
-        for j in range(width):
-            arr[j] = storage[i + j]
-        return interp_boxes.W_VoidBox(dtype, arr)
+    T = lltype.Char
+    
+    def read(self, arr, width, i, offset):
+        return interp_boxes.W_VoidBox(arr, i)
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        # we treat every sequence as sequence, no special support
+        # for arrays
+        if not space.issequence_w(w_item):
+            raise OperationError(space.w_TypeError, space.wrap(
+                "expected sequence"))
+        if len(self.offsets_and_fields) != space.int_w(space.len(w_item)):
+            raise OperationError(space.w_ValueError, space.wrap(
+                "wrong length"))
+        items_w = space.fixedview(w_item)
+        # XXX optimize it out one day, but for now we just allocate an
+        #     array
+        arr = W_NDimArray(1, [1], dtype)
+        for i in range(len(items_w)):
+            subdtype = dtype.fields[dtype.fieldnames[i]][1]
+            ofs, itemtype = self.offsets_and_fields[i]
+            w_item = items_w[i]
+            w_box = itemtype.coerce(space, subdtype, w_item)
+            width = itemtype.get_element_size()
+            import pdb
+            pdb.set_trace()
+            itemtype.store(arr, width, 0, ofs, w_box)
+        return interp_boxes.W_VoidBox(arr, 0)
+
+    @jit.unroll_safe
+    def store(self, arr, width, i, ofs, box):
+        for k in range(width):
+            arr[k + i] = box.arr.storage[k + box.i]
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:

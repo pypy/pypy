@@ -11,8 +11,10 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class MockDtype(object):
-    def malloc(self, size):
-        return None
+    class itemtype(object):
+        @classmethod
+        def malloc(size):
+            return None
 
 
 class TestNumArrayDirect(object):
@@ -1796,6 +1798,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
     def test_zeros(self):
         from _numpypy import zeros
         a = zeros(2, dtype=[('x', int), ('y', float)])
-        raises(KeyError, 'a[0]["xyz"]')
+        raises(IndexError, 'a[0]["xyz"]')
         assert a[0]['x'] == 0
         assert a[0]['y'] == 0
+        raises(ValueError, "a[0] = (1, 2, 3)")
+        a[0]['x'] = 13
+        assert a[0]['x'] == 13
+        a[1] = (1, 2)
+        assert a[1]['y'] == 2

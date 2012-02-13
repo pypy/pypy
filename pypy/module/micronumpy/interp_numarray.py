@@ -340,7 +340,7 @@ class BaseArray(Wrappable):
             count_driver.jit_merge_point(arr=arr, frame=frame, iter=iter, s=s,
                                          shapelen=shapelen)
             iter = frame.get_final_iter()
-            s += arr.dtype.getitem_bool(arr.storage, iter.offset)
+            s += arr.dtype.getitem_bool(arr, iter.offset)
             frame.next(shapelen)
         return s
 
@@ -361,7 +361,7 @@ class BaseArray(Wrappable):
             filter_driver.jit_merge_point(concr=concr, argi=argi, ri=ri,
                                           frame=frame, v=v, res=res, sig=sig,
                                           shapelen=shapelen, self=self)
-            if concr.dtype.getitem_bool(concr.storage, argi.offset):
+            if concr.dtype.getitem_bool(concr, argi.offset):
                 v = sig.eval(frame, self)
                 res.setitem(ri.offset, v)
                 ri = ri.next(1)
@@ -382,7 +382,7 @@ class BaseArray(Wrappable):
             filter_set_driver.jit_merge_point(idx=idx, idxi=idxi, sig=sig,
                                               frame=frame, arr=arr,
                                               shapelen=shapelen)
-            if idx.dtype.getitem_bool(idx.storage, idxi.offset):
+            if idx.dtype.getitem_bool(idx, idxi.offset):
                 sig.eval(frame, arr)
                 frame.next_from_second(1)
             frame.next_first(shapelen)
@@ -904,7 +904,7 @@ class ConcreteArray(BaseArray):
         if parent is not None:
             self.storage = parent.storage
         else:
-            self.storage = dtype.malloc(size)
+            self.storage = dtype.itemtype.malloc(size)
         self.order = order
         self.dtype = dtype
         if self.strides is None:
@@ -923,7 +923,7 @@ class ConcreteArray(BaseArray):
         return self.dtype
 
     def getitem(self, item):
-        return self.dtype.getitem(self.storage, item)
+        return self.dtype.getitem(self, item)
 
     def setitem(self, item, value):
         self.invalidated()

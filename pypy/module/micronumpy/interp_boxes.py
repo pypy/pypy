@@ -170,24 +170,35 @@ class W_FlexibleBox(W_GenericBox):
     pass
 
 class W_VoidBox(W_FlexibleBox):
-    def __init__(self, dtype, arr):
-        self.arr = arr
-        self.dtype = dtype
+    def __init__(self, arr, i):
+        self.arr = arr # we have to keep array alive
+        self.i = i
 
     def get_dtype(self, space):
-        return self.dtype
+        return self.arr.dtype
 
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
         try:
-            ofs, dtype = self.dtype.fields[item]
+            ofs, dtype = self.arr.dtype.fields[item]
         except KeyError:
-            raise OperationError(space.w_KeyError, space.wrap("Field %s does not exist" % item))
-        return dtype.itemtype.read(dtype, self.arr,
-                                   dtype.itemtype.get_element_size(), 0, ofs)         
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("Field %s does not exist" % item))
+        self.arr.dtype.itemtype.get_element_size()
+        return dtype.itemtype.read(self.arr,
+                                   dtype.itemtype.get_element_size(), self.i,
+                                   ofs)
 
-    def __del__(self):
-        lltype.free(self.arr, flavor='raw', track_allocation=False)
+    @unwrap_spec(item=str)
+    def descr_setitem(self, space, item, w_value):
+        try:
+            ofs, dtype = self.arr.dtype.fields[item]
+        except KeyError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("Field %s does not exist" % item))
+        dtype.itemtype.store(self.arr,
+                             dtype.itemtype.get_element_size(), 0, ofs,
+                             dtype.coerce(space, w_value))
 
 class W_CharacterBox(W_FlexibleBox):
     pass
@@ -328,6 +339,7 @@ W_FlexibleBox.typedef = TypeDef("flexible", W_GenericBox.typedef,
 W_VoidBox.typedef = TypeDef("void", W_FlexibleBox.typedef,
     __module__ = "numpypy",
     __getitem__ = interp2app(W_VoidBox.descr_getitem),
+    __setitem__ = interp2app(W_VoidBox.descr_setitem),
 )
 
 W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
