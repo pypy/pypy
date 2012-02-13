@@ -715,8 +715,8 @@ class AssemblerPPC(OpAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         start = self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
                                     self.cpu.gc_ll_descr.gcrootmap)
-        from pypy.rlib.rarithmetic import r_uint
-        print "=== Loop start is at %s ===" % hex(r_uint(start))
+        #from pypy.rlib.rarithmetic import r_uint
+        #print "=== Loop start is at %s ===" % hex(r_uint(start))
         return start
 
     def write_pending_failure_recoveries(self):
