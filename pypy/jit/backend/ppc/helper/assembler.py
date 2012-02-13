@@ -82,9 +82,14 @@ def encode64(mem, i, n):
     mem[i]   = chr((n >> 56) & 0xFF)
 
 def decode64(mem, index):
-    value = 0
-    for x in range(8):
-        value |= (ord(mem[index + x]) << (56 - x * 8))
+    value = ( ord(mem[index+7])
+            | ord(mem[index+6]) << 8
+            | ord(mem[index+5]) << 16
+            | ord(mem[index+4]) << 24
+            | ord(mem[index+3]) << 32
+            | ord(mem[index+2]) << 40
+            | ord(mem[index+1]) << 48
+            | ord(mem[index]) << 56)
     return intmask(value)
 
 def count_reg_args(args):
