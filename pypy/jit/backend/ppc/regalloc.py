@@ -11,8 +11,9 @@ from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                          prepare_binary_int_op,
                                                          prepare_binary_int_op_with_imm,
                                                          prepare_unary_cmp)
-from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
-                                         ConstPtr, Box)
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
+                                         Box, BoxPtr,
+                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc import locations
