@@ -777,6 +777,43 @@ class Regalloc(object):
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
+    def prepare_call_malloc_nursery(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
+
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r3)
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.r4)
+        self.possibly_free_var(op.result)
+        self.possibly_free_var(t)
+
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size
+            )
+
+    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
+        shape = gcrootmap.get_basic_shape(False)
+        for v, val in self.frame_manager.bindings.items():
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                assert val.is_stack()
+                gcrootmap.add_frame_offset(shape, val.position * -WORD)
+        for v, reg in self.rm.reg_bindings.items():
+            if reg is r.r3:
+                continue
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                if use_copy_area:
+                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                    gcrootmap.add_frame_offset(shape, area_offset)
+                else:
+                    assert 0, 'sure??'
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
+
     prepare_debug_merge_point = void
     prepare_jit_debug = void
 
