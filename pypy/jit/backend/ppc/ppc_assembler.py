@@ -927,7 +927,7 @@ class AssemblerPPC(OpAssembler):
             self.mc.addi(r.r4.value, r.r3.value, size)
         else:
             self.mc.load_imm(r.r4, size)
-            self.mc.add(r.r4,value, r.r3.value, r.r4.value)
+            self.mc.add(r.r4.value, r.r3.value, r.r4.value)
 
         # XXX maybe use an offset from the value nursery_free_addr
         self.mc.load_imm(r.r3.value, nursery_top_adr)
