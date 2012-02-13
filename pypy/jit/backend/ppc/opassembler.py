@@ -814,15 +814,16 @@ class UnicodeOpAssembler(object):
 
     emit_unicodelen = StrOpAssembler.emit_strlen
 
-    # XXX 64 bit adjustment
     def emit_unicodegetitem(self, op, arglocs, regalloc):
+        # res is used as a temporary location
+        # => it is save to use it before loading the result
         res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
 
         if IS_PPC_32:
-            self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+            self.mc.slwi(res.value, ofs_loc.value, scale.value)
         else:
-            self.mc.sldi(ofs_loc.value, ofs_loc.value, scale.value)
-        self.mc.add(res.value, base_loc.value, ofs_loc.value)
+            self.mc.sldi(res.value, ofs_loc.value, scale.value)
+        self.mc.add(res.value, base_loc.value, res.value)
 
         if scale.value == 2:
             self.mc.lwz(res.value, res.value, basesize.value)
@@ -831,20 +832,19 @@ class UnicodeOpAssembler(object):
         else:
             assert 0, itemsize.value
 
-    # XXX 64 bit adjustment
     def emit_unicodesetitem(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
+        value_loc, base_loc, ofs_loc, temp_loc, scale, basesize, itemsize = arglocs
 
         if IS_PPC_32:
-            self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+            self.mc.slwi(temp_loc.value, ofs_loc.value, scale.value)
         else:
-            self.mc.sldi(ofs_loc.value, ofs_loc.value, scale.value)
-        self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
+            self.mc.sldi(temp_loc.value, ofs_loc.value, scale.value)
+        self.mc.add(temp_loc.value, base_loc.value, temp_loc.value)
 
         if scale.value == 2:
-            self.mc.stw(value_loc.value, base_loc.value, basesize.value)
+            self.mc.stw(value_loc.value, temp_loc.value, basesize.value)
         elif scale.value == 1:
-            self.mc.sth(value_loc.value, base_loc.value, basesize.value)
+            self.mc.sth(value_loc.value, temp_loc.value, basesize.value)
         else:
             assert 0, itemsize.value
 
