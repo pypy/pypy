@@ -109,6 +109,8 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
+        jit.promote(self)
+        jit.promote(w_type)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
@@ -129,12 +131,9 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, w_type, args_w):
-        space = self.space
-        if self.arg_converters is None:
-            self._build_converters()
         jit.promote(self)
         funcptr = self.methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-        libffi_func = self._get_libffi_func(funcptr)
+        libffi_func = self._prepare_libffi_func(funcptr)
         if not libffi_func:
             raise FastCallNotPossible
 
@@ -144,14 +143,16 @@ class CPPMethod(object):
         for i in range(len(args_w)):
             conv = self.arg_converters[i]
             w_arg = args_w[i]
-            conv.convert_argument_libffi(space, w_arg, argchain)
+            conv.convert_argument_libffi(self.space, w_arg, argchain)
         for j in range(i+1, len(self.arg_defs)):
             conv = self.arg_converters[j]
-            conv.default_argument_libffi(space, argchain)
-        return self.executor.execute_libffi(space, w_type, libffi_func, argchain)
+            conv.default_argument_libffi(self.space, argchain)
+        return self.executor.execute_libffi(self.space, w_type, libffi_func, argchain)
 
     @jit.elidable_promote()
-    def _get_libffi_func(self, funcptr):
+    def _prepare_libffi_func(self, funcptr):
+        if self.arg_converters is None:
+             self._build_converters()
         key = rffi.cast(rffi.LONG, funcptr)
         if key in self._libffifunc_cache:
             return self._libffifunc_cache[key]
@@ -175,7 +176,6 @@ class CPPMethod(object):
     @jit.unroll_safe
     def prepare_arguments(self, args_w):
         jit.promote(self)
-        space = self.space
         if self.arg_converters is None:
             self._build_converters()
         args = capi.c_allocate_function_args(len(args_w))
@@ -185,7 +185,7 @@ class CPPMethod(object):
             w_arg = args_w[i]
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-                conv.convert_argument(space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
+                conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
             except:
                 # fun :-(
                 for j in range(i):
