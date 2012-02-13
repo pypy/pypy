@@ -50,6 +50,29 @@ class AppTestRaise:
         else:
             raise AssertionError("shouldn't be able to raise 1")
 
+    def test_revert_exc_info_1(self):
+        import sys
+        assert sys.exc_info() == (None, None, None)
+        try:
+            raise ValueError
+        except:
+            pass
+        assert sys.exc_info() == (None, None, None)
+
+    def test_revert_exc_info_2(self):
+        import sys
+        assert sys.exc_info() == (None, None, None)
+        try:
+            raise ValueError
+        except:
+            try:
+                raise IndexError
+            except:
+                assert sys.exc_info()[0] is IndexError
+            assert sys.exc_info()[0] is ValueError
+        assert sys.exc_info() == (None, None, None)
+
+
     def test_raise_with___traceback__(self):
         import sys
         try:
