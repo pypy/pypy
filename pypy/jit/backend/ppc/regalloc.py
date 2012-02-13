@@ -11,8 +11,9 @@ from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                          prepare_binary_int_op,
                                                          prepare_binary_int_op_with_imm,
                                                          prepare_unary_cmp)
-from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
-                                         ConstPtr, Box)
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
+                                         Box, BoxPtr,
+                                         INT, REF, FLOAT)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc import locations
@@ -507,17 +508,14 @@ class Regalloc(object):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             arglocs = []
-            argboxes = []
+            args = op.getarglist()
             for i in range(op.numargs()):
-                loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+                loc = self._ensure_value_is_boxed(op.getarg(i), args)
                 arglocs.append(loc)
-                argboxes.append(box)
             self.assembler.call_release_gil(gcrootmap, arglocs)
-            self.possibly_free_vars(argboxes)
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         self.assembler.emit_call(op, args, self, fail_index)
         # then reopen the stack
@@ -778,6 +776,43 @@ class Regalloc(object):
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
 
+    def prepare_call_malloc_nursery(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
+
+        self.rm.force_allocate_reg(op.result, selected_reg=r.r3)
+        t = TempInt()
+        self.rm.force_allocate_reg(t, selected_reg=r.r4)
+        self.possibly_free_var(op.result)
+        self.possibly_free_var(t)
+
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size
+            )
+
+    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
+        shape = gcrootmap.get_basic_shape(False)
+        for v, val in self.frame_manager.bindings.items():
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                assert val.is_stack()
+                gcrootmap.add_frame_offset(shape, val.position * -WORD)
+        for v, reg in self.rm.reg_bindings.items():
+            if reg is r.r3:
+                continue
+            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
+                if use_copy_area:
+                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                    gcrootmap.add_frame_offset(shape, area_offset)
+                else:
+                    assert 0, 'sure??'
+        return gcrootmap.compress_callshape(shape,
+                                            self.assembler.datablockwrapper)
+
     prepare_debug_merge_point = void
     prepare_jit_debug = void
 
@@ -788,11 +823,10 @@ class Regalloc(object):
         # because it will be needed anyway by the following setfield_gc
         # or setarrayitem_gc. It avoids loading it twice from the memory.
         arglocs = []
-        argboxes = []
+        args = op.getarglist()
         for i in range(N):
-            loc = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+            loc = self._ensure_value_is_boxed(op.getarg(i), args)
             arglocs.append(loc)
-        self.rm.possibly_free_vars(argboxes)
         return arglocs
 
     prepare_cond_call_gc_wb_array = prepare_cond_call_gc_wb

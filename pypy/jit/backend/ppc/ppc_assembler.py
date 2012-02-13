@@ -7,7 +7,7 @@ from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
-from pypy.jit.backend.ppc.codebuilder import PPCBuilder
+from pypy.jit.backend.ppc.codebuilder import PPCBuilder, OverwritingBuilder
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
@@ -20,6 +20,7 @@ from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op,
                                                    decode32, decode64,
                                                    count_reg_args,
                                                           Saved_Volatiles)
+from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
@@ -279,6 +280,28 @@ class AssemblerPPC(OpAssembler):
             locs.append(loc)
         return locs
 
+    def _build_malloc_slowpath(self):
+        mc = PPCBuilder()
+        with Saved_Volatiles(mc):
+            # Values to compute size stored in r3 and r4
+            mc.subf(r.r3.value, r.r3.value, r.r4.value)
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+            mc.call(addr)
+
+        mc.cmp_op(0, r.r3.value, 0, imm=True)
+        jmp_pos = mc.currpos()
+        mc.nop()
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.load_imm(r.r4, nursery_free_adr)
+        mc.load(r.r4.value, r.r4.value, 0)
+
+        pmc = OverwritingBuilder(mc, jmp_pos, 1)
+        pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
+        pmc.overwrite()
+        mc.b_abs(self.propagate_exception_path)
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.malloc_slowpath = rawstart
+
     def _build_propagate_exception_path(self):
         if self.cpu.propagate_exception_v < 0:
             return
@@ -383,8 +406,8 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
         self._build_propagate_exception_path()
-        #if gc_ll_descr.get_malloc_slowpath_addr is not None:
-        #    self._build_malloc_slowpath()
+        if gc_ll_descr.get_malloc_slowpath_addr is not None:
+            self._build_malloc_slowpath()
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
@@ -891,6 +914,51 @@ class AssemblerPPC(OpAssembler):
                 self.mc.rldicl(resloc.value, resloc.value, 0, 32)
             else:
                 self.mc.extsw(resloc.value, resloc.value)
+
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+        assert size & (WORD-1) == 0     # must be correctly aligned
+        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
+        size = (size + WORD - 1) & ~(WORD - 1)     # round up
+
+        self.mc.load_imm(r.r3, nursery_free_adr)
+        self.mc.load(r.r3.value, r.r3.value, 0)
+
+        if _check_imm_arg(size):
+            self.mc.addi(r.r4.value, r.r3.value, size)
+        else:
+            self.mc.load_imm(r.r4, size)
+            self.mc.add(r.r4.value, r.r3.value, r.r4.value)
+
+        # XXX maybe use an offset from the value nursery_free_addr
+        self.mc.load_imm(r.r3, nursery_top_adr)
+        self.mc.load(r.r3.value, r.r3.value, 0)
+
+        self.mc.cmp_op(0, r.r4.value, r.r3.value, signed=False)
+
+        fast_jmp_pos = self.mc.currpos()
+        self.mc.nop()
+
+        # XXX update
+        # See comments in _build_malloc_slowpath for the
+        # details of the two helper functions that we are calling below.
+        # First, we need to call two of them and not just one because we
+        # need to have a mark_gc_roots() in between.  Then the calling
+        # convention of slowpath_addr{1,2} are tweaked a lot to allow
+        # the code here to be just two CALLs: slowpath_addr1 gets the
+        # size of the object to allocate from (EDX-EAX) and returns the
+        # result in EAX; self.malloc_slowpath additionally returns in EDX a
+        # copy of heap(nursery_free_adr), so that the final MOV below is
+        # a no-op.
+        self.mark_gc_roots(self.write_new_force_index(),
+                           use_copy_area=True)
+        self.mc.call(self.malloc_slowpath)
+
+        offset = self.mc.currpos() - fast_jmp_pos
+        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
+        pmc.bc(4, 1, offset) # jump if LE (not GT)
+
+        self.mc.load_imm(r.r3, nursery_free_adr)
+        self.mc.store(r.r4.value, r.r3.value, 0)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
