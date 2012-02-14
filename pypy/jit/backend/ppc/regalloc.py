@@ -785,7 +785,7 @@ class Regalloc(object):
 
         self.rm.force_allocate_reg(op.result, selected_reg=r.r3)
         t = TempInt()
-        self.rm.force_allocate_reg(t, selected_reg=r.r1)
+        self.rm.force_allocate_reg(t, selected_reg=r.r4)
         self.possibly_free_var(op.result)
         self.possibly_free_var(t)
         return [imm(size)]
