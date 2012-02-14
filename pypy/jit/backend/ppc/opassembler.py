@@ -688,12 +688,12 @@ class StrOpAssembler(object):
         self.mc.lbz(res.value, res.value, basesize.value)
 
     def emit_strsetitem(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, basesize = arglocs
+        value_loc, base_loc, ofs_loc, temp_loc, basesize = arglocs
         if ofs_loc.is_imm():
-            self.mc.addi(base_loc.value, base_loc.value, ofs_loc.getint())
+            self.mc.addi(temp_loc.value, base_loc.value, ofs_loc.getint())
         else:
-            self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
-        self.mc.stb(value_loc.value, base_loc.value, basesize.value)
+            self.mc.add(temp_loc.value, base_loc.value, ofs_loc.value)
+        self.mc.stb(value_loc.value, temp_loc.value, basesize.value)
 
     #from ../x86/regalloc.py:928 ff.
     def emit_copystrcontent(self, op, arglocs, regalloc):

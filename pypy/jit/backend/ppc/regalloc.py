@@ -701,10 +701,11 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
+        temp_loc = self.get_scratch_reg(INT, boxes)
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                          self.cpu.translate_support_code)
         assert itemsize == 1
-        return [value_loc, base_loc, ofs_loc, imm(basesize)]
+        return [value_loc, base_loc, ofs_loc, temp_loc, imm(basesize)]
 
     prepare_copystrcontent = void
     prepare_copyunicodecontent = void
