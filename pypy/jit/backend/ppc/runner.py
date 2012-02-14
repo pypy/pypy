@@ -30,13 +30,14 @@ class PPC_64_CPU(AbstractLLCPU):
                  gcdescr=None):
         if gcdescr is not None:
             gcdescr.force_index_ofs = FORCE_INDEX_OFS
+            # XXX for now the ppc backend does not support the gcremovetypeptr
+            # translation option
+            assert gcdescr.config.translation.gcremovetypeptr is False
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
         # floats are not supported yet
         self.supports_floats = False
-        self.total_compiled_loops = 0
-        self.total_compiled_bridges = 0
 
     def setup(self):
         self.asm = AssemblerPPC(self)
@@ -44,20 +45,24 @@ class PPC_64_CPU(AbstractLLCPU):
     def setup_once(self):
         self.asm.setup_once()
 
+    def finish_once(self):
+        self.asm.finish_once()
+
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=""):
-        self.asm.assemble_loop(inputargs, operations, looptoken, log)
+        return self.asm.assemble_loop(inputargs, operations, looptoken, log)
 
     def compile_bridge(self, faildescr, inputargs, operations, 
                       original_loop_token, log=False):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        self.asm.assemble_bridge(faildescr, inputargs, operations,
+        return self.asm.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
     def clear_latest_values(self, count):
+        setitem = self.asm.fail_boxes_ptr.setitem
         null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
-            self.asm.fail_boxes_ptr.setitem(index, null)
+            setitem(index, null)
 
     # executes the stored machine code in the token
     def make_execute_token(self, *ARGS):
