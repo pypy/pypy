@@ -36,6 +36,7 @@ class AppTestOutArg(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4]])
         c = zeros((2,2,2))
         b = negative(a + a, out=c[1])
+        print c
         assert (b == [[-2, -4], [-6, -8]]).all()
         assert (c[:, :, 1] == [[0, 0], [-4, -8]]).all()
 

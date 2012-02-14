@@ -773,6 +773,7 @@ class VirtualSlice(VirtualArray):
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values,
                                                             out_arg=None):
+        xxx
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
         self.size = values.size

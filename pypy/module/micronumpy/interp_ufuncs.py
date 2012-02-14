@@ -235,6 +235,8 @@ class W_Ufunc1(W_Ufunc):
             out = None
         else:
             [w_obj, out] = args_w
+            if space.is_w(out, space.w_None):
+                out = None
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.find_dtype(),
