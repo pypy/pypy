@@ -12,7 +12,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class MockDtype(object):
     class itemtype(object):
-        @classmethod
+        @staticmethod
         def malloc(size):
             return None
 
