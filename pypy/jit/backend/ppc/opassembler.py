@@ -1095,7 +1095,7 @@ class ForceOpAssembler(object):
         self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
         self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self.mc.free_scratch_reg()
-        self._emit_guard(guard_op, arglocs, c.LT)
+        self._emit_guard(guard_op, arglocs, c.LT, save_exc=True)
 
     emit_guard_call_release_gil = emit_guard_call_may_force
 
