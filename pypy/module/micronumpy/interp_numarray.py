@@ -1132,21 +1132,20 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
         if copy:
             return w_item_or_iterable.copy(space)
         return w_item_or_iterable
-    shape, elems_w = find_shape_and_elems(space, w_item_or_iterable)
+    if w_dtype is None or space.is_w(w_dtype, space.w_None):
+        dtype = None
+    else:
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    shape, elems_w = find_shape_and_elems(space, w_item_or_iterable, dtype)
     # they come back in C order
     size = len(elems_w)
-    if w_dtype is None or space.is_w(w_dtype, space.w_None):
-        w_dtype = None
+    if dtype is None:
         for w_elem in elems_w:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
                                                           w_dtype)
-            if w_dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
+            if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
                 break
-    if w_dtype is None:
-        w_dtype = space.w_None
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
     arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
     arr_iter = ArrayIterator(arr.size)

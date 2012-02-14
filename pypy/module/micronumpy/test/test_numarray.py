@@ -1810,3 +1810,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         b[1] = a[1]
         assert a[1]['y'] == 2
 
+    def test_views(self):
+        skip("xx")
+
+    def test_creation(self):
+        from _numpypy import array
+        a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
+        assert repr(a[0]) == '(1, 2.0)'

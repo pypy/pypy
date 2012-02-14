@@ -112,6 +112,9 @@ class W_Dtype(Wrappable):
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
+    def is_record_type(self):
+        return self.fields is not None
+
     def __repr__(self):
         if self.fields is not None:
             return '<DType %r>' % self.fields

@@ -38,22 +38,31 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
 
-def find_shape_and_elems(space, w_iterable):
+def is_single_elem(space, w_elem, is_rec_type):
+    if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
+        return True
+    if space.issequence_w(w_elem):
+        return False
+    return True
+
+def find_shape_and_elems(space, w_iterable, dtype):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
+    is_rec_type = dtype.is_record_type()
     while True:
         new_batch = []
         if not batch:
             return shape, []
-        if not space.issequence_w(batch[0]):
-            for elem in batch:
-                if space.issequence_w(elem):
+        if is_single_elem(space, batch[0], is_rec_type):
+            for w_elem in batch:
+                if is_single_elem(space, w_elem, is_rec_type):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
             return shape, batch
         size = space.len_w(batch[0])
         for w_elem in batch:
-            if not space.issequence_w(w_elem) or space.len_w(w_elem) != size:
+            if (not is_single_elem(space, w_elem, is_rec_type) or
+                space.len_w(w_elem) != size):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "setting an array element with a sequence"))
             new_batch += space.listview(w_elem)
