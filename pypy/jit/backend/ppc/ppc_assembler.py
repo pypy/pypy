@@ -37,6 +37,8 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
+from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
+                             have_debug_prints)
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
@@ -414,6 +416,9 @@ class AssemblerPPC(OpAssembler):
         self.exit_code_adr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
+        debug_start('jit-backend-counts')
+        self.set_debug(have_debug_prints())
+        debug_stop('jit-backend-counts')
 
     def finish_once(self):
         if self._debug:
