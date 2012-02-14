@@ -35,6 +35,7 @@ class W_Ufunc(Wrappable):
         kwds_w.pop('casting', None)
         w_subok = kwds_w.pop('subok', None)
         w_out = kwds_w.pop('out', space.w_None)
+        # Setup a default value for out
         if space.is_w(w_out, space.w_None):
             out = None
         else:
@@ -46,13 +47,17 @@ class W_Ufunc(Wrappable):
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
-        elif len(args_w) > self.argcount:
+        elif (len(args_w) > self.argcount and out is not None) or \
+             (len(args_w) > self.argcount + 1):
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
-        elif out is not None:
+        # Override the default out value, if it has been provided in w_wargs
+        if len(args_w) > self.argcount:
+            out = args_w[-1]
+        else:
             args_w = args_w[:] + [out]
-        if args_w[-1] and not isinstance(args_w[-1], BaseArray):
+        if out is not None and not isinstance(out, BaseArray):
             raise OperationError(space.w_TypeError, space.wrap(
                                             'output must be an array'))
         return self.call(space, args_w)
@@ -223,23 +228,34 @@ class W_Ufunc1(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call1,
-            convert_to_array, Scalar)
+            convert_to_array, Scalar, shape_agreement)
 
-        [w_obj, w_out] = args_w
+        if len(args_w)<2:
+            [w_obj] = args_w
+            out = None
+        else:
+            [w_obj, out] = args_w
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.find_dtype(),
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
-        if self.bool_result:
+        if out:
+            ret_shape = shape_agreement(space, w_obj.shape, out.shape)
+            assert(ret_shape is not None)
+            res_dtype = out.find_dtype()
+        elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
         if isinstance(w_obj, Scalar):
-            return space.wrap(self.func(calc_dtype, w_obj.value.convert_to(calc_dtype)))
+            arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
+            if isinstance(out,Scalar):
+                out.value=arr
+            return space.wrap(out)
 
         w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
-                      w_obj)
+                      w_obj, out)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -259,11 +275,14 @@ class W_Ufunc2(W_Ufunc):
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement, BaseArray)
-
-        [w_lhs, w_rhs, w_out] = args_w
+        if len(args_w)>2:
+            [w_lhs, w_rhs, w_out] = args_w
+        else:
+            [w_lhs, w_rhs] = args_w
+            w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if space.is_w(w_out, space.w_None) or not w_out:
+        if space.is_w(w_out, space.w_None) or w_out is None:
             out = None
             calc_dtype = find_binop_result_dtype(space,
                 w_lhs.find_dtype(), w_rhs.find_dtype(),

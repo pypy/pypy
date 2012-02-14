@@ -902,35 +902,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([[1,2],[3,4]]).prod(0) == [3, 8]).all()
         assert (array([[1,2],[3,4]]).prod(1) == [2, 12]).all()
 
-    def test_reduce_out(self):
-        from numpypy import arange, zeros, array
-        a = arange(15).reshape(5, 3)
-        b = arange(12).reshape(4,3)
-        c = a.sum(0, out=b[1])
-        assert (c == [30, 35, 40]).all()
-        assert (c == b[1]).all()
-        raises(ValueError, 'a.prod(0, out=arange(10))')
-        a=arange(12).reshape(3,2,2)
-        raises(ValueError, 'a.sum(0, out=arange(12).reshape(3,2,2))')
-        raises(ValueError, 'a.sum(0, out=arange(3))')
-        c = array([-1, 0, 1]).sum(out=zeros([], dtype=bool))
-        #You could argue that this should product False, but
-        # that would require an itermediate result. Cpython numpy
-        # gives True.
-        assert c == True
-        a = array([[-1, 0, 1], [1, 0, -1]])
-        c = a.sum(0, out=zeros((3,), dtype=bool))
-        assert (c == [True, False, True]).all()
-        c = a.sum(1, out=zeros((2,), dtype=bool))
-        assert (c == [True, True]).all()
-
-    def test_reduce_intermediary(self):
-        from numpypy import arange, array
-        a = arange(15).reshape(5, 3)
-        b = array(range(3), dtype=bool)
-        c = a.prod(0, out=b)
-        assert(b == [False,  True,  True]).all()
-
     def test_identity(self):
         from _numpypy import identity, array
         from _numpypy import int32, float64, dtype
