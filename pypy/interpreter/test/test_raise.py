@@ -171,6 +171,38 @@ class AppTestRaise:
                 nested_reraise()
         """)
 
+    def test_with_reraise_1(self):
+        class Context:
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                return True
+
+        def fn():
+            try:
+                raise ValueError("foo")
+            except:
+                with Context():
+                    pass
+                raise
+        raises(ValueError, "fn()")
+
+
+    def test_with_reraise_2(self):
+        class Context:
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                return True
+
+        def fn():
+            try:
+                raise ValueError("foo")
+            except:
+                with Context():
+                    raise KeyError("caught")
+                raise
+        raises(ValueError, "fn()")
 
     def test_userclass(self):
         # new-style classes can't be raised unless they inherit from
