@@ -1647,15 +1647,6 @@ def PyObject_HashNotImplemented(space, o):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyObject_Dir(space, o):
-    """This is equivalent to the Python expression dir(o), returning a (possibly
-    empty) list of strings appropriate for the object argument, or NULL if there
-    was an error.  If the argument is NULL, this is like the Python dir(),
-    returning the names of the current locals; in this case, if no execution frame
-    is active then NULL is returned but PyErr_Occurred() will return false."""
-    raise NotImplementedError
-
 @cpython_api([], PyFrameObject)
 def PyEval_GetFrame(space):
     """Return the current thread state's frame, which is NULL if no frame is

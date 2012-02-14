@@ -381,6 +381,15 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
+@cpython_api([PyObject], PyObject)
+def PyObject_Dir(space, w_o):
+    """This is equivalent to the Python expression dir(o), returning a (possibly
+    empty) list of strings appropriate for the object argument, or NULL if there
+    was an error.  If the argument is NULL, this is like the Python dir(),
+    returning the names of the current locals; in this case, if no execution frame
+    is active then NULL is returned but PyErr_Occurred() will return false."""
+    return space.call_function(space.builtin.get('dir'), w_o)
+
 @cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
