@@ -174,6 +174,7 @@ class __extend__(pyframe.PyFrame):
                 ec.bytecode_trace(self)
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
+            #print 'executing', self.last_instr, bytecode_spec.method_names[opcode]
             next_instr += 1
             if space.config.objspace.logbytecodes:
                 space.bytecodecounts[opcode] += 1
@@ -524,7 +525,9 @@ class __extend__(pyframe.PyFrame):
             self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        raise NotImplementedError
+        # on CPython, POP_EXCEPT also pops the block. Here, the block is
+        # automatically popped by unrollstack()
+        self.last_exception = self.popvalue()
 
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
@@ -1268,6 +1271,7 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
+        frame.pushvalue(frame.last_exception) # this is popped by POP_EXCEPT
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)

@@ -529,6 +529,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.POP_TOP)
             self.emit_op(ops.POP_TOP)
             self.visit_sequence(handler.body)
+            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)

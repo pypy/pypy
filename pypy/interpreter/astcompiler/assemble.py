@@ -550,7 +550,7 @@ _static_opcode_stack_effects = {
     ops.END_FINALLY : -3,
     ops.SETUP_WITH : 1,
     ops.SETUP_FINALLY : 0,
-    ops.SETUP_EXCEPT : 0,
+    ops.SETUP_EXCEPT : 4,
 
     ops.RETURN_VALUE : -1,
     ops.YIELD_VALUE : 0,
