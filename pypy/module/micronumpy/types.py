@@ -680,7 +680,7 @@ class RecordType(CompositeType):
     @jit.unroll_safe
     def store(self, arr, width, i, ofs, box):
         for k in range(width):
-            arr[k + i * width] = box.arr.storage[k + box.i * width]
+            arr.storage[k + i * width] = box.arr.storage[k + box.i * width]
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
