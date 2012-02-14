@@ -1768,21 +1768,6 @@ def PySet_Clear(space, set):
     """Empty an existing set of all elements."""
     raise NotImplementedError
 
-@cpython_api([PyObjectP], lltype.Void)
-def PyString_InternInPlace(space, string):
-    """Intern the argument *string in place.  The argument must be the address of a
-    pointer variable pointing to a Python string object.  If there is an existing
-    interned string that is the same as *string, it sets *string to it
-    (decrementing the reference count of the old string object and incrementing the
-    reference count of the interned string object), otherwise it leaves *string
-    alone and interns it (incrementing its reference count).  (Clarification: even
-    though there is a lot of talk about reference counts, think of this function as
-    reference-count-neutral; you own the object after the call if and only if you
-    owned it before the call.)
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_Decode(space, s, size, encoding, errors):
     """Create an object by decoding size bytes of the encoded buffer s using the
