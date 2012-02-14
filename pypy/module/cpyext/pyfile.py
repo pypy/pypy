@@ -98,7 +98,7 @@ def PyFile_SoftSpace(space, w_p, newflag):
     There is no way to detect errors from this function, but doing so
     should not be needed."""
     try:
-        if newflag:
+        if rffi.cast(lltype.Signed, newflag):
             w_newflag = space.w_True
         else:
             w_newflag = space.w_False
