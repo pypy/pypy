@@ -74,7 +74,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     a = W_NDimArray(count, [count], dtype=dtype)
     for i in range(count):
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
-        a.dtype.setitem(a.storage, i, val)
+        a.dtype.setitem(a, i, val)
         
     return space.wrap(a)
 

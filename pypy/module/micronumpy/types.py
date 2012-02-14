@@ -6,7 +6,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat, libffi, clibffi
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rarithmetic import widen, byteswap
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
@@ -115,8 +115,11 @@ class Primitive(object):
         raise NotImplementedError
 
     def _read(self, storage, width, i, offset):
-        return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
-                                    width, storage, i, offset)
+        if we_are_translated():
+            return libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                        width, storage, i, offset)
+        else:
+            return libffi.array_getitem_T(self.T, width, storage, i, offset)
 
     def read(self, arr, width, i, offset):
         return self.box(self._read(arr.storage, width, i, offset))
@@ -125,8 +128,11 @@ class Primitive(object):
         return bool(self.for_computation(self._read(arr.storage, width, i, offset)))
 
     def _write(self, storage, width, i, offset, value):
-        libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
-                             width, storage, i, offset, value)
+        if we_are_translated():
+            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+                                 width, storage, i, offset, value)
+        else:
+            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
         
 
     def store(self, arr, width, i, offset, box):
