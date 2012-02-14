@@ -111,6 +111,7 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     split = False
+    cpython_extension = False
     
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
             secondary_entrypoints=()):
@@ -138,6 +139,7 @@ class CBuilder(object):
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
         db = LowLevelDatabase(translator, standalone=self.standalone,
+                              cpython_extension=self.cpython_extension,
                               gcpolicyclass=gcpolicyclass,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
@@ -236,6 +238,8 @@ class CBuilder(object):
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
+            if self.cpython_extension:
+                defines['PYPY_CPYTHON_EXTENSION'] = 1
         else:
             defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
@@ -307,13 +311,18 @@ class ModuleWithCleanup(object):
 
 class CExtModuleBuilder(CBuilder):
     standalone = False
+    cpython_extension = True
     _module = None
     _wrapper = None
 
     def get_eci(self):
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
-        eci = ExternalCompilationInfo(include_dirs=[python_inc])
+        eci = ExternalCompilationInfo(
+            include_dirs=[python_inc],
+            includes=["Python.h",
+                      ],
+            )
         return eci.merge(CBuilder.get_eci(self))
 
     def getentrypointptr(self): # xxx
