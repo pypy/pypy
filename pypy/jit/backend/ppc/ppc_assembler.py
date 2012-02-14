@@ -9,7 +9,6 @@ from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
 from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
                                               scratch_reg)
-from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
