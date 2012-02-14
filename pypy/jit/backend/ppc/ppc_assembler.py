@@ -48,6 +48,12 @@ from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
                             sandboxsafe=True, _nowrapper=True)
+
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('type', lltype.Char),  # 'b'ridge, 'l'abel or
+                                                      # 'e'ntry point
+                              ('number', lltype.Signed))
+
 def hi(w):
     return w >> 16
 
@@ -110,6 +116,12 @@ class AssemblerPPC(OpAssembler):
         self.max_stack_params = 0
         self.propagate_exception_path = 0
         self.setup_failure_recovery()
+        self._debug = False
+        self.loop_run_counters = []
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+
+    def set_debug(self, v):
+        self._debug = v
 
     def _save_nonvolatiles(self):
         """ save nonvolatile GPRs in GPR SAVE AREA 
