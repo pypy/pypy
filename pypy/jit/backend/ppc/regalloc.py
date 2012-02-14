@@ -516,6 +516,7 @@ class Regalloc(object):
         # do the call
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self.assembler._write_fail_index(fail_index)
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         self.assembler.emit_call(op, args, self, fail_index)
         # then reopen the stack
