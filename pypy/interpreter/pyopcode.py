@@ -1285,6 +1285,7 @@ class FinallyBlock(FrameBlock):
     _immutable_ = True
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
+    restore_last_exception = True # set to False by WithBlock
 
     def cleanup(self, frame):
         # upon normal entry into the finally: part, the standard Python
@@ -1310,14 +1311,17 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
-        if operationerr:
+        if operationerr and self.restore_last_exception:
             frame.last_exception = operationerr
         return self.handlerposition   # jump to the handler
+
+        
 
 
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
+    restore_last_exception = False
 
     def really_handle(self, frame, unroller):
         if (frame.space.full_exceptions and
