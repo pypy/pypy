@@ -949,17 +949,17 @@ class AssemblerPPC(OpAssembler):
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
 
-        self.mc.load_imm(r.RES.value, nursery_free_adr)
+        self.mc.load_imm(r.RES, nursery_free_adr)
         self.mc.load(r.RES.value, r.RES.value, 0)
 
         if _check_imm_arg(size):
             self.mc.addi(r.r4.value, r.RES.value, size)
         else:
-            self.mc.load_imm(r.r4.value, size)
+            self.mc.load_imm(r.r4, size)
             self.mc.add(r.r4.value, r.RES.value, r.r4.value)
 
         with scratch_reg(self.mc):
-            self.mc.gen_load_int(r.SCRATCH.value, nursery_top_adr)
+            self.mc.load_imm(r.SCRATCH, nursery_top_adr)
             self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
 
         self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
@@ -982,7 +982,7 @@ class AssemblerPPC(OpAssembler):
         pmc.bc(4, 1, offset) # jump if LE (not GT)
         
         with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH.value, nursery_free_adr)
+            self.mc.load_imm(r.SCRATCH, nursery_free_adr)
             self.mc.storex(r.r1.value, 0, r.SCRATCH.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
