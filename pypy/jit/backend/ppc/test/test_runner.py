@@ -95,8 +95,7 @@ class TestPPC(LLtypeBackendTest):
             assert self.cpu.get_latest_value_int(i) == i + 1
 
     def test_unicodesetitem_really_needs_temploc(self):
-        py.test.xfail("problems with longevity")
-        u_box = self.alloc_unicode(u"abcdefg")
+        u_box = self.alloc_unicode(u"abcdsdasdsaddefg")
         
         i0 = BoxInt()
         i1 = BoxInt()
@@ -108,8 +107,9 @@ class TestPPC(LLtypeBackendTest):
         i7 = BoxInt()
         i8 = BoxInt()
         i9 = BoxInt()
+        p10 = BoxPtr()
 
-        inputargs = [i0,i1,i2,i3,i4,i5,i6,i7,i8,i9]
+        inputargs = [i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,p10]
         looptoken = JitCellToken()
         targettoken = TargetToken()
         faildescr = BasicFailDescr(1)
@@ -117,11 +117,11 @@ class TestPPC(LLtypeBackendTest):
         operations = [
             ResOperation(rop.LABEL, inputargs, None, descr=targettoken),
             ResOperation(rop.UNICODESETITEM, 
-                         [u_box, BoxInt(4), BoxInt(123)], None),
+                         [p10, i6, ConstInt(123)], None),
             ResOperation(rop.FINISH, inputargs, None, descr=faildescr)
             ]
 
-        args = [(i + 1) for i in range(10)]
+        args = [(i + 1) for i in range(10)] + [u_box.getref_base()]
         self.cpu.compile_loop(inputargs, operations, looptoken)
         fail = self.cpu.execute_token(looptoken, *args)
         assert fail.identifier == 1
