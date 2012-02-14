@@ -1806,3 +1806,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert a[0]['x'] == 13
         a[1] = (1, 2)
         assert a[1]['y'] == 2
+        b = zeros(2, dtype=[('x', int), ('y', float)])
+        b[1] = a[1]
+        assert a[1]['y'] == 2
+

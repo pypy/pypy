@@ -112,6 +112,11 @@ class W_Dtype(Wrappable):
     def is_bool_type(self):
         return self.kind == BOOLLTR
 
+    def __repr__(self):
+        if self.fields is not None:
+            return '<DType %r>' % self.fields
+        return '<DType %r>' % self.itemtype
+
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
     fields = {}

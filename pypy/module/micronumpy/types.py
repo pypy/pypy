@@ -76,6 +76,9 @@ class BaseType(object):
                              zero=True, flavor="raw",
                              track_allocation=False, add_memory_pressure=True)
 
+    def __repr__(self):
+        return self.__class__.__name__
+
 class Primitive(object):
     _mixin_ = True
 
@@ -644,6 +647,8 @@ class RecordType(CompositeType):
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item):
+        if isinstance(w_item, interp_boxes.W_VoidBox):
+            return w_item
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         # we treat every sequence as sequence, no special support
         # for arrays
@@ -663,15 +668,13 @@ class RecordType(CompositeType):
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
             width = itemtype.get_element_size()
-            import pdb
-            pdb.set_trace()
             itemtype.store(arr, width, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0)
 
     @jit.unroll_safe
     def store(self, arr, width, i, ofs, box):
         for k in range(width):
-            arr[k + i] = box.arr.storage[k + box.i]
+            arr[k + i * width] = box.arr.storage[k + box.i * width]
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
