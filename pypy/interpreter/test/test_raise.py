@@ -72,7 +72,6 @@ class AppTestRaise:
             assert sys.exc_info()[0] is ValueError
         assert sys.exc_info() == (None, None, None)
 
-
     def test_raise_with___traceback__(self):
         import sys
         try:
@@ -161,6 +160,17 @@ class AppTestRaise:
                     assert sys.exc_info()[0] is IndexError
                     assert sys.exc_info()[2].tb_next is some_traceback
         """)
+
+    def test_nested_reraise(self):
+        raises(TypeError, """
+            def nested_reraise():
+                raise
+            try:
+                raise TypeError("foo")
+            except:
+                nested_reraise()
+        """)
+
 
     def test_userclass(self):
         # new-style classes can't be raised unless they inherit from
