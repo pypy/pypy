@@ -1181,7 +1181,7 @@ class scratch_reg(object):
     def __enter__(self):
         self.mc.alloc_scratch_reg()
 
-    def __exit__(self):
+    def __exit__(self, *args):
         self.mc.free_scratch_reg()
 
 class BranchUpdater(PPCAssembler):
