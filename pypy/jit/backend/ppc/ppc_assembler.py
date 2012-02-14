@@ -415,6 +415,20 @@ class AssemblerPPC(OpAssembler):
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
 
+    def finish_once(self):
+        if self._debug:
+            debug_start('jit-backend-counts')
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
+
     @staticmethod
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
