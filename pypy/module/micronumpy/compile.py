@@ -51,6 +51,8 @@ class FakeSpace(object):
     w_long = "long"
     w_tuple = 'tuple'
     w_slice = "slice"
+    w_str = "str"
+    w_unicode = "unicode"
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -91,8 +93,12 @@ class FakeSpace(object):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
+        elif isinstance(obj, long):
+            return LongObject(obj)
         elif isinstance(obj, W_Root):
             return obj
+        elif isinstance(obj, str):
+            return StringObject(obj)
         raise NotImplementedError
 
     def newlist(self, items):
@@ -151,7 +157,13 @@ class FakeSpace(object):
         return instantiate(klass)
 
     def newtuple(self, list_w):
-        raise ValueError
+        return ListObject(list_w)
+
+    def newdict(self):
+        return {}
+
+    def setitem(self, dict, item, value):
+        dict[item] = value
 
     def len_w(self, w_obj):
         if isinstance(w_obj, ListObject):
@@ -178,6 +190,11 @@ class IntObject(W_Root):
     def __init__(self, intval):
         self.intval = intval
 
+class LongObject(W_Root):
+    tp = FakeSpace.w_long
+    def __init__(self, intval):
+        self.intval = intval
+
 class ListObject(W_Root):
     tp = FakeSpace.w_list
     def __init__(self, items):
@@ -189,6 +206,11 @@ class SliceObject(W_Root):
         self.start = start
         self.stop = stop
         self.step = step
+
+class StringObject(W_Root):
+    tp = FakeSpace.w_str
+    def __init__(self, v):
+        self.v = v
 
 class InterpreterState(object):
     def __init__(self, code):

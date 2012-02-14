@@ -927,7 +927,7 @@ class ConcreteArray(BaseArray):
 
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self, item, value)
 
     def calc_strides(self, shape):
         strides = []
@@ -1072,7 +1072,7 @@ class W_NDimArray(ConcreteArray):
     """
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self, item, value)
 
     def setshape(self, space, new_shape):
         self.shape = new_shape
@@ -1153,7 +1153,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
     # XXX we might want to have a jitdriver here
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
-        dtype.setitem(arr.storage, arr_iter.offset,
+        dtype.setitem(arr, arr_iter.offset,
                       dtype.coerce(space, w_elem))
         arr_iter = arr_iter.next(shapelen)
     return arr

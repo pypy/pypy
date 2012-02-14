@@ -142,11 +142,10 @@ class ArraySignature(ConcreteSignature):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
         assert isinstance(concr, ConcreteArray)
-        storage = concr.storage
         if self.iter_no >= len(iterlist):
             iterlist.append(concr.create_iter(transforms))
         if self.array_no >= len(arraylist):
-            arraylist.append(storage)
+            arraylist.append(concr)
 
     def eval(self, frame, arr):
         iter = frame.iterators[self.iter_no]
