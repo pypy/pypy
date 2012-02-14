@@ -1174,6 +1174,16 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                 f.write(data[i])
             f.close()
 
+class scratch_reg(object):
+    def __init__(self, mc):
+        self.mc = mc
+
+    def __enter__(self):
+        self.mc.alloc_scratch_reg()
+
+    def __exit__(self):
+        self.mc.free_scratch_reg()
+
 class BranchUpdater(PPCAssembler):
     def __init__(self):
         PPCAssembler.__init__(self)
