@@ -53,7 +53,7 @@ def _fromstring_text(space, s, count, sep, length, dtype):
 
     a = W_NDimArray(num_items, [num_items], dtype=dtype)
     for i, val in enumerate(items):
-        a.dtype.setitem(a.storage, i, val)
+        a.dtype.setitem(a, i, val)
     
     return space.wrap(a)
 
