@@ -744,6 +744,22 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         print p
         assert 'py' in p
 
+    def test_get_version(self):
+        mod = self.import_extension('foo', [
+            ('get_version', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetVersion();
+             char* name2 = Py_GetVersion();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_version()
+        print p
+        assert 'PyPy' in p
+
     def test_no_double_imports(self):
         import sys, os
         try:

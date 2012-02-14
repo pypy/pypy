@@ -32,6 +32,7 @@ PyCFunctionObjectStruct = cpython_struct(
     PyObjectFields + (
      ('m_ml', lltype.Ptr(PyMethodDef)),
      ('m_self', PyObject),
+     ('m_module', PyObject),
      ))
 PyCFunctionObject = lltype.Ptr(PyCFunctionObjectStruct)
 
@@ -47,11 +48,13 @@ def cfunction_attach(space, py_obj, w_obj):
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_func.c_m_ml = w_obj.ml
     py_func.c_m_self = make_ref(space, w_obj.w_self)
+    py_func.c_m_module = make_ref(space, w_obj.w_module)
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def cfunction_dealloc(space, py_obj):
     py_func = rffi.cast(PyCFunctionObject, py_obj)
     Py_DecRef(space, py_func.c_m_self)
+    Py_DecRef(space, py_func.c_m_module)
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 

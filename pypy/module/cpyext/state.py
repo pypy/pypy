@@ -10,6 +10,7 @@ class State:
         self.space = space
         self.reset()
         self.programname = lltype.nullptr(rffi.CCHARP.TO)
+        self.version = lltype.nullptr(rffi.CCHARP.TO)
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -101,6 +102,15 @@ class State:
             self.programname = rffi.str2charp(progname)
             lltype.render_immortal(self.programname)
         return self.programname
+
+    def get_version(self):
+        if not self.version:
+            space = self.space
+            w_version = space.sys.get('version')
+            version = space.str_w(w_version)
+            self.version = rffi.str2charp(version)
+            lltype.render_immortal(self.version)
+        return self.version
 
     def find_extension(self, name, path):
         from pypy.module.cpyext.modsupport import PyImport_AddModule
