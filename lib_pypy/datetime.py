@@ -271,8 +271,9 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_date_fields(year, month, day):
-    if not isinstance(year, (int, long)):
-        raise TypeError('int expected')
+    for value in [year, day]:
+        if not isinstance(value, (int, long)):
+            raise TypeError('int expected')
     if not MINYEAR <= year <= MAXYEAR:
         raise ValueError('year must be in %d..%d' % (MINYEAR, MAXYEAR), year)
     if not 1 <= month <= 12:
@@ -282,8 +283,9 @@ def _check_date_fields(year, month, day):
         raise ValueError('day must be in 1..%d' % dim, day)
 
 def _check_time_fields(hour, minute, second, microsecond):
-    if not isinstance(hour, (int, long)):
-        raise TypeError('int expected')
+    for value in [hour, minute, second, microsecond]:
+        if not isinstance(value, (int, long)):
+            raise TypeError('int expected')
     if not 0 <= hour <= 23:
         raise ValueError('hour must be in 0..23', hour)
     if not 0 <= minute <= 59:

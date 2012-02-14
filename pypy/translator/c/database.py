@@ -28,11 +28,13 @@ class LowLevelDatabase(object):
     gctransformer = None
 
     def __init__(self, translator=None, standalone=False,
+                 cpython_extension=False,
                  gcpolicyclass=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
         self.standalone = standalone
+        self.cpython_extension = cpython_extension
         self.sandbox    = sandbox
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
