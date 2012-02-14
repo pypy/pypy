@@ -1,6 +1,5 @@
 import sys
 
-from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi, clibffi
 
@@ -21,8 +20,7 @@ class FunctionExecutor(object):
 
     def execute(self, space, w_returntype, func, cppthis, num_args, args):
         rtype = capi.charp2str_free(capi.c_method_result_type(func.cpptype.handle, func.method_index))
-        raise OperationError(space.w_NotImplementedError,
-                             space.wrap('return type not available or supported ("%s")' % rtype))
+        raise TypeError('return type not available or supported ("%s")' % rtype)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible

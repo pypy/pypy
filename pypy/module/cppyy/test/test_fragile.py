@@ -83,7 +83,7 @@ class AppTestFRAGILE:
 
         e = fragile.E()
         raises(TypeError, e.overload, None)
-        raises(NotImplementedError, getattr, e, 'm_pp_no_such')
+        raises(TypeError, getattr, e, 'm_pp_no_such')
 
     def test05_wrong_arg_addressof(self):
         """Test addressof() error reporting"""

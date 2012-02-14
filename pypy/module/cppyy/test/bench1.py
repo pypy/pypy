@@ -64,6 +64,14 @@ class CppyyInterpBench1(object):
             addDataToInt.call(instance, None, i)
         return i
 
+class CppyyInterpBench2(CppyyInterpBench1):
+    def __call__(self):
+        addDataToInt = self.cls.get_overload("overloadedAddDataToInt")
+        instance = self.inst
+        for i in range(NNN):
+            addDataToInt.call(instance, None, i)
+        return i
+
 class CppyyPythonBench1(object):
     scale = 1
     def __init__(self):
@@ -112,14 +120,16 @@ if __name__ == '__main__':
     # warm-up
     print "warming up ... "
     interp_bench1 = CppyyInterpBench1()
+    interp_bench2 = CppyyInterpBench2()
     python_bench1 = CppyyPythonBench1()
-    interp_bench1(); python_bench1()
+    interp_bench1(); interp_bench2(); python_bench1()
 
     # to allow some consistency checking
     print "C++ reference uses %.3fs" % t_cppref
 
     # test runs ...
     print_bench("cppyy interp", run_bench(interp_bench1))
+    print_bench("... overload", run_bench(interp_bench2))
     print_bench("cppyy python", run_bench(python_bench1))
     stat, t_cintex = commands.getstatusoutput("python bench1.py --pycintex")
     print_bench("pycintex    ", float(t_cintex))

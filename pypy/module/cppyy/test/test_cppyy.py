@@ -59,7 +59,7 @@ class AppTestCPPYY:
 
         raises(TypeError, 't.get_overload("staticAddOneToInt").call(None, None, 1, [])')
         raises(TypeError, 't.get_overload("staticAddOneToInt").call(None, None, 1.)')
-        raises(OverflowError, 't.get_overload("staticAddOneToInt").call(None, None, maxint32+1)')
+        raises(TypeError, 't.get_overload("staticAddOneToInt").call(None, None, maxint32+1)')
 
     def test02_static_double(self):
         """Test passing of a double and returning of a double on a static function."""

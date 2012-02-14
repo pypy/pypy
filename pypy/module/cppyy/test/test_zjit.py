@@ -151,3 +151,23 @@ class TestFastPathJIT(LLJitMixin):
         space = FakeSpace()
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
         self.check_jitcell_token_count(1)
+
+    def test_overload(self):
+        space = FakeSpace()
+        drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
+        def f():
+            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
+            cls  = interp_cppyy.type_byname(space, "example01")
+            inst = cls.get_overload("example01").call(None, FakeReturnType(), [FakeInt(0)])
+            addDataToInt = cls.get_overload("overloadedAddDataToInt")
+            assert isinstance(inst, interp_cppyy.W_CPPInstance)
+            i = 10
+            while i > 0:
+                drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
+                addDataToInt.call(inst, None, [FakeInt(i)])
+                i -= 1
+            return 7
+        f()
+        space = FakeSpace()
+        result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
+        self.check_jitcell_token_count(1)

@@ -60,7 +60,7 @@ class AppTestPYTHONIFY:
 
         raises(TypeError, 'example01_class.staticAddOneToInt(1, [])')
         raises(TypeError, 'example01_class.staticAddOneToInt(1.)')
-        raises(OverflowError, 'example01_class.staticAddOneToInt(maxint32+1)')
+        raises(TypeError, 'example01_class.staticAddOneToInt(maxint32+1)')
         res = example01_class.staticAddToDouble(0.09)
         assert res == 0.09 + 0.01
 

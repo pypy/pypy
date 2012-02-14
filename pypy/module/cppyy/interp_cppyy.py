@@ -8,7 +8,7 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.rpython.lltypesystem import rffi, lltype
 
 from pypy.rlib import libffi, rdynload, rweakref
-from pypy.rlib import jit, debug
+from pypy.rlib import jit, debug, objectmodel
 
 from pypy.module.cppyy import converter, executor, helper
 
@@ -115,7 +115,7 @@ class CPPMethod(object):
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
-            raise OperationError(self.space.w_TypeError, self.space.wrap("wrong number of arguments"))
+            raise TypeError("wrong number of arguments")
 
         if self.methgetter and cppthis: # only for methods
             try:
@@ -264,13 +264,8 @@ class W_CPPOverload(Wrappable):
             cppyyfunc = self.functions[i]
             try:
                 return cppyyfunc.call(cppthis, w_type, args_w)
-            except OperationError, e:
-                if not (e.match(space, space.w_TypeError) or \
-                        e.match(space, space.w_NotImplementedError)):
-                    raise
+            except Exception, e:
                 errmsg += '\n\t'+str(e)
-            except KeyError:
-                pass
 
         raise OperationError(space.w_TypeError, space.wrap(errmsg))
 
@@ -314,13 +309,23 @@ class W_CPPDataMember(Wrappable):
     def get(self, w_cppinstance, w_type):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         offset = self._get_offset(cppinstance)
-        return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
+        try:
+            return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
+        except Exception, e:
+            raise OperationError(self.space.w_TypeError, self.space.wrap(str(e)))
+        except ValueError, e:
+            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         offset = self._get_offset(cppinstance)
-        self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
-        return self.space.w_None
+        try:
+            self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
+            return self.space.w_None
+        except TypeError, e:
+            raise OperationError(self.space.w_TypeError, self.space.wrap(str(e)))
+        except ValueError, e:
+            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',

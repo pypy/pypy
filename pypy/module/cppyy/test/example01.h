@@ -39,6 +39,9 @@ public:        // class-level methods
 
 public:        // instance methods
     int addDataToInt(int a);
+    int overloadedAddDataToInt(int a, int b);
+    int overloadedAddDataToInt(int a);
+    int overloadedAddDataToInt(int a, int b, int c);
     double addDataToDouble(double a);
     int addDataToAtoi(const char* str);
     char* addToStringValue(const char* str);

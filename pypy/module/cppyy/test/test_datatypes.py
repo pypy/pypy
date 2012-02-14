@@ -253,8 +253,8 @@ class AppTestDATATYPES:
         assert c.s_uchar               == 'c'
         c.s_uchar                       = 'd'
         assert cppyy_test_data.s_uchar == 'd'
-        raises(TypeError, setattr, cppyy_test_data, 's_uchar', -1)
-        raises(TypeError, setattr, c,               's_uchar', -1)
+        raises(ValueError, setattr, cppyy_test_data, 's_uchar', -1)
+        raises(ValueError, setattr, c,               's_uchar', -1)
 
         # integer types
         c.s_short                        = -102

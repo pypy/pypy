@@ -91,6 +91,18 @@ int example01::addDataToInt(int a) {
     return m_somedata + a;
 }
 
+int example01::overloadedAddDataToInt(int a, int b) {
+   return m_somedata + a + b;
+}
+
+int example01::overloadedAddDataToInt(int a) {
+   return m_somedata + a;
+}
+
+int example01::overloadedAddDataToInt(int a, int b, int c) {
+   return m_somedata + a + b + c;
+}
+
 double example01::addDataToDouble(double a) {
     return m_somedata + a;
 }
