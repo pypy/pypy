@@ -11,7 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):
         self.db = db
@@ -307,7 +306,6 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = framework.FrameworkGCTransformer
-    stores_hash_at_the_end = True
 
     def struct_setup(self, structdefnode, rtti):
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):

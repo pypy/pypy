@@ -5,7 +5,7 @@ from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStru
      VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists, FakeDescrWithSnapshot
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
@@ -81,6 +81,13 @@ class TestBasic:
         value2.intbound.make_lt(IntBound(10, 10))
         assert isgeneral(value1, value2)
         assert not isgeneral(value2, value1)
+
+        assert isgeneral(OptValue(ConstInt(7)), OptValue(ConstInt(7)))
+        S = lltype.GcStruct('S')
+        foo = lltype.malloc(S)
+        fooref = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+        assert isgeneral(OptValue(ConstPtr(fooref)),
+                         OptValue(ConstPtr(fooref)))
 
     def test_field_matching_generalization(self):
         const1 = NotVirtualStateInfo(OptValue(ConstInt(1)))

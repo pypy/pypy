@@ -2,7 +2,7 @@ from pypy.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import locations
-from pypy.jit.backend.arm.locations import imm
+from pypy.jit.backend.arm.locations import imm, get_fp_offset
 from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_unary_cmp,
                                                     prepare_op_ri,
@@ -13,7 +13,7 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     )
 from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
 from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS
-from pypy.jit.backend.arm.arch import WORD, N_REGISTERS_SAVED_BY_MALLOC
+from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         Box, BoxPtr,
@@ -27,6 +27,7 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.llsupport.descr import unpack_arraydescr
 from pypy.jit.backend.llsupport.descr import unpack_fielddescr
 from pypy.jit.backend.llsupport.descr import unpack_interiorfielddescr
+from pypy.rlib.objectmodel import we_are_translated
 
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
@@ -54,26 +55,18 @@ class TempFloat(TempBox):
         return "<TempFloat at %s>" % (id(self),)
 
 
+
 class ARMFrameManager(FrameManager):
 
     def __init__(self):
         FrameManager.__init__(self)
-        self.used = [True]  # keep first slot free
-        # XXX refactor frame to avoid this issue of keeping the first slot
-        # reserved
 
     @staticmethod
-    def frame_pos(loc, type):
-        num_words = ARMFrameManager.frame_size(type)
-        if type == FLOAT:
-            if loc > 0:
-                # Make sure that loc is an even value
-                # the frame layout requires loc to be even if it is a spilled
-                # value!!
-                assert (loc & 1) == 0
-            return locations.StackLocation(loc + 1,
-                            num_words=num_words, type=type)
-        return locations.StackLocation(loc, num_words=num_words, type=type)
+    def frame_pos(i, box_type):
+        if box_type == FLOAT:
+            return locations.StackLocation(i, get_fp_offset(i + 1), box_type)
+        else:
+            return locations.StackLocation(i, get_fp_offset(i), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -84,10 +77,7 @@ class ARMFrameManager(FrameManager):
     @staticmethod
     def get_loc_index(loc):
         assert loc.is_stack()
-        if loc.type == FLOAT:
-            return loc.position - 1
-        else:
-            return loc.position
+        return loc.position
 
 
 def void(self, op, fcond):
@@ -184,7 +174,7 @@ class ARMv7RegisterManager(RegisterManager):
             self.assembler.load(loc, immvalue)
         else:
             loc = self.make_sure_var_in_reg(thing,
-                            forbidden_vars=forbidden_vars)
+                            forbidden_vars=self.temp_boxes + forbidden_vars)
         return loc
 
     def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
@@ -286,12 +276,7 @@ class Regalloc(object):
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                          selected_reg=None, need_lower_byte=False):
-        if var.type == FLOAT:
-            return self.vfprm.make_sure_var_in_reg(var, forbidden_vars,
-                                         selected_reg, need_lower_byte)
-        else:
-            return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                                        selected_reg, need_lower_byte)
+        assert 0, 'should not be called directly'
 
     def convert_to_imm(self, value):
         if isinstance(value, ConstInt):
@@ -313,7 +298,7 @@ class Regalloc(object):
     def prepare_loop(self, inputargs, operations):
         self._prepare(inputargs, operations)
         self._set_initial_bindings(inputargs)
-        self.possibly_free_vars(list(inputargs))
+        self.possibly_free_vars(inputargs)
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
@@ -328,6 +313,7 @@ class Regalloc(object):
         count = 0
         n_register_args = len(r.argument_regs)
         cur_frame_pos = - (self.assembler.STACK_FIXED_AREA / WORD) + 1
+        cur_frame_pos = 1 - (self.assembler.STACK_FIXED_AREA // WORD)
         for box in inputargs:
             assert isinstance(box, Box)
             # handle inputargs in argument registers
@@ -410,18 +396,18 @@ class Regalloc(object):
             self.rm._sync_var(v)
 
     def _prepare_op_int_add(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         imm_a0 = check_imm_box(a0)
         imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
-            l0 = self._ensure_value_is_boxed(a0)
-            l1 = self.make_sure_var_in_reg(a1, boxes)
+            l0 = self._ensure_value_is_boxed(a0, boxes)
+            l1 = self.convert_to_imm(a1)
         elif imm_a0 and not imm_a1:
-            l0 = self.make_sure_var_in_reg(a0)
+            l0 = self.convert_to_imm(a0)
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
-            l0 = self._ensure_value_is_boxed(a0)
+            l0 = self._ensure_value_is_boxed(a0, boxes)
             l1 = self._ensure_value_is_boxed(a1, boxes)
         return [l0, l1]
 
@@ -438,9 +424,9 @@ class Regalloc(object):
         imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0, boxes)
-            l1 = self.make_sure_var_in_reg(a1, boxes)
+            l1 = self.convert_to_imm(a1)
         elif imm_a0 and not imm_a1:
-            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l0 = self.convert_to_imm(a0)
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
             l0 = self._ensure_value_is_boxed(a0, boxes)
@@ -455,7 +441,7 @@ class Regalloc(object):
         return locs + [res]
 
     def prepare_op_int_mul(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
 
         reg1 = self._ensure_value_is_boxed(a0, forbidden_vars=boxes)
@@ -558,12 +544,28 @@ class Regalloc(object):
                 args = self.prepare_op_math_sqrt(op, fcond)
                 self.assembler.emit_op_math_sqrt(op, args, self, fcond)
                 return
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        return self._prepare_call(op)
+
+    def _prepare_call(self, op, force_store=[], save_all_regs=False):
+        args = []
+        args.append(None)
+        for i in range(op.numargs()):
+            args.append(self.loc(op.getarg(i)))
+        # spill variables that need to be saved around calls
+        self.vfprm.before_call(save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
+        if op.result:
+            resloc = self.after_call(op.result)
+            args[0] = resloc
+        self.before_call_called = True
         return args
 
     def prepare_op_call_malloc_gc(self, op, fcond):
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        return args
+        return self._prepare_call(op)
 
     def _prepare_guard(self, op, args=None):
         if args is None:
@@ -597,14 +599,14 @@ class Regalloc(object):
     prepare_op_guard_isnull = prepare_op_guard_true
 
     def prepare_op_guard_value(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         imm_a1 = check_imm_box(a1)
         l0 = self._ensure_value_is_boxed(a0, boxes)
         if not imm_a1:
             l1 = self._ensure_value_is_boxed(a1, boxes)
         else:
-            l1 = self.make_sure_var_in_reg(a1, boxes)
+            l1 = self.convert_to_imm(a1)
         assert op.result is None
         arglocs = self._prepare_guard(op, [l0, l1])
         self.possibly_free_vars(op.getarglist())
@@ -620,7 +622,7 @@ class Regalloc(object):
     prepare_op_guard_not_invalidated = prepare_op_guard_no_overflow
 
     def prepare_op_guard_exception(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc = self._ensure_value_is_boxed(arg0)
         loc1 = self.get_scratch_reg(INT, boxes)
@@ -648,16 +650,17 @@ class Regalloc(object):
 
     def _prepare_guard_class(self, op, fcond):
         assert isinstance(op.getarg(0), Box)
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
 
         x = self._ensure_value_is_boxed(boxes[0], boxes)
-        y = self.get_scratch_reg(REF, forbidden_vars=boxes)
+        y = self.get_scratch_reg(INT, forbidden_vars=boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
         self.assembler.load(y, imm(y_val))
 
         offset = self.cpu.vtable_offset
         assert offset is not None
-        offset_loc = self._ensure_value_is_boxed(ConstInt(offset), boxes)
+        assert check_imm_arg(offset)
+        offset_loc = imm(offset)
         arglocs = self._prepare_guard(op, [x, y, offset_loc])
 
         return arglocs
@@ -721,14 +724,13 @@ class Regalloc(object):
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
-
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
                                  src_locations2, dst_locations2, vfptmploc)
         return []
 
     def prepare_op_setfield_gc(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0, boxes)
@@ -778,6 +780,7 @@ class Regalloc(object):
         result_loc = self.force_allocate_reg(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
+    prepare_op_getinteriorfield_raw = prepare_op_getinteriorfield_gc
 
     def prepare_op_setinteriorfield_gc(self, op, fcond):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -794,6 +797,7 @@ class Regalloc(object):
             self.assembler.load(ofs_loc, immofs)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
+    prepare_op_setinteriorfield_raw = prepare_op_setinteriorfield_gc
 
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()
@@ -807,23 +811,22 @@ class Regalloc(object):
         return [res, base_loc, imm(ofs)]
 
     def prepare_op_setarrayitem_gc(self, op, fcond):
-        a0, a1, a2 = list(op.getarglist())
         size, ofs, _ = unpack_arraydescr(op.getdescr())
         scale = get_scale(size)
         args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(a0, args)
-        ofs_loc = self._ensure_value_is_boxed(a1, args)
-        value_loc = self._ensure_value_is_boxed(a2, args)
+        base_loc = self._ensure_value_is_boxed(args[0], args)
+        ofs_loc = self._ensure_value_is_boxed(args[1], args)
+        value_loc = self._ensure_value_is_boxed(args[2], args)
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
 
     def prepare_op_getarrayitem_gc(self, op, fcond):
-        a0, a1 = boxes = list(op.getarglist())
+        boxes = op.getarglist()
         size, ofs, _ = unpack_arraydescr(op.getdescr())
         scale = get_scale(size)
-        base_loc = self._ensure_value_is_boxed(a0, boxes)
-        ofs_loc = self._ensure_value_is_boxed(a1, boxes)
+        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
+        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
@@ -853,13 +856,13 @@ class Regalloc(object):
         return [l0, l1, res]
 
     def prepare_op_strgetitem(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0])
 
         a1 = boxes[1]
         imm_a1 = check_imm_box(a1)
         if imm_a1:
-            ofs_loc = self.make_sure_var_in_reg(a1, boxes)
+            ofs_loc = self.convert_to_imm(a1)
         else:
             ofs_loc = self._ensure_value_is_boxed(a1, boxes)
 
@@ -873,7 +876,7 @@ class Regalloc(object):
         return [res, base_loc, ofs_loc, imm(basesize)]
 
     def prepare_op_strsetitem(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
@@ -902,7 +905,7 @@ class Regalloc(object):
         return [l0, l1, res]
 
     def prepare_op_unicodegetitem(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
 
@@ -917,7 +920,7 @@ class Regalloc(object):
             imm(scale), imm(basesize), imm(itemsize)]
 
     def prepare_op_unicodesetitem(self, op, fcond):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
         ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
         value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
@@ -931,7 +934,7 @@ class Regalloc(object):
         arg = op.getarg(0)
         imm_arg = check_imm_box(arg)
         if imm_arg:
-            argloc = self.make_sure_var_in_reg(arg)
+            argloc = self.convert_to_imm(arg)
         else:
             argloc = self._ensure_value_is_boxed(arg)
         self.possibly_free_vars_for_op(op)
@@ -952,20 +955,14 @@ class Regalloc(object):
         self.rm.force_allocate_reg(t, selected_reg=r.r1)
         self.possibly_free_var(op.result)
         self.possibly_free_var(t)
-
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        self.assembler.malloc_cond(
-            gc_ll_descr.get_nursery_free_addr(),
-            gc_ll_descr.get_nursery_top_addr(),
-            size
-            )
+        return [imm(size)]
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(False)
         for v, val in self.frame_manager.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
-                gcrootmap.add_frame_offset(shape, val.position * -WORD)
+                gcrootmap.add_frame_offset(shape, -val.value)
         for v, reg in self.rm.reg_bindings.items():
             if reg is r.r0:
                 continue
@@ -981,18 +978,31 @@ class Regalloc(object):
 
     prepare_op_debug_merge_point = void
     prepare_op_jit_debug = void
+    prepare_keepalive = void
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
         N = op.numargs()
-        # we force all arguments in a reg (unless they are Consts),
-        # because it will be needed anyway by the following setfield_gc
-        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        # we force all arguments in a reg because it will be needed anyway by
+        # the following setfield_gc or setarrayitem_gc. It avoids loading it
+        # twice from the memory.
         arglocs = []
         args = op.getarglist()
         for i in range(N):
             loc = self._ensure_value_is_boxed(op.getarg(i), args)
             arglocs.append(loc)
+        card_marking = False
+        if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
+            descr = op.getdescr()
+            if we_are_translated():
+                cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+                assert cls is not None and isinstance(descr, cls)
+            card_marking = descr.jit_wb_cards_set != 0
+        if card_marking:  # allocate scratch registers
+            tmp1 = self.get_scratch_reg(INT)
+            tmp2 = self.get_scratch_reg(INT)
+            arglocs.append(tmp1)
+            arglocs.append(tmp2)
         return arglocs
 
     prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
@@ -1003,7 +1013,6 @@ class Regalloc(object):
         return [res_loc]
 
     def prepare_op_label(self, op, fcond):
-        # XXX big refactoring needed?
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         inputargs = op.getarglist()
@@ -1043,57 +1052,25 @@ class Regalloc(object):
             self._compute_hint_frame_locations_from_descr(descr)
 
     def prepare_guard_call_may_force(self, op, guard_op, fcond):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self.assembler._write_fail_index(fail_index)
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        for v in guard_op.getfailargs():
-            if v in self.rm.reg_bindings or v in self.vfprm.reg_bindings:
-                self.force_spill_var(v)
-        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
-        locs = self._prepare_guard(guard_op)
-        self.possibly_free_vars(guard_op.getfailargs())
-        return locs
-
-    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap:
-            arglocs = []
-            args = op.getarglist()
-            for i in range(op.numargs()):
-                loc = self._ensure_value_is_boxed(op.getarg(i), args)
-                arglocs.append(loc)
-            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
-        # do the call
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
-        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
-        # then reopen the stack
-        if gcrootmap:
-            if op.result:
-                result_loc = self.call_result_location(op.result)
-            else:
-                result_loc = None
-            self.assembler.call_reacquire_gil(gcrootmap, result_loc, fcond)
-        locs = self._prepare_guard(guard_op)
-        return locs
+        args = self._prepare_call(op, save_all_regs=True)
+        return self._prepare_guard(guard_op, args)
+    prepare_guard_call_release_gil = prepare_guard_call_may_force
 
     def prepare_guard_call_assembler(self, op, guard_op, fcond):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        size = jd.portal_calldescr.get_result_size()
         vable_index = jd.index_of_virtualizable
         if vable_index >= 0:
             self._sync_var(op.getarg(vable_index))
             vable = self.frame_manager.loc(op.getarg(vable_index))
         else:
             vable = imm(0)
+        # make sure the call result location is free
+        tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         self.possibly_free_vars(guard_op.getfailargs())
-        return [imm(size), vable]
+        return [vable, tmploc] + self._prepare_call(op, save_all_regs=True)
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -1176,10 +1153,13 @@ def add_none_argument(fn):
 
 
 def notimplemented(self, op, fcond):
+    print "[ARM/regalloc] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 
 def notimplemented_with_guard(self, op, guard_op, fcond):
+    print "[ARM/regalloc] %s with guard %s not implemented" % \
+                        (op.getopname(), guard_op.getopname())
     raise NotImplementedError(op)
 
 operations = [notimplemented] * (rop._LAST + 1)

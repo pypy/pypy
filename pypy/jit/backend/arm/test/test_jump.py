@@ -176,8 +176,8 @@ class TestJump(object):
 
 def test_random_mixed():
     assembler = MockAssembler()
-    registers1 = [r0, r1, r2]
-    registers2 = [d0, d1, d2]
+    registers1 = all_regs
+    registers2 = all_vfp_regs
     VFPWORDS = 2
     #
     def pick1():
@@ -233,18 +233,17 @@ def test_random_mixed():
             elif loc.is_stack():
                 stack[loc.position] = 'value-width%d-%d' % (loc.width, i)
                 if loc.width > WORD:
-                    stack[loc.position-1] = 'value-hiword-%d' % i
+                    stack[loc.position+1] = 'value-hiword-%d' % i
             else:
                 assert loc.is_imm() or loc.is_imm_float()
         return regs1, regs2, stack
     #
-    for i in range(1):#range(500):
+    for i in range(500):
         seen = {}
         src_locations2 = [pick2() for i in range(4)]
         dst_locations2 = pick_dst(pick2, 4, seen)
         src_locations1 = [pick1c() for i in range(5)]
         dst_locations1 = pick_dst(pick1, 5, seen)
-        #import pdb; pdb.set_trace()
         assembler = MockAssembler()
         remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, ip,
@@ -263,7 +262,7 @@ def test_random_mixed():
             elif loc.is_stack():
                 got = stack[loc.position]
                 if loc.width > WORD:
-                    got = (got, stack[loc.position-1])
+                    got = (got, stack[loc.position+1])
                 return got
             if loc.is_imm() or loc.is_imm_float():
                 return 'const-%d' % loc.value
@@ -278,7 +277,7 @@ def test_random_mixed():
                 if loc.width > WORD:
                     newval1, newval2 = newvalue
                     stack[loc.position] = newval1
-                    stack[loc.position-1] = newval2
+                    stack[loc.position+1] = newval2
                 else:
                     stack[loc.position] = newvalue
             else:

@@ -4,6 +4,7 @@ from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            parse_log_counts)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
+from pypy.jit.backend.detect_cpu import autodetect_main_model
 
 def parse(input, **kwds):
     return SimpleParser.parse_from_input(input, **kwds)
@@ -188,6 +189,8 @@ def test_parsing_strliteral():
     assert chunk.bytecode_name.startswith('StrLiteralSearch')
 
 def test_parsing_assembler():
+    if not autodetect_main_model() == 'x86':
+        py.test.skip('x86 only test')
     backend_dump = "554889E5534154415541564157488DA500000000488B042590C5540148C7042590C554010000000048898570FFFFFF488B042598C5540148C7042598C554010000000048898568FFFFFF488B0425A0C5540148C70425A0C554010000000048898560FFFFFF488B0425A8C5540148C70425A8C554010000000048898558FFFFFF4C8B3C2550525B0149BB30E06C96FC7F00004D8B334983C60149BB30E06C96FC7F00004D89334981FF102700000F8D000000004983C7014C8B342580F76A024983EE014C89342580F76A024983FE000F8C00000000E9AEFFFFFF488B042588F76A024829E0483B042580EC3C01760D49BB05F30894FC7F000041FFD3554889E5534154415541564157488DA550FFFFFF4889BD70FFFFFF4889B568FFFFFF48899560FFFFFF48898D58FFFFFF4D89C7E954FFFFFF49BB00F00894FC7F000041FFD34440484C3D030300000049BB00F00894FC7F000041FFD34440484C3D070304000000"
     dump_start = 0x7f3b0b2e63d5
     loop = parse("""
@@ -214,7 +217,63 @@ def test_parsing_assembler():
     assert '0x2710' in cmp.asm
     assert 'jmp' in loop.operations[-1].asm
 
+def test_parsing_arm_assembler():
+    if not autodetect_main_model() == 'arm':
+        py.test.skip('ARM only test')
+    backend_dump = "F04F2DE9108B2DED2CD04DE20DB0A0E17CC302E3DFC040E300409CE5085084E2086000E3006084E504B084E500508CE508D04BE20000A0E10000A0E1B0A10DE30EA044E300A09AE501A08AE2B0910DE30E9044E300A089E5C0910DE30E9044E3009099E5019089E2C0A10DE30EA044E300908AE5010050E1700020E124A092E500C08AE00C90DCE5288000E3090058E10180A0030080A013297000E3090057E10170A0030070A013077088E1200059E30180A0030080A013099049E2050059E30190A0330090A023099088E1000059E30190A0130090A003099087E1000059E3700020E1010080E204200BE5D0210DE30E2044E3002092E5012082E2D0910DE30E9044E3002089E5010050E1700020E100C08AE00C90DCE5282000E3090052E10120A0030020A013297000E3090057E10170A0030070A013077082E1200059E30120A0030020A013099049E2050059E30190A0330090A023099082E1000059E30190A0130090A003099087E1000059E3700020E1010080E20D005BE10FF0A0A1700020E1D8FFFFEA68C100E301C04BE33CFF2FE105010803560000000000000068C100E301C04BE33CFF2FE105010803570000000000000068C100E301C04BE33CFF2FE105014003580000000000000068C100E301C04BE33CFF2FE1050140035900000000000000"
+    dump_start = int(-0x4ffee930)
+    loop = parse("""
+# Loop 5 (re StrMatchIn at 92 [17, 4, 0, 20, 393237, 21, 0, 29, 9, 1, 65535, 15, 4, 9, 3, 0, 1, 21, 1, 29, 9, 1, 65535, 15, 4, 9, 2, 0, 1, 1...) : loop with 38 ops
+[i0, i1, p2]
++88: label(i0, i1, p2, descr=TargetToken(1081858608))
+debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
++116: i3 = int_lt(i0, i1)
+guard_true(i3, descr=<Guard86>) [i1, i0, p2]
++124: p4 = getfield_gc(p2, descr=<FieldP pypy.rlib.rsre.rsre_core.StrMatchContext.inst__string 36>)
++128: i5 = strgetitem(p4, i0)
++136: i7 = int_eq(40, i5)
++152: i9 = int_eq(41, i5)
++168: i10 = int_or(i7, i9)
++172: i12 = int_eq(i5, 32)
++184: i14 = int_sub(i5, 9)
++188: i16 = uint_lt(i14, 5)
++200: i17 = int_or(i12, i16)
++204: i18 = int_is_true(i17)
++216: i19 = int_or(i10, i18)
++220: i20 = int_is_true(i19)
+guard_false(i20, descr=<Guard87>) [i1, i0, p2]
++228: i22 = int_add(i0, 1)
+debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
++232: label(i22, i1, p2, p4, descr=TargetToken(1081858656))
+debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
++264: i23 = int_lt(i22, i1)
+guard_true(i23, descr=<Guard88>) [i1, i22, p2]
++272: i24 = strgetitem(p4, i22)
++280: i25 = int_eq(40, i24)
++296: i26 = int_eq(41, i24)
++312: i27 = int_or(i25, i26)
++316: i28 = int_eq(i24, 32)
++328: i29 = int_sub(i24, 9)
++332: i30 = uint_lt(i29, 5)
++344: i31 = int_or(i28, i30)
++348: i32 = int_is_true(i31)
++360: i33 = int_or(i27, i32)
++364: i34 = int_is_true(i33)
+guard_false(i34, descr=<Guard89>) [i1, i22, p2]
++372: i35 = int_add(i22, 1)
+debug_merge_point(0, 're StrMatchIn at 92 [17. 4. 0. 20. 393237. 21. 0. 29. 9. 1. 65535. 15. 4. 9. 3. 0. 1. 21. 1. 29. 9. 1. 65535. 15. 4. 9. 2. 0. 1. 1...')
++376: jump(i35, i1, p2, p4, descr=TargetToken(1081858656))
++392: --end of the loop--""", backend_dump=backend_dump,
+                 dump_start=dump_start,
+                 backend_tp='arm_32')
+    cmp = loop.operations[2]
+    assert 'cmp' in cmp.asm
+    assert 'bkpt' in loop.operations[-1].asm # the guard that would be patched
+
+
 def test_import_log():
+    if not autodetect_main_model() == 'x86':
+        py.test.skip('x86 only test')
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest.log')))
     for loop in loops:
@@ -222,6 +281,8 @@ def test_import_log():
     assert 'jge' in loops[0].operations[3].asm
 
 def test_import_log_2():
+    if not autodetect_main_model() == 'x86':
+        py.test.skip('x86 only test')
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest2.log')))
     for loop in loops:
@@ -283,3 +344,13 @@ def test_parse_log_counts():
     assert loops[-1].count == 1234
     assert loops[1].count == 123
     assert loops[2].count == 12
+
+def test_parse_nonpython():
+    loop = parse("""
+    []
+    debug_merge_point(0, 'random')
+    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert f.chunks[-1].filename == 'x.py'
+    assert f.filename is None

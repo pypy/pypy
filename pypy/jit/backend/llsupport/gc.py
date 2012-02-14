@@ -394,13 +394,13 @@ class GcRootMap_shadowstack(object):
     This is the class supporting --gcrootfinder=shadowstack.
     """
     is_shadow_stack = True
-    MARKER = 8
+    MARKER_FRAME = 8       # this marker now *follows* the frame addr
 
     # The "shadowstack" is a portable way in which the GC finds the
     # roots that live in the stack.  Normally it is just a list of
     # pointers to GC objects.  The pointers may be moved around by a GC
-    # collection.  But with the JIT, an entry can also be MARKER, in
-    # which case the next entry points to an assembler stack frame.
+    # collection.  But with the JIT, an entry can also be MARKER_FRAME,
+    # in which case the previous entry points to an assembler stack frame.
     # During a residual CALL from the assembler (which may indirectly
     # call the GC), we use the force_index stored in the assembler
     # stack frame to identify the call: we can go from the force_index
@@ -433,11 +433,16 @@ class GcRootMap_shadowstack(object):
         class RootIterator:
             _alloc_flavor_ = "raw"
 
-            def next(iself, gc, next, range_highest):
-                # Return the "next" valid GC object' address.  This usually
-                # means just returning "next", until we reach "range_highest",
-                # except that we are skipping NULLs.  If "next" contains a
-                # MARKER instead, then we go into JIT-frame-lookup mode.
+            def setcontext(iself, context):
+                iself.context = context
+
+            def nextleft(iself, gc, range_lowest, prev):
+                # Return the next valid GC object's address, in right-to-left
+                # order from the shadowstack array.  This usually means just
+                # returning "prev - sizeofaddr", until we reach "range_lowest",
+                # except that we are skipping NULLs.  If "prev - sizeofaddr"
+                # contains a MARKER_FRAME instead, then we go into
+                # JIT-frame-lookup mode.
                 #
                 while True:
                     #
@@ -446,20 +451,20 @@ class GcRootMap_shadowstack(object):
                         #
                         # Look for the next shadowstack address that
                         # contains a valid pointer
-                        while next != range_highest:
-                            if next.signed[0] == self.MARKER:
+                        while prev != range_lowest:
+                            prev -= llmemory.sizeof(llmemory.Address)
+                            if prev.signed[0] == self.MARKER_FRAME:
                                 break
-                            if gc.points_to_valid_gc_object(next):
-                                return next
-                            next += llmemory.sizeof(llmemory.Address)
+                            if gc.points_to_valid_gc_object(prev):
+                                return prev
                         else:
                             return llmemory.NULL     # done
                         #
-                        # It's a JIT frame.  Save away 'next' for later, and
+                        # It's a JIT frame.  Save away 'prev' for later, and
                         # go into JIT-frame-exploring mode.
-                        next += llmemory.sizeof(llmemory.Address)
-                        frame_addr = next.signed[0]
-                        iself.saved_next = next
+                        prev -= llmemory.sizeof(llmemory.Address)
+                        frame_addr = prev.signed[0]
+                        iself.saved_prev = prev
                         iself.frame_addr = frame_addr
                         addr = llmemory.cast_int_to_adr(frame_addr +
                                                         self.force_index_ofs)
@@ -499,8 +504,7 @@ class GcRootMap_shadowstack(object):
                     #
                     # Restore 'prev' and loop back to the start.
                     iself.frame_addr = 0
-                    next = iself.saved_next
-                    next += llmemory.sizeof(llmemory.Address)
+                    prev = iself.saved_prev
 
         # ---------------
         #

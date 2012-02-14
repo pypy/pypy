@@ -130,18 +130,28 @@ class Symbolic(object):
         if self is other:
             return 0
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __hash__(self):
-        raise TypeError("Symbolics are not hashable!")
+        raise TypeError("Symbolics are not hashable! %r" % (self,))
 
     def __nonzero__(self):
-        raise TypeError("Symbolics are not comparable")
+        raise TypeError("Symbolics are not comparable! %r" % (self,))
 
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):
         self.compute_fn = compute_fn
+
+    def __repr__(self):
+        # repr(self.compute_fn) can arrive back here in an
+        # infinite recursion
+        try:
+            name = self.compute_fn.__name__
+        except (AttributeError, TypeError):
+            name = hex(id(self.compute_fn))
+        return '%s(%r)' % (self.__class__.__name__, name)
 
     def annotation(self):
         from pypy.annotation import model
@@ -156,6 +166,9 @@ class CDefinedIntSymbolic(Symbolic):
     def __init__(self, expr, default=0):
         self.expr = expr
         self.default = default
+
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.expr)
 
     def annotation(self):
         from pypy.annotation import model
@@ -420,7 +433,7 @@ class Entry(ExtRegistryEntry):
                   vobj.concretetype.TO._gckind == 'gc')
         else:
             from pypy.rpython.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.Instance)
+            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
         if not ok:
             from pypy.rpython.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"

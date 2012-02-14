@@ -1,5 +1,5 @@
 from pypy.jit.metainterp.history import INT, FLOAT
-from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.arch import WORD, DOUBLE_WORD
 
 
 class AssemblerLocation(object):
@@ -80,9 +80,6 @@ class ImmLocation(AssemblerLocation):
     def is_imm(self):
         return True
 
-    def as_key(self):
-        return self.value + 40
-
 
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
@@ -104,15 +101,19 @@ class ConstFloatLoc(AssemblerLocation):
         return True
 
     def as_key(self):
-        return -1 * self.value
+        return self.value
 
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True
 
-    def __init__(self, position, num_words=1, type=INT):
+    def __init__(self, position, fp_offset, type=INT):
+        if type == FLOAT:
+            self.width = DOUBLE_WORD
+        else:
+            self.width = WORD
         self.position = position
-        self.width = num_words * WORD
+        self.value = fp_offset
         self.type = type
 
     def __repr__(self):
@@ -128,8 +129,16 @@ class StackLocation(AssemblerLocation):
         return True
 
     def as_key(self):
-        return -self.position
+        return self.position + 10000
 
 
 def imm(i):
     return ImmLocation(i)
+
+
+def get_fp_offset(i):
+    if i >= 0:
+        # Take the FORCE_TOKEN into account
+        return (1 + i) * WORD
+    else:
+        return i * WORD

@@ -974,13 +974,13 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.in_recursion,
+        self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.portal_call_depth,
                                greenboxes)
         
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
-            if self.metainterp.in_recursion or not self.metainterp.get_procedure_token(greenboxes, True):
+            if self.metainterp.portal_call_depth or not self.metainterp.get_procedure_token(greenboxes, True):
                 if not jitdriver_sd.no_loop_header:
                     return
             # automatically add a loop_header if there is none
@@ -992,7 +992,7 @@ class MIFrame(object):
         self.metainterp.seen_loop_header_for_jdindex = -1
 
         #
-        if not self.metainterp.in_recursion:
+        if not self.metainterp.portal_call_depth:
             assert jitdriver_sd is self.metainterp.jitdriver_sd
             # Set self.pc to point to jit_merge_point instead of just after:
             # if reached_loop_header() raises SwitchToBlackhole, then the
@@ -1028,11 +1028,11 @@ class MIFrame(object):
                                     assembler_call=True)
             raise ChangeFrame
 
-    def debug_merge_point(self, jitdriver_sd, jd_index, in_recursion, greenkey):
+    def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
         loc = jitdriver_sd.warmstate.get_location_str(greenkey)
         debug_print(loc)
-        args = [ConstInt(jd_index), ConstInt(in_recursion)] + greenkey
+        args = [ConstInt(jd_index), ConstInt(portal_call_depth)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
@@ -1346,12 +1346,16 @@ class MIFrame(object):
             resbox = self.metainterp.execute_and_record_varargs(
                 rop.CALL_MAY_FORCE, allboxes, descr=descr)
             self.metainterp.vrefs_after_residual_call()
+            vablebox = None
             if assembler_call:
-                self.metainterp.direct_assembler_call(assembler_call_jd)
+                vablebox = self.metainterp.direct_assembler_call(
+                    assembler_call_jd)
             if resbox is not None:
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call()
             self.generate_guard(rop.GUARD_NOT_FORCED, None)
+            if vablebox is not None:
+                self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
             self.metainterp.handle_possible_exception()
             return resbox
         else:
@@ -1552,7 +1556,8 @@ class MetaInterpGlobalData(object):
 # ____________________________________________________________
 
 class MetaInterp(object):
-    in_recursion = 0
+    portal_call_depth = 0
+    cancel_count = 0
 
     def __init__(self, staticdata, jitdriver_sd):
         self.staticdata = staticdata
@@ -1586,7 +1591,7 @@ class MetaInterp(object):
 
     def newframe(self, jitcode, greenkey=None):
         if jitcode.is_portal:
-            self.in_recursion += 1
+            self.portal_call_depth += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (greenkey, len(self.history.operations)))
@@ -1602,7 +1607,7 @@ class MetaInterp(object):
         frame = self.framestack.pop()
         jitcode = frame.jitcode
         if jitcode.is_portal:
-            self.in_recursion -= 1
+            self.portal_call_depth -= 1
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (None, len(self.history.operations)))
@@ -1661,17 +1666,17 @@ class MetaInterp(object):
         raise self.staticdata.ExitFrameWithExceptionRef(self.cpu, excvaluebox.getref_base())
 
     def check_recursion_invariant(self):
-        in_recursion = -1
+        portal_call_depth = -1
         for frame in self.framestack:
             jitcode = frame.jitcode
             assert jitcode.is_portal == len([
                 jd for jd in self.staticdata.jitdrivers_sd
                    if jd.mainjitcode is jitcode])
             if jitcode.is_portal:
-                in_recursion += 1
-        if in_recursion != self.in_recursion:
-            print "in_recursion problem!!!"
-            print in_recursion, self.in_recursion
+                portal_call_depth += 1
+        if portal_call_depth != self.portal_call_depth:
+            print "portal_call_depth problem!!!"
+            print portal_call_depth, self.portal_call_depth
             for frame in self.framestack:
                 jitcode = frame.jitcode
                 if jitcode.is_portal:
@@ -1793,6 +1798,15 @@ class MetaInterp(object):
     def aborted_tracing(self, reason):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
+        jd_sd = self.jitdriver_sd
+        if not self.current_merge_points:
+            greenkey = None # we're in the bridge
+        else:
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
+                                                          jd_sd.jitdriver,
+                                                          greenkey,
+                                                          jd_sd.warmstate.get_location_str(greenkey))
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
@@ -1966,9 +1980,14 @@ class MetaInterp(object):
                         raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
+                self.cancel_count += 1
+                if self.staticdata.warmrunnerdesc:
+                    memmgr = self.staticdata.warmrunnerdesc.memory_manager
+                    if memmgr:
+                        if self.cancel_count > memmgr.max_unroll_loops:
+                            self.staticdata.log('cancelled too many times!')
+                            raise SwitchToBlackhole(ABORT_BAD_LOOP)
                 self.staticdata.log('cancelled, tracing more...')
-                #self.staticdata.log('cancelled, stopping tracing')
-                #raise SwitchToBlackhole(ABORT_BAD_LOOP)
 
         # Otherwise, no loop found so far, so continue tracing.
         start = len(self.history.operations)
@@ -2168,11 +2187,11 @@ class MetaInterp(object):
 
     def initialize_state_from_start(self, original_boxes):
         # ----- make a new frame -----
-        self.in_recursion = -1 # always one portal around
+        self.portal_call_depth = -1 # always one portal around
         self.framestack = []
         f = self.newframe(self.jitdriver_sd.mainjitcode)
         f.setup_call(original_boxes)
-        assert self.in_recursion == 0
+        assert self.portal_call_depth == 0
         self.virtualref_boxes = []
         self.initialize_withgreenfields(original_boxes)
         self.initialize_virtualizable(original_boxes)
@@ -2183,7 +2202,7 @@ class MetaInterp(object):
         # otherwise the jit_virtual_refs are left in a dangling state.
         rstack._stack_criticalcode_start()
         try:
-            self.in_recursion = -1 # always one portal around
+            self.portal_call_depth = -1 # always one portal around
             self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr)
             self.history.inputargs = [box for box in inputargs_and_holes if box]
@@ -2463,6 +2482,15 @@ class MetaInterp(object):
         token = warmrunnerstate.get_assembler_token(greenargs)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
         self.history.operations.append(op)
+        #
+        # To fix an obscure issue, make sure the vable stays alive
+        # longer than the CALL_ASSEMBLER operation.  We do it by
+        # inserting explicitly an extra KEEPALIVE operation.
+        jd = token.outermost_jitdriver_sd
+        if jd.index_of_virtualizable >= 0:
+            return args[jd.index_of_virtualizable]
+        else:
+            return None
 
 # ____________________________________________________________
 

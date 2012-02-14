@@ -141,42 +141,27 @@ def gen_emit_float_cmp_op_guard(name, true_cond):
     f.__name__ = 'emit_guard_%s' % name
     return f
 
+
 class saved_registers(object):
-    def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None, regalloc=None):
-        assert regalloc is None
-        self.assembler = assembler
-        self.regalloc = None
+    def __init__(self, cb, regs_to_save, vfp_regs_to_save=None):
+        self.cb = cb
         if vfp_regs_to_save is None:
             vfp_regs_to_save = []
-        if self.regalloc:
-            self._filter_regs(regs_to_save, vfp_regs_to_save)
-        else:
-            self.regs = regs_to_save
-            self.vfp_regs = vfp_regs_to_save
+        self.regs = regs_to_save
+        self.vfp_regs = vfp_regs_to_save
 
     def __enter__(self):
         if len(self.regs) > 0:
-            self.assembler.PUSH([r.value for r in self.regs])
+            self.cb.PUSH([r.value for r in self.regs])
         if len(self.vfp_regs) > 0:
-            self.assembler.VPUSH([r.value for r in self.vfp_regs])
+            self.cb.VPUSH([r.value for r in self.vfp_regs])
 
     def __exit__(self, *args):
         if len(self.vfp_regs) > 0:
-            self.assembler.VPOP([r.value for r in self.vfp_regs])
+            self.cb.VPOP([r.value for r in self.vfp_regs])
         if len(self.regs) > 0:
-            self.assembler.POP([r.value for r in self.regs])
+            self.cb.POP([r.value for r in self.regs])
 
-    def _filter_regs(self, regs_to_save, vfp_regs_to_save):
-        regs = []
-        for box, reg in self.regalloc.rm.reg_bindings.iteritems():
-            if reg is r.ip or (reg in regs_to_save and self.regalloc.stays_alive(box)):
-                regs.append(reg)
-        self.regs = regs
-        regs = []
-        for box, reg in self.regalloc.vfprm.reg_bindings.iteritems():
-            if reg in vfp_regs_to_save and self.regalloc.stays_alive(box):
-                regs.append(reg)
-        self.vfp_regs = regs
 def count_reg_args(args):
     reg_args = 0
     words = 0
@@ -195,25 +180,3 @@ def count_reg_args(args):
             reg_args = x
             break
     return reg_args
-
-def decode32(mem, index):
-    return intmask(ord(mem[index])
-            | ord(mem[index+1]) << 8
-            | ord(mem[index+2]) << 16
-            | ord(mem[index+3]) << 24)
-
-def decode64(mem, index):
-    low = decode32(mem, index)
-    index += 4
-    high = decode32(mem, index)
-    return (r_longlong(high) << 32) | r_longlong(r_uint(low))
-
-def encode32(mem, i, n):
-    mem[i] = chr(n & 0xFF)
-    mem[i+1] = chr((n >> 8) & 0xFF)
-    mem[i+2] = chr((n >> 16) & 0xFF)
-    mem[i+3] = chr((n >> 24) & 0xFF)
-
-def encode64(mem, i, n):
-    for x in range(8):
-        mem[i+x] = chr((n >> (x*8)) & 0xFF)

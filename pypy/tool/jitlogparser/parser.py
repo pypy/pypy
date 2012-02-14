@@ -65,9 +65,11 @@ class SimpleParser(OpParser):
             asm = []
             start = 0
             for elem in raw_asm:
-                if len(elem.split("\t")) != 3:
+                if len(elem.split("\t")) < 3:
                     continue
-                adr, _, v = elem.split("\t")
+                e = elem.split("\t")
+                adr = e[0]
+                v = " ".join(e[2:])
                 if not start:
                     start = int(adr.strip(":"), 16)
                 ofs = int(adr.strip(":"), 16) - start
@@ -95,7 +97,7 @@ class SimpleParser(OpParser):
         return loop
                     
     def _asm_disassemble(self, d, origin_addr, tp):
-        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        from pypy.jit.backend.tool.viewcode import machine_code_dump
         return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod
@@ -140,13 +142,15 @@ class TraceForOpcode(object):
     bytecode_name = None
     is_bytecode = True
     inline_level = None
+    has_dmp = False
 
     def parse_code_data(self, arg):
         m = re.search('<code object ([<>\w]+)[\.,] file \'(.+?)\'[\.,] line (\d+)> #(\d+) (\w+)',
                       arg)
         if m is None:
             # a non-code loop, like StrLiteralSearch or something
-            self.bytecode_name = arg
+            if arg:
+                self.bytecode_name = arg
         else:
             self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
             self.startlineno = int(lineno)
@@ -218,7 +222,7 @@ class Function(object):
         self.inputargs = inputargs
         self.chunks = chunks
         for chunk in self.chunks:
-            if chunk.filename is not None:
+            if chunk.bytecode_name is not None:
                 self.startlineno = chunk.startlineno
                 self.filename = chunk.filename
                 self.name = chunk.name
@@ -384,6 +388,8 @@ def import_log(logname, ParserCls=SimpleParser):
         if comm.startswith('# bridge'):
             m = re.search('guard \d+', comm)
             name = m.group(0)
+        elif "(" in name:
+            name = comm[2:comm.find('(')-1]
         else:
             name = comm[2:comm.find(':')-1]
         if name in dumps:

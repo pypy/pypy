@@ -245,3 +245,28 @@ class TestRunner(object):
         a -> 3
         """)
         assert interp.results[0].value == 11
+
+    def test_dot(self):
+        interp = self.run("""
+        a = [[1, 2], [3, 4]]
+        b = [[5, 6], [7, 8]]
+        c = dot(a, b)
+        c -> 0 -> 0
+        """)
+        assert interp.results[0].value == 19
+
+    def test_flat_iter(self):
+        interp = self.run('''
+        a = |30|
+        b = flat(a)
+        b -> 3
+        ''')
+        assert interp.results[0].value == 3
+
+    def test_take(self):
+        interp = self.run("""
+        a = |10|
+        b = take(a, [1, 1, 3, 2])
+        b -> 2
+        """)
+        assert interp.results[0].value == 3

@@ -128,3 +128,6 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         module.setslice(l, None)
         assert l == [0, 4, 5]
 
+        l = [1, 2, 3]
+        module.setlistitem(l,0)
+        assert l == [None, 2, 3]

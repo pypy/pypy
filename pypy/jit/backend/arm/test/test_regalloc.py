@@ -151,20 +151,20 @@ class BaseTestRegalloc(object):
         loop = self.parse(ops)
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        args = []
+        arguments = []
         for arg in args:
             if isinstance(arg, int):
-                args.append(arg)
+                arguments.append(arg)
             elif isinstance(arg, float):
                 arg = longlong.getfloatstorage(arg)
-                args.append(arg)
+                arguments.append(arg)
             else:
                 assert isinstance(lltype.typeOf(arg), lltype.Ptr)
                 llgcref = lltype.cast_opaque_ptr(llmemory.GCREF, arg)
-                args.append(llgcref)
+                arguments.append(llgcref)
         loop._jitcelltoken = looptoken
         if run:
-            self.cpu.execute_token(looptoken, *args)
+            self.cpu.execute_token(looptoken, *arguments)
         return loop
 
     def prepare_loop(self, ops):
@@ -178,14 +178,15 @@ class BaseTestRegalloc(object):
         return self.cpu.get_latest_value_int(index)
 
     def getfloat(self, index):
-        return self.cpu.get_latest_value_float(index)
+        v = self.cpu.get_latest_value_float(index)
+        return longlong.getrealfloat(v)
 
     def getints(self, end):
         return [self.cpu.get_latest_value_int(index) for
                 index in range(0, end)]
 
     def getfloats(self, end):
-        return [self.cpu.get_latest_value_float(index) for
+        return [self.getfloat(index) for
                 index in range(0, end)]
 
     def getptr(self, index, T):
@@ -229,9 +230,9 @@ class TestRegallocSimple(BaseTestRegalloc):
         guard_true(i5) [i4, i1, i2, i3]
         jump(i4, i1, i2, i3, descr=targettoken)
         '''
-        self.interpret(ops, [0, 0, 0, 0])
+        loop = self.interpret(ops, [0, 0, 0, 0])
         ops2 = '''
-        [i5]
+        [i5, i6, i7, i8]
         label(i5, descr=targettoken2)
         i1 = int_add(i5, 1)
         i3 = int_add(i1, 1)
@@ -240,13 +241,13 @@ class TestRegallocSimple(BaseTestRegalloc):
         guard_true(i2) [i4]
         jump(i4, descr=targettoken2)
         '''
-        loop2 = self.interpret(ops2, [0])
+        loop2 = self.interpret(ops2, [0, 0, 0, 0])
         bridge_ops = '''
         [i4]
         jump(i4, i4, i4, i4, descr=targettoken)
         '''
-        self.attach_bridge(bridge_ops, loop2, 5)
-        self.run(loop2, 0)
+        bridge = self.attach_bridge(bridge_ops, loop2, 5)
+        self.run(loop2, 0, 0, 0, 0)
         assert self.getint(0) == 31
         assert self.getint(1) == 30
         assert self.getint(2) == 30
@@ -283,7 +284,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         loop = self.interpret(ops, [0])
         assert self.getint(0) == 1
-        self.attach_bridge(bridge_ops, loop, 2)
+        bridge = self.attach_bridge(bridge_ops, loop, 2)
         self.run(loop, 0)
         assert self.getint(0) == 1
 
@@ -309,8 +310,8 @@ class TestRegallocSimple(BaseTestRegalloc):
         loop = self.interpret(ops, [0, 10])
         assert self.getint(0) == 0
         assert self.getint(1) == 10
-        self.attach_bridge(bridge_ops, loop, 0)
-        relf.run(loop, 0, 10)
+        bridge = self.attach_bridge(bridge_ops, loop, 0)
+        self.run(loop, 0, 10)
         assert self.getint(0) == 0
         assert self.getint(1) == 10
 
@@ -352,7 +353,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, 3, i5, 4, descr=targettoken)
         '''
         self.interpret(ops, [0, 0, 0, 0])
-        assert self.getints(4) == [1 << 29, 30, 3, 4]
+        assert self.getints(4) == [1<<29, 30, 3, 4]
         ops = '''
         [i0, i1, i2, i3]
         label(i0, i1, i2, i3, descr=targettoken)
@@ -363,7 +364,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, i5, 3, 4, descr=targettoken)
         '''
         self.interpret(ops, [0, 0, 0, 0])
-        assert self.getints(4) == [1 << 29, 30, 3, 4]
+        assert self.getints(4) == [1<<29, 30, 3, 4]
         ops = '''
         [i0, i3, i1, i2]
         label(i0, i3, i1, i2, descr=targettoken)
@@ -374,7 +375,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, 4, i5, 3, descr=targettoken)
         '''
         self.interpret(ops, [0, 0, 0, 0])
-        assert self.getints(4) == [1 << 29, 30, 3, 4]
+        assert self.getints(4) == [1<<29, 30, 3, 4]
 
     def test_result_selected_reg_via_neg(self):
         ops = '''
@@ -388,7 +389,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         '''
         self.interpret(ops, [0, 0, 3, 0])
         assert self.getints(3) == [1, -3, 10]
-
+        
     def test_compare_memory_result_survives(self):
         ops = '''
         [i0, i1, i2, i3]
@@ -411,7 +412,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         guard_true(i5) [i2, i1]
         jump(i0, i18, i15, i16, i2, i1, i4, descr=targettoken)
         '''
-        self.interpret(ops, [0, 1, 2, 3])
+        self.interpret(ops, [0, 1, 2, 3, 0, 0, 0])
 
     def test_op_result_unused(self):
         ops = '''
@@ -445,8 +446,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         finish(i0, i1, i2, i3, i4, i5, i6, i7, i8)
         '''
         self.attach_bridge(bridge_ops, loop, 1)
-        args = [i for i in range(9)]
-        self.run(loop, *args)
+        self.run(loop, 0, 1, 2, 3, 4, 5, 6, 7, 8)
         assert self.getints(9) == range(9)
 
     def test_loopargs(self):
@@ -456,7 +456,8 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, i1, i2, i3)
         """
         regalloc = self.prepare_loop(ops)
-        assert len(regalloc.rm.reg_bindings) == 2
+        assert len(regalloc.rm.reg_bindings) == 4
+        assert len(regalloc.frame_manager.bindings) == 0
 
     def test_loopargs_2(self):
         ops = """
@@ -465,7 +466,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         finish(i4, i1, i2, i3)
         """
         regalloc = self.prepare_loop(ops)
-        assert len(regalloc.rm.reg_bindings) == 2
+        assert len(regalloc.rm.reg_bindings) == 4
 
     def test_loopargs_3(self):
         ops = """
@@ -475,7 +476,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         jump(i4, i1, i2, i3)
         """
         regalloc = self.prepare_loop(ops)
-        assert len(regalloc.rm.reg_bindings) == 2
+        assert len(regalloc.rm.reg_bindings) == 4
 
 
 class TestRegallocCompOps(BaseTestRegalloc):
@@ -617,7 +618,8 @@ class TestRegallocMoreRegisters(BaseTestRegalloc):
 
 class TestRegallocFloats(BaseTestRegalloc):
     def test_float_add(self):
-        py.test.skip('need floats')
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -627,7 +629,8 @@ class TestRegallocFloats(BaseTestRegalloc):
         assert self.getfloats(3) == [4.5, 3.0, 1.5]
 
     def test_float_adds_stack(self):
-        py.test.skip('need floats')
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         ops = '''
         [f0, f1, f2, f3, f4, f5, f6, f7, f8]
         f9 = float_add(f0, f1)
@@ -639,7 +642,8 @@ class TestRegallocFloats(BaseTestRegalloc):
                                         .4, .5, .6, .7, .8, .9]
 
     def test_lt_const(self):
-        py.test.skip('need floats')
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         ops = '''
         [f0]
         i1 = float_lt(3.5, f0)
@@ -649,7 +653,8 @@ class TestRegallocFloats(BaseTestRegalloc):
         assert self.getint(0) == 0
 
     def test_bug_float_is_true_stack(self):
-        py.test.skip('need floats')
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         # NB. float_is_true no longer exists.  Unsure if keeping this test
         # makes sense any more.
         ops = '''
@@ -681,8 +686,8 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         i10 = call(ConstClass(f1ptr), i0, descr=f1_calldescr)
         finish(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9)
         '''
-        self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9])
-        assert self.getints(11) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9]
+        self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
+        assert self.getints(10) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9]
 
     def test_two_calls(self):
         ops = '''
@@ -691,8 +696,8 @@ class TestRegAllocCallAndStackDepth(BaseTestRegalloc):
         i11 = call(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
         finish(i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9)
         '''
-        self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9])
-        assert self.getints(11) == [5 * 7, 7, 9, 9, 9, 9, 9, 9, 9, 9, 9]
+        self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
+        assert self.getints(10) == [5 * 7, 7, 9, 9, 9, 9, 9, 9, 9, 9]
 
     def test_call_many_arguments(self):
         ops = '''
@@ -747,7 +752,7 @@ class TestJumps(BaseTestRegalloc):
         loop = """
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14]
         label(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12, i13, i14, descr=targettoken)
-        jump(i1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, descr=targettoken)
+        jump(i1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, descr=targettoken)
         """
         self.interpret(loop, range(15), run=False)
         # ensure compiling this loop works

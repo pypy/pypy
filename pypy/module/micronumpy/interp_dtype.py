@@ -20,7 +20,7 @@ VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_voi
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
-    def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[]):
+    def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[], aliases=[]):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -28,6 +28,7 @@ class W_Dtype(Wrappable):
         self.char = char
         self.w_box_type = w_box_type
         self.alternate_constructors = alternate_constructors
+        self.aliases = aliases
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations
@@ -46,6 +47,10 @@ class W_Dtype(Wrappable):
     def getitem(self, storage, i):
         return self.itemtype.read(storage, self.itemtype.get_element_size(), i, 0)
 
+    def getitem_bool(self, storage, i):
+        isize = self.itemtype.get_element_size()
+        return self.itemtype.read_bool(storage, isize, i, 0)
+
     def setitem(self, storage, i, box):
         self.itemtype.store(storage, self.itemtype.get_element_size(), i, 0, box)
 
@@ -62,7 +67,7 @@ class W_Dtype(Wrappable):
         elif space.isinstance_w(w_dtype, space.w_str):
             name = space.str_w(w_dtype)
             for dtype in cache.builtin_dtypes:
-                if dtype.name == name or dtype.char == name:
+                if dtype.name == name or dtype.char == name or name in dtype.aliases:
                     return dtype
         else:
             for dtype in cache.builtin_dtypes:
@@ -84,18 +89,38 @@ class W_Dtype(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([])
 
+    def eq(self, space, w_other):
+        w_other = space.call_function(space.gettypefor(W_Dtype), w_other)
+        return space.is_w(self, w_other)
+
+    def descr_eq(self, space, w_other):
+        return space.wrap(self.eq(space, w_other))
+
+    def descr_ne(self, space, w_other):
+        return space.wrap(not self.eq(space, w_other))
+
+    def is_int_type(self):
+        return (self.kind == SIGNEDLTR or self.kind == UNSIGNEDLTR or
+                self.kind == BOOLLTR)
+
+    def is_bool_type(self):
+        return self.kind == BOOLLTR
+
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpypy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
 
     __str__= interp2app(W_Dtype.descr_str),
     __repr__ = interp2app(W_Dtype.descr_repr),
+    __eq__ = interp2app(W_Dtype.descr_eq),
+    __ne__ = interp2app(W_Dtype.descr_ne),
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
+    name = interp_attrproperty('name', cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
 
@@ -107,7 +132,7 @@ class DtypeCache(object):
             kind=BOOLLTR,
             name="bool",
             char="?",
-            w_box_type = space.gettypefor(interp_boxes.W_BoolBox),
+            w_box_type=space.gettypefor(interp_boxes.W_BoolBox),
             alternate_constructors=[space.w_bool],
         )
         self.w_int8dtype = W_Dtype(
@@ -116,7 +141,7 @@ class DtypeCache(object):
             kind=SIGNEDLTR,
             name="int8",
             char="b",
-            w_box_type = space.gettypefor(interp_boxes.W_Int8Box)
+            w_box_type=space.gettypefor(interp_boxes.W_Int8Box)
         )
         self.w_uint8dtype = W_Dtype(
             types.UInt8(),
@@ -124,7 +149,7 @@ class DtypeCache(object):
             kind=UNSIGNEDLTR,
             name="uint8",
             char="B",
-            w_box_type = space.gettypefor(interp_boxes.W_UInt8Box),
+            w_box_type=space.gettypefor(interp_boxes.W_UInt8Box),
         )
         self.w_int16dtype = W_Dtype(
             types.Int16(),
@@ -132,7 +157,7 @@ class DtypeCache(object):
             kind=SIGNEDLTR,
             name="int16",
             char="h",
-            w_box_type = space.gettypefor(interp_boxes.W_Int16Box),
+            w_box_type=space.gettypefor(interp_boxes.W_Int16Box),
         )
         self.w_uint16dtype = W_Dtype(
             types.UInt16(),
@@ -140,7 +165,7 @@ class DtypeCache(object):
             kind=UNSIGNEDLTR,
             name="uint16",
             char="H",
-            w_box_type = space.gettypefor(interp_boxes.W_UInt16Box),
+            w_box_type=space.gettypefor(interp_boxes.W_UInt16Box),
         )
         self.w_int32dtype = W_Dtype(
             types.Int32(),
@@ -148,7 +173,7 @@ class DtypeCache(object):
             kind=SIGNEDLTR,
             name="int32",
             char="i",
-             w_box_type = space.gettypefor(interp_boxes.W_Int32Box),
+            w_box_type=space.gettypefor(interp_boxes.W_Int32Box),
        )
         self.w_uint32dtype = W_Dtype(
             types.UInt32(),
@@ -156,7 +181,7 @@ class DtypeCache(object):
             kind=UNSIGNEDLTR,
             name="uint32",
             char="I",
-            w_box_type = space.gettypefor(interp_boxes.W_UInt32Box),
+            w_box_type=space.gettypefor(interp_boxes.W_UInt32Box),
         )
         if LONG_BIT == 32:
             name = "int32"
@@ -168,7 +193,7 @@ class DtypeCache(object):
             kind=SIGNEDLTR,
             name=name,
             char="l",
-            w_box_type = space.gettypefor(interp_boxes.W_LongBox),
+            w_box_type=space.gettypefor(interp_boxes.W_LongBox),
             alternate_constructors=[space.w_int],
         )
         self.w_ulongdtype = W_Dtype(
@@ -177,7 +202,7 @@ class DtypeCache(object):
             kind=UNSIGNEDLTR,
             name="u" + name,
             char="L",
-            w_box_type = space.gettypefor(interp_boxes.W_ULongBox),
+            w_box_type=space.gettypefor(interp_boxes.W_ULongBox),
         )
         self.w_int64dtype = W_Dtype(
             types.Int64(),
@@ -185,7 +210,7 @@ class DtypeCache(object):
             kind=SIGNEDLTR,
             name="int64",
             char="q",
-            w_box_type = space.gettypefor(interp_boxes.W_Int64Box),
+            w_box_type=space.gettypefor(interp_boxes.W_Int64Box),
             alternate_constructors=[space.w_long],
         )
         self.w_uint64dtype = W_Dtype(
@@ -194,7 +219,7 @@ class DtypeCache(object):
             kind=UNSIGNEDLTR,
             name="uint64",
             char="Q",
-            w_box_type = space.gettypefor(interp_boxes.W_UInt64Box),
+            w_box_type=space.gettypefor(interp_boxes.W_UInt64Box),
         )
         self.w_float32dtype = W_Dtype(
             types.Float32(),
@@ -202,7 +227,7 @@ class DtypeCache(object):
             kind=FLOATINGLTR,
             name="float32",
             char="f",
-            w_box_type = space.gettypefor(interp_boxes.W_Float32Box),
+            w_box_type=space.gettypefor(interp_boxes.W_Float32Box),
         )
         self.w_float64dtype = W_Dtype(
             types.Float64(),
@@ -212,6 +237,7 @@ class DtypeCache(object):
             char="d",
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
             alternate_constructors=[space.w_float],
+            aliases=["float"],
         )
 
         self.builtin_dtypes = [

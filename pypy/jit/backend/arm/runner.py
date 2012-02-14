@@ -32,18 +32,18 @@ class ArmCPU(AbstractLLCPU):
         self.assembler.setup_once()
 
     def finish_once(self):
-        pass
+        self.assembler.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken,
                                                     log=True, name=''):
-        self.assembler.assemble_loop(inputargs, operations,
+        return self.assembler.assemble_loop(name, inputargs, operations,
                                                     looptoken, log=log)
 
     def compile_bridge(self, faildescr, inputargs, operations,
                                        original_loop_token, log=True):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
-        self.assembler.assemble_bridge(faildescr, inputargs, operations,
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
     def get_latest_value_float(self, index):
@@ -100,6 +100,9 @@ class ArmCPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
+    all_null_registers = lltype.malloc(rffi.LONGP.TO,
+                        len(all_vfp_regs) * 2 + len(all_regs),
+                        flavor='raw', zero=True, immortal=True)
     def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
@@ -107,15 +110,10 @@ class ArmCPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
         # start of "no gc operation!" block
-        frame_depth = faildescr._arm_current_frame_depth * WORD
-        addr_end_of_frame = (addr_of_force_index -
-                            (frame_depth +
-                            len(all_regs) * WORD +
-                            len(all_vfp_regs) * 2 * WORD))
-        fail_index_2 = self.assembler.decode_registers_and_descr(
-            faildescr._failure_recovery_code,
+        fail_index_2 = self.assembler.failure_recovery_func(
+            bytecode,
             addr_of_force_index,
-            addr_end_of_frame)
+            addr_all_null_regsiters)
         self.assembler.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2

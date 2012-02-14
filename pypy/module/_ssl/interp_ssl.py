@@ -709,7 +709,8 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
     # ssl compatibility
-    libssl_SSL_CTX_set_options(ss.ctx, SSL_OP_ALL)
+    libssl_SSL_CTX_set_options(ss.ctx, 
+                               SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
 
     verification_mode = SSL_VERIFY_NONE
     if cert_mode == PY_SSL_CERT_OPTIONAL:

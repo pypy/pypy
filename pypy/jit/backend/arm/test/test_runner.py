@@ -1,5 +1,6 @@
 import py
 from pypy.jit.backend.arm.runner import ArmCPU
+from pypy.jit.backend.arm.arch import WORD
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest, \
                                                 boxfloat, \
                                                 constfloat
@@ -23,15 +24,16 @@ class FakeStats(object):
 
 class TestARM(LLtypeBackendTest):
 
-    def setup_class(cls):
-        cls.cpu = ArmCPU(rtyper=None, stats=FakeStats())
-        cls.cpu.setup_once()
-
-    def teardown_method(self, method):
-        self.cpu.assembler.teardown()
-
     # for the individual tests see
     # ====> ../../test/runner_test.py
+
+    add_loop_instructions = ['mov', 'adds', 'cmp', 'beq', 'b']
+    bridge_loop_instructions = ['movw', 'movt', 'bx']
+
+    def setup_method(self, meth):
+        self.cpu = ArmCPU(rtyper=None, stats=FakeStats())
+        self.cpu.setup_once()
+
     def test_result_is_spilled(self):
         cpu = self.cpu
         inp = [BoxInt(i) for i in range(1, 15)]
@@ -106,9 +108,6 @@ class TestARM(LLtypeBackendTest):
         self.cpu.execute_token(lt1, 11)
         assert self.cpu.get_latest_value_int(0) == 10
 
-    def test_cond_call_gc_wb_array_card_marking_fast_path(self):
-        py.test.skip('ignore this fast path for now')
-
     SFloat = lltype.GcForwardReference()
     SFloat.become(lltype.GcStruct('SFloat', ('parent', rclass.OBJECT),
           ('v1', lltype.Signed), ('v2', lltype.Signed),
@@ -175,3 +174,74 @@ class TestARM(LLtypeBackendTest):
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'float', descr=floatdescr)
         assert res.getfloat() == -3.6
+
+    def test_compile_loop_many_int_args(self):
+        for numargs in range(2, 30):
+            for _ in range(numargs):
+                self.cpu.reserve_some_free_fail_descr_number()
+            ops = []
+            arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
+            ops.append(arglist)
+
+            arg1 = 0
+            arg2 = 1
+            res = numargs
+            for i in range(numargs - 1):
+                op = "i%d = int_add(i%d, i%d)\n" % (res, arg1, arg2)
+                arg1 = res
+                res += 1
+                arg2 += 1
+                ops.append(op)
+            ops.append("finish(i%d)" % (res - 1))
+
+            ops = "".join(ops)
+            loop = parse(ops)
+            looptoken = JitCellToken()
+            done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            ARGS = [lltype.Signed] * numargs
+            RES = lltype.Signed
+            args = [i+1 for i in range(numargs)]
+            res = self.cpu.execute_token(looptoken, *args)
+            assert self.cpu.get_latest_value_int(0) == sum(args)
+
+    def test_debugger_on(self):
+        from pypy.rlib import debug
+
+        targettoken, preambletoken = TargetToken(), TargetToken()
+        loop = """
+        [i0]
+        label(i0, descr=preambletoken)
+        debug_merge_point('xyz', 0)
+        i1 = int_add(i0, 1)
+        i2 = int_ge(i1, 10)
+        guard_false(i2) []
+        label(i1, descr=targettoken)
+        debug_merge_point('xyz', 0)
+        i11 = int_add(i1, 1)
+        i12 = int_ge(i11, 10)
+        guard_false(i12) []
+        jump(i11, descr=targettoken)
+        """
+        ops = parse(loop, namespace={'targettoken': targettoken,
+                                     'preambletoken': preambletoken})
+        debug._log = dlog = debug.DebugLog()
+        try:
+            self.cpu.assembler.set_debug(True)
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
+            self.cpu.execute_token(looptoken, 0)
+            # check debugging info
+            struct = self.cpu.assembler.loop_run_counters[0]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[1]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
+            assert struct.i == 9
+            self.cpu.finish_once()
+        finally:
+            debug._log = None
+        l0 = ('debug_print', 'entry -1:1')
+        l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
+        l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
+        assert ('jit-backend-counts', [l0, l1, l2]) in dlog

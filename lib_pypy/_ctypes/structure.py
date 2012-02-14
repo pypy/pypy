@@ -73,8 +73,12 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
 
 class Field(object):
     def __init__(self, name, offset, size, ctype, num, is_bitfield):
-        for k in ('name', 'offset', 'size', 'ctype', 'num', 'is_bitfield'):
-            self.__dict__[k] = locals()[k]
+        self.__dict__['name'] = name
+        self.__dict__['offset'] = offset
+        self.__dict__['size'] = size
+        self.__dict__['ctype'] = ctype
+        self.__dict__['num'] = num
+        self.__dict__['is_bitfield'] = is_bitfield
 
     def __setattr__(self, name, value):
         raise AttributeError(name)

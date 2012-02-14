@@ -1,5 +1,6 @@
 import os
 import py
+import pytest
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.backend.detect_cpu import getcpuclass
@@ -28,6 +29,11 @@ def run_asm(asm):
 
 def skip_unless_arm():
     check_skip(os.uname()[4])
+
+def skip_unless_run_translation():
+    if not pytest.config.option.run_translation_tests:
+        py.test.skip("Test skipped beause --run-translation-tests option is not set")
+
 
 def requires_arm_as():
     import commands

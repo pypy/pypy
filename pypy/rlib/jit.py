@@ -6,18 +6,24 @@ from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.tool.sourcetools import func_with_new_name
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
 
 def elidable(func):
-    """ Decorate a function as "trace-elidable". This means precisely that:
+    """ Decorate a function as "trace-elidable". Usually this means simply that
+    the function is constant-foldable, i.e. is pure and has no side-effects.
+
+    In some situations it is ok to use this decorator if the function *has*
+    side effects, as long as these side-effects are idempotent. A typical
+    example for this would be a cache.
+
+    To be totally precise:
 
     (1) the result of the call should not change if the arguments are
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
-    according to rule 1
+        according to rule 1
     (3) the function call can be moved around by optimizer,
         but only so it'll be called earlier and not later.
 
@@ -395,6 +401,7 @@ PARAMETER_DOCS = {
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
+    'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
     }
 
@@ -406,6 +413,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'loop_longevity': 1000,
               'retrace_limit': 5,
               'max_retrace_guards': 15,
+              'max_unroll_loops': 4,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
@@ -422,13 +430,16 @@ class JitDriver(object):
 
     active = True          # if set to False, this JitDriver is ignored
     virtualizables = []
+    name = 'jitdriver'
 
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None, should_unroll_one_iteration=None):
+                 can_never_inline=None, should_unroll_one_iteration=None,
+                 name='jitdriver'):
         if greens is not None:
             self.greens = greens
+        self.name = name
         if reds is not None:
             self.reds = reds
         if not hasattr(self, 'greens') or not hasattr(self, 'reds'):
@@ -461,23 +472,6 @@ class JitDriver(object):
     def loop_header(self):
         # special-cased by ExtRegistryEntry
         pass
-
-    def on_compile(self, logger, looptoken, operations, type, *greenargs):
-        """ A hook called when loop is compiled. Overwrite
-        for your own jitdriver if you want to do something special, like
-        call applevel code
-        """
-
-    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
-        """ A hook called when a bridge is compiled. Overwrite
-        for your own jitdriver if you want to do something special
-        """
-
-    # note: if you overwrite this functions with the above signature it'll
-    #       work, but the *greenargs is different for each jitdriver, so we
-    #       can't share the same methods
-    del on_compile
-    del on_compile_bridge
 
     def _make_extregistryentries(self):
         # workaround: we cannot declare ExtRegistryEntries for functions
@@ -640,7 +634,6 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
     def specialize_call(self, hop, **kwds_i):
         # XXX to be complete, this could also check that the concretetype
         # of the variables are the same for each of the calls.
-        from pypy.rpython.error import TyperError
         from pypy.rpython.lltypesystem import lltype
         driver = self.instance.im_self
         greens_v = []
@@ -753,13 +746,111 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
+class AsmInfo(object):
+    """ An addition to JitDebugInfo concerning assembler. Attributes:
+    
+    ops_offset - dict of offsets of operations or None
+    asmaddr - (int) raw address of assembler block
+    asmlen - assembler block length
+    """
+    def __init__(self, ops_offset, asmaddr, asmlen):
+        self.ops_offset = ops_offset
+        self.asmaddr = asmaddr
+        self.asmlen = asmlen
+
+class JitDebugInfo(object):
+    """ An object representing debug info. Attributes meanings:
+
+    greenkey - a list of green boxes or None for bridge
+    logger - an instance of jit.metainterp.logger.LogOperations
+    type - either 'loop', 'entry bridge' or 'bridge'
+    looptoken - description of a loop
+    fail_descr_no - number of failing descr for bridges, -1 otherwise
+    asminfo - extra assembler information
+    """
+
+    asminfo = None
+    def __init__(self, jitdriver_sd, logger, looptoken, operations, type,
+                 greenkey=None, fail_descr_no=-1):
+        self.jitdriver_sd = jitdriver_sd
+        self.logger = logger
+        self.looptoken = looptoken
+        self.operations = operations
+        self.type = type
+        if type == 'bridge':
+            assert fail_descr_no != -1
+        else:
+            assert greenkey is not None
+        self.greenkey = greenkey
+        self.fail_descr_no = fail_descr_no
+
+    def get_jitdriver(self):
+        """ Return where the jitdriver on which the jitting started
+        """
+        return self.jitdriver_sd.jitdriver
+
+    def get_greenkey_repr(self):
+        """ Return the string repr of a greenkey
+        """
+        return self.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+
+class JitHookInterface(object):
+    """ This is the main connector between the JIT and the interpreter.
+    Several methods on this class will be invoked at various stages
+    of JIT running like JIT loops compiled, aborts etc.
+    An instance of this class will be available as policy.jithookiface.
+    """
+    def on_abort(self, reason, jitdriver, greenkey, greenkey_repr):
+        """ A hook called each time a loop is aborted with jitdriver and
+        greenkey where it started, reason is a string why it got aborted
+        """
+
+    #def before_optimize(self, debug_info):
+    #    """ A hook called before optimizer is run, called with instance of
+    #    JitDebugInfo. Overwrite for custom behavior
+    #    """
+    # DISABLED
+
+    def before_compile(self, debug_info):
+        """ A hook called after a loop is optimized, before compiling assembler,
+        called with JitDebugInfo instance. Overwrite for custom behavior
+        """
+
+    def after_compile(self, debug_info):
+        """ A hook called after a loop has compiled assembler,
+        called with JitDebugInfo instance. Overwrite for custom behavior
+        """
+
+    #def before_optimize_bridge(self, debug_info):
+    #                           operations, fail_descr_no):
+    #    """ A hook called before a bridge is optimized.
+    #    Called with JitDebugInfo instance, overwrite for
+    #    custom behavior
+    #    """
+    # DISABLED
+
+    def before_compile_bridge(self, debug_info):
+        """ A hook called before a bridge is compiled, but after optimizations
+        are performed. Called with instance of debug_info, overwrite for
+        custom behavior
+        """
+
+    def after_compile_bridge(self, debug_info):
+        """ A hook called after a bridge is compiled, called with JitDebugInfo
+        instance, overwrite for custom behavior
+        """
+
+    def get_stats(self):
+        """ Returns various statistics
+        """
+        raise NotImplementedError
+
 def record_known_class(value, cls):
     """
     Assure the JIT that value is an instance of cls. This is not a precise
     class check, unlike a guard_class.
     """
     assert isinstance(value, cls)
-
 
 class Entry(ExtRegistryEntry):
     _about_ = record_known_class
@@ -771,7 +862,8 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
-        from pypy.rpython.lltypesystem import lltype, rclass
+        from pypy.rpython.lltypesystem import rclass, lltype
+        
         classrepr = rclass.get_type_repr(hop.rtyper)
 
         hop.exception_cannot_occur()

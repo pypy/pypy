@@ -23,12 +23,7 @@ def binary_helper_call(name):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
         addr = rffi.cast(lltype.Signed, function)
-        if c == cond.AL:
-            self.BL(addr)
-        else:
-            self.PUSH(range(2, 4), cond=c)
-            self.BL(addr, c)
-            self.POP(range(2, 4), cond=c)
+        self.BL(addr, c)
     return f
 
 
@@ -154,20 +149,20 @@ class AbstractARMv7Builder(object):
         instr = self._encode_reg_list(cond << 28 | 0x8BD << 16, regs)
         self.write32(instr)
 
-    def BKPT(self, cond=cond.AL):
-        self.write32(cond << 28 | 0x1200070)
+    def BKPT(self):
+        """Unconditional breakpoint"""
+        self.write32(cond.AL << 28 | 0x1200070)
 
     # corresponds to the instruction vmrs APSR_nzcv, fpscr
     def VMRS(self, cond=cond.AL):
         self.write32(cond << 28 | 0xEF1FA10)
 
     def B(self, target, c=cond.AL):
-        if c == cond.AL:
-            self.LDR_ri(reg.pc.value, reg.pc.value, -arch.PC_OFFSET / 2)
-            self.write32(target)
-        else:
-            self.gen_load_int(reg.ip.value, target, cond=c)
-            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
+        self.gen_load_int(reg.ip.value, target, cond=c)
+        self.BX(reg.ip.value, c=c)
+
+    def BX(self, reg, c=cond.AL):
+        self.write32(c << 28 | 0x12FFF1 << 4 | (reg & 0xF))
 
     def B_offs(self, target_ofs, c=cond.AL):
         pos = self.currpos()
@@ -175,15 +170,13 @@ class AbstractARMv7Builder(object):
         assert target_ofs & 0x3 == 0
         self.write32(c << 28 | 0xA << 24 | (target_ofs >> 2) & 0xFFFFFF)
 
-    def BL(self, target, c=cond.AL):
-        if c == cond.AL:
-            self.ADD_ri(reg.lr.value, reg.pc.value, arch.PC_OFFSET / 2)
-            self.LDR_ri(reg.pc.value, reg.pc.value, imm=-arch.PC_OFFSET / 2)
-            self.write32(target)
-        else:
-            self.gen_load_int(reg.ip.value, target, cond=c)
-            self.MOV_rr(reg.lr.value, reg.pc.value, cond=c)
-            self.MOV_rr(reg.pc.value, reg.ip.value, cond=c)
+    def BL(self, addr, c=cond.AL):
+        target = rffi.cast(rffi.INT, addr)
+        self.gen_load_int(reg.ip.value, target, cond=c)
+        self.BLX(reg.ip.value, c)
+
+    def BLX(self, reg, c=cond.AL):
+        self.write32(c << 28 | 0x12FFF3 << 4 | (reg & 0xF))
 
     def MOVT_ri(self, rd, imm16, c=cond.AL):
         """Move Top writes an immediate value to the top halfword of the
@@ -263,6 +256,15 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
     def __init__(self):
         AbstractARMv7Builder.__init__(self)
         self.init_block_builder()
+        #
+        # ResOperation --> offset in the assembly.
+        # ops_offset[None] represents the beginning of the code after the last op
+        # (i.e., the tail of the loop)
+        self.ops_offset = {}
+
+    def mark_op(self, op):
+        pos = self.get_relative_pos()
+        self.ops_offset[op] = pos
 
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():

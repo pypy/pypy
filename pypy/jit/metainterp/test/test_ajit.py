@@ -322,6 +322,17 @@ class BasicTests:
         res = self.interp_operations(f, [42])
         assert res == ord(u"?")
 
+    def test_char_in_constant_string(self):
+        def g(string):
+            return '\x00' in string
+        def f():
+            if g('abcdef'): return -60
+            if not g('abc\x00ef'): return -61
+            return 42
+        res = self.interp_operations(f, [])
+        assert res == 42
+        self.check_operations_history({'finish': 1})   # nothing else
+
     def test_residual_call(self):
         @dont_look_inside
         def externfn(x, y):
@@ -2629,6 +2640,38 @@ class BasicTests:
         self.check_jitcell_token_count(1)
         self.check_target_token_count(5)
 
+    def test_max_unroll_loops(self):
+        from pypy.jit.metainterp.optimize import InvalidLoop
+        from pypy.jit.metainterp import optimizeopt
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i'])
+        #
+        def f(n, limit):
+            set_param(myjitdriver, 'threshold', 5)
+            set_param(myjitdriver, 'max_unroll_loops', limit)
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i)
+                print i
+                i += 1
+            return i
+        #
+        def my_optimize_trace(*args, **kwds):
+            raise InvalidLoop
+        old_optimize_trace = optimizeopt.optimize_trace
+        optimizeopt.optimize_trace = my_optimize_trace
+        try:
+            res = self.meta_interp(f, [23, 4])
+            assert res == 23
+            self.check_trace_count(0)
+            self.check_aborted_count(3)
+            #
+            res = self.meta_interp(f, [23, 20])
+            assert res == 23
+            self.check_trace_count(0)
+            self.check_aborted_count(2)
+        finally:
+            optimizeopt.optimize_trace = old_optimize_trace
+
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
                                                      'node'])
@@ -3662,6 +3705,18 @@ class BaseLLtypeTests(BasicTests):
         assert res1 == res2
         # here it works again
         self.check_operations_history(guard_class=0, record_known_class=1)
+
+    def test_generator(self):
+        def g(n):
+            yield n+1
+            yield n+2
+            yield n+3
+        def f(n):
+            gen = g(n)
+            return gen.next() * gen.next() * gen.next()
+        res = self.interp_operations(f, [10])
+        assert res == 11 * 12 * 13
+        self.check_operations_history(int_add=3, int_mul=2)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

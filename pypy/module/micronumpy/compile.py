@@ -32,13 +32,16 @@ class TokenizerError(Exception):
 class BadToken(Exception):
     pass
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
+                        "unegative", "flat"]
+TWO_ARG_FUNCTIONS = ["dot", 'take']
 
 class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
     w_IndexError = None
     w_OverflowError = None
+    w_NotImplementedError = None
     w_None = None
 
     w_bool = "bool"
@@ -52,6 +55,9 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
+
+    def _freeze_(self):
+        return True
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
@@ -143,6 +149,9 @@ class FakeSpace(object):
 
     def allocate_instance(self, klass, w_subtype):
         return instantiate(klass)
+
+    def newtuple(self, list_w):
+        raise ValueError
 
     def len_w(self, w_obj):
         if isinstance(w_obj, ListObject):
@@ -371,14 +380,18 @@ class FunctionCall(Node):
                                                  for arg in self.args]))
 
     def execute(self, interp):
+        arr = self.args[0].execute(interp)
+        if not isinstance(arr, BaseArray):
+            raise ArgumentNotAnArray
         if self.name in SINGLE_ARG_FUNCTIONS:
-            if len(self.args) != 1:
+            if len(self.args) != 1 and self.name != 'sum':
                 raise ArgumentMismatch
-            arr = self.args[0].execute(interp)
-            if not isinstance(arr, BaseArray):
-                raise ArgumentNotAnArray
             if self.name == "sum":
-                w_res = arr.descr_sum(interp.space)
+                if len(self.args)>1:
+                    w_res = arr.descr_sum(interp.space,
+                                          self.args[1].execute(interp))
+                else:
+                    w_res = arr.descr_sum(interp.space)
             elif self.name == "prod":
                 w_res = arr.descr_prod(interp.space)
             elif self.name == "max":
@@ -392,21 +405,37 @@ class FunctionCall(Node):
             elif self.name == "unegative":
                 neg = interp_ufuncs.get(interp.space).negative
                 w_res = neg.call(interp.space, [arr])
+            elif self.name == "flat":
+                w_res = arr.descr_get_flatiter(interp.space)
             else:
                 assert False # unreachable code
-            if isinstance(w_res, BaseArray):
-                return w_res
-            if isinstance(w_res, FloatObject):
-                dtype = get_dtype_cache(interp.space).w_float64dtype
-            elif isinstance(w_res, BoolObject):
-                dtype = get_dtype_cache(interp.space).w_booldtype
-            elif isinstance(w_res, interp_boxes.W_GenericBox):
-                dtype = w_res.get_dtype(interp.space)
+        elif self.name in TWO_ARG_FUNCTIONS:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
+            arg = self.args[1].execute(interp)
+            if not isinstance(arg, BaseArray):
+                raise ArgumentNotAnArray
+            if not isinstance(arg, BaseArray):
+                raise ArgumentNotAnArray
+            if self.name == "dot":
+                w_res = arr.descr_dot(interp.space, arg)
+            elif self.name == 'take':
+                w_res = arr.descr_take(interp.space, arg)
             else:
-                dtype = None
-            return scalar_w(interp.space, dtype, w_res)
+                assert False # unreachable code
         else:
             raise WrongFunctionName
+        if isinstance(w_res, BaseArray):
+            return w_res
+        if isinstance(w_res, FloatObject):
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+        elif isinstance(w_res, BoolObject):
+            dtype = get_dtype_cache(interp.space).w_booldtype
+        elif isinstance(w_res, interp_boxes.W_GenericBox):
+            dtype = w_res.get_dtype(interp.space)
+        else:
+            dtype = None
+        return scalar_w(interp.space, dtype, w_res)
 
 _REGEXES = [
     ('-?[\d\.]+', 'number'),
@@ -416,7 +445,7 @@ _REGEXES = [
     ('\]', 'array_right'),
     ('(->)|[\+\-\*\/]', 'operator'),
     ('=', 'assign'),
-    (',', 'coma'),
+    (',', 'comma'),
     ('\|', 'pipe'),
     ('\(', 'paren_left'),
     ('\)', 'paren_right'),
@@ -504,7 +533,7 @@ class Parser(object):
         return SliceConstant(start, stop, step)
 
 
-    def parse_expression(self, tokens):
+    def parse_expression(self, tokens, accept_comma=False):
         stack = []
         while tokens.remaining():
             token = tokens.pop()
@@ -524,9 +553,13 @@ class Parser(object):
                 stack.append(RangeConstant(tokens.pop().v))
                 end = tokens.pop()
                 assert end.name == 'pipe'
+            elif accept_comma and token.name == 'comma':
+                continue
             else:
                 tokens.push()
                 break
+        if accept_comma:
+            return stack
         stack.reverse()
         lhs = stack.pop()
         while stack:
@@ -540,7 +573,7 @@ class Parser(object):
         args = []
         tokens.pop() # lparen
         while tokens.get(0).name != 'paren_right':
-            args.append(self.parse_expression(tokens))
+            args += self.parse_expression(tokens, accept_comma=True)
         return FunctionCall(name, args)
 
     def parse_array_const(self, tokens):
@@ -556,7 +589,7 @@ class Parser(object):
             token = tokens.pop()
             if token.name == 'array_right':
                 return elems
-            assert token.name == 'coma'
+            assert token.name == 'comma'
 
     def parse_statement(self, tokens):
         if (tokens.get(0).name == 'identifier' and

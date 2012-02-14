@@ -184,6 +184,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.standalone = standalone
 
         if standalone:
+            # the 'argv' parameter
             inputtypes = [s_list_of_strings]
         self.inputtypes = inputtypes
 

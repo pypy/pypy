@@ -4,6 +4,7 @@ from pypy.rlib.rarithmetic import r_uint
 
 FUNC_ALIGN = 8
 WORD = 4
+DOUBLE_WORD = 8
 
 # the number of registers that we need to save around malloc calls
 N_REGISTERS_SAVED_BY_MALLOC = 9

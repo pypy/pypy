@@ -137,7 +137,7 @@ class TestStuff(object):
         looptoken = JitCellToken()
         cpu.compile_loop(inputargs, operations, looptoken)
         args = [-5 , 24 , 46 , -15 , 13 , -8 , 0 , -6 , 6 , 6]
-        op = cpu.execute_token(looptoken)
+        op = cpu.execute_token(looptoken, *args)
         assert op.identifier == 2
         assert cpu.get_latest_value_int(0) == 24
         assert cpu.get_latest_value_int(1) == -32

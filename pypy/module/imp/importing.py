@@ -138,7 +138,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str_w(ctxt_w_package)
+            ctxt_package = space.str0_w(ctxt_w_package)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -187,7 +187,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str_w(ctxt_w_name)
+                ctxt_name = space.str0_w(ctxt_w_name)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -230,7 +230,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name=str, level=int)
+@unwrap_spec(name='str0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -377,8 +377,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                     fromlist_w = space.fixedview(w_all)
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
-                    load_part(space, w_path, prefix, space.str_w(w_name), w_mod,
-                              tentative=1)
+                    load_part(space, w_path, prefix, space.str0_w(w_name),
+                              w_mod, tentative=1)
         return w_mod
     else:
         return first
@@ -432,7 +432,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path=str)
+    @unwrap_spec(path='str0')
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
@@ -513,7 +513,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str_w(w_pathitem)
+            path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
             if os.path.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
@@ -671,7 +671,7 @@ def reload(space, w_module):
             space.wrap("reload() argument must be module"))
 
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
-    modulename = space.str_w(w_modulename)
+    modulename = space.str0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise operationerrfmt(
             space.w_ImportError,

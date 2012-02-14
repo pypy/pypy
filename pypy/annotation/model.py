@@ -39,7 +39,9 @@ import inspect, weakref
 DEBUG = False    # set to False to disable recording of debugging information
 
 class State(object):
-    pass
+    # A global attribute :-(  Patch it with 'True' to enable checking of
+    # the no_nul attribute...
+    check_str_without_nul = False
 TLS = State()
 
 class SomeObject(object):
@@ -225,43 +227,57 @@ class SomeBool(SomeInteger):
     def __init__(self):
         pass
 
-class SomeString(SomeObject):
+class SomeStringOrUnicode(SomeObject):
+    immutable = True
+    can_be_None=False
+    no_nul = False  # No NUL character in the string.
+
+    def __init__(self, can_be_None=False, no_nul=False):
+        if can_be_None:
+            self.can_be_None = True
+        if no_nul:
+            self.no_nul = True
+
+    def can_be_none(self):
+        return self.can_be_None
+
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        d1 = self.__dict__
+        d2 = other.__dict__
+        if not TLS.check_str_without_nul:
+            d1 = d1.copy(); d1['no_nul'] = 0   # ignored
+            d2 = d2.copy(); d2['no_nul'] = 0   # ignored
+        return d1 == d2
+
+class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
     knowntype = str
-    immutable = True
-    def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
-
-    def can_be_none(self):
-        return self.can_be_None
 
     def nonnoneify(self):
-        return SomeString(can_be_None=False)
+        return SomeString(can_be_None=False, no_nul=self.no_nul)
 
-class SomeUnicodeString(SomeObject):
+class SomeUnicodeString(SomeStringOrUnicode):
     "Stands for an object which is known to be an unicode string"
     knowntype = unicode
-    immutable = True
-    def __init__(self, can_be_None=False):
-        self.can_be_None = can_be_None
-
-    def can_be_none(self):
-        return self.can_be_None
 
     def nonnoneify(self):
-        return SomeUnicodeString(can_be_None=False)
+        return SomeUnicodeString(can_be_None=False, no_nul=self.no_nul)
 
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 class SomeUnicodeCodePoint(SomeUnicodeString):
     "Stands for an object known to be a unicode codepoint."
     can_be_None = False
-    def __init__(self):    # no 'can_be_None' argument here
-        pass
+    def __init__(self, no_nul=False):    # no 'can_be_None' argument here
+        if no_nul:
+            self.no_nul = True
 
 SomeString.basestringclass = SomeString
 SomeString.basecharclass = SomeChar
@@ -502,6 +518,7 @@ class SomeImpossibleValue(SomeObject):
 s_None = SomePBC([], can_be_None=True)
 s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
+s_Str0 = SomeString(no_nul=True)
 
 # ____________________________________________________________
 # weakrefs
@@ -716,8 +733,7 @@ def merge_knowntypedata(ktd1, ktd2):
 
 def not_const(s_obj):
     if s_obj.is_constant():
-        new_s_obj = SomeObject()
-        new_s_obj.__class__ = s_obj.__class__
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
         dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
         if 'const' in dic:
             del new_s_obj.const

@@ -1,2 +1,5 @@
 from _numpypy import *
-from fromnumeric import *
+from .core import *
+
+import sys
+sys.modules.setdefault('numpy', sys.modules['numpypy'])

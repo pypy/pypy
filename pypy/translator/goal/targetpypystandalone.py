@@ -159,6 +159,8 @@ class PyPyTarget(object):
         ## if config.translation.type_system == 'ootype':
         ##     config.objspace.usemodules.suggest(rbench=True)
 
+        config.translation.suggest(check_str_without_nul=True)
+
         if config.translation.thread:
             config.objspace.usemodules.thread = True
         elif config.objspace.usemodules.thread:
@@ -226,8 +228,8 @@ class PyPyTarget(object):
         return self.get_entry_point(config)
 
     def jitpolicy(self, driver):
-        from pypy.module.pypyjit.policy import PyPyJitPolicy
-        return PyPyJitPolicy()
+        from pypy.module.pypyjit.policy import PyPyJitPolicy, pypy_hooks
+        return PyPyJitPolicy(pypy_hooks)
     
     def get_entry_point(self, config):
         from pypy.tool.lib_pypy import import_from_lib_pypy
