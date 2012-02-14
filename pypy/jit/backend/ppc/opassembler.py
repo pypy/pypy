@@ -859,6 +859,17 @@ class AllocOpAssembler(object):
         self.emit_call(op, arglocs, regalloc)
         self.propagate_memoryerror_if_r3_is_null()
 
+    def emit_call_malloc_nursery(self, op, arglocs, regalloc):
+        # registers r3 and r4 are allocated for this call
+        assert len(arglocs) == 1
+        size = arglocs[0].value
+        gc_ll_descr = self.cpu.gc_ll_descr
+        self.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size
+            )
+
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
