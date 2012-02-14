@@ -287,6 +287,8 @@ class PyCode(eval.Code):
 
     def dump(self):
         """A dis.dis() dump of the code object."""
+        print 'WARNING: dumping a py3k bytecode using python2 opmap, the result might be inaccurate or wrong'
+        print
         co = self._to_code()
         dis.dis(co)
 

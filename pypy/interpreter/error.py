@@ -59,6 +59,10 @@ class OperationError(Exception):
             s = self._compute_value()
         return '[%s: %s]' % (self.w_type, s)
 
+    def __repr__(self):
+        "NOT_RPYTHON"
+        return 'OperationError(%s)' % (self.w_type)
+
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
         w_value = self.get_w_value(space)
