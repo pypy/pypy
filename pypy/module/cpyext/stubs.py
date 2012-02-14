@@ -1,5 +1,5 @@
 from pypy.module.cpyext.api import (
-    cpython_api, PyObject, PyObjectP, CANNOT_FAIL, Py_buffer
+    cpython_api, PyObject, PyObjectP, CANNOT_FAIL
     )
 from pypy.module.cpyext.complexobject import Py_complex_ptr as Py_complex
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -10,6 +10,7 @@ Py_ssize_t = rffi.SSIZE_T
 PyMethodDef = rffi.VOIDP
 PyGetSetDef = rffi.VOIDP
 PyMemberDef = rffi.VOIDP
+Py_buffer = rffi.VOIDP
 va_list = rffi.VOIDP
 PyDateTime_Date = rffi.VOIDP
 PyDateTime_DateTime = rffi.VOIDP
@@ -30,10 +31,6 @@ Py_tracefunc = rffi.VOIDP
 
 @cpython_api([PyObject], lltype.Void)
 def _PyObject_Del(space, op):
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyObject_CheckBuffer(space, obj):
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
@@ -684,28 +681,6 @@ def PyFile_SetEncodingAndErrors(space, p, enc, errors):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
-def PyFile_SoftSpace(space, p, newflag):
-    """
-    This function exists for internal use by the interpreter.  Set the
-    softspace attribute of p to newflag and return the previous value.
-    p does not have to be a file object for this function to work properly; any
-    object is supported (thought its only interesting if the softspace
-    attribute can be set).  This function clears any errors, and will return 0
-    as the previous value if the attribute either does not exist or if there were
-    errors in retrieving it.  There is no way to detect errors from this function,
-    but doing so should not be needed."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyFile_WriteObject(space, obj, p, flags):
-    """
-    Write object obj to file object p.  The only supported flag for flags is
-    Py_PRINT_RAW; if given, the str() of the object is written
-    instead of the repr().  Return 0 on success or -1 on failure; the
-    appropriate exception will be set."""
-    raise NotImplementedError
-
 @cpython_api([], PyObject)
 def PyFloat_GetInfo(space):
     """Return a structseq instance which contains information about the
@@ -1094,19 +1069,6 @@ def Py_GetPath(space):
     is) modified later to change the search path for loading modules.
 
     XXX should give the exact rules"""
-    raise NotImplementedError
-
-@cpython_api([], rffi.CCHARP)
-def Py_GetVersion(space):
-    """Return the version of this Python interpreter.  This is a string that looks
-    something like
-
-    "1.5 (\#67, Dec 31 1997, 22:34:28) [GCC 2.7.2.2]"
-
-    The first word (up to the first space character) is the current Python version;
-    the first three characters are the major and minor version separated by a
-    period.  The returned string points into static storage; the caller should not
-    modify its value.  The value is available to Python code as sys.version."""
     raise NotImplementedError
 
 @cpython_api([], rffi.CCHARP)
