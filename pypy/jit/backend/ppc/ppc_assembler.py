@@ -7,7 +7,8 @@ from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
-from pypy.jit.backend.ppc.codebuilder import PPCBuilder, OverwritingBuilder
+from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
+                                              scratch_reg)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES, MAX_REG_PARAMS,
@@ -917,38 +918,31 @@ class AssemblerPPC(OpAssembler):
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
-        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
-        size = (size + WORD - 1) & ~(WORD - 1)     # round up
 
-        self.mc.load_imm(r.r3, nursery_free_adr)
-        self.mc.load(r.r3.value, r.r3.value, 0)
+        self.mc.load_imm(r.RES.value, nursery_free_adr)
+        self.mc.load(r.RES.value, r.RES.value, 0)
 
         if _check_imm_arg(size):
-            self.mc.addi(r.r4.value, r.r3.value, size)
+            self.mc.addi(r.r4.value, r.RES.value, size)
         else:
-            self.mc.load_imm(r.r4, size)
-            self.mc.add(r.r4.value, r.r3.value, r.r4.value)
+            self.mc.load_imm(r.r4.value, size)
+            self.mc.add(r.r4.value, r.RES.value, r.r4.value)
 
-        # XXX maybe use an offset from the value nursery_free_addr
-        self.mc.load_imm(r.r3, nursery_top_adr)
-        self.mc.load(r.r3.value, r.r3.value, 0)
+        with scratch_reg(self.mc):
+            self.mc.gen_load_int(r.SCRATCH.value, nursery_top_adr)
+            self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
 
-        self.mc.cmp_op(0, r.r4.value, r.r3.value, signed=False)
-
+        self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
         fast_jmp_pos = self.mc.currpos()
         self.mc.nop()
 
-        # XXX update
-        # See comments in _build_malloc_slowpath for the
-        # details of the two helper functions that we are calling below.
-        # First, we need to call two of them and not just one because we
-        # need to have a mark_gc_roots() in between.  Then the calling
-        # convention of slowpath_addr{1,2} are tweaked a lot to allow
-        # the code here to be just two CALLs: slowpath_addr1 gets the
-        # size of the object to allocate from (EDX-EAX) and returns the
-        # result in EAX; self.malloc_slowpath additionally returns in EDX a
-        # copy of heap(nursery_free_adr), so that the final MOV below is
-        # a no-op.
+        # We load into r3 the address stored at nursery_free_adr. We calculate
+        # the new value for nursery_free_adr and store in r1 The we load the
+        # address stored in nursery_top_adr into IP If the value in r4 is
+        # (unsigned) bigger than the one in ip we conditionally call
+        # malloc_slowpath in case we called malloc_slowpath, which returns the
+        # new value of nursery_free_adr in r4 and the adr of the new object in
+        # r3.
         self.mark_gc_roots(self.write_new_force_index(),
                            use_copy_area=True)
         self.mc.call(self.malloc_slowpath)
@@ -956,9 +950,10 @@ class AssemblerPPC(OpAssembler):
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
         pmc.bc(4, 1, offset) # jump if LE (not GT)
-
-        self.mc.load_imm(r.r3, nursery_free_adr)
-        self.mc.store(r.r4.value, r.r3.value, 0)
+        
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH.value, nursery_free_adr)
+            self.mc.storex(r.r1.value, 0, r.SCRATCH.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
