@@ -542,6 +542,7 @@ class FieldOpAssembler(object):
     def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, res_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
+        self.mc.alloc_scratch_reg()
         self.mc.load_imm(r.SCRATCH, itemsize.value)
         self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
         if ofs.value > 0:
@@ -560,6 +561,7 @@ class FieldOpAssembler(object):
             self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
         else:
             assert 0
+        self.mc.free_scratch_reg()
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
