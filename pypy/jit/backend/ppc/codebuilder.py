@@ -962,6 +962,11 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         PPCAssembler.__init__(self)
         self.init_block_builder()
         self.r0_in_use = r0_in_use
+        self.ops_offset = {}
+
+    def mark_op(self, op):
+        pos = self.get_relative_pos()
+        self.ops_offset[op] = pos
 
     def check(self, desc, v, *args):
         desc.__get__(self)(*args)

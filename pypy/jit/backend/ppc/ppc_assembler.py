@@ -44,6 +44,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
+from pypy.rlib.jit import AsmInfo
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -490,6 +491,7 @@ class AssemblerPPC(OpAssembler):
         looptoken._ppc_loop_code = start_pos
         clt.frame_depth = clt.param_depth = -1
         spilling_area, param_depth = self._assemble(operations, regalloc)
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
         clt.frame_depth = spilling_area
         clt.param_depth = param_depth
      
@@ -517,7 +519,11 @@ class AssemblerPPC(OpAssembler):
             print 'Loop', inputargs, operations
             self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
+        ops_offset = self.mc.ops_offset
         self._teardown()
+
+        # XXX 3rd arg may not be correct yet
+        return AsmInfo(ops_offset, real_start, size_excluding_failure_stuff)
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
@@ -547,7 +553,9 @@ class AssemblerPPC(OpAssembler):
 
         sp_patch_location = self._prepare_sp_patch_position()
 
+        startpos = self.mc.get_relative_pos()
         spilling_area, param_depth = self._assemble(operations, regalloc)
+        codeendpos = self.mc.get_relative_pos()
 
         self.write_pending_failure_recoveries()
 
@@ -569,7 +577,11 @@ class AssemblerPPC(OpAssembler):
             print 'Loop', inputargs, operations
             self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling bridge with token %r' % looptoken
+
+        ops_offset = self.mc.ops_offset
         self._teardown()
+
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _patch_sp_offset(self, sp_patch_location, rawstart):
         mc = PPCBuilder()
