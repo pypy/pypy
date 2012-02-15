@@ -61,6 +61,7 @@ def encapsulator(T, flavor='raw', dealloc=None):
     return MemoryCapsule
 
 def ThreadState_dealloc(ts, space):
+    assert space is not None
     Py_DecRef(space, ts.c_dict)
 ThreadStateCapsule = encapsulator(PyThreadState.TO,
                                   dealloc=ThreadState_dealloc)
