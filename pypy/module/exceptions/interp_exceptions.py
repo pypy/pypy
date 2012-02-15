@@ -176,7 +176,9 @@ class W_BaseException(Wrappable):
 
     def descr_settraceback(self, space, w_newtraceback):
         msg = '__traceback__ must be a traceback or None'
-        self.w_traceback = check_traceback(space, w_newtraceback, msg)
+        if not space.is_w(w_newtraceback, space.w_None):
+            w_newtraceback = check_traceback(space, w_newtraceback, msg)
+        self.w_traceback = w_newtraceback
 
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
