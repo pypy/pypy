@@ -227,9 +227,8 @@ class W_Ufunc1(W_Ufunc):
         self.bool_result = bool_result
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call1,
+        from pypy.module.micronumpy.interp_numarray import (Call1, BaseArray,
             convert_to_array, Scalar, shape_agreement)
-
         if len(args_w)<2:
             [w_obj] = args_w
             out = None
@@ -243,8 +242,9 @@ class W_Ufunc1(W_Ufunc):
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
         if out:
-            ret_shape = shape_agreement(space, w_obj.shape, out.shape)
-            assert(ret_shape is not None)
+            if not isinstance(out, BaseArray):
+                raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
             res_dtype = out.find_dtype()
         elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
@@ -254,8 +254,11 @@ class W_Ufunc1(W_Ufunc):
             arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
             if isinstance(out,Scalar):
                 out.value=arr
+            elif isinstance(out, BaseArray):
+                out.fill(space, arr)
+            else:
+                out = arr
             return space.wrap(out)
-
         w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
                       w_obj, out)
         w_obj.add_invalidates(w_res)

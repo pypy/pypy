@@ -723,6 +723,7 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
+        assert isinstance(self.res, BaseArray)
         ra = ResultArray(self, self.size, self.shape, self.res_dtype,
                                                                 self.res)
         loop.compute(ra)
@@ -773,7 +774,6 @@ class VirtualSlice(VirtualArray):
 class Call1(VirtualArray):
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values,
                                                             out_arg=None):
-        xxx
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
         self.size = values.size
@@ -799,6 +799,8 @@ class Call2(VirtualArray):
             out_arg=None):
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.ufunc = ufunc
+        assert isinstance(left, BaseArray)
+        assert isinstance(right, BaseArray)
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
