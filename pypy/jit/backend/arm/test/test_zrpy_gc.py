@@ -94,9 +94,8 @@ def compile(f, gc, enable_opts='', **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
-    # The ARM backend does not support this option
-    #if gc != 'boehm':
-    #    t.config.translation.gcremovetypeptr = True
+    if gc != 'boehm':
+        t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
         setattr(t.config.translation, name, value)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
