@@ -272,6 +272,7 @@ class ObjSpace(object):
     http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
+    py3k = True             # are we interpreting py3k bytecode?
 
     def __init__(self, config=None):
         "NOT_RPYTHON: Basic initialization of objects."

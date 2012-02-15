@@ -47,6 +47,7 @@ class FlowObjSpace(ObjSpace):
     """
 
     full_exceptions = False
+    py3k = False # the RPython bytecode is still python2
     do_imports_immediately = True
     FrameClass = flowcontext.FlowSpaceFrame
 
