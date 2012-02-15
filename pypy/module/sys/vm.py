@@ -96,15 +96,6 @@ frame."""
         return space.newtuple([operror.w_type, operror.get_w_value(space),
                                space.wrap(operror.get_traceback())])
 
-def exc_clear(space):
-    """Clear global information on the current exception.  Subsequent calls
-to exc_info() will return (None,None,None) until another exception is
-raised and caught in the current thread or the execution stack returns to a
-frame where another exception is being handled."""
-    operror = space.getexecutioncontext().sys_exc_info()
-    if operror is not None:
-        operror.clear(space)
-
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""

@@ -35,14 +35,6 @@ class OperationError(Exception):
         if not we_are_translated():
             self.debug_excs = []
 
-    def clear(self, space):
-        # for sys.exc_clear()
-        self.w_type = space.w_None
-        self._w_value = space.w_None
-        self._application_traceback = None
-        if not we_are_translated():
-            del self.debug_excs[:]
-
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
         return space.exception_match(self.w_type, w_check_class)

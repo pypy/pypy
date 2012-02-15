@@ -47,7 +47,6 @@ class Module(MixedModule):
         'setcheckinterval'      : 'vm.setcheckinterval', 
         'getcheckinterval'      : 'vm.getcheckinterval', 
         'exc_info'              : 'vm.exc_info', 
-        'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
         'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',

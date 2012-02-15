@@ -223,51 +223,6 @@ class AppTestSysModulePortedFromCPython:
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 
-    def test_exc_clear(self):
-        import sys
-        raises(TypeError, sys.exc_clear, 42)
-
-        # Verify that exc_info is present and matches exc, then clear it, and
-        # check that it worked.
-        def clear_check(exc):
-            typ, value, traceback = sys.exc_info()
-            assert typ is not None
-            assert value is exc
-            assert traceback is not None
-
-            sys.exc_clear()
-
-            typ, value, traceback = sys.exc_info()
-            assert typ is None
-            assert value is None
-            assert traceback is None
-
-        def clear():
-            try:
-                raise ValueError(42)
-            except ValueError as exc:
-                clear_check(exc)
-
-        # Raise an exception and check that it can be cleared
-        clear()
-
-        # Verify that a frame currently handling an exception is
-        # unaffected by calling exc_clear in a nested frame.
-        try:
-            raise ValueError(13)
-        except ValueError as exc:
-            typ1, value1, traceback1 = sys.exc_info()
-            clear()
-            typ2, value2, traceback2 = sys.exc_info()
-
-            assert typ1 is typ2
-            assert value1 is exc
-            assert value1 is value2
-            assert traceback1 is traceback2
-
-        # Check that an exception can be cleared outside of an except block
-        clear_check(exc)
-
     def test_exit(self):
         import sys
         raises(TypeError, sys.exit, 42, 42)
