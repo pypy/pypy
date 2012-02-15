@@ -495,11 +495,6 @@ class __extend__(pyframe.PyFrame):
             w_type = space.type(w_value)
         operror = OperationError(w_type, w_value, w_cause=w_cause)
         operror.normalize_exception(space)
-        # XXX: we actually know that w_value is an instance of
-        # W_BaseException, so we could directly use w_value.w_traceback,
-        # however that class belongs to the std objspace, so for now we just
-        # go through all the getattr machinery (which is removed by the JIT
-        # anyway)
         tb = space.getattr(w_value, space.wrap('__traceback__'))
         if tb is not None:
             operror.set_traceback(tb)
