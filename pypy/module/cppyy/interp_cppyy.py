@@ -92,7 +92,7 @@ def get_methptr_getter(handle, method_index):
 class CPPMethod(object):
     """ A concrete function after overloading has been resolved """
     _immutable_ = True
-    _immutable_fields_ = ["arg_defs[*]", "arg_converters[*]"]
+    _immutable_fields_ = ["_libffifunc_cache[*]", "arg_converters[*]"]
     
     def __init__(self, cpptype, method_index, result_type, arg_defs, args_required):
         self.cpptype = cpptype
@@ -151,11 +151,11 @@ class CPPMethod(object):
 
     @jit.elidable_promote()
     def _prepare_libffi_func(self, funcptr):
-        if self.arg_converters is None:
-             self._build_converters()
         key = rffi.cast(rffi.LONG, funcptr)
         if key in self._libffifunc_cache:
             return self._libffifunc_cache[key]
+        if self.arg_converters is None:
+             self._build_converters()
         argtypes_libffi = [conv.libffitype for conv in self.arg_converters
                               if conv.libffitype]
         if (len(argtypes_libffi) == len(self.arg_converters) and
