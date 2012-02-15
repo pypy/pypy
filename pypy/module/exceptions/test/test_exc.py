@@ -271,3 +271,7 @@ class AppTestExc(object):
             tb = sys.exc_info()[2]
             assert e.with_traceback(tb) is e
             assert e.__traceback__ is tb
+
+    def test_set_traceback(self):
+        e = Exception()
+        raises(TypeError, "e.__traceback__ = 42")

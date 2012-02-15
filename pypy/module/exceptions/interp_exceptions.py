@@ -78,7 +78,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pytraceback import PyTraceback
+from pypy.interpreter.pytraceback import check_traceback
 from pypy.rlib import rwin32
 
 def readwrite_attrproperty_w(name, cls):
@@ -175,9 +175,8 @@ class W_BaseException(Wrappable):
         return self.w_traceback
 
     def descr_settraceback(self, space, w_newtraceback):
-        # Check argument
-        space.interp_w(PyTraceback, w_newtraceback, can_be_None=True)
-        self.w_traceback = w_newtraceback
+        msg = '__traceback__ must be a traceback or None'
+        self.w_traceback = check_traceback(space, w_newtraceback, msg)
 
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
