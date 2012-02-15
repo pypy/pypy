@@ -496,7 +496,7 @@ class __extend__(pyframe.PyFrame):
         operror = OperationError(w_type, w_value, w_cause=w_cause)
         operror.normalize_exception(space)
         tb = space.getattr(w_value, space.wrap('__traceback__'))
-        if tb is not None:
+        if not space.is_w(tb, space.w_None):
             operror.set_traceback(tb)
         raise operror
 
