@@ -1755,19 +1755,6 @@ def PyFrozenSet_New(space, iterable):
     building-up new frozensets with PySet_Add()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PySet_Pop(space, set):
-    """Return a new reference to an arbitrary object in the set, and removes the
-    object from the set.  Return NULL on failure.  Raise KeyError if the
-    set is empty. Raise a SystemError if set is an not an instance of
-    set or its subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=-1)
-def PySet_Clear(space, set):
-    """Empty an existing set of all elements."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_Decode(space, s, size, encoding, errors):
     """Create an object by decoding size bytes of the encoded buffer s using the
