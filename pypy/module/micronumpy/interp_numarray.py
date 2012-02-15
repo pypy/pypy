@@ -723,7 +723,6 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        assert isinstance(self.res, BaseArray)
         ra = ResultArray(self, self.size, self.shape, self.res_dtype,
                                                                 self.res)
         loop.compute(ra)
@@ -799,8 +798,6 @@ class Call2(VirtualArray):
             out_arg=None):
         VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.ufunc = ufunc
-        assert isinstance(left, BaseArray)
-        assert isinstance(right, BaseArray)
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
@@ -813,6 +810,8 @@ class Call2(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
+        assert isinstance(self.left, BaseArray)
+        assert isinstance(self.right, BaseArray)
         if self.shape != self.left.shape and self.shape != self.right.shape:
             return signature.BroadcastBoth(self.ufunc, self.name,
                                            self.calc_dtype,
@@ -835,6 +834,7 @@ class ResultArray(Call2):
     def __init__(self, child, size, shape, dtype, res=None, order='C'):
         if res is None:
             res = W_NDimArray(size, shape, dtype, order)
+        assert isinstance(res, BaseArray)
         Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
 
     def create_sig(self):
