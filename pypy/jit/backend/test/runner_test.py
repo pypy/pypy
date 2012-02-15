@@ -2222,7 +2222,6 @@ class LLtypeBackendTest(BaseBackendTest):
         print '-'*79
 
     def test_guard_not_invalidated_and_label(self):
-        py.test.skip("fails on x86!")
         # test that the guard_not_invalidated reserves enough room before
         # the label.  If it doesn't, then in this example after we invalidate
         # the guard, jumping to the label will hit the invalidation code too
