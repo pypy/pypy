@@ -261,7 +261,6 @@ class GuardOpAssembler(object):
     def emit_op_guard_overflow(self, op, arglocs, regalloc, fcond):
         return self._emit_guard(op, arglocs, c.VS, save_exc=False)
 
-    # from ../x86/assembler.py:1265
     def emit_op_guard_class(self, op, arglocs, regalloc, fcond):
         self._cmp_guard_class(op, arglocs, regalloc, fcond)
         self._emit_guard(op, arglocs[3:], c.EQ, save_exc=False)
@@ -279,8 +278,12 @@ class GuardOpAssembler(object):
             self.mc.LDR_ri(r.ip.value, locs[0].value, offset.value, cond=fcond)
             self.mc.CMP_rr(r.ip.value, locs[1].value, cond=fcond)
         else:
-            raise NotImplementedError
-            # XXX port from x86 backend once gc support is in place
+            typeid = locs[1]
+            self.mc.LDRH_ri(r.ip.value, locs[0].value, cond=fcond)
+            if typeid.is_imm():
+                self.mc.CMP_ri(r.ip.value, typeid.value, cond=fcond)
+            else:
+                self.mc.CMP_rr(r.ip.value, typeid.value, cond=fcond)
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
         return self._emit_guard(op, locs, fcond, save_exc=False,
