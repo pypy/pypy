@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
 from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.interpreter.error import OperationError
 
 class TestDictObject(BaseApiTest):
     def test_dict(self, space, api):
@@ -110,3 +111,13 @@ class TestDictObject(BaseApiTest):
 
         assert space.eq_w(space.len(w_copy), space.len(w_dict))
         assert space.eq_w(w_copy, w_dict)
+
+    def test_dictproxy(self, space, api):
+        w_dict = space.sys.get('modules')
+        w_proxy = api.PyDictProxy_New(w_dict)
+        assert space.is_true(space.contains(w_proxy, space.wrap('sys')))
+        raises(OperationError, space.setitem,
+               w_proxy, space.wrap('sys'), space.w_None)
+        raises(OperationError, space.delitem,
+               w_proxy, space.wrap('sys'))
+        raises(OperationError, space.call_method, w_proxy, 'clear')
