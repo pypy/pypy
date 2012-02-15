@@ -177,7 +177,7 @@ class Regalloc(object):
     def prepare_loop(self, inputargs, operations):
         self._prepare(inputargs, operations)
         self._set_initial_bindings(inputargs)
-        self.possibly_free_vars(list(inputargs))
+        self.possibly_free_vars(inputargs)
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
@@ -425,7 +425,7 @@ class Regalloc(object):
     prepare_guard_not_invalidated = prepare_guard_no_overflow
 
     def prepare_guard_exception(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc = self._ensure_value_is_boxed(arg0)
         loc1 = self.get_scratch_reg(INT, boxes)
@@ -447,7 +447,7 @@ class Regalloc(object):
         return arglocs
 
     def prepare_guard_value(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         l0 = self._ensure_value_is_boxed(a0, boxes)
         l1 = self._ensure_value_is_boxed(a1, boxes)
@@ -459,7 +459,7 @@ class Regalloc(object):
 
     def prepare_guard_class(self, op):
         assert isinstance(op.getarg(0), Box)
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         x = self._ensure_value_is_boxed(boxes[0], boxes)
         y = self.get_scratch_reg(REF, forbidden_vars=boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
@@ -559,7 +559,7 @@ class Regalloc(object):
         return []
 
     def prepare_setfield_gc(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0, boxes)

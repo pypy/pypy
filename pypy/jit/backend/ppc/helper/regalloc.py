@@ -76,7 +76,7 @@ def prepare_binary_int_op_with_imm():
 
 def prepare_binary_int_op():
     def f(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         b0, b1 = boxes
 
         reg1 = self._ensure_value_is_boxed(b0, forbidden_vars=boxes)
