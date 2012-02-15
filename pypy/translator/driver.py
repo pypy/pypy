@@ -331,6 +331,7 @@ class TranslationDriver(SimpleTaskEngine):
             raise Exception("stand-alone program entry point must return an "
                             "int (and not, e.g., None or always raise an "
                             "exception).")
+        annotator.complete()
         annotator.simplify()
         return s
 

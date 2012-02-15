@@ -191,6 +191,11 @@ class TestObject(BaseApiTest):
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None
         api.PyErr_Clear()
 
+    def test_dir(self, space, api):
+        w_dir = api.PyObject_Dir(space.sys)
+        assert space.isinstance_w(w_dir, space.w_list)
+        assert space.is_true(space.contains(w_dir, space.wrap('modules')))
+
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
