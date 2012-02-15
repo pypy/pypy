@@ -36,9 +36,9 @@ class AppTestOutArg(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4]])
         c = zeros((2,2,2))
         b = negative(a + a, out=c[1])
-        print c
-        assert (b == [[-2, -4], [-6, -8]]).all()
+        #test for view, and also test that forcing out also forces b
         assert (c[:, :, 1] == [[0, 0], [-4, -8]]).all()
+        assert (b == [[-2, -4], [-6, -8]]).all()
 
     def test_ufunc_cast(self):
         from _numpypy import array, negative

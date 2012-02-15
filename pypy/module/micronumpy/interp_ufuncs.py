@@ -262,6 +262,9 @@ class W_Ufunc1(W_Ufunc):
         w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
                       w_obj, out)
         w_obj.add_invalidates(w_res)
+        if out:
+            #Force it immediately
+            w_res.get_concrete()
         return w_res
 
 

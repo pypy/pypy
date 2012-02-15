@@ -783,6 +783,7 @@ class Call1(VirtualArray):
         self.values = None
 
     def create_sig(self):
+        print 'Call1::create_sig'
         if self.forced_result is not None:
             return self.forced_result.create_sig()
         return signature.Call1(self.ufunc, self.name, self.calc_dtype,
@@ -943,7 +944,7 @@ class ConcreteArray(BaseArray):
 
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self.storage, item, value.convert_to(self.dtype))
 
     def calc_strides(self, shape):
         strides = []
