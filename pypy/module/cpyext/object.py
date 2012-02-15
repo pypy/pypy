@@ -439,6 +439,8 @@ def PyObject_Print(space, w_obj, fp, flags):
     return 0
 
 
+PyBUF_WRITABLE = 0x0001  # Copied from object.h
+
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
               lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
@@ -454,6 +456,18 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     view.c_len = length
     view.c_obj = obj
     Py_IncRef(space, obj)
+    view.c_itemsize = 1
+    if flags & PyBUF_WRITABLE:
+        rffi.setintfield(view, 'c_readonly', 0)
+    else:
+        rffi.setintfield(view, 'c_readonly', 1)
+    rffi.setintfield(view, 'c_ndim', 0)
+    view.c_format = lltype.nullptr(rffi.CCHARP.TO)
+    view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+
     return 0
 
 
