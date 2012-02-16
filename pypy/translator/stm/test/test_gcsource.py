@@ -115,3 +115,18 @@ def test_unknown_source():
     v_result = gsrc.translator.graphs[0].getreturnvar()
     s = gsrc[v_result]
     assert list(s) == [None]
+
+def test_exception():
+    class FooError(Exception):
+        pass
+    def f(n):
+        raise FooError
+    def main(n):
+        try:
+            f(n)
+        except FooError, e:
+            return e
+    gsrc = gcsource(main, [int])
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert list(s) == [None]

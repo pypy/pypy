@@ -83,6 +83,8 @@ def enum_gc_dependencies(translator):
                 for v1, v2 in zip(link.args, link.target.inputargs):
                     if _is_gc(v2):
                         assert _is_gc(v1)
+                        if v1 is link.last_exc_value:
+                            v1 = None
                         resultlist.append((v1, v2))
     #
     for graph in translator.graphs:
