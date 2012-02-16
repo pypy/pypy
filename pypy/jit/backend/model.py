@@ -22,7 +22,7 @@ class AbstractCPU(object):
     total_freed_bridges = 0
 
     # for heaptracker
-    _all_size_descrs_with_vtable = None
+    # _all_size_descrs_with_vtable = None
     _vtable_to_descr_dict = None
 
 
