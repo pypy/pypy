@@ -195,7 +195,14 @@ def test_releases_gil_analyzer():
 
 def test_random_effects_on_stacklet_switch():
     from pypy.jit.backend.llgraph.runner import LLtypeCPU
-    from pypy.rlib._rffi_stacklet import switch, thread_handle, handle
+    from pypy.translator.platform import CompilationError
+    try:
+        from pypy.rlib._rffi_stacklet import switch, thread_handle, handle
+    except CompilationError as e:
+	if "Unsupported platform!" in e.out:
+	    py.test.skip("Unsupported platform!")
+	else:
+            raise e
     @jit.dont_look_inside
     def f():
         switch(rffi.cast(thread_handle, 0), rffi.cast(handle, 0))
