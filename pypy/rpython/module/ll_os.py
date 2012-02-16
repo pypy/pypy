@@ -963,7 +963,7 @@ class RegisterOs(BaseLazyRegistering):
 
         os_lseek = self.llexternal(funcname,
                                    [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG)
+                                   rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
             how = fix_seek_arg(how)
@@ -988,7 +988,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'ftruncate')
     def register_os_ftruncate(self):
         os_ftruncate = self.llexternal('ftruncate',
-                                       [rffi.INT, rffi.LONGLONG], rffi.INT)
+                                       [rffi.INT, rffi.LONGLONG], rffi.INT, macro=True)
 
         def ftruncate_llimpl(fd, length):
             res = rffi.cast(rffi.LONG,
