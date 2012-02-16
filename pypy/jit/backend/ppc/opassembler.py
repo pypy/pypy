@@ -882,6 +882,7 @@ class AllocOpAssembler(object):
         pass
 
     emit_jit_debug = emit_debug_merge_point
+    emit_keepalive = emit_debug_merge_point
 
     def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
         # Write code equivalent to write_barrier() in the GC: it checks
