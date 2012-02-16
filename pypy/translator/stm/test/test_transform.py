@@ -46,3 +46,8 @@ def test_pre_insert_stm_writebarrier():
     # to the Z instance, and the 3rd one is in the block 'x.n *= 2'.
     sum = summary(graph)
     assert sum['stm_writebarrier'] == 3
+
+
+def test_all_the_rest_in_transform():
+    import py
+    py.test.skip("XXX! tests missing!")
