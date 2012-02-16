@@ -49,6 +49,8 @@ long stm_thread_id(void);  /* returns a unique thread id,
 long stm_in_transaction(void);
 void _stm_activate_transaction(long);
 
+void stm_copy_transactional_to_raw(void *src, void *dst, long size);
+
 
 /************************************************************/
 
