@@ -150,9 +150,11 @@ class PyFrame(eval.Frame):
         w_inputvalue is for generator.send() and operr is for
         generator.throw().
         """
-        self = hint(self, stm_write=True)
-        #hint(self.locals_stack_w, stm_write=True) -- later
-        #hint(self.cells, stm_immutable=True)      -- later
+        if self.space.config.translation.stm:
+            self = hint(self, stm_write=True)
+            #hint(self.locals_stack_w, stm_write=True) -- later
+            #hint(self.cells, stm_immutable=True)      -- later
+            self = hint(self, access_directly=True)
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
