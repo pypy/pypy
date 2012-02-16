@@ -96,7 +96,9 @@ class GcSource(object):
         pending = [variable]
         seen = set(pending)
         for v2 in pending:
-            for v1 in self._backmapping.get(v2, ()):
+            # we get a KeyError here if 'variable' is not found,
+            # or if one of the preceeding variables is not found
+            for v1 in self._backmapping[v2]:
                 if isinstance(v1, Variable):
                     if v1 not in seen:
                         seen.add(v1)
