@@ -1697,6 +1697,8 @@ class GcRootTracker(object):
             }
             """
         elif self.format in ('elf64', 'darwin64'):
+            if self.format == 'elf64':   # gentoo patch: hardened systems
+                print >> output, "\t.section .note.GNU-stack,\"\",%progbits"
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
             _variant(elf64='.type pypy_asm_stackwalk, @function',
