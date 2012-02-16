@@ -279,7 +279,18 @@ class AppTestPYTHONIFY:
             assert g(11., 2)           ==  2.
             assert g(11.)              == 11.
 
-    def test11_underscore_in_class_name(self):
+    def test11_overload_on_arguments(self):
+        """Test functions overloaded on arguments"""
+
+        import cppyy
+        e = cppyy.gbl.example01(1)
+
+        assert e.addDataToInt(2)                 ==  3
+        assert e.overloadedAddDataToInt(3)       ==  4
+        assert e.overloadedAddDataToInt(4, 5)    == 10
+        assert e.overloadedAddDataToInt(6, 7, 8) == 22
+
+    def test12_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
         import cppyy

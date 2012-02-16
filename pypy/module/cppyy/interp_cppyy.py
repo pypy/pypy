@@ -84,15 +84,10 @@ W_CPPLibrary.typedef = TypeDef(
 )
 W_CPPLibrary.typedef.acceptable_as_base_class = True
 
-@jit.elidable_promote()
-def get_methptr_getter(handle, method_index):
-    return capi.c_get_methptr_getter(handle, method_index)
-
 
 class CPPMethod(object):
     """ A concrete function after overloading has been resolved """
     _immutable_ = True
-    _immutable_fields_ = ["_libffifunc_cache[*]", "arg_converters[*]"]
     
     def __init__(self, cpptype, method_index, result_type, arg_defs, args_required):
         self.cpptype = cpptype
@@ -101,11 +96,11 @@ class CPPMethod(object):
         self.arg_defs = arg_defs
         self.args_required = args_required
         self.executor = executor.get_executor(self.space, result_type)
+
+        # Setup of the method dispatch's innards is done lazily, i.e. only when
+        # the method is actually used. TODO: executor should be lazy as well.
         self.arg_converters = None
-        methgetter = get_methptr_getter(self.cpptype.handle,
-                                        self.method_index)
-        self.methgetter = methgetter
-        self._libffifunc_cache = {}
+        self._libffifunc = None
 
     @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
@@ -117,11 +112,14 @@ class CPPMethod(object):
         if args_expected < args_given or args_given < self.args_required:
             raise TypeError("wrong number of arguments")
 
-        if self.methgetter and cppthis: # only for methods
+        if self.arg_converters is None:
+            self._setup(cppthis)
+
+        if self._libffifunc:
             try:
                 return self.do_fast_call(cppthis, w_type, args_w)
             except FastCallNotPossible:
-                pass
+                pass          # can happen if converters or executor does not implement ffi
 
         args = self.prepare_arguments(args_w)
         try:
@@ -132,11 +130,6 @@ class CPPMethod(object):
     @jit.unroll_safe
     def do_fast_call(self, cppthis, w_type, args_w):
         jit.promote(self)
-        funcptr = self.methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-        libffi_func = self._prepare_libffi_func(funcptr)
-        if not libffi_func:
-            raise FastCallNotPossible
-
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
         i = len(self.arg_defs)
@@ -147,37 +140,31 @@ class CPPMethod(object):
         for j in range(i+1, len(self.arg_defs)):
             conv = self.arg_converters[j]
             conv.default_argument_libffi(self.space, argchain)
-        return self.executor.execute_libffi(self.space, w_type, libffi_func, argchain)
+        return self.executor.execute_libffi(self.space, w_type, self._libffifunc, argchain)
 
-    @jit.elidable_promote()
-    def _prepare_libffi_func(self, funcptr):
-        key = rffi.cast(rffi.LONG, funcptr)
-        if key in self._libffifunc_cache:
-            return self._libffifunc_cache[key]
-        if self.arg_converters is None:
-             self._build_converters()
-        argtypes_libffi = [conv.libffitype for conv in self.arg_converters
-                              if conv.libffitype]
-        if (len(argtypes_libffi) == len(self.arg_converters) and
-                self.executor.libffitype):
-            # add c++ this to the arguments
-            libffifunc = libffi.Func("XXX",
-                                     [libffi.types.pointer] + argtypes_libffi,
-                                     self.executor.libffitype, funcptr)
-        else:
-            libffifunc = None
-        self._libffifunc_cache[key] = libffifunc
-        return libffifunc
-
-    def _build_converters(self):
+    def _setup(self, cppthis):
         self.arg_converters = [converter.get_converter(self.space, arg_type, arg_dflt)
                                    for arg_type, arg_dflt in self.arg_defs]
+
+        # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
+        # has been offset to the matching class. Hence, the libffi pointer is
+        # uniquely defined and needs to be setup only once.
+        methgetter = capi.c_get_methptr_getter(self.cpptype.handle, self.method_index)
+        if methgetter and cppthis:      # methods only for now
+            funcptr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
+            argtypes_libffi = [conv.libffitype for conv in self.arg_converters
+                               if conv.libffitype]
+            if (len(argtypes_libffi) == len(self.arg_converters) and
+                    self.executor.libffitype):
+                # add c++ this to the arguments
+                libffifunc = libffi.Func("XXX",
+                                         [libffi.types.pointer] + argtypes_libffi,
+                                         self.executor.libffitype, funcptr)
+                self._libffifunc = libffifunc
 
     @jit.unroll_safe
     def prepare_arguments(self, args_w):
         jit.promote(self)
-        if self.arg_converters is None:
-            self._build_converters()
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
