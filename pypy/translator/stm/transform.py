@@ -227,36 +227,53 @@ def pre_insert_stm_writebarrier(graph):
         if block.operations == ():
             continue
         #
-        # figure out the variables on which we want an stm_writebarrier
+        # figure out the variables on which we want an stm_writebarrier;
+        # also track the getfields, on which we don't want a write barrier
+        # but which are still recorded in the dict.
         copies = {}
         wants_a_writebarrier = {}
         for op in block.operations:
             if op.opname in COPIES_POINTER:
                 assert len(op.args) == 1
                 copies[op.result] = op
+            elif (op.opname in ('getfield', 'getarrayitem',
+                                'getinteriorfield') and
+                  op.result.concretetype is not lltype.Void and
+                  op.args[0].concretetype.TO._gckind == 'gc' and
+                  not is_immutable(op)):
+                wants_a_writebarrier.setdefault(op, False)
             elif (op.opname in ('setfield', 'setarrayitem',
                                 'setinteriorfield') and
                   op.args[-1].concretetype is not lltype.Void and
                   op.args[0].concretetype.TO._gckind == 'gc' and
                   not is_immutable(op)):
-                wants_a_writebarrier.setdefault(op.args[0], op)
+                wants_a_writebarrier[op] = True
         #
-        # back-propagate the write barrier locations through the cast_pointers
+        # back-propagate the write barrier's True/False locations through
+        # the cast_pointers
         writebarrier_locations = {}
-        for v, op in wants_a_writebarrier.items():
-            while v in copies:
-                op = copies[v]
-                v = op.args[0]
-            protect = writebarrier_locations.setdefault(op, set())
-            protect.add(v)
+        for op, wants in wants_a_writebarrier.items():
+            while op.args[0] in copies:
+                op = copies[op.args[0]]
+            if op in writebarrier_locations:
+                wants |= writebarrier_locations[op]
+            writebarrier_locations[op] = wants
+        #
+        # to back-propagate the locations even more, if it comes before a
+        # getfield(), we need the following set
+        writebarrier_vars = set()
+        for op, wants in writebarrier_locations.items():
+            if wants:
+                writebarrier_vars.add(op.args[0])
         #
         # now insert the 'stm_writebarrier's
         renames = {}      # {original-var: renamed-var}
         newoperations = []
         for op in block.operations:
-            locs = writebarrier_locations.get(op, None)
-            if locs:
-                for v1 in locs:
+            if op in writebarrier_locations:
+                wants = writebarrier_locations[op]
+                if wants or op.args[0] in writebarrier_vars:
+                    v1 = op.args[0]
                     if v1 not in renames:
                         v2 = varoftype(v1.concretetype)
                         op1 = SpaceOperation('stm_writebarrier', [v1], v2)
