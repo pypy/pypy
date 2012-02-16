@@ -783,7 +783,6 @@ class Call1(VirtualArray):
         self.values = None
 
     def create_sig(self):
-        print 'Call1::create_sig'
         if self.forced_result is not None:
             return self.forced_result.create_sig()
         return signature.Call1(self.ufunc, self.name, self.calc_dtype,

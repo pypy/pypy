@@ -39,6 +39,21 @@ class AppTestOutArg(BaseNumpyAppTest):
         #test for view, and also test that forcing out also forces b
         assert (c[:, :, 1] == [[0, 0], [-4, -8]]).all()
         assert (b == [[-2, -4], [-6, -8]]).all()
+        #Test broadcast, type promotion
+        b = negative(3, out=a)
+        assert (a == -3).all()
+        c = zeros((2, 2), dtype=float)
+        b = negative(3, out=c)
+        assert b.dtype.kind == c.dtype.kind
+        assert b.shape == c.shape
+
+        #Test shape agreement
+        a=zeros((3,4))
+        b=zeros((3,5))
+        raises(ValueError, 'negative(a, out=b)')
+        raises(ValueError, 'negative(a, out=b)')
+
+        
 
     def test_ufunc_cast(self):
         from _numpypy import array, negative
