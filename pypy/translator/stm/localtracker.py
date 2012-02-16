@@ -29,6 +29,8 @@ class StmLocalTracker(object):
                     return False
             elif src is None:
                 return False
+            elif src == 'instantiate':
+                pass
             else:
-                raise AssertionError(src)
+                raise AssertionError(repr(src))
         return True

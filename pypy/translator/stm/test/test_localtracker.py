@@ -199,6 +199,17 @@ class TestStmLocalTracker(object):
         self.translate(f, [int])
         self.check([])
 
+    def test_instantiate_returns_fresh_object(self):
+        def f(n):
+            if n > 5:
+                cls = X
+            else:
+                cls = Y
+            _see(cls(n), 'x')
+        #
+        self.translate(f, [int])
+        self.check(['x'])
+
 
 S = lltype.GcStruct('S', ('n', lltype.Signed))
 

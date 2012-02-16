@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Variable
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.translator.simplify import get_graph
 
 
@@ -61,6 +61,19 @@ def enum_gc_dependencies(translator):
                     if tographs is not None:
                         for tograph in tographs:
                             call(tograph, op.args[1:-1], op.result)
+                        continue
+                    # special-case to detect 'instantiate'
+                    is_instantiate = False
+                    v_func = op.args[0]
+                    for op1 in block.operations:
+                        if (v_func is op1.result and
+                            op1.opname == 'getfield' and
+                            op1.args[0].concretetype == rclass.CLASSTYPE and
+                            op1.args[1].value == 'instantiate'):
+                            is_instantiate = True
+                            break
+                    if is_instantiate:
+                        resultlist.append(('instantiate', op.result))
                         continue
                 #
                 if _is_gc(op.result):
