@@ -143,8 +143,8 @@ class PyFrame(eval.Frame):
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
         The optional arguments are there to handle a generator's frame:
-        w_inputvalue is for generator.send()) and operr is for
-        generator.throw()).
+        w_inputvalue is for generator.send() and operr is for
+        generator.throw().
         """
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
