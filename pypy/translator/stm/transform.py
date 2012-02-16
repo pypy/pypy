@@ -163,6 +163,13 @@ class STMTransformer(object):
     stt_malloc_nonmovable = stt_malloc
     stt_malloc_nonmovable_varsize = stt_malloc
 
+    def stt_hint(self, newoperations, op):
+        if 'stm_write' in op.args[1].value:
+            op = SpaceOperation('stm_writebarrier', [op.args[0]], op.result)
+            self.stt_stm_writebarrier(newoperations, op)
+            return
+        newoperations.append(op)
+
 
 def transform_graph(graph):
     # for tests: only transforms one graph

@@ -32,13 +32,17 @@ def test_pre_insert_stm_writebarrier():
             x.n = n + 2
             x.sub = n + 1
         x.n *= 2
+        if n < 10:
+            return x.n
+        else:
+            return 0
     #
     graph = get_graph(f1, [int])
     pre_insert_stm_writebarrier(graph)
     if option.view:
         graph.show()
     # weak test: check that there are exactly two stm_writebarrier inserted.
-    # one should be for 'x.n = n', and one should cover both field assignments
-    # to the Z instance.
+    # one should be for 'x.n = n', one should cover both field assignments
+    # to the Z instance, and the 3rd one is in the block 'x.n *= 2'.
     sum = summary(graph)
     assert sum['stm_writebarrier'] == 3

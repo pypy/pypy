@@ -210,6 +210,15 @@ class TestStmLocalTracker(object):
         self.translate(f, [int])
         self.check(['x'])
 
+    def test_hint_stm_write(self):
+        z = X(42)
+        def f(n):
+            x = hint(z, stm_write=True)
+            _see(x, 'x')
+        #
+        self.translate(f, [int])
+        self.check(['x'])
+
 
 S = lltype.GcStruct('S', ('n', lltype.Signed))
 

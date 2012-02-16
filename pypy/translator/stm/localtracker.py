@@ -23,8 +23,11 @@ class StmLocalTracker(object):
         assert isinstance(variable, Variable)
         for src in self.gsrc[variable]:
             if isinstance(src, SpaceOperation):
-                if src.opname not in RETURNS_LOCAL_POINTER:
-                    return False
+                if src.opname in RETURNS_LOCAL_POINTER:
+                    continue
+                if src.opname == 'hint' and 'stm_write' in src.args[1].value:
+                    continue
+                return False
             elif isinstance(src, Constant):
                 if src.value:     # a NULL pointer is still valid as local
                     return False
