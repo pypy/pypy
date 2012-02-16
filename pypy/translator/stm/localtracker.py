@@ -21,7 +21,14 @@ class StmLocalTracker(object):
 
     def is_local(self, variable):
         assert isinstance(variable, Variable)
-        for src in self.gsrc[variable]:
+        try:
+            srcs = self.gsrc[variable]
+        except KeyError:
+            # XXX we shouldn't get here, but we do translating the whole
+            # pypy.  We should investigate at some point.  In the meantime
+            # returning False is always safe.
+            return False
+        for src in srcs:
             if isinstance(src, SpaceOperation):
                 if src.opname in RETURNS_LOCAL_POINTER:
                     continue
