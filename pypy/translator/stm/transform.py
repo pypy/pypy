@@ -28,8 +28,8 @@ class STMTransformer(object):
         self.count_get_nonlocal  = 0
         self.count_get_immutable = 0
         self.count_set_local     = 0
-        self.count_set_nonlocal  = 0
         self.count_set_immutable = 0
+        self.count_write_barrier = 0
 
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
@@ -53,8 +53,8 @@ class STMTransformer(object):
         log('      not proven local: %d' % self.count_get_nonlocal)
         log('             immutable: %d' % self.count_get_immutable)
         log('set*:     proven local: %d' % self.count_set_local)
-        log('      not proven local: %d' % self.count_set_nonlocal)
         log('             immutable: %d' % self.count_set_immutable)
+        log('        write barriers: %d' % self.count_write_barrier)
         log.info("Software Transactional Memory transformation applied")
 
     def transform_block(self, block):
@@ -81,8 +81,6 @@ class STMTransformer(object):
     def transform_graph(self, graph):
         for block in graph.iterblocks():
             self.transform_block(block)
-
-    # ----------
 
     # ----------
 
@@ -119,20 +117,12 @@ class STMTransformer(object):
             self.count_set_immutable += 1
             newoperations.append(op)
             return
-        if isinstance(op.args[0], Variable):
-            if self.localtracker.is_local(op.args[0]):
-                self.count_set_local += 1
-                newoperations.append(op)
-                return
-        self.count_set_nonlocal += 1
-        v_arg = op.args[0]
-        v_local = varoftype(v_arg.concretetype)
-        op0 = SpaceOperation('stm_writebarrier', [v_arg], v_local)
-        newoperations.append(op0)
-        op1 = SpaceOperation('bare_' + op.opname, [v_local] + op.args[1:],
-                             op.result)
-        newoperations.append(op1)
-        import pdb; pdb.set_trace()
+        # this is not really a transformation, but just an assertion that
+        # it work on local objects.  This should be ensured by
+        # pre_insert_stm_writebarrier().
+        assert self.localtracker.is_local(op.args[0])
+        self.count_set_local += 1
+        newoperations.append(op)
 
 
     def stt_getfield(self, newoperations, op):
@@ -152,6 +142,14 @@ class STMTransformer(object):
 
     def stt_setinteriorfield(self, newoperations, op):
         self.transform_set(newoperations, op)
+
+    def stt_stm_writebarrier(self, newoperations, op):
+        if (isinstance(op.args[0], Variable) and
+            self.localtracker.is_local(op.args[0])):
+            op = SpaceOperation('same_as', op.args, op.result)
+        else:
+            self.count_write_barrier += 1
+        newoperations.append(op)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value

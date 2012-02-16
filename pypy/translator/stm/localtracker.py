@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 RETURNS_LOCAL_POINTER = set([
     'malloc', 'malloc_varsize', 'malloc_nonmovable',
     'malloc_nonmovable_varsize',
+    'stm_writebarrier',
     ])
 
 
