@@ -359,14 +359,14 @@ class W_Variable(Wrappable):
         # Verifies that truncation or other problems did not take place on
         # retrieve.
         if self.isVariableLength:
-            if rffi.cast(lltype.Signed, self.returnCode[pos]) != 0:
+            error_code = rffi.cast(lltype.Signed, self.returnCode[pos])
+            if error_code != 0:
                 error = W_Error(space, self.environment,
                                 "Variable_VerifyFetch()", 0)
-                error.code = self.returnCode[pos]
+                error.code = error_code
                 error.message = space.wrap(
                     "column at array pos %d fetched with error: %d" %
-                    (pos,
-                     rffi.cast(lltype.Signed, self.returnCode[pos])))
+                    (pos, error_code))
                 w_error = get(space).w_DatabaseError
 
                 raise OperationError(get(space).w_DatabaseError,
