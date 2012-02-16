@@ -39,6 +39,10 @@ class PyFrame(eval.Frame):
 
     __metaclass__ = extendabletype
 
+    _immutable_fields_ = ['pycode', 'locals_stack_w', 'cells']
+    # note: 'locals_stack_w' is immutable because it contains always the
+    # same list, but what the list itself contains changes
+
     frame_finished_execution = False
     last_instr               = -1
     last_exception           = None
@@ -147,6 +151,9 @@ class PyFrame(eval.Frame):
         w_inputvalue is for generator.send()) and operr is for
         generator.throw()).
         """
+        self = hint(self, stm_write=True)
+        hint(self.locals_stack_w, stm_write=True)
+        hint(self.cells, stm_immutable=True)
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
