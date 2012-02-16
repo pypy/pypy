@@ -34,6 +34,8 @@ class STMTransformer(object):
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
+        for graph in self.translator.graphs:
+            pre_insert_stm_writebarrier(graph)
         self.localtracker = StmLocalTracker(self.translator)
         for graph in self.translator.graphs:
             self.transform_graph(graph)
@@ -82,7 +84,9 @@ class STMTransformer(object):
 
     # ----------
 
-    def transform_get(self, newoperations, op, stmopname, immutable=False):
+    # ----------
+
+    def transform_get(self, newoperations, op, stmopname):
         if op.result.concretetype is lltype.Void:
             newoperations.append(op)
             return
@@ -90,7 +94,7 @@ class STMTransformer(object):
             turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
-        if immutable:
+        if is_immutable(op):
             self.count_get_immutable += 1
             newoperations.append(op)
             return
@@ -103,7 +107,7 @@ class STMTransformer(object):
         op1 = SpaceOperation(stmopname, op.args, op.result)
         newoperations.append(op1)
 
-    def transform_set(self, newoperations, op, immutable=False):
+    def transform_set(self, newoperations, op):
         if op.args[-1].concretetype is lltype.Void:
             newoperations.append(op)
             return
@@ -111,7 +115,7 @@ class STMTransformer(object):
             turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
-        if immutable:
+        if is_immutable(op):
             self.count_set_immutable += 1
             newoperations.append(op)
             return
@@ -128,37 +132,26 @@ class STMTransformer(object):
         op1 = SpaceOperation('bare_' + op.opname, [v_local] + op.args[1:],
                              op.result)
         newoperations.append(op1)
+        import pdb; pdb.set_trace()
 
 
     def stt_getfield(self, newoperations, op):
-        STRUCT = op.args[0].concretetype.TO
-        immutable = STRUCT._immutable_field(op.args[1].value)
-        self.transform_get(newoperations, op, 'stm_getfield', immutable)
+        self.transform_get(newoperations, op, 'stm_getfield')
 
     def stt_setfield(self, newoperations, op):
-        STRUCT = op.args[0].concretetype.TO
-        immutable = STRUCT._immutable_field(op.args[1].value)
-        self.transform_set(newoperations, op, immutable)
+        self.transform_set(newoperations, op)
 
     def stt_getarrayitem(self, newoperations, op):
-        ARRAY = op.args[0].concretetype.TO
-        immutable = ARRAY._immutable_field()
-        self.transform_get(newoperations, op, 'stm_getarrayitem', immutable)
+        self.transform_get(newoperations, op, 'stm_getarrayitem')
 
     def stt_setarrayitem(self, newoperations, op):
-        ARRAY = op.args[0].concretetype.TO
-        immutable = ARRAY._immutable_field()
-        self.transform_set(newoperations, op, immutable)
+        self.transform_set(newoperations, op)
 
     def stt_getinteriorfield(self, newoperations, op):
-        OUTER = op.args[0].concretetype.TO
-        immutable = OUTER._immutable_interiorfield(unwraplist(op.args[1:]))
-        self.transform_get(newoperations, op, 'stm_getinteriorfield',immutable)
+        self.transform_get(newoperations, op, 'stm_getinteriorfield')
 
     def stt_setinteriorfield(self, newoperations, op):
-        OUTER = op.args[0].concretetype.TO
-        immutable = OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
-        self.transform_set(newoperations, op, immutable)
+        self.transform_set(newoperations, op)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
@@ -196,3 +189,84 @@ def unwraplist(list_v):
             yield None    # unknown
         else:
             raise AssertionError(v)
+
+def is_immutable(op):
+    if op.opname in ('getfield', 'setfield'):
+        STRUCT = op.args[0].concretetype.TO
+        return STRUCT._immutable_field(op.args[1].value)
+    if op.opname in ('getarrayitem', 'setarrayitem'):
+        ARRAY = op.args[0].concretetype.TO
+        return ARRAY._immutable_field()
+    if op.opname == 'getinteriorfield':
+        OUTER = op.args[0].concretetype.TO
+        return OUTER._immutable_interiorfield(unwraplist(op.args[1:]))
+    if op.opname == 'setinteriorfield':
+        OUTER = op.args[0].concretetype.TO
+        return OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
+    raise AssertionError(op)
+
+def pre_insert_stm_writebarrier(graph):
+    # put a number of 'stm_writebarrier' operations, one before each
+    # relevant 'set*'.  Then try to avoid the situation where we have
+    # one variable on which we do 'stm_writebarrier', but there are
+    # also other variables that contain the same pointer, e.g. casted
+    # to a different precise type.
+    from pypy.translator.stm.gcsource import COPIES_POINTER
+    #
+    def emit(op):
+        for v1 in op.args:
+            if v1 in renames:
+                # one argument at least is in 'renames', so we need
+                # to make a new SpaceOperation
+                args1 = [renames.get(v, v) for v in op.args]
+                op1 = SpaceOperation(op.opname, args1, op.result)
+                newoperations.append(op1)
+                return
+        # no argument is in 'renames', so we can just emit the op
+        newoperations.append(op)
+    #
+    for block in graph.iterblocks():
+        if block.operations == ():
+            continue
+        #
+        # figure out the variables on which we want an stm_writebarrier
+        copies = {}
+        wants_a_writebarrier = {}
+        for op in block.operations:
+            if op.opname in COPIES_POINTER:
+                assert len(op.args) == 1
+                copies[op.result] = op
+            elif (op.opname in ('setfield', 'setarrayitem',
+                                'setinteriorfield') and
+                  op.args[-1].concretetype is not lltype.Void and
+                  op.args[0].concretetype.TO._gckind == 'gc' and
+                  not is_immutable(op)):
+                wants_a_writebarrier.setdefault(op.args[0], op)
+        #
+        # back-propagate the write barrier locations through the cast_pointers
+        writebarrier_locations = {}
+        for v, op in wants_a_writebarrier.items():
+            while v in copies:
+                op = copies[v]
+                v = op.args[0]
+            protect = writebarrier_locations.setdefault(op, set())
+            protect.add(v)
+        #
+        # now insert the 'stm_writebarrier's
+        renames = {}      # {original-var: renamed-var}
+        newoperations = []
+        for op in block.operations:
+            locs = writebarrier_locations.get(op, None)
+            if locs:
+                for v1 in locs:
+                    if v1 not in renames:
+                        v2 = varoftype(v1.concretetype)
+                        op1 = SpaceOperation('stm_writebarrier', [v1], v2)
+                        emit(op1)
+                        renames[v1] = v2
+            emit(op)
+        #
+        if renames:
+            for link in block.exits:
+                link.args = [renames.get(v, v) for v in link.args]
+        block.operations = newoperations
