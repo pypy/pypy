@@ -2,6 +2,7 @@ from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 from pypy.objspace.flow.model import Block, Link, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.translator.unsimplify import varoftype, copyvar
+from pypy.translator.stm.localtracker import StmLocalTracker
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython import rclass
 
@@ -9,7 +10,7 @@ from pypy.rpython import rclass
 ALWAYS_ALLOW_OPERATIONS = set([
     'direct_call', 'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
-    'indirect_call', 'stack_current',
+    'indirect_call', 'stack_current', 'gc_stack_bottom',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
@@ -23,27 +24,42 @@ class STMTransformer(object):
 
     def __init__(self, translator=None):
         self.translator = translator
+        self.count_get_local     = 0
+        self.count_get_nonlocal  = 0
+        self.count_get_immutable = 0
+        self.count_set_local     = 0
+        self.count_set_nonlocal  = 0
+        self.count_set_immutable = 0
 
-    def transform(self):  ##, entrypointptr):
+    def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
-##        entrypointgraph = entrypointptr._obj.graph
+        self.start_log()
+        self.localtracker = StmLocalTracker(self.translator)
         for graph in self.translator.graphs:
-##            self.seen_transaction_boundary = False
-##            self.seen_gc_stack_bottom = False
             self.transform_graph(graph)
-##            if self.seen_transaction_boundary:
-##                self.add_stm_declare_variable(graph)
-##            if self.seen_gc_stack_bottom:
-##                self.add_descriptor_init_stuff(graph)
-##        self.add_descriptor_init_stuff(entrypointgraph, main=True)
+        self.localtracker = None
         self.translator.stm_transformation_applied = True
+        self.print_logs()
+
+    def start_log(self):
+        from pypy.translator.c.support import log
+        log.info("Software Transactional Memory transformation")
+
+    def print_logs(self):
+        from pypy.translator.c.support import log
+        log('get*:     proven local: %d' % self.count_get_local)
+        log('      not proven local: %d' % self.count_get_nonlocal)
+        log('             immutable: %d' % self.count_get_immutable)
+        log('set*:     proven local: %d' % self.count_set_local)
+        log('      not proven local: %d' % self.count_set_nonlocal)
+        log('             immutable: %d' % self.count_set_immutable)
+        log.info("Software Transactional Memory transformation applied")
 
     def transform_block(self, block):
         if block.operations == ():
             return
         newoperations = []
         self.current_block = block
-        #self.access_directly = set()
         for i, op in enumerate(block.operations):
             self.current_op_index = i
             try:
@@ -56,199 +72,105 @@ class STMTransformer(object):
                     meth = turn_inevitable_and_proceed
                 setattr(self.__class__, 'stt_' + op.opname,
                         staticmethod(meth))
-            res = meth(newoperations, op)
-            if res is True:
-                newoperations.append(op)
-            elif res is False:
-                turn_inevitable_and_proceed(newoperations, op)
-            else:
-                assert res is None
+            meth(newoperations, op)
         block.operations = newoperations
         self.current_block = None
-        #self.access_directly = None
 
     def transform_graph(self, graph):
         for block in graph.iterblocks():
             self.transform_block(block)
 
-##    def add_descriptor_init_stuff(self, graph, main=False):
-##        if main:
-##            self._add_calls_around(graph,
-##                                   _rffi_stm.begin_inevitable_transaction,
-##                                   _rffi_stm.commit_transaction)
-##        self._add_calls_around(graph,
-##                               _rffi_stm.descriptor_init,
-##                               _rffi_stm.descriptor_done)
-
-##    def _add_calls_around(self, graph, f_init, f_done):
-##        c_init = Constant(f_init, lltype.typeOf(f_init))
-##        c_done = Constant(f_done, lltype.typeOf(f_done))
-##        #
-##        block = graph.startblock
-##        v = varoftype(lltype.Void)
-##        op = SpaceOperation('direct_call', [c_init], v)
-##        block.operations.insert(0, op)
-##        #
-##        v = copyvar(self.translator.annotator, graph.getreturnvar())
-##        extrablock = Block([v])
-##        v_none = varoftype(lltype.Void)
-##        newop = SpaceOperation('direct_call', [c_done], v_none)
-##        extrablock.operations = [newop]
-##        extrablock.closeblock(Link([v], graph.returnblock))
-##        for block in graph.iterblocks():
-##            if block is not extrablock:
-##                for link in block.exits:
-##                    if link.target is graph.returnblock:
-##                        link.target = extrablock
-##        checkgraph(graph)
-
-##    def add_stm_declare_variable(self, graph):
-##        block = graph.startblock
-##        v = varoftype(lltype.Void)
-##        op = SpaceOperation('stm_declare_variable', [], v)
-##        block.operations.insert(0, op)
-
     # ----------
 
-    def stt_getfield(self, newoperations, op):
-        STRUCT = op.args[0].concretetype.TO
+    def transform_get(self, newoperations, op, stmopname, immutable=False):
         if op.result.concretetype is lltype.Void:
-            op1 = op
-        elif STRUCT._immutable_field(op.args[1].value):
-            op1 = op
-        elif 'stm_access_directly' in STRUCT._hints:
-            #try:
-            #    immfld = STRUCT._hints['immutable_fields']
-            #except KeyError:
-            #    pass
-            #else:
-            #    rank = immfld._fields.get(op.args[1].value, None)
-            #    if rank is rclass.IR_MUTABLE_OWNED:
-            #        self.access_directly.add(op.result)
-            op1 = op
-        elif STRUCT._gckind == 'raw':
-            turn_inevitable(newoperations, "getfield-raw")
-            op1 = op
-        else:
-            op1 = SpaceOperation('stm_getfield', op.args, op.result)
+            newoperations.append(op)
+            return
+        if op.args[0].concretetype.TO._gckind == 'raw':
+            turn_inevitable(newoperations, op.opname + '-raw')
+            newoperations.append(op)
+            return
+        if immutable:
+            self.count_get_immutable += 1
+            newoperations.append(op)
+            return
+        if isinstance(op.args[0], Variable):
+            if self.localtracker.is_local(op.args[0]):
+                self.count_get_local += 1
+                newoperations.append(op)
+                return
+        self.count_get_nonlocal += 1
+        op1 = SpaceOperation(stmopname, op.args, op.result)
         newoperations.append(op1)
 
-    def with_writebarrier(self, newoperations, op):
+    def transform_set(self, newoperations, op, immutable=False):
+        if op.args[-1].concretetype is lltype.Void:
+            newoperations.append(op)
+            return
+        if op.args[0].concretetype.TO._gckind == 'raw':
+            turn_inevitable(newoperations, op.opname + '-raw')
+            newoperations.append(op)
+            return
+        if immutable:
+            self.count_set_immutable += 1
+            newoperations.append(op)
+            return
+        if isinstance(op.args[0], Variable):
+            if self.localtracker.is_local(op.args[0]):
+                self.count_set_local += 1
+                newoperations.append(op)
+                return
+        self.count_set_nonlocal += 1
         v_arg = op.args[0]
         v_local = varoftype(v_arg.concretetype)
         op0 = SpaceOperation('stm_writebarrier', [v_arg], v_local)
         newoperations.append(op0)
         op1 = SpaceOperation('bare_' + op.opname, [v_local] + op.args[1:],
                              op.result)
-        return op1
+        newoperations.append(op1)
+
+
+    def stt_getfield(self, newoperations, op):
+        STRUCT = op.args[0].concretetype.TO
+        immutable = STRUCT._immutable_field(op.args[1].value)
+        self.transform_get(newoperations, op, 'stm_getfield', immutable)
 
     def stt_setfield(self, newoperations, op):
         STRUCT = op.args[0].concretetype.TO
-        if op.args[2].concretetype is lltype.Void:
-            op1 = op
-        elif (STRUCT._immutable_field(op.args[1].value) or
-              'stm_access_directly' in STRUCT._hints):
-            op1 = op
-        elif STRUCT._gckind == 'raw':
-            turn_inevitable(newoperations, "setfield-raw")
-            op1 = op
-        else:
-            op1 = self.with_writebarrier(newoperations, op)
-        newoperations.append(op1)
+        immutable = STRUCT._immutable_field(op.args[1].value)
+        self.transform_set(newoperations, op, immutable)
 
     def stt_getarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
-        if op.result.concretetype is lltype.Void:
-            op1 = op
-        elif ARRAY._immutable_field():
-            op1 = op
-        #elif op.args[0] in self.access_directly:
-        #    op1 = op
-        elif ARRAY._gckind == 'raw':
-            turn_inevitable(newoperations, "getarrayitem-raw")
-            op1 = op
-        else:
-            op1 = SpaceOperation('stm_getarrayitem', op.args, op.result)
-        newoperations.append(op1)
+        immutable = ARRAY._immutable_field()
+        self.transform_get(newoperations, op, 'stm_getarrayitem', immutable)
 
     def stt_setarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
-        if op.args[2].concretetype is lltype.Void:
-            op1 = op
-        elif ARRAY._immutable_field():
-            op1 = op
-        #elif op.args[0] in self.access_directly:
-        #    op1 = op
-        elif ARRAY._gckind == 'raw':
-            turn_inevitable(newoperations, "setarrayitem-raw")
-            op1 = op
-        else:
-            op1 = self.with_writebarrier(newoperations, op)
-        newoperations.append(op1)
+        immutable = ARRAY._immutable_field()
+        self.transform_set(newoperations, op, immutable)
 
     def stt_getinteriorfield(self, newoperations, op):
         OUTER = op.args[0].concretetype.TO
-        if op.result.concretetype is lltype.Void:
-            op1 = op
-        elif OUTER._immutable_interiorfield(unwraplist(op.args[1:])):
-            op1 = op
-        elif OUTER._gckind == 'raw':
-            turn_inevitable(newoperations, "getinteriorfield-raw")
-            op1 = op
-        else:
-            op1 = SpaceOperation('stm_getinteriorfield', op.args, op.result)
-        newoperations.append(op1)
+        immutable = OUTER._immutable_interiorfield(unwraplist(op.args[1:]))
+        self.transform_get(newoperations, op, 'stm_getinteriorfield',immutable)
 
     def stt_setinteriorfield(self, newoperations, op):
         OUTER = op.args[0].concretetype.TO
-        if op.args[-1].concretetype is lltype.Void:
-            op1 = op
-        elif OUTER._immutable_interiorfield(unwraplist(op.args[1:-1])):
-            op1 = op
-        elif OUTER._gckind == 'raw':
-            turn_inevitable(newoperations, "setinteriorfield-raw")
-            op1 = op
-        else:
-            op1 = self.with_writebarrier(newoperations, op)
-        newoperations.append(op1)
-
-##    def stt_stm_transaction_boundary(self, newoperations, op):
-##        self.seen_transaction_boundary = True
-##        v_result = op.result
-##        # record in op.args the list of variables that are alive across
-##        # this call
-##        block = self.current_block
-##        vars = set()
-##        for op in block.operations[:self.current_op_index:-1]:
-##            vars.discard(op.result)
-##            vars.update(op.args)
-##        for link in block.exits:
-##            vars.update(link.args)
-##            vars.update(link.getextravars())
-##        livevars = [v for v in vars if isinstance(v, Variable)]
-##        newop = SpaceOperation('stm_transaction_boundary', livevars, v_result)
-##        newoperations.append(newop)
+        immutable = OUTER._immutable_interiorfield(unwraplist(op.args[1:-1]))
+        self.transform_set(newoperations, op, immutable)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
-        return flags['flavor'] == 'gc'
-
-    def stt_malloc_varsize(self, newoperations, op):
-        flags = op.args[1].value
-        return flags['flavor'] == 'gc'
-
-    stt_malloc_nonmovable = stt_malloc
-
-    def stt_gc_stack_bottom(self, newoperations, op):
-##        self.seen_gc_stack_bottom = True
+        if flags['flavor'] == 'gc':
+            assert self.localtracker.is_local(op.result)
+        else:
+            turn_inevitable(newoperations, 'malloc-raw')
         newoperations.append(op)
 
-    #def stt_same_as(self, newoperations, op):
-    #    if op.args[0] in self.access_directly:
-    #        self.access_directly.add(op.result)
-    #    newoperations.append(op)
-    #
-    #stt_cast_pointer = stt_same_as
+    stt_malloc_varsize = stt_malloc
+    stt_malloc_nonmovable = stt_malloc
+    stt_malloc_nonmovable_varsize = stt_malloc
 
 
 def transform_graph(graph):

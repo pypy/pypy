@@ -136,7 +136,6 @@ class CBuilder(object):
             from pypy.translator.stm import transform
             transformer = transform.STMTransformer(self.translator)
             transformer.transform()
-            log.info("Software Transactional Memory transformation applied")
 
         gcpolicyclass = self.get_gcpolicyclass()
 
