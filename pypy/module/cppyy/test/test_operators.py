@@ -20,7 +20,7 @@ class AppTestOPERATORS:
         env = os.environ
         cls.w_N = space.wrap(5)    # should be imported from the dictionary
         cls.w_test_dct  = space.wrap(test_dct)
-        cls.w_datatypes = cls.space.appexec([], """():
+        cls.w_operators = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 

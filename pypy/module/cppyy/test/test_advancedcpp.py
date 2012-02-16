@@ -18,8 +18,8 @@ class AppTestADVANCEDCPP:
     def setup_class(cls):
         cls.space = space
         env = os.environ
-        cls.w_test_dct  = space.wrap(test_dct)
-        cls.w_datatypes = cls.space.appexec([], """():
+        cls.w_test_dct = space.wrap(test_dct)
+        cls.w_advanced = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 

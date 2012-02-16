@@ -1,0 +1,14 @@
+<lcgdict>
+
+  <class name="std::string" />
+
+  <class pattern="*_overload" />
+
+  <namespace pattern="ns_*_overload" />
+  <class pattern="ns_*_overload::*_overload" />
+
+  <class pattern="*_ol" />
+  <class name="more_overloads" />
+  <class name="more_overloads2" />
+
+</lcgdict>
