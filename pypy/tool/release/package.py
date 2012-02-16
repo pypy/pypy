@@ -82,6 +82,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("python27.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')

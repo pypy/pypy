@@ -559,6 +559,9 @@ class TranslationDriver(SimpleTaskEngine):
                 newsoname = newexename.new(basename=soname.basename)
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
+                if sys.platform == 'win32':
+                    shutil.copyfile(os.path.join(os.path.dirname(str(exename)), 'libpypy-c.lib'),
+                                    os.path.join(os.path.dirname(str(newexename)), 'python27.lib'))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
