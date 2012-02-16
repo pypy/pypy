@@ -2,6 +2,7 @@ from pypy.translator.stm.localtracker import StmLocalTracker
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.conftest import option
 from pypy.rlib.jit import hint
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
@@ -19,13 +20,12 @@ class TestStmLocalTracker(object):
             t.view()
         localtracker = StmLocalTracker(t)
         self.localtracker = localtracker
-        localtracker.track_and_propagate_locals()
         return localtracker
 
     def check(self, expected_names):
         got_local_names = set()
         for name, v in self.translator._seen_locals.items():
-            if v in self.localtracker.locals:
+            if self.localtracker.is_local(v):
                 got_local_names.add(name)
         assert got_local_names == set(expected_names)
 
@@ -41,7 +41,7 @@ class TestStmLocalTracker(object):
         self.check([])
 
     def test_freshly_allocated(self):
-        z = lltype.malloc(S)
+        z = [lltype.malloc(S), lltype.malloc(S)]
         def f(n):
             x = lltype.malloc(S)
             x.n = n
@@ -49,8 +49,8 @@ class TestStmLocalTracker(object):
             y.n = n+1
             _see(x, 'x')
             _see(y, 'y')
-            _see(z, 'z')
-            return x.n, y.n, z.n
+            _see(z[n % 2], 'z')
+            return x.n, y.n
         #
         self.translate(f, [int])
         self.check(['x', 'y'])      # x and y are locals; z is prebuilt
@@ -103,6 +103,18 @@ class TestStmLocalTracker(object):
         #
         self.translate(f, [int])
         self.check(['x'])      # x is local
+
+    def test_none_variable_is_local(self):
+        def f(n):
+            if n > 5:
+                x = lltype.nullptr(S)
+            else:
+                x = lltype.malloc(S)
+                x.n = n
+            _see(x, 'x')
+        #
+        localtracker = self.translate(f, [int])
+        self.check(['x'])
 
     def test_freshly_allocated_to_g(self):
         def g(x):

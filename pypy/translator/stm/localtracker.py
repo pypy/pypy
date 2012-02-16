@@ -1,3 +1,5 @@
+from pypy.translator.stm.gcsource import GcSource
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
 
 RETURNS_LOCAL_POINTER = set([
@@ -14,16 +16,19 @@ class StmLocalTracker(object):
 
     def __init__(self, translator):
         self.translator = translator
-        # a set of variables in the graphs that contain a known-to-be-local
-        # pointer.
-        self.locals = set()
+        self.gsrc = GcSource(translator)
 
-    def track_and_propagate_locals(self):
-        for graph in self.translator.graphs:
-            self.propagate_from_graph(graph)
-
-    def propagate_from_graph(self, graph):
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if op.opname in RETURNS_LOCAL_POINTER:
-                    self.locals.add(op.result)
+    def is_local(self, variable):
+        assert isinstance(variable, Variable)
+        for src in self.gsrc[variable]:
+            if isinstance(src, SpaceOperation):
+                if src.opname not in RETURNS_LOCAL_POINTER:
+                    return False
+            elif isinstance(src, Constant):
+                if src.value:     # a NULL pointer is still valid as local
+                    return False
+            elif src is None:
+                return False
+            else:
+                raise AssertionError(src)
+        return True
