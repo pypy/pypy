@@ -291,6 +291,14 @@ def slot_tp_str(space, w_self):
 def slot_nb_int(space, w_self):
     return space.int(w_self)
 
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
+
 from pypy.rlib.nonconst import NonConstant
 
 SLOTS = {}
