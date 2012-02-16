@@ -31,7 +31,7 @@ class VirtualizableInfo(object):
         self.vable_token_descr = cpu.fielddescrof(VTYPE, 'vable_token')
         #
         accessor = VTYPE._hints['virtualizable2_accessor']
-        all_fields = accessor.fields
+        all_fields = accessor._fields
         static_fields = []
         array_fields = []
         for name, tp in all_fields.iteritems():
