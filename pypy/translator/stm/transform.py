@@ -89,7 +89,8 @@ class STMTransformer(object):
             newoperations.append(op)
             return
         if op.args[0].concretetype.TO._gckind == 'raw':
-            turn_inevitable(newoperations, op.opname + '-raw')
+            if not is_immutable(op):
+                turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
         if is_immutable(op):
@@ -110,7 +111,8 @@ class STMTransformer(object):
             newoperations.append(op)
             return
         if op.args[0].concretetype.TO._gckind == 'raw':
-            turn_inevitable(newoperations, op.opname + '-raw')
+            if not is_immutable(op):
+                turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
         if is_immutable(op):
