@@ -52,10 +52,6 @@ class State(object):
         ec._transaction_pending = Fifo()
         self.threadobjs[id] = ec
 
-    def del_thread(self, id):
-        # un-register a transaction thread
-        del self.threadobjs[id]
-
     # ---------- interface for ThreadLocals ----------
     # This works really like a thread-local, which may have slightly
     # strange consequences in multiple transactions, because you don't
@@ -78,6 +74,11 @@ class State(object):
 
     def getallvalues(self):
         return self.threadobjs
+
+    def clear_all_values_apart_from_main(self):
+        for id in self.threadobjs.keys():
+            if id != MAIN_THREAD_ID:
+                del self.threadobjs[id]
 
     # ----------
 
@@ -251,7 +252,6 @@ def _run_thread():
             state.lock()
             _add_list(my_transactions_pending)
     #
-    state.del_thread(rstm.thread_id())
     rstm.descriptor_done()
     if state.num_waiting_threads == 0:    # only the last thread to leave
         state.unlock_unfinished()
@@ -289,8 +289,8 @@ def run(space):
     #
     assert state.num_waiting_threads == 0
     assert state.pending.is_empty()
-    assert state.threadobjs.keys() == [MAIN_THREAD_ID]
     assert not state.is_locked_no_tasks_pending()
+    state.clear_all_values_apart_from_main()
     state.running = False
     #
     # now re-raise the exception that we got in a transaction
