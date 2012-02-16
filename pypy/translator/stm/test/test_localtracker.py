@@ -2,12 +2,17 @@ from pypy.translator.stm.localtracker import StmLocalTracker
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.conftest import option
 from pypy.rlib.jit import hint
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.annotation import model as annmodel
 
 
 class TestStmLocalTracker(object):
 
     def translate(self, func, sig):
         t = TranslationContext()
+        self.translator = t
+        t._seen_locals = {}
         t.buildannotator().build_types(func, sig)
         t.buildrtyper().specialize()
         if option.view:
@@ -16,6 +21,13 @@ class TestStmLocalTracker(object):
         self.localtracker = localtracker
         localtracker.track_and_propagate_locals()
         return localtracker
+
+    def check(self, expected_names):
+        got_local_names = set()
+        for name, v in self.translator._seen_locals.items():
+            if v in self.localtracker.locals:
+                got_local_names.add(name)
+        assert got_local_names == set(expected_names)
 
 
     def test_no_local(self):
@@ -26,20 +38,71 @@ class TestStmLocalTracker(object):
             return g(x)
         #
         localtracker = self.translate(f, [int])
-        assert not localtracker.locals
+        self.check([])
 
     def test_freshly_allocated(self):
-        z = [42]
+        z = lltype.malloc(S)
         def f(n):
-            x = [n]
-            y = [n+1]
+            x = lltype.malloc(S)
+            x.n = n
+            y = lltype.malloc(S)
+            y.n = n+1
             _see(x, 'x')
             _see(y, 'y')
             _see(z, 'z')
-            return x[0], y[0]
+            return x.n, y.n, z.n
         #
         self.translate(f, [int])
         self.check(['x', 'y'])      # x and y are locals; z is prebuilt
+
+    def test_freshly_allocated_in_one_path(self):
+        z = lltype.malloc(S)
+        def f(n):
+            x = lltype.malloc(S)
+            x.n = n
+            if n > 5:
+                y = lltype.malloc(S)
+                y.n = n+1
+            else:
+                y = z
+            _see(x, 'x')
+            _see(y, 'y')
+            return x.n + y.n
+        #
+        self.translate(f, [int])
+        self.check(['x'])      # x is local; y not, as it can be equal to z
+
+    def test_freshly_allocated_in_the_other_path(self):
+        z = lltype.malloc(S)
+        def f(n):
+            x = lltype.malloc(S)
+            x.n = n
+            if n > 5:
+                y = z
+            else:
+                y = lltype.malloc(S)
+                y.n = n+1
+            _see(x, 'x')
+            _see(y, 'y')
+            return x.n + y.n
+        #
+        self.translate(f, [int])
+        self.check(['x'])      # x is local; y not, as it can be equal to z
+
+    def test_freshly_allocated_in_loop(self):
+        z = lltype.malloc(S)
+        def f(n):
+            while True:
+                x = lltype.malloc(S)
+                x.n = n
+                n -= 1
+                if n < 0:
+                    break
+            _see(x, 'x')
+            return x.n
+        #
+        self.translate(f, [int])
+        self.check(['x'])      # x is local
 
     def test_freshly_allocated_to_g(self):
         def g(x):
@@ -125,9 +188,29 @@ class TestStmLocalTracker(object):
         self.check([])
 
 
+S = lltype.GcStruct('S', ('n', lltype.Signed))
+
 class X:
     def __init__(self, n):
         self.n = n
 
 class Y(X):
     pass
+
+
+def _see(var, name):
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = _see
+
+    def compute_result_annotation(self, s_var, s_name):
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        v = hop.inputarg(hop.args_r[0], arg=0)
+        name = hop.args_s[1].const
+        assert name not in hop.rtyper.annotator.translator._seen_locals, (
+            "duplicate name %r" % (name,))
+        hop.rtyper.annotator.translator._seen_locals[name] = v
+        return hop.inputconst(lltype.Void, None)
