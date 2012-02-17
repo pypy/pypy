@@ -560,8 +560,8 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
-                    shutil.copyfile(soname.new(ext='lib'),
-                                    newsoname.new(ext='lib'))
+                    shutil.copyfile(str(soname.new(ext='lib')),
+                                    str(newsoname.new(ext='lib')))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
