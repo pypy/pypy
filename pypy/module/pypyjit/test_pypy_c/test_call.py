@@ -27,6 +27,7 @@ class TestCall(BaseTestPyPyC):
             ...
             p53 = call_assembler(..., descr=...)
             guard_not_forced(descr=...)
+            keepalive(...)
             guard_no_exception(descr=...)
             ...
         """)

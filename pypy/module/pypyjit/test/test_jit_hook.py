@@ -122,7 +122,8 @@ class AppTestJitHook(object):
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.pycode is self.f.func_code
         assert dmp.greenkey == (self.f.func_code, 0, False)
-        #assert int_add.name == 'int_add'
+        assert dmp.call_depth == 0
+        assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
         assert len(all) == 2
@@ -223,11 +224,13 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', (f.func_code, 0, 0))
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num
-        op = DebugMergePoint([Box(0)], 'repr', 'notmain', ('str',))
+        assert op.call_depth == 2
+        op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, ('str',))
         raises(AttributeError, 'op.pycode')
+        assert op.call_depth == 5

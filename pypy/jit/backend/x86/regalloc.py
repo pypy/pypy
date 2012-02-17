@@ -165,7 +165,6 @@ class RegAlloc(object):
         self.jump_target_descr = None
         self.close_stack_struct = 0
         self.final_jump_op = None
-        self.min_bytes_before_label = 0
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -199,7 +198,12 @@ class RegAlloc(object):
         operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
         self.param_depth = prev_depths[1]
+        self.min_bytes_before_label = 0
         return operations
+
+    def ensure_next_label_is_at_least_at_position(self, at_least_position):
+        self.min_bytes_before_label = max(self.min_bytes_before_label,
+                                          at_least_position)
 
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
@@ -468,7 +472,11 @@ class RegAlloc(object):
         self.assembler.mc.mark_op(None) # end of the loop
 
     def flush_loop(self):
-        # rare case: if the loop is too short, pad with NOPs
+        # rare case: if the loop is too short, or if we are just after
+        # a GUARD_NOT_INVALIDATED, pad with NOPs.  Important!  This must
+        # be called to ensure that there are enough bytes produced,
+        # because GUARD_NOT_INVALIDATED or redirect_call_assembler()
+        # will maybe overwrite them.
         mc = self.assembler.mc
         while mc.get_relative_pos() < self.min_bytes_before_label:
             mc.NOP()
@@ -558,7 +566,15 @@ class RegAlloc(object):
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
 
-    consider_guard_not_invalidated = consider_guard_no_exception
+    def consider_guard_not_invalidated(self, op):
+        mc = self.assembler.mc
+        n = mc.get_relative_pos()
+        self.perform_guard(op, [], None)
+        assert n == mc.get_relative_pos()
+        # ensure that the next label is at least 5 bytes farther than
+        # the current position.  Otherwise, when invalidating the guard,
+        # we would overwrite randomly the next label's position.
+        self.ensure_next_label_is_at_least_at_position(n + 5)
 
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
@@ -1462,6 +1478,9 @@ class RegAlloc(object):
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
+
+    def consider_keepalive(self, op):
+        pass
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

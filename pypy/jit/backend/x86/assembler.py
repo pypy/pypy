@@ -774,7 +774,7 @@ class Assembler386(object):
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
-        # we need to put two words into the shadowstack: the MARKER
+        # we need to put two words into the shadowstack: the MARKER_FRAME
         # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
@@ -783,9 +783,10 @@ class Assembler386(object):
             self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
             self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
         #
-        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD))  # LEA ebx, [eax+2*WORD]
-        self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
-        self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
+        MARKER = gcrootmap.MARKER_FRAME
+        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD)) # LEA ebx, [eax+2*WORD]
+        self.mc.MOV_mi((eax.value, WORD), MARKER)      # MOV [eax+WORD], MARKER
+        self.mc.MOV_mr((eax.value, 0), ebp.value)      # MOV [eax], ebp
         #
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
@@ -1118,6 +1119,12 @@ class Assembler386(object):
             for src, dst in singlefloats:
                 self.mc.MOVD(dst, src)
         # Finally remap the arguments in the main regs
+        # If x is a register and is in dst_locs, then oups, it needs to
+        # be moved away:
+        if x in dst_locs:
+            src_locs.append(x)
+            dst_locs.append(r10)
+            x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
@@ -2042,10 +2049,7 @@ class Assembler386(object):
         size = sizeloc.value
         signloc = arglocs[1]
 
-        if isinstance(op.getarg(0), Const):
-            x = imm(op.getarg(0).getint())
-        else:
-            x = arglocs[2]
+        x = arglocs[2]     # the function address
         if x is eax:
             tmp = ecx
         else:

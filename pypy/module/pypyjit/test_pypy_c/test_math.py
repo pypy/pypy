@@ -90,3 +90,19 @@ class TestMath(BaseTestPyPyC):
             --TICK--
             jump(..., descr=)
         """)
+
+    def test_pow_two(self):
+        def main(n):
+            s = 0.123
+            while n > 0:
+                s -= s ** 2   # ID: pow
+                n -= 1
+            return s
+        log = self.run(main, [500])
+        assert abs(log.result - main(500)) < 1e-9
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("pow", """
+            guard_not_invalidated(descr=...)
+            f38 = float_mul(f30, f30)
+            f39 = float_sub(f30, f38)
+        """)

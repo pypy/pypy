@@ -187,7 +187,7 @@ Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *d, Py_ssize_t flags)
       Py_ssize_t r;
       Py_ssize_t inleft = (Py_ssize_t)(d->inbuf_end - d->inbuf);
       Py_ssize_t outleft = (Py_ssize_t)(d->outbuf_end - d->outbuf);
-      if (inleft == 0)
+      if (inleft == 0 && !(flags & MBENC_RESET))
         return 0;
       r = d->codec->encode(&d->state, d->codec->config,
                            &d->inbuf, inleft, &d->outbuf, outleft, flags);

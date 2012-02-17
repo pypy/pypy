@@ -3,11 +3,6 @@ import math
 import _numpypy
 
 
-inf = float("inf")
-e = math.e
-pi = math.pi
-
-
 def average(a):
     # This implements a weighted average, for now we don't implement the
     # weighting, just the average part!

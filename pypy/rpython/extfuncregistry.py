@@ -85,7 +85,8 @@ import os.path
 # llinterpreter
 
 path_functions = [
-    ('join',     [str, str], str),
+    ('join',     [ll_os.str0, ll_os.str0], ll_os.str0),
+    ('dirname',  [ll_os.str0], ll_os.str0),
     ]
 
 for name, args, res in path_functions:

@@ -330,7 +330,7 @@ class DispatcherTests(unittest.TestCase):
         if hasattr(os, 'strerror'):
             self.assertEqual(err, os.strerror(errno.EPERM))
         err = asyncore._strerror(-1)
-        self.assertIn("unknown error", err.lower())
+        self.assertTrue(err != "")
 
 
 class dispatcherwithsend_noread(asyncore.dispatcher_with_send):
@@ -398,8 +398,6 @@ class DispatcherWithSendTests_UsePoll(DispatcherWithSendTests):
 class FileWrapperTest(unittest.TestCase):
     def setUp(self):
         self.d = "It's not dead, it's sleeping!"
-        # Fixed in CPython 2.7.2 (release27-maint branch
-        # revision 88046.)
         with file(TESTFN, 'w') as h:
             h.write(self.d)
 

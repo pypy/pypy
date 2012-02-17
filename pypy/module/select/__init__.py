@@ -1,7 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 
-import select
 import sys
 
 
@@ -15,18 +14,13 @@ class Module(MixedModule):
         'error' : 'space.fromcache(interp_select.Cache).w_error'
     }
 
-    # TODO: this doesn't feel right...
-    if hasattr(select, "epoll"):
+    if sys.platform.startswith('linux'):
         interpleveldefs['epoll'] = 'interp_epoll.W_Epoll'
-        symbols = [
-            "EPOLLIN", "EPOLLOUT", "EPOLLPRI", "EPOLLERR", "EPOLLHUP",
-            "EPOLLET", "EPOLLONESHOT", "EPOLLRDNORM", "EPOLLRDBAND",
-            "EPOLLWRNORM", "EPOLLWRBAND", "EPOLLMSG"
-        ]
-        for symbol in symbols:
-            if hasattr(select, symbol):
-                interpleveldefs[symbol] = "space.wrap(%s)" % getattr(select, symbol)
-
+        from pypy.module.select.interp_epoll import cconfig, public_symbols
+        for symbol in public_symbols:
+            value = cconfig[symbol]
+            if value is not None:
+                interpleveldefs[symbol] = "space.wrap(%r)" % value
 
     def buildloaders(cls):
         from pypy.rlib import rpoll

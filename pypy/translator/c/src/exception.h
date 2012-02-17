@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
-#if !defined(PYPY_STANDALONE) && !defined(PYPY_NOT_MAIN_FILE)
+#if defined(PYPY_CPYTHON_EXTENSION) && !defined(PYPY_NOT_MAIN_FILE)
    PyObject *RPythonError;
 #endif 
 
@@ -74,7 +74,7 @@ void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
 	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
 }
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 void RPyConvertExceptionFromCPython(void)
 {
 	/* convert the CPython exception to an RPython one */

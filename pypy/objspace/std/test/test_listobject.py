@@ -397,6 +397,7 @@ class AppTestW_ListObject(object):
         on_cpython = (option.runappdirect and
                             not hasattr(sys, 'pypy_translation_info'))
         cls.w_on_cpython = cls.space.wrap(on_cpython)
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
@@ -898,6 +899,18 @@ class AppTestW_ListObject(object):
         l[::-1] = l
         assert l == [6,5,4,3,2,1]
 
+    def test_setitem_slice_performance(self):
+        # because of a complexity bug, this used to take forever on a
+        # translated pypy.  On CPython2.6 -A, it takes around 5 seconds.
+        if self.runappdirect:
+            count = 16*1024*1024
+        else:
+            count = 1024
+        b = [None] * count
+        for i in range(count):
+            b[i:i+1] = ['y']
+        assert b == ['y'] * count
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'
@@ -1238,6 +1251,20 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l.reverse()
         assert l == [2,1,0]
 
+class AppTestWithoutStrategies(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withliststrategies" :
+                                       False})
+
+    def test_no_shared_empty_list(self):
+        l = []
+        copy = l[:]
+        copy.append({})
+        assert copy == [{}]
+
+        notshared = l[:]
+        assert notshared == []
 
 class AppTestListFastSubscr:
 

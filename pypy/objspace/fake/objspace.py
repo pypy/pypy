@@ -150,6 +150,8 @@ class FakeObjSpace(ObjSpace):
                 self._see_getsetproperty(x)
         if isinstance(x, r_singlefloat):
             self._wrap_not_rpython(x)
+        if isinstance(x, list):
+            self._wrap_not_rpython(x)
         return w_some_obj()
     wrap._annspecialcase_ = "specialize:argtype(1)"
 
@@ -324,4 +326,5 @@ class FakeModule(Wrappable):
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
+FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.builtin = FakeModule()

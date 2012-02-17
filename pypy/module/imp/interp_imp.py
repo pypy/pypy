@@ -44,7 +44,7 @@ def get_file(space, w_file, filename, filemode):
         return space.interp_w(W_File, w_file).stream
 
 def find_module(space, w_name, w_path=None):
-    name = space.str_w(w_name)
+    name = space.str0_w(w_name)
     if space.is_w(w_path, space.w_None):
         w_path = None
 
@@ -75,7 +75,7 @@ def find_module(space, w_name, w_path=None):
 def load_module(space, w_name, w_file, w_filename, w_info):
     w_suffix, w_filemode, w_modtype = space.unpackiterable(w_info)
 
-    filename = space.str_w(w_filename)
+    filename = space.str0_w(w_filename)
     filemode = space.str_w(w_filemode)
     if space.is_w(w_file, space.w_None):
         stream = None
@@ -92,7 +92,7 @@ def load_module(space, w_name, w_file, w_filename, w_info):
         space, w_name, find_info, reuse=True)
 
 def load_source(space, w_modulename, w_filename, w_file=None):
-    filename = space.str_w(w_filename)
+    filename = space.str0_w(w_filename)
 
     stream = get_file(space, w_file, filename, 'U')
 
@@ -105,7 +105,7 @@ def load_source(space, w_modulename, w_filename, w_file=None):
         stream.close()
     return w_mod
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='str0')
 def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
     # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
@@ -119,7 +119,7 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module):
     if space.is_w(w_file, space.w_None):
         stream.close()
 
-@unwrap_spec(filename=str)
+@unwrap_spec(filename='str0')
 def load_compiled(space, w_modulename, filename, w_file=None):
     w_mod = space.wrap(Module(space, w_modulename))
     importing._prepare_module(space, w_mod, filename, None)
@@ -138,7 +138,7 @@ def new_module(space, w_name):
     return space.wrap(Module(space, w_name, add_package=False))
 
 def init_builtin(space, w_name):
-    name = space.str_w(w_name)
+    name = space.str0_w(w_name)
     if name not in space.builtin_modules:
         return
     if space.finditem(space.sys.get('modules'), w_name) is not None:
@@ -151,7 +151,7 @@ def init_frozen(space, w_name):
     return None
 
 def is_builtin(space, w_name):
-    name = space.str_w(w_name)
+    name = space.str0_w(w_name)
     if name not in space.builtin_modules:
         return space.wrap(0)
     if space.finditem(space.sys.get('modules'), w_name) is not None:

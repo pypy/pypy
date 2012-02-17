@@ -45,6 +45,12 @@ class AppTestPyPyJIT:
             pypyjit.set_compile_hook(None)
             pypyjit.set_param('default')
 
+    def test_doc(self):
+        import pypyjit
+        d = pypyjit.PARAMETER_DOCS
+        assert type(d) is dict
+        assert 'threshold' in d
+
 
 def test_interface_residual_call():
     space = gettestobjspace(usemodules=['pypyjit'])

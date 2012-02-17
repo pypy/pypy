@@ -312,9 +312,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arcsinh(self):
         import math
-        from _numpypy import arcsinh, inf
+        from _numpypy import arcsinh
 
-        for v in [inf, -inf, 1.0, math.e]:
+        for v in [float('inf'), float('-inf'), 1.0, math.e]:
             assert math.asinh(v) == arcsinh(v)
         assert math.isnan(arcsinh(float("nan")))
 
@@ -344,11 +344,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         from _numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(ValueError, add.reduce, 1)
+        raises((ValueError, TypeError), add.reduce, 1)
 
     def test_reduce_1d(self):
-        from _numpypy import add, maximum
+        from _numpypy import add, maximum, less
 
+        assert less.reduce([5, 4, 3, 2, 1])
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
@@ -360,14 +361,28 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
         assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
 
+    def test_reduce_keepdims(self):
+        from _numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        b = add.reduce(a, 0, keepdims=True)
+        assert b.shape == (1, 4)
+        assert (add.reduce(a, 0, keepdims=True) == [12, 15, 18, 21]).all()
+
     def test_bitwise(self):
-        from _numpypy import bitwise_and, bitwise_or, arange, array
+        from _numpypy import bitwise_and, bitwise_or, bitwise_xor, arange, array
         a = arange(6).reshape(2, 3)
         assert (a & 1 == [[0, 1, 0], [1, 0, 1]]).all()
         assert (a & 1 == bitwise_and(a, 1)).all()
         assert (a | 1 == [[1, 1, 3], [3, 5, 5]]).all()
         assert (a | 1 == bitwise_or(a, 1)).all()
+        assert (a ^ 3 == bitwise_xor(a, 3)).all()
         raises(TypeError, 'array([1.0]) & 1')
+
+    def test_unary_bitops(self):
+        from _numpypy import bitwise_not, array
+        a = array([1, 2, 3, 4])
+        assert (~a == [-2, -3, -4, -5]).all()
+        assert (bitwise_not(a) == ~a).all()
 
     def test_comparisons(self):
         import operator
@@ -394,3 +409,39 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3, 3.5),
             ]:
                 assert ufunc(a, b) == func(a, b)
+
+    def test_count_reduce_items(self):
+        from _numpypy import count_reduce_items, arange
+        a = arange(24).reshape(2, 3, 4)
+        assert count_reduce_items(a) == 24
+        assert count_reduce_items(a, 1) == 3
+        assert count_reduce_items(a, (1, 2)) == 3 * 4
+
+    def test_true_divide(self):
+        from _numpypy import arange, array, true_divide
+        assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
+
+    def test_isnan_isinf(self):
+        from _numpypy import isnan, isinf, float64, array
+        assert isnan(float('nan'))
+        assert isnan(float64(float('nan')))
+        assert not isnan(3)
+        assert isinf(float('inf'))
+        assert not isnan(3.5)
+        assert not isinf(3.5)
+        assert not isnan(float('inf'))
+        assert not isinf(float('nan'))
+        assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
+        assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
+        assert isinf(array([0.2])).dtype.kind == 'b'
+
+    def test_logical_ops(self):
+        from _numpypy import logical_and, logical_or, logical_xor, logical_not
+
+        assert (logical_and([True, False , True, True], [1, 1, 3, 0])
+                == [True, False, True, False]).all()
+        assert (logical_or([True, False, True, False], [1, 2, 0, 0])
+                == [True, True, True, False]).all()
+        assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
+                == [False, True, True, False]).all()
+        assert (logical_not([True, False]) == [False, True]).all()
