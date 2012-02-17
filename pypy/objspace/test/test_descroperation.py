@@ -641,6 +641,19 @@ class AppTest_Descroperation:
         assert issubclass(B, B)
         assert issubclass(23, B)
 
+    def test_issubclass_and_method(self):
+        class Meta(type):
+            def __subclasscheck__(cls, sub):
+                if sub is Dict:
+                    return True
+        class A:
+            __metaclass__ = Meta
+            def method(self):
+                return 42
+        class Dict:
+            method = A.method
+        assert Dict().method() == 42
+
     def test_truth_of_long(self):
         class X(object):
             def __len__(self): return 1L

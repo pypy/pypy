@@ -548,6 +548,9 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
+    def op_jit_record_known_class(self, *args):
+        pass
+
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 

@@ -358,7 +358,7 @@ class Database(OODatabase):
         ootype.Unsigned:jvm.PYPYSERIALIZEUINT,
         ootype.SignedLongLong:jvm.LONGTOSTRINGL,
         ootype.UnsignedLongLong: jvm.PYPYSERIALIZEULONG,
-        ootype.Float:jvm.DOUBLETOSTRINGD,
+        ootype.Float:jvm.PYPYSERIALIZEDOUBLE,
         ootype.Bool:jvm.PYPYSERIALIZEBOOLEAN,
         ootype.Void:jvm.PYPYSERIALIZEVOID,
         ootype.Char:jvm.PYPYESCAPEDCHAR,

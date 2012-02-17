@@ -12,6 +12,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import hlstr
@@ -235,7 +236,7 @@ def build_stat_result(st):
 def register_stat_variant(name, traits):
     if name != 'fstat':
         arg_is_path = True
-        s_arg = traits.str
+        s_arg = traits.str0
         ARG1 = traits.CCHARP
     else:
         arg_is_path = False
@@ -249,8 +250,6 @@ def register_stat_variant(name, traits):
         return extdef(
             [s_arg], s_StatResult, traits.ll_os_name(name),
             llimpl=posix_stat_llimpl)
-
-    assert traits.str is str
 
     if sys.platform.startswith('linux'):
         # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler
@@ -282,7 +281,7 @@ def register_stat_variant(name, traits):
 
     @func_renamer('os_%s_fake' % (name,))
     def posix_fakeimpl(arg):
-        if s_arg == str:
+        if s_arg == traits.str0:
             arg = hlstr(arg)
         st = getattr(os, name)(arg)
         fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
@@ -442,20 +441,19 @@ def make_win32_stat_impl(name, traits):
 # Helper functions for win32
 
 def make_longlong(high, low):
-    return (lltype.r_longlong(high) << 32) + lltype.r_longlong(low)
+    return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
 # Seconds between 1.1.1601 and 1.1.1970
-secs_between_epochs = lltype.r_longlong(11644473600)
+secs_between_epochs = rffi.r_longlong(11644473600)
 
 def FILE_TIME_to_time_t_nsec(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
     nsec = (ft % 10000000) * 100
     time = (ft / 10000000) - secs_between_epochs
-    return time, nsec
+    return intmask(time), intmask(nsec)
 
 def time_t_to_FILE_TIME(time, filetime):
-    ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
-    filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
-    filetime.c_dwLowDateTime = lltype.r_uint(ft & lltype.r_uint(-1))
-
+    ft = (rffi.r_longlong(time) + secs_between_epochs) * 10000000
+    filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
+    filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits

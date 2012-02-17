@@ -91,9 +91,18 @@ class _Specialize(object):
 
         return decorated_func
 
+    def call_location(self):
+        """ Specializes the function for each call site.
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = "specialize:call_location"
+            return func
+
+        return decorated_func
+
     def _wrap(self, args):
         return "("+','.join([repr(arg) for arg in args]) +")"
-        
+
 specialize = _Specialize()
 
 def enforceargs(*args):
@@ -121,18 +130,28 @@ class Symbolic(object):
         if self is other:
             return 0
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __hash__(self):
-        raise TypeError("Symbolics are not hashable!")
-    
+        raise TypeError("Symbolics are not hashable! %r" % (self,))
+
     def __nonzero__(self):
-        raise TypeError("Symbolics are not comparable")
+        raise TypeError("Symbolics are not comparable! %r" % (self,))
 
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):
         self.compute_fn = compute_fn
+
+    def __repr__(self):
+        # repr(self.compute_fn) can arrive back here in an
+        # infinite recursion
+        try:
+            name = self.compute_fn.__name__
+        except (AttributeError, TypeError):
+            name = hex(id(self.compute_fn))
+        return '%s(%r)' % (self.__class__.__name__, name)
 
     def annotation(self):
         from pypy.annotation import model
@@ -148,6 +167,9 @@ class CDefinedIntSymbolic(Symbolic):
         self.expr = expr
         self.default = default
 
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.expr)
+
     def annotation(self):
         from pypy.annotation import model
         return model.SomeInteger()
@@ -155,7 +177,7 @@ class CDefinedIntSymbolic(Symbolic):
     def lltype(self):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
-    
+
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
 # running_on_llinterp is meant to have the value 0 in all backends
@@ -221,7 +243,7 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_sizehint):
         from pypy.annotation.model import SomeInteger
-        
+
         assert isinstance(s_sizehint, SomeInteger)
         return self.bookkeeper.newlist()
 
@@ -411,7 +433,7 @@ class Entry(ExtRegistryEntry):
                   vobj.concretetype.TO._gckind == 'gc')
         else:
             from pypy.rpython.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.Instance)
+            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
         if not ok:
             from pypy.rpython.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"

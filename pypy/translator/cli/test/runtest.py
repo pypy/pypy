@@ -276,7 +276,7 @@ class ExceptionWrapper:
 
 def get_annotation(x):
     if isinstance(x, basestring) and len(x) > 1:
-        return SomeString()
+        return SomeString(no_nul='\x00' not in x)
     else:
         return lltype_to_annotation(typeOf(x))
 

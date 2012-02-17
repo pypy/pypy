@@ -42,8 +42,7 @@ class CallControl(object):
         except AttributeError:
             pass
 
-        def is_candidate(graph):
-            return policy.look_inside_graph(graph)
+        is_candidate = policy.look_inside_graph
 
         assert len(self.jitdrivers_sd) > 0
         todo = [jd.portal_graph for jd in self.jitdrivers_sd]
@@ -212,7 +211,10 @@ class CallControl(object):
         elidable = False
         loopinvariant = False
         if op.opname == "direct_call":
-            func = getattr(get_funcobj(op.args[0].value), '_callable', None)
+            funcobj = get_funcobj(op.args[0].value)
+            assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
+                "%r: getcalldescr() with a non-default call ABI" % (op,))
+            func = getattr(funcobj, '_callable', None)
             elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             if loopinvariant:

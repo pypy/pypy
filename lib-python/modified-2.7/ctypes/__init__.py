@@ -351,7 +351,7 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _ffi.CDLL(name)
+            self._handle = _ffi.CDLL(name, mode)
         else:
             self._handle = handle
 

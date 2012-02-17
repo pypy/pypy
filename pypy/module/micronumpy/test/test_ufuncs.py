@@ -4,14 +4,14 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_ufunc_instance(self):
-        from numpy import add, ufunc
+        from _numpypy import add, ufunc
 
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"
-        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+        assert repr(ufunc) == "<type 'numpypy.ufunc'>"
 
     def test_ufunc_attrs(self):
-        from numpy import add, multiply, sin
+        from _numpypy import add, multiply, sin
 
         assert add.identity == 0
         assert multiply.identity == 1
@@ -22,7 +22,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert sin.nin == 1
 
     def test_wrong_arguments(self):
-        from numpy import add, sin
+        from _numpypy import add, sin
 
         raises(ValueError, add, 1)
         raises(TypeError, add, 1, 2, 3)
@@ -30,48 +30,48 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(ValueError, sin)
 
     def test_single_item(self):
-        from numpy import negative, sign, minimum
+        from _numpypy import negative, sign, minimum
 
         assert negative(5.0) == -5.0
         assert sign(-0.0) == 0.0
         assert minimum(2.0, 3.0) == 2.0
 
     def test_sequence(self):
-        from numpy import array, negative, minimum
+        from _numpypy import array, ndarray, negative, minimum
         a = array(range(3))
         b = [2.0, 1.0, 0.0]
         c = 1.0
         b_neg = negative(b)
-        assert isinstance(b_neg, array)
+        assert isinstance(b_neg, ndarray)
         for i in range(3):
             assert b_neg[i] == -b[i]
         min_a_b = minimum(a, b)
-        assert isinstance(min_a_b, array)
+        assert isinstance(min_a_b, ndarray)
         for i in range(3):
             assert min_a_b[i] == min(a[i], b[i])
         min_b_a = minimum(b, a)
-        assert isinstance(min_b_a, array)
+        assert isinstance(min_b_a, ndarray)
         for i in range(3):
             assert min_b_a[i] == min(a[i], b[i])
         min_a_c = minimum(a, c)
-        assert isinstance(min_a_c, array)
+        assert isinstance(min_a_c, ndarray)
         for i in range(3):
             assert min_a_c[i] == min(a[i], c)
         min_c_a = minimum(c, a)
-        assert isinstance(min_c_a, array)
+        assert isinstance(min_c_a, ndarray)
         for i in range(3):
             assert min_c_a[i] == min(a[i], c)
         min_b_c = minimum(b, c)
-        assert isinstance(min_b_c, array)
+        assert isinstance(min_b_c, ndarray)
         for i in range(3):
             assert min_b_c[i] == min(b[i], c)
         min_c_b = minimum(c, b)
-        assert isinstance(min_c_b, array)
+        assert isinstance(min_c_b, ndarray)
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 
     def test_negative(self):
-        from numpy import array, negative
+        from _numpypy import array, negative
 
         a = array([-5.0, 0.0, 1.0])
         b = negative(a)
@@ -86,7 +86,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert negative(a + a)[3] == -6
 
     def test_abs(self):
-        from numpy import array, absolute
+        from _numpypy import array, absolute
 
         a = array([-5.0, -0.0, 1.0])
         b = absolute(a)
@@ -94,7 +94,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == abs(a[i])
 
     def test_add(self):
-        from numpy import array, add
+        from _numpypy import array, add
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -103,7 +103,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] + b[i]
 
     def test_divide(self):
-        from numpy import array, divide
+        from _numpypy import array, divide
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -111,8 +111,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] / b[i]
 
+        assert (divide(array([-10]), array([2])) == array([-5])).all()
+
     def test_fabs(self):
-        from numpy import array, fabs
+        from _numpypy import array, fabs
         from math import fabs as math_fabs
 
         a = array([-5.0, -0.0, 1.0])
@@ -121,7 +123,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math_fabs(a[i])
 
     def test_minimum(self):
-        from numpy import array, minimum
+        from _numpypy import array, minimum
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -130,7 +132,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == min(a[i], b[i])
 
     def test_maximum(self):
-        from numpy import array, maximum
+        from _numpypy import array, maximum
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -143,7 +145,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(x, (int, long))
 
     def test_multiply(self):
-        from numpy import array, multiply
+        from _numpypy import array, multiply
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -152,7 +154,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] * b[i]
 
     def test_sign(self):
-        from numpy import array, sign, dtype
+        from _numpypy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
@@ -171,7 +173,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a[1] == 0
 
     def test_reciporocal(self):
-        from numpy import array, reciprocal
+        from _numpypy import array, reciprocal
 
         reference = [-0.2, float("inf"), float("-inf"), 2.0]
         a = array([-5.0, 0.0, -0.0, 0.5])
@@ -180,7 +182,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == reference[i]
 
     def test_subtract(self):
-        from numpy import array, subtract
+        from _numpypy import array, subtract
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -188,17 +190,27 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] - b[i]
 
-    def test_floor(self):
-        from numpy import array, floor
-
-        reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
-        a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
+    def test_floorceil(self):
+        from _numpypy import array, floor, ceil
+        import math
+        reference = [-2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
         b = floor(a)
         for i in range(5):
             assert b[i] == reference[i]
+        reference = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0]
+        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
+        b = ceil(a)
+        assert (reference == b).all()
+        inf = float("inf")
+        data = [1.5, 2.9999, -1.999, inf]
+        results = [math.floor(x) for x in data]
+        assert (floor(data) == results).all()
+        results = [math.ceil(x) for x in data]
+        assert (ceil(data) == results).all()
 
     def test_copysign(self):
-        from numpy import array, copysign
+        from _numpypy import array, copysign
 
         reference = [5.0, -0.0, 0.0, -6.0]
         a = array([-5.0, 0.0, 0.0, 6.0])
@@ -214,7 +226,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_exp(self):
         import math
-        from numpy import array, exp
+        from _numpypy import array, exp
 
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
@@ -228,7 +240,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_sin(self):
         import math
-        from numpy import array, sin
+        from _numpypy import array, sin
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = sin(a)
@@ -236,12 +248,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
         a = sin(array([True, False], dtype=bool))
-        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
+        assert abs(a[0] - sin(1)) < 1e-7  # a[0] will be less precise
         assert a[1] == 0.0
 
     def test_cos(self):
         import math
-        from numpy import array, cos
+        from _numpypy import array, cos
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = cos(a)
@@ -250,17 +262,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_tan(self):
         import math
-        from numpy import array, tan
+        from _numpypy import array, tan
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = tan(a)
         for i in range(len(a)):
             assert b[i] == math.tan(a[i])
 
-
     def test_arcsin(self):
         import math
-        from numpy import array, arcsin
+        from _numpypy import array, arcsin
 
         a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
         b = arcsin(a)
@@ -274,13 +285,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arccos(self):
         import math
-        from numpy import array, arccos
+        from _numpypy import array, arccos
 
         a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
         b = arccos(a)
         for i in range(len(a)):
             assert b[i] == math.acos(a[i])
-
 
         a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
         b = arccos(a)
@@ -289,28 +299,28 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arctan(self):
         import math
-        from numpy import array, arctan
+        from _numpypy import array, arctan
 
         a = array([-3, -2, -1, 0, 1, 2, 3, float('inf'), float('-inf')])
         b = arctan(a)
         for i in range(len(a)):
             assert b[i] == math.atan(a[i])
 
-        a  = array([float('nan')])
+        a = array([float('nan')])
         b = arctan(a)
         assert math.isnan(b[0])
 
     def test_arcsinh(self):
         import math
-        from numpy import arcsinh, inf
+        from _numpypy import arcsinh
 
-        for v in [inf, -inf, 1.0, math.e]:
+        for v in [float('inf'), float('-inf'), 1.0, math.e]:
             assert math.asinh(v) == arcsinh(v)
         assert math.isnan(arcsinh(float("nan")))
 
     def test_arctanh(self):
         import math
-        from numpy import arctanh
+        from _numpypy import arctanh
 
         for v in [.99, .5, 0, -.5, -.99]:
             assert math.atanh(v) == arctanh(v)
@@ -319,23 +329,64 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for v in [1.0, -1.0]:
             assert arctanh(v) == math.copysign(float("inf"), v)
 
+    def test_sqrt(self):
+        import math
+        from _numpypy import sqrt
+
+        nan, inf = float("nan"), float("inf")
+        data = [1, 2, 3, inf]
+        results = [math.sqrt(1), math.sqrt(2), math.sqrt(3), inf]
+        assert (sqrt(data) == results).all()
+        assert math.isnan(sqrt(-1))
+        assert math.isnan(sqrt(nan))
+
     def test_reduce_errors(self):
-        from numpy import sin, add
+        from _numpypy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
-        raises(TypeError, add.reduce, 1)
+        raises((ValueError, TypeError), add.reduce, 1)
 
-    def test_reduce(self):
-        from numpy import add, maximum
+    def test_reduce_1d(self):
+        from _numpypy import add, maximum, less
 
+        assert less.reduce([5, 4, 3, 2, 1])
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
 
+    def test_reduceND(self):
+        from _numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        assert (add.reduce(a, 0) == [12, 15, 18, 21]).all()
+        assert (add.reduce(a, 1) == [6.0, 22.0, 38.0]).all()
+
+    def test_reduce_keepdims(self):
+        from _numpypy import add, arange
+        a = arange(12).reshape(3, 4)
+        b = add.reduce(a, 0, keepdims=True)
+        assert b.shape == (1, 4)
+        assert (add.reduce(a, 0, keepdims=True) == [12, 15, 18, 21]).all()
+
+    def test_bitwise(self):
+        from _numpypy import bitwise_and, bitwise_or, bitwise_xor, arange, array
+        a = arange(6).reshape(2, 3)
+        assert (a & 1 == [[0, 1, 0], [1, 0, 1]]).all()
+        assert (a & 1 == bitwise_and(a, 1)).all()
+        assert (a | 1 == [[1, 1, 3], [3, 5, 5]]).all()
+        assert (a | 1 == bitwise_or(a, 1)).all()
+        assert (a ^ 3 == bitwise_xor(a, 3)).all()
+        raises(TypeError, 'array([1.0]) & 1')
+
+    def test_unary_bitops(self):
+        from _numpypy import bitwise_not, array
+        a = array([1, 2, 3, 4])
+        assert (~a == [-2, -3, -4, -5]).all()
+        assert (bitwise_not(a) == ~a).all()
+
     def test_comparisons(self):
         import operator
-        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+        from _numpypy import equal, not_equal, less, less_equal, greater, greater_equal
 
         for ufunc, func in [
             (equal, operator.eq),
@@ -358,3 +409,39 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3, 3.5),
             ]:
                 assert ufunc(a, b) == func(a, b)
+
+    def test_count_reduce_items(self):
+        from _numpypy import count_reduce_items, arange
+        a = arange(24).reshape(2, 3, 4)
+        assert count_reduce_items(a) == 24
+        assert count_reduce_items(a, 1) == 3
+        assert count_reduce_items(a, (1, 2)) == 3 * 4
+
+    def test_true_divide(self):
+        from _numpypy import arange, array, true_divide
+        assert (true_divide(arange(3), array([2, 2, 2])) == array([0, 0.5, 1])).all()
+
+    def test_isnan_isinf(self):
+        from _numpypy import isnan, isinf, float64, array
+        assert isnan(float('nan'))
+        assert isnan(float64(float('nan')))
+        assert not isnan(3)
+        assert isinf(float('inf'))
+        assert not isnan(3.5)
+        assert not isinf(3.5)
+        assert not isnan(float('inf'))
+        assert not isinf(float('nan'))
+        assert (isnan(array([0.2, float('inf'), float('nan')])) == [False, False, True]).all()
+        assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
+        assert isinf(array([0.2])).dtype.kind == 'b'
+
+    def test_logical_ops(self):
+        from _numpypy import logical_and, logical_or, logical_xor, logical_not
+
+        assert (logical_and([True, False , True, True], [1, 1, 3, 0])
+                == [True, False, True, False]).all()
+        assert (logical_or([True, False, True, False], [1, 2, 0, 0])
+                == [True, True, True, False]).all()
+        assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
+                == [False, True, True, False]).all()
+        assert (logical_not([True, False]) == [False, True]).all()

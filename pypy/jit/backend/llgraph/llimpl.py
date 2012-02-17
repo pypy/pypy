@@ -8,6 +8,7 @@ import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -20,6 +21,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
+from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -46,6 +48,11 @@ def _to_opaque(value):
                               externalobj=value)
         value._the_opaque_pointer = op
         return op
+
+def _normalize(value):
+    if isinstance(value, lltype._ptr):
+        value = lltype.top_container(value._obj)
+    return value
 
 def from_opaque_string(s):
     if isinstance(s, str):
@@ -321,16 +328,24 @@ def compile_start_ref_var(loop, TYPE):
     _variables.append(v)
     return r
 
+def compile_started_vars(clt):
+    if not hasattr(clt, '_debug_argtypes'):    # only when compiling the loop
+        argtypes = [v.concretetype for v in _variables]
+        try:
+            clt._debug_argtypes = argtypes
+        except AttributeError:    # when 'clt' is actually a translated
+            pass                  # GcStruct
+
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type, arg_types):
+def compile_add_descr(loop, ofs, type, arg_types, extrainfo, width):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type, arg_types=arg_types)
+    op.descr = Descr(ofs, type, arg_types=arg_types, extrainfo=extrainfo, width=width)
 
 def compile_add_descr_arg(loop, ofs, type, arg_types):
     from pypy.jit.backend.llgraph.runner import Descr
@@ -345,6 +360,16 @@ def compile_add_loop_token(loop, descr):
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
+
+TARGET_TOKENS = weakref.WeakKeyDictionary()
+
+def compile_add_target_token(loop, descr, clt):
+    # here, 'clt' is the compiled_loop_token of the original loop that
+    # we are compiling
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    descrobj = _normalize(descr)
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args, clt
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -380,13 +405,25 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target):
+def compile_add_jump_target(loop, targettoken, source_clt):
     loop = _from_opaque(loop)
-    loop_target = _from_opaque(loop_target)
+    descrobj = _normalize(targettoken)
+    (loop_target, target_opindex, target_inputargs, target_clt
+        ) = TARGET_TOKENS[descrobj]
+    #
+    try:
+        assert source_clt._debug_argtypes == target_clt._debug_argtypes
+    except AttributeError:   # when translated
+        pass
+    #
     op = loop.operations[-1]
     op.jump_target = loop_target
+    op.jump_target_opindex = target_opindex
+    op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(loop_target.inputargs)
+    assert [v.concretetype for v in op.args] == (
+           [v.concretetype for v in target_inputargs])
+    #
     if loop_target == loop:
         log.info("compiling new loop")
     else:
@@ -520,10 +557,11 @@ class Frame(object):
                 self.opindex += 1
                 continue
             if op.opnum == rop.JUMP:
-                assert len(op.jump_target.inputargs) == len(args)
-                self.env = dict(zip(op.jump_target.inputargs, args))
+                inputargs = op.jump_target_inputargs
+                assert len(inputargs) == len(args)
+                self.env = dict(zip(inputargs, args))
                 self.loop = op.jump_target
-                self.opindex = 0
+                self.opindex = op.jump_target_opindex
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
                 if self.verbose:
@@ -615,6 +653,15 @@ class Frame(object):
             return func(*args)
         #
         return _op_default_implementation
+
+    def op_label(self, _, *args):
+        op = self.loop.operations[self.opindex]
+        assert op.opnum == rop.LABEL
+        assert len(op.args) == len(args)
+        newenv = {}
+        for v, value in zip(op.args, args):
+            newenv[v] = value
+        self.env = newenv
 
     def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
@@ -733,6 +780,9 @@ class Frame(object):
         self.overflow_flag = ovf
         return z
 
+    def op_keepalive(self, _, x):
+        pass
+
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)
 
@@ -827,6 +877,16 @@ class Frame(object):
         else:
             raise NotImplementedError
 
+    def op_getinteriorfield_raw(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_raw_ptr(array, index, descr.width, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_raw_int(array, index, descr.width, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_raw_float(array, index, descr.width, descr.ofs)
+        else:
+            raise NotImplementedError
+
     def op_setinteriorfield_gc(self, descr, array, index, newvalue):
         if descr.typeinfo == REF:
             return do_setinteriorfield_gc_ptr(array, index, descr.ofs,
@@ -837,6 +897,16 @@ class Frame(object):
         elif descr.typeinfo == FLOAT:
             return do_setinteriorfield_gc_float(array, index, descr.ofs,
                                                 newvalue)
+        else:
+            raise NotImplementedError
+
+    def op_setinteriorfield_raw(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_raw_ptr(array, index, newvalue, descr.width, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_raw_int(array, index, newvalue, descr.width, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_raw_float(array, index, newvalue, descr.width, descr.ofs)
         else:
             raise NotImplementedError
 
@@ -942,6 +1012,7 @@ class Frame(object):
         self._may_force = self.opindex
         try:
             inpargs = _from_opaque(ctl.compiled_version).inputargs
+            assert len(inpargs) == len(args)
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:
@@ -1407,6 +1478,18 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     struct = array._obj.container.getitem(index)
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
+def _getinteriorfield_raw(ffitype, array, index, width, ofs):
+    addr = rffi.cast(rffi.VOIDP, array)
+    return libffi.array_getitem(ffitype, width, addr, index, ofs)
+
+def do_getinteriorfield_raw_int(array, index, width, ofs):
+    res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
+    return res
+
+def do_getinteriorfield_raw_float(array, index, width, ofs):
+    res = _getinteriorfield_raw(libffi.types.double, array, index, width, ofs)
+    return res
+
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1494,7 +1577,19 @@ def new_setinteriorfield_gc(cast_func):
     return do_setinteriorfield_gc
 do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
-do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)        
+do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
+
+def new_setinteriorfield_raw(cast_func, ffitype):
+    def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
+        addr = rffi.cast(rffi.VOIDP, array)
+        for TYPE, ffitype2 in clibffi.ffitype_map:
+            if ffitype2 is ffitype:
+                newvalue = cast_func(TYPE, newvalue)
+                break
+        return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
+    return do_setinteriorfield_raw
+do_setinteriorfield_raw_int = new_setinteriorfield_raw(cast_from_int, libffi.types.slong)
+do_setinteriorfield_raw_float = new_setinteriorfield_raw(cast_from_floatstorage, libffi.types.double)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1769,9 +1864,11 @@ setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_start_float_var, annmodel.SomeInteger())
+setannotation(compile_started_vars, annmodel.s_None)
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_descr_arg, annmodel.s_None)
+setannotation(compile_add_target_token, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)

@@ -457,12 +457,16 @@ class BaseTestRclass(BaseRtypingTest):
                     compute_identity_hash(d))
 
         res = self.interpret(f, [])
-        # xxx this is too precise, checking the exact implementation
-        assert res.item0 == res.item1
+        # xxx the following test is too precise, checking the exact
+        # implementation.  On Python 2.7 it doesn't work anyway, because
+        # object.__hash__(x) is different from id(x).  The test is disabled
+        # for now, and nobody should rely on compute_identity_hash() returning
+        # a value that is (or was) the current_object_addr_as_int().
+        # --- disabled: assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
         # otherwise prebuilt dictionaries are broken.  It's wrong on
         # top of the ootypesystem though.
-        if type(self) is TestLLtype:
+        if isinstance(self, LLRtypeMixin):
             assert res.item2 == h_c
             assert res.item3 == h_d
 
@@ -1125,6 +1129,18 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         else:
             assert sorted([u]) == [6]                    # 32-bit types
             assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
+
+    def test_nonmovable(self):
+        for (nonmovable, opname) in [(True, 'malloc_nonmovable'),
+                                     (False, 'malloc')]:
+            class A(object):
+                _alloc_nonmovable_ = nonmovable
+            def f():
+                return A()
+            t, typer, graph = self.gengraph(f, [])
+            assert summary(graph) == {opname: 1,
+                                      'cast_pointer': 1,
+                                      'setfield': 1}
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):

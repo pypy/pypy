@@ -266,7 +266,7 @@ else:
     raise NotImplementedError("os.name == %r" % (os.name,))
 
 def getenv(space, w_name):
-    name = space.str_w(w_name)
+    name = space.str0_w(w_name)
     return space.wrap(os.environ.get(name))
 getenv_w = interp2app(getenv)
 

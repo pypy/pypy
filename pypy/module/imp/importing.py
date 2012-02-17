@@ -138,7 +138,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     ctxt_package = None
     if ctxt_w_package is not None and ctxt_w_package is not space.w_None:
         try:
-            ctxt_package = space.str_w(ctxt_w_package)
+            ctxt_package = space.str0_w(ctxt_w_package)
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -187,7 +187,7 @@ def _get_relative_name(space, modulename, level, w_globals):
         ctxt_name = None
         if ctxt_w_name is not None:
             try:
-                ctxt_name = space.str_w(ctxt_w_name)
+                ctxt_name = space.str0_w(ctxt_w_name)
             except OperationError, e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -230,7 +230,7 @@ def _get_relative_name(space, modulename, level, w_globals):
     return rel_modulename, rel_level
 
 
-@unwrap_spec(name=str, level=int)
+@unwrap_spec(name='str0', level=int)
 def importhook(space, name, w_globals=None,
                w_locals=None, w_fromlist=None, level=-1):
     modulename = name
@@ -377,8 +377,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                     fromlist_w = space.fixedview(w_all)
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
-                    load_part(space, w_path, prefix, space.str_w(w_name), w_mod,
-                              tentative=1)
+                    load_part(space, w_path, prefix, space.str0_w(w_name),
+                              w_mod, tentative=1)
         return w_mod
     else:
         return first
@@ -432,7 +432,7 @@ class W_NullImporter(Wrappable):
     def __init__(self, space):
         pass
 
-    @unwrap_spec(path=str)
+    @unwrap_spec(path='str0')
     def descr_init(self, space, path):
         if not path:
             raise OperationError(space.w_ImportError, space.wrap(
@@ -483,10 +483,20 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     # XXX Check for frozen modules?
     #     when w_path is a string
 
+    delayed_builtin = None
+    w_lib_extensions = None
+
     if w_path is None:
         # check the builtin modules
         if modulename in space.builtin_modules:
-            return FindInfo(C_BUILTIN, modulename, None)
+            delayed_builtin = FindInfo(C_BUILTIN, modulename, None)
+            # a "real builtin module xx" shadows every file "xx.py" there
+            # could possibly be; a "pseudo-extension module" does not, and
+            # is only loaded at the point in sys.path where we find
+            # '.../lib_pypy/__extensions__'.
+            if modulename in space.MODULES_THAT_ALWAYS_SHADOW:
+                return delayed_builtin
+            w_lib_extensions = space.sys.get_state(space).w_lib_extensions
         w_path = space.sys.get('path')
 
     # XXX check frozen modules?
@@ -495,12 +505,15 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     if w_path is not None:
         for w_pathitem in space.unpackiterable(w_path):
             # sys.path_hooks import hook
+            if (w_lib_extensions is not None and
+                    space.eq_w(w_pathitem, w_lib_extensions)):
+                return delayed_builtin
             if use_loader:
                 w_loader = find_in_path_hooks(space, w_modulename, w_pathitem)
                 if w_loader:
                     return FindInfo.fromLoader(w_loader)
 
-            path = space.str_w(w_pathitem)
+            path = space.str0_w(w_pathitem)
             filepart = os.path.join(path, partname)
             if os.path.isdir(filepart) and case_ok(filepart):
                 initfile = os.path.join(filepart, '__init__')
@@ -513,7 +526,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     space.warn(msg, space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
-                if modtype in (PY_SOURCE, PY_COMPILED):
+                if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
                     assert suffix is not None
                     filename = filepart + suffix
                     stream = streamio.open_file_as_stream(filename, filemode)
@@ -522,15 +535,12 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     except:
                         stream.close()
                         raise
-                if modtype == C_EXTENSION:
-                    filename = filepart + suffix
-                    return FindInfo(modtype, filename, None, suffix, filemode)
             except StreamErrors:
                 pass   # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 
     # not found
-    return None
+    return delayed_builtin
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     w = space.wrap
@@ -661,7 +671,7 @@ def reload(space, w_module):
             space.wrap("reload() argument must be module"))
 
     w_modulename = space.getattr(w_module, space.wrap("__name__"))
-    modulename = space.str_w(w_modulename)
+    modulename = space.str0_w(w_modulename)
     if not space.is_w(check_sys_modules(space, w_modulename), w_module):
         raise operationerrfmt(
             space.w_ImportError,

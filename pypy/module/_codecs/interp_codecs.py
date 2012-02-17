@@ -67,10 +67,7 @@ class CodecState(object):
         if self.unicodedata_handler:
             return self.unicodedata_handler
         try:
-            w_builtin = space.getbuiltinmodule('__builtin__')
-            w_import = space.getattr(w_builtin, space.wrap("__import__"))
-            w_unicodedata = space.call_function(w_import,
-                                                space.wrap("unicodedata"))
+            w_unicodedata = space.getbuiltinmodule("unicodedata")
             w_getcode = space.getattr(w_unicodedata, space.wrap("_get_code"))
         except OperationError:
             return None
@@ -111,6 +108,10 @@ def lookup_codec(space, encoding):
     w_result = state.codec_search_cache.get(normalized_encoding, None)
     if w_result is not None:
         return w_result
+    return _lookup_codec_loop(space, encoding, normalized_encoding)
+
+def _lookup_codec_loop(space, encoding, normalized_encoding):
+    state = space.fromcache(CodecState)
     if state.codec_need_encodings:
         w_import = space.getattr(space.builtin, space.wrap("__import__"))
         # registers new codecs

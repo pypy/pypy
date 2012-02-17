@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from ctypes.test import xfail
 import _ctypes_test
 
 class Callbacks(unittest.TestCase):
@@ -98,6 +99,7 @@ class Callbacks(unittest.TestCase):
 ##        self.check_type(c_char_p, "abc")
 ##        self.check_type(c_char_p, "def")
 
+    @xfail
     def test_pyobject(self):
         o = ()
         from sys import getrefcount as grc
@@ -205,6 +207,42 @@ class SampleCallbacksTestCase(unittest.TestCase):
                 return True #Allow windows to keep enumerating
 
             windll.user32.EnumWindows(EnumWindowsCallbackFunc, 0)
+
+    def test_callback_register_int(self):
+        # Issue #8275: buggy handling of callback args under Win64
+        # NOTE: should be run on release builds as well
+        dll = CDLL(_ctypes_test.__file__)
+        CALLBACK = CFUNCTYPE(c_int, c_int, c_int, c_int, c_int, c_int)
+        # All this function does is call the callback with its args squared
+        func = dll._testfunc_cbk_reg_int
+        func.argtypes = (c_int, c_int, c_int, c_int, c_int, CALLBACK)
+        func.restype = c_int
+
+        def callback(a, b, c, d, e):
+            return a + b + c + d + e
+
+        result = func(2, 3, 4, 5, 6, CALLBACK(callback))
+        self.assertEqual(result, callback(2*2, 3*3, 4*4, 5*5, 6*6))
+
+    def test_callback_register_double(self):
+        # Issue #8275: buggy handling of callback args under Win64
+        # NOTE: should be run on release builds as well
+        dll = CDLL(_ctypes_test.__file__)
+        CALLBACK = CFUNCTYPE(c_double, c_double, c_double, c_double,
+                             c_double, c_double)
+        # All this function does is call the callback with its args squared
+        func = dll._testfunc_cbk_reg_double
+        func.argtypes = (c_double, c_double, c_double,
+                         c_double, c_double, CALLBACK)
+        func.restype = c_double
+
+        def callback(a, b, c, d, e):
+            return a + b + c + d + e
+
+        result = func(1.1, 2.2, 3.3, 4.4, 5.5, CALLBACK(callback))
+        self.assertEqual(result,
+                         callback(1.1*1.1, 2.2*2.2, 3.3*3.3, 4.4*4.4, 5.5*5.5))
+
 
 ################################################################
 

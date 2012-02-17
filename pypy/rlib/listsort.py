@@ -10,6 +10,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 def make_timsort_class():
 
     class TimSort:
+
         """TimSort(list).sort()
 
         Sorts the list in-place, using the overridable method lt() for comparison.
@@ -550,7 +551,6 @@ def make_timsort_class():
             assert len(self.pending) == 1
             assert self.pending[0].base == 0
             assert self.pending[0].len == self.listlength
-
 
     class ListSlice:
         "A sublist of a list."

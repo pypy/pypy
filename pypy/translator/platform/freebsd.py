@@ -18,8 +18,9 @@ def get_env_vector(key, default):
 class Freebsd(posix.BasePosix):
     name = "freebsd"
 
-    link_flags = get_env_vector("LDFLAGS", '-pthread')
-    cflags = get_env_vector("CFLAGS", "-O3 -pthread -fomit-frame-pointer")
+    link_flags = ['-pthread'] + get_env_vector('LDFLAGS', '')
+    cflags = ['-O3', '-pthread', '-fomit-frame-pointer'
+             ] + get_env_vector('CFLAGS', '')
     standalone_only = []
     shared_only = []
     so_ext = 'so'

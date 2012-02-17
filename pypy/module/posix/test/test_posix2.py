@@ -29,6 +29,7 @@ def setup_module(mod):
     mod.pdir = pdir
     unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
     unicode_dir.join('somefile').write('who cares?')
+    unicode_dir.join('caf\xe9').write('who knows?')
     mod.unicode_dir = unicode_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
@@ -308,14 +309,22 @@ class AppTestPosix:
                           'file2']
 
     def test_listdir_unicode(self):
+        import sys
         unicode_dir = self.unicode_dir
         if unicode_dir is None:
             skip("encoding not good enough")
         posix = self.posix
         result = posix.listdir(unicode_dir)
-        result.sort()
-        assert result == [u'somefile']
-        assert type(result[0]) is unicode
+        typed_result = [(type(x), x) for x in result]
+        assert (unicode, u'somefile') in typed_result
+        try:
+            u = "caf\xe9".decode(sys.getfilesystemencoding())
+        except UnicodeDecodeError:
+            # Could not decode, listdir returned the byte string
+            assert (str, "caf\xe9") in typed_result
+        else:
+            assert (unicode, u) in typed_result
+
 
     def test_access(self):
         pdir = self.pdir + '/file1'
@@ -371,6 +380,8 @@ class AppTestPosix:
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
             import sys
+            if 'freebsd' in sys.platform:
+                skip("hangs indifinitly on FreeBSD (also on CPython).")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)
@@ -469,6 +480,17 @@ class AppTestPosix:
             print self.python
             ret = os.spawnv(os.P_WAIT, self.python,
                             ['python', '-c', 'raise(SystemExit(42))'])
+            assert ret == 42
+
+    if hasattr(__import__(os.name), "spawnve"):
+        def test_spawnve(self):
+            os = self.posix
+            import sys
+            print self.python
+            ret = os.spawnve(os.P_WAIT, self.python,
+                             ['python', '-c',
+                              "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
+                             {'FOOBAR': '42'})
             assert ret == 42
 
     def test_popen(self):
@@ -645,7 +667,11 @@ class AppTestPosix:
                 os.fsync(f)     # <- should also work with a file, or anything
             finally:            #    with a fileno() method
                 f.close()
-            raises(OSError, os.fsync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fsync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
@@ -657,7 +683,11 @@ class AppTestPosix:
                 os.fdatasync(fd)
             finally:
                 f.close()
-            raises(OSError, os.fdatasync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fdatasync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fdatasync, -1)
 
     if hasattr(os, 'fchdir'):

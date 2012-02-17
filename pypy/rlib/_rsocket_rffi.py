@@ -418,7 +418,7 @@ assert WIN32 == _WIN32
 if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
-    INVALID_SOCKET = cConfig.INVALID_SOCKET
+    INVALID_SOCKET = r_uint(cConfig.INVALID_SOCKET)
 else:
     def invalid_socket(fd):
         return fd < 0

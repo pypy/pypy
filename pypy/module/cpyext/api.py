@@ -23,6 +23,8 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.interp_classobj import W_ClassObject
+from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
@@ -317,6 +319,10 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+
+# These are C symbols which cpyext will export, but which are defined in .c
+# files somewhere in the implementation of cpyext (rather than being defined in
+# RPython).
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -383,6 +389,8 @@ def build_exported_objects():
         "Float": "space.w_float",
         "Long": "space.w_long",
         "Complex": "space.w_complex",
+        "ByteArray": "space.w_bytearray",
+        "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',
@@ -390,6 +398,7 @@ def build_exported_objects():
         'Module': 'space.gettypeobject(Module.typedef)',
         'Property': 'space.gettypeobject(W_Property.typedef)',
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
+        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
@@ -864,6 +873,7 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
+        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 

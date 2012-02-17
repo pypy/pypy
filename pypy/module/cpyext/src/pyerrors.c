@@ -21,7 +21,7 @@ PyErr_Format(PyObject *exception, const char *format, ...)
 }
 
 PyObject *
-PyErr_NewException(char *name, PyObject *base, PyObject *dict)
+PyErr_NewException(const char *name, PyObject *base, PyObject *dict)
 {
 	char *dot;
 	PyObject *modulename = NULL;
@@ -72,7 +72,7 @@ PyErr_NewException(char *name, PyObject *base, PyObject *dict)
 
 /* Create an exception with docstring */
 PyObject *
-PyErr_NewExceptionWithDoc(char *name, char *doc, PyObject *base, PyObject *dict)
+PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict)
 {
     int result;
     PyObject *ret = NULL;

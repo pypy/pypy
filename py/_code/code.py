@@ -164,6 +164,7 @@ class TracebackEntry(object):
         #   if something:  # assume this causes a NameError
         #      # _this_ lines and the one
                #        below we don't want from entry.getsource()
+        end = min(end, len(source))
         for i in range(self.lineno, end):
             if source[i].rstrip().endswith(':'):
                 end = i + 1
@@ -307,7 +308,7 @@ class ExceptionInfo(object):
                     self._striptext = 'AssertionError: '
         self._excinfo = tup
         self.type, self.value, tb = self._excinfo
-        self.typename = self.type.__name__
+        self.typename = getattr(self.type, "__name__", "???")
         self.traceback = py.code.Traceback(tb)
 
     def __repr__(self):

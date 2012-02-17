@@ -7,10 +7,10 @@ from pypy.translator.platform import platform
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 7, 1, "final", 42)   #XXX # sync patchlevel.h
+CPYTHON_VERSION            = (2, 7, 2, "final", 42)   #XXX # sync patchlevel.h
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
-PYPY_VERSION               = (1, 7, 1, "dev", 0)    #XXX # sync patchlevel.h
+PYPY_VERSION               = (1, 8, 1, "dev", 0)    #XXX # sync patchlevel.h
 
 if platform.name == 'msvc':
     COMPILER_INFO = 'MSC v.%d 32 bit' % (platform.version * 10 + 600)

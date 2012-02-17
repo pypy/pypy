@@ -16,7 +16,26 @@ from rarithmetic to explicitly check for overflows,
 something CPython does not do anymore.
 """
 
-class W_IntObject(W_Object):
+class W_AbstractIntObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractIntObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.int_w(self) == space.int_w(w_other)
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.objspace.std.model import IDTAG_INT as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+
+class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
 

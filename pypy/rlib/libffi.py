@@ -140,7 +140,7 @@ class ArgChain(object):
             self.last.next = arg
             self.last = arg
         self.numargs += 1
-    
+
 
 class AbstractArg(object):
     next = None
@@ -234,11 +234,11 @@ class Func(AbstractFuncPtr):
         # It is important that there is no other operation in the middle, else
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
-        # assuming that archain is completely virtual.
+        # assuming that argchain is completely virtual.
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
-                (argchain.numargs, len(self.argtypes))
+                (len(self.argtypes), argchain.numargs)
         ll_args = self._prepare()
         i = 0
         arg = argchain.first
@@ -393,11 +393,11 @@ class Func(AbstractFuncPtr):
 
 # XXX: it partially duplicate the code in clibffi.py
 class CDLL(object):
-    def __init__(self, libname):
+    def __init__(self, libname, mode=-1):
         """Load the library, or raises DLOpenError."""
         self.lib = rffi.cast(DLLHANDLE, 0)
         with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname)
+            self.lib = dlopen(ll_libname, mode)
 
     def __del__(self):
         if self.lib:
@@ -410,7 +410,6 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
-
 
 # ======================================================================
 
@@ -499,3 +498,30 @@ def _struct_setfield(TYPE, addr, offset, value):
     addr = rffi.ptradd(addr, offset)
     PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
     rffi.cast(PTR_FIELD, addr)[0] = value
+
+# ======================================================================
+
+# These specialize.call_location's should really be specialize.arg(0), however
+# you can't hash a pointer obj, which the specialize machinery wants to do.
+# Given the present usage of these functions, it's good enough.
+@specialize.call_location()
+@jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
+def array_getitem(ffitype, width, addr, index, offset):
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            addr = rffi.ptradd(addr, index * width)
+            addr = rffi.ptradd(addr, offset)
+            return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
+    assert False
+
+@specialize.call_location()
+@jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
+def array_setitem(ffitype, width, addr, index, offset, value):
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            addr = rffi.ptradd(addr, index * width)
+            addr = rffi.ptradd(addr, offset)
+            rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value
+            return
+    assert False
+

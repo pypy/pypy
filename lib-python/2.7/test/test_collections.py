@@ -355,8 +355,19 @@ class TestOneTrickPonyABCs(ABCTestCase):
         for x in samples:
             self.assertIsInstance(x, Iterator)
             self.assertTrue(issubclass(type(x), Iterator), repr(type(x)))
-        self.validate_abstract_methods(Iterator, 'next')
-        self.validate_isinstance(Iterator, 'next')
+        self.validate_abstract_methods(Iterator, 'next', '__iter__')
+
+        # Issue 10565
+        class NextOnly:
+            def __next__(self):
+                yield 1
+                raise StopIteration
+        self.assertNotIsInstance(NextOnly(), Iterator)
+        class NextOnlyNew(object):
+            def __next__(self):
+                yield 1
+                raise StopIteration
+        self.assertNotIsInstance(NextOnlyNew(), Iterator)
 
     def test_Sized(self):
         non_samples = [None, 42, 3.14, 1j,
@@ -678,6 +689,15 @@ class TestCounter(unittest.TestCase):
             self.assertEqual(len(dup), len(words))
             self.assertEqual(type(dup), type(words))
 
+    def test_copy_subclass(self):
+        class MyCounter(Counter):
+            pass
+        c = MyCounter('slartibartfast')
+        d = c.copy()
+        self.assertEqual(d, c)
+        self.assertEqual(len(d), len(c))
+        self.assertEqual(type(d), type(c))
+
     def test_conversions(self):
         # Convert to: set, list, dict
         s = 'she sells sea shells by the sea shore'
@@ -801,6 +821,10 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(d.items()),
             [('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5), ('f', 6), ('g', 7)])
 
+    def test_abc(self):
+        self.assertIsInstance(OrderedDict(), MutableMapping)
+        self.assertTrue(issubclass(OrderedDict, MutableMapping))
+
     def test_clear(self):
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
         shuffle(pairs)
@@ -861,6 +885,17 @@ class TestOrderedDict(unittest.TestCase):
             od.pop('xyz')
         self.assertEqual(len(od), 0)
         self.assertEqual(od.pop(k, 12345), 12345)
+
+        # make sure pop still works when __missing__ is defined
+        class Missing(OrderedDict):
+            def __missing__(self, key):
+                return 0
+        m = Missing(a=1)
+        self.assertEqual(m.pop('b', 5), 5)
+        self.assertEqual(m.pop('a', 6), 1)
+        self.assertEqual(m.pop('a', 6), 6)
+        with self.assertRaises(KeyError):
+            m.pop('a')
 
     def test_equality(self):
         pairs = [('c', 1), ('b', 2), ('a', 3), ('d', 4), ('e', 5), ('f', 6)]
@@ -945,6 +980,12 @@ class TestOrderedDict(unittest.TestCase):
         # make sure 'x' is added to the end
         self.assertEqual(list(od.items())[-1], ('x', 10))
 
+        # make sure setdefault still works when __missing__ is defined
+        class Missing(OrderedDict):
+            def __missing__(self, key):
+                return 0
+        self.assertEqual(Missing().setdefault(5, 9), 9)
+
     def test_reinsert(self):
         # Given insert a, insert b, delete a, re-insert a,
         # verify that a is now later than b.
@@ -962,6 +1003,13 @@ class TestOrderedDict(unittest.TestCase):
         self.assertEqual(list(od.viewvalues()),  [None for k in s])
         self.assertEqual(list(od.viewitems()),  [(k, None) for k in s])
 
+    def test_override_update(self):
+        # Verify that subclasses can override update() without breaking __init__()
+        class MyOD(OrderedDict):
+            def update(self, *args, **kwds):
+                raise Exception()
+        items = [('a', 1), ('c', 3), ('b', 2)]
+        self.assertEqual(list(MyOD(items).items()), items)
 
 class GeneralMappingTests(mapping_tests.BasicTestMappingProtocol):
     type2test = OrderedDict

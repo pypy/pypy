@@ -29,8 +29,16 @@ CConfig.epoll_event = rffi_platform.Struct("struct epoll_event", [
     ("data", CConfig.epoll_data)
 ])
 
-for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+public_symbols = [
+    "EPOLLIN", "EPOLLOUT", "EPOLLPRI", "EPOLLERR", "EPOLLHUP",
+    "EPOLLET", "EPOLLONESHOT", "EPOLLRDNORM", "EPOLLRDBAND",
+    "EPOLLWRNORM", "EPOLLWRBAND", "EPOLLMSG"
+    ]
+for symbol in public_symbols:
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
+
+for symbol in ["EPOLL_CTL_ADD", "EPOLL_CTL_MOD", "EPOLL_CTL_DEL"]:
+    setattr(CConfig, symbol, rffi_platform.ConstantInteger(symbol))
 
 cconfig = rffi_platform.configure(CConfig)
 

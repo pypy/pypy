@@ -573,7 +573,8 @@ class ProcessTestCase(BaseTestCase):
                 subprocess.Popen(['nonexisting_i_hope'],
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
-            if c.exception.errno != errno.ENOENT:  # ignore "no such file"
+            # ignore errors that indicate the command was not found
+            if c.exception.errno not in (errno.ENOENT, errno.EACCES):
                 raise c.exception
 
     def test_handles_closed_on_exception(self):
@@ -596,6 +597,24 @@ class ProcessTestCase(BaseTestCase):
         self.assertFalse(os.path.exists(ofname))
         self.assertFalse(os.path.exists(efname))
 
+    def test_communicate_epipe(self):
+        # Issue 10963: communicate() should hide EPIPE
+        p = subprocess.Popen([sys.executable, "-c", 'pass'],
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        self.addCleanup(p.stdout.close)
+        self.addCleanup(p.stderr.close)
+        self.addCleanup(p.stdin.close)
+        p.communicate("x" * 2**20)
+
+    def test_communicate_epipe_only_stdin(self):
+        # Issue 10963: communicate() should hide EPIPE
+        p = subprocess.Popen([sys.executable, "-c", 'pass'],
+                             stdin=subprocess.PIPE)
+        self.addCleanup(p.stdin.close)
+        time.sleep(2)
+        p.communicate("x" * 2**20)
 
 # context manager
 class _SuppressCoreFiles(object):
@@ -777,6 +796,68 @@ class POSIXProcessTestCase(BaseTestCase):
         _, stderr = p.communicate()
         self.assertStderrEqual(stderr, '')
         self.assertEqual(p.wait(), -signal.SIGTERM)
+
+    def check_close_std_fds(self, fds):
+        # Issue #9905: test that subprocess pipes still work properly with
+        # some standard fds closed
+        stdin = 0
+        newfds = []
+        for a in fds:
+            b = os.dup(a)
+            newfds.append(b)
+            if a == 0:
+                stdin = b
+        try:
+            for fd in fds:
+                os.close(fd)
+            out, err = subprocess.Popen([sys.executable, "-c",
+                              'import sys;'
+                              'sys.stdout.write("apple");'
+                              'sys.stdout.flush();'
+                              'sys.stderr.write("orange")'],
+                       stdin=stdin,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE).communicate()
+            err = test_support.strip_python_stderr(err)
+            self.assertEqual((out, err), (b'apple', b'orange'))
+        finally:
+            for b, a in zip(newfds, fds):
+                os.dup2(b, a)
+            for b in newfds:
+                os.close(b)
+
+    def test_close_fd_0(self):
+        self.check_close_std_fds([0])
+
+    def test_close_fd_1(self):
+        self.check_close_std_fds([1])
+
+    def test_close_fd_2(self):
+        self.check_close_std_fds([2])
+
+    def test_close_fds_0_1(self):
+        self.check_close_std_fds([0, 1])
+
+    def test_close_fds_0_2(self):
+        self.check_close_std_fds([0, 2])
+
+    def test_close_fds_1_2(self):
+        self.check_close_std_fds([1, 2])
+
+    def test_close_fds_0_1_2(self):
+        # Issue #10806: test that subprocess pipes still work properly with
+        # all standard fds closed.
+        self.check_close_std_fds([0, 1, 2])
+
+    def test_wait_when_sigchild_ignored(self):
+        # NOTE: sigchild_ignore.py may not be an effective test on all OSes.
+        sigchild_ignore = test_support.findfile("sigchild_ignore.py",
+                                                subdir="subprocessdata")
+        p = subprocess.Popen([sys.executable, sigchild_ignore],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        self.assertEqual(0, p.returncode, "sigchild_ignore.py exited"
+                         " non-zero with this error:\n%s" % stderr)
 
 
 @unittest.skipUnless(mswindows, "Windows specific tests")

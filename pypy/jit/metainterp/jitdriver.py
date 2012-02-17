@@ -11,6 +11,7 @@ class JitDriverStaticData(object):
     #    self.portal_calldescr  ... pypy.jit.metainterp.warmspot
     #    self.num_green_args    ... pypy.jit.metainterp.warmspot
     #    self.num_red_args      ... pypy.jit.metainterp.warmspot
+    #    self.red_args_types    ... pypy.jit.metainterp.warmspot
     #    self.result_type       ... pypy.jit.metainterp.warmspot
     #    self.virtualizable_info... pypy.jit.metainterp.warmspot
     #    self.greenfield_info   ... pypy.jit.metainterp.warmspot
@@ -20,7 +21,6 @@ class JitDriverStaticData(object):
     #    self.portal_finishtoken... pypy.jit.metainterp.pyjitpl
     #    self.index             ... pypy.jit.codewriter.call
     #    self.mainjitcode       ... pypy.jit.codewriter.call
-    #    self.on_compile        ... pypy.jit.metainterp.warmstate
 
     # These attributes are read by the backend in CALL_ASSEMBLER:
     #    self.assembler_helper_adr

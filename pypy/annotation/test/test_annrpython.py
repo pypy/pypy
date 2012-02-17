@@ -456,6 +456,20 @@ class TestAnnotateTestCase:
             return ''.join(g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
+        assert s.no_nul
+
+    def test_str_split(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return "test string"
+        def f(n):
+            if n:
+                return g(n).split(' ')
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert s_item.no_nul
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
@@ -464,6 +478,18 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeList)
         assert s.listdef.listitem.resized
+
+    def test_str_strip(self):
+        a = self.RPythonAnnotator()
+        def f(n, a_str):
+            if n == 0:
+                return a_str.strip(' ')
+            elif n == 1:
+                return a_str.rstrip(' ')
+            else: 
+                return a_str.lstrip(' ')
+        s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
+        assert s.no_nul
 
     def test_str_mul(self):
         a = self.RPythonAnnotator()
@@ -855,6 +881,46 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(Exception, a.build_types, f, [])
         # if you want to get a r_uint, you have to be explicit about it
+
+    def test_add_different_ints(self):
+        def f(a, b):
+            return a + b
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_different_ints(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+
+    def test_merge_ruint_zero(self):
+        def f(a):
+            if a:
+                c = a
+            else:
+                c = 0
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+    def test_merge_ruint_nonneg_signed(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                assert b >= 0
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint, int])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
 
     def test_prebuilt_long_that_is_not_too_long(self):
         small_constant = 12L
@@ -1801,7 +1867,7 @@ class TestAnnotateTestCase:
             return obj.indirect()
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
-        assert s == annmodel.SomeString(can_be_None=True)
+        assert annmodel.SomeString(can_be_None=True).contains(s)
 
     def test_dont_see_AttributeError_clause(self):
         class Stuff:
@@ -1978,6 +2044,37 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert not s.can_be_None
 
+    def test_string_noNUL_canbeNone(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
+    def test_str_or_None(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        def g(a):
+            x = f(a)
+            #assert x is not None
+            if x is None:
+                return "abcd"
+            return x
+            if isinstance(x, str):
+                return x
+            return "impossible"
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
             return a + b
@@ -2030,6 +2127,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeIterator)
         assert s.variant == ('items',)
+
+    def test_iteritems_str0(self):
+        def it(d):
+            return d.iteritems()
+        def f():
+            d0 = {'1a': '2a', '3': '4'}
+            for item in it(d0):
+                return "%s=%s" % item
+            raise ValueError
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
@@ -3029,7 +3139,7 @@ class TestAnnotateTestCase:
             if g(x, y):
                 g(x, r_uint(y))
         a = self.RPythonAnnotator()
-        a.build_types(f, [int, int])
+        py.test.raises(Exception, a.build_types, f, [int, int])
 
     def test_compare_with_zero(self):
         def g():

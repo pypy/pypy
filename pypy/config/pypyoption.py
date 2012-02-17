@@ -252,6 +252,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use small tuples",
                    default=False),
 
+        BoolOption("withspecialisedtuple",
+                   "use specialised tuples",
+                   default=False),
+
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
@@ -281,6 +285,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "actually create the full list until the resulting "
                    "list is mutated",
                    default=False),
+        BoolOption("withliststrategies",
+                   "enable optimized ways to store lists of primitives ",
+                   default=True),
 
         BoolOption("withtypeversion",
                    "version type objects when changing them",
@@ -333,7 +340,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.std.builtinshortcut", True)]),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=True),
+                   default=False),
      ]),
 ])
 
@@ -362,6 +369,8 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)
+        config.objspace.std.suggest(withspecialisedtuple=True)
+        config.objspace.std.suggest(withidentitydict=True)
         #if not IS_64_BITS:
         #    config.objspace.std.suggest(withsmalllong=True)
 

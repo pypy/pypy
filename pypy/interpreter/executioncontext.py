@@ -445,6 +445,7 @@ class UserDelAction(AsyncAction):
         AsyncAction.__init__(self, space)
         self.dying_objects = []
         self.finalizers_lock_count = 0
+        self.enabled_at_app_level = True
 
     def register_callback(self, w_obj, callback, descrname):
         self.dying_objects.append((w_obj, callback, descrname))

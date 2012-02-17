@@ -1,3 +1,5 @@
+
+import py
 import random
 try:
     from itertools import product
@@ -15,12 +17,12 @@ except ImportError:
 
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
 from pypy.jit.codewriter.flatten import ListOfKind
-from pypy.jit.codewriter.jtransform import Transformer
+from pypy.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
 from pypy.jit.metainterp.history import getkind
 
 def const(x):
@@ -537,6 +539,73 @@ def test_malloc_new_with_destructor():
     assert list(op0.args[2]) == []
     assert op1.opname == '-live-'
     assert op1.args == []
+
+def test_raw_malloc():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw'}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'raw_malloc_varsize' # pseudo-function as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_malloc_zero():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'raw_malloc_varsize_zero'  # pseudo-fn as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_malloc_unsupported_flag():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'unsupported_flag': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    py.test.raises(UnsupportedMallocFlags, tr.rewrite_operation, op)
+
+def test_raw_malloc_fixedsize():
+    S = lltype.Struct('dummy', ('x', lltype.Signed))
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc', [Constant(S, lltype.Void), flags], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_r_i'
+    assert op0.args[0].value == 'raw_malloc_fixedsize_zero' #pseudo-fn as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_free():
+    S = lltype.Struct('dummy', ('x', lltype.Signed))
+    for flag in [True, False]:
+        flags = Constant({'flavor': 'raw', 'track_allocation': flag},
+                         lltype.Void)
+        op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
+                            varoftype(lltype.Void))
+        tr = Transformer(FakeCPU(), FakeResidualCallControl())
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == 'residual_call_ir_v'
+        if flag:
+            pseudo_op_name = 'raw_free'
+        else:
+            pseudo_op_name = 'raw_free_no_track_allocation'
+        assert op0.args[0].value == pseudo_op_name   # pseudo-function as a str
+        assert op1.opname == '-live-'
 
 def test_rename_on_links():
     v1 = Variable()
@@ -1141,3 +1210,11 @@ def test_cast_opaque_ptr():
     assert op1.args == [v1]
     assert op1.result is None
     assert op2 is None
+
+def test_unknown_operation():
+    op = SpaceOperation('foobar', [], varoftype(lltype.Void))
+    tr = Transformer()
+    try:
+        tr.rewrite_operation(op)
+    except Exception, e:
+        assert 'foobar' in str(e)

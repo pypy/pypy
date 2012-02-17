@@ -8,10 +8,10 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import (get_size_descr,
-     get_field_descr, BaseFieldDescr, get_array_descr, BaseArrayDescr,
-     get_call_descr, BaseIntCallDescr, GcPtrCallDescr, FloatCallDescr,
-     VoidCallDescr, InteriorFieldDescr, get_interiorfield_descr, DynamicFieldDescr)
+from pypy.jit.backend.llsupport.descr import (
+    get_size_descr, get_field_descr, get_array_descr,
+    get_call_descr, get_interiorfield_descr, get_dynamic_interiorfield_descr,
+    FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr, get_dynamic_field_descr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 
 
@@ -106,9 +106,15 @@ class AbstractLLCPU(AbstractCPU):
             _exception_emulator[1] = 0
             self.saved_exc_value = rffi.cast(llmemory.GCREF, v_i)
 
+        def save_exception_memoryerr():
+            save_exception()
+            if not self.saved_exc_value:
+                self.saved_exc_value = "memoryerror!"    # for tests
+
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = lambda: (0, 0, 0)
 
 
@@ -133,6 +139,15 @@ class AbstractLLCPU(AbstractCPU):
             # in the assignment to self.saved_exc_value, as needed.
             self.saved_exc_value = exc_value
 
+        def save_exception_memoryerr():
+            from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+            save_exception()
+            if not self.saved_exc_value:
+                exc = MemoryError()
+                exc = cast_instance_to_base_ptr(exc)
+                exc = lltype.cast_opaque_ptr(llmemory.GCREF, exc)
+                self.saved_exc_value = exc
+
         from pypy.rlib import rstack
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
@@ -146,16 +161,19 @@ class AbstractLLCPU(AbstractCPU):
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
         self.save_exception = save_exception
+        self.save_exception_memoryerr = save_exception_memoryerr
         self.insert_stack_check = insert_stack_check
 
     def _setup_on_leave_jitted_untranslated(self):
         # assume we don't need a backend leave in this case
         self.on_leave_jitted_save_exc = self.save_exception
+        self.on_leave_jitted_memoryerr = self.save_exception_memoryerr
         self.on_leave_jitted_noexc = lambda : None
 
     def _setup_on_leave_jitted_translated(self):
         on_leave_jitted_hook = self.get_on_leave_jitted_hook()
         save_exception = self.save_exception
+        save_exception_memoryerr = self.save_exception_memoryerr
 
         def on_leave_jitted_noexc():
             on_leave_jitted_hook()
@@ -164,16 +182,24 @@ class AbstractLLCPU(AbstractCPU):
             save_exception()
             on_leave_jitted_hook()
 
+        def on_leave_jitted_memoryerr():
+            save_exception_memoryerr()
+            on_leave_jitted_hook()
+
         self.on_leave_jitted_noexc = on_leave_jitted_noexc
         self.on_leave_jitted_save_exc = on_leave_jitted_save_exc
+        self.on_leave_jitted_memoryerr = on_leave_jitted_memoryerr
 
     def get_on_leave_jitted_hook(self):
         return lambda : None
 
     _ON_JIT_LEAVE_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
-    def get_on_leave_jitted_int(self, save_exception):
-        if save_exception:
+    def get_on_leave_jitted_int(self, save_exception,
+                                default_to_memoryerror=False):
+        if default_to_memoryerror:
+            f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_memoryerr)
+        elif save_exception:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_save_exc)
         else:
             f = llhelper(self._ON_JIT_LEAVE_FUNC, self.on_leave_jitted_noexc)
@@ -220,17 +246,17 @@ class AbstractLLCPU(AbstractCPU):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
 
     def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
-        return DynamicFieldDescr(offset, fieldsize, is_pointer, is_float, is_signed)
+        return get_dynamic_field_descr(offset, fieldsize, is_pointer, is_float, is_signed)
 
     def unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         return fielddescr.offset
     unpack_fielddescr._always_inline_ = True
 
     def unpack_fielddescr_size(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
+        assert isinstance(fielddescr, FieldDescr)
         ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.translate_support_code)
+        size = fielddescr.field_size
         sign = fielddescr.is_field_signed()
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
@@ -239,17 +265,23 @@ class AbstractLLCPU(AbstractCPU):
         return get_array_descr(self.gc_ll_descr, A)
 
     def interiorfielddescrof(self, A, fieldname):
-        return get_interiorfield_descr(self.gc_ll_descr, A, A.OF, fieldname)
+        return get_interiorfield_descr(self.gc_ll_descr, A, fieldname)
+
+    def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
+                                     is_pointer, is_float, is_signed):
+        return get_dynamic_interiorfield_descr(self.gc_ll_descr,
+                                               offset, width, fieldsize,
+                                               is_pointer, is_float, is_signed)
 
     def unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        return arraydescr.get_base_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        return arraydescr.basesize
     unpack_arraydescr._always_inline_ = True
 
     def unpack_arraydescr_size(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_base_size(self.translate_support_code)
-        size = arraydescr.get_item_size(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.basesize
+        size = arraydescr.itemsize
         sign = arraydescr.is_item_signed()
         return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
@@ -277,8 +309,8 @@ class AbstractLLCPU(AbstractCPU):
     # ____________________________________________________________
 
     def bh_arraylen_gc(self, arraydescr, array):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs = arraydescr.get_ofs_length(self.translate_support_code)
+        assert isinstance(arraydescr, ArrayDescr)
+        ofs = arraydescr.lendescr.offset
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), array)[ofs/WORD]
 
     @specialize.argtype(2)
@@ -363,7 +395,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         sign = descr.fielddescr.is_field_signed()
         fullofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
@@ -414,7 +446,7 @@ class AbstractLLCPU(AbstractCPU):
         arraydescr = descr.arraydescr
         ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
         ofs += descr.fielddescr.offset
-        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.field_size
         ofs = itemindex * size + ofs
         # --- start of GC unsafe code (no GC operation!) ---
         items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
@@ -600,25 +632,26 @@ class AbstractLLCPU(AbstractCPU):
         rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
 
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, BaseIntCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_i(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, GcPtrCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.REF)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_r(func, args_i, args_r, args_f)
 
     def bh_call_f(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, FloatCallDescr)  # or LongLongCallDescr
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.FLOAT + 'L')
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        return calldescr.call_stub_f(func, args_i, args_r, args_f)
 
     def bh_call_v(self, func, calldescr, args_i, args_r, args_f):
-        assert isinstance(calldescr, VoidCallDescr)
+        assert isinstance(calldescr, CallDescr)
         if not we_are_translated():
             calldescr.verify_types(args_i, args_r, args_f, history.VOID)
-        return calldescr.call_stub(func, args_i, args_r, args_f)
+        # the 'i' return value is ignored (and nonsense anyway)
+        calldescr.call_stub_i(func, args_i, args_r, args_f)

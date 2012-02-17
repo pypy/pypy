@@ -27,7 +27,7 @@ class TestInstance(BaseTestPyPyC):
             i9 = int_add_ovf(i5, 2)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i9, i6, descr=...)
         """)
 
     def test_load_attr(self):
@@ -52,7 +52,7 @@ class TestInstance(BaseTestPyPyC):
             i10 = int_add_ovf(i5, i7)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=...)
         """)
 
     def test_getattr_with_dynamic_attribute(self):
@@ -125,9 +125,9 @@ class TestInstance(BaseTestPyPyC):
             i12 = force_token()
             --TICK--
             p20 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
-            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
-            jump(p0, p1, p2, p3, p4, p20, p6, i7, p20, descr=<Loop.>)
+            setfield_gc(p20, i11, descr=<FieldS.*W_IntObject.inst_intval .*>)
+            setfield_gc(ConstPtr(ptr21), p20, descr=<FieldP .*TypeCell.inst_w_value .*>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, p20, descr=...)
         """)
 
     def test_oldstyle_newstyle_mix(self):

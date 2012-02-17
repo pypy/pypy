@@ -130,6 +130,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_str_or_None(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_str0(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
@@ -248,6 +251,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_str_or_None(self, typ):
         self.run_args.append("space.str_or_None_w(%s)" % (self.scopenext(),))
+
+    def visit_str0(self, typ):
+        self.run_args.append("space.str0_w(%s)" % (self.scopenext(),))
 
     def visit_nonnegint(self, typ):
         self.run_args.append("space.gateway_nonnegint_w(%s)" % (
@@ -382,6 +388,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 
     def visit_str_or_None(self, typ):
         self.unwrap.append("space.str_or_None_w(%s)" % (self.nextarg(),))
+
+    def visit_str0(self, typ):
+        self.unwrap.append("space.str0_w(%s)" % (self.nextarg(),))
 
     def visit_nonnegint(self, typ):
         self.unwrap.append("space.gateway_nonnegint_w(%s)" % (self.nextarg(),))
@@ -619,7 +628,8 @@ class BuiltinCode(eval.Code):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -655,7 +665,8 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args)
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -674,7 +685,8 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
                                                   self.descr_reqcls,
                                                   args.prepend(w_obj))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -690,7 +702,8 @@ class BuiltinCode0(BuiltinCode):
             raise OperationError(space.w_SystemError,
                                  space.wrap("unexpected DescrMismatch error"))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -708,7 +721,8 @@ class BuiltinCode1(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -726,7 +740,8 @@ class BuiltinCode2(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -744,7 +759,8 @@ class BuiltinCode3(BuiltinCode):
                                            self.descr_reqcls,
                                            Arguments(space, [w1, w2, w3]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -763,7 +779,8 @@ class BuiltinCode4(BuiltinCode):
                                            Arguments(space,
                                                      [w1, w2, w3, w4]))
         except Exception, e:
-            raise self.handle_exception(space, e)
+            self.handle_exception(space, e)
+            w_result = None
         if w_result is None:
             w_result = space.w_None
         return w_result

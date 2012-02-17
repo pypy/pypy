@@ -3,6 +3,7 @@
 
 from pypy.annotation.model import (SomeObject, SomeString, s_None, SomeChar,
     SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.tool.pairtype import pair, pairtype
 from pypy.rpython.extregistry import ExtRegistryEntry
 
@@ -52,25 +53,37 @@ INIT_SIZE = 100 # XXX tweak
 class AbstractStringBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
         self.l = []
+        self.size = 0
+
+    def _grow(self, size):
+        try:
+            self.size = ovfcheck(self.size + size)
+        except OverflowError:
+            raise MemoryError
 
     def append(self, s):
         assert isinstance(s, self.tp)
         self.l.append(s)
+        self._grow(len(s))
 
     def append_slice(self, s, start, end):
         assert isinstance(s, self.tp)
         assert 0 <= start <= end <= len(s)
-        self.l.append(s[start:end])
+        s = s[start:end]
+        self.l.append(s)
+        self._grow(len(s))
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, self.tp)
         self.l.append(c * times)
+        self._grow(times)
 
     def append_charpsize(self, s, size):
         l = []
         for i in xrange(size):
             l.append(s[i])
         self.l.append(self.tp("").join(l))
+        self._grow(size)
 
     def build(self):
         return self.tp("").join(self.l)
@@ -191,4 +204,46 @@ class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
     def union((p, sb)):
         assert p.const is None
         return SomeUnicodeBuilder(can_be_None=True)
+
+#___________________________________________________________________
+# Support functions for SomeString.no_nul
+
+def assert_str0(fname):
+    assert '\x00' not in fname, "NUL byte in string"
+    return fname
+
+class Entry(ExtRegistryEntry):
+    _about_ = assert_str0
+
+    def compute_result_annotation(self, s_obj):
+        if s_None.contains(s_obj):
+            return s_obj
+        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
+        if s_obj.no_nul:
+            return s_obj
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
+        new_s_obj.__dict__ = s_obj.__dict__.copy()
+        new_s_obj.no_nul = True
+        return new_s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_str0(fname):
+    """A 'probe' to trigger a failure at translation time, if the
+    string was not proved to not contain NUL characters."""
+    assert '\x00' not in fname, "NUL byte in string"
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_str0
+
+    def compute_result_annotation(self, s_obj):
+        if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
+            return s_obj
+        if not s_obj.no_nul:
+            raise ValueError("Value is not no_nul")
+
+    def specialize_call(self, hop):
+        pass
 

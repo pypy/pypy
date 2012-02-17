@@ -1,11 +1,11 @@
 """codegen helpers and AST constant folding."""
 import sys
-import itertools
 
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.runicode import MAXUNICODE
 
 
 def optimize_ast(space, tree, compile_info):
@@ -146,8 +146,7 @@ unary_folders = {
 }
 unrolling_unary_folders = unrolling_iterable(unary_folders.items())
 
-for folder in itertools.chain(binary_folders.itervalues(),
-                              unary_folders.itervalues()):
+for folder in binary_folders.values() + unary_folders.values():
     folder._always_inline_ = True
 del folder
 
@@ -291,8 +290,29 @@ class OptimizingVisitor(ast.ASTVisitor):
                 w_idx = subs.slice.as_constant()
                 if w_idx is not None:
                     try:
-                        return ast.Const(self.space.getitem(w_obj, w_idx), subs.lineno, subs.col_offset)
+                        w_const = self.space.getitem(w_obj, w_idx)
                     except OperationError:
-                        # Let exceptions propgate at runtime.
-                        pass
+                        # Let exceptions propagate at runtime.
+                        return subs
+
+                    # CPython issue5057: if v is unicode, there might
+                    # be differences between wide and narrow builds in
+                    # cases like u'\U00012345'[0].
+                    # Wide builds will return a non-BMP char, whereas
+                    # narrow builds will return a surrogate.  In both
+                    # the cases skip the optimization in order to
+                    # produce compatible pycs.
+                    if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
+                        self.space.isinstance_w(w_const, self.space.w_unicode)):
+                        unistr = self.space.unicode_w(w_const)
+                        if len(unistr) == 1:
+                            ch = ord(unistr[0])
+                        else:
+                            ch = 0
+                        if (ch > 0xFFFF or
+                            (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFF)):
+                            return subs
+
+                    return ast.Const(w_const, subs.lineno, subs.col_offset)
+
         return subs

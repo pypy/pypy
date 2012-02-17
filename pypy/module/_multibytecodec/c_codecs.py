@@ -230,14 +230,14 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
         if ignore_error == 0:
             flags = MBENC_FLUSH | MBENC_RESET
         else:
-            flags = MBENC_RESET
+            flags = 0
         while True:
             r = pypy_cjk_enc_chunk(encodebuf, flags)
             if r == 0 or r == ignore_error:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
                                     errorcb, namecb, unicodedata)
-        while True:
+        while flags & MBENC_RESET:
             r = pypy_cjk_enc_reset(encodebuf)
             if r == 0:
                 break

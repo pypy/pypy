@@ -7,6 +7,7 @@ from pypy.jit.codewriter.policy import log
 from pypy.jit.metainterp import quasiimmut
 from pypy.jit.metainterp.history import getkind
 from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.jit.metainterp.blackhole import BlackholeInterpreter
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
@@ -15,6 +16,8 @@ from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import varoftype
 
+class UnsupportedMallocFlags(Exception):
+    pass
 
 def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
     """Transform a control flow graph to make it suitable for
@@ -197,15 +200,32 @@ class Transformer(object):
         try:
             rewrite = _rewrite_ops[op.opname]
         except KeyError:
-            return op     # default: keep the operation unchanged
-        else:
-            return rewrite(self, op)
+            raise Exception("the JIT doesn't support the operation %r"
+                            " in %r" % (op, getattr(self, 'graph', '?')))
+        return rewrite(self, op)
 
     def rewrite_op_same_as(self, op):
         if op.args[0] in self.vable_array_vars:
             self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
 
-    rewrite_op_cast_pointer = rewrite_op_same_as
+    def rewrite_op_cast_pointer(self, op):
+        newop = self.rewrite_op_same_as(op)
+        assert newop is None
+        return
+        # disabled for now
+        if (self._is_rclass_instance(op.args[0]) and
+                self._is_rclass_instance(op.result)):
+            FROM = op.args[0].concretetype.TO
+            TO = op.result.concretetype.TO
+            if lltype._castdepth(TO, FROM) > 0:
+                vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, TO)
+                const_vtable = Constant(vtable, lltype.typeOf(vtable))
+                return [None, # hack, do the right renaming from op.args[0] to op.result
+                        SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
+
+    def rewrite_op_jit_record_known_class(self, op):
+        return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
+
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -479,13 +499,29 @@ class Transformer(object):
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
+    def _rewrite_raw_malloc(self, op, name, args):
+        d = op.args[1].value.copy()
+        d.pop('flavor')
+        add_memory_pressure = d.pop('add_memory_pressure', False)
+        zero = d.pop('zero', False)
+        track_allocation = d.pop('track_allocation', True)
+        if d:
+            raise UnsupportedMallocFlags(d)
+        TYPE = op.args[0].value
+        if zero:
+            name += '_zero'
+        if add_memory_pressure:
+            name += '_add_memory_pressure'
+        if not track_allocation:
+            name += '_no_track_allocation'
+        return self._do_builtin_call(op, name, args,
+                                     extra = (TYPE,),
+                                     extrakey = TYPE)
+
     def rewrite_op_malloc_varsize(self, op):
         if op.args[1].value['flavor'] == 'raw':
-            ARRAY = op.args[0].value
-            return self._do_builtin_call(op, 'raw_malloc',
-                                         [op.args[2]],
-                                         extra = (ARRAY,),
-                                         extrakey = ARRAY)
+            return self._rewrite_raw_malloc(op, 'raw_malloc_varsize',
+                                            [op.args[2]])
         if op.args[0].value == rstr.STR:
             return SpaceOperation('newstr', [op.args[2]], op.result)
         elif op.args[0].value == rstr.UNICODE:
@@ -498,11 +534,18 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_free(self, op):
-        flags = op.args[1].value
-        assert flags['flavor'] == 'raw'
-        ARRAY = op.args[0].concretetype.TO
-        return self._do_builtin_call(op, 'raw_free', [op.args[0]],
-                                     extra = (ARRAY,), extrakey = ARRAY)
+        d = op.args[1].value.copy()
+        assert d['flavor'] == 'raw'
+        d.pop('flavor')
+        track_allocation = d.pop('track_allocation', True)
+        if d:
+            raise UnsupportedMallocFlags(d)
+        STRUCT = op.args[0].concretetype.TO
+        name = 'raw_free'
+        if not track_allocation:
+            name += '_no_track_allocation'
+        return self._do_builtin_call(op, name, [op.args[0]],
+                                     extra = (STRUCT,), extrakey = STRUCT)
 
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
@@ -703,6 +746,9 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_malloc(self, op):
+        if op.args[1].value['flavor'] == 'raw':
+            return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
+        #
         assert op.args[1].value == {'flavor': 'gc'}
         STRUCT = op.args[0].value
         vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, STRUCT)
@@ -1053,35 +1099,20 @@ class Transformer(object):
     # jit.codewriter.support.
 
     for _op, _oopspec in [('llong_invert',  'INVERT'),
-                          ('ullong_invert', 'INVERT'),
                           ('llong_lt',      'LT'),
                           ('llong_le',      'LE'),
                           ('llong_eq',      'EQ'),
                           ('llong_ne',      'NE'),
                           ('llong_gt',      'GT'),
                           ('llong_ge',      'GE'),
-                          ('ullong_lt',     'ULT'),
-                          ('ullong_le',     'ULE'),
-                          ('ullong_eq',     'EQ'),
-                          ('ullong_ne',     'NE'),
-                          ('ullong_gt',     'UGT'),
-                          ('ullong_ge',     'UGE'),
                           ('llong_add',     'ADD'),
                           ('llong_sub',     'SUB'),
                           ('llong_mul',     'MUL'),
                           ('llong_and',     'AND'),
                           ('llong_or',      'OR'),
                           ('llong_xor',     'XOR'),
-                          ('ullong_add',    'ADD'),
-                          ('ullong_sub',    'SUB'),
-                          ('ullong_mul',    'MUL'),
-                          ('ullong_and',    'AND'),
-                          ('ullong_or',     'OR'),
-                          ('ullong_xor',    'XOR'),
                           ('llong_lshift',  'LSHIFT'),
                           ('llong_rshift',  'RSHIFT'),
-                          ('ullong_lshift', 'LSHIFT'),
-                          ('ullong_rshift', 'URSHIFT'),
                           ('cast_int_to_longlong',     'FROM_INT'),
                           ('truncate_longlong_to_int', 'TO_INT'),
                           ('cast_float_to_longlong',   'FROM_FLOAT'),
@@ -1104,6 +1135,21 @@ class Transformer(object):
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
                           ('cast_float_to_ulonglong',   'FROM_FLOAT'),
                           ('cast_ulonglong_to_float',   'U_TO_FLOAT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
                          ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
@@ -1134,7 +1180,7 @@ class Transformer(object):
 
     def rewrite_op_llong_is_true(self, op):
         v = varoftype(op.args[0].concretetype)
-        op0 = SpaceOperation('cast_int_to_longlong',
+        op0 = SpaceOperation('cast_primitive',
                              [Constant(0, lltype.Signed)],
                              v)
         args = [op.args[0], v]
@@ -1621,6 +1667,12 @@ class Transformer(object):
         elif oopspec_name == 'libffi_struct_setfield':
             oopspecindex = EffectInfo.OS_LIBFFI_STRUCT_SETFIELD
             extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name == 'libffi_array_getitem':
+            oopspecindex = EffectInfo.OS_LIBFFI_GETARRAYITEM
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name == 'libffi_array_setitem':
+            oopspecindex = EffectInfo.OS_LIBFFI_SETARRAYITEM
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
@@ -1675,4 +1727,18 @@ def _with_prefix(prefix):
             result[name[len(prefix):]] = getattr(Transformer, name)
     return result
 
+def keep_operation_unchanged(jtransform, op):
+    return op
+
+def _add_default_ops(rewrite_ops):
+    # All operations present in the BlackholeInterpreter as bhimpl_xxx
+    # but not explicitly listed in this file are supposed to be just
+    # passed in unmodified.  All other operations are forbidden.
+    for key, value in BlackholeInterpreter.__dict__.items():
+        if key.startswith('bhimpl_'):
+            opname = key[len('bhimpl_'):]
+            rewrite_ops.setdefault(opname, keep_operation_unchanged)
+    rewrite_ops.setdefault('-live-', keep_operation_unchanged)
+
 _rewrite_ops = _with_prefix('rewrite_op_')
+_add_default_ops(_rewrite_ops)

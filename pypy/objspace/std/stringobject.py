@@ -5,13 +5,14 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
+from pypy.rlib.objectmodel import compute_unique_id
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -19,7 +20,25 @@ from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
 
 from pypy.objspace.std.formatting import mod_format
 
-class W_StringObject(W_Object):
+class W_AbstractStringObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractStringObject):
+            return False
+        if self is w_other:
+            return True
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return False
+        return space.str_w(self) is space.str_w(w_other)
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        return space.wrap(compute_unique_id(space.str_w(self)))
+
+
+class W_StringObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_value']
 
@@ -217,7 +236,7 @@ def str_title__String(space, w_self):
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -240,12 +259,12 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(sliced(space, value, i, j, w_self))
+        res.append(value[i:j])
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist(res_w)
+    return space.newlist_str(res)
 
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -255,33 +274,26 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
-    res_w = []
-    start = 0
     if bylen == 1 and maxsplit < 0:
+        res = []
+        start = 0
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         count = value.count(by)
-        res_w = [None] * (count + 1)
+        res = [None] * (count + 1)
         end = len(value)
         while count >= 0:
             assert end >= 0
             prev = value.rfind(by, 0, end)
             start = prev + 1
             assert start >= 0
-            res_w[count] = sliced(space, value, start, end, w_self)
+            res[count] = value[start:end]
             count -= 1
             end = prev
     else:
-        while maxsplit != 0:
-            next = value.find(by, start)
-            if next < 0:
-                break
-            res_w.append(sliced(space, value, start, next, w_self))
-            start = next + bylen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-        res_w.append(sliced(space, value, start, len(value), w_self))
+        res = split(value, by, maxsplit)
 
-    return space.newlist(res_w)
+    return space.newlist_str(res)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -349,6 +361,11 @@ str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_Strin
                                                        sliced)
 
 def str_join__String_ANY(space, w_self, w_list):
+    l = space.listview_str(w_list)
+    if l is not None:
+        if len(l) == 1:
+            return space.wrap(l[0])
+        return space.wrap(w_self._value.join(l))
     list_w = space.listview(w_list)
     size = len(list_w)
 
@@ -497,44 +514,58 @@ def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
 
-    #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
-
     if not sub:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        substrings_w = [""]
+
+        try:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string is too long")
+            )
+        builder = StringBuilder(result_size)
         for i in range(upper):
-            c = input[i]
-            substrings_w.append(c)
-        substrings_w.append(input[upper:])
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
     else:
+        # First compute the exact result size
+        count = input.count(sub)
+        if count > maxsplit and maxsplit > 0:
+            count = maxsplit
+        diff_len = len(by) - len(sub)
+        try:
+            result_size = ovfcheck(diff_len * count)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string is too long")
+            )
+
+        builder = StringBuilder(result_size)
         start = 0
         sublen = len(sub)
-        substrings_w = []
 
         while maxsplit != 0:
             next = input.find(sub, start)
             if next < 0:
                 break
-            substrings_w.append(input[start:next])
+            builder.append_slice(input, start, next)
+            builder.append(by)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-        substrings_w.append(input[start:])
+        builder.append_slice(input, start, len(input))
 
-    try:
-        # XXX conservative estimate. If your strings are that close
-        # to overflowing, bad luck.
-        one = ovfcheck(len(substrings_w) * len(by))
-        ovfcheck(one + len(input))
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("replace string is too long"))
-
-    return space.wrap(by.join(substrings_w))
+    return space.wrap(builder.build())
 
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):

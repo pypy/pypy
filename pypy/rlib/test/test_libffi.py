@@ -1,11 +1,14 @@
-import py
 import sys
-from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+
+import py
+
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
-from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
-from pypy.rlib.libffi import (IS_32_BIT, struct_getfield_int, struct_setfield_int,
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
+                              IS_32_BIT, array_getitem, array_setitem)
+from pypy.rlib.libffi import (struct_getfield_int, struct_setfield_int,
                               struct_getfield_longlong, struct_setfield_longlong,
                               struct_getfield_float, struct_setfield_float,
                               struct_getfield_singlefloat, struct_setfield_singlefloat)
@@ -82,6 +85,35 @@ class TestLibffiMisc(BaseFfiTest):
         #
         lltype.free(p, flavor='raw')
 
+    def test_array_fields(self):
+        POINT = lltype.Struct("POINT",
+            ("x", lltype.Float),
+            ("y", lltype.Float),
+        )
+        points = lltype.malloc(rffi.CArray(POINT), 2, flavor="raw")
+        points[0].x = 1.0
+        points[0].y = 2.0
+        points[1].x = 3.0
+        points[1].y = 4.0
+        points = rffi.cast(rffi.CArrayPtr(lltype.Char), points)
+        assert array_getitem(types.double, 16, points, 0, 0) == 1.0
+        assert array_getitem(types.double, 16, points, 0, 8) == 2.0
+        assert array_getitem(types.double, 16, points, 1, 0) == 3.0
+        assert array_getitem(types.double, 16, points, 1, 8) == 4.0
+        #
+        array_setitem(types.double, 16, points, 0, 0, 10.0)
+        array_setitem(types.double, 16, points, 0, 8, 20.0)
+        array_setitem(types.double, 16, points, 1, 0, 30.0)
+        array_setitem(types.double, 16, points, 1, 8, 40.0)
+        #
+        assert array_getitem(types.double, 16, points, 0, 0) == 10.0
+        assert array_getitem(types.double, 16, points, 0, 8) == 20.0
+        assert array_getitem(types.double, 16, points, 1, 0) == 30.0
+        assert array_getitem(types.double, 16, points, 1, 8) == 40.0
+        #
+        lltype.free(points, flavor="raw")
+
+
     def test_struct_fields_longlong(self):
         POINT = lltype.Struct('POINT',
                               ('x', rffi.LONGLONG),
@@ -122,7 +154,6 @@ class TestLibffiMisc(BaseFfiTest):
         assert p.y == 876.5
         #
         lltype.free(p, flavor='raw')
-
 
     def test_struct_fields_singlefloat(self):
         POINT = lltype.Struct('POINT',
@@ -202,7 +233,7 @@ class TestLibffiCall(BaseFfiTest):
         This method is overridden by metainterp/test/test_fficall.py in
         order to do the call in a loop and JIT it. The optional arguments are
         used only by that overridden method.
-        
+
         """
         lib, name, argtypes, restype = funcspec
         func = lib.getpointer(name, argtypes, restype)
@@ -225,7 +256,7 @@ class TestLibffiCall(BaseFfiTest):
                 return x - y;
             }
         """
-        libfoo = self.get_libfoo() 
+        libfoo = self.get_libfoo()
         func = (libfoo, 'diff_xy', [types.sint, types.slong], types.sint)
         res = self.call(func, [50, 8], lltype.Signed)
         assert res == 42
@@ -237,7 +268,7 @@ class TestLibffiCall(BaseFfiTest):
                 return (x + (int)y);
             }
         """
-        libfoo = self.get_libfoo() 
+        libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
         res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
         assert res == 42
@@ -271,6 +302,17 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'many_args', [types.uchar, types.sint], types.sint)
         res = self.call(func, [chr(20), 22], rffi.LONG)
         assert res == 42
+
+    def test_char_args(self):
+        """
+        char sum_args(char a, char b) {
+            return a + b;
+        }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_args', [types.schar, types.schar], types.schar)
+        res = self.call(func, [123, 43], rffi.CHAR)
+        assert res == chr(166)
 
     def test_unsigned_short_args(self):
         """
@@ -331,7 +373,7 @@ class TestLibffiCall(BaseFfiTest):
             };
 
             struct pair my_static_pair = {10, 20};
-            
+
             long* get_pointer_to_b()
             {
                 return &my_static_pair.b;
@@ -422,7 +464,7 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_wrong_number_of_arguments(self):
         from pypy.rpython.llinterp import LLException
-        libfoo = self.get_libfoo() 
+        libfoo = self.get_libfoo()
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
 
         glob = globals()
@@ -495,3 +537,4 @@ class TestLibffiCall(BaseFfiTest):
         assert p[1] == 34
         lltype.free(p, flavor='raw')
         lltype.free(ffi_point_struct, flavor='raw')
+        

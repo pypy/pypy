@@ -1,5 +1,13 @@
+from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib import clibffi, libffi
+from pypy.rlib.debug import debug_print
+from pypy.rlib.libffi import Func
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
 from pypy.rlib.debug import debug_print
@@ -80,7 +88,7 @@ class OptFfiCall(Optimization):
 
     def new(self):
         return OptFfiCall()
-    
+
     def begin_optimization(self, funcval, op):
         self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
@@ -121,6 +129,9 @@ class OptFfiCall(Optimization):
         elif (oopspec == EffectInfo.OS_LIBFFI_STRUCT_GETFIELD or
               oopspec == EffectInfo.OS_LIBFFI_STRUCT_SETFIELD):
             ops = self.do_struct_getsetfield(op, oopspec)
+        elif (oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM or
+            oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM):
+            ops = self.do_getsetarrayitem(op, oopspec)
         #
         for op in ops:
             self.emit_operation(op)
@@ -234,6 +245,57 @@ class OptFfiCall(Optimization):
         fieldsize = ffitype.c_size
         return self.optimizer.cpu.fielddescrof_dynamic(offset, fieldsize,
                                                        is_pointer, is_float, is_signed)
+    
+    def do_getsetarrayitem(self, op, oopspec):
+        ffitypeval = self.getvalue(op.getarg(1))
+        widthval = self.getvalue(op.getarg(2))
+        offsetval = self.getvalue(op.getarg(5))
+        if not ffitypeval.is_constant() or not widthval.is_constant() or not offsetval.is_constant():
+            return [op]
+
+        ffitypeaddr = ffitypeval.box.getaddr()
+        ffitype = llmemory.cast_adr_to_ptr(ffitypeaddr, clibffi.FFI_TYPE_P)
+        offset = offsetval.box.getint()
+        width = widthval.box.getint()
+        descr = self._get_interior_descr(ffitype, width, offset)
+
+        arglist = [
+            self.getvalue(op.getarg(3)).force_box(self.optimizer),
+            self.getvalue(op.getarg(4)).force_box(self.optimizer),
+        ]
+        if oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM:
+            opnum = rop.GETINTERIORFIELD_RAW
+        elif oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM:
+            opnum = rop.SETINTERIORFIELD_RAW
+            arglist.append(self.getvalue(op.getarg(6)).force_box(self.optimizer))
+        else:
+            assert False
+        return [
+            ResOperation(opnum, arglist, op.result, descr=descr),
+        ]
+
+    def _get_interior_descr(self, ffitype, width, offset):
+        kind = libffi.types.getkind(ffitype)
+        is_pointer = is_float = is_signed = False
+        if ffitype is libffi.types.pointer:
+            is_pointer = True
+        elif kind == 'i':
+            is_signed = True
+        elif kind == 'f' or kind == 'I' or kind == 'U':
+            # longlongs are treated as floats, see
+            # e.g. llsupport/descr.py:getDescrClass
+            is_float = True
+        elif kind == 'u' or kind == 's':
+            # they're all False
+            pass
+        else:
+            raise NotImplementedError("unsupported ffitype or kind: %s" % kind)
+        #
+        fieldsize = rffi.getintfield(ffitype, 'c_size')
+        return self.optimizer.cpu.interiorfielddescrof_dynamic(
+            offset, width, fieldsize, is_pointer, is_float, is_signed
+        )
+
 
     def propagate_forward(self, op):
         if self.logops is not None:

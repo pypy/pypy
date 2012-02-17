@@ -14,6 +14,9 @@ from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.objectmodel import we_are_translated
 import os
 
+class BadVirtualState(Exception):
+    pass
+
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
@@ -103,10 +106,15 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.AbstractVirtualStructValue)
-        assert value.is_virtual()
+        if not isinstance(value, virtualize.AbstractVirtualStructValue):
+            raise BadVirtualState
+        if not value.is_virtual():
+            raise BadVirtualState
         for i in range(len(self.fielddescrs)):
-            v = value._fields[self.fielddescrs[i]]
+            try:
+                v = value._fields[self.fielddescrs[i]]
+            except KeyError:
+                raise BadVirtualState
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -180,10 +188,15 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             self.arraydescr is other.arraydescr)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.VArrayValue)
-        assert value.is_virtual()
+        if not isinstance(value, virtualize.VArrayValue):
+            raise BadVirtualState
+        if not value.is_virtual():
+            raise BadVirtualState
         for i in range(len(self.fieldstate)):
-            v = value._items[i]
+            try:
+                v = value._items[i]
+            except IndexError:
+                raise BadVirtualState
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -248,12 +261,19 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             s.enum(virtual_state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.VArrayStructValue)
-        assert value.is_virtual()
+        if not isinstance(value, virtualize.VArrayStructValue):
+            raise BadVirtualState
+        if not value.is_virtual():
+            raise BadVirtualState
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):
-                v = value._items[i][self.fielddescrs[i][j]]
+                try:
+                    v = value._items[i][self.fielddescrs[i][j]]
+                except IndexError:
+                    raise BadVirtualState
+                except KeyError:
+                    raise BadVirtualState
                 s = self.fieldstate[p]
                 if s.position > self.position:
                     s.enum_forced_boxes(boxes, v, optimizer)
@@ -389,7 +409,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals
-        boxes[self.position_in_notvirtuals] = value.force_box(optimizer)
+        if optimizer:
+            box = value.force_box(optimizer)
+        else:
+            if value.is_virtual():
+                raise BadVirtualState
+            box = value.get_key_box()
+        boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
         if self.level == LEVEL_CONSTANT:
@@ -451,8 +477,14 @@ class VirtualState(object):
             optimizer = optimizer.optearlyforce
         assert len(values) == len(self.state)
         inputargs = [None] * len(self.notvirtuals)
+
+        # We try twice. The first time around we allow boxes to be forced
+        # which might change the virtual state if the box appear in more
+        # than one place among the inputargs.
         for i in range(len(values)):
             self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
+        for i in range(len(values)):
+            self.state[i].enum_forced_boxes(inputargs, values[i], None)
 
         if keyboxes:
             for i in range(len(values)):
@@ -539,25 +571,31 @@ class BoxNotProducable(Exception):
     pass
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes):
+    def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
-        self.aliases = {}
         self.rename = {}
         self.optimizer = optimizer
-        for box in surviving_boxes:
-            self.potential_ops[box] = None
-        optimizer.produce_potential_short_preamble_ops(self)
+        self.availible_boxes = availible_boxes
 
-        self.short_boxes = {}
-        self.short_boxes_in_production = {}
+        if surviving_boxes is not None:
+            for box in surviving_boxes:
+                self.potential_ops[box] = None
+            optimizer.produce_potential_short_preamble_ops(self)
 
-        for box in self.potential_ops.keys():
-            try:
-                self.produce_short_preamble_box(box)
-            except BoxNotProducable:
-                pass
+            self.short_boxes = {}
+            self.short_boxes_in_production = {}
+
+            for box in self.potential_ops.keys():
+                try:
+                    self.produce_short_preamble_box(box)
+                except BoxNotProducable:
+                    pass
+
+            self.short_boxes_in_production = None # Not needed anymore
+        else:
+            self.short_boxes = {}
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
@@ -598,6 +636,7 @@ class ShortBoxes(object):
                 newbox = newop.result = op.result.clonebox()
                 self.short_boxes[newop.result] = newop
             value = self.optimizer.getvalue(box)
+            self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
             self.optimizer.make_equal_to(newbox, value)
         else:
             self.short_boxes[box] = op
@@ -608,6 +647,8 @@ class ShortBoxes(object):
         if isinstance(box, Const):
             return
         if box in self.short_boxes_in_production:
+            raise BoxNotProducable
+        if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[box] = True
         
@@ -660,13 +701,3 @@ class ShortBoxes(object):
 
     def has_producer(self, box):
         return box in self.short_boxes
-
-    def alias(self, newbox, oldbox):
-        if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
-            self.short_boxes[newbox] = self.short_boxes[oldbox]
-        self.aliases[newbox] = oldbox
-
-    def original(self, box):
-        while box in self.aliases:
-            box = self.aliases[box]
-        return box

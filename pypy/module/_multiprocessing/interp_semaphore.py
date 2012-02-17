@@ -235,7 +235,7 @@ if sys.platform == 'win32':
             elif timeout >= 0.5 * rwin32.INFINITE: # 25 days
                 raise OperationError(space.w_OverflowError,
                                      space.wrap("timeout is too large"))
-            full_msecs = int(timeout + 0.5)
+            full_msecs = r_uint(int(timeout + 0.5))
 
         # check whether we can acquire without blocking
         res = rwin32.WaitForSingleObject(self.handle, 0)
@@ -243,7 +243,7 @@ if sys.platform == 'win32':
         if res != rwin32.WAIT_TIMEOUT:
             return True
 
-        msecs = r_uint(full_msecs)
+        msecs = full_msecs
         start = _GetTickCount()
 
         while True:
@@ -269,7 +269,7 @@ if sys.platform == 'win32':
                 ticks = _GetTickCount()
                 if r_uint(ticks - start) >= full_msecs:
                     return False
-                msecs = r_uint(full_msecs - (ticks - start))
+                msecs = full_msecs - r_uint(ticks - start)
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:

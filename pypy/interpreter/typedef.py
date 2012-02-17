@@ -15,13 +15,19 @@ class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
-        self.base = __base
+        if __base is None:
+            bases = []
+        elif isinstance(__base, tuple):
+            bases = list(__base)
+        else:
+            bases = [__base]
+        self.bases = bases
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
-        if __base is not None:
-            self.hasdict     |= __base.hasdict
-            self.weakrefable |= __base.weakrefable
+        for base in bases:
+            self.hasdict     |= base.hasdict
+            self.weakrefable |= base.weakrefable
         self.rawdict = {}
         self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
@@ -48,7 +54,11 @@ class TypeDef:
 #  Hash support
 
 def default_identity_hash(space, w_obj):
-    return space.wrap(compute_identity_hash(w_obj))
+    w_unique_id = w_obj.immutable_unique_id(space)
+    if w_unique_id is None:     # common case
+        return space.wrap(compute_identity_hash(w_obj))
+    else:
+        return space.hash(w_unique_id)
 
 # ____________________________________________________________
 #

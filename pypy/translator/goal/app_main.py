@@ -139,8 +139,14 @@ def _print_jit_help():
     items = pypyjit.defaults.items()
     items.sort()
     for key, value in items:
-        print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
-            key, ' '*(18-len(key)), value)
+        prefix = '  --jit %s=N %s' % (key, ' '*(18-len(key)))
+        doc = '%s (default %s)' % (pypyjit.PARAMETER_DOCS[key], value)
+        while len(doc) > 51:
+            i = doc[:51].rfind(' ')
+            print prefix + doc[:i]
+            doc = doc[i+1:]
+            prefix = ' '*len(prefix)
+        print prefix + doc
     print '  --jit off                  turn off the JIT'
 
 def print_version(*args):
@@ -672,7 +678,7 @@ if __name__ == '__main__':
     def pypy_initial_path(s):
         from pypy.module.sys.state import getinitialpath
         try:
-            return getinitialpath(s)
+            return getinitialpath(None, s)
         except OSError:
             return None
 

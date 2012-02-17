@@ -282,6 +282,10 @@ class W_RawIOBase(W_IOBase):
         while True:
             w_data = space.call_method(self, "read",
                                        space.wrap(DEFAULT_BUFFER_SIZE))
+            if space.is_w(w_data, space.w_None):
+                if not builder.getlength():
+                    return w_data
+                break
 
             if not space.isinstance_w(w_data, space.w_str):
                 raise OperationError(space.w_TypeError, space.wrap(
