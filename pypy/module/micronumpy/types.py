@@ -69,10 +69,9 @@ class BaseType(object):
     #     exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
     #     arctanh = _unimplemented_ufunc
 
-    def malloc(self, length):
+    def malloc(self, size):
         # XXX find out why test_zjit explodes with tracking of allocations
-        return lltype.malloc(VOID_STORAGE,
-                             self.get_element_size() * length,
+        return lltype.malloc(VOID_STORAGE, size,
                              zero=True, flavor="raw",
                              track_allocation=False, add_memory_pressure=True)
 
@@ -140,8 +139,8 @@ class Primitive(object):
 
     def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
-        for i in xrange(start, stop):
-            self._write(storage, width, i, offset, value)
+        for i in xrange(start, stop, width):
+            self._write(storage, 1, i, offset, value)
 
     def runpack_str(self, s):
         return self.box(runpack(self.format_code, s))
@@ -667,7 +666,7 @@ class RecordType(CompositeType):
         items_w = space.fixedview(w_item)
         # XXX optimize it out one day, but for now we just allocate an
         #     array
-        arr = W_NDimArray(1, [1], dtype)
+        arr = W_NDimArray([1], dtype)
         for i in range(len(items_w)):
             subdtype = dtype.fields[dtype.fieldnames[i]][1]
             ofs, itemtype = self.offsets_and_fields[i]

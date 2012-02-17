@@ -16,6 +16,9 @@ class MockDtype(object):
         def malloc(size):
             return None
 
+    def get_size(self):
+        return 1
+
 
 class TestNumArrayDirect(object):
     def newslice(self, *args):
@@ -31,17 +34,17 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = W_NDimArray(100, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = W_NDimArray(100, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         s = a.create_slice([Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
@@ -59,7 +62,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
         s = a.create_slice([Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
@@ -79,7 +82,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         s = a.create_slice([Chunk(5, 0, 0, 1)])
         assert s.start == 5
         s2 = s.create_slice([Chunk(3, 0, 0, 1)])
@@ -96,7 +99,7 @@ class TestNumArrayDirect(object):
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
         s = a.create_slice([Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
         s2 = s.create_slice([Chunk(3, 0, 0, 1)])
@@ -113,21 +116,21 @@ class TestNumArrayDirect(object):
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         s = a.create_slice([Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
         s = a.create_slice([Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
 
     def test_index_of_single_item_f(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
         s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
@@ -137,7 +140,7 @@ class TestNumArrayDirect(object):
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
 
     def test_index_of_single_item_c(self):
-        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
         s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
@@ -1468,6 +1471,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(12).reshape(3,4)
         b = a.T.flat
         b[6::2] = [-1, -2]
+        print a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]
         assert (a == [[0, 1, -1, 3], [4, 5, 6, -1], [8, 9, -2, 11]]).all()
         b[0:2] = [[[100]]]
         assert(a[0,0] == 100)

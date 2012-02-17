@@ -51,9 +51,11 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray(num_items, [num_items], dtype=dtype)
-    for i, val in enumerate(items):
-        a.dtype.setitem(a, i, val)
+    a = W_NDimArray([num_items], dtype=dtype)
+    ai = a.create_iter()
+    for val in items:
+        a.dtype.setitem(a, ai.offset, val)
+        ai = ai.next(1)
     
     return space.wrap(a)
 
@@ -71,10 +73,12 @@ def _fromstring_bin(space, s, count, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
         
-    a = W_NDimArray(count, [count], dtype=dtype)
+    a = W_NDimArray([count], dtype=dtype)
+    ai = a.create_iter()
     for i in range(count):
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
-        a.dtype.setitem(a, i, val)
+        a.dtype.setitem(a, ai.offset, val)
+        ai = ai.next(1)
         
     return space.wrap(a)
 

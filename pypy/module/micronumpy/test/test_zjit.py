@@ -503,7 +503,7 @@ class TestNumpyOld(LLJitMixin):
                 dtype = float64_dtype
             else:
                 dtype = int32_dtype
-            ar = W_NDimArray(n, [n], dtype=dtype)
+            ar = W_NDimArray([n], dtype=dtype)
             i = 0
             while i < n:
                 ar.get_concrete().setitem(i, int32_dtype.box(7))

@@ -21,8 +21,8 @@ class TestSignature(object):
         float64_dtype = get_dtype_cache(space).w_float64dtype
         bool_dtype = get_dtype_cache(space).w_booldtype
 
-        ar = W_NDimArray(10, [10], dtype=float64_dtype)
-        ar2 = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray([10], dtype=float64_dtype)
+        ar2 = W_NDimArray([10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, W_Float64Box(2.0)))
         sig1 = v1.find_sig()
@@ -40,7 +40,7 @@ class TestSignature(object):
         v4 = ar.descr_add(space, ar)
         assert v1.find_sig() is v4.find_sig()
 
-        bool_ar = W_NDimArray(10, [10], dtype=bool_dtype)
+        bool_ar = W_NDimArray([10], dtype=bool_dtype)
         v5 = ar.descr_add(space, bool_ar)
         assert v5.find_sig() is not v1.find_sig()
         assert v5.find_sig() is not v2.find_sig()
@@ -57,7 +57,7 @@ class TestSignature(object):
     def test_slice_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
 
-        ar = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray([10], dtype=float64_dtype)
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.find_sig() is v2.find_sig()

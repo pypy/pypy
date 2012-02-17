@@ -42,7 +42,7 @@ so if we precalculate the overflow backstride as
 we can go faster.
 All the calculations happen in next()
 
-next_step_x() tries to do the iteration for a number of steps at once,
+next_skip_x() tries to do the iteration for a number of steps at once,
 but then we cannot gaurentee that we only overflow one single shape 
 dimension, perhaps we could overflow times in one big step.
 """
@@ -95,17 +95,19 @@ class BaseIterator(object):
         raise NotImplementedError
 
 class ArrayIterator(BaseIterator):
-    def __init__(self, size):
+    def __init__(self, size, element_size):
         self.offset = 0
         self.size = size
+        self.element_size = element_size
 
     def next(self, shapelen):
         return self.next_skip_x(1)
 
-    def next_skip_x(self, ofs):
+    def next_skip_x(self, x):
         arr = instantiate(ArrayIterator)
         arr.size = self.size
-        arr.offset = self.offset + ofs
+        arr.offset = self.offset + x * self.element_size
+        arr.element_size = self.element_size
         return arr
 
     def next_no_increase(self, shapelen):

@@ -42,17 +42,16 @@ class W_Dtype(Wrappable):
         return self.itemtype.coerce(space, self, w_item)
 
     def getitem(self, arr, i):
-        return self.itemtype.read(arr, self.itemtype.get_element_size(), i, 0)
+        return self.itemtype.read(arr, 1, i, 0)
 
     def getitem_bool(self, arr, i):
-        isize = self.itemtype.get_element_size()
-        return self.itemtype.read_bool(arr, isize, i, 0)
+        return self.itemtype.read_bool(arr, 1, i, 0)
 
     def setitem(self, arr, i, box):
-        self.itemtype.store(arr, self.itemtype.get_element_size(), i, 0, box)
+        self.itemtype.store(arr, 1, i, 0, box)
 
     def fill(self, storage, box, start, stop):
-        self.itemtype.fill(storage, self.itemtype.get_element_size(), box, start, stop, 0)
+        self.itemtype.fill(storage, self.get_size(), box, start, stop, 0)
 
     def descr_str(self, space):
         return space.wrap(self.name)
@@ -119,6 +118,9 @@ class W_Dtype(Wrappable):
         if self.fields is not None:
             return '<DType %r>' % self.fields
         return '<DType %r>' % self.itemtype
+
+    def get_size(self):
+        return self.itemtype.get_element_size()
 
 def dtype_from_list(space, w_lst):
     lst_w = space.listview(w_lst)
