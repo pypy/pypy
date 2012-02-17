@@ -672,14 +672,13 @@ class RecordType(CompositeType):
             ofs, itemtype = self.offsets_and_fields[i]
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
-            width = itemtype.get_element_size()
-            itemtype.store(arr, width, 0, ofs, w_box)
+            itemtype.store(arr, 1, 0, ofs, w_box)
         return interp_boxes.W_VoidBox(arr, 0)
 
     @jit.unroll_safe
-    def store(self, arr, width, i, ofs, box):
-        for k in range(width):
-            arr.storage[k + i * width] = box.arr.storage[k + box.i * width]
+    def store(self, arr, _, i, ofs, box):
+        for k in range(self.get_element_size()):
+            arr.storage[k + i] = box.arr.storage[k + box.ofs]
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:

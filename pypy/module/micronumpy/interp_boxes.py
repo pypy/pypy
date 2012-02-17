@@ -170,9 +170,9 @@ class W_FlexibleBox(W_GenericBox):
     pass
 
 class W_VoidBox(W_FlexibleBox):
-    def __init__(self, arr, i):
+    def __init__(self, arr, ofs):
         self.arr = arr # we have to keep array alive
-        self.i = i
+        self.ofs = ofs
 
     def get_dtype(self, space):
         return self.arr.dtype
@@ -184,8 +184,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        width = self.arr.dtype.itemtype.get_element_size()
-        return dtype.itemtype.read(self.arr, width, self.i, ofs)
+        return dtype.itemtype.read(self.arr, 1, self.ofs, ofs)
 
     @unwrap_spec(item=str)
     def descr_setitem(self, space, item, w_value):
@@ -194,8 +193,7 @@ class W_VoidBox(W_FlexibleBox):
         except KeyError:
             raise OperationError(space.w_IndexError,
                                  space.wrap("Field %s does not exist" % item))
-        width = self.arr.dtype.itemtype.get_element_size()
-        dtype.itemtype.store(self.arr, width, self.i, ofs,
+        dtype.itemtype.store(self.arr, 1, self.ofs, ofs,
                              dtype.coerce(space, w_value))
 
 class W_CharacterBox(W_FlexibleBox):
