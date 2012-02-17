@@ -785,6 +785,8 @@ class Call1(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
+        if self.shape != self.values.shape:
+            xxx 
         return signature.Call1(self.ufunc, self.name, self.calc_dtype,
                                self.values.create_sig())
 
@@ -838,8 +840,9 @@ class ResultArray(Call2):
         Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
 
     def create_sig(self):
-        return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
+        sig = signature.ResultSignature(self.res_dtype, self.left.create_sig(),
                                          self.right.create_sig())
+        return sig
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -1088,7 +1091,7 @@ class W_NDimArray(ConcreteArray):
     """
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self.storage, item, value.convert_to(self.dtype))
 
     def setshape(self, space, new_shape):
         self.shape = new_shape

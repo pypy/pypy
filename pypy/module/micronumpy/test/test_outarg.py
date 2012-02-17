@@ -32,7 +32,7 @@ class AppTestOutArg(BaseNumpyAppTest):
         assert(b == [False,  True,  True]).all()
 
     def test_ufunc_out(self):
-        from _numpypy import array, negative, zeros
+        from _numpypy import array, negative, zeros, sin
         a = array([[1, 2], [3, 4]])
         c = zeros((2,2,2))
         b = negative(a + a, out=c[1])
@@ -46,14 +46,16 @@ class AppTestOutArg(BaseNumpyAppTest):
         b = negative(3, out=c)
         assert b.dtype.kind == c.dtype.kind
         assert b.shape == c.shape
+        a = array([1, 2])
+        b = sin(a, out=c)
+        assert(c == [[-1, -2], [-1, -2]]).all()
+        b = sin(a, out=c+c)
+        assert (c == b).all()
 
         #Test shape agreement
         a=zeros((3,4))
         b=zeros((3,5))
         raises(ValueError, 'negative(a, out=b)')
-        raises(ValueError, 'negative(a, out=b)')
-
-        
 
     def test_ufunc_cast(self):
         from _numpypy import array, negative

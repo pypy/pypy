@@ -259,12 +259,23 @@ class W_Ufunc1(W_Ufunc):
             else:
                 out = arr
             return space.wrap(out)
-        w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
-                      w_obj, out)
-        w_obj.add_invalidates(w_res)
         if out:
+            #Test shape compatability
+            if not shape_agreement(space, w_obj.shape, out.shape):
+                raise operationerrfmt(space.w_ValueError,
+                    'output parameter shape mismatch, expecting [%s]' +
+                    ' , got [%s]', 
+                    ",".join([str(x) for x in shape]),
+                    ",".join([str(x) for x in out.shape]),
+                    )
+            w_res = Call1(self.func, self.name, out.shape, calc_dtype,
+                                         res_dtype, w_obj, out)
             #Force it immediately
             w_res.get_concrete()
+        else:
+            w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype,
+                                         res_dtype, w_obj)
+        w_obj.add_invalidates(w_res)
         return w_res
 
 
