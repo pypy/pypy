@@ -3,7 +3,7 @@ import struct
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
-                                                  Regalloc)
+                                                  Regalloc, PPCRegisterManager)
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
@@ -305,7 +305,17 @@ class AssemblerPPC(OpAssembler):
             # Values to compute size stored in r3 and r4
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+                if IS_PPC_32:
+                    mc.stw(reg.value, r.SPP.value, ofs)
+                else:
+                    mc.std(reg.value, r.SPP.value, ofs)
             mc.call(addr)
+            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+                if IS_PPC_32:
+                    mc.lwz(reg.value, r.SPP.value, ofs)
+                else:
+                    mc.ld(reg.value, r.SPP.value, ofs)
 
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
