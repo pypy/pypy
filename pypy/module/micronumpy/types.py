@@ -88,9 +88,6 @@ class Primitive(object):
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
-    def str_format(self, box):
-        return self._str_format(self.unbox(box))
-
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -272,8 +269,8 @@ class Bool(BaseType, Primitive):
     def to_builtin_type(self, space, w_item):
         return space.wrap(self.unbox(w_item))
 
-    def _str_format(self, value):
-        return "True" if value else "False"
+    def str_format(self, box):
+        return "True" if self.unbox(box) else "False"
 
     def for_computation(self, v):
         return int(v)
@@ -303,8 +300,8 @@ class Integer(Primitive):
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
-    def _str_format(self, value):
-        return str(self.for_computation(value))
+    def str_format(self, box):
+        return str(self.for_computation(self.unbox(box)))
 
     def for_computation(self, v):
         return widen(v)
@@ -474,8 +471,8 @@ class Float(Primitive):
     def _coerce(self, space, w_item):
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
-    def _str_format(self, value):
-        return float2string(self.for_computation(value), "g",
+    def str_format(self, box):
+        return float2string(self.for_computation(self.unbox(box)), "g",
                             rfloat.DTSF_STR_PRECISION)
 
     def for_computation(self, v):
@@ -690,8 +687,7 @@ class RecordType(CompositeType):
                 first = False
             else:
                 pieces.append(", ")
-            pieces.append(tp._str_format(tp._read(box.arr.storage, 1, box.ofs,
-                                                  ofs)))
+            pieces.append(tp.str_format(tp.read(box.arr, 1, box.ofs, ofs)))
         pieces.append(")")
         return "".join(pieces)
 

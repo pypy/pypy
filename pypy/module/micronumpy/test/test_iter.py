@@ -49,17 +49,17 @@ class TestIterDirect(object):
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [10, 4]
         i = ViewIterator(start, strides, backstrides, shape)
-        i = i.next_skip_ofs(2,2)
-        i = i.next_skip_ofs(2,2)
-        i = i.next_skip_ofs(2,2)
+        i = i.next_skip_x(2,2)
+        i = i.next_skip_x(2,2)
+        i = i.next_skip_x(2,2)
         assert i.offset == 6
         assert not i.done()
         assert i.indices == [1,1]
         #And for some big skips
-        i = i.next_skip_ofs(2,5)
+        i = i.next_skip_x(2,5)
         assert i.offset == 11
         assert i.indices == [2,1]
-        i = i.next_skip_ofs(2,5)
+        i = i.next_skip_x(2,5)
         # Note: the offset does not overflow but recycles,
         # this is good for broadcast
         assert i.offset == 1
@@ -72,17 +72,17 @@ class TestIterDirect(object):
         backstrides = [x * (y - 1) for x,y in zip(strides, shape)]
         assert backstrides == [2, 12]
         i = ViewIterator(start, strides, backstrides, shape)
-        i = i.next_skip_ofs(2,2)
-        i = i.next_skip_ofs(2,2)
-        i = i.next_skip_ofs(2,2)
+        i = i.next_skip_x(2,2)
+        i = i.next_skip_x(2,2)
+        i = i.next_skip_x(2,2)
         assert i.offset == 4
         assert i.indices == [1,1]
         assert not i.done()
-        i = i.next_skip_ofs(2,5)
+        i = i.next_skip_x(2,5)
         assert i.offset == 5
         assert i.indices == [2,1]
         assert not i.done()
-        i = i.next_skip_ofs(2,5)
+        i = i.next_skip_x(2,5)
         assert i.indices == [0,1]
         assert i.offset == 3
         assert i.done()
