@@ -420,3 +420,12 @@ class TestUnicode(BaseApiTest):
         w_seq = space.wrap([u'a', u'b'])
         w_joined = api.PyUnicode_Join(w_sep, w_seq)
         assert space.unwrap(w_joined) == u'a<sep>b'
+
+    def test_fromordinal(self, space, api):
+        w_char = api.PyUnicode_FromOrdinal(65)
+        assert space.unwrap(w_char) == u'A'
+        w_char = api.PyUnicode_FromOrdinal(0)
+        assert space.unwrap(w_char) == u'\0'
+        w_char = api.PyUnicode_FromOrdinal(0xFFFF)
+        assert space.unwrap(w_char) == u'\uFFFF'
+
