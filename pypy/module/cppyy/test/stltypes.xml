@@ -1,5 +1,7 @@
 <lcgdict>
 
+  <namespace name="std" />
+
   <class pattern="std::vector<*>" />
   <class pattern="__gnu_cxx::__normal_iterator<*>" />
   <class pattern="__gnu_cxx::new_allocator<*>" />
@@ -11,5 +13,8 @@
   <function name="__gnu_cxx::operator!="/>
 
   <class name="just_a_class" />
+
+  <class name="std::string" />
+  <class name="stringy_class" />
 
 </lcgdict>

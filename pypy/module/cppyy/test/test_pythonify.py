@@ -253,9 +253,9 @@ class AppTestPYTHONIFY:
         # NOTE: when called through the stub, default args are fine
         f = a.stringRef
         s = cppyy.gbl.std.string
-        assert f(s("aap"), 0, s("noot")).c_str() == "aap"
-        assert f(s("noot"), 1).c_str() == "default"
-        assert f(s("mies")).c_str() == "mies"
+        assert f(s("aap"), 0, s("noot")) == "aap"
+        assert f(s("noot"), 1) == "default"
+        assert f(s("mies")) == "mies"
 
         for itype in ['short', 'ushort', 'int', 'uint', 'long', 'ulong']:
             g = getattr(a, '%sValue' % itype)

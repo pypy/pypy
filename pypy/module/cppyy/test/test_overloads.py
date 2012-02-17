@@ -86,10 +86,10 @@ class AppTestOVERLOADS:
         cc_ol = cppyy.gbl.cc_ol
 #        dd_ol = cppyy.gbl.dd_ol
 
-        assert more_overloads().call(aa_ol()).c_str() == "aa_ol"
-#        assert more_overloads().call(bb_ol()).c_str() == "dd_ol"    # <- bb_ol has an unknown + void*
-        assert more_overloads().call(cc_ol()).c_str() == "cc_ol"
-#        assert more_overloads().call(dd_ol()).c_str() == "dd_ol"    # <- dd_ol has an unknown
+        assert more_overloads().call(aa_ol()) == "aa_ol"
+#        assert more_overloads().call(bb_ol()) == "dd_ol"    # <- bb_ol has an unknown + void*
+        assert more_overloads().call(cc_ol()) == "cc_ol"
+#        assert more_overloads().call(dd_ol()) == "dd_ol"    # <- dd_ol has an unknown
 
     def test04_fully_fragile_overloads(self):
         """Test that unknown* is preferred over unknown&"""
@@ -130,7 +130,7 @@ class AppTestOVERLOADS:
         import cppyy
         more_overloads = cppyy.gbl.more_overloads
 
-#        assert more_overloads().call(1).c_str()   == "int"
-#        assert more_overloads().call(1.).c_str()  == "double"
-        assert more_overloads().call1(1).c_str()  == "int"
-        assert more_overloads().call1(1.).c_str() == "double"
+#        assert more_overloads().call(1)   == "int"
+#        assert more_overloads().call(1.)  == "double"
+        assert more_overloads().call1(1)  == "int"
+        assert more_overloads().call1(1.) == "double"

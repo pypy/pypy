@@ -30,6 +30,8 @@ extern "C" {
     double cppyy_call_f(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
     double cppyy_call_d(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
 
+    char*  cppyy_call_s(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
+
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index);
 
     /* handling of function argument buffer */

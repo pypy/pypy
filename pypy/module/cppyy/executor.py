@@ -269,6 +269,18 @@ class InstanceExecutor(InstancePtrExecutor):
         raise FastCallNotPossible
 
 
+class StdStringExecutor(InstancePtrExecutor):
+    _immutable_ = True
+
+    def execute(self, space, w_returntype, func, cppthis, num_args, args):
+        charp_result = capi.c_call_s(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return space.wrap(capi.charp2str_free(charp_result))
+
+    def execute_libffi(self, space, w_returntype, libffifunc, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
+
+
 _executors = {}
 def get_executor(space, name):
     # Matching of 'name' to an executor factory goes through up to four levels:
@@ -355,3 +367,6 @@ _executors["float"]               = FloatExecutor
 _executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
 _executors["double*"]             = DoublePtrExecutor
+
+# special cases
+_executors["std::basic_string<char>"]        = StdStringExecutor

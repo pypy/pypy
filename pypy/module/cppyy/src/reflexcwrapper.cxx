@@ -155,6 +155,20 @@ double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
     return cppyy_call_T<double>(handle, method_index, self, numargs, args);
 }   
 
+char* cppyy_call_s(cppyy_typehandle_t handle, int method_index,
+                   cppyy_object_t self, int numargs, void* args) {
+    std::string result("");
+    std::vector<void*> arguments = build_args(numargs, args);
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    if (self) {
+        Reflex::Object o((Reflex::Type)s, self);
+        m.Invoke(o, result, arguments);
+    } else {
+       m.Invoke(result, arguments);
+    }
+    return cppstring_to_cstring(result);
+}
 
 static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
     Reflex::PropertyList plist = m.Properties();

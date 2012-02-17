@@ -130,6 +130,11 @@ c_call_d = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
     compilation_info=backend.eci)
 
+c_call_s = rffi.llexternal(
+    "cppyy_call_s",
+    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
+    compilation_info=backend.eci)
+
 c_get_methptr_getter = rffi.llexternal(
     "cppyy_get_methptr_getter",
     [C_TYPEHANDLE, rffi.INT], C_METHPTRGETTER_PTR,

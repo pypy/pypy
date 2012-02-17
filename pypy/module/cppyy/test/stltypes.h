@@ -25,3 +25,18 @@ public:
 //- explicit instantiations of used types
 STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, int)
 STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, just_a_class)
+
+
+//- class with lots of std::string handling
+class stringy_class {
+public:
+   stringy_class(const char* s);
+
+   std::string get_string1();
+   void get_string2(std::string& s);
+
+   void set_string1(const std::string& s);
+   void set_string2(std::string s);
+
+   std::string m_string;
+};

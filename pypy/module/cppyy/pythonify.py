@@ -250,6 +250,15 @@ def _pythonize(pyclass):
             raise StopIteration
         pyclass.__iter__ = __iter__
 
+    # string comparisons
+    if pyclass.__name__ == 'std::string':
+        def eq(self, other):
+            if type(other) == pyclass:
+                return self.c_str() == other.c_str()
+            else:
+                return self.c_str() == other
+        pyclass.__eq__ = eq 
+
 
 _loaded_dictionaries = {}
 def load_reflection_info(name):
