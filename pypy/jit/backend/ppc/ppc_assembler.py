@@ -297,6 +297,10 @@ class AssemblerPPC(OpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
+        if IS_PPC_64:
+            for _ in range(6):
+                mc.write32(0)
+
         with Saved_Volatiles(mc):
             # Values to compute size stored in r3 and r4
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
@@ -315,6 +319,8 @@ class AssemblerPPC(OpAssembler):
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        if IS_PPC_64:
+            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.malloc_slowpath = rawstart
 
     def _build_propagate_exception_path(self):
