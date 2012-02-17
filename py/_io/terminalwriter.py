@@ -194,10 +194,17 @@ class TerminalWriter(object):
         if not self._newline:
             self.write("\r")
         self.write(line, **opts)
-        lastlen = getattr(self, '_lastlinelen', None)
-        self._lastlinelen = lenlastline = len(line)
-        if lenlastline < lastlen:
-            self.write(" " * (lastlen - lenlastline + 1))
+        # see if we need to fill up some spaces at the end
+        # xxx have a more exact lastlinelen working from self.write?
+        lenline = len(line)
+        try:
+            lastlen = self._lastlinelen
+        except AttributeError:
+            pass
+        else:
+            if lenline < lastlen:
+                self.write(" " * (lastlen - lenline + 1))
+        self._lastlinelen = lenline
         self._newline = False
 
 
@@ -287,16 +294,24 @@ if win32_and_ctypes:
                     ('srWindow', SMALL_RECT),
                     ('dwMaximumWindowSize', COORD)]
 
+    _GetStdHandle = ctypes.windll.kernel32.GetStdHandle
+    _GetStdHandle.argtypes = [wintypes.DWORD]
+    _GetStdHandle.restype = wintypes.HANDLE
     def GetStdHandle(kind):
-        return ctypes.windll.kernel32.GetStdHandle(kind)
+        return _GetStdHandle(kind)
 
-    SetConsoleTextAttribute = \
-        ctypes.windll.kernel32.SetConsoleTextAttribute
+    SetConsoleTextAttribute = ctypes.windll.kernel32.SetConsoleTextAttribute
+    SetConsoleTextAttribute.argtypes = [wintypes.HANDLE, wintypes.WORD]
+    SetConsoleTextAttribute.restype = wintypes.BOOL
 
+    _GetConsoleScreenBufferInfo = \
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo
+    _GetConsoleScreenBufferInfo.argtypes = [wintypes.HANDLE,
+                                ctypes.POINTER(CONSOLE_SCREEN_BUFFER_INFO)]
+    _GetConsoleScreenBufferInfo.restype = wintypes.BOOL
     def GetConsoleInfo(handle):
         info = CONSOLE_SCREEN_BUFFER_INFO()
-        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(\
-            handle, ctypes.byref(info))
+        _GetConsoleScreenBufferInfo(handle, ctypes.byref(info))
         return info
 
     def _getdimensions():
