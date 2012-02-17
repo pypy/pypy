@@ -88,6 +88,9 @@ class Primitive(object):
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
+    def str_format(self, box):
+        return self._str_format(self.unbox(box))
+
     def unbox(self, box):
         assert isinstance(box, self.BoxType)
         return box.value
@@ -269,8 +272,7 @@ class Bool(BaseType, Primitive):
     def to_builtin_type(self, space, w_item):
         return space.wrap(self.unbox(w_item))
 
-    def str_format(self, box):
-        value = self.unbox(box)
+    def _str_format(self, value):
         return "True" if value else "False"
 
     def for_computation(self, v):
@@ -301,8 +303,7 @@ class Integer(Primitive):
     def _coerce(self, space, w_item):
         return self._base_coerce(space, w_item)
 
-    def str_format(self, box):
-        value = self.unbox(box)
+    def _str_format(self, value):
         return str(self.for_computation(value))
 
     def for_computation(self, v):
@@ -473,9 +474,9 @@ class Float(Primitive):
     def _coerce(self, space, w_item):
         return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
-    def str_format(self, box):
-        value = self.unbox(box)
-        return float2string(self.for_computation(value), "g", rfloat.DTSF_STR_PRECISION)
+    def _str_format(self, value):
+        return float2string(self.for_computation(value), "g",
+                            rfloat.DTSF_STR_PRECISION)
 
     def for_computation(self, v):
         return float(v)
@@ -679,6 +680,20 @@ class RecordType(CompositeType):
     def store(self, arr, _, i, ofs, box):
         for k in range(self.get_element_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
+
+    @jit.unroll_safe
+    def str_format(self, box):
+        pieces = ["("]
+        first = True
+        for ofs, tp in self.offsets_and_fields:
+            if first:
+                first = False
+            else:
+                pieces.append(", ")
+            pieces.append(tp._str_format(tp._read(box.arr.storage, 1, box.ofs,
+                                                  ofs)))
+        pieces.append(")")
+        return "".join(pieces)
 
 for tp in [Int32, Int64]:
     if tp.T == lltype.Signed:
