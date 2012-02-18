@@ -1,5 +1,7 @@
 import sys
 
+from pypy.interpreter.error import OperationError
+
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import jit, libffi, clibffi, rfloat
@@ -532,6 +534,36 @@ class InstanceConverter(InstancePtrConverter):
         return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False)
 
 
+class StdStringConverter(InstanceConverter):
+    _immutable_ = True
+
+    def __init__(self, space, extra):
+        from pypy.module.cppyy import interp_cppyy
+        cpptype = interp_cppyy.type_byname(space, "std::string")
+        InstanceConverter.__init__(self, space, cpptype, "std::string")
+
+    def _unwrap_object(self, space, w_obj):
+        try:
+           charp = rffi.str2charp(space.str_w(w_obj))
+           arg = capi.c_charp2stdstring(charp)
+           rffi.free_charp(charp)
+           return arg
+        except OperationError:
+           arg = InstanceConverter._unwrap_object(self, space, w_obj)
+           return capi.c_stdstring2stdstring(arg)
+
+    def free_argument(self, arg):
+        capi.c_free_stdstring(rffi.cast(rffi.VOIDPP, arg)[0])
+
+class StdStringRefConverter(InstancePtrConverter):
+    _immutable_ = True
+
+    def __init__(self, space, extra):
+        from pypy.module.cppyy import interp_cppyy
+        cpptype = interp_cppyy.type_byname(space, "std::string")
+        InstancePtrConverter.__init__(self, space, cpptype, "std::string")
+
+
 _converters = {}         # builtin and custom types
 _a_converters = {}       # array and ptr versions of above
 def get_converter(space, name, default):
@@ -613,6 +645,14 @@ _converters["char*"]                    = CStringConverter
 _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
+
+# special cases
+_converters["std::string"]                       = StdStringConverter
+_converters["std::basic_string<char>"]           = StdStringConverter
+_converters["const std::string&"]                = StdStringConverter     # TODO: shouldn't copy
+_converters["const std::basic_string<char>&"]    = StdStringConverter
+_converters["std::string&"]                      = StdStringRefConverter
+_converters["std::basic_string<char>&"]          = StdStringRefConverter
 
 # it should be possible to generate these:
 _a_converters["short int*"]               = ShortPtrConverter

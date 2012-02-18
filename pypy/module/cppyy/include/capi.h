@@ -79,6 +79,10 @@ extern "C" {
     long long cppyy_strtoll(const char* str);
     unsigned long long cppyy_strtuoll(const char* str);
 
+    void* cppyy_charp2stdstring(const char* str);
+    void* cppyy_stdstring2stdstring(void* ptr);
+    void cppyy_free_stdstring(void* ptr);
+
 #ifdef __cplusplus
 }
 #endif // ifdef __cplusplus

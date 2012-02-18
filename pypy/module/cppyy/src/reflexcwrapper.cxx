@@ -408,3 +408,16 @@ extern "C" unsigned long long cppyy_strtoull(const char* str) {
 void cppyy_free(void* ptr) {
     free(ptr);
 }
+
+void* cppyy_charp2stdstring(const char* str) {
+    return new std::string(str);
+}
+
+void* cppyy_stdstring2stdstring(void* ptr) {
+    return new std::string(*(std::string*)ptr);
+}
+
+void cppyy_free_stdstring(void* ptr) {
+    delete (std::string*)ptr;
+}
+

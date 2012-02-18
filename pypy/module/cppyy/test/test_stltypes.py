@@ -153,8 +153,6 @@ class AppTestSTLSTRING:
         c.set_string1(s)
         assert c.get_string1() == s
 
-        return
-
         c.set_string1("test2")
         assert c.get_string1() == "test2"
 

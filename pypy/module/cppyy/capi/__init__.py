@@ -244,3 +244,18 @@ def charp2str_free(charp):
     voidp = rffi.cast(rffi.VOIDP, charp)
     c_free(voidp)
     return string
+
+c_charp2stdstring = rffi.llexternal(
+    "cppyy_charp2stdstring",
+    [rffi.CCHARP], rffi.VOIDP,
+    compilation_info=backend.eci)
+
+c_stdstring2stdstring = rffi.llexternal(
+    "cppyy_stdstring2stdstring",
+    [rffi.VOIDP], rffi.VOIDP,
+    compilation_info=backend.eci)
+
+c_free_stdstring = rffi.llexternal(
+    "cppyy_free_stdstring",
+    [rffi.VOIDP], lltype.Void,
+    compilation_info=backend.eci)
