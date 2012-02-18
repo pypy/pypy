@@ -126,6 +126,11 @@ class FakeSpace(object):
             return int(w_obj.floatval)
         raise NotImplementedError
 
+    def str_w(self, w_obj):
+        if isinstance(w_obj, StringObject):
+            return w_obj.v
+        raise NotImplementedError
+
     def int(self, w_obj):
         if isinstance(w_obj, IntObject):
             return w_obj
