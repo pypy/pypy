@@ -10,6 +10,7 @@ typedef struct _is {
 
 typedef struct _ts {
     PyInterpreterState *interp;
+    PyObject *dict;  /* Stores per-thread state */
 } PyThreadState;
 
 #define Py_BEGIN_ALLOW_THREADS { \
