@@ -1,3 +1,5 @@
+# These constants are also in include/structmember.h
+
 T_SHORT = 0
 T_INT = 1
 T_LONG = 2
@@ -18,3 +20,6 @@ T_LONGLONG = 17
 T_ULONGLONG = 18
 
 READONLY = RO = 1
+READ_RESTRICTED = 2
+WRITE_RESTRICTED = 4
+RESTRICTED = READ_RESTRICTED | WRITE_RESTRICTED
