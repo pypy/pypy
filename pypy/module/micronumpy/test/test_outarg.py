@@ -68,7 +68,16 @@ class AppTestOutArg(BaseNumpyAppTest):
         assert (c == out).all()
         assert c.shape == a.shape
         assert c.dtype is a.dtype
+        c[0,0] = 100
+        assert out[0, 0] == 100
         raises(ValueError, 'c = add(a, a, out=out[1])')
+        c = add(a[0], a[1], out=out[1])
+        assert (c == out[1]).all()
+        assert (c == [4, 6]).all()
+        c = add(a[0], a[1], out=out)
+        assert (c == out[1]).all()
+        assert (c == out[0]).all()
+        
 
     def test_ufunc_cast(self):
         from _numpypy import array, negative

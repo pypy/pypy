@@ -340,7 +340,17 @@ class ResultSignature(Call2):
 
         assert isinstance(arr, ResultArray)
         offset = frame.get_final_iter().offset
-        arr.left.setitem(offset, self.right.eval(frame, arr.right))
+        val = self.right.eval(frame, arr.right)
+        arr.left.setitem(offset, val)
+
+class BroadcastResultSignature(ResultSignature):
+    def _create_iter(self, iterlist, arraylist, arr, transforms):
+        from pypy.module.micronumpy.interp_numarray import ResultArray
+
+        assert isinstance(arr, ResultArray)
+        rtransforms = transforms + [BroadcastTransform(arr.left.shape)]
+        self.left._create_iter(iterlist, arraylist, arr.left, transforms)
+        self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):

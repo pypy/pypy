@@ -726,6 +726,11 @@ class VirtualArray(BaseArray):
         ra = ResultArray(self, self.size, self.shape, self.res_dtype,
                                                                 self.res)
         loop.compute(ra)
+        if self.res:
+            broadcast_dims = len(self.res.shape) - len(self.shape)
+            chunks = [Chunk(0,0,0,0)] * broadcast_dims + \
+                     [Chunk(0, i, 1, i) for i in self.shape]
+            return ra.left.create_slice(chunks)
         return ra.left
 
     def force_if_needed(self):
@@ -840,13 +845,19 @@ class ResultArray(Call2):
     def __init__(self, child, size, shape, dtype, res=None, order='C'):
         if res is None:
             res = W_NDimArray(size, shape, dtype, order)
-        assert isinstance(res, BaseArray)
-        concr = res.get_concrete()
-        Call2.__init__(self, None, 'assign', shape, dtype, dtype, concr, child)
+        else:
+            assert isinstance(res, BaseArray)
+            #Make sure it is not a virtual array i.e. out=a+a
+            res = res.get_concrete()
+        Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
 
     def create_sig(self):
-        sig = signature.ResultSignature(self.res_dtype, self.left.create_sig(),
-                                         self.right.create_sig())
+        if self.left.shape != self.right.shape:
+            sig = signature.BroadcastResultSignature(self.res_dtype,
+                        self.left.create_sig(), self.right.create_sig())
+        else:
+            sig = signature.ResultSignature(self.res_dtype, 
+                        self.left.create_sig(), self.right.create_sig())
         return sig
 
 def done_if_true(dtype, val):
