@@ -786,7 +786,11 @@ class Call1(VirtualArray):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
         if self.shape != self.values.shape:
-            xxx 
+            #This happens if out arg is used
+            return signature.BroadcastUfunc(self.ufunc, self.name,
+                                            self.calc_dtype,
+                                            self.values.create_sig(),
+                                            self.res.create_sig())
         return signature.Call1(self.ufunc, self.name, self.calc_dtype,
                                self.values.create_sig())
 
@@ -837,7 +841,8 @@ class ResultArray(Call2):
         if res is None:
             res = W_NDimArray(size, shape, dtype, order)
         assert isinstance(res, BaseArray)
-        Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
+        concr = res.get_concrete()
+        Call2.__init__(self, None, 'assign', shape, dtype, dtype, concr, child)
 
     def create_sig(self):
         sig = signature.ResultSignature(self.res_dtype, self.left.create_sig(),

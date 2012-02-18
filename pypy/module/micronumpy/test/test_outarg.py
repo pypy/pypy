@@ -33,6 +33,7 @@ class AppTestOutArg(BaseNumpyAppTest):
 
     def test_ufunc_out(self):
         from _numpypy import array, negative, zeros, sin
+        from math import sin as msin
         a = array([[1, 2], [3, 4]])
         c = zeros((2,2,2))
         b = negative(a + a, out=c[1])
@@ -48,7 +49,7 @@ class AppTestOutArg(BaseNumpyAppTest):
         assert b.shape == c.shape
         a = array([1, 2])
         b = sin(a, out=c)
-        assert(c == [[-1, -2], [-1, -2]]).all()
+        assert(c == [[msin(1), msin(2)]] * 2).all()
         b = sin(a, out=c+c)
         assert (c == b).all()
 

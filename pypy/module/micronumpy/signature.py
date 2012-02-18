@@ -216,13 +216,14 @@ class VirtualSliceSignature(Signature):
         return self.child.eval(frame, arr.child)
 
 class Call1(Signature):
-    _immutable_fields_ = ['unfunc', 'name', 'child', 'dtype']
+    _immutable_fields_ = ['unfunc', 'name', 'child', 'res', 'dtype']
 
-    def __init__(self, func, name, dtype, child):
+    def __init__(self, func, name, dtype, child, res=None):
         self.unfunc = func
         self.child = child
         self.name = name
         self.dtype = dtype
+        self.res  = res
 
     def hash(self):
         return compute_hash(self.name) ^ intmask(self.child.hash() << 1)
@@ -249,6 +250,29 @@ class Call1(Signature):
         from pypy.module.micronumpy.interp_numarray import Call1
         assert isinstance(arr, Call1)
         self.child._create_iter(iterlist, arraylist, arr.values, transforms)
+
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import Call1
+        assert isinstance(arr, Call1)
+        v = self.child.eval(frame, arr.values).convert_to(arr.calc_dtype)
+        return self.unfunc(arr.calc_dtype, v)
+
+
+class BroadcastUfunc(Call1):
+    def _invent_numbering(self, cache, allnumbers):
+        self.res._invent_numbering(cache, allnumbers)
+        self.child._invent_numbering(new_cache(), allnumbers)
+
+    def debug_repr(self):
+        return 'BroadcastUfunc(%s, %s)' % (self.name, self.child.debug_repr())
+
+    def _create_iter(self, iterlist, arraylist, arr, transforms):
+        from pypy.module.micronumpy.interp_numarray import Call1
+
+        assert isinstance(arr, Call1)
+        vtransforms = transforms + [BroadcastTransform(arr.values.shape)]
+        self.child._create_iter(iterlist, arraylist, arr.values, vtransforms)
+        self.res._create_iter(iterlist, arraylist, arr.res, transforms)
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call1
