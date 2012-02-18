@@ -13,7 +13,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
+    SkipLastAxisIterator, Chunks, Chunk, ViewIterator, RecordChunk)
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 
@@ -328,11 +328,18 @@ class BaseArray(Wrappable):
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
+        if space.isinstance_w(w_idx, space.w_str):
+            idx = space.str_w(w_idx)
+            dtype = self.find_dtype()
+            if not dtype.is_record_type() or idx not in dtype.fields:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "field named %s not defined" % idx))
+            return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
-            return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
-                enumerate(space.fixedview(w_idx))]
+            return Chunks([Chunk(*space.decode_index4(w_idx, self.shape[0]))])
+        return Chunks([Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
+                enumerate(space.fixedview(w_idx))])
 
     def count_all_true(self):
         sig = self.find_sig()
@@ -375,6 +382,17 @@ class BaseArray(Wrappable):
             frame.next(shapelen)
         return res
 
+    def descr_getitem(self, space, w_idx):
+        if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
+            w_idx.find_dtype().is_bool_type()):
+            return self.getitem_filter(space, w_idx)
+        if self._single_item_result(space, w_idx):
+            concrete = self.get_concrete()
+            item = concrete._index_of_single_item(space, w_idx)
+            return concrete.getitem(item)
+        chunks = self._prepare_slice_args(space, w_idx)
+        return chunks.apply(self)
+
     def setitem_filter(self, space, idx, val):
         size = idx.count_all_true()
         arr = SliceArray([size], self.dtype, self, val)
@@ -392,17 +410,6 @@ class BaseArray(Wrappable):
             frame.next_first(shapelen)
             idxi = idxi.next(shapelen)
 
-    def descr_getitem(self, space, w_idx):
-        if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
-            w_idx.find_dtype().is_bool_type()):
-            return self.getitem_filter(space, w_idx)
-        if self._single_item_result(space, w_idx):
-            concrete = self.get_concrete()
-            item = concrete._index_of_single_item(space, w_idx)
-            return concrete.getitem(item)
-        chunks = self._prepare_slice_args(space, w_idx)
-        return self.create_slice(chunks)
-
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
         if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
@@ -419,25 +426,8 @@ class BaseArray(Wrappable):
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
         chunks = self._prepare_slice_args(space, w_idx)
-        view = self.create_slice(chunks).get_concrete()
+        view = chunks.apply(self).get_concrete()
         view.setslice(space, w_value)
-
-    @jit.unroll_safe
-    def create_slice(self, chunks):
-        shape = []
-        i = -1
-        for i, chunk in enumerate(chunks):
-            chunk.extend_shape(shape)
-        s = i + 1
-        assert s >= 0
-        shape += self.shape[s:]
-        if not isinstance(self, ConcreteArray):
-            return VirtualSlice(self, chunks, shape)
-        r = calculate_slice_strides(self.shape, self.start, self.strides,
-                                    self.backstrides, chunks)
-        _, start, strides, backstrides = r
-        return W_NDimSlice(start, strides[:], backstrides[:],
-                           shape[:], self)
 
     def descr_reshape(self, space, args_w):
         """reshape(...)
@@ -741,7 +731,7 @@ class VirtualSlice(VirtualArray):
     def force_if_needed(self):
         if self.forced_result is None:
             concr = self.child.get_concrete()
-            self.forced_result = concr.create_slice(self.chunks)
+            self.forced_result = self.chunks.apply(concr)
 
     def _del_sources(self):
         self.child = None
@@ -1020,13 +1010,15 @@ class ViewArray(ConcreteArray):
 
 
 class W_NDimSlice(ViewArray):
-    def __init__(self, start, strides, backstrides, shape, parent):
+    def __init__(self, start, strides, backstrides, shape, parent, dtype=None):
         assert isinstance(parent, ConcreteArray)
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
         self.strides = strides
         self.backstrides = backstrides
-        ViewArray.__init__(self, shape, parent.dtype, parent.order, parent)
+        if dtype is None:
+            dtype = parent.dtype
+        ViewArray.__init__(self, shape, dtype, parent.order, parent)
         self.start = start
 
     def create_iter(self, transforms=None):
@@ -1231,7 +1223,7 @@ def concatenate(space, w_args, axis=0):
     for arr in args_w:
         chunks[axis] = Chunk(axis_start, axis_start + arr.shape[axis], 1,
                              arr.shape[axis])
-        res.create_slice(chunks).setslice(space, arr)
+        chunks.apply(res).setslice(space, arr)
         axis_start += arr.shape[axis]
     return res
 

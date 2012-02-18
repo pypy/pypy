@@ -49,16 +49,57 @@ dimension, perhaps we could overflow times in one big step.
 
 # structures to describe slicing
 
-class Chunk(object):
+class BaseChunk(object):
+    pass
+
+class RecordChunk(BaseChunk):
+    def __init__(self, name):
+        self.name = name
+
+    def apply(self, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimSlice
+
+        arr = arr.get_concrete()
+        ofs, subdtype = arr.dtype.fields[self.name]
+        # strides backstrides are identical, ofs only changes start
+        return W_NDimSlice(arr.start + ofs, arr.strides[:], arr.backstrides[:],
+                           arr.shape[:], arr, subdtype)
+
+class Chunks(BaseChunk):
+    def __init__(self, l):
+        self.l = l
+
+    @jit.unroll_safe
+    def extend_shape(self, old_shape):
+        shape = []
+        i = -1
+        for i, c in enumerate(self.l):
+            if c.step != 0:
+                shape.append(c.lgt)
+        s = i + 1
+        assert s >= 0
+        return shape[:] + old_shape[s:]
+
+    def apply(self, space, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimSlice,\
+             VirtualSlice, ConcreteArray
+
+        shape = self.extend_shape(arr.shape)
+        if not isinstance(arr, ConcreteArray):
+            return VirtualSlice(arr, self, shape)
+        r = calculate_slice_strides(arr.shape, arr.start, arr.strides,
+                                    arr.backstrides, self.l)
+        _, start, strides, backstrides = r
+        return W_NDimSlice(start, strides[:], backstrides[:],
+                           shape[:], arr)
+
+
+class Chunk(BaseChunk):
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
         self.step = step
         self.lgt = lgt
-
-    def extend_shape(self, shape):
-        if self.step != 0:
-            shape.append(self.lgt)
 
     def __repr__(self):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
