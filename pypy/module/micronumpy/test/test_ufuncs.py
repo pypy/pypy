@@ -345,6 +345,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.asinh(v) == arcsinh(v)
         assert math.isnan(arcsinh(float("nan")))
 
+    def test_arccosh(self):
+        import math
+        from _numpypy import arccosh
+
+        for v in [1.0, 1.1, 2]:
+            assert math.acosh(v) == arccosh(v)
+        for v in [-1.0, 0, .99]:
+            assert math.isnan(arccosh(v))
+
     def test_arctanh(self):
         import math
         from _numpypy import arctanh

@@ -505,6 +505,12 @@ class Float(Primitive):
         return math.asinh(v)
 
     @simple_unary_op
+    def arccosh(self, v):
+        if v < 1.0:
+            return rfloat.NAN
+        return math.acosh(v)
+
+    @simple_unary_op
     def arctanh(self, v):
         if v == 1.0 or v == -1.0:
             return math.copysign(rfloat.INFINITY, v)
