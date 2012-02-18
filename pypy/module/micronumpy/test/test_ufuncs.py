@@ -310,6 +310,33 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_sinh(self):
+        import math
+        from _numpypy import array, sinh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = sinh(a)
+        for i in range(len(a)):
+            assert b[i] == math.sinh(a[i])
+
+    def test_cosh(self):
+        import math
+        from _numpypy import array, cosh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = cosh(a)
+        for i in range(len(a)):
+            assert b[i] == math.cosh(a[i])
+
+    def test_tanh(self):
+        import math
+        from _numpypy import array, tanh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = tanh(a)
+        for i in range(len(a)):
+            assert b[i] == math.tanh(a[i])
+
     def test_arcsinh(self):
         import math
         from _numpypy import arcsinh

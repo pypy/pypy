@@ -489,6 +489,18 @@ class Float(Primitive):
         return math.atan(v)
 
     @simple_unary_op
+    def sinh(self, v):
+        return math.sinh(v)
+
+    @simple_unary_op
+    def cosh(self, v):
+        return math.cosh(v)
+
+    @simple_unary_op
+    def tanh(self, v):
+        return math.tanh(v)
+
+    @simple_unary_op
     def arcsinh(self, v):
         return math.asinh(v)
 
