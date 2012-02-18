@@ -265,7 +265,7 @@ class W_Ufunc1(W_Ufunc):
             if not broadcast_shape or broadcast_shape != out.shape:
                 raise operationerrfmt(space.w_ValueError,
                     'output parameter shape mismatch, could not broadcast [%s]' +
-                    ' , to [%s]', 
+                    ' to [%s]', 
                     ",".join([str(x) for x in w_obj.shape]),
                     ",".join([str(x) for x in out.shape]),
                     )
@@ -327,11 +327,21 @@ class W_Ufunc2(W_Ufunc):
             ))
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         # Test correctness of out.shape
+        if out and out.shape != shape_agreement(space, new_shape, out.shape):
+            raise operationerrfmt(space.w_ValueError,
+                'output parameter shape mismatch, could not broadcast [%s]' +
+                ' to [%s]', 
+                ",".join([str(x) for x in new_shape]),
+                ",".join([str(x) for x in out.shape]),
+                )
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs, out)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
+        if out:
+            #out.add_invalidates(w_res) #causes a recursion loop
+            w_res.get_concrete()
         return w_res
 
 

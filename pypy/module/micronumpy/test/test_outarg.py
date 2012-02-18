@@ -60,6 +60,16 @@ class AppTestOutArg(BaseNumpyAppTest):
         b = zeros((1,4))
         raises(ValueError, 'negative(a, out=b)')
 
+    def test_binfunc_out(self):
+        from _numpypy import array, add
+        a = array([[1, 2], [3, 4]])
+        out = array([[1, 2], [3, 4]])
+        c = add(a, a, out=out)
+        assert (c == out).all()
+        assert c.shape == a.shape
+        assert c.dtype is a.dtype
+        raises(ValueError, 'c = add(a, a, out=out[1])')
+
     def test_ufunc_cast(self):
         from _numpypy import array, negative
         cast_error = raises(TypeError, negative, array(16,dtype=float),
