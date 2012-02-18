@@ -195,7 +195,7 @@ class ViewIterator(BaseIterator):
         elif isinstance(t, ViewTransform):
             r = calculate_slice_strides(self.res_shape, self.offset,
                                         self.strides,
-                                        self.backstrides, t.chunks)
+                                        self.backstrides, t.chunks.l)
             return ViewIterator(r[1], r[2], r[3], r[0])
 
     @jit.unroll_safe
