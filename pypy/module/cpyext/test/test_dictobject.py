@@ -112,6 +112,37 @@ class TestDictObject(BaseApiTest):
         assert space.eq_w(space.len(w_copy), space.len(w_dict))
         assert space.eq_w(w_copy, w_dict)
 
+    def test_iterkeys(self, space, api):
+        w_dict = space.sys.getdict(space)
+        py_dict = make_ref(space, w_dict)
+
+        ppos = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
+        pkey = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        pvalue = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+
+        keys_w = []
+        values_w = []
+        try:
+            ppos[0] = 0
+            while api.PyDict_Next(w_dict, ppos, pkey, None):
+                w_key = from_ref(space, pkey[0])
+                keys_w.append(w_key)
+            ppos[0] = 0
+            while api.PyDict_Next(w_dict, ppos, None, pvalue):
+                w_value = from_ref(space, pvalue[0])
+                values_w.append(w_value)
+        finally:
+            lltype.free(ppos, flavor='raw')
+            lltype.free(pkey, flavor='raw')
+            lltype.free(pvalue, flavor='raw')
+
+        api.Py_DecRef(py_dict) # release borrowed references
+
+        assert space.eq_w(space.newlist(keys_w),
+                          space.call_method(w_dict, "keys"))
+        assert space.eq_w(space.newlist(values_w),
+                          space.call_method(w_dict, "values"))
+
     def test_dictproxy(self, space, api):
         w_dict = space.sys.get('modules')
         w_proxy = api.PyDictProxy_New(w_dict)
