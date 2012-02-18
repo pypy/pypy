@@ -6,6 +6,7 @@ from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
+from pypy.rlib.debug import debug_print
 from pypy.module.thread import ll_thread
 
 
@@ -462,6 +463,8 @@ class Collector(object):
         # called a nursery).  To simplify things, we use a global lock
         # around the whole mark-and-move.
         self.gc.acquire(self.gc.mutex_lock)
+        debug_print("local arena:", tls.nursery_free - tls.nursery_start,
+                    "bytes")
         #
         # We are starting from the tldict's local objects as roots.  At
         # this point, these objects have GCFLAG_WAS_COPIED, and the other
