@@ -94,6 +94,7 @@ class AssemblerPPC(OpAssembler):
     EMPTY_LOC = '\xFE'
     END_OF_LOCS = '\xFF'
 
+    FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
     ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
@@ -797,10 +798,9 @@ class AssemblerPPC(OpAssembler):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, memaddr)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, memaddr)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
 
         if save_exc:
             path = self._leave_jitted_hook_save_exc
@@ -1041,10 +1041,9 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, fail_index)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, fail_index)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()
