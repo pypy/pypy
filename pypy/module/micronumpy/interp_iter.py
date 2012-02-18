@@ -80,7 +80,7 @@ class Chunks(BaseChunk):
         assert s >= 0
         return shape[:] + old_shape[s:]
 
-    def apply(self, space, arr):
+    def apply(self, arr):
         from pypy.module.micronumpy.interp_numarray import W_NDimSlice,\
              VirtualSlice, ConcreteArray
 
