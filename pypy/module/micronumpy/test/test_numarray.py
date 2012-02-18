@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.error import OperationError
 from pypy.module.micronumpy import signature
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.interp_iter import Chunk
+from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
@@ -19,6 +19,9 @@ class MockDtype(object):
     def get_size(self):
         return 1
 
+
+def create_slice(a, chunks):
+    return Chunks(chunks).apply(a)
 
 class TestNumArrayDirect(object):
     def newslice(self, *args):
@@ -45,54 +48,54 @@ class TestNumArrayDirect(object):
 
     def test_create_slice_f(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([Chunk(3, 0, 0, 1)])
+        s = create_slice(a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
         assert s.backstrides == [40, 100]
-        s = a.create_slice([Chunk(1, 9, 2, 4)])
+        s = create_slice(a, [Chunk(1, 9, 2, 4)])
         assert s.start == 1
         assert s.strides == [2, 10, 50]
         assert s.backstrides == [6, 40, 100]
-        s = a.create_slice([Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
+        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1), Chunk(1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.strides == [3, 10]
         assert s.backstrides == [3, 0]
-        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
-        s = a.create_slice([Chunk(3, 0, 0, 1)])
+        s = create_slice(a, [Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
         assert s.backstrides == [12, 2]
-        s = a.create_slice([Chunk(1, 9, 2, 4)])
+        s = create_slice(a, [Chunk(1, 9, 2, 4)])
         assert s.start == 15
         assert s.strides == [30, 3, 1]
         assert s.backstrides == [90, 12, 2]
-        s = a.create_slice([Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
+        s = create_slice(a, [Chunk(1, 5, 3, 2), Chunk(1, 2, 1, 1),
                             Chunk(1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.strides == [45, 3]
         assert s.backstrides == [45, 0]
-        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([Chunk(5, 0, 0, 1)])
+        s = create_slice(a, [Chunk(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = s.create_slice([Chunk(3, 0, 0, 1)])
+        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [50]
         assert s2.parent is a
         assert s2.backstrides == [100]
         assert s2.start == 35
-        s = a.create_slice([Chunk(1, 5, 3, 2)])
-        s2 = s.create_slice([Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [3, 50]
         assert s2.backstrides == [3, 100]
@@ -100,16 +103,16 @@ class TestNumArrayDirect(object):
 
     def test_slice_of_slice_c(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice([Chunk(5, 0, 0, 1)])
+        s = create_slice(a, [Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
-        s2 = s.create_slice([Chunk(3, 0, 0, 1)])
+        s2 = create_slice(s, [Chunk(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.strides == [1]
         assert s2.parent is a
         assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
-        s = a.create_slice([Chunk(1, 5, 3, 2)])
-        s2 = s.create_slice([Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(1, 5, 3, 2)])
+        s2 = create_slice(s, [Chunk(0, 2, 1, 2), Chunk(2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.strides == [45, 1]
         assert s2.backstrides == [45, 2]
@@ -117,14 +120,14 @@ class TestNumArrayDirect(object):
 
     def test_negative_step_f(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice([Chunk(9, -1, -2, 5)])
+        s = create_slice(a, [Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
         a = W_NDimArray([10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice([Chunk(9, -1, -2, 5)])
+        s = create_slice(a, [Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
@@ -133,7 +136,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
-        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -143,7 +146,7 @@ class TestNumArrayDirect(object):
         a = W_NDimArray([10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
-        s = a.create_slice([Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
+        s = create_slice(a, [Chunk(0, 10, 1, 10), Chunk(2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
