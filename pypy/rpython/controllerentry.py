@@ -5,6 +5,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.annlowlevel import cachedtype
 from pypy.rpython.error import TyperError
+from pypy.rlib.objectmodel import specialize
 
 
 class ControllerEntry(ExtRegistryEntry):
@@ -54,17 +55,17 @@ class Controller(object):
     def _freeze_(self):
         return True
 
+    @specialize.arg(0)
     def box(self, obj):
         return controlled_instance_box(self, obj)
-    box._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def unbox(self, obj):
         return controlled_instance_unbox(self, obj)
-    unbox._annspecialcase_ = 'specialize:arg(0)'
 
+    @specialize.arg(0)
     def is_box(self, obj):
         return controlled_instance_is_box(self, obj)
-    is_box._annspecialcase_ = 'specialize:arg(0)'
 
     def ctrl_new(self, *args_s, **kwds_s):
         if kwds_s:
@@ -83,6 +84,7 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
 
+    @specialize.memo()
     def bound_method_controller(self, attr):
         class BoundMethod(object): pass
         class BoundMethodController(Controller):
@@ -90,13 +92,12 @@ class Controller(object):
             def call(_self, obj, *args):
                 return getattr(self, 'method_' + attr)(obj, *args)
         return BoundMethodController()
-    bound_method_controller._annspecialcase_ = 'specialize:memo'
 
+    @specialize.arg(0, 2)
     def getattr(self, obj, attr):
         if hasattr(self, 'method_' + attr):
             return self.bound_method_controller(attr).box(obj)
         return getattr(self, 'get_' + attr)(obj)
-    getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
     def ctrl_getattr(self, s_obj, s_attr):
         return delegate(self.getattr, s_obj, s_attr)
@@ -105,9 +106,9 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.getattr, hop)
 
+    @specialize.arg(0, 2)
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
-    setattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
     def ctrl_setattr(self, s_obj, s_attr, s_value):
         return delegate(self.setattr, s_obj, s_attr, s_value)
