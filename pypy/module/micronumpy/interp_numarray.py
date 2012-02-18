@@ -1223,7 +1223,7 @@ def concatenate(space, w_args, axis=0):
     for arr in args_w:
         chunks[axis] = Chunk(axis_start, axis_start + arr.shape[axis], 1,
                              arr.shape[axis])
-        chunks.apply(res).setslice(space, arr)
+        Chunks(chunks).apply(res).setslice(space, arr)
         axis_start += arr.shape[axis]
     return res
 
