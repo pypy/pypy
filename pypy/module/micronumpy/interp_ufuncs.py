@@ -261,11 +261,12 @@ class W_Ufunc1(W_Ufunc):
             return space.wrap(out)
         if out:
             #Test shape compatability
-            if not shape_agreement(space, w_obj.shape, out.shape):
+            broadcast_shape =  shape_agreement(space, w_obj.shape, out.shape)
+            if not broadcast_shape or broadcast_shape != out.shape:
                 raise operationerrfmt(space.w_ValueError,
-                    'output parameter shape mismatch, expecting [%s]' +
-                    ' , got [%s]', 
-                    ",".join([str(x) for x in shape]),
+                    'output parameter shape mismatch, could not broadcast [%s]' +
+                    ' , to [%s]', 
+                    ",".join([str(x) for x in w_obj.shape]),
                     ",".join([str(x) for x in out.shape]),
                     )
             w_res = Call1(self.func, self.name, out.shape, calc_dtype,

@@ -54,8 +54,10 @@ class AppTestOutArg(BaseNumpyAppTest):
         assert (c == b).all()
 
         #Test shape agreement
-        a=zeros((3,4))
-        b=zeros((3,5))
+        a = zeros((3,4))
+        b = zeros((3,5))
+        raises(ValueError, 'negative(a, out=b)')
+        b = zeros((1,4))
         raises(ValueError, 'negative(a, out=b)')
 
     def test_ufunc_cast(self):
