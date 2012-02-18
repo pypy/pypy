@@ -144,13 +144,15 @@ def dtype_from_list(space, w_lst):
                    fieldnames=fieldnames)
 
 def dtype_from_dict(space, w_dict):
-    xxx
+    raise OperationError(space.w_NotImplementedError, space.wrap(
+        "dtype from dict"))
 
 def variable_dtype(space, name):
     if name[0] in '<>':
         # ignore byte order, not sure if it's worth it for unicode only
         if name[0] != byteorder_prefix and name[1] == 'U':
-            xxx
+            raise OperationError(space.w_NotImplementedError, space.wrap(
+                "unimplemented non-native unicode"))
         name = name[1:]
     char = name[0]
     if len(name) == 1:
@@ -169,7 +171,8 @@ def variable_dtype(space, name):
         num = 20
         basename = 'void'
         w_box_type = space.gettypefor(interp_boxes.W_VoidBox)
-        xxx
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "pure void dtype"))
     else:
         assert char == 'U'
         basename = 'unicode'
@@ -180,6 +183,9 @@ def variable_dtype(space, name):
                    basename + str(8 * itemtype.get_element_size()),
                    char, w_box_type)
 
+def dtype_from_spec(space, name):
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "dtype from spec"))    
 
 def descr__new__(space, w_subtype, w_dtype):
     cache = get_dtype_cache(space)
