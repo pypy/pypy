@@ -12,7 +12,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
-from pypy.jit.backend.ppc.codebuilder import OverwritingBuilder
+from pypy.jit.backend.ppc.codebuilder import OverwritingBuilder, scratch_reg
 from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
@@ -288,10 +288,9 @@ class MiscOpAssembler(object):
                     adr = self.fail_boxes_int.get_addr_for_num(i)
                 else:
                     assert 0
-                self.mc.alloc_scratch_reg()
-                self.mc.load_imm(r.SCRATCH, adr)
-                self.mc.storex(loc.value, 0, r.SCRATCH.value)
-                self.mc.free_scratch_reg()
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.storex(loc.value, 0, r.SCRATCH.value)
             elif loc.is_vfp_reg():
                 assert box.type == FLOAT
                 assert 0, "not implemented yet"
@@ -305,13 +304,12 @@ class MiscOpAssembler(object):
                         adr = self.fail_boxes_int.get_addr_for_num(i)
                     else:
                         assert 0
-                    self.mc.alloc_scratch_reg()
-                    self.mov_loc_loc(loc, r.SCRATCH)
-                    # store content of r5 temporary in ENCODING AREA
-                    self.mc.store(r.r5.value, r.SPP.value, 0)
-                    self.mc.load_imm(r.r5, adr)
-                    self.mc.store(r.SCRATCH.value, r.r5.value, 0)
-                    self.mc.free_scratch_reg()
+                    with scratch_reg(self.mc):
+                        self.mov_loc_loc(loc, r.SCRATCH)
+                        # store content of r5 temporary in ENCODING AREA
+                        self.mc.store(r.r5.value, r.SPP.value, 0)
+                        self.mc.load_imm(r.r5, adr)
+                        self.mc.store(r.SCRATCH.value, r.r5.value, 0)
                     # restore r5
                     self.mc.load(r.r5.value, r.SPP.value, 0)
             else:
@@ -1103,10 +1101,9 @@ class ForceOpAssembler(object):
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
-        self.mc.alloc_scratch_reg()
-        self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self._emit_guard(guard_op, arglocs, c.LT, save_exc=True)
 
     emit_guard_call_release_gil = emit_guard_call_may_force
