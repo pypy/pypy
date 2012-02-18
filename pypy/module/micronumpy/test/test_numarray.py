@@ -1824,11 +1824,17 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         a['x'][0] = 15
         assert a['x'][0] == 15
         b = a['x'] + a['y']
-        print b, a
         assert (b == [15+2, 3+4]).all()
         assert b.dtype == float
 
-    def test_creation(self):
+    def test_assign_tuple(self):
+        from _numpypy import zeros
+        a = zeros((2, 3), dtype=[('x', int), ('y', float)])
+        a[1, 2] = (1, 2)
+        assert a['x'][1, 2] == 1
+        assert a['y'][1, 2] == 2
+
+    def test_creation_and_repr(self):
         from _numpypy import array
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         assert repr(a[0]) == '(1, 2.0)'
