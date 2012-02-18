@@ -47,7 +47,7 @@ flat_get_driver = jit.JitDriver(
 )
 flat_set_driver = jit.JitDriver(
     greens=['shapelen', 'base'],
-    reds=['step', 'ai', 'lngth', 'arr', 'basei'],
+    reds=['step', 'ai', 'ri', 'lngth', 'arr', 'basei'],
     name='numpy_flatset',
 )
 
@@ -1370,8 +1370,7 @@ class W_FlatIterator(ViewArray):
                                              basei=basei,
                                              step=step,
                                              res=res,
-                                             ri=ri,
-                                            )
+                                             ri=ri)
             w_val = base.getitem(basei.offset)
             res.setitem(ri.offset, w_val)
             basei = basei.next_skip_x(shapelen, step)
@@ -1394,13 +1393,13 @@ class W_FlatIterator(ViewArray):
         basei = basei.next_skip_x(shapelen, start)
         while lngth > 0:
             flat_set_driver.jit_merge_point(shapelen=shapelen,
-                                             basei=basei,
-                                             base=base,
-                                             step=step,
-                                             arr=arr,
-                                             ai=ai,
-                                             lngth=lngth,
-                                            )
+                                            basei=basei,
+                                            base=base,
+                                            step=step,
+                                            arr=arr,
+                                            ai=ai,
+                                            lngth=lngth,
+                                            ri=ri)
             v = arr.getitem(ri.offset).convert_to(base.dtype)
             base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
