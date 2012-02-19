@@ -151,7 +151,6 @@ def set_num_threads(space, num):
 
 
 class AbstractPending(object):
-    _alloc_nonmovable_ = True
 
     def register(self):
         """Register this AbstractPending instance in the pending list

@@ -17,7 +17,7 @@ class Global:
 glob = Global()
 
 class Arg:
-    _alloc_nonmovable_ = True     # XXX kill me
+    pass
 
 
 def add_at_end_of_chained_list(arg, retry_counter):
