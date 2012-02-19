@@ -45,7 +45,9 @@ def enum_gc_dependencies(translator):
         for block in graph.iterblocks():
             for op in block.operations:
                 #
-                if op.opname in COPIES_POINTER:
+                if (op.opname in COPIES_POINTER or
+                        (op.opname == 'hint' and
+                         'stm_write' not in op.args[1].value)):
                     if _is_gc(op.result) and _is_gc(op.args[0]):
                         resultlist.append((op.args[0], op.result))
                         continue

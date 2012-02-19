@@ -2,6 +2,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.stm.gcsource import GcSource
 from pypy.objspace.flow.model import SpaceOperation, Constant
 from pypy.rpython.lltypesystem import lltype
+from pypy.rlib.jit import hint
 
 
 class X:
@@ -130,3 +131,21 @@ def test_exception():
     v_result = gsrc.translator.graphs[0].getreturnvar()
     s = gsrc[v_result]
     assert list(s) == ['last_exc_value']
+
+def test_hint_xyz():
+    def main(n):
+        return hint(X(n), xyz=True)
+    gsrc = gcsource(main, [int])
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert len(s) == 1
+    assert list(s)[0].opname == 'malloc'
+
+def test_hint_stm_write():
+    def main(n):
+        return hint(X(n), stm_write=True)
+    gsrc = gcsource(main, [int])
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert len(s) == 1
+    assert list(s)[0].opname == 'hint'
