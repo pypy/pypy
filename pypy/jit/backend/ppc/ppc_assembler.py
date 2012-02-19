@@ -1024,6 +1024,7 @@ class AssemblerPPC(OpAssembler):
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
         pmc.bc(4, 1, offset) # jump if LE (not GT)
+        pmc.overwrite()
         
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, nursery_free_adr)
