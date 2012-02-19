@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.transaction import threadintf
 from pypy.module.transaction.fifo import Fifo
-from pypy.rlib import rstm
+from pypy.rlib import rstm, rgc
 from pypy.rlib.debug import ll_assert
 
 
@@ -257,6 +257,16 @@ def _run_thread():
     state.unlock()
 
 
+@rgc.no_collect
+def _run():
+    # --- start the threads --- don't use the GC here any more! ---
+    for i in range(state.num_threads):
+        threadintf.start_new_thread(_run_thread, ())
+    #
+    state.lock_unfinished()  # wait for all threads to finish
+    # --- done, we can use the GC again ---
+
+
 def run(space):
     if state.running:
         raise OperationError(
@@ -279,12 +289,8 @@ def run(space):
     state.running = True
     state.init_exceptions()
     #
-    # --- start the threads --- don't use the GC here any more! ---
-    for i in range(state.num_threads):
-        threadintf.start_new_thread(_run_thread, ())
-    #
-    state.lock_unfinished()  # wait for all threads to finish
-    # --- done, we can use the GC again ---
+    # start the threads and wait for all of them to finish
+    _run()
     #
     assert state.num_waiting_threads == 0
     assert state.pending.is_empty()
