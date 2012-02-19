@@ -326,18 +326,20 @@ class AssemblerPPC(OpAssembler):
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
         mc.nop()
+
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.load_imm(r.r4, nursery_free_adr)
+        mc.load(r.r4.value, r.r4.value, 0)
  
         mc.load(r.SCRATCH.value, r.SP.value, 0) 
         mc.mtlr(r.SCRATCH.value)     # restore LR
         mc.addi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD) # restore old SP
         mc.blr()
 
-        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        mc.load_imm(r.r4, nursery_free_adr)
-        mc.load(r.r4.value, r.r4.value, 0)
-
+        # if r3 == 0 we skip the return above and jump to the exception path
+        offset = mc.currpos() - jmp_pos
         pmc = OverwritingBuilder(mc, jmp_pos, 1)
-        pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
+        pmc.bc(4, 2, offset) 
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
 
