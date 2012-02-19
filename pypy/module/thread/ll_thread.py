@@ -45,6 +45,10 @@ c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
                             threadsafe=True)  # release the GIL, but most
                                               # importantly, reacquire it
                                               # around the callback
+c_thread_start_NOGIL = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
+                                  _callable=_emulated_start_new_thread,
+                                  _nowrapper=True,  # just call directly
+                                  random_effects_on_gcobjs=False)
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.LONG,
                                 _nowrapper=True)    # always call directly
 

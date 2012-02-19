@@ -1,7 +1,8 @@
-import time
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.thread import ll_thread
-from pypy.rlib import rstm
+from pypy.rlib import rstm, rgc
 from pypy.rlib.debug import debug_print
+from pypy.rpython.annlowlevel import llhelper
 
 
 class Node:
@@ -81,6 +82,27 @@ def run_me():
         rstm.descriptor_done()
 
 
+@rgc.no_collect     # don't use the gc as long as other threads are running
+def _run():
+    i = 0
+    while i < glob.NUM_THREADS:
+        glob._arg = glob._arglist[i]
+        ll_run_me = llhelper(ll_thread.CALLBACK, run_me)
+        ll_thread.c_thread_start_NOGIL(ll_run_me)
+        ll_thread.acquire_NOAUTO(glob.lock, True)
+        i += 1
+    debug_print("sleeping...")
+    while glob.done < glob.NUM_THREADS:    # poor man's lock
+        _sleep(rffi.cast(rffi.ULONG, 1))
+    debug_print("done sleeping.")
+
+
+# Posix only
+_sleep = rffi.llexternal('sleep', [rffi.ULONG], rffi.ULONG,
+                         _nowrapper=True,
+                         random_effects_on_gcobjs=False)
+
+
 # __________  Entry point  __________
 
 def entry_point(argv):
@@ -94,14 +116,8 @@ def entry_point(argv):
     glob.done = 0
     glob.lock = ll_thread.allocate_ll_lock()
     ll_thread.acquire_NOAUTO(glob.lock, True)
-    for i in range(glob.NUM_THREADS):
-        glob._arg = Arg()
-        ll_thread.start_new_thread(run_me, ())
-        ll_thread.acquire_NOAUTO(glob.lock, True)
-    print "sleeping..."
-    while glob.done < glob.NUM_THREADS:    # poor man's lock
-        time.sleep(1)
-    print "done sleeping."
+    glob._arglist = [Arg() for i in range(glob.NUM_THREADS)]
+    _run()
     check_chained_list(glob.anchor.next)
     return 0
 
