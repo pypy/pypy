@@ -41,5 +41,7 @@ bool_cas(volatile unsigned long* ptr, unsigned long old, unsigned long _new)
 
 static inline void spinloop(void)
 {
-  asm volatile ("pause");
+  /* use "memory" here to make sure that gcc will reload the
+     relevant data from memory after the spinloop */
+  asm volatile ("pause":::"memory");
 }
