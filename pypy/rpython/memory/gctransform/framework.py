@@ -643,8 +643,20 @@ class FrameworkGCTransformer(GCTransformer):
         func = getattr(graph, 'func', None)
         if func and getattr(func, '_gc_no_collect_', False):
             if self.collect_analyzer.analyze_direct_call(graph):
+                # 'no_collect' function can trigger collection
+                import cStringIO
+                err = cStringIO.StringIO()
+                prev = sys.stdout
+                try:
+                    sys.stdout = err
+                    ca = CollectAnalyzer(self.translator)
+                    ca.verbose = True
+                    ca.analyze_direct_call(graph)  # print the "traceback" here
+                    sys.stdout = prev
+                except:
+                    sys.stdout = prev
                 raise Exception("'no_collect' function can trigger collection:"
-                                " %s" % func)
+                                " %s\n%s" % (func, err.getvalue()))
             
         if self.write_barrier_ptr:
             self.clean_sets = (
