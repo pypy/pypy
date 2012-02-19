@@ -87,6 +87,12 @@ def enum_gc_dependencies(translator):
                             v1 = None
                         resultlist.append((v1, v2))
     #
+    # also add as a callee the graphs that are explicitly callees in the
+    # callgraph.  Useful because some graphs may end up not being called
+    # any more, if they were inlined.
+    for _, graph in translator.callgraph.itervalues():
+        was_a_callee.add(graph)
+    #
     for graph in translator.graphs:
         if graph not in was_a_callee:
             for v in graph.getargs():
