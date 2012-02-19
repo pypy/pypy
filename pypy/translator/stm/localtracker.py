@@ -41,11 +41,13 @@ class StmLocalTracker(object):
                 if src.value:     # a NULL pointer is still valid as local
                     self.reason = src
                     return False
-            elif src is None:
-                self.reason = 'found a None'
-                return False
             elif src == 'instantiate':
                 pass
+            elif src == 'originally_a_callee':
+                pass
+            elif isinstance(src, str):
+                self.reason = src
+                return False
             else:
                 raise AssertionError(repr(src))
         return True

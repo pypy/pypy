@@ -16,8 +16,8 @@ def enum_gc_dependencies(translator):
     """Enumerate pairs (var-or-const-or-op, var) that together describe
     the whole control flow of GC pointers in the program.  If the source
     is a SpaceOperation, it means 'produced by this operation but we can't
-    follow what this operation does'.  If the source is None, it means
-    'coming from somewhere, unsure where'.
+    follow what this operation does'.  The source is a string to describe
+    special cases.
     """
     # Tracking dependencies of only GC pointers simplifies the logic here.
     # We don't have to worry about external calls and callbacks.
@@ -84,27 +84,32 @@ def enum_gc_dependencies(translator):
                     if _is_gc(v2):
                         assert _is_gc(v1)
                         if v1 is link.last_exc_value:
-                            v1 = None
+                            v1 = 'last_exc_value'
                         resultlist.append((v1, v2))
     #
     # also add as a callee the graphs that are explicitly callees in the
     # callgraph.  Useful because some graphs may end up not being called
     # any more, if they were inlined.
+    was_originally_a_callee = set()
     for _, graph in translator.callgraph.itervalues():
-        was_a_callee.add(graph)
+        was_originally_a_callee.add(graph)
     #
     for graph in translator.graphs:
         if graph not in was_a_callee:
+            if graph in was_originally_a_callee:
+                src = 'originally_a_callee'
+            else:
+                src = 'unknown'
             for v in graph.getargs():
                 if _is_gc(v):
-                    resultlist.append((None, v))
+                    resultlist.append((src, v))
     return resultlist
 
 
 class GcSource(object):
     """Works like a dict {gcptr-var: set-of-sources}.  A source is a
-    Constant, or a SpaceOperation that creates the value, or None which
-    means 'no clue'."""
+    Constant, or a SpaceOperation that creates the value, or a string
+    which describes a special case."""
 
     def __init__(self, translator):
         self.translator = translator
