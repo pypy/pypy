@@ -307,16 +307,10 @@ class AssemblerPPC(OpAssembler):
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
             for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                if IS_PPC_32:
-                    mc.stw(reg.value, r.SPP.value, ofs)
-                else:
-                    mc.std(reg.value, r.SPP.value, ofs)
+                mc.store(reg.value, r.SPP.value, ofs)
             mc.call(addr)
             for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                if IS_PPC_32:
-                    mc.lwz(reg.value, r.SPP.value, ofs)
-                else:
-                    mc.ld(reg.value, r.SPP.value, ofs)
+                mc.load(reg.value, r.SPP.value, ofs)
 
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
@@ -912,10 +906,7 @@ class AssemblerPPC(OpAssembler):
         elif loc.is_reg():
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
-            if IS_PPC_32:
-                self.mc.stw(loc.value, r.SP.value, 0)
-            else:
-                self.mc.std(loc.value, r.SP.value, 0)
+            self.mc.store(loc.value, r.SP.value, 0)
         elif loc.is_imm():
             assert 0, "not implemented yet"
         elif loc.is_imm_float():
