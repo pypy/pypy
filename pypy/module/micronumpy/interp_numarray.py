@@ -1107,7 +1107,7 @@ class W_NDimArray(ConcreteArray):
     """
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value.convert_to(self.dtype))
+        self.dtype.setitem(self.storage, item, value)
 
     def setshape(self, space, new_shape):
         self.shape = new_shape

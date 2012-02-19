@@ -260,7 +260,7 @@ class W_Ufunc1(W_Ufunc):
                 out = arr
             return space.wrap(out)
         if out:
-            #Test shape compatability
+            assert isinstance(out, BaseArray) # For translation
             broadcast_shape =  shape_agreement(space, w_obj.shape, out.shape)
             if not broadcast_shape or broadcast_shape != out.shape:
                 raise operationerrfmt(space.w_ValueError,

@@ -81,8 +81,19 @@ class AppTestOutArg(BaseNumpyAppTest):
 
     def test_ufunc_cast(self):
         from _numpypy import array, negative
-        cast_error = raises(TypeError, negative, array(16,dtype=float),
-                                                 out=array(0, dtype=int))
-        assert str(cast_error.value) == \
+        a = array(16, dtype = int)
+        c = array(0, dtype = float)
+        b = negative(a, out=c)
+        assert b == c
+        try:
+            from _numpypy import version
+            v = version.version.split('.')
+        except:
+            v = ['1', '6', '0'] # numpypy is api compatable to what version?
+        if v[0]<'2':
+            b = negative(c, out=a)
+            assert b == a
+        else:
+            cast_error = raises(TypeError, negative, c, a)
+            assert str(cast_error.value) == \
             "Cannot cast ufunc negative output from dtype('float64') to dtype('int64') with casting rule 'same_kind'"
-        
