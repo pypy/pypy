@@ -329,6 +329,7 @@ class AssemblerPPC(OpAssembler):
         pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
+        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if IS_PPC_64:
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
