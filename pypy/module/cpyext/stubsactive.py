@@ -62,3 +62,7 @@ def Py_AddPendingCall(space, func, arg):
     """
     return -1
 
+thread_func = lltype.Ptr(lltype.FuncType([rffi.VOIDP], lltype.Void))
+@cpython_api([thread_func, rffi.VOIDP], rffi.INT_real, error=-1)
+def PyThread_start_new_thread(space, func, arg):
+    return -1
