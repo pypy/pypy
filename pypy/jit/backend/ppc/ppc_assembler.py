@@ -301,7 +301,12 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             for _ in range(6):
                 mc.write32(0)
-
+        mc.subi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD)
+        mc.mflr(r.SCRATCH.value)
+        if IS_PPC_32:
+            mc.stw(r.SCRATCH.value, r.SP.value, 0) 
+        else:
+            mc.std(r.SCRATCH.value, r.SP.value, 0)
         with Saved_Volatiles(mc):
             # Values to compute size stored in r3 and r4
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
@@ -321,6 +326,12 @@ class AssemblerPPC(OpAssembler):
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
         mc.nop()
+ 
+        mc.load(r.SCRATCH.value, r.SP.value, 0) 
+        mc.mtlr(r.SCRATCH.value)     # restore LR
+        mc.addi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD) # restore old SP
+        mc.blr()
+
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.load_imm(r.r4, nursery_free_adr)
         mc.load(r.r4.value, r.r4.value, 0)
@@ -329,6 +340,8 @@ class AssemblerPPC(OpAssembler):
         pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
+
+
         mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if IS_PPC_64:
