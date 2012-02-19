@@ -3,7 +3,7 @@
 import py
 
 import time
-import datetime
+from lib_pypy import datetime
 import copy
 import os
 
