@@ -27,6 +27,7 @@ class StmLocalTracker(object):
             # XXX we shouldn't get here, but we do translating the whole
             # pypy.  We should investigate at some point.  In the meantime
             # returning False is always safe.
+            self.reason = 'variable not in gsrc!'
             return False
         for src in srcs:
             if isinstance(src, SpaceOperation):
@@ -34,14 +35,25 @@ class StmLocalTracker(object):
                     continue
                 if src.opname == 'hint' and 'stm_write' in src.args[1].value:
                     continue
+                self.reason = src
                 return False
             elif isinstance(src, Constant):
                 if src.value:     # a NULL pointer is still valid as local
+                    self.reason = src
                     return False
             elif src is None:
+                self.reason = 'found a None'
                 return False
             elif src == 'instantiate':
                 pass
             else:
                 raise AssertionError(repr(src))
         return True
+
+    def assert_local(self, variable, graph='?'):
+        if self.is_local(variable):
+            return   # fine
+        else:
+            raise AssertionError(
+                "assert_local() failed (%s, %s):\n%r" % (variable, graph,
+                                                         self.reason))

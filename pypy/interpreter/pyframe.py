@@ -197,11 +197,13 @@ class PyFrame(eval.Frame):
 
     # stack manipulation helpers
     def pushvalue(self, w_object):
+        hint(self, stm_assert_local=True)
         depth = self.valuestackdepth
         self.locals_stack_w[depth] = w_object
         self.valuestackdepth = depth + 1
 
     def popvalue(self):
+        hint(self, stm_assert_local=True)
         depth = self.valuestackdepth - 1
         assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
         w_object = self.locals_stack_w[depth]

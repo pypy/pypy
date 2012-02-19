@@ -79,8 +79,10 @@ class STMTransformer(object):
         self.current_block = None
 
     def transform_graph(self, graph):
+        self.graph = graph
         for block in graph.iterblocks():
             self.transform_block(block)
+        del self.graph
 
     # ----------
 
@@ -169,6 +171,10 @@ class STMTransformer(object):
         if 'stm_write' in op.args[1].value:
             op = SpaceOperation('stm_writebarrier', [op.args[0]], op.result)
             self.stt_stm_writebarrier(newoperations, op)
+            return
+        if 'stm_assert_local' in op.args[1].value:
+            self.localtracker.assert_local(op.args[0],
+                                           getattr(self, 'graph', None))
             return
         newoperations.append(op)
 
