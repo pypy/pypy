@@ -3,7 +3,7 @@ import struct
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
-                                                  Regalloc)
+                                                  Regalloc, PPCRegisterManager)
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
@@ -94,6 +94,7 @@ class AssemblerPPC(OpAssembler):
     EMPTY_LOC = '\xFE'
     END_OF_LOCS = '\xFF'
 
+    FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
     ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
@@ -297,11 +298,25 @@ class AssemblerPPC(OpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
+        if IS_PPC_64:
+            for _ in range(6):
+                mc.write32(0)
+
         with Saved_Volatiles(mc):
             # Values to compute size stored in r3 and r4
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+                if IS_PPC_32:
+                    mc.stw(reg.value, r.SPP.value, ofs)
+                else:
+                    mc.std(reg.value, r.SPP.value, ofs)
             mc.call(addr)
+            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+                if IS_PPC_32:
+                    mc.lwz(reg.value, r.SPP.value, ofs)
+                else:
+                    mc.ld(reg.value, r.SPP.value, ofs)
 
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
@@ -315,6 +330,8 @@ class AssemblerPPC(OpAssembler):
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        if IS_PPC_64:
+            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.malloc_slowpath = rawstart
 
     def _build_propagate_exception_path(self):
@@ -781,10 +798,9 @@ class AssemblerPPC(OpAssembler):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, memaddr)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, memaddr)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
 
         if save_exc:
             path = self._leave_jitted_hook_save_exc
@@ -1025,10 +1041,9 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, fail_index)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, fail_index)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()
