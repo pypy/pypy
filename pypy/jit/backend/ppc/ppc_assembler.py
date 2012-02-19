@@ -394,8 +394,8 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
-        mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
+        mc.load(r.r3.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
+        mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
         #
         # call decoding function
         mc.call(addr)
