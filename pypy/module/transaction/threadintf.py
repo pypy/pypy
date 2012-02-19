@@ -1,6 +1,8 @@
 import thread
 from pypy.module.thread import ll_thread
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.debug import fatalerror
 
 
 null_ll_lock = ll_thread.null_ll_lock
@@ -23,9 +25,11 @@ def release(lock):
     else:
         lock.release()
 
-def start_new_thread(callback, args):
-    assert args == ()
+def start_new_thread(callback):
     if we_are_translated():
-        ll_thread.start_new_thread(callback, args)
+        llcallback = llhelper(ll_thread.CALLBACK, callback)
+        ident = ll_thread.c_thread_start_NOGIL(llcallback)
+        if ident == -1:
+            fatalerror("cannot start thread")
     else:
-        thread.start_new_thread(callback, args)
+        thread.start_new_thread(callback, ())

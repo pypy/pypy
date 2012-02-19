@@ -261,7 +261,7 @@ def _run_thread():
 def _run():
     # --- start the threads --- don't use the GC here any more! ---
     for i in range(state.num_threads):
-        threadintf.start_new_thread(_run_thread, ())
+        threadintf.start_new_thread(_run_thread)
     #
     state.lock_unfinished()  # wait for all threads to finish
     # --- done, we can use the GC again ---
