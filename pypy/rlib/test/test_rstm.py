@@ -1,38 +1,37 @@
 import os, thread, time
-from pypy.rlib.debug import debug_print
+from pypy.rlib.debug import debug_print, ll_assert
 from pypy.rlib import rstm
 from pypy.translator.stm.test.support import CompiledSTMTests
 
 
 class Arg(object):
-    _alloc_nonmovable_ = True
+    pass
+arg = Arg()
 
 def setx(arg, retry_counter):
     debug_print(arg.x)
-    assert rstm.debug_get_state() == 1
+    assert rstm._debug_get_state() == 1
     if arg.x == 303:
         # this will trigger stm_become_inevitable()
         os.write(1, "hello\n")
-        assert rstm.debug_get_state() == 2
+        assert rstm._debug_get_state() == 2
     arg.x = 42
 
-
-def test_stm_perform_transaction(initial_x=202):
-    arg = Arg()
+def stm_perform_transaction(initial_x=202):
     arg.x = initial_x
-    assert rstm.debug_get_state() == -1
+    ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (1)")
     rstm.descriptor_init()
-    assert rstm.debug_get_state() == 0
+    ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (2)")
     rstm.perform_transaction(setx, Arg, arg)
-    assert rstm.debug_get_state() == 0
+    ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (3)")
     rstm.descriptor_done()
-    assert rstm.debug_get_state() == -1
-    assert arg.x == 42
+    ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (4)")
+    ll_assert(arg.x == 42, "bad arg.x")
 
 def test_stm_multiple_threads():
     ok = []
     def f(i):
-        test_stm_perform_transaction()
+        stm_perform_transaction()
         ok.append(i)
     for i in range(10):
         thread.start_new_thread(f, (i,))
@@ -58,20 +57,34 @@ class TestTransformSingleThread(CompiledSTMTests):
         assert dataout == ''
         assert '102' in dataerr.splitlines()
 
-    def test_perform_transaction(self):
+    def build_perform_transaction(self):
+        from pypy.module.thread import ll_thread
+        class Done: done = False
+        done = Done()
+        def g():
+            stm_perform_transaction(done.initial_x)
+            done.done = True
         def f(argv):
-            test_stm_perform_transaction()
+            done.initial_x = int(argv[1])
+            assert rstm._debug_get_state() == -1    # main thread
+            ll_thread.start_new_thread(g, ())
+            for i in range(20):
+                if done.done: break
+                time.sleep(0.1)
+            else:
+                print "timeout!"
+                raise Exception
             return 0
         t, cbuilder = self.compile(f)
-        dataout, dataerr = cbuilder.cmdexec('', err=True)
+        return cbuilder
+
+    def test_perform_transaction(self):
+        cbuilder = self.build_perform_transaction()
+        #
+        dataout, dataerr = cbuilder.cmdexec('202', err=True)
         assert dataout == ''
         assert '202' in dataerr.splitlines()
-
-    def test_perform_transaction_inevitable(self):
-        def f(argv):
-            test_stm_perform_transaction(303)
-            return 0
-        t, cbuilder = self.compile(f)
-        dataout, dataerr = cbuilder.cmdexec('', err=True)
+        #
+        dataout, dataerr = cbuilder.cmdexec('303', err=True)
         assert 'hello' in dataout.splitlines()
         assert '303' in dataerr.splitlines()

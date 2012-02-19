@@ -1,4 +1,4 @@
-import thread
+import threading
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
@@ -9,7 +9,7 @@ from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       llhelper)
 from pypy.translator.stm.stmgcintf import StmOperations
 
-_global_lock = thread.allocate_lock()
+_global_lock = threading.RLock()
 
 @specialize.memo()
 def _get_stm_callback(func, argcls):
@@ -32,8 +32,6 @@ def _get_stm_callback(func, argcls):
 def perform_transaction(func, argcls, arg):
     ll_assert(arg is None or isinstance(arg, argcls),
               "perform_transaction: wrong class")
-    ll_assert(argcls._alloc_nonmovable_,
-              "perform_transaction: XXX")    # XXX kill me
     if we_are_translated():
         llarg = cast_instance_to_base_ptr(arg)
         llarg = rffi.cast(rffi.VOIDP, llarg)
@@ -63,7 +61,10 @@ def descriptor_done():
     if not we_are_translated(): _global_lock.release()
 
 def _debug_get_state():
-    return StmOperations._debug_get_state()
+    if not we_are_translated(): _global_lock.acquire()
+    res = StmOperations._debug_get_state()
+    if not we_are_translated(): _global_lock.release()
+    return res
 
 def thread_id():
     return StmOperations.thread_id()
