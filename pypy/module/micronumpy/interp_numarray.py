@@ -47,7 +47,7 @@ flat_get_driver = jit.JitDriver(
 )
 flat_set_driver = jit.JitDriver(
     greens=['shapelen', 'base'],
-    reds=['step', 'ai', 'ri', 'lngth', 'arr', 'basei'],
+    reds=['step', 'lngth', 'ri', 'arr', 'basei'],
     name='numpy_flatset',
 )
 
@@ -1386,7 +1386,6 @@ class W_FlatIterator(ViewArray):
         start, stop, step, lngth = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)
         ri = arr.create_iter()
-        ai = 0
         basei = ViewIterator(base.start, base.strides,
                              base.backstrides, base.shape)
         shapelen = len(base.shape)
@@ -1397,7 +1396,6 @@ class W_FlatIterator(ViewArray):
                                             base=base,
                                             step=step,
                                             arr=arr,
-                                            ai=ai,
                                             lngth=lngth,
                                             ri=ri)
             v = arr.getitem(ri.offset).convert_to(base.dtype)
