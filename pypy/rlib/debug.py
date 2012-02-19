@@ -20,11 +20,13 @@ class Entry(ExtRegistryEntry):
         hop.genop('debug_assert', vlist)
 
 def fatalerror(msg):
+    # print the RPython traceback and abort with a fatal error
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
+fatalerror._annenforceargs_ = [str]
 
 def fatalerror_notb(msg):
     # a variant of fatalerror() that doesn't print the RPython traceback
@@ -32,6 +34,7 @@ def fatalerror_notb(msg):
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror_notb._dont_inline_ = True
+fatalerror_notb._annenforceargs_ = [str]
 
 
 class DebugLog(list):
