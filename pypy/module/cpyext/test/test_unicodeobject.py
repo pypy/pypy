@@ -429,3 +429,11 @@ class TestUnicode(BaseApiTest):
         w_char = api.PyUnicode_FromOrdinal(0xFFFF)
         assert space.unwrap(w_char) == u'\uFFFF'
 
+    def test_replace(self, space, api):
+        w_str = space.wrap(u"abababab")
+        w_substr = space.wrap(u"a")
+        w_replstr = space.wrap(u"z")
+        assert u"zbzbabab" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, 2))
+        assert u"zbzbzbzb" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, -1))

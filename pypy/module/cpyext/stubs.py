@@ -2373,16 +2373,6 @@ def PyUnicode_Count(space, str, substr, start, end):
     properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Replace(space, str, substr, replstr, maxcount):
-    """Replace at most maxcount occurrences of substr in str with replstr and
-    return the resulting Unicode object. maxcount == -1 means replace all
-    occurrences.
-
-    This function used an int type for maxcount. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyUnicode_RichCompare(space, left, right, op):
     """Rich compare two unicode strings and return one of the following:

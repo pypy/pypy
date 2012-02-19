@@ -548,6 +548,15 @@ def PyUnicode_Format(space, w_format, w_args):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Join(space, w_sep, w_seq):
-    """Join a sequence of strings using the given separator and return the resulting
-    Unicode string."""
+    """Join a sequence of strings using the given separator and return
+    the resulting Unicode string."""
     return space.call_method(w_sep, 'join', w_seq)
+
+@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
+def PyUnicode_Replace(space, w_str, w_substr, w_replstr, maxcount):
+    """Replace at most maxcount occurrences of substr in str with replstr and
+    return the resulting Unicode object. maxcount == -1 means replace all
+    occurrences."""
+    return space.call_method(w_str, "replace", w_substr, w_replstr,
+                             space.wrap(maxcount))
+
