@@ -999,13 +999,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.ldx(rD.value, 0, rD.value)
 
     def store_reg(self, source_reg, addr):
-        self.alloc_scratch_reg()
-        self.load_imm(r.SCRATCH, addr)
-        if IS_PPC_32:
-            self.stwx(source_reg.value, 0, r.SCRATCH.value)
-        else:
-            self.stdx(source_reg.value, 0, r.SCRATCH.value)
-        self.free_scratch_reg()
+        with scratch_reg(self):
+            self.load_imm(r.SCRATCH, addr)
+            if IS_PPC_32:
+                self.stwx(source_reg.value, 0, r.SCRATCH.value)
+            else:
+                self.stdx(source_reg.value, 0, r.SCRATCH.value)
 
     def b_offset(self, target):
         curpos = self.currpos()
@@ -1025,17 +1024,15 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         BI = condition[0]
         BO = condition[1]
 
-        self.alloc_scratch_reg()
-        self.load_imm(r.SCRATCH, addr)
-        self.mtctr(r.SCRATCH.value)
-        self.free_scratch_reg()
+        with scratch_reg(self):
+            self.load_imm(r.SCRATCH, addr)
+            self.mtctr(r.SCRATCH.value)
         self.bcctr(BO, BI)
 
     def b_abs(self, address, trap=False):
-        self.alloc_scratch_reg()
-        self.load_imm(r.SCRATCH, address)
-        self.mtctr(r.SCRATCH.value)
-        self.free_scratch_reg()
+        with scratch_reg(self):
+            self.load_imm(r.SCRATCH, address)
+            self.mtctr(r.SCRATCH.value)
         if trap:
             self.trap()
         self.bctr()
@@ -1043,17 +1040,16 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def call(self, address):
         """ do a call to an absolute address
         """
-        self.alloc_scratch_reg()
-        if IS_PPC_32:
-            self.load_imm(r.SCRATCH, address)
-        else:
-            self.store(r.TOC.value, r.SP.value, 5 * WORD)
-            self.load_imm(r.r11, address)
-            self.load(r.SCRATCH.value, r.r11.value, 0)
-            self.load(r.r2.value, r.r11.value, WORD)
-            self.load(r.r11.value, r.r11.value, 2 * WORD)
-        self.mtctr(r.SCRATCH.value)
-        self.free_scratch_reg()
+        with scratch_reg(self):
+            if IS_PPC_32:
+                self.load_imm(r.SCRATCH, address)
+            else:
+                self.store(r.TOC.value, r.SP.value, 5 * WORD)
+                self.load_imm(r.r11, address)
+                self.load(r.SCRATCH.value, r.r11.value, 0)
+                self.load(r.r2.value, r.r11.value, WORD)
+                self.load(r.r11.value, r.r11.value, 2 * WORD)
+            self.mtctr(r.SCRATCH.value)
         self.bctrl()
 
         if IS_PPC_64:
