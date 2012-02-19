@@ -26,6 +26,8 @@ char      stm_read_int1(void *, long);
 short     stm_read_int2(void *, long);
 int       stm_read_int4(void *, long);
 long long stm_read_int8(void *, long);
+double    stm_read_int8f(void *, long);
+float     stm_read_int4f(void *, long);
 
 
 #ifdef RPY_STM_ASSERT
