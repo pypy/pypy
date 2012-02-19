@@ -18,6 +18,19 @@ class Storage:
     rd_virtuals = None
     rd_pendingfields = None
 
+
+class FakeOptimizer(object):
+    def __init__(self, values):
+        self.values = values
+        
+    def getvalue(self, box):
+        try:
+            value = self.values[box]
+        except KeyError:
+            value = self.values[box] = OptValue(box)
+        return value
+        
+
 def test_tag():
     assert tag(3, 1) == rffi.r_short(3<<2|1)
     assert tag(-3, 2) == rffi.r_short(-3<<2|2)
@@ -500,7 +513,7 @@ def test_rebuild_from_resumedata():
     capture_resumedata(fs, None, [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish({})
+    liveboxes = modifier.finish(FakeOptimizer({}))
     metainterp = MyMetaInterp()
 
     b1t, b2t, b3t = [BoxInt(), BoxPtr(), BoxInt()]
@@ -524,7 +537,7 @@ def test_rebuild_from_resumedata_with_virtualizable():
     capture_resumedata(fs, [b4], [], storage)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish({})
+    liveboxes = modifier.finish(FakeOptimizer({}))
     metainterp = MyMetaInterp()
 
     b1t, b2t, b3t, b4t = [BoxInt(), BoxPtr(), BoxInt(), BoxPtr()]
@@ -553,10 +566,10 @@ def test_rebuild_from_resumedata_two_guards():
     
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish({})
+    liveboxes = modifier.finish(FakeOptimizer({}))
 
     modifier = ResumeDataVirtualAdder(storage2, memo)
-    liveboxes2 = modifier.finish({})
+    liveboxes2 = modifier.finish(FakeOptimizer({}))
 
     metainterp = MyMetaInterp()
 
@@ -617,7 +630,7 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish(values)
+    liveboxes = modifier.finish(FakeOptimizer(values))
     assert len(storage.rd_virtuals) == 1
     assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
                                                 tag(0, TAGCONST)]
@@ -628,7 +641,7 @@ def test_rebuild_from_resumedata_two_guards_w_virtuals():
     values = {b2: virtual_value(b2, b4, v6), b6: v6}
     memo.clear_box_virtual_numbers()
     modifier = ResumeDataVirtualAdder(storage2, memo)
-    liveboxes2 = modifier.finish(values)
+    liveboxes2 = modifier.finish(FakeOptimizer(values))
     assert len(storage2.rd_virtuals) == 2    
     assert storage2.rd_virtuals[0].fieldnums == [tag(len(liveboxes2)-1, TAGBOX),
                                                  tag(-1, TAGVIRTUAL)]
@@ -674,7 +687,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     values = {b2: virtual_value(b2, b5, c4)}
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish(values)
+    liveboxes = modifier.finish(FakeOptimizer(values))
     assert len(storage.rd_virtuals) == 1
     assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
                                                 tag(0, TAGCONST)]
@@ -684,7 +697,7 @@ def test_rebuild_from_resumedata_two_guards_w_shared_virtuals():
     capture_resumedata(fs, None, [], storage2)
     values[b4] = virtual_value(b4, b6, c4)
     modifier = ResumeDataVirtualAdder(storage2, memo)
-    liveboxes = modifier.finish(values)
+    liveboxes = modifier.finish(FakeOptimizer(values))
     assert len(storage2.rd_virtuals) == 2
     assert storage2.rd_virtuals[1].fieldnums == storage.rd_virtuals[0].fieldnums
     assert storage2.rd_virtuals[1] is storage.rd_virtuals[0]
@@ -703,7 +716,7 @@ def test_resumedata_top_recursive_virtuals():
     v1.setfield(LLtypeMixin.nextdescr, v2)
     values = {b1: v1, b2: v2}
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish(values)
+    liveboxes = modifier.finish(FakeOptimizer(values))
     assert liveboxes == [b3]
     assert len(storage.rd_virtuals) == 2
     assert storage.rd_virtuals[0].fieldnums == [tag(-1, TAGBOX),
@@ -776,7 +789,7 @@ def test_ResumeDataLoopMemo_number():
 
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
 
-    numb, liveboxes, v = memo.number({}, snap1)
+    numb, liveboxes, v = memo.number(FakeOptimizer({}), snap1)
     assert v == 0
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -788,7 +801,7 @@ def test_ResumeDataLoopMemo_number():
                                     tag(0, TAGBOX), tag(2, TAGINT)]
     assert not numb.prev.prev
 
-    numb2, liveboxes2, v = memo.number({}, snap2)
+    numb2, liveboxes2, v = memo.number(FakeOptimizer({}), snap2)
     assert v == 0
     
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -813,7 +826,8 @@ def test_ResumeDataLoopMemo_number():
             return self.virt
 
     # renamed
-    numb3, liveboxes3, v = memo.number({b3: FakeValue(False, c4)}, snap3)
+    numb3, liveboxes3, v = memo.number(FakeOptimizer({b3: FakeValue(False, c4)}),
+                                       snap3)
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
@@ -825,7 +839,8 @@ def test_ResumeDataLoopMemo_number():
     env4 = [c3, b4, b1, c3]
     snap4 = Snapshot(snap, env4)    
 
-    numb4, liveboxes4, v = memo.number({b4: FakeValue(True, b4)}, snap4)
+    numb4, liveboxes4, v = memo.number(FakeOptimizer({b4: FakeValue(True, b4)}),
+                                       snap4)
     assert v == 1
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -837,8 +852,9 @@ def test_ResumeDataLoopMemo_number():
     env5 = [b1, b4, b5]
     snap5 = Snapshot(snap4, env5)    
 
-    numb5, liveboxes5, v = memo.number({b4: FakeValue(True, b4),
-                                        b5: FakeValue(True, b5)}, snap5)
+    numb5, liveboxes5, v = memo.number(FakeOptimizer({b4: FakeValue(True, b4),
+                                                      b5: FakeValue(True, b5)}),
+                                       snap5)
     assert v == 2
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
@@ -940,7 +956,7 @@ def test_virtual_adder_int_constants():
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())    
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish({})
+    liveboxes = modifier.finish(FakeOptimizer({}))
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage)
@@ -954,14 +970,14 @@ def test_virtual_adder_memo_const_sharing():
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(storage, memo)
-    modifier.finish({})
+    modifier.finish(FakeOptimizer({}))
     assert len(memo.consts) == 2
     assert storage.rd_consts is memo.consts
 
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**17), ConstInt(-65)]
     storage2 = make_storage(b1s, b2s, b3s)
     modifier2 = ResumeDataVirtualAdder(storage2, memo)
-    modifier2.finish({})
+    modifier2.finish(FakeOptimizer({}))
     assert len(memo.consts) == 3    
     assert storage2.rd_consts is memo.consts
 
@@ -1022,7 +1038,7 @@ def test_virtual_adder_no_op_renaming():
 
     val = FakeValue()
     values = {b1s: val, b2s: val}  
-    liveboxes = modifier.finish(values)
+    liveboxes = modifier.finish(FakeOptimizer(values))
     assert storage.rd_snapshot is None
     b1t, b3t = [BoxInt(11), BoxInt(33)]
     newboxes = _resume_remap(liveboxes, [b1_2, b3s], b1t, b3t)
@@ -1043,7 +1059,7 @@ def test_virtual_adder_make_constant():
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())        
     modifier = ResumeDataVirtualAdder(storage, memo)
-    liveboxes = modifier.finish({})
+    liveboxes = modifier.finish(FakeOptimizer({}))
     b2t, b3t = [BoxPtr(demo55o), BoxInt(33)]
     newboxes = _resume_remap(liveboxes, [b2s, b3s], b2t, b3t)
     metainterp = MyMetaInterp()
@@ -1086,7 +1102,7 @@ def test_virtual_adder_make_virtual():
     values = {b2s: v2, b4s: v4}
 
     liveboxes = []
-    modifier._number_virtuals(liveboxes, values, 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
     # resume
@@ -1156,7 +1172,7 @@ def test_virtual_adder_make_varray():
     modifier.register_virtual_fields(b2s, [b4s, c1s])
     liveboxes = []
     values = {b2s: v2}
-    modifier._number_virtuals(liveboxes, values, 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
@@ -1203,7 +1219,7 @@ def test_virtual_adder_make_vstruct():
     v2.setfield(LLtypeMixin.bdescr, OptValue(b4s))
     modifier.register_virtual_fields(b2s, [c1s, b4s])
     liveboxes = []
-    modifier._number_virtuals(liveboxes, {b2s: v2}, 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer({b2s: v2}), 0)
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = None
@@ -1249,7 +1265,7 @@ def test_virtual_adder_pending_fields():
 
     values = {b4s: v4, b2s: v2}
     liveboxes = []
-    modifier._number_virtuals(liveboxes, values, 0)
+    modifier._number_virtuals(liveboxes, FakeOptimizer(values), 0)
     assert liveboxes == [b2s, b4s] or liveboxes == [b4s, b2s]
     modifier._add_pending_fields([(LLtypeMixin.nextdescr, b2s, b4s, -1)])
     storage.rd_consts = memo.consts[:]
