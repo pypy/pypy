@@ -850,7 +850,8 @@ def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     return not i & HIGHEST_BIT
 
-POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Unsigned))
+POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Unsigned),
+                             hints={'stm_dont_track_raw_accesses': True})
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
 def _ll_getnextitem(dic):

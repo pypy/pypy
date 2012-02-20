@@ -91,8 +91,10 @@ class STMTransformer(object):
         if op.result.concretetype is lltype.Void:
             newoperations.append(op)
             return
-        if op.args[0].concretetype.TO._gckind == 'raw':
-            if not is_immutable(op):
+        S = op.args[0].concretetype.TO
+        if S._gckind == 'raw':
+            if not (is_immutable(op) or
+                    S._hints.get('stm_dont_track_raw_accesses', False)):
                 turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
@@ -113,8 +115,10 @@ class STMTransformer(object):
         if op.args[-1].concretetype is lltype.Void:
             newoperations.append(op)
             return
-        if op.args[0].concretetype.TO._gckind == 'raw':
-            if not is_immutable(op):
+        S = op.args[0].concretetype.TO
+        if S._gckind == 'raw':
+            if not (is_immutable(op) or
+                    S._hints.get('stm_dont_track_raw_accesses', False)):
                 turn_inevitable(newoperations, op.opname + '-raw')
             newoperations.append(op)
             return
