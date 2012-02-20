@@ -142,6 +142,13 @@ class DictStrategy(object):
             else:
                 return result
 
+    def popitem(self, w_dict):
+        space = self.space
+        iterator = self.iter(w_dict)
+        w_key, w_value = iterator.next()
+        self.delitem(w_dict, w_key)
+        return (w_key, w_value)
+
     def clear(self, w_dict):
         strategy = self.space.fromcache(EmptyDictStrategy)
         storage = strategy.get_empty_storage()
