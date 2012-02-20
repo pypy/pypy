@@ -202,7 +202,7 @@ class AppTestPyFrame:
         x = f(4)
         sys.settrace(None)
         assert x == 42
-        print l
+        print(l)
         assert l == [(0, 'f', 'call', None),
                      (1, 'f', 'line', None),
                          (0, 'g', 'call', None),
