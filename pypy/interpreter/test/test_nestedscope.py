@@ -53,12 +53,11 @@ class AppTestNestedScope:
             return g()
         outer_locals, inner_locals = f()
         assert inner_locals == {'i':3, 'x':3}
-        keys = outer_locals.keys()
-        keys.sort()
+        keys = sorted(outer_locals.keys())
         assert keys == ['h', 'x']
 
     def test_lambda_in_genexpr(self):
-        assert eval('map(apply, (lambda: t for t in range(10)))') == range(10)
+        assert eval('map(apply, (lambda: t for t in range(10)))') == list(range(10))
 
     def test_cell_contents(self):
         def f(x):
