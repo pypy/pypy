@@ -75,8 +75,7 @@ translation_optiondescription = OptionDescription(
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      "stmgc": [("translation.gctransformer", "framework"),
-                               ("translation.gcrootfinder", "stm"),
-                               ("translation.rweakref", False)],  # XXX temp
+                               ("translation.gcrootfinder", "stm")],
                      },
                   cmdline="--gc"),
     ChoiceOption("gctransformer", "GC transformer that is used - internal",

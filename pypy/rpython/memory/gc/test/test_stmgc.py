@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.memory.gc.stmgc import StmGC, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
 from pypy.rpython.memory.support import mangle_hash
@@ -13,6 +13,9 @@ SR = lltype.GcForwardReference()
 SR.become(lltype.GcStruct('SR', ('s1', lltype.Ptr(S)),
                                 ('sr2', lltype.Ptr(SR)),
                                 ('sr3', lltype.Ptr(SR))))
+
+WR = lltype.GcStruct('WeakRef', ('wadr', llmemory.Address))
+SWR = lltype.GcStruct('SWR', ('wr', lltype.Ptr(WR)))
 
 
 class FakeStmOperations:
@@ -115,12 +118,19 @@ def fake_trace(obj, callback, arg):
         ofslist = [llmemory.offsetof(SR, 's1'),
                    llmemory.offsetof(SR, 'sr2'),
                    llmemory.offsetof(SR, 'sr3')]
+    elif TYPE == WR:
+        ofslist = []
+    elif TYPE == SWR:
+        ofslist = [llmemory.offsetof(SWR, 'wr')]
     else:
         assert 0
     for ofs in ofslist:
         addr = obj + ofs
         if addr.address[0]:
             callback(addr, arg)
+
+def fake_weakpointer_offset(tid):
+    return llmemory.offsetof(WR, 'wadr')
 
 
 class TestBasic:
@@ -135,6 +145,7 @@ class TestBasic:
         self.gc.DEBUG = True
         self.gc.get_size = fake_get_size
         self.gc.trace = fake_trace
+        self.gc.weakpointer_offset = fake_weakpointer_offset
         self.gc.setup()
 
     def teardown_method(self, meth):
@@ -147,9 +158,11 @@ class TestBasic:
 
     # ----------
     # test helpers
-    def malloc(self, STRUCT):
+    def malloc(self, STRUCT, weakref=False):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
-        gcref = self.gc.malloc_fixedsize_clear(123, size)
+        tid = lltype.cast_primitive(llgroup.HALFWORD, 123)
+        gcref = self.gc.malloc_fixedsize_clear(tid, size,
+                                               contains_weakptr=weakref)
         realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
         addr = llmemory.cast_ptr_to_adr(realobj)
         return realobj, addr
@@ -485,3 +498,53 @@ class TestBasic:
         s2 = tr1.s1       # tr1 is a root, so not copied yet
         assert s2 and s2 != t2
         assert self.gc.identityhash(s2) == i
+
+    def test_weakref_to_global(self):
+        swr1, swr1_adr = self.malloc(SWR)
+        s2, s2_adr = self.malloc(S)
+        self.select_thread(1)
+        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        wr1.wadr = s2_adr
+        twr1_adr = self.gc.stm_writebarrier(swr1_adr)
+        twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
+        twr1.wr = wr1
+        self.gc.commit_transaction()
+        wr2 = twr1.wr      # twr1 is a root, so not copied yet
+        assert wr2 and wr2 != wr1
+        assert wr2.wadr == s2_adr   # survives
+
+    def test_weakref_to_local_dying(self):
+        swr1, swr1_adr = self.malloc(SWR)
+        self.select_thread(1)
+        t2, t2_adr = self.malloc(S)
+        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        wr1.wadr = t2_adr
+        twr1_adr = self.gc.stm_writebarrier(swr1_adr)
+        twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
+        twr1.wr = wr1
+        self.gc.commit_transaction()
+        wr2 = twr1.wr      # twr1 is a root, so not copied yet
+        assert wr2 and wr2 != wr1
+        assert wr2.wadr == llmemory.NULL   # dies
+
+    def test_weakref_to_local_surviving(self):
+        sr1, sr1_adr = self.malloc(SR)
+        swr1, swr1_adr = self.malloc(SWR)
+        self.select_thread(1)
+        t2, t2_adr = self.malloc(S)
+        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        wr1.wadr = t2_adr
+        twr1_adr = self.gc.stm_writebarrier(swr1_adr)
+        twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
+        twr1.wr = wr1
+        tr1_adr = self.gc.stm_writebarrier(sr1_adr)
+        tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
+        tr1.s1 = t2
+        t2.a = 4242
+        self.gc.commit_transaction()
+        wr2 = twr1.wr      # twr1 is a root, so not copied yet
+        assert wr2 and wr2 != wr1
+        assert wr2.wadr and wr2.wadr != t2_adr       # survives
+        s2 = llmemory.cast_adr_to_ptr(wr2.wadr, lltype.Ptr(S))
+        assert s2.a == 4242
+        assert s2 == tr1.s1   # tr1 is a root, so not copied yet

@@ -19,6 +19,7 @@ GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_HAS_SHADOW = first_gcflag << 2
 GCFLAG_FIXED_HASH = first_gcflag << 3
+GCFLAG_WEAKREF    = first_gcflag << 4
 
 
 def always_inline(fn):
@@ -48,6 +49,7 @@ class StmGC(GCBase):
                                    ('nursery_size', lltype.Signed),
                                    ('malloc_flags', lltype.Signed),
                                    ('pending_list', llmemory.Address),
+                                   ('surviving_weakrefs', llmemory.Address),
                           )
 
     TRANSLATION_PARAMS = {
@@ -160,7 +162,6 @@ class StmGC(GCBase):
                                is_finalizer_light=False,
                                contains_weakptr=False):
         #assert not needs_finalizer, "XXX" --- finalizer is just ignored
-        assert not contains_weakptr, "XXX"
         #
         # Check the mode: either in a transactional thread, or in
         # the main thread.  For now we do the same thing in both
@@ -178,6 +179,8 @@ class StmGC(GCBase):
         # Build the object.
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
+        if contains_weakptr:   # check constant-folded
+            flags |= GCFLAG_WEAKREF
         self.init_gc_object(result, typeid, flags=flags)
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
@@ -480,6 +483,9 @@ class Collector(object):
         #
         self.gc.release(self.gc.mutex_lock)
         #
+        # Fix up the weakrefs that used to point to local objects
+        self.fixup_weakrefs(tls)
+        #
         # Now, all indirectly reachable local objects have been copied into
         # the global area, and all pointers have been fixed to point to the
         # global copies, including in the local copy of the roots.  What
@@ -490,6 +496,7 @@ class Collector(object):
 
     def collect_roots_from_tldict(self, tls):
         tls.pending_list = NULL
+        tls.surviving_weakrefs = NULL
         # Enumerate the roots, which are the local copies of global objects.
         # For each root, trace it.
         CALLBACK = self.stm_operations.CALLBACK_ENUM
@@ -602,9 +609,45 @@ class Collector(object):
             # thread before the commit is really complete.
             globalhdr.version = tls.pending_list
             tls.pending_list = globalobj
+            #
+            if hdr.tid & GCFLAG_WEAKREF != 0:
+                # this was a weakref object that survives.
+                self.young_weakref_survives(tls, obj)
         #
         # Fix the original root.address[0] to point to the globalobj
         root.address[0] = globalobj
+
+
+    @dont_inline
+    def young_weakref_survives(self, tls, obj):
+        # Relink it in the tls.surviving_weakrefs chained list,
+        # via the weakpointer_offset in the local copy of the object.
+        # Do it only if the weakref points to a local object.
+        offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
+        if self.is_in_nursery(tls, (obj + offset).address[0]):
+            (obj + offset).address[0] = tls.surviving_weakrefs
+            tls.surviving_weakrefs = obj
+
+    def fixup_weakrefs(self, tls):
+        obj = tls.surviving_weakrefs
+        while obj:
+            offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
+            #
+            hdr = self.header(obj)
+            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
+                      "weakref: unexpectedly global")
+            globalobj = hdr.version
+            obj2 = (globalobj + offset).address[0]
+            hdr2 = self.header(obj2)
+            ll_assert(hdr2.tid & GCFLAG_GLOBAL == 0,
+                      "weakref: points to a global")
+            if hdr2.tid & GCFLAG_WAS_COPIED:
+                obj2g = hdr2.version    # obj2 survives, going there
+            else:
+                obj2g = llmemory.NULL   # obj2 dies
+            (globalobj + offset).address[0] = obj2g
+            #
+            obj = (obj + offset).address[0]
 
 
 class _GlobalCollector(object):
