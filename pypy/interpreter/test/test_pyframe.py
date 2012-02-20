@@ -30,9 +30,9 @@ class AppTestPyFrame:
         assert f.f_globals is globals()
 
     def test_f_builtins(self):
-        import sys, __builtin__
+        import sys, builtins
         f = sys._getframe()
-        assert f.f_builtins is __builtin__.__dict__
+        assert f.f_builtins is builtins.__dict__
 
     def test_f_code(self):
         def g():
