@@ -19,7 +19,7 @@ class TestModule:
 
 class AppTest_ModuleObject: 
     def test_attr(self):
-        m = __import__('__builtin__')
+        m = __import__('builtins')
         m.x = 15
         assert m.x == 15
         assert getattr(m, 'x') == 15
