@@ -31,7 +31,7 @@ class Module(MixedModule):
         'concatenate': 'interp_numarray.concatenate',
 
         'set_string_function': 'appbridge.set_string_function',
-        
+
         'count_reduce_items': 'interp_numarray.count_reduce_items',
 
         'True_': 'types.Bool.True',
@@ -113,6 +113,7 @@ class Module(MixedModule):
         ("tan", "tan"),
         ('bitwise_and', 'bitwise_and'),
         ('bitwise_or', 'bitwise_or'),
+        ('bitwise_xor', 'bitwise_xor'),
         ('bitwise_not', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
@@ -129,8 +130,5 @@ class Module(MixedModule):
         'min': 'app_numpy.min',
         'identity': 'app_numpy.identity',
         'max': 'app_numpy.max',
-        'inf': 'app_numpy.inf',
-        'e': 'app_numpy.e',
-        'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
     }

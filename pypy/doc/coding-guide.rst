@@ -388,7 +388,9 @@ helpers (which live the `pypy/rlib/rarithmetic.py`_):
   In a few cases (e.g. hash table manipulation), we need machine-sized unsigned
   arithmetic.  For these cases there is the r_uint class, which is a pure
   Python implementation of word-sized unsigned integers that silently wrap
-  around.  The purpose of this class (as opposed to helper functions as above)
+  around.  ("word-sized" and "machine-sized" are used equivalently and mean
+  the native size, which you get using "unsigned long" in C.)
+  The purpose of this class (as opposed to helper functions as above)
   is consistent typing: both Python and the annotator will propagate r_uint
   instances in the program and interpret all the operations between them as
   unsigned.  Instances of r_uint are special-cased by the code generators to

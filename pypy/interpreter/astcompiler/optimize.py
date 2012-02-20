@@ -302,8 +302,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     # narrow builds will return a surrogate.  In both
                     # the cases skip the optimization in order to
                     # produce compatible pycs.
-                    if (self.space.isinstance_w(w_obj, self.space.w_unicode)
-                        and 
+                    if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
                         self.space.isinstance_w(w_const, self.space.w_unicode)):
                         unistr = self.space.unicode_w(w_const)
                         if len(unistr) == 1:
@@ -311,7 +310,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                         else:
                             ch = 0
                         if (ch > 0xFFFF or
-                            (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFFF)):
+                            (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFF)):
                             return subs
 
                     return ast.Const(w_const, subs.lineno, subs.col_offset)

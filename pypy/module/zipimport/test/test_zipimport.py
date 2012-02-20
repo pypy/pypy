@@ -15,7 +15,7 @@ class AppTestZipimport:
     cpy's regression tests
     """
     compression = ZIP_STORED
-    pathsep = '/'
+    pathsep = os.path.sep
     
     def make_pyc(cls, space, co, mtime):
         data = marshal.dumps(co)
@@ -129,7 +129,7 @@ class AppTestZipimport:
         self.writefile('sub/__init__.py', '')
         self.writefile('sub/yy.py', '')
         from zipimport import _zip_directory_cache, zipimporter
-        sub_importer = zipimporter(self.zipfile + '/sub')
+        sub_importer = zipimporter(self.zipfile + os.path.sep + 'sub')
         main_importer = zipimporter(self.zipfile)
 
         assert main_importer is not sub_importer
