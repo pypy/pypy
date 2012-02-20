@@ -247,7 +247,15 @@ def _run_thread():
             if state.pending.is_empty():
                 state.lock_no_tasks_pending()
             state.unlock()
-            pending.run()
+            #
+            while True:
+                pending.run()
+                # for now, always break out of this loop, unless
+                # 'my_transactions_pending' contains precisely one item
+                if not my_transactions_pending.is_of_length_1():
+                    break
+                pending = my_transactions_pending.popleft()
+            #
             state.lock()
             _add_list(my_transactions_pending)
     #

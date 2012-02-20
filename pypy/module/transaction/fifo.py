@@ -16,6 +16,9 @@ class Fifo(object):
         assert (self.first is None) == (self.last is None)
         return self.first is None
 
+    def is_of_length_1(self):
+        return self.first is not None and self.first is self.last
+
     def popleft(self):
         item = self.first
         self.first = item.next
