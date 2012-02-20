@@ -340,7 +340,9 @@ class TestBasic:
         assert s.b == 12345     # not updated by the GC code
         assert t.b == 67890     # still valid
 
-    def test_commit_transaction_with_one_reference(self):
+    def _commit_transaction_with_one_reference(self, tls_page_size):
+        self.gc.tls_page_size = tls_page_size
+        #
         sr, sr_adr = self.malloc(SR)
         assert sr.s1 == lltype.nullptr(S)
         assert sr.sr2 == lltype.nullptr(SR)
@@ -359,9 +361,23 @@ class TestBasic:
         #
         self.gc.collector.commit_transaction()
         #
-        assert main_tls.nursery_free - old_value == self.gcsize(S)
+        consumed = main_tls.nursery_free - old_value
+        expected = self.gcsize(S)        # round this value up to tls_page_size
+        if expected < tls_page_size: expected = tls_page_size
+        assert consumed == expected
+
+    def test_commit_transaction_with_one_reference_1(self):
+        self._commit_transaction_with_one_reference(1)
+
+    def test_commit_transaction_with_one_reference_N1(self):
+        N1 = self.gcsize(S)-1
+        self._commit_transaction_with_one_reference(N1)
+
+    def test_commit_transaction_with_one_reference_128(self):
+        self._commit_transaction_with_one_reference(128)
 
     def test_commit_transaction_with_graph(self):
+        self.gc.tls_page_size = 1
         sr1, sr1_adr = self.malloc(SR)
         sr2, sr2_adr = self.malloc(SR)
         self.select_thread(1)

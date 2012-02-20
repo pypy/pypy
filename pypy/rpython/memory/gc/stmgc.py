@@ -50,15 +50,18 @@ class StmGC(GCBase):
                                    ('malloc_flags', lltype.Signed),
                                    ('pending_list', llmemory.Address),
                                    ('surviving_weakrefs', llmemory.Address),
+                                   ('global_free', llmemory.Address),
+                                   ('global_stop', llmemory.Address),
                           )
 
     TRANSLATION_PARAMS = {
         'stm_operations': 'use_real_one',
         'max_nursery_size': 400*1024*1024,      # XXX 400MB
+        'tls_page_size': 64*1024,               # 64KB
     }
 
     def __init__(self, config, stm_operations='use_emulator',
-                 max_nursery_size=1024,
+                 max_nursery_size=1024, tls_page_size=64,
                  **kwds):
         GCBase.__init__(self, config, **kwds)
         #
@@ -72,6 +75,7 @@ class StmGC(GCBase):
         self.stm_operations = stm_operations
         self.collector = Collector(self)
         self.max_nursery_size = max_nursery_size
+        self.tls_page_size = tls_page_size
         #
         def _get_size(obj):     # indirection to hide 'self'
             return self.get_size(obj)
@@ -101,7 +105,7 @@ class StmGC(GCBase):
     def setup_thread(self, in_main_thread):
         """Setup a thread.  Allocates the thread-local data structures.
         Must be called only once per OS-level thread."""
-        tls = lltype.malloc(self.GCTLS, flavor='raw')
+        tls = lltype.malloc(self.GCTLS, zero=True, flavor='raw')
         self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls),
                                     int(in_main_thread))
         tls.nursery_start = self._alloc_nursery()
@@ -215,6 +219,34 @@ class StmGC(GCBase):
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
         return obj
+
+
+    def _malloc_global_raw(self, tls, size):
+        # For collection: allocates enough space for a global object from
+        # the main_tls.  The argument 'tls' is the current (local) GCTLS.
+        # We try to do it by reserving "pages" of memory from the global
+        # area at once, and subdividing here.
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        totalsize = size_gc_header + size
+        freespace = tls.global_stop - tls.global_free
+        if freespace < llmemory.raw_malloc_usage(totalsize):
+            self._malloc_global_more(tls, llmemory.raw_malloc_usage(totalsize))
+        result = tls.global_free
+        tls.global_free = result + totalsize
+        llarena.arena_reserve(result, totalsize)
+        obj = result + size_gc_header
+        return obj
+
+    @dont_inline
+    def _malloc_global_more(self, tls, totalsize):
+        if totalsize < self.tls_page_size:
+            totalsize = self.tls_page_size
+        main_tls = self.main_thread_tls
+        self.acquire(self.mutex_lock)
+        result = self._allocate_bump_pointer(main_tls, totalsize)
+        self.release(self.mutex_lock)
+        tls.global_free = result
+        tls.global_stop = result + totalsize
 
 
     def collect(self, gen=0):
@@ -376,11 +408,9 @@ class StmGC(GCBase):
                 # We need to allocate a global object here.  We only allocate
                 # it for now; it is left completely uninitialized.
                 size = self.get_size(obj)
-                self.acquire(self.mutex_lock)
-                main_tls = self.main_thread_tls
-                globalobj = self._malloc_local_raw(main_tls, size)
+                tls = self.collector.get_tls()
+                globalobj = self._malloc_global_raw(tls, size)
                 self.header(globalobj).tid = GCFLAG_GLOBAL
-                self.release(self.mutex_lock)
                 #
                 # Update the header of the local 'obj'
                 hdr.tid |= GCFLAG_HAS_SHADOW
@@ -463,9 +493,7 @@ class Collector(object):
         #
         # Do a mark-and-move minor collection out of the tls' nursery
         # into the main thread's global area (which is right now also
-        # called a nursery).  To simplify things, we use a global lock
-        # around the whole mark-and-move.
-        self.gc.acquire(self.gc.mutex_lock)
+        # called a nursery).
         debug_print("local arena:", tls.nursery_free - tls.nursery_start,
                     "bytes")
         #
@@ -480,8 +508,6 @@ class Collector(object):
         # Continue iteratively until we have reached all the reachable
         # local objects
         self.collect_from_pending_list(tls)
-        #
-        self.gc.release(self.gc.mutex_lock)
         #
         # Fix up the weakrefs that used to point to local objects
         self.fixup_weakrefs(tls)
@@ -572,8 +598,7 @@ class Collector(object):
             # First visit to a local-only 'obj': allocate a corresponding
             # global object
             size = self.gc.get_size(obj)
-            main_tls = self.gc.main_thread_tls
-            globalobj = self.gc._malloc_local_raw(main_tls, size)
+            globalobj = self.gc._malloc_global_raw(tls, size)
             need_to_copy = True
             #
         else:
