@@ -317,7 +317,7 @@ class AppTestPyFrame:
 
         def f(): return 1
 
-        for i in xrange(sys.getrecursionlimit() + 1):
+        for i in range(sys.getrecursionlimit() + 1):
             sys.settrace(trace)
             try:
                 f()
