@@ -359,9 +359,6 @@ def set_pypy_opt_level(config, level):
     type_system = config.translation.type_system
     backend = config.translation.backend
 
-    if config.translation.stm:   # XXX --- for STM ---
-        config.objspace.std.withmethodcache = False
-
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)

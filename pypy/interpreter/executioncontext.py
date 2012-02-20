@@ -36,6 +36,11 @@ class ExecutionContext(object):
         self.compiler = space.createcompiler()
         self.profilefunc = None        # if not None, no JIT
         self.w_profilefuncarg = None
+        #
+        config = self.space.config
+        if config.translation.stm and config.objspace.std.withmethodcache:
+            from pypy.objspace.std.typeobject import MethodCache
+            self._methodcache = MethodCache(self.space)
 
     def gettopframe(self):
         return self.topframeref()

@@ -405,7 +405,12 @@ class W_TypeObject(W_Object):
     @elidable
     def _pure_lookup_where_with_method_cache(w_self, name, version_tag):
         space = w_self.space
-        cache = space.fromcache(MethodCache)
+        if space.config.translation.stm:
+            # with stm, it's important to use one method cache per thread;
+            # otherwise, we get all the time spurious transaction conflicts.
+            cache = space.getexecutioncontext()._methodcache
+        else:
+            cache = space.fromcache(MethodCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
         SHIFT1 = SHIFT2 - 5
         version_tag_as_int = current_object_addr_as_int(version_tag)
