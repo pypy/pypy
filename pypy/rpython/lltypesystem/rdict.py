@@ -850,29 +850,29 @@ def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     return not i & HIGHEST_BIT
 
-POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
+POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Unsigned))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
 def _ll_getnextitem(dic):
     entries = dic.entries
     ENTRY = lltype.typeOf(entries).TO.OF
-    dmask = len(entries) - 1
+    dmask = r_uint(len(entries) - 1)
     if hasattr(ENTRY, 'f_hash'):
         if entries.valid(0):
             return 0
-        base = entries[0].f_hash
+        base = r_uint(entries[0].f_hash)
     else:
         base = global_popitem_index.nextindex
-    counter = 0
+    counter = r_uint(0)
     while counter <= dmask:
-        i = (base + counter) & dmask
-        counter += 1
+        i = intmask((base + counter) & dmask)
+        counter += r_uint(1)
         if entries.valid(i):
             break
     else:
         raise KeyError
     if hasattr(ENTRY, 'f_hash'):
-        entries[0].f_hash = base + counter
+        entries[0].f_hash = intmask(base + counter)
     else:
         global_popitem_index.nextindex = base + counter
     return i
