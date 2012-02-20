@@ -108,9 +108,10 @@ class TestExecutionContext:
             space.getexecutioncontext().setllprofile(None, None)
             assert l == ['call', 'return', 'call', 'c_call', 'c_return', 'return']
             if isinstance(seen[0], Method):
+                w_class = space.type(seen[0].w_instance)
                 found = 'method %s of %s' % (
                     seen[0].w_function.name,
-                    seen[0].w_class.getname(space))
+                    w_class.getname(space))
             else:
                 assert isinstance(seen[0], Function)
                 found = 'builtin %s' % seen[0].name
@@ -196,8 +197,8 @@ class TestExecutionContext:
                 self.value = value
             def meth(self):
                 pass
-        MethodType = type(A.meth)
-        strangemeth = MethodType(A, 42, int)
+        MethodType = type(A(0).meth)
+        strangemeth = MethodType(A, 42)
         l = []
         def profile(frame, event, arg):
             l.append(event)
