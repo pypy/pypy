@@ -690,11 +690,11 @@ class TestPassThroughArguments:
         class A(object):
            m = g # not a builtin function, so works as method
         d = {'A': A}
-        exec \"\"\"
+        exec(\"\"\"
 # own compiler
 a = A()
 y = a.m(33)
-\"\"\" in d
+\"\"\", d)
         return d['y'] == ('g', d['a'], 33)
         """)
         assert space.is_true(w_res)
