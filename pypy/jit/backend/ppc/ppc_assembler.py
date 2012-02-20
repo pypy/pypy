@@ -301,7 +301,12 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             for _ in range(6):
                 mc.write32(0)
-
+        mc.subi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD)
+        mc.mflr(r.SCRATCH.value)
+        if IS_PPC_32:
+            mc.stw(r.SCRATCH.value, r.SP.value, 0) 
+        else:
+            mc.std(r.SCRATCH.value, r.SP.value, 0)
         with Saved_Volatiles(mc):
             # Values to compute size stored in r3 and r4
             mc.subf(r.r3.value, r.r3.value, r.r4.value)
@@ -315,14 +320,25 @@ class AssemblerPPC(OpAssembler):
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
         mc.nop()
+
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.load_imm(r.r4, nursery_free_adr)
         mc.load(r.r4.value, r.r4.value, 0)
+ 
+        mc.load(r.SCRATCH.value, r.SP.value, 0) 
+        mc.mtlr(r.SCRATCH.value)     # restore LR
+        mc.addi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD) # restore old SP
+        mc.blr()
 
+        # if r3 == 0 we skip the return above and jump to the exception path
+        offset = mc.currpos() - jmp_pos
         pmc = OverwritingBuilder(mc, jmp_pos, 1)
-        pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
+        pmc.bc(4, 2, offset) 
         pmc.overwrite()
         mc.b_abs(self.propagate_exception_path)
+
+
+        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if IS_PPC_64:
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
@@ -372,8 +388,8 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
-        mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
+        mc.load(r.r3.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
+        mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
         #
         # call decoding function
         mc.call(addr)
@@ -997,6 +1013,7 @@ class AssemblerPPC(OpAssembler):
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
         pmc.bc(4, 1, offset) # jump if LE (not GT)
+        pmc.overwrite()
         
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, nursery_free_adr)
