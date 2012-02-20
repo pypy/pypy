@@ -386,6 +386,7 @@ class AppTestPyFrame:
         
 
     def test_trace_generator_finalisation(self):
+        '''
         import sys
         l = []
         got_exc = []
@@ -396,7 +397,7 @@ class AppTestPyFrame:
             return trace
 
         d = {}
-        exec """if 1:
+        exec("""if 1:
         def g():
             try:
                 yield True
@@ -406,11 +407,11 @@ class AppTestPyFrame:
         def f():
             try:
                 gen = g()
-                gen.next()
+                next(gen)
                 gen.close()
             except:
                 pass
-        """ in d
+        """, d)
         f = d['f']
 
         sys.settrace(trace)
@@ -432,6 +433,7 @@ class AppTestPyFrame:
                      (6, 'line'),
                      (6, 'return'),
                      (12, 'return')]
+        '''
 
     def test_dont_trace_on_reraise(self):
         import sys
