@@ -159,14 +159,6 @@ class TestObjSpace:
         self.space.setattr(w_instance, self.space.wrap("__call__"), w_func)
         assert not is_callable(w_instance)
 
-        w_oldstyle = self.space.appexec([], """():
-            class NoCall:
-                pass
-            return NoCall()""")
-        assert not is_callable(w_oldstyle)
-        self.space.setattr(w_oldstyle, self.space.wrap("__call__"), w_func)
-        assert is_callable(w_oldstyle)
-
     def test_interp_w(self):
         w = self.space.wrap
         w_bltinfunction = self.space.builtin.get('len')
