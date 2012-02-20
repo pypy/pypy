@@ -465,6 +465,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert 5 ^ int_(3) == int_(6)
         assert +int_(3) == int_(3)
         assert ~int_(3) == int_(-4)
+        raises(TypeError, lambda: float64(3) & 1)
 
     def test_alternate_constructs(self):
         from _numpypy import dtype
@@ -477,7 +478,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
         self.check_non_native(a, array([1, 2, 3], 'i2'))
-        raises(TypeError, lambda: float64(3) & 1)
 
     def test_alignment(self):
         from _numpypy import dtype
