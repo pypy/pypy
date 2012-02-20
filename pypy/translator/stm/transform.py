@@ -11,6 +11,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'direct_call', 'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
     'indirect_call', 'stack_current', 'gc_stack_bottom',
+    'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 

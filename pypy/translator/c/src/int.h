@@ -195,7 +195,8 @@
 #define OP_CAST_INT_TO_LONGLONG(x,r) r = (long long)(x)
 #define OP_CAST_CHAR_TO_INT(x,r)    r = (long)((unsigned char)(x))
 #define OP_CAST_INT_TO_CHAR(x,r)    r = (char)(x)
-#define OP_CAST_PTR_TO_INT(x,r)     r = (long)(x)    /* XXX */
+#define OP_CAST_PTR_TO_INT(x,r)     r = (long)(x)
+#define OP_CAST_CURRENT_PTR_TO_INT(x,r)  r = (long)(x)
 
 #define OP_TRUNCATE_LONGLONG_TO_INT(x,r) r = (long)(x)
 

@@ -452,7 +452,7 @@ class Entry(ExtRegistryEntry):
         if hop.rtyper.type_system.name == 'lltypesystem':
             from pypy.rpython.lltypesystem import lltype
             if isinstance(vobj.concretetype, lltype.Ptr):
-                return hop.genop('cast_ptr_to_int', [vobj],
+                return hop.genop('cast_current_ptr_to_int', [vobj],
                                  resulttype = lltype.Signed)
         elif hop.rtyper.type_system.name == 'ootypesystem':
             from pypy.rpython.ootypesystem import ootype
