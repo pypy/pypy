@@ -75,6 +75,7 @@ class AppTestPyFrame:
         # assert did not crash
 
     def test_f_lineno_set_firstline(self):
+        r"""
         seen = []
         def tracer(f, event, *args):
             seen.append((event, f.f_lineno))
@@ -85,7 +86,7 @@ class AppTestPyFrame:
         def g():
             import sys
             sys.settrace(tracer)
-            exec "x=1\ny=x+1\nz=y+1\nt=z+1\ns=t+1\n" in {}
+            exec("x=1\ny=x+1\nz=y+1\nt=z+1\ns=t+1\n", {})
             sys.settrace(None)
 
         g()
@@ -99,6 +100,7 @@ class AppTestPyFrame:
                         ('line', 4),
                         ('line', 5),
                         ('return', 5)]
+        """
 
     def test_f_back(self):
         import sys
