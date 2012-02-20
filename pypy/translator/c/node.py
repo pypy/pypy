@@ -520,7 +520,9 @@ class ContainerNode(object):
 
     def is_thread_local(self):
         T = self.getTYPE()
-        return hasattr(T, "_hints") and T._hints.get('thread_local')
+        return hasattr(T, "_hints") and (T._hints.get('thread_local') or (
+                  T._hints.get('stm_thread_local') and
+                  self.db.translator.config.translation.stm))
 
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
