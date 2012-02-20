@@ -649,10 +649,11 @@ class RecordType(CompositeType):
         return interp_boxes.W_VoidBox(arr, i)
 
     @jit.unroll_safe
-    def coerce(self, space, dtype, w_item):
+    def coerce(self, space, dtype, w_item): 
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+
         if isinstance(w_item, interp_boxes.W_VoidBox):
             return w_item
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         # we treat every sequence as sequence, no special support
         # for arrays
         if not space.issequence_w(w_item):
@@ -675,11 +676,13 @@ class RecordType(CompositeType):
 
     @jit.unroll_safe
     def store(self, arr, _, i, ofs, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
         for k in range(self.get_element_size()):
             arr.storage[k + i] = box.arr.storage[k + box.ofs]
 
     @jit.unroll_safe
     def str_format(self, box):
+        assert isinstance(box, interp_boxes.W_VoidBox)
         pieces = ["("]
         first = True
         for ofs, tp in self.offsets_and_fields:

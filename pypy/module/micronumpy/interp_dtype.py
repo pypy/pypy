@@ -134,6 +134,7 @@ def dtype_from_list(space, w_lst):
         fldname = space.str_w(w_fldname)
         if fldname in fields:
             raise OperationError(space.w_ValueError, space.wrap("two fields with the same name"))
+        assert isinstance(subdtype, W_Dtype)
         fields[fldname] = (offset, subdtype)
         ofs_and_items.append((offset, subdtype.itemtype))
         offset += subdtype.itemtype.get_element_size()

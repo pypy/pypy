@@ -63,6 +63,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     from pypy.module.micronumpy.interp_numarray import W_NDimArray
     
     itemsize = dtype.itemtype.get_element_size()
+    assert itemsize >= 0
     if count == -1:
         count = length / itemsize
     if length % itemsize != 0:
@@ -76,7 +77,9 @@ def _fromstring_bin(space, s, count, length, dtype):
     a = W_NDimArray([count], dtype=dtype)
     ai = a.create_iter()
     for i in range(count):
-        val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
+        start = i*itemsize
+        assert start >= 0
+        val = dtype.itemtype.runpack_str(s[start:start + itemsize])
         a.dtype.setitem(a, ai.offset, val)
         ai = ai.next(1)
         

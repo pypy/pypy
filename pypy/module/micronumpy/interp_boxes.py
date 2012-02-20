@@ -14,13 +14,14 @@ MIXIN_32 = (int_typedef,) if LONG_BIT == 32 else ()
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
 def new_dtype_getter(name):
-    def get_dtype(space):
+    def get_dtype(self, space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return getattr(get_dtype_cache(space), "w_%sdtype" % name)
     def new(space, w_subtype, w_value):
-        dtype = get_dtype(space)
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        dtype = getattr(get_dtype_cache(space), "w_%sdtype" % name)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
-    return func_with_new_name(new, name + "_box_new"), staticmethod(get_dtype)
+    return func_with_new_name(new, name + "_box_new"), get_dtype
 
 class PrimitiveBox(object):
     _mixin_ = True
@@ -47,12 +48,12 @@ class W_GenericBox(Wrappable):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
 
     def descr_int(self, space):
-        box = self.convert_to(W_LongBox.get_dtype(space))
+        box = self.convert_to(W_LongBox.get_dtype(self, space))
         assert isinstance(box, W_LongBox)
         return space.wrap(box.value)
 
     def descr_float(self, space):
-        box = self.convert_to(W_Float64Box.get_dtype(space))
+        box = self.convert_to(W_Float64Box.get_dtype(self, space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
 
@@ -342,11 +343,11 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
     __module__ = "numpypy",
 )
 
-W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
+W_StringBox.typedef = TypeDef("string_", (W_CharacterBox.typedef, str_typedef),
     __module__ = "numpypy",
 )
 
-W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
+W_UnicodeBox.typedef = TypeDef("unicode_", (W_CharacterBox.typedef, unicode_typedef),
     __module__ = "numpypy",
 )
                                           
