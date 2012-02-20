@@ -78,7 +78,7 @@ class TestObjSpace:
         class A(object):
             def __iter__(self):
                 return self
-            def next(self):
+            def __next__(self):
                 raise StopIteration
             def __len__(self):
                 1/0
@@ -88,7 +88,7 @@ class TestObjSpace:
             space.unpackiterable(w_a)
         except OperationError, o:
             if not o.match(space, space.w_ZeroDivisionError):
-                raise Exception("DID NOT RAISE")
+                raise
         else:
             raise Exception("DID NOT RAISE")
 
