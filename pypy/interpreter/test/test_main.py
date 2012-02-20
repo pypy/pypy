@@ -9,7 +9,7 @@ from pypy.interpreter import main
 testcode = """\
 def main():
     aStr = 'hello world'
-    print len(aStr)
+    print(len(aStr))
 
 main()
 """
@@ -20,7 +20,7 @@ testmodulecode = """
 import sys
 if __name__ == '__main__':
     aStr = sys.argv[1]
-    print len(aStr)
+    print(len(aStr))
 """
 
 testresultoutput = '11\n'
