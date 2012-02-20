@@ -287,7 +287,7 @@ class TestModuleMinimal:
         space = self.space
         assert space.builtin 
         w_name = space.wrap('__import__')
-        w_builtin = space.sys.getmodule('__builtin__')
+        w_builtin = space.sys.getmodule('builtins')
         w_import = self.space.getattr(w_builtin, w_name) 
         assert space.is_true(w_import)
 
