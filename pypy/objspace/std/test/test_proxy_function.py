@@ -68,7 +68,7 @@ class AppTestProxyFunction(object):
             pass
         
         fun = self.get_proxy(f)
-        assert fun.func_code is f.func_code
+        assert fun.__code__ is f.__code__
 
     def test_funct_prop_setter_del(self):
         def f():
