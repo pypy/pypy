@@ -24,7 +24,7 @@ class TypeDef:
         self.bases = bases
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
-        self.doc = rawdict.pop('__doc__', None)
+        self.doc = rawdict.get('__doc__', None)
         for base in bases:
             self.hasdict     |= base.hasdict
             self.weakrefable |= base.weakrefable
