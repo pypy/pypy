@@ -18,7 +18,7 @@ class AppTestGreenlet:
         lst.append(2)
         g.switch()
         lst.append(4)
-        assert lst == range(5)
+        assert lst == list(range(5))
 
     def test_parent(self):
         from greenlet import greenlet

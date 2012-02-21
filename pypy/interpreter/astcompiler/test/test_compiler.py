@@ -528,7 +528,7 @@ class TestCompiler:
                 else:                 # line 5
                     if 1: pass        # line 6
             import dis
-            co = ireturn_example.func_code
+            co = ireturn_example.__code__
             linestarts = list(dis.findlinestarts(co))
             addrreturn = linestarts[-1][0]
             x = [addrreturn == (len(co.co_code) - 4)]

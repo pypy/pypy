@@ -66,7 +66,7 @@ class AppTestNestedScope:
             return f
 
         g = f(10)
-        assert g.func_closure[0].cell_contents == 10
+        assert g.__closure__[0].cell_contents == 10
 
     def test_empty_cell_contents(self):
 
@@ -77,7 +77,7 @@ class AppTestNestedScope:
             x = 1
 
         g = f()
-        raises(ValueError, "g.func_closure[0].cell_contents")
+        raises(ValueError, "g.__closure__[0].cell_contents")
 
     def test_compare_cells(self):
         def f(n):
@@ -87,8 +87,8 @@ class AppTestNestedScope:
                   return x + y
             return f
 
-        g0 = f(0).func_closure[0]
-        g1 = f(1).func_closure[0]
+        g0 = f(0).__closure__[0]
+        g1 = f(1).__closure__[0]
         assert cmp(g0, g1) == -1
 
     def test_leaking_class_locals(self):

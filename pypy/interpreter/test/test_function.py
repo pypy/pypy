@@ -682,5 +682,5 @@ class TestFunction:
         app_g = gateway.interp2app_temp(g)
         space = self.space
         w_g = space.wrap(app_g)
-        w_defs = space.getattr(w_g, space.wrap("func_defaults"))
+        w_defs = space.getattr(w_g, space.wrap("__defaults__"))
         assert space.is_w(w_defs, space.w_None)

@@ -25,7 +25,7 @@ class defaultdict(dict):
  
     def __missing__(self, key):
         pass    # this method is written at interp-level
-    __missing__.func_code = _collections.__missing__.func_code
+    __missing__.__code__ = _collections.__missing__.__code__
 
     def __repr__(self, recurse=set()):
         # XXX not thread-safe, but good enough

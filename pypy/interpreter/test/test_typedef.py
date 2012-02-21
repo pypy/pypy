@@ -313,20 +313,22 @@ class AppTestTypeDef:
         cls.w_path = cls.space.wrap(str(path))
 
     def test_destructor(self):
-        import gc, os
+        import gc, array
         seen = []
-        class MyFile(file):
+        class MyArray(array.array):
             def __del__(self):
+                # here we check that we can still access the array, i.e. that
+                # the interp-level __del__ has not been called yet
                 seen.append(10)
-                seen.append(os.lseek(self.fileno(), 2, 0))
-        f = MyFile(self.path, 'r')
-        fd = f.fileno()
-        seen.append(os.lseek(fd, 5, 0))
-        del f
+                seen.append(self[0])
+        a = MyArray('i')
+        a.append(42)
+        seen.append(a[0])
+        del a
         gc.collect(); gc.collect(); gc.collect()
         lst = seen[:]
-        assert lst == [5, 10, 2]
-        raises(OSError, os.lseek, fd, 7, 0)
+        print(lst)
+        assert lst == [42, 10, 42]
 
     def test_method_attrs(self):
         import sys

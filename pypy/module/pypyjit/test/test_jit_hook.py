@@ -120,8 +120,8 @@ class AppTestJitHook(object):
         int_add = elem[3][0]
         dmp = elem[3][1]
         assert isinstance(dmp, pypyjit.DebugMergePoint)
-        assert dmp.pycode is self.f.func_code
-        assert dmp.greenkey == (self.f.func_code, 0, False)
+        assert dmp.pycode is self.f.__code__
+        assert dmp.greenkey == (self.f.__code__, 0, False)
         assert dmp.call_depth == 0
         assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
@@ -132,13 +132,14 @@ class AppTestJitHook(object):
         assert len(all) == 2
 
     def test_on_compile_exception(self):
-        import pypyjit, sys, cStringIO
+        import pypyjit, sys
+        from io import StringIO
 
         def hook(*args):
             1/0
 
         pypyjit.set_compile_hook(hook)
-        s = cStringIO.StringIO()
+        s = StringIO()
         prev = sys.stderr
         sys.stderr = s
         try:
@@ -224,9 +225,9 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, (f.func_code, 0, 0))
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, (f.__code__, 0, 0))
         assert op.bytecode_no == 0
-        assert op.pycode is f.func_code
+        assert op.pycode is f.__code__
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num

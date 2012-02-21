@@ -259,10 +259,10 @@ class AppTestBuiltinApp:
         assert ff.__get__(0, int)(42) == (int, 42)
         assert ff.__get__(0)(42) == (int, 42)
 
-        assert C.goo.im_self is C
-        assert D.goo.im_self is D
-        assert super(D,D).goo.im_self is D
-        assert super(D,d).goo.im_self is D
+        assert C.goo.__self__ is C
+        assert D.goo.__self__ is D
+        assert super(D,D).goo.__self__ is D
+        assert super(D,d).goo.__self__ is D
         assert super(D,D).goo() == (D,)
         assert super(D,d).goo() == (D,)
 

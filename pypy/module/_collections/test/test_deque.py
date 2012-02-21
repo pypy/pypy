@@ -7,20 +7,20 @@ class AppTestBasic:
 
     def test_basics(self):
         from _collections import deque
-        d = deque(xrange(-5125, -5000))
-        d.__init__(xrange(200))
-        for i in xrange(200, 400):
+        d = deque(range(-5125, -5000))
+        d.__init__(range(200))
+        for i in range(200, 400):
             d.append(i)
-        for i in reversed(xrange(-200, 0)):
+        for i in reversed(range(-200, 0)):
             d.appendleft(i)
         assert list(d) == range(-200, 400)
         assert len(d) == 600
 
-        left = [d.popleft() for i in xrange(250)]
+        left = [d.popleft() for i in range(250)]
         assert left == range(-200, 50)
         assert list(d) == range(50, 400)
 
-        right = [d.pop() for i in xrange(250)]
+        right = [d.pop() for i in range(250)]
         right.reverse()
         assert right == range(150, 400)
         assert list(d) == range(50, 150)
@@ -139,9 +139,9 @@ class AppTestBasic:
     def test_getitem(self):
         from _collections import deque
         n = 200
-        l = xrange(1000, 1000 + n)
+        l = range(1000, 1000 + n)
         d = deque(l)
-        for j in xrange(-n, n):
+        for j in range(-n, n):
             assert d[j] == l[j]
         raises(IndexError, "d[-n-1]")
         raises(IndexError, "d[n]")
@@ -149,12 +149,12 @@ class AppTestBasic:
     def test_setitem(self):
         from _collections import deque
         n = 200
-        d = deque(xrange(n))
-        for i in xrange(n):
+        d = deque(range(n))
+        for i in range(n):
             d[i] = 10 * i
-        assert list(d) == [10*i for i in xrange(n)]
+        assert list(d) == [10*i for i in range(n)]
         l = list(d)
-        for i in xrange(1-n, 0, -3):
+        for i in range(1-n, 0, -3):
             d[i] = 7*i
             l[i] = 7*i
         assert list(d) == l
@@ -167,7 +167,7 @@ class AppTestBasic:
 
     def test_reverse(self):
         from _collections import deque
-        d = deque(xrange(1000, 1200))
+        d = deque(range(1000, 1200))
         d.reverse()
         assert list(d) == list(reversed(range(1000, 1200)))
         #
@@ -232,7 +232,7 @@ class AppTestBasic:
 
     def test_repr(self):
         from _collections import deque
-        d = deque(xrange(20))
+        d = deque(range(20))
         e = eval(repr(d))
         assert d == e
         d.append(d)
@@ -244,7 +244,7 @@ class AppTestBasic:
 
     def test_roundtrip_iter_init(self):
         from _collections import deque
-        d = deque(xrange(200))
+        d = deque(range(200))
         e = deque(d)
         assert d is not e
         assert d == e
@@ -288,7 +288,7 @@ class AppTestBasic:
 
     def test_reversed(self):
         from _collections import deque
-        for s in ('abcd', xrange(200)):
+        for s in ('abcd', range(200)):
             assert list(reversed(deque(s))) == list(reversed(s))
 
     def test_free(self):
