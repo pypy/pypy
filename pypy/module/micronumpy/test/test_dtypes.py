@@ -371,6 +371,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert type(a[1]) is numpy.float64
         assert numpy.dtype(float).type is numpy.float64
 
+        assert "{}".format(numpy.float64(3)) == "3.0"
+
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
