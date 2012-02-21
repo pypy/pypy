@@ -7,8 +7,11 @@ import sys
 class TestExportFunctions:
     def setup_method(self, method):
         self.additional_PATH = []
+        # Uniquify: use the method name without the 'test' prefix.
+        self.module_suffix = method.__name__[4:]
 
     def compile_module(self, modulename, **exports):
+        modulename += self.module_suffix
         export_info = ModuleExportInfo()
         for name, obj in exports.items():
             export_info.add_function(name, obj)
@@ -51,3 +54,20 @@ class TestExportFunctions:
         secondmodule = self.compile_module("second", g=g)
 
         assert secondmodule.g() == 54.3
+
+    def test_implied_signature(self):
+        @export  # No explicit signature here.
+        def f(x):
+            return x + 1.5
+        @export()  # This is an explicit signature, with no argument.
+        def f2():
+            f(1.0)
+        firstmodule = self.compile_module("first", f=f, f2=f2)
+        
+        @export()
+        def g():
+            return firstmodule.f(41)
+        secondmodule = self.compile_module("second", g=g)
+
+        assert secondmodule.g() == 42.5
+

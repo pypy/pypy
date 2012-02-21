@@ -1,4 +1,4 @@
-from pypy.annotation import description
+from pypy.annotation import model, description
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -69,6 +69,20 @@ class ModuleExportInfo:
                 annotator.build_types(func, func.argtypes,
                                       complete_now=False)
         annotator.complete()
+
+        # Ensure that functions without signature are not constant-folded
+        for funcname, func in self.functions.items():
+            if not hasattr(func, 'argtypes'):
+                # build a list of arguments where constants are erased
+                newargs = []
+                desc = bk.getdesc(func)
+                if isinstance(desc, description.FunctionDesc):
+                    graph = desc.getuniquegraph()
+                    for arg in graph.startblock.inputargs:
+                        newarg = model.not_const(annotator.binding(arg))
+                        newargs.append(newarg)
+                    # and reflow
+                    annotator.build_types(func, newargs)
 
     def get_lowlevel_functions(self, annotator):
         """Builds a map of low_level objects."""
