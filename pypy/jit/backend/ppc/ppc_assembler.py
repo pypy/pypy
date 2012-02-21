@@ -301,7 +301,10 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             for _ in range(6):
                 mc.write32(0)
-        mc.subi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD)
+        frame_size = (# add space for floats later
+                    + WORD # Link Register
+                    + BACKCHAIN_SIZE * WORD)
+        mc.subi(r.SP.value, r.SP.value, frame_size)
         mc.mflr(r.SCRATCH.value)
         if IS_PPC_32:
             mc.stw(r.SCRATCH.value, r.SP.value, 0) 
@@ -329,7 +332,7 @@ class AssemblerPPC(OpAssembler):
  
         mc.load(r.SCRATCH.value, r.SP.value, 0) 
         mc.mtlr(r.SCRATCH.value)     # restore LR
-        mc.addi(r.SP.value, r.SP.value, BACKCHAIN_SIZE * WORD + 1*WORD) # restore old SP
+        mc.addi(r.SP.value, r.SP.value, frame_size) # restore old SP
         mc.blr()
 
         # if r3 == 0 we skip the return above and jump to the exception path
