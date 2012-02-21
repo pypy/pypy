@@ -655,7 +655,7 @@ class AppTestWithMapDictAndCounters(object):
                "objspace.opcodes.CALL_METHOD": True})
         #
         def check(space, w_func, name):
-            w_code = space.getattr(w_func, space.wrap('func_code'))
+            w_code = space.getattr(w_func, space.wrap('__code__'))
             nameindex = map(space.str_w, w_code.co_names_w).index(name)
             entry = w_code._mapdict_caches[nameindex]
             entry.failure_counter = 0
