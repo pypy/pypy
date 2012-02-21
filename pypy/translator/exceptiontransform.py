@@ -194,7 +194,8 @@ class BaseExceptionTransformer(object):
         from the current graph with a special value (False/-1/-1.0/null).
         Because of the added exitswitch we need an additional block.
         """
-        if hasattr(graph, 'exceptiontransformed'):
+        # FIXME: Why do we have a graph with an old ExceptionTransform info?
+        if 0 and hasattr(graph, 'exceptiontransformed'):
             assert self.same_obj(self.exc_data_ptr, graph.exceptiontransformed)
             return
         else:

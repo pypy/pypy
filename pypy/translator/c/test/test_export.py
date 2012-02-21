@@ -2,7 +2,9 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.c.exportinfo import export, ModuleExportInfo
 from pypy.translator.c.dlltool import CLibraryBuilder
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.backendopt.all import backend_optimizations
 import sys
+import types
 
 class TestExportFunctions:
     def setup_method(self, method):
@@ -14,12 +16,16 @@ class TestExportFunctions:
         modulename += self.module_suffix
         export_info = ModuleExportInfo()
         for name, obj in exports.items():
-            export_info.add_function(name, obj)
+            if isinstance(obj, (type, types.ClassType)):
+                export_info.add_class(name, obj)
+            else:
+                export_info.add_function(name, obj)
 
         t = TranslationContext()
         t.buildannotator()
         export_info.annotate(t.annotator)
         t.buildrtyper().specialize()
+        backend_optimizations(t)
 
         functions = [(f, None) for f in export_info.functions.values()]
         builder = CLibraryBuilder(t, None, config=t.config,
@@ -71,3 +77,27 @@ class TestExportFunctions:
 
         assert secondmodule.g() == 42.5
 
+    def test_pass_structure(self):
+        class Struct:
+            @export(float)
+            def __init__(self, x):
+                self.x = x + 27.4
+        @export(Struct, Struct, int)
+        def f(s, t, v):
+            return s.x + t.x + v
+        firstmodule = self.compile_module("first", f=f, S=Struct)
+        
+        S = firstmodule.S
+        @export()
+        def g():
+            s = S(3.0)
+            t = S(5.5)
+            return firstmodule.f(s, t, 7)
+        secondmodule = self.compile_module("second", g=g)
+        assert secondmodule.g() == 70.3
+
+        @export()
+        def g2():
+            # Bad argument type, should not translate
+            return firstmodule.f(1, 2, 3)
+        raises(TypeError, self.compile_module, "third", g2=g2)

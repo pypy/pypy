@@ -50,8 +50,11 @@
 #  include "src/ll_strtod.h"
 #endif
 
-#ifdef PYPY_STANDALONE
+#ifndef PYPY_CPYTHON_EXTENSION
 #  include "src/allocator.h"
+#endif
+
+#ifdef PYPY_STANDALONE
 #  include "src/main.h"
 #endif
 

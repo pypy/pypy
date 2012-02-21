@@ -4,6 +4,7 @@
 
 
 #ifdef PYPY_STANDALONE
+//#ifndef PYPY_CPYTHON_EXTENSION
 #  include "src/commondefs.h"
 #endif
 
