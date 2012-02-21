@@ -381,8 +381,8 @@ def wrong3():
                (4 and
                   5):
                 def g(): "line 6"
-            fline = f.func_code.co_firstlineno
-            gline = g.func_code.co_firstlineno
+            fline = f.__code__.co_firstlineno
+            gline = g.__code__.co_firstlineno
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
@@ -400,7 +400,7 @@ def wrong3():
             @foo       # line 4
             def f():   # line 5
                 pass   # line 6
-            fline = f.func_code.co_firstlineno
+            fline = f.__code__.co_firstlineno
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
@@ -766,7 +766,7 @@ class AppTestOptimizer:
 """
         ns = {}
         exec(source, ns)
-        code = ns['f'].func_code
+        code = ns['f'].__code__
         import dis, sys
         from io import StringIO
         s = StringIO()
@@ -873,7 +873,7 @@ class AppTestOptimizer:
             """
         ns = {}
         exec(source, ns)
-        code = ns['_f'].func_code
+        code = ns['_f'].__code__
 
         import sys, dis
         from io import StringIO
@@ -893,7 +893,7 @@ class AppTestOptimizer:
         """
         ns = {}
         exec(source, ns)
-        code = ns['_f'].func_code
+        code = ns['_f'].__code__
         
         import sys, dis
         from io import StringIO

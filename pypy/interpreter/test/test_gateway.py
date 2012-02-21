@@ -715,7 +715,7 @@ class AppTestKeywordsToBuiltinSanity(object):
         class X(object):
             def __init__(self, **kw):
                 pass
-        clash = type.__call__.func_code.co_varnames[0]
+        clash = type.__call__.__code__.co_varnames[0]
 
         X(**{clash: 33})
         type.__call__(X, **{clash: 33})
@@ -724,28 +724,28 @@ class AppTestKeywordsToBuiltinSanity(object):
         class X(object):
             def __init__(self, **kw):
                 pass
-        clash = object.__new__.func_code.co_varnames[0]
+        clash = object.__new__.__code__.co_varnames[0]
 
         X(**{clash: 33})
         object.__new__(X, **{clash: 33})
 
 
     def test_dict_new(self):
-        clash = dict.__new__.func_code.co_varnames[0]
+        clash = dict.__new__.__code__.co_varnames[0]
 
         dict(**{clash: 33})
         dict.__new__(dict, **{clash: 33})
 
     def test_dict_init(self):
         d = {}
-        clash = dict.__init__.func_code.co_varnames[0]
+        clash = dict.__init__.__code__.co_varnames[0]
 
         d.__init__(**{clash: 33})
         dict.__init__(d, **{clash: 33})
 
     def test_dict_update(self):
         d = {}
-        clash = dict.update.func_code.co_varnames[0]
+        clash = dict.update.__code__.co_varnames[0]
 
         d.update(**{clash: 33})
         dict.update(d, **{clash: 33})

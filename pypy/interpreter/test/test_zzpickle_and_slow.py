@@ -22,7 +22,7 @@ class AppTestSlow:
         if not hasattr(len, 'func_code'):
             skip("Cannot run this test if builtins have no func_code")
         import inspect
-        args, varargs, varkw = inspect.getargs(len.func_code)
+        args, varargs, varkw = inspect.getargs(len.__code__)
         assert args == ['obj']
         assert varargs is None
         assert varkw is None
@@ -84,7 +84,7 @@ class AppTestInterpObjectPickling:
         def f():
             return 42
         import pickle
-        code = f.func_code
+        code = f.__code__
         pckl = pickle.dumps(code)
         result = pickle.loads(pckl)
         assert code == result
@@ -131,13 +131,13 @@ class AppTestInterpObjectPickling:
         import pickle
         pckl   = pickle.dumps(func)
         result = pickle.loads(pckl)
-        assert func.func_name     == result.func_name
-        assert func.func_closure  == result.func_closure
-        assert func.func_code     == result.func_code
-        assert func.func_defaults == result.func_defaults
-        assert func.func_dict     == result.func_dict
-        assert func.func_doc      == result.func_doc
-        assert func.func_globals  == result.func_globals
+        assert func.__name__     == result.__name__
+        assert func.__closure__  == result.__closure__
+        assert func.__code__     == result.__code__
+        assert func.__defaults__ == result.__defaults__
+        assert func.__dict__     == result.__dict__
+        assert func.__doc__      == result.__doc__
+        assert func.__globals__  == result.__globals__
     
     def test_pickle_cell(self):
         def g():
@@ -145,7 +145,7 @@ class AppTestInterpObjectPickling:
             def f():
                 x[0] += 1
                 return x
-            return f.func_closure[0]
+            return f.__closure__[0]
         import pickle
         cell = g()
         pckl = pickle.dumps(cell)

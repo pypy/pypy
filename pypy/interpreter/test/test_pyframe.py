@@ -36,7 +36,7 @@ class AppTestPyFrame:
             import sys
             f = sys._getframe()
             return f.f_code
-        assert g() is g.func_code
+        assert g() is g.__code__
 
     def test_f_trace_del(self): 
         import sys
@@ -52,7 +52,7 @@ class AppTestPyFrame:
             y = f.f_lineno
             z = f.f_lineno
             return [x, y, z]
-        origin = g.func_code.co_firstlineno
+        origin = g.__code__.co_firstlineno
         assert g() == [origin+3, origin+4, origin+5]
 
     def test_f_lineno_set(self):
@@ -457,7 +457,7 @@ class AppTestPyFrame:
         len(seen)     # take one line
         del f.f_trace
         len(seen)     # take one line
-        firstline = set_the_trace.func_code.co_firstlineno
+        firstline = set_the_trace.__code__.co_firstlineno
         assert seen == [(1, f, firstline + 6, 'line', None),
                         (1, f, firstline + 7, 'line', None),
                         (1, f, firstline + 8, 'line', None)]
