@@ -1017,7 +1017,7 @@ class AssemblerPPC(OpAssembler):
         
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, nursery_free_adr)
-            self.mc.storex(r.r1.value, 0, r.SCRATCH.value)
+            self.mc.storex(r.r4.value, 0, r.SCRATCH.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
