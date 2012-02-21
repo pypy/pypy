@@ -302,14 +302,15 @@ class AssemblerPPC(OpAssembler):
             for _ in range(6):
                 mc.write32(0)
         frame_size = (# add space for floats later
-                    + WORD # Link Register
                     + BACKCHAIN_SIZE * WORD)
-        mc.subi(r.SP.value, r.SP.value, frame_size)
-        mc.mflr(r.SCRATCH.value)
         if IS_PPC_32:
-            mc.stw(r.SCRATCH.value, r.SP.value, 0) 
+            mc.stwu(r.SP.value, r.SP.value, -frame_size)
+            mc.mflr(r.SCRATCH.value)
+            mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
         else:
-            mc.std(r.SCRATCH.value, r.SP.value, 0)
+            mc.stdu(r.SP.value, r.SP.value, -frame_size)
+            mc.mflr(r.SCRATCH.value)
+            mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
             assert 0, "make sure to save floats here"
@@ -330,9 +331,13 @@ class AssemblerPPC(OpAssembler):
         mc.load_imm(r.r4, nursery_free_adr)
         mc.load(r.r4.value, r.r4.value, 0)
  
-        mc.load(r.SCRATCH.value, r.SP.value, 0) 
-        mc.mtlr(r.SCRATCH.value)     # restore LR
-        mc.addi(r.SP.value, r.SP.value, frame_size) # restore old SP
+        if IS_PPC_32:
+            ofs = WORD
+        else:
+            ofs = WORD * 2
+        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+        mc.mtlr(r.SCRATCH.value)
+        mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.blr()
 
         # if r3 == 0 we skip the return above and jump to the exception path
