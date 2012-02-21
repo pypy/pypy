@@ -363,7 +363,8 @@ def set_pypy_opt_level(config, level):
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)
-        config.objspace.std.suggest(withmethodcache=True)
+        if not config.translation.stm:   # XXX temporary
+            config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(builtinshortcut=True)
         config.objspace.std.suggest(optimized_list_getitem=True)
