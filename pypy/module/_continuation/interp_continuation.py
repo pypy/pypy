@@ -172,7 +172,7 @@ class State:
                     raise TypeError(
                      "can\'t send non-None value to a just-started continulet")
                 return func(c, *args, **kwds)
-            return start.func_code
+            return start.__code__
         ''')
         self.entrypoint_pycode = space.interp_w(PyCode, w_code)
         self.entrypoint_pycode.hidden_applevel = True
