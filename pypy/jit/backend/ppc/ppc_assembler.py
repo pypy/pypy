@@ -307,15 +307,17 @@ class AssemblerPPC(OpAssembler):
             mc.stw(r.SCRATCH.value, r.SP.value, 0) 
         else:
             mc.std(r.SCRATCH.value, r.SP.value, 0)
-        with Saved_Volatiles(mc):
-            # Values to compute size stored in r3 and r4
-            mc.subf(r.r3.value, r.r3.value, r.r4.value)
-            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.store(reg.value, r.SPP.value, ofs)
-            mc.call(addr)
-            for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.load(reg.value, r.SPP.value, ofs)
+        # managed volatiles are saved below
+        if self.cpu.supports_floats:
+            assert 0, "make sure to save floats here"
+        # Values to compute size stored in r3 and r4
+        mc.subf(r.r3.value, r.r3.value, r.r4.value)
+        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.store(reg.value, r.SPP.value, ofs)
+        mc.call(addr)
+        for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.load(reg.value, r.SPP.value, ofs)
 
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
