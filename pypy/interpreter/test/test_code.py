@@ -15,17 +15,17 @@ class AppTestCodeIntrospection:
     def test_attributes(self):
         def f(): pass
         def g(x, *y, **z): "docstring"
-        assert hasattr(f.func_code, 'co_code')
-        assert hasattr(g.func_code, 'co_code')
+        assert hasattr(f.__code__, 'co_code')
+        assert hasattr(g.__code__, 'co_code')
 
         testcases = [
-            (f.func_code, {'co_name': 'f',
+            (f.__code__, {'co_name': 'f',
                            'co_names': (),
                            'co_varnames': (),
                            'co_argcount': 0,
                            'co_consts': (None,)
                            }),
-            (g.func_code, {'co_name': 'g',
+            (g.__code__, {'co_name': 'g',
                            'co_names': (),
                            'co_varnames': ('x', 'y', 'z'),
                            'co_argcount': 1,
@@ -36,13 +36,13 @@ class AppTestCodeIntrospection:
         import sys
         if hasattr(sys, 'pypy_objspaceclass'): 
             testcases += [
-                (abs.func_code, {'co_name': 'abs',
+                (abs.__code__, {'co_name': 'abs',
                                  'co_varnames': ('val',),
                                  'co_argcount': 1,
                                  'co_flags': 0,
                                  'co_consts': ("abs(number) -> number\n\nReturn the absolute value of the argument.",),
                                  }),
-                (object.__init__.func_code,
+                (object.__init__.__code__,
                                 {#'co_name': '__init__',   XXX getting descr__init__
                                  'co_varnames': ('obj', 'args', 'keywords'),
                                  'co_argcount': 1,
@@ -72,7 +72,7 @@ class AppTestCodeIntrospection:
         d = {}
         exec(src, d)
 
-        assert list(sorted(d['f'].func_code.co_names)) == ['foo', 'g']
+        assert list(sorted(d['f'].__code__.co_names)) == ['foo', 'g']
 
     def test_code(self):
         import sys
@@ -117,7 +117,7 @@ class AppTestCodeIntrospection:
         assert d['c'] == 3
         def f(x):
             y = 1
-        ccode = f.func_code
+        ccode = f.__code__
         raises(ValueError, new.code,
               -ccode.co_argcount,
               ccode.co_nlocals,
@@ -150,13 +150,13 @@ class AppTestCodeIntrospection:
         exec("def f(): pass", d1)
         d2 = {}
         exec("def f(): pass", d2)
-        assert d1['f'].func_code == d2['f'].func_code
-        assert hash(d1['f'].func_code) == hash(d2['f'].func_code)
+        assert d1['f'].__code__ == d2['f'].__code__
+        assert hash(d1['f'].__code__) == hash(d2['f'].__code__)
 
     def test_repr(self):
         def f():
             xxx
-        res = repr(f.func_code)
+        res = repr(f.__code__)
         expected = ["<code object f",
                     self.file,
                     'line']
@@ -173,7 +173,7 @@ class AppTestCodeIntrospection:
 """, d)
 
         # check for new flag, CO_NOFREE
-        assert d['f'].func_code.co_flags & 0x40
+        assert d['f'].__code__.co_flags & 0x40
 
         exec("""if 1:
         def f(x):
@@ -183,10 +183,10 @@ class AppTestCodeIntrospection:
 """, d)
 
         # CO_NESTED
-        assert d['f'](4).func_code.co_flags & 0x10
-        assert d['f'].func_code.co_flags & 0x10 == 0
+        assert d['f'](4).__code__.co_flags & 0x10
+        assert d['f'].__code__.co_flags & 0x10 == 0
         # check for CO_CONTAINSGLOBALS
-        assert not d['f'].func_code.co_flags & 0x0800
+        assert not d['f'].__code__.co_flags & 0x0800
 
 
         exec("""if 1:
@@ -198,8 +198,8 @@ class AppTestCodeIntrospection:
 """, d)
 
         # check for CO_CONTAINSGLOBALS
-        assert d['f'].func_code.co_flags & 0x0800
-        assert not d['g'].func_code.co_flags & 0x0800
+        assert d['f'].__code__.co_flags & 0x0800
+        assert not d['g'].__code__.co_flags & 0x0800
 
         exec("""if 1:
         b = 2
@@ -208,4 +208,4 @@ class AppTestCodeIntrospection:
             return a + b + x
 """, d)
         # check for CO_CONTAINSGLOBALS
-        assert d['f'].func_code.co_flags & 0x0800
+        assert d['f'].__code__.co_flags & 0x0800
