@@ -523,7 +523,7 @@ class GcRootMap_shadowstack(object):
         return []
 
     def add_frame_offset(self, shape, offset):
-        assert offset != 0
+        assert offset & 3 == 0
         shape.append(offset)
 
     def add_callee_save_reg(self, shape, register):
