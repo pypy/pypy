@@ -225,9 +225,9 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, (f.func_code, 0, 0))
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, (f.__code__, 0, 0))
         assert op.bytecode_no == 0
-        assert op.pycode is f.func_code
+        assert op.pycode is f.__code__
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num
