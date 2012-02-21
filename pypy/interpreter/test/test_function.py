@@ -1,4 +1,3 @@
-
 import unittest
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method, descr_function_get
@@ -10,31 +9,29 @@ class AppTestFunctionIntrospection:
     def test_attributes(self):
         globals()['__name__'] = 'mymodulename'
         def f(): pass
-        assert hasattr(f, 'func_code')
-        assert f.func_defaults == None
-        f.func_defaults = None
-        assert f.func_defaults == None
-        assert f.func_dict == {}
-        assert type(f.func_globals) == dict
-        assert f.func_closure is None
-        assert f.func_doc == None
-        assert f.func_name == 'f'
+        assert hasattr(f, '__code__')
+        assert f.__defaults__ == None
+        f.__defaults__ = None
+        assert f.__defaults__ == None
+        assert f.__dict__ == {}
+        assert type(f.__globals__) == dict
+        assert f.__closure__ is None
+        assert f.__doc__ == None
+        assert f.__name__ == 'f'
         assert f.__module__ == 'mymodulename'
 
     def test_code_is_ok(self):
         def f(): pass
-        assert not hasattr(f.func_code, '__dict__')
+        assert not hasattr(f.__code__, '__dict__')
 
     def test_underunder_attributes(self):
         def f(): pass
         assert f.__name__ == 'f'
         assert f.__doc__ == None
-        assert f.__name__ == f.func_name
-        assert f.__doc__ == f.func_doc
-        assert f.__dict__ is f.func_dict
-        assert f.__code__ is f.func_code
-        assert f.__defaults__ is f.func_defaults
-        assert f.__globals__ is f.func_globals
+        assert f.__dict__ == {}
+        assert f.__code__.co_name == 'f'
+        assert f.__defaults__ is None
+        assert f.__globals__ is globals()
         assert hasattr(f, '__class__')
 
     def test_classmethod(self):
@@ -43,21 +40,13 @@ class AppTestFunctionIntrospection:
         assert classmethod(f).__func__ is f
         assert staticmethod(f).__func__ is f
 
-    def test_write_doc(self):
+    def test_write___doc__(self):
         def f(): "hello"
         assert f.__doc__ == 'hello'
         f.__doc__ = 'good bye'
         assert f.__doc__ == 'good bye'
         del f.__doc__
         assert f.__doc__ == None
-
-    def test_write_func_doc(self):
-        def f(): "hello"
-        assert f.func_doc == 'hello'
-        f.func_doc = 'good bye'
-        assert f.func_doc == 'good bye'
-        del f.func_doc
-        assert f.func_doc == None
 
     def test_write_module(self):
         def f(): "hello"
@@ -69,7 +58,7 @@ class AppTestFunctionIntrospection:
     def test_new(self):
         def f(): return 42
         FuncType = type(f)
-        f2 = FuncType(f.func_code, f.func_globals, 'f2', None, None)
+        f2 = FuncType(f.__code__, f.__globals__, 'f2', None, None)
         assert f2() == 42
 
         def g(x):
@@ -77,7 +66,7 @@ class AppTestFunctionIntrospection:
                 return x
             return f
         f = g(42)
-        raises(TypeError, FuncType, f.func_code, f.func_globals, 'f2', None, None)
+        raises(TypeError, FuncType, f.__code__, f.__globals__, 'f2', None, None)
 
     def test_write_code(self):
         def f():
@@ -86,18 +75,23 @@ class AppTestFunctionIntrospection:
             return 41
         assert f() == 42
         assert g() == 41
-        raises(TypeError, "f.func_code = 1")
-        f.func_code = g.func_code
+        raises(TypeError, "f.__code__ = 1")
+        f.__code__ = g.__code__
         assert f() == 41
-        def h():
-            return f() # a closure
-        raises(ValueError, "f.func_code = h.func_code")
+        def get_h(f=f):
+            def h():
+                return f() # a closure
+            return h
+        h = get_h()
+        raises(ValueError, "f.__code__ = h.__code__")
 
     def test_write_code_builtin_forbidden(self):
         def f(*args):
             return 42
-        raises(TypeError, "dir.func_code = f.func_code")
-        raises(TypeError, "list().append.__func__.func_code = f.func_code")
+        if hasattr('dir', '__code__'):
+            # only on PyPy, CPython does not expose these attrs
+            raises(TypeError, "dir.__code__ = f.__code__")
+            raises(TypeError, "list().append.__func__.__code__ = f.__code__")
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
@@ -193,8 +187,8 @@ class AppTestFunction:
         assert res[0] == 23
         assert res[1] == {'a': 'a', 'b': 'b'}
         error = raises(TypeError, lambda: func(42, **[]))
-        assert error.value.message == ('argument after ** must be a mapping, '
-                                       'not list')
+        assert ('argument after ** must be a mapping, not list' in
+                str(error.value))
 
     def test_default_arg(self):
         def func(arg1,arg2=42):
@@ -282,14 +276,18 @@ class AppTestFunction:
         try:
             len()
         except TypeError as e:
-            assert "len() takes exactly 1 argument (0 given)" in e.message
+            msg = str(e)
+            msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
+            assert "len() takes exactly 1 argument (0 given)" in msg
         else:
             assert 0, "did not raise"
 
         try:
             len(1, 2)
         except TypeError as e:
-            assert "len() takes exactly 1 argument (2 given)" in e.message
+            msg = str(e)
+            msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
+            assert "len() takes exactly 1 argument (2 given)" in msg
         else:
             assert 0, "did not raise"
 
@@ -311,13 +309,15 @@ class AppTestFunction:
         # But let's not test that.  Just test that (lambda:42) does not
         # have 42 as docstring.
         f = lambda: 42
-        assert f.func_doc is None
+        assert f.__doc__ is None
 
     def test_setstate_called_with_wrong_args(self):
         f = lambda: 42
         # not sure what it should raise, since CPython doesn't have setstate
         # on function types
-        raises(ValueError, type(f).__setstate__, f, (1, 2, 3))
+        FunctionType=  type(f)
+        if hasattr(FunctionType, '__setstate__'):
+            raises(ValueError, FunctionType.__setstate__, f, (1, 2, 3))
 
 class AppTestMethod:
     def test_simple_call(self):
@@ -447,7 +447,7 @@ class AppTestMethod:
                 return x+y
         import types
         im = types.MethodType(A(), 3)
-        assert map(im, [4]) == [7]
+        assert list(map(im, [4])) == [7]
 
     def test_invalid_creation(self):
         import types
@@ -478,7 +478,7 @@ class TestMethod:
     def setup_method(self, method):
         def c(self, bar):
             return bar
-        code = PyCode._from_code(self.space, c.func_code)
+        code = PyCode._from_code(self.space, c.__code__)
         self.fn = Function(self.space, code, self.space.newdict())
 
     def test_get(self):
@@ -505,7 +505,7 @@ class TestMethod:
         space = self.space
         # Create some function for this test only
         def m(self): return self
-        func = Function(space, PyCode._from_code(self.space, m.func_code),
+        func = Function(space, PyCode._from_code(self.space, m.__code__),
                         space.newdict())
         # Some shorthands
         obj1 = space.wrap(23)
@@ -541,7 +541,7 @@ def f%s:
 """ % (args, args) in d
             f = d['f']
             res = f(*range(i))
-            code = PyCode._from_code(self.space, f.func_code)
+            code = PyCode._from_code(self.space, f.__code__)
             fn = Function(self.space, code, self.space.newdict())
 
             assert fn.code.fast_natural_arity == i|PyCode.FLATPYCALL
@@ -563,7 +563,7 @@ def f%s:
 
         def f(a):
             return a
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict())
 
         assert fn.code.fast_natural_arity == 1|PyCode.FLATPYCALL
@@ -590,7 +590,7 @@ def f%s:
 
         def f(self, a):
             return a
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict())
 
         assert fn.code.fast_natural_arity == 2|PyCode.FLATPYCALL
@@ -618,7 +618,7 @@ def f%s:
 
         def f(a, b):
             return a+b
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 
@@ -647,7 +647,7 @@ def f%s:
 
         def f(self, a, b):
             return a+b
-        code = PyCode._from_code(self.space, f.func_code)
+        code = PyCode._from_code(self.space, f.__code__)
         fn = Function(self.space, code, self.space.newdict(),
                       defs_w=[space.newint(1)])
 

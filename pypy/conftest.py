@@ -204,6 +204,8 @@ def run_with_python(python, target):
     def skip(message):
         print(message)
         raise SystemExit(0)
+    class ExceptionWrapper:
+        pass
     def raises(exc, func, *args, **kwargs):
         try:
             if isinstance(func, str):
@@ -214,8 +216,10 @@ def run_with_python(python, target):
                 exec(func)
             else:
                 func(*args, **kwargs)
-        except exc:
-            pass
+        except exc as e:
+            res = ExceptionWrapper()
+            res.value = e
+            return res
         else:
             raise AssertionError("DID NOT RAISE")
 """
