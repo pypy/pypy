@@ -143,6 +143,10 @@ class DictStrategy(object):
                 return result
 
     def popitem(self, w_dict):
+        # this is a bad implementation: if we call popitem() repeatedly,
+        # it ends up taking n**2 time, because the next() calls below
+        # will take longer and longer.  But all interesting strategies
+        # provide a better one.
         space = self.space
         iterator = self.iter(w_dict)
         w_key, w_value = iterator.next()
