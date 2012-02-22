@@ -27,7 +27,8 @@ class TestExportFunctions:
         t.buildrtyper().specialize()
         backend_optimizations(t)
 
-        functions = [(f, None) for f in export_info.functions.values()]
+        functions = [(info.func, None)
+                     for info in export_info.functions.values()]
         builder = CLibraryBuilder(t, None, config=t.config,
                                   name='lib' + modulename,
                                   functions=functions)
