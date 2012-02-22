@@ -12,7 +12,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
-from pypy.objspace.std import unicodeobject, unicodetype
+from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
 import sys
@@ -559,4 +559,17 @@ def PyUnicode_Replace(space, w_str, w_substr, w_replstr, maxcount):
     occurrences."""
     return space.call_method(w_str, "replace", w_substr, w_replstr,
                              space.wrap(maxcount))
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
+             rffi.INT_real, error=-1)
+def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
+    """Return 1 if substr matches str[start:end] at the given tail end
+    (direction == -1 means to do a prefix match, direction == 1 a
+    suffix match), 0 otherwise. Return -1 if an error occurred."""
+    str = space.unicode_w(w_str)
+    substr = space.unicode_w(w_substr)
+    if rffi.cast(lltype.Signed, direction) >= 0:
+        return stringtype.stringstartswith(str, substr, start, end)
+    else:
+        return stringtype.stringendswith(str, substr, start, end)
 

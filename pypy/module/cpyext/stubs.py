@@ -2317,17 +2317,6 @@ def PyUnicode_Translate(space, str, table, errors):
     use the default error handling."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], rffi.INT_real, error=-1)
-def PyUnicode_Tailmatch(space, str, substr, start, end, direction):
-    """Return 1 if substr matches str*[*start:end] at the given tail end
-    (direction == -1 means to do a prefix match, direction == 1 a suffix match),
-    0 otherwise. Return -1 if an error occurred.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
 def PyUnicode_Find(space, str, substr, start, end, direction):
     """Return the first position of substr in str*[*start:end] using the given

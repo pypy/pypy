@@ -437,3 +437,10 @@ class TestUnicode(BaseApiTest):
             api.PyUnicode_Replace(w_str, w_substr, w_replstr, 2))
         assert u"zbzbzbzb" == space.unwrap(
             api.PyUnicode_Replace(w_str, w_substr, w_replstr, -1))
+
+    def test_tailmatch(self, space, api):
+        w_str = space.wrap(u"abcdef")
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 2, 10, 1) == 1
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 5, -1) == 1
+        self.raises(space, api, TypeError,
+                    api.PyUnicode_Tailmatch, w_str, space.wrap(3), 2, 10, 1)
