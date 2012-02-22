@@ -155,6 +155,11 @@ def Py_UNICODE_TONUMERIC(space, ch):
     except KeyError:
         return -1.0
 
+@cpython_api([], Py_UNICODE, error=CANNOT_FAIL)
+def PyUnicode_GetMax(space):
+    """Get the maximum ordinal for a Unicode character."""
+    return unichr(runicode.MAXUNICODE)
+
 @cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
     """Return a pointer to the internal buffer of the object. o has to be a
