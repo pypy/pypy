@@ -125,3 +125,21 @@ class TestExportFunctions:
         mod = self.compile_module("second", g=g)
         assert mod.g() == 62.3
         # XXX How can we check that the code of f() was not translated again?
+
+    def test_attribute_access(self):
+        class Struct:
+            @export(float)
+            def __init__(self, x):
+                self.x = x
+        @export(Struct)
+        def increment(s):
+            s.x += 33.2
+        self.compile_module("first", Struct=Struct, increment=increment)
+
+        @export()
+        def g():
+            s = Struct(3.0)
+            increment(s)
+            return s.x
+        mod = self.compile_module("second", g=g)
+        assert mod.g() == 36.2

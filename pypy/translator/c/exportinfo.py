@@ -153,8 +153,8 @@ class ClassExportInfo:
     def save_repr(self, builder):
         rtyper = builder.db.translator.rtyper
         bookkeeper = rtyper.annotator.bookkeeper
-        classdef = bookkeeper.getuniqueclassdef(self.cls)
-        self.classrepr = rtyper.getrepr(model.SomeInstance(classdef)
+        self.classdef = bookkeeper.getuniqueclassdef(self.cls)
+        self.classrepr = rtyper.getrepr(model.SomeInstance(self.classdef)
                                         ).lowleveltype
         
     def make_controller(self, module):
@@ -169,6 +169,16 @@ class ClassExportInfo:
 
             def new(self, *args):
                 return constructor(*args)
+
+        def install_attribute(name):
+            def getter(self, obj):
+                return getattr(obj, 'inst_' + name)
+            setattr(ClassController, 'get_' + name, getter)
+            def setter(self, obj, value):
+                return getattr(obj, 'inst_' + name, value)
+            setattr(ClassController, 'set_' + name, getter)
+        for name, attrdef in self.classdef.attrs.items():
+            install_attribute(name)
 
         class Entry(ControllerEntry):
             _about_ = self.cls
