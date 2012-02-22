@@ -40,6 +40,7 @@ def type_byname(space, name):
         pass
 
     handle = capi.c_get_typehandle(name)
+    assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
     if handle:
         final_name = capi.charp2str_free(capi.c_final_name(handle))
         if capi.c_is_namespace(handle):
@@ -64,6 +65,7 @@ def template_byname(space, name):
         pass
 
     handle = capi.c_get_templatehandle(name)
+    assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
     if handle:
         template = W_CPPTemplateType(space, name, handle)
         state.cpptype_cache[name] = template
@@ -239,6 +241,7 @@ class W_CPPOverload(Wrappable):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._nullcheck()
+            assert isinstance(cppinstance.cppclass, W_CPPType)
             cppthis = cppinstance.cppclass.get_cppthis(cppinstance, self.scope_handle)
         else:
             cppthis = capi.C_NULL_OBJECT
@@ -287,6 +290,7 @@ class W_CPPDataMember(Wrappable):
     @jit.elidable_promote()
     def _get_offset(self, cppinstance):
         if cppinstance:
+            assert lltype.typeOf(cppinstance.cppclass.handle) == lltype.typeOf(self.scope_handle)
             offset = self.offset + capi.c_base_offset(
                 cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
         else:
@@ -474,8 +478,8 @@ class W_CPPType(W_CPPScope):
             data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, is_static)
             self.data_members[data_member_name] = data_member
 
-    @jit.elidable_promote()
     def get_cppthis(self, cppinstance, scope_handle):
+        assert self.handle == cppinstance.cppclass.handle
         return cppinstance.rawobject
 
     def is_namespace(self):
@@ -505,10 +509,9 @@ W_CPPType.typedef.acceptable_as_base_class = False
 class W_ComplexCPPType(W_CPPType):
     _immutable_ = True
 
-    @jit.elidable_promote()
     def get_cppthis(self, cppinstance, scope_handle):
-        offset = capi.c_base_offset(
-            cppinstance.cppclass.handle, scope_handle, cppinstance.rawobject)
+        assert self.handle == cppinstance.cppclass.handle
+        offset = capi.c_base_offset(self.handle, scope_handle, cppinstance.rawobject)
         return capi.direct_ptradd(cppinstance.rawobject, offset)
 
 W_ComplexCPPType.typedef = TypeDef(
@@ -550,6 +553,7 @@ class W_CPPInstance(Wrappable):
 
     def __init__(self, space, cppclass, rawobject, python_owns):
         self.space = space
+        assert isinstance(cppclass, W_CPPType)
         self.cppclass = cppclass
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
         self.rawobject = rawobject
