@@ -73,14 +73,17 @@ class ClassExportInfo:
         constructor._always_inline_ = True
         constructor.argtypes = self.cls.__init__.argtypes
         return constructor
-        
-    def make_repr(self, module, rtyper):
-        """Returns the class repr, but also installs a Controller that
-        will intercept all operations on the class."""
+
+    def save_repr(self, rtyper):
         bookkeeper = rtyper.annotator.bookkeeper
         classdef = bookkeeper.getuniqueclassdef(self.cls)
-        classrepr = rtyper.getrepr(model.SomeInstance(classdef)).lowleveltype
-        STRUCTPTR = classrepr
+        self.classrepr = rtyper.getrepr(model.SomeInstance(classdef)
+                                        ).lowleveltype
+        
+    def make_repr(self, module):
+        """Returns the class repr, but also installs a Controller that
+        will intercept all operations on the class."""
+        STRUCTPTR = self.classrepr
 
         constructor = getattr(module, self.constructor_name)
 
@@ -166,6 +169,9 @@ class ModuleExportInfo:
         """Builds an object with all exported functions."""
         rtyper = builder.db.translator.rtyper
 
+        for clsname, class_info in self.classes.items():
+            class_info.save_repr(rtyper)
+
         exported_funcptr = self.get_lowlevel_functions(
             builder.translator.annotator)
         # Map exported functions to the names given by the translator.
@@ -199,7 +205,7 @@ class ModuleExportInfo:
             func = make_llexternal_function(import_name, funcptr, import_eci)
             setattr(mod, funcname, func)
         for clsname, class_info in self.classes.items():
-            structptr = class_info.make_repr(mod, rtyper)
+            structptr = class_info.make_repr(mod)
             setattr(mod, clsname, structptr)
             
         return mod
