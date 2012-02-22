@@ -31,6 +31,8 @@ extern "C" void* G__SetShlHandle(char*);
 
 
 /* data for life time management ------------------------------------------ */
+#define GLOBAL_HANDLE 1l
+
 typedef std::vector<TClassRef> ClassRefs_t;
 static ClassRefs_t g_classrefs(1);
 
@@ -40,8 +42,8 @@ static ClassRefIndices_t g_classref_indices;
 class ClassRefsInit {
 public:
     ClassRefsInit() {   // setup dummy holder for global namespace
-	ClassRefs_t::size_type sz = g_classrefs.size();
-        g_classref_indices[""] = sz;
+        assert(g_classrefs.size() == (ClassRefs_t::size_type)GLOBAL_HANDLE);
+        g_classref_indices[""] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
         g_classrefs.push_back(TClassRef(""));
     }
 };
@@ -177,24 +179,42 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
 
 static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
         int method_index, cppyy_object_t self, int numargs, void* args) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
+    
+   if ((long)handle != GLOBAL_HANDLE) {
+        TClassRef cr = type_from_handle(handle);
+        assert(method_index < cr->GetListOfMethods()->GetSize());
+        TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
 
-    G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
+        G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
+        G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
+        assert(libp->paran == numargs);
+        fixup_args(libp);
+
+        // TODO: access to store_struct_offset won't work on Windows
+        G__setgvp((long)self);
+        long store_struct_offset = G__store_struct_offset;
+        G__store_struct_offset = (long)self;
+
+        G__value result;
+        G__setnull(&result);
+        meth(&result, 0, libp, 0);
+
+        G__store_struct_offset = store_struct_offset;
+        return result;
+    }
+
+    // global function
+    assert(method_index < (int)g_globalfuncs.size());
+    TFunction* f = g_globalfuncs[method_index];
+
+    G__InterfaceMethod func = (G__InterfaceMethod)f->InterfaceMethod();
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
     fixup_args(libp);
 
-    // TODO: access to store_struct_offset won't work on Windows
-    G__setgvp((long)self);
-    long store_struct_offset = G__store_struct_offset;
-    G__store_struct_offset = (long)self;
-
     G__value result;
     G__setnull(&result);
-    meth(&result, 0, libp, 0);
-
-    G__store_struct_offset = store_struct_offset;
+    func(&result, 0, libp, 0);
 
     return result;
 }
@@ -360,19 +380,21 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_obj
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass() && cr->GetListOfMethods())
+     if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
     else if (strcmp(cr.GetClassName(), "") == 0) {
+    // NOTE: the updated list of global funcs grows with 5 "G__ateval"'s just
+    // because it is being updated => infinite loop :(
         TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
 	if (g_globalfuncs.size() != (GlobalFuncs_t::size_type)funcs->GetSize()) {
-            /*g_globalfuncs.clear();
+            g_globalfuncs.clear();
 	    g_globalfuncs.reserve(funcs->GetSize());
 
             TIter ifunc(funcs);
 
             TFunction* func = 0;
             while ((func = (TFunction*)ifunc.Next()))
-                g_globalfuncs.push_back(func);*/
+                g_globalfuncs.push_back(func);
         }
 	return (int)g_globalfuncs.size();
     }
