@@ -75,8 +75,8 @@ def _fromstring_bin(space, s, count, length, dtype):
     fromstring_loop(a, count, dtype, itemsize, s)
     return space.wrap(a)
 
-fromstring_driver = jit.JitDriver(greens=[], reds=['a', 'count', 'i',
-                                                   'itemsize', 'dtype', 's'])
+fromstring_driver = jit.JitDriver(greens=[], reds=['count', 'i', 'itemsize',
+                                                   'dtype', 's', 'a'])
 
 def fromstring_loop(a, count, dtype, itemsize, s):
     for i in range(count):
