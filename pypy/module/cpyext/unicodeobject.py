@@ -89,6 +89,11 @@ def Py_UNICODE_ISSPACE(space, ch):
     return unicodedb.isspace(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISALPHA(space, ch):
+    """Return 1 or 0 depending on whether ch is an alphabetic character."""
+    return unicodedb.isalpha(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
     return unicodedb.isalnum(ord(ch))
@@ -104,6 +109,16 @@ def Py_UNICODE_ISDECIMAL(space, ch):
     return unicodedb.isdecimal(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISDIGIT(space, ch):
+    """Return 1 or 0 depending on whether ch is a digit character."""
+    return unicodedb.isdigit(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISNUMERIC(space, ch):
+    """Return 1 or 0 depending on whether ch is a numeric character."""
+    return unicodedb.isnumeric(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
     return unicodedb.islower(ord(ch))
@@ -112,6 +127,11 @@ def Py_UNICODE_ISLOWER(space, ch):
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
     return unicodedb.isupper(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISTITLE(space, ch):
+    """Return 1 or 0 depending on whether ch is a titlecase character."""
+    return unicodedb.istitle(ord(ch))
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOLOWER(space, ch):

@@ -1853,26 +1853,6 @@ def PyUnicode_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISTITLE(space, ch):
-    """Return 1 or 0 depending on whether ch is a titlecase character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISDIGIT(space, ch):
-    """Return 1 or 0 depending on whether ch is a digit character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISNUMERIC(space, ch):
-    """Return 1 or 0 depending on whether ch is a numeric character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISALPHA(space, ch):
-    """Return 1 or 0 depending on whether ch is an alphabetic character."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], PyObject)
 def PyUnicode_FromFormat(space, format):
     """Take a C printf()-style format string and a variable number of
