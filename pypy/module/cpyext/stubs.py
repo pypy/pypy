@@ -182,16 +182,6 @@ def PyInstance_New(space, cls, arg, kw):
     used as the positional and keyword parameters to the object's constructor."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_Check(space, co):
-    """Return true if co is a code object"""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_GetNumFree(space, co):
-    """Return the number of free variables in co."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
