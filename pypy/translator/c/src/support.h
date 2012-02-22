@@ -104,7 +104,7 @@ void RPyAbort(void) {
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 
 /* prototypes */
 

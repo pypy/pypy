@@ -471,8 +471,8 @@ class FunctionGcRootTracker(object):
         return []
 
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
-        'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
-        'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
+        'cmp', 'test', 'set', 'sahf', 'lahf', 'cld', 'std',
+        'rep', 'movs', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
@@ -485,6 +485,8 @@ class FunctionGcRootTracker(object):
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
         'paddq', 'pinsr',
+        # sign-extending moves should not produce GC pointers
+        'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers
         'movz', 
         # locked operations should not move GC pointers, at least so far
@@ -1695,6 +1697,8 @@ class GcRootTracker(object):
             }
             """
         elif self.format in ('elf64', 'darwin64'):
+            if self.format == 'elf64':   # gentoo patch: hardened systems
+                print >> output, "\t.section .note.GNU-stack,\"\",%progbits"
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
             _variant(elf64='.type pypy_asm_stackwalk, @function',

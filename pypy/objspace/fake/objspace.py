@@ -326,4 +326,5 @@ class FakeModule(Wrappable):
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
+FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.builtin = FakeModule()
