@@ -79,7 +79,7 @@ class FunctionExportInfo:
                 return args_s    # accept any argument unmodified
             signature_result = annotation(functype.TO.RESULT)
             lltypeimpl = staticmethod(llimpl)
-            
+
         return llimpl
 
     def make_llexternal_function(self, eci):
@@ -169,7 +169,7 @@ class ClassExportInfo:
         self.classdef = bookkeeper.getuniqueclassdef(self.cls)
         self.classrepr = rtyper.getrepr(model.SomeInstance(self.classdef)
                                         ).lowleveltype
-        
+
     def make_controller(self, module):
         """Returns the class repr, but also installs a Controller that
         will intercept all operations on the class."""
@@ -184,7 +184,7 @@ class ClassExportInfo:
             ClassController.new = new
         if '__init__' in self.methods:
             install_constructor(self.methods['__init__'])
-            
+
         def install_attribute(name):
             def getter(self, obj):
                 return getattr(obj, 'inst_' + name)
@@ -237,7 +237,7 @@ class ModuleExportInfo:
             class_info.make_exported_methods()
             for meth_name, method in class_info.methods.items():
                 self.add_function(meth_name, method)
-            
+
 
         # annotate functions with signatures
         for name, func_info in self.functions.items():
@@ -298,6 +298,5 @@ class ModuleExportInfo:
         for name, class_info in self.classes.items():
             structptr = class_info.make_controller(mod)
             setattr(mod, name, structptr)
-            
-        return mod
 
+        return mod

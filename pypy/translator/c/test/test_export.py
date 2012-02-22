@@ -55,7 +55,7 @@ class TestExportFunctions:
         def f(x):
             return x + 42.3
         firstmodule = self.compile_module("first", f=f)
-        
+
         # call it from a function compiled in another module
         @export()
         def g():
@@ -72,7 +72,7 @@ class TestExportFunctions:
         def f2():
             f(1.0)
         firstmodule = self.compile_module("first", f=f, f2=f2)
-        
+
         @export()
         def g():
             return firstmodule.f(41)
@@ -89,7 +89,7 @@ class TestExportFunctions:
         def f(s, t, v):
             return s.x + t.x + v
         firstmodule = self.compile_module("first", f=f, Struct=Struct)
-        
+
         @export()
         def g():
             s = Struct(3.0)
@@ -116,7 +116,7 @@ class TestExportFunctions:
             assert we_are_translated()
             return s.x + t.x + v
         self.compile_module("first", f=f, Struct=Struct)
-        
+
         @export()
         def g():
             s = Struct(3.0)
@@ -161,4 +161,3 @@ class TestExportFunctions:
             return s.x
         mod = self.compile_module("second", g=g)
         assert mod.g() == 36.2
-
