@@ -385,6 +385,7 @@ def build_exported_objects():
         "Tuple": "space.w_tuple",
         "List": "space.w_list",
         "Set": "space.w_set",
+        "FrozenSet": "space.w_frozenset",
         "Int": "space.w_int",
         "Bool": "space.w_bool",
         "Float": "space.w_float",
