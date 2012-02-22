@@ -133,6 +133,11 @@ class FakeSpace(object):
 
 class TestFastPathJIT(LLJitMixin):
     def test_simple(self):
+        """Test fast path being taken for methods"""
+
+        if capi.identify() == 'CINT':   # CINT does not support fast path
+            return
+
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
@@ -153,6 +158,11 @@ class TestFastPathJIT(LLJitMixin):
         self.check_jitcell_token_count(1)
 
     def test_overload(self):
+        """Test fast path being taken for overloaded methods"""
+
+        if capi.identify() == 'CINT':   # CINT does not support fast path
+            return
+
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
