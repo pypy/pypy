@@ -389,9 +389,9 @@ class AppTestTypes(BaseNumpyAppTest):
         assert b.m() == 12
 
     def test_long_as_index(self):
-        skip("waiting for removal of multimethods of __index__")
-        from _numpypy import int_
+        from _numpypy import int_, float64
         assert (1, 2, 3)[int_(1)] == 2
+        raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
         import sys
