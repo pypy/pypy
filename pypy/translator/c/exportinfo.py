@@ -1,9 +1,11 @@
 from pypy.annotation import model, description
+from pypy.annotation.signature import annotation
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.controllerentry import (
     Controller, ControllerEntry, SomeControlledInstance)
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.extfunc import ExtFuncEntry
 from pypy.rlib.objectmodel import instantiate, specialize
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
@@ -66,6 +68,19 @@ class FunctionExportInfo:
             raise NotImplementedError
         self.external_name = builder.db.get(funcptr)
         self.functype = lltype.typeOf(funcptr)
+
+    def register_external(self, eci):
+        llimpl = self.make_llexternal_function(eci)
+        functype = self.functype
+        class FuncEntry(ExtFuncEntry):
+            _about_ = self.func
+            name = self.name
+            def normalize_args(self, *args_s):
+                return args_s    # accept any argument unmodified
+            signature_result = annotation(functype.TO.RESULT)
+            lltypeimpl = staticmethod(llimpl)
+            
+        return llimpl
 
     def make_llexternal_function(self, eci):
         functype = self.functype
@@ -244,7 +259,7 @@ class ModuleExportInfo:
             __file__ = builder.so_name
         mod = Module()
         for name, func_info in self.functions.items():
-            funcptr = func_info.make_llexternal_function(import_eci)
+            funcptr = func_info.register_external(import_eci)
             setattr(mod, name, funcptr)
         for name, class_info in self.classes.items():
             structptr = class_info.make_controller(mod)

@@ -3,6 +3,8 @@ from pypy.translator.c.exportinfo import export, ModuleExportInfo
 from pypy.translator.c.dlltool import CLibraryBuilder
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.test.test_llinterp import interpret
 import sys
 import types
 
@@ -101,3 +103,25 @@ class TestExportFunctions:
             # Bad argument type, should not translate
             return firstmodule.f(1, 2, 3)
         raises(TypeError, self.compile_module, "third", g2=g2)
+
+    def test_without_module_container(self):
+        # It's not necessary to fetch the functions from some
+        # container, the RPython calls are automatically redirected.
+        class Struct:
+            @export(float)
+            def __init__(self, x):
+                self.x = x + 23.4
+        @export(Struct, Struct, int)
+        def f(s, t, v):
+            assert we_are_translated()
+            return s.x + t.x + v
+        self.compile_module("first", f=f, Struct=Struct)
+        
+        @export()
+        def g():
+            s = Struct(3.0)
+            t = Struct(5.5)
+            return f(s, t, 7)
+        mod = self.compile_module("second", g=g)
+        assert mod.g() == 62.3
+        # XXX How can we check that the code of f() was not translated again?
