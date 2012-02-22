@@ -1293,28 +1293,6 @@ def Py_EndInterpreter(space, tstate):
     that haven't been explicitly destroyed at that point."""
     raise NotImplementedError
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def Py_AddPendingCall(space, func):
-    """Post a notification to the Python main thread.  If successful, func will
-    be called with the argument arg at the earliest convenience.  func will be
-    called having the global interpreter lock held and can thus use the full
-    Python API and can take any action such as setting object attributes to
-    signal IO completion.  It must return 0 on success, or -1 signalling an
-    exception.  The notification function won't be interrupted to perform another
-    asynchronous notification recursively, but it can still be interrupted to
-    switch threads if the global interpreter lock is released, for example, if it
-    calls back into Python code.
-
-    This function returns 0 on success in which case the notification has been
-    scheduled.  Otherwise, for example if the notification buffer is full, it
-    returns -1 without setting any exception.
-
-    This function can be called on any thread, be it a Python thread or some
-    other system thread.  If it is a Python thread, it doesn't matter if it holds
-    the global interpreter lock or not.
-    """
-    raise NotImplementedError
-
 @cpython_api([Py_tracefunc, PyObject], lltype.Void)
 def PyEval_SetProfile(space, func, obj):
     """Set the profiler function to func.  The obj parameter is passed to the
@@ -2371,16 +2349,6 @@ def PyUnicode_Count(space, str, substr, start, end):
     This function returned an int type and used an int
     type for start and end. This might require changes in your code for
     properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Replace(space, str, substr, replstr, maxcount):
-    """Replace at most maxcount occurrences of substr in str with replstr and
-    return the resulting Unicode object. maxcount == -1 means replace all
-    occurrences.
-
-    This function used an int type for maxcount. This might
-    require changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)

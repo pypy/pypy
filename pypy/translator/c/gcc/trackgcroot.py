@@ -472,7 +472,7 @@ class FunctionGcRootTracker(object):
 
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
         'cmp', 'test', 'set', 'sahf', 'lahf', 'cld', 'std',
-        'rep', 'movs', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
+        'rep', 'movs', 'movhp', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
@@ -484,7 +484,7 @@ class FunctionGcRootTracker(object):
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
-        'paddq', 'pinsr',
+        'paddq', 'pinsr', 'pmul', 'psrl',
         # sign-extending moves should not produce GC pointers
         'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers

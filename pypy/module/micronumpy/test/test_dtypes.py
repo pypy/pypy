@@ -371,6 +371,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert type(a[1]) is numpy.float64
         assert numpy.dtype(float).type is numpy.float64
 
+        assert "{:3f}".format(numpy.float64(3)) == "3.000000"
+
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
@@ -387,9 +389,9 @@ class AppTestTypes(BaseNumpyAppTest):
         assert b.m() == 12
 
     def test_long_as_index(self):
-        skip("waiting for removal of multimethods of __index__")
-        from _numpypy import int_
+        from _numpypy import int_, float64
         assert (1, 2, 3)[int_(1)] == 2
+        raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
         import sys
