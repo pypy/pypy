@@ -80,7 +80,7 @@ class ClassExportInfo:
         self.classrepr = rtyper.getrepr(model.SomeInstance(classdef)
                                         ).lowleveltype
         
-    def make_repr(self, module):
+    def make_controller(self, module):
         """Returns the class repr, but also installs a Controller that
         will intercept all operations on the class."""
         STRUCTPTR = self.classrepr
@@ -94,10 +94,10 @@ class ClassExportInfo:
                 return constructor(*args)
 
         class Entry(ControllerEntry):
-            _about_ = STRUCTPTR
+            _about_ = self.cls
             _controller_ = ClassController
 
-        return STRUCTPTR
+        return self.cls
 
 
 class ModuleExportInfo:
@@ -205,7 +205,7 @@ class ModuleExportInfo:
             func = make_llexternal_function(import_name, funcptr, import_eci)
             setattr(mod, funcname, func)
         for clsname, class_info in self.classes.items():
-            structptr = class_info.make_repr(mod)
+            structptr = class_info.make_controller(mod)
             setattr(mod, clsname, structptr)
             
         return mod

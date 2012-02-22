@@ -85,13 +85,12 @@ class TestExportFunctions:
         @export(Struct, Struct, int)
         def f(s, t, v):
             return s.x + t.x + v
-        firstmodule = self.compile_module("first", f=f, S=Struct)
+        firstmodule = self.compile_module("first", f=f, Struct=Struct)
         
-        S = firstmodule.S
         @export()
         def g():
-            s = S(3.0)
-            t = S(5.5)
+            s = Struct(3.0)
+            t = firstmodule.Struct(5.5)
             return firstmodule.f(s, t, 7)
         secondmodule = self.compile_module("second", g=g)
         assert secondmodule.g() == 70.3
