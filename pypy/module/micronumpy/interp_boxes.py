@@ -39,10 +39,10 @@ class W_GenericBox(Wrappable):
         )
 
     def descr_str(self, space):
-        return self.descr_repr(space)
-
-    def descr_repr(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
+
+    def descr_format(self, space, w_spec):
+        return space.format(self.item(space), w_spec)
 
     def descr_int(self, space):
         box = self.convert_to(W_LongBox.get_dtype(space))
@@ -194,7 +194,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
     __str__ = interp2app(W_GenericBox.descr_str),
-    __repr__ = interp2app(W_GenericBox.descr_repr),
+    __repr__ = interp2app(W_GenericBox.descr_str),
+    __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
