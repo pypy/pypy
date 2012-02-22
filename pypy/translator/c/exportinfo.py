@@ -115,8 +115,10 @@ class FunctionExportInfo:
             _about_ = convert
 
             def compute_result_annotation(self, s_arg):
-                if not (isinstance(s_arg, SomeControlledInstance) and
-                        s_arg.s_real_obj.ll_ptrtype == TARGET):
+                if not ((isinstance(s_arg, SomeControlledInstance) and
+                         s_arg.s_real_obj.ll_ptrtype == TARGET) or
+                        (isinstance(s_arg, model.SomePtr) and
+                         s_arg.ll_ptrtype == TARGET)):
                     raise TypeError("Expected a proxy for %s" % (TARGET,))
                 return model.lltype_to_annotation(TARGET)
 
@@ -134,7 +136,7 @@ class ClassExportInfo:
         self.cls = cls
 
     def make_constructor(self):
-        self.constructor_name = "__new__%s" % (self.name,)
+        function_name = "__new__%s" % (self.name,)
         nbargs = len(self.cls.__init__.argtypes)
         args = ', '.join(['arg%d' % d for d in range(nbargs)])
         source = py.code.Source(r"""
@@ -142,13 +144,24 @@ class ClassExportInfo:
                 obj = instantiate(cls)
                 obj.__init__(%s)
                 return obj
-            """ % (self.constructor_name, args, args))
+            """ % (function_name, args, args))
         miniglobals = {'cls': self.cls, 'instantiate': instantiate}
         exec source.compile() in miniglobals
-        constructor = miniglobals[self.constructor_name]
+        constructor = miniglobals[function_name]
         constructor._always_inline_ = True
         constructor.argtypes = self.cls.__init__.argtypes
         return constructor
+
+    def make_exported_methods(self):
+        self.methods = {}
+        for meth_name, method in self.cls.__dict__.items():
+            if not getattr(method, 'exported', None):
+                continue
+            if meth_name == '__init__':
+                method = self.make_constructor()
+            else:
+                method.argtypes = (self.cls,) + method.argtypes
+            self.methods[meth_name] = method
 
     def save_repr(self, builder):
         rtyper = builder.db.translator.rtyper
@@ -162,14 +175,16 @@ class ClassExportInfo:
         will intercept all operations on the class."""
         STRUCTPTR = self.classrepr
 
-        constructor = getattr(module, self.constructor_name)
-
         class ClassController(Controller):
             knowntype = STRUCTPTR
 
+        def install_constructor(constructor):
             def new(self, *args):
                 return constructor(*args)
-
+            ClassController.new = new
+        if '__init__' in self.methods:
+            install_constructor(self.methods['__init__'])
+            
         def install_attribute(name):
             def getter(self, obj):
                 return getattr(obj, 'inst_' + name)
@@ -179,6 +194,13 @@ class ClassExportInfo:
             setattr(ClassController, 'set_' + name, getter)
         for name, attrdef in self.classdef.attrs.items():
             install_attribute(name)
+
+        def install_method(name, method):
+            def method_call(self, obj, *args):
+                method(obj, *args)
+            setattr(ClassController, 'method_' + name, method_call)
+        for name, method in self.methods.items():
+            install_method(name, method)
 
         class Entry(ControllerEntry):
             _about_ = self.cls
@@ -210,10 +232,12 @@ class ModuleExportInfo:
         """Annotate all exported functions."""
         bk = annotator.bookkeeper
 
-        # annotate constructors of exported classes
+        # annotate methods of exported classes
         for name, class_info in self.classes.items():
-            constructor = class_info.make_constructor()
-            self.add_function(constructor.__name__, constructor)
+            class_info.make_exported_methods()
+            for meth_name, method in class_info.methods.items():
+                self.add_function(meth_name, method)
+            
 
         # annotate functions with signatures
         for name, func_info in self.functions.items():

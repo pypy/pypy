@@ -143,3 +143,22 @@ class TestExportFunctions:
             return s.x
         mod = self.compile_module("second", g=g)
         assert mod.g() == 36.2
+
+    def test_method_call(self):
+        class Struct:
+            @export(float)
+            def __init__(self, x):
+                self.x = x
+            @export()
+            def increment(self):
+                self.x += 33.2
+        self.compile_module("first", Struct=Struct)
+
+        @export()
+        def g():
+            s = Struct(3.0)
+            s.increment()
+            return s.x
+        mod = self.compile_module("second", g=g)
+        assert mod.g() == 36.2
+
