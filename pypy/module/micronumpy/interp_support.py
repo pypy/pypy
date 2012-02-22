@@ -75,13 +75,13 @@ def _fromstring_bin(space, s, count, length, dtype):
     fromstring_loop(a, count, dtype, itemsize, s)
     return space.wrap(a)
 
-fromstring_driver = jit.JitDriver(greens=[], reds=['a', 'count', 'itemsize',
-                                                   'dtype', 's'])
+fromstring_driver = jit.JitDriver(greens=[], reds=['a', 'count', 'i',
+                                                   'itemsize', 'dtype', 's'])
 
 def fromstring_loop(a, count, dtype, itemsize, s):
     for i in range(count):
         fromstring_driver.jit_merge_point(a=a, count=count, dtype=dtype,
-                                          itemsize=itemsize, s=s)
+                                          itemsize=itemsize, s=s, i=i)
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
         a.dtype.setitem(a.storage, i, val)
 
