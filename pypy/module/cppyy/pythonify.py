@@ -90,30 +90,38 @@ def make_datamember(cppdm):
         setter = cppdm.set
     return property(binder, setter)
 
-def make_cppnamespace(namespace_name, cppns):
-    d = {"_cpp_proxy" : cppns}
+
+def update_cppnamespace(nsdct, metans):
+    cppns = nsdct["_cpp_proxy"]
 
     # insert static methods into the "namespace" dictionary
     for func_name in cppns.get_method_names():
         cppol = cppns.get_overload(func_name)
-        d[func_name] = make_static_function(cppns, func_name, cppol)
-
-    # create a meta class to allow properties (for static data write access)
-    metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
+        nsdct[func_name] = make_static_function(cppns, func_name, cppol)
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
     for dm in cppns.get_data_member_names():
         cppdm = cppns.get_data_member(dm)
         pydm = make_datamember(cppdm)
-        d[dm] = pydm
+        nsdct[dm] = pydm
         setattr(metans, dm, pydm)
 
+def make_cppnamespace(namespace_name, cppns, update=True):
+    nsdct = {"_cpp_proxy" : cppns }
+
+    # create a meta class to allow properties (for static data write access)
+    metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
+
+    if update:
+        update_cppnamespace(nsdct, metans)
+
     # create the python-side C++ namespace representation
-    pycppns = metans(namespace_name, (object,), d)
+    pycppns = metans(namespace_name, (object,), nsdct)
 
     # cache result and return
     _existing_cppitems[namespace_name] = pycppns
+
     return pycppns
 
 
@@ -217,11 +225,14 @@ def get_cppitem(name, scope=None):
             scope.__dict__[name] = pycppitem
 
     if not cppitem and isinstance(scope, CppyyNamespaceMeta):
-        scope._cpp_proxy.update()  # TODO: this is currently quadratic
+        global _loaded_dictionaries_isdirty
+        if _loaded_dictionaries_isdirty:
+            scope._cpp_proxy.update()  # TODO: this is currently quadratic
         cppitem = scope._cpp_proxy.get_overload(name)
         pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
         setattr(scope.__class__, name, pycppitem)
         pycppitem = getattr(scope, name)
+        _loaded_dictionaries_isdirty = False
 
     if pycppitem:
         _existing_cppitems[fullname] = pycppitem
@@ -251,7 +262,7 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
     # string comparisons
-    if pyclass.__name__ == 'std::string':
+    if pyclass.__name__ == 'std::string' or pyclass.__name__ == 'string':
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
@@ -261,14 +272,20 @@ def _pythonize(pyclass):
 
 
 _loaded_dictionaries = {}
+_loaded_dictionaries_isdirty = False
 def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
     except KeyError:
         dct = cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = dct
+        global _loaded_dictionaries_isdirty
+        _loaded_dictionaries_isdirty = True
         return dct
     
 
-# user interface objects
-gbl = make_cppnamespace("::", cppyy._type_byname(""))    # global C++ namespace
+# user interface objects (note the two-step: creation of global functions may
+# cause the creation of classes in the global namespace, so gbl must exist at
+# that point to cache them)
+gbl = make_cppnamespace("::", cppyy._type_byname(""), False)     # global C++ namespace
+update_cppnamespace(gbl.__dict__, type(gbl))
