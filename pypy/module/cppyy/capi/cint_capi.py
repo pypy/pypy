@@ -4,7 +4,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import libffi, rdynload
 
-__all__ = ['eci', 'c_load_dictionary']
+__all__ = ['identify', 'eci', 'c_load_dictionary']
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -16,6 +16,9 @@ if os.environ.get("ROOTSYS"):
 else:
     rootincpath = []
     rootlibpath = []
+
+def identify():
+    return 'CINT'
 
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that

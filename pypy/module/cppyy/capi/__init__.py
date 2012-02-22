@@ -4,6 +4,8 @@ from pypy.rlib import jit
 import reflex_capi as backend
 #import cint_capi as backend
 
+identify = backend.identify
+
 _C_OPAQUE_PTR = rffi.VOIDP
 _C_OPAQUE_NULL = lltype.nullptr(_C_OPAQUE_PTR.TO)
 
