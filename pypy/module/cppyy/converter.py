@@ -495,14 +495,13 @@ class InstancePtrConverter(TypeConverter):
     _immutable_ = True
 
     def __init__(self, space, cpptype, name):
+        from pypy.module.cppyy.interp_cppyy import W_CPPType
+        assert isinstance(cpptype, W_CPPType)
         self.cpptype = cpptype
         self.name = name
 
     def _unwrap_object(self, space, w_obj):
         from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-        w_cppinstance = space.findattr(w_obj, space.wrap("_cppinstance"))
-        if w_cppinstance:
-            w_obj = w_cppinstance
         obj = space.interpclass_w(w_obj)
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
