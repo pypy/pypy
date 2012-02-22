@@ -484,7 +484,7 @@ class FunctionGcRootTracker(object):
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
-        'paddq', 'pinsr',
+        'paddq', 'pinsr', 'pmul',
         # sign-extending moves should not produce GC pointers
         'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers
