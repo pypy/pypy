@@ -20,19 +20,17 @@ class StmLocalTracker(object):
         self.gsrc = GcSource(translator)
 
     def is_local(self, variable):
-        if isinstance(variable, Constant):
-            if not variable.value:  # the constant NULL can be considered local
-                return True
-            self.reason = 'constant'
-            return False
         try:
             srcs = self.gsrc[variable]
         except KeyError:
-            # XXX we shouldn't get here, but we do translating the whole
-            # pypy.  We should investigate at some point.  In the meantime
-            # returning False is always safe.
-            self.reason = 'variable not in gsrc!'
-            return False
+            if isinstance(variable, Constant):
+                srcs = [variable]
+            else:
+                # XXX we shouldn't get here, but we do translating the whole
+                # pypy.  We should investigate at some point.  In the meantime
+                # returning False is always safe.
+                self.reason = 'variable not in gsrc!'
+                return False
         for src in srcs:
             if isinstance(src, SpaceOperation):
                 if src.opname in RETURNS_LOCAL_POINTER:
