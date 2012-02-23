@@ -663,6 +663,8 @@ class AbstractUnwrappedStrategy(object):
         w_list.lstorage = self.erase(l)
 
     def get_empty_storage(self, sizehint):
+        if sizehint == -1:
+            return self.erase([])
         return self.erase(newlist(sizehint))
 
     def clone(self, w_list):
