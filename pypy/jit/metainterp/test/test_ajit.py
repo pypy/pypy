@@ -2943,11 +2943,18 @@ class BasicTests:
         self.check_resops(arraylen_gc=3)
 
     def test_ulonglong_mod(self):
-        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'i'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'a'])
+        class A:
+            pass
         def f(n):
             sa = i = rffi.cast(rffi.ULONGLONG, 1)
+            a = A()
             while i < rffi.cast(rffi.ULONGLONG, n):
-                myjitdriver.jit_merge_point(sa=sa, n=n, i=i)
+                a.sa = sa
+                a.i = i
+                myjitdriver.jit_merge_point(n=n, a=a)
+                sa = a.sa
+                i = a.i
                 sa += sa % i
                 i += 1
         res = self.meta_interp(f, [32])
