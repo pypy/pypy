@@ -250,7 +250,8 @@ class StmGC(GCBase):
 
 
     def collect(self, gen=0):
-        raise NotImplementedError
+        #raise NotImplementedError
+        debug_print("XXX collect() ignored")
 
     def start_transaction(self):
         self.collector.start_transaction()
