@@ -604,6 +604,7 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
+    prepare_getinteriorfield_raw = prepare_getinteriorfield_gc
 
     def prepare_setinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -618,6 +619,7 @@ class Regalloc(object):
             ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
+    prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
 
     def prepare_arraylen_gc(self, op):
         arraydescr = op.getdescr()

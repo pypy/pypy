@@ -559,6 +559,7 @@ class FieldOpAssembler(object):
         if not we_are_translated():
             signed = op.getdescr().fielddescr.is_field_signed()
             self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
+    emit_getinteriorfield_raw = emit_getinteriorfield_gc
 
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc,
@@ -580,7 +581,7 @@ class FieldOpAssembler(object):
             self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
         else:
             assert 0
-
+    emit_setinteriorfield_raw = emit_setinteriorfield_gc
 
 class ArrayOpAssembler(object):
     
