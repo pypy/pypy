@@ -185,6 +185,11 @@ class PyPyTarget(object):
                 # module if translation.continuation cannot be enabled
                 config.objspace.usemodules._continuation = False
 
+        if config.translation.stm:
+            config.objspace.usemodules.transaction = True
+        elif config.objspace.usemodules.transaction:
+            raise Exception("use --stm, not --withmod-transaction alone")
+
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False
 
