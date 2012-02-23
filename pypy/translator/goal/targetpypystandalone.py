@@ -187,6 +187,7 @@ class PyPyTarget(object):
 
         if config.translation.stm:
             config.objspace.usemodules.transaction = True
+            config.objspace.usemodules.signal = False     # XXX!
         elif config.objspace.usemodules.transaction:
             raise Exception("use --stm, not --withmod-transaction alone")
 
