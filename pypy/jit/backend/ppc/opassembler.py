@@ -938,7 +938,7 @@ class AllocOpAssembler(object):
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
         pmc = OverwritingBuilder(self.mc, jz_location, 1)
-        pmc.bc(4, 2, offset) # jump if the two values are equal
+        pmc.bc(12, 2, offset) # jump if the two values are equal
         pmc.overwrite()
 
     emit_cond_call_gc_wb_array = emit_cond_call_gc_wb

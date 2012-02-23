@@ -343,8 +343,12 @@ class AssemblerPPC(OpAssembler):
         # if r3 == 0 we skip the return above and jump to the exception path
         offset = mc.currpos() - jmp_pos
         pmc = OverwritingBuilder(mc, jmp_pos, 1)
-        pmc.bc(4, 2, offset) 
+        pmc.bc(12, 2, offset) 
         pmc.overwrite()
+        # restore the frame before leaving
+        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+        mc.mtlr(r.SCRATCH.value)
+        mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.b_abs(self.propagate_exception_path)
 
 
