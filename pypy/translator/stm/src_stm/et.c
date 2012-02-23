@@ -690,24 +690,18 @@ void stm_try_inevitable(STM_CCHARP1(why))
   if (d == NULL)
     return;
 
-#ifdef RPY_STM_DEBUG_PRINT
-  PYPY_DEBUG_START("stm-inevitable");
-#  ifdef RPY_STM_ASSERT
-  if (PYPY_HAVE_DEBUG_PRINTS)
-    {
-      fprintf(PYPY_DEBUG_FILE, "%s%s\n", why,
-              is_inevitable(d) ? "" : " <====");
-    }
-#  endif
-#endif
-
   if (is_inevitable(d))   /* also when the transaction is inactive */
     {
-#ifdef RPY_STM_DEBUG_PRINT
-      PYPY_DEBUG_STOP("stm-inevitable");
-#endif
       return;  /* I am already inevitable */
     }
+
+#ifdef RPY_STM_DEBUG_PRINT
+  PYPY_DEBUG_START("stm-inevitable");
+  if (PYPY_HAVE_DEBUG_PRINTS)
+    {
+      fprintf(PYPY_DEBUG_FILE, "%s\n", why);
+    }
+#endif
 
   while (1)
     {

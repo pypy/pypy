@@ -30,7 +30,7 @@ double    stm_read_int8f(void *, long);
 float     stm_read_int4f(void *, long);
 
 
-#ifdef RPY_STM_ASSERT
+#if 1  /* #ifdef RPY_STM_ASSERT --- but it's always useful to have this info */
 #  define STM_CCHARP1(arg)    char* arg
 #  define STM_EXPLAIN1(info)  info
 #else
