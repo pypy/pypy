@@ -50,6 +50,10 @@ def type_byname(space, name):
         else:
             cpptype = W_CPPType(space, final_name, handle)
         state.cpptype_cache[name] = cpptype
+
+        if space.config.translating and not objectmodel.we_are_translated():
+            return cpptype
+
         cpptype._find_methods()
         cpptype._find_data_members()
         return cpptype
