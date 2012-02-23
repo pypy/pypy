@@ -63,6 +63,22 @@ class TestEval(BaseApiTest):
 
         assert space.int_w(w_res) == 10
 
+    def test_evalcode(self, space, api):
+        w_f = space.appexec([], """():
+            def f(*args):
+                assert isinstance(args, tuple)
+                return len(args) + 8
+            return f
+            """)
+
+        w_t = space.newtuple([space.wrap(1), space.wrap(2)])
+        w_globals = space.newdict()
+        w_locals = space.newdict()
+        space.setitem(w_locals, space.wrap("args"), w_t)
+        w_res = api.PyEval_EvalCode(w_f.code, w_globals, w_locals)
+
+        assert space.int_w(w_res) == 10
+
     def test_run_simple_string(self, space, api):
         def run(code):
             buf = rffi.str2charp(code)

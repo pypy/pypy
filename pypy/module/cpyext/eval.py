@@ -5,6 +5,7 @@ from pypy.module.cpyext.api import (
     cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
+from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.__builtin__ import compiling
 
 PyCompilerFlags = cpython_struct(
@@ -47,6 +48,17 @@ def PyEval_GetGlobals(space):
     if caller is None:
         return None
     return borrow_from(None, caller.w_globals)
+
+@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
+def PyEval_EvalCode(space, w_code, w_globals, w_locals):
+    """This is a simplified interface to PyEval_EvalCodeEx(), with just
+    the code object, and the dictionaries of global and local variables.
+    The other arguments are set to NULL."""
+    if w_globals is None:
+        w_globals = space.w_None
+    if w_locals is None:
+        w_locals = space.w_None
+    return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_CallObject(space, w_obj, w_arg):

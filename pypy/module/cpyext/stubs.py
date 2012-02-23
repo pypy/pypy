@@ -2514,13 +2514,6 @@ def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flag
     returns."""
     raise NotImplementedError
 
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
-def PyEval_EvalCode(space, co, globals, locals):
-    """This is a simplified interface to PyEval_EvalCodeEx(), with just
-    the code object, and the dictionaries of global and local variables.
-    The other arguments are set to NULL."""
-    raise NotImplementedError
-
 @cpython_api([PyCodeObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
 def PyEval_EvalCodeEx(space, co, globals, locals, args, argcount, kws, kwcount, defs, defcount, closure):
     """Evaluate a precompiled code object, given a particular environment for its
