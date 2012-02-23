@@ -1,4 +1,5 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.astcompiler import consts
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
@@ -11,6 +12,12 @@ from pypy.module.__builtin__ import compiling
 PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),))
 PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
+
+PyCF_MASK = (consts.CO_FUTURE_DIVISION | 
+             consts.CO_FUTURE_ABSOLUTE_IMPORT |
+             consts.CO_FUTURE_WITH_STATEMENT |
+             consts.CO_FUTURE_PRINT_FUNCTION |
+             consts.CO_FUTURE_UNICODE_LITERALS)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
@@ -194,3 +201,23 @@ def Py_CompileStringFlags(space, source, filename, start, flagsptr):
     else:
         flags = 0
     return compile_string(space, source, filename, start, flags)
+
+@cpython_api([PyCompilerFlagsPtr], rffi.INT_real, error=CANNOT_FAIL)
+def PyEval_MergeCompilerFlags(space, cf):
+    """This function changes the flags of the current evaluation
+    frame, and returns true on success, false on failure."""
+    result = cf.c_cf_flags != 0
+    current_frame = space.getexecutioncontext().gettopframe_nohidden()
+    if current_frame:
+        codeflags = current_frame.pycode.co_flags
+        compilerflags = codeflags & PyCF_MASK
+        if compilerflags:
+            result = 1;
+            cf.c_cf_flags |= compilerflags
+        # No future keyword at the moment
+        # if codeflags & CO_GENERATOR_ALLOWED:
+        #     result = 1
+        #     cf.c_cf_flags |= CO_GENERATOR_ALLOWED
+    return result
+
+        

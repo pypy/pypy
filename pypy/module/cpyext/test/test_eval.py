@@ -283,3 +283,21 @@ class AppTestCall(AppTestCpythonExtensionBase):
         print dir(mod)
         print mod.__dict__
         assert mod.f(42) == 47
+
+    def test_merge_compiler_flags(self):
+        module = self.import_extension('foo', [
+            ("get_flags", "METH_NOARGS",
+             """
+                PyCompilerFlags flags;
+                flags.cf_flags = 0;
+                int result = PyEval_MergeCompilerFlags(&flags);
+                return Py_BuildValue("ii", result, flags.cf_flags);
+             """),
+            ])
+        assert module.get_flags() == (0, 0)
+
+        ns = {'module':module}
+        exec """from __future__ import division    \nif 1:
+                def nested_flags():
+                    return module.get_flags()""" in ns
+        assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION

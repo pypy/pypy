@@ -2527,12 +2527,6 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     throw() methods of generator objects."""
     raise NotImplementedError
 
-@cpython_api([PyCompilerFlags], rffi.INT_real, error=CANNOT_FAIL)
-def PyEval_MergeCompilerFlags(space, cf):
-    """This function changes the flags of the current evaluation frame, and returns
-    true on success, false on failure."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyWeakref_Check(space, ob):
     """Return true if ob is either a reference or proxy object.
