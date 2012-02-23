@@ -43,6 +43,7 @@ class W_IOBase(Wrappable):
         self.space = space
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
+        register_flushable_stream(space, self)
 
     def getdict(self, space):
         return self.w_dict
@@ -98,6 +99,8 @@ class W_IOBase(Wrappable):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+            flushable_streams = get_flushable_streams(space)
+            del flushable_streams[self]
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -303,3 +306,32 @@ W_RawIOBase.typedef = TypeDef(
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
 )
+
+
+# ------------------------------------------------------------
+# functions to make sure that all streams are flushed on exit
+# ------------------------------------------------------------
+
+class IoState:
+    def __init__(self, space):
+        self.flushable_streams = {}
+
+def get_flushable_streams(space):
+    return space.fromcache(IoState).flushable_streams
+
+def register_flushable_stream(space, w_stream):
+    streams = get_flushable_streams(space)
+    streams[w_stream] = None
+
+def flush_all_streams(space):
+    flushable_streams = get_flushable_streams(space)
+    while flushable_streams:
+        for w_stream in flushable_streams.keys():
+            assert isinstance(w_stream, W_IOBase)
+            try:
+                del flushable_streams[w_stream]
+            except KeyError:
+                pass    # key was removed in the meantime
+            else:
+                space.call_method(w_stream, 'flush') # XXX: ignore IOErrors?
+                    
