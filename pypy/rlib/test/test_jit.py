@@ -2,6 +2,7 @@ import py
 from pypy.conftest import option
 from pypy.rlib.jit import hint, we_are_jitted, JitDriver, elidable_promote
 from pypy.rlib.jit import JitHintError, oopspec, isconstant
+from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
@@ -177,6 +178,11 @@ class BaseTestJIT(BaseRtypingTest):
         e = raises(AssertionError,
                    myjitdriver.jit_merge_point, i1=42, r1=A(), r2=None, f1=3.5)
         assert "got ['2:REF', '1:INT', '2:REF', '3:FLOAT']" in repr(e.value)
+
+    def test_argument_order_accept_r_uint(self):
+        # this used to fail on 64-bit, because r_uint == r_ulonglong
+        myjitdriver = JitDriver(greens=['i1'], reds=[])
+        myjitdriver.jit_merge_point(i1=r_uint(42))
 
 
 class TestJITLLtype(BaseTestJIT, LLRtypeMixin):
