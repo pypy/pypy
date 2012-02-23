@@ -410,7 +410,7 @@ class FlowExecutionContext(ExecutionContext):
         w_new = Constant(newvalue)
         f = self.crnt_frame
         stack_items_w = f.locals_stack_w
-        for i in range(f.valuestackdepth-1, f.nlocals-1, -1):
+        for i in range(f.valuestackdepth-1, f.pycode.co_nlocals-1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:

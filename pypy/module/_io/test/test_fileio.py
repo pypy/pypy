@@ -134,7 +134,10 @@ class AppTestFileIO:
         assert a == b'a\nbxxxxxxx'
 
     def test_nonblocking_read(self):
-        import os, fcntl
+        try:
+            import os, fcntl
+        except ImportError:
+            skip("need fcntl to set nonblocking mode")
         r_fd, w_fd = os.pipe()
         # set nonblocking
         fcntl.fcntl(r_fd, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -157,3 +160,20 @@ class AppTestFileIO:
         f.close()
         assert repr(f) == "<_io.FileIO [closed]>"
 
+def test_flush_at_exit():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+    from pypy.tool.udir import udir
+
+    tmpfile = udir.join('test_flush_at_exit')
+    config = make_config(conftest.option)
+    space = make_objspace(config)
+    space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
+        import io
+        f = io.open(tmpfile, 'w')
+        f.write('42')
+        # no flush() and no close()
+        import sys; sys._keepalivesomewhereobscure = f
+    """)
+    space.finish()
+    assert tmpfile.read() == '42'

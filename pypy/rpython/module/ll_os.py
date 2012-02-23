@@ -43,12 +43,15 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     arglist = ['arg%d' % (i,) for i in range(len(signature))]
     transformed_arglist = arglist[:]
     for i, arg in enumerate(signature):
-        if arg is unicode:
+        if arg in (unicode, unicode0):
             transformed_arglist[i] = transformed_arglist[i] + '.as_unicode()'
 
     args = ', '.join(arglist)
     transformed_args = ', '.join(transformed_arglist)
-    main_arg = 'arg%d' % (signature.index(unicode),)
+    try:
+        main_arg = 'arg%d' % (signature.index(unicode0),)
+    except ValueError:
+        main_arg = 'arg%d' % (signature.index(unicode),)
 
     source = py.code.Source("""
     def %(func_name)s(%(args)s):
@@ -64,7 +67,7 @@ def monkeypatch_rposix(posixfunc, unicodefunc, signature):
     exec source.compile() in miniglobals
     new_func = miniglobals[func_name]
     specialized_args = [i for i in range(len(signature))
-                        if signature[i] in (unicode, None)]
+                        if signature[i] in (unicode, unicode0, None)]
     new_func = specialize.argtype(*specialized_args)(new_func)
 
     # Monkeypatch the function in pypy.rlib.rposix
@@ -823,7 +826,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_open_oofakeimpl(path, flags, mode):
             return os.open(OOSupport.from_rstr(path), flags, mode)
 
-        return extdef([str0, int, int], int, traits.ll_os_name('open'),
+        return extdef([traits.str0, int, int], int, traits.ll_os_name('open'),
                       llimpl=os_open_llimpl, oofakeimpl=os_open_oofakeimpl)
 
     @registering_if(os, 'getloadavg')

@@ -1334,6 +1334,15 @@ class ObjSpace(object):
                 assert False, "unicode_w was called with a bytes string"
         return w_obj.unicode_w(self)
 
+    def unicode0_w(self, w_obj):
+        "Like unicode_w, but rejects strings with NUL bytes."
+        from pypy.rlib import rstring
+        result = w_obj.unicode_w(self)
+        if u'\x00' in result:
+            raise OperationError(self.w_TypeError, self.wrap(
+                    'argument must be a unicode string without NUL characters'))
+        return rstring.assert_str0(result)
+
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
         # 'unicode'.
@@ -1627,6 +1636,9 @@ ObjSpace.ExceptionTable = [
     'UnicodeEncodeError',
     'UnicodeDecodeError',
     ]
+    
+if sys.platform.startswith("win"):
+    ObjSpace.ExceptionTable += ['WindowsError']
 
 ## Irregular part of the interface:
 #

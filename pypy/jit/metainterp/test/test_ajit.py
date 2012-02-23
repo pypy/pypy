@@ -3706,6 +3706,18 @@ class BaseLLtypeTests(BasicTests):
         # here it works again
         self.check_operations_history(guard_class=0, record_known_class=1)
 
+    def test_generator(self):
+        def g(n):
+            yield n+1
+            yield n+2
+            yield n+3
+        def f(n):
+            gen = g(n)
+            return gen.next() * gen.next() * gen.next()
+        res = self.interp_operations(f, [10])
+        assert res == 11 * 12 * 13
+        self.check_operations_history(int_add=3, int_mul=2)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):

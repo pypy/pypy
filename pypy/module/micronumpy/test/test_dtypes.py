@@ -371,6 +371,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert type(a[1]) is numpy.float64
         assert numpy.dtype(float).type is numpy.float64
 
+        assert "{:3f}".format(numpy.float64(3)) == "3.000000"
+
         assert numpy.float64(2.0) == 2.0
         assert numpy.float64('23.4') == numpy.float64(23.4)
         raises(ValueError, numpy.float64, '23.2df')
@@ -387,9 +389,9 @@ class AppTestTypes(BaseNumpyAppTest):
         assert b.m() == 12
 
     def test_long_as_index(self):
-        skip("waiting for removal of multimethods of __index__")
-        from _numpypy import int_
+        from _numpypy import int_, float64
         assert (1, 2, 3)[int_(1)] == 2
+        raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
         import sys
@@ -401,3 +403,33 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             assert issubclass(int64, int)
             assert int_ is int64
+
+    def test_operators(self):
+        from operator import truediv
+        from _numpypy import float64, int_, True_, False_
+
+        assert 5 / int_(2) == int_(2)
+        assert truediv(int_(3), int_(2)) == float64(1.5)
+        assert truediv(3, int_(2)) == float64(1.5)
+        assert int_(8) % int_(3) == int_(2)
+        assert 8 % int_(3) == int_(2)
+        assert divmod(int_(8), int_(3)) == (int_(2), int_(2))
+        assert divmod(8, int_(3)) == (int_(2), int_(2))
+        assert 2 ** int_(3) == int_(8)
+        assert int_(3) << int_(2) == int_(12)
+        assert 3 << int_(2) == int_(12)
+        assert int_(8) >> int_(2) == int_(2)
+        assert 8 >> int_(2) == int_(2)
+        assert int_(3) & int_(1) == int_(1)
+        assert 2 & int_(3) == int_(2)
+        assert int_(2) | int_(1) == int_(3)
+        assert 2 | int_(1) == int_(3)
+        assert int_(3) ^ int_(5) == int_(6)
+        assert True_ ^ False_ is True_
+        assert 5 ^ int_(3) == int_(6)
+
+        assert +int_(3) == int_(3)
+        assert ~int_(3) == int_(-4)
+
+        raises(TypeError, lambda: float64(3) & 1)
+

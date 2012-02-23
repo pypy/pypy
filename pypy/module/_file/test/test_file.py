@@ -265,6 +265,13 @@ class AppTestNonblocking(object):
 
         if option.runappdirect:
             py.test.skip("works with internals of _file impl on py.py")
+        import platform
+        if platform.system() == 'Windows':
+            # XXX This test crashes until someone implements something like
+            # XXX verify_fd from
+            # XXX http://hg.python.org/cpython/file/80ddbd822227/Modules/posixmodule.c#l434
+            # XXX and adds it to fopen
+            assert False
 
         state = [0]
         def read(fd, n=None):

@@ -131,18 +131,18 @@ typedef struct bufferinfo {
 
     /* This is Py_ssize_t so it can be
        pointed to by strides in simple case.*/
-    /* Py_ssize_t itemsize; */
-    /* int readonly; */
-    /* int ndim; */
-    /* char *format; */
-    /* Py_ssize_t *shape; */
-    /* Py_ssize_t *strides; */
-    /* Py_ssize_t *suboffsets; */
+    Py_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    Py_ssize_t *shape;
+    Py_ssize_t *strides;
+    Py_ssize_t *suboffsets;
 
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    /* void *internal; */
+    void *internal;
 } Py_buffer;
 
 

@@ -33,7 +33,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
-                             have_debug_prints)
+                             have_debug_prints, fatalerror_notb)
 from pypy.rlib import rgc
 from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
@@ -104,6 +104,7 @@ class Assembler386(object):
         self._debug = v
 
     def setup_once(self):
+        self._check_sse2()
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
@@ -160,6 +161,28 @@ class Assembler386(object):
                     prefix = 'entry ' + str(struct.number)
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
+
+    _CHECK_SSE2_FUNC_PTR = lltype.Ptr(lltype.FuncType([], lltype.Signed))
+
+    def _check_sse2(self):
+        if WORD == 8:
+            return     # all x86-64 CPUs support SSE2
+        if not self.cpu.supports_floats:
+            return     # the CPU doesn't support float, so we don't need SSE2
+        #
+        from pypy.jit.backend.x86.detect_sse2 import INSNS
+        mc = codebuf.MachineCodeBlockWrapper()
+        for c in INSNS:
+            mc.writechar(c)
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        fnptr = rffi.cast(self._CHECK_SSE2_FUNC_PTR, rawstart)
+        features = fnptr()
+        if bool(features & (1<<25)) and bool(features & (1<<26)):
+            return     # CPU supports SSE2
+        fatalerror_notb(
+          "This version of PyPy was compiled for a x86 CPU supporting SSE2.\n"
+          "Your CPU is too old.  Please translate a PyPy with the option:\n"
+          "--jit-backend=x86-without-sse2")
 
     def _build_float_constants(self):
         datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr, [])
