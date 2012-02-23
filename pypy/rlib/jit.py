@@ -474,9 +474,10 @@ class JitDriver(object):
             for var, value in livevars.items():
                 if var not in self._heuristic_order:
                     if isinstance(value, (r_longlong, r_ulonglong)):
-                        assert 0, ("should not pass a r_longlong argument for "
-                                   "now, because on 32-bit machines it would "
-                                   "need to be ordered as a FLOAT")
+                        pass
+                        #assert 0, ("should not pass a r_longlong argument for "
+                        #           "now, because on 32-bit machines it would "
+                        #           "need to be ordered as a FLOAT")
                     elif isinstance(value, (int, long, r_singlefloat)):
                         kind = '1:INT'
                     elif isinstance(value, float):
