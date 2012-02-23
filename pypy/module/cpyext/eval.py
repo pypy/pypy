@@ -138,8 +138,9 @@ def PyRun_StringFlags(space, source, start, w_globals, w_locals, flagsptr):
 
     Returns the result of executing the code as a Python object, or NULL if an
     exception was raised."""
+    source = rffi.charp2str(source)
     if flagsptr:
-        flags = flagsptr.c_cf_flags
+        flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
     else:
         flags = 0
     w_code = compile_string(space, source, "<string>", start, flags)
@@ -197,7 +198,7 @@ def Py_CompileStringFlags(space, source, filename, start, flagsptr):
     source = rffi.charp2str(source)
     filename = rffi.charp2str(filename)
     if flagsptr:
-        flags = flagsptr.c_cf_flags
+        flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
     else:
         flags = 0
     return compile_string(space, source, filename, start, flags)
@@ -206,18 +207,20 @@ def Py_CompileStringFlags(space, source, filename, start, flagsptr):
 def PyEval_MergeCompilerFlags(space, cf):
     """This function changes the flags of the current evaluation
     frame, and returns true on success, false on failure."""
-    result = cf.c_cf_flags != 0
+    flags = rffi.cast(lltype.Signed, cf.c_cf_flags)
+    result = flags != 0
     current_frame = space.getexecutioncontext().gettopframe_nohidden()
     if current_frame:
         codeflags = current_frame.pycode.co_flags
         compilerflags = codeflags & PyCF_MASK
         if compilerflags:
-            result = 1;
-            cf.c_cf_flags |= compilerflags
+            result = 1
+            flags |= compilerflags
         # No future keyword at the moment
         # if codeflags & CO_GENERATOR_ALLOWED:
         #     result = 1
-        #     cf.c_cf_flags |= CO_GENERATOR_ALLOWED
+        #     flags |= CO_GENERATOR_ALLOWED
+    cf.c_cf_flags = rffi.cast(rffi.INT, flags)
     return result
 
         
