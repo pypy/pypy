@@ -226,7 +226,7 @@ def get_cppitem(name, scope=None):
 
     if not cppitem and isinstance(scope, CppyyNamespaceMeta):
         global _loaded_dictionaries_isdirty
-        if _loaded_dictionaries_isdirty:
+        if _loaded_dictionaries_isdirty:  # TODO: this should've been per namespace
             scope._cpp_proxy.update()  # TODO: this is currently quadratic
         cppitem = scope._cpp_proxy.get_overload(name)
         pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
@@ -254,6 +254,7 @@ def _pythonize(pyclass):
     if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
         def __iter__(self):
             iter = self.begin()
+            # TODO: make gnu-independent
             while gbl.__gnu_cxx.__ne__(iter, self.end()):
                 yield iter.__deref__()
                 iter.__preinc__()
@@ -268,11 +269,16 @@ def _pythonize(pyclass):
                 return self.c_str() == other.c_str()
             else:
                 return self.c_str() == other
-        pyclass.__eq__ = eq 
+        pyclass.__eq__ = eq
+
+    # TODO: clean this up
+    # fixup lack of __getitem__ if no const return
+    if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem___'):
+        pyclass.__getitem__ = pyclass.__setitem__
 
 
 _loaded_dictionaries = {}
-_loaded_dictionaries_isdirty = False
+_loaded_dictionaries_isdirty = False    # should be per namespace
 def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
@@ -289,3 +295,6 @@ def load_reflection_info(name):
 # that point to cache them)
 gbl = make_cppnamespace("::", cppyy._type_byname(""), False)     # global C++ namespace
 update_cppnamespace(gbl.__dict__, type(gbl))
+
+# mostly for the benefit of CINT, which treats std as special
+gbl.std = make_cppnamespace("std", cppyy._type_byname("std"), False)

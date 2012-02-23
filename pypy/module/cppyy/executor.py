@@ -145,7 +145,7 @@ class UnsignedLongExecutor(LongExecutor):
         result = libffifunc.call(argchain, rffi.ULONG)
         return space.wrap(result)
 
-class ConstIntRefExecutor(LongExecutor):
+class ConstIntRefExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
 
@@ -153,11 +153,15 @@ class ConstIntRefExecutor(LongExecutor):
         intptr = rffi.cast(rffi.INTP, result)
         return space.wrap(intptr[0])
 
+    def execute(self, space, w_returntype, func, cppthis, num_args, args):
+        result = capi.c_call_r(func.cpptype.handle, func.method_index, cppthis, num_args, args)
+        return self._wrap_result(space, result)
+
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         result = libffifunc.call(argchain, rffi.INTP)
         return space.wrap(result[0])
 
-class ConstLongRefExecutor(LongExecutor):
+class ConstLongRefExecutor(ConstIntRefExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
 

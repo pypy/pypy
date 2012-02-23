@@ -362,7 +362,7 @@ class CStringConverter(TypeConverter):
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
         typecode = rffi.cast(rffi.CCHARP,
             capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'a'
+        typecode[0] = 'o'
 
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
@@ -647,11 +647,17 @@ _converters["void*&"]                   = VoidPtrRefConverter
 
 # special cases
 _converters["std::string"]                       = StdStringConverter
+_converters["string"]                            = _converters["std::string"]
 _converters["std::basic_string<char>"]           = StdStringConverter
+_converters["basic_string<char>"]                = _converters["std::basic_string<char>"]
 _converters["const std::string&"]                = StdStringConverter     # TODO: shouldn't copy
+_converters["const string&"]                     = _converters["const std::string&"]
 _converters["const std::basic_string<char>&"]    = StdStringConverter
+_converters["const basic_string<char>&"]         = _converters["const std::basic_string<char>&"]
 _converters["std::string&"]                      = StdStringRefConverter
+_converters["string&"]                           = _converters["std::string&"]
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
+_converters["basic_string<char>&"]               = _converters["std::basic_string<char>&"]
 
 # it should be possible to generate these:
 _a_converters["short int*"]               = ShortPtrConverter

@@ -132,6 +132,11 @@ c_call_d = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
     compilation_info=backend.eci)
 
+c_call_r = rffi.llexternal(
+    "cppyy_call_r",
+    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.VOIDP,
+    compilation_info=backend.eci)
+
 c_call_s = rffi.llexternal(
     "cppyy_call_s",
     [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,

@@ -151,32 +151,6 @@ void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
 
 
 /* method/function dispatching -------------------------------------------- */
-long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args,
-                  cppyy_typehandle_t rettype) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-
-    G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
-    G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
-    assert(libp->paran == numargs);
-    fixup_args(libp);
-
-    // TODO: access to store_struct_offset won't work on Windows
-    G__setgvp((long)self);
-    long store_struct_offset = G__store_struct_offset;
-    G__store_struct_offset = (long)self;
-
-    G__value result;
-    G__setnull(&result);
-    meth(&result, 0, libp, 0);
-
-    G__store_struct_offset = store_struct_offset;
-
-    G__pop_tempobject_nodel();
-    return G__int(result);
-}
-
 static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
         int method_index, cppyy_object_t self, int numargs, void* args) {
     
@@ -217,6 +191,14 @@ static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
     func(&result, 0, libp, 0);
 
     return result;
+}
+
+long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
+                  cppyy_object_t self, int numargs, void* args,
+                  cppyy_typehandle_t) {
+    G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
+    G__pop_tempobject_nodel();
+    return G__int(result);
 }
 
 void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
@@ -264,8 +246,25 @@ double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
                     cppyy_object_t self, int numargs, void* args) {
     G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
     return G__double(result);
-}   
+}
 
+void* cppyy_call_r(cppyy_typehandle_t handle, int method_index,
+                  cppyy_object_t self, int numargs, void* args) {
+    G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
+    return (void*)result.ref;
+}
+
+char* cppyy_call_s(cppyy_typehandle_t handle, int method_index,
+                   cppyy_object_t self, int numargs, void* args) {
+    G__value result = cppyy_call_T(handle, method_index, self, numargs, args);
+    G__pop_tempobject_nodel();
+    if (result.ref && *(long*)result.ref) {
+       char* charp = cppstring_to_cstring(*(std::string*)result.ref);
+       delete (std::string*)result.ref;
+       return charp;
+    }
+    return cppstring_to_cstring("");
+}
 
 cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t /*handle*/, int /*method_index*/) {
     return (cppyy_methptrgetter_t)NULL;
@@ -505,6 +504,18 @@ extern "C" unsigned long long cppyy_strtoull(const char* str) {
 
 void cppyy_free(void* ptr) {
     free(ptr);
+}
+
+void* cppyy_charp2stdstring(const char* str) {
+    return new std::string(str);
+}
+
+void* cppyy_stdstring2stdstring(void* ptr) {
+    return new std::string(*(std::string*)ptr);
+}
+
+void cppyy_free_stdstring(void* ptr) {
+    delete (std::string*)ptr;
 }
 
 void* cppyy_load_dictionary(const char* lib_name) {

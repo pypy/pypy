@@ -155,6 +155,11 @@ double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
     return cppyy_call_T<double>(handle, method_index, self, numargs, args);
 }   
 
+void* cppyy_call_r(cppyy_typehandle_t handle, int method_index,
+                  cppyy_object_t self, int numargs, void* args) {
+   return (void*)cppyy_call_T<long>(handle, method_index, self, numargs, args);
+}
+
 char* cppyy_call_s(cppyy_typehandle_t handle, int method_index,
                    cppyy_object_t self, int numargs, void* args) {
     std::string result("");
@@ -420,4 +425,3 @@ void* cppyy_stdstring2stdstring(void* ptr) {
 void cppyy_free_stdstring(void* ptr) {
     delete (std::string*)ptr;
 }
-

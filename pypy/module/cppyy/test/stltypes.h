@@ -22,9 +22,11 @@ public:
 };
 
 
+#ifndef __CINT__
 //- explicit instantiations of used types
 STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, int)
 STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, just_a_class)
+#endif
 
 
 //- class with lots of std::string handling
