@@ -2,9 +2,10 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
-    Py_single_input, Py_file_input, Py_eval_input)
+    Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags)
 from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.astcompiler import consts
 from pypy.tool.udir import udir
 import sys, os
 
@@ -111,6 +112,16 @@ class TestEval(BaseApiTest):
                    w_globals, w_globals) == space.w_None
         assert 42 * 43 == space.unwrap(
             api.PyObject_GetItem(w_globals, space.wrap("a")))
+
+    def test_run_string_flags(self, space, api):
+        flags = lltype.malloc(PyCompilerFlags, flavor='raw')
+        flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
+        w_globals = space.newdict()
+        api.PyRun_StringFlags("a = u'caf\xc3\xa9'", Py_single_input,
+                              w_globals, w_globals, flags)
+        w_a = space.getitem(w_globals, space.wrap("a"))
+        assert space.unwrap(w_a) == u'caf\xe9'
+        lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space, api):
         filepath = udir / "cpyext_test_runfile.py"

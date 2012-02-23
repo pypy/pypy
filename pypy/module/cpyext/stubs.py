@@ -2483,17 +2483,6 @@ def PyParser_SimpleParseFileFlags(space, fp, filename, start, flags):
     source code is read from fp instead of an in-memory string."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject, PyCompilerFlags], PyObject)
-def PyRun_StringFlags(space, str, start, globals, locals, flags):
-    """Execute Python source code from str in the context specified by the
-    dictionaries globals and locals with the compiler flags specified by
-    flags.  The parameter start specifies the start token that should be used to
-    parse the source code.
-
-    Returns the result of executing the code as a Python object, or NULL if an
-    exception was raised."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real], PyObject)
 def PyRun_FileEx(space, fp, filename, start, globals, locals, closeit):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving

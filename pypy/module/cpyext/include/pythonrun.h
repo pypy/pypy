@@ -19,6 +19,8 @@ typedef struct {
     int cf_flags;  /* bitmask of CO_xxx flags relevant to future */
 } PyCompilerFlags;
 
+#define PyCF_SOURCE_IS_UTF8  0x0100
+
 #define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
 
 #ifdef __cplusplus
