@@ -79,11 +79,13 @@ fromstring_driver = jit.JitDriver(greens=[], reds=['count', 'i', 'itemsize',
                                                    'dtype', 's', 'a'])
 
 def fromstring_loop(a, count, dtype, itemsize, s):
-    for i in range(count):
+    i = 0
+    while i < count:
         fromstring_driver.jit_merge_point(a=a, count=count, dtype=dtype,
                                           itemsize=itemsize, s=s, i=i)
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
         a.dtype.setitem(a.storage, i, val)
+        i += 1
 
 @unwrap_spec(s=str, count=int, sep=str)
 def fromstring(space, s, w_dtype=None, count=-1, sep=''):
