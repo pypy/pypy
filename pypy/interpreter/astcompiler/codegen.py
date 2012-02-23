@@ -973,6 +973,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = gens[gen_index]
         assert isinstance(gen, ast.comprehension)
         gen.iter.walkabout(self)
+        self.emit_op(ops.BUILD_LIST_FROM_ARG)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
         self.emit_jump(ops.FOR_ITER, anchor)
@@ -998,7 +999,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        self.emit_op_arg(ops.BUILD_LIST, 0)
         self._listcomp_generator(lc.generators, 0, lc.elt)
 
     def _comp_generator(self, node, generators, gen_index):
