@@ -20,7 +20,11 @@ class StmLocalTracker(object):
         self.gsrc = GcSource(translator)
 
     def is_local(self, variable):
-        assert isinstance(variable, Variable)
+        if isinstance(variable, Constant):
+            if not variable.value:  # the constant NULL can be considered local
+                return True
+            self.reason = 'constant'
+            return False
         try:
             srcs = self.gsrc[variable]
         except KeyError:

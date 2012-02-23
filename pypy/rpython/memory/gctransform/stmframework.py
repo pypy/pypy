@@ -18,6 +18,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_writebarrier_ptr = getfn(
             self.gcdata.gc.stm_writebarrier,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
+        self.stm_normalize_global_ptr = getfn(
+            self.gcdata.gc.stm_normalize_global,
+            [annmodel.SomeAddress()], annmodel.SomeAddress())
         self.stm_start_ptr = getfn(
             self.gcdata.gc.start_transaction.im_func,
             [s_gc], annmodel.s_None)
@@ -49,6 +52,15 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
                                [self.stm_writebarrier_ptr, v_adr],
                                resulttype=llmemory.Address)
         hop.genop('cast_adr_to_ptr', [v_localadr], resultvar=op.result)
+
+    def gct_stm_normalize_global(self, hop):
+        op = hop.spaceop
+        v_adr = hop.genop('cast_ptr_to_adr',
+                          [op.args[0]], resulttype=llmemory.Address)
+        v_globaladr = hop.genop("direct_call",
+                                [self.stm_normalize_global_ptr, v_adr],
+                                resulttype=llmemory.Address)
+        hop.genop('cast_adr_to_ptr', [v_globaladr], resultvar=op.result)
 
     def gct_stm_start_transaction(self, hop):
         hop.genop("direct_call", [self.stm_start_ptr, self.c_const_gc])

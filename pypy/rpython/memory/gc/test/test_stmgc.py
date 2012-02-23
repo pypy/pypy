@@ -564,3 +564,27 @@ class TestBasic:
         s2 = llmemory.cast_adr_to_ptr(wr2.wadr, lltype.Ptr(S))
         assert s2.a == 4242
         assert s2 == tr1.s1   # tr1 is a root, so not copied yet
+
+    def test_normalize_global_null(self):
+        a = self.gc.stm_normalize_global(llmemory.NULL)
+        assert a == llmemory.NULL
+
+    def test_normalize_global_already_global(self):
+        sr1, sr1_adr = self.malloc(SR)
+        a = self.gc.stm_normalize_global(sr1_adr)
+        assert a == sr1_adr
+
+    def test_normalize_global_purely_local(self):
+        self.select_thread(1)
+        sr1, sr1_adr = self.malloc(SR)
+        a = self.gc.stm_normalize_global(sr1_adr)
+        assert a == sr1_adr
+
+    def test_normalize_global_local_copy(self):
+        sr1, sr1_adr = self.malloc(SR)
+        self.select_thread(1)
+        tr1_adr = self.gc.stm_writebarrier(sr1_adr)
+        a = self.gc.stm_normalize_global(sr1_adr)
+        assert a == sr1_adr
+        a = self.gc.stm_normalize_global(tr1_adr)
+        assert a == sr1_adr

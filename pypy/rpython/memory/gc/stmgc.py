@@ -320,6 +320,11 @@ class StmGC(GCBase):
         #
         @always_inline
         def stm_writebarrier(obj):
+            """The write barrier must be called on any object that may be
+            a global.  It looks for, and possibly makes, a local copy of
+            this object.  The result of this call is the local copy ---
+            or 'obj' itself if it is already local.
+            """
             if self.header(obj).tid & GCFLAG_GLOBAL != 0:
                 obj = _stm_write_barrier_global(obj)
             return obj
@@ -380,6 +385,23 @@ class StmGC(GCBase):
             stm_operations.tldict_add(obj, localobj)
             #
             return localobj
+        #
+        def stm_normalize_global(obj):
+            """Normalize a pointer for the purpose of equality
+            comparison with another pointer.  If 'obj' is the local
+            version of an existing global object, then returns the
+            global object.  Don't use for e.g. hashing, because if 'obj'
+            is a purely local object, it just returns 'obj' --- which
+            will change at the next commit.
+            """
+            if not obj:
+                return obj
+            tid = self.header(obj).tid
+            if tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) != GCFLAG_WAS_COPIED:
+                return obj
+            # the only relevant case: it's the local copy of a global object
+            return self.header(obj).version
+        self.stm_normalize_global = stm_normalize_global
 
     # ----------
 

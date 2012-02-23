@@ -102,11 +102,10 @@ class STMTransformer(object):
             self.count_get_immutable += 1
             newoperations.append(op)
             return
-        if isinstance(op.args[0], Variable):
-            if self.localtracker.is_local(op.args[0]):
-                self.count_get_local += 1
-                newoperations.append(op)
-                return
+        if self.localtracker.is_local(op.args[0]):
+            self.count_get_local += 1
+            newoperations.append(op)
+            return
         self.count_get_nonlocal += 1
         op1 = SpaceOperation(stmopname, op.args, op.result)
         newoperations.append(op1)
@@ -153,8 +152,7 @@ class STMTransformer(object):
         self.transform_set(newoperations, op)
 
     def stt_stm_writebarrier(self, newoperations, op):
-        if (isinstance(op.args[0], Variable) and
-            self.localtracker.is_local(op.args[0])):
+        if self.localtracker.is_local(op.args[0]):
             op = SpaceOperation('same_as', op.args, op.result)
         else:
             self.count_write_barrier += 1
@@ -182,6 +180,24 @@ class STMTransformer(object):
                                            getattr(self, 'graph', None))
             return
         newoperations.append(op)
+
+    def pointer_comparison(self, newoperations, op):
+        if (self.localtracker.is_local(op.args[0]) and
+            self.localtracker.is_local(op.args[1])):
+            newoperations.append(op)
+            return
+        nargs = []
+        for v1 in op.args:
+            if isinstance(v1, Variable):
+                v0 = v1
+                v1 = copyvar(self.translator.annotator, v0)
+                newoperations.append(
+                    SpaceOperation('stm_normalize_global', [v0], v1))
+            nargs.append(v1)
+        newoperations.append(SpaceOperation(op.opname, nargs, op.result))
+
+    stt_ptr_eq = pointer_comparison
+    stt_ptr_ne = pointer_comparison
 
 
 def transform_graph(graph):

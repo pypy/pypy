@@ -403,6 +403,7 @@ LL_OPERATIONS = {
     'stm_descriptor_init':    LLOp(canrun=True),
     'stm_descriptor_done':    LLOp(canrun=True),
     'stm_writebarrier':       LLOp(sideeffects=False),
+    'stm_normalize_global':   LLOp(),
     'stm_start_transaction':  LLOp(canrun=True),
     'stm_commit_transaction': LLOp(canrun=True),
 
