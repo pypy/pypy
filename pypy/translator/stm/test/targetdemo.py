@@ -63,6 +63,16 @@ def increment_done(arg, retry_counter):
     print "thread done."
     glob.done += 1
 
+def _check_pointer(arg1):
+    arg1.foobar = 40    # now 'arg1' is local
+    return arg1
+
+def check_pointer_equality(arg, retry_counter):
+    res = _check_pointer(arg)
+    if res is not arg:
+        debug_print("ERROR: bogus pointer equality")
+        raise AssertionError
+
 def run_me():
     rstm.descriptor_init()
     try:
@@ -70,6 +80,7 @@ def run_me():
         arg = glob._arg
         ll_thread.release_NOAUTO(glob.lock)
         arg.foobar = 41
+        rstm.perform_transaction(check_pointer_equality, Arg, arg)
         i = 0
         while i < glob.LENGTH:
             arg.anchor = glob.anchor
