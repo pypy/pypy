@@ -246,9 +246,12 @@ class RPythonTyper(object):
             else:
                 tracking = lambda block: None
 
-            previous_percentage = 0
-            # specialize all blocks in the 'pending' list
-            for block in pending:
+            try:
+              import transaction
+            except ImportError:
+              previous_percentage = 0
+              # specialize all blocks in the 'pending' list
+              for block in pending:
                 tracking(block)
                 blockcount += 1
                 self.specialize_block(block)
@@ -266,6 +269,16 @@ class RPythonTyper(object):
                             error_report = ''
                         self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
                                        (n, total, percentage, error_report))
+            else:
+                # try a version using the transaction module
+                for block in pending:
+                    transaction.add(self.specialize_block, block)
+                self.log.event('specializing transactionally %d blocks' %
+                               (len(pending),))
+                transaction.run()
+                blockcount += len(pending)
+                self.already_seen.update(dict.fromkeys(pending, True))
+
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
