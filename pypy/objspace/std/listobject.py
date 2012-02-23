@@ -7,7 +7,7 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.objectmodel import instantiate, specialize
+from pypy.rlib.objectmodel import instantiate, specialize, newlist
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
@@ -75,13 +75,15 @@ def is_W_FloatObject(w_object):
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
-    def __init__(w_self, space, wrappeditems):
+    def __init__(w_self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         w_self.space = space
         if space.config.objspace.std.withliststrategies:
-            w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
+            w_self.strategy = get_strategy_from_list_objects(space,
+                                                             wrappeditems)
         else:
             w_self.strategy = space.fromcache(ObjectListStrategy)
+        w_self.sizehint = sizehint
         w_self.init_from_list_w(wrappeditems)
 
     @staticmethod
@@ -397,7 +399,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage()
+        storage = strategy.get_empty_storage(w_list.sizehint)
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -660,8 +662,8 @@ class AbstractUnwrappedStrategy(object):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
 
-    def get_empty_storage(self):
-        return self.erase([])
+    def get_empty_storage(self, sizehint):
+        return self.erase(newlist(sizehint))
 
     def clone(self, w_list):
         l = self.unerase(w_list.lstorage)
