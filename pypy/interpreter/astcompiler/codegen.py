@@ -965,7 +965,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
-    def _listcomp_generator(self, gens, gen_index, elt):
+    def _listcomp_generator(self, gens, gen_index, elt, outermost=False):
         start = self.new_block()
         skip = self.new_block()
         if_cleanup = self.new_block()
@@ -973,7 +973,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = gens[gen_index]
         assert isinstance(gen, ast.comprehension)
         gen.iter.walkabout(self)
-        self.emit_op(ops.BUILD_LIST_FROM_ARG)
+        if outermost:
+            self.emit_op(ops.BUILD_LIST_FROM_ARG)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
         self.emit_jump(ops.FOR_ITER, anchor)
@@ -999,7 +1000,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ListComp(self, lc):
         self.update_position(lc.lineno)
-        self._listcomp_generator(lc.generators, 0, lc.elt)
+        self._listcomp_generator(lc.generators, 0, lc.elt, outermost=True)
 
     def _comp_generator(self, node, generators, gen_index):
         start = self.new_block()
