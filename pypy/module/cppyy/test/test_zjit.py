@@ -65,6 +65,9 @@ class FakeSpace(object):
     def __init__(self):
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.user_del_action = FakeUserDelAction(self)
+        class dummy: pass
+        self.config = dummy()
+        self.config.translating = False
 
     def issequence_w(self, w_obj):
         return True

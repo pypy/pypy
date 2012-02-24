@@ -428,6 +428,8 @@ class W_CPPNamespace(W_CPPScope):
                 self.data_members[data_member_name] = data_member
 
     def update(self):
+        if self.space.config.translating and not objectmodel.we_are_translated():
+             return cpptype
         self._find_methods()
         self._find_data_members()
 
