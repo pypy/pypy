@@ -459,8 +459,10 @@ class AppTestInterpObjectPickling:
         meth1(1)
         meth2(2)
         assert a_list == [1, 1]
-        assert meth2.im_self == [1, 2]
+        assert meth2.__self__ == [1, 2]
 
+    def test_pickle_builtin_method_unbound(self):
+        skip('we no longer have unbound methods in py3k: is this test still valid?')
         unbound_meth = list.append
         unbound_meth2 = pickle.loads(pickle.dumps(unbound_meth))
         l = []
