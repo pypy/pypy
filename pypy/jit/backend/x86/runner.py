@@ -63,9 +63,6 @@ class AbstractX86CPU(AbstractLLCPU):
         self.assembler.finish_once()
         self.profile_agent.shutdown()
 
-    def early_initialization(self):
-        self.assembler._check_sse2()
-
     def dump_loop_token(self, looptoken):
         """
         NOT_RPYTHON
