@@ -361,7 +361,7 @@ class AppTestBuiltinApp:
         assert x[-7] == 20
         raises(IndexError, x.__getitem__, 17)
         raises(IndexError, x.__getitem__, -18)
-        raises(TypeError, x.__getitem__, slice(0,3,1))
+        assert list(x.__getitem__(slice(0,3,1))) == [0, 2, 4]
 
     def test_range_bad_args(self):
         raises(TypeError, range, '1')
