@@ -79,8 +79,8 @@ class AppTestBuiltinApp:
     def test_bin(self):
         assert bin(0) == "0b0"
         assert bin(-1) == "-0b1"
-        assert bin(2L) == "0b10"
-        assert bin(-2L) == "-0b10"
+        assert bin(2) == "0b10"
+        assert bin(-2) == "-0b10"
         raises(TypeError, bin, 0.)
 
     def test_chr(self):
