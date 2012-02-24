@@ -596,6 +596,17 @@ class AppTestBuiltinApp:
         raises(TypeError, hasattr, x, 42)
         assert hasattr(x, '\u5678') is False
 
+    def test_hasattr_exception(self):
+        class X(object):
+            def __getattr__(self, name):
+                if name == 'foo':
+                    raise AttributeError
+                else:
+                    raise KeyError
+        x = X()
+        assert hasattr(x, 'foo') is False
+        raises(KeyError, "hasattr(x, 'bar')")
+
     def test_compile_leading_newlines(self):
         src = """
 def fn(): pass
