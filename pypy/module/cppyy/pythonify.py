@@ -157,7 +157,6 @@ def make_cppclass(class_name, cpptype):
     metabases = [type(base) for base in bases]
     metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
-
     # create the python-side C++ class representation
     d = {"_cpp_proxy" : cpptype,
          "__new__"    : make_new(class_name, cpptype),

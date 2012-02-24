@@ -8,6 +8,10 @@
 #include "TList.h"
 #include "TSystem.h"
 
+#include "TApplication.h"
+#include "TInterpreter.h"
+#include "Getline.h"
+
 #include "TBaseClass.h"
 #include "TClass.h"
 #include "TClassEdit.h"
@@ -51,6 +55,54 @@ static ClassRefsInit _classrefs_init;
 
 typedef std::vector<TFunction*> GlobalFuncs_t;
 static GlobalFuncs_t g_globalfuncs;
+
+
+/* initialization of th ROOT system (debatable ... ) ---------------------- */
+namespace {
+
+class TCppyyApplication : public TApplication {
+public:
+    TCppyyApplication(const char* acn, Int_t* argc, char** argv, Bool_t do_load = kTRUE)
+           : TApplication(acn, argc, argv) {
+
+       if (do_load) {
+            // follow TRint to minimize differences with CINT
+            ProcessLine("#include <iostream>", kTRUE);
+            ProcessLine("#include <_string>",  kTRUE); // for std::string iostream.
+            ProcessLine("#include <vector>",   kTRUE); // needed because they're used within the
+            ProcessLine("#include <pair>",     kTRUE); //  core ROOT dicts and CINT won't be able
+                                                       //  to properly unload these files
+        }
+
+        // save current interpreter context
+        gInterpreter->SaveContext();
+        gInterpreter->SaveGlobalsContext();
+
+        // prevent crashes on accessing history
+        Gl_histinit((char*)"-");
+
+        // prevent ROOT from exiting python
+        SetReturnFromRun(kTRUE);
+
+        // enable auto-loader
+        gInterpreter->EnableAutoLoading();
+    }
+};
+
+static const char* appname = "pypy-cppyy";
+
+class ApplicationStarter {
+public:
+    ApplicationStarter() {
+        if (!gApplication) {
+            int argc = 1;
+            char* argv[1]; argv[0] = (char*)appname;
+            gApplication = new TCppyyApplication(appname, &argc, argv, kTRUE);
+        }
+    }
+} _applicationStarter;
+
+} // unnamed namespace
 
 
 /* local helpers ---------------------------------------------------------- */
@@ -102,7 +154,8 @@ cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
     if (icr != g_classref_indices.end())
         return (cppyy_typehandle_t)icr->second;
 
-    TClassRef cr(class_name);
+    // use TClass directly, to enable auto-loading
+    TClassRef cr(TClass::GetClass(class_name, kTRUE, kTRUE));
     if (!cr.GetClass())
         return (cppyy_typehandle_t)NULL;
 

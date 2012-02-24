@@ -9,15 +9,15 @@ pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
 incpath = pkgpath.join("include")
 
-def identify():
-    return 'Reflex'
-
 if os.environ.get("ROOTSYS"):
     rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
     rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib")]
 else:
     rootincpath = []
     rootlibpath = []
+
+def identify():
+    return 'Reflex'
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("reflexcwrapper.cxx")],

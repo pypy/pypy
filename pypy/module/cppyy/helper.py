@@ -64,11 +64,6 @@ def map_operator_name(cppname, nargs, result_type):
     if cppname[0:8] == "operator":
         op = cppname[8:].strip(' ')
 
-        # operator could be a conversion using a typedef
-        handle = capi.c_get_typehandle(op)
-        if handle:
-            op = capi.charp2str_free(capi.c_final_name(handle))
-
         # look for known mapping
         try:
             return _operator_mappings[op]
@@ -100,7 +95,21 @@ def map_operator_name(cppname, nargs, result_type):
         if op == "--":  # prefix v.s. postfix decrement (not python)
             return nargs and "__postdec__" or "__predec__";
 
-    # might get here, as not all operator methods handled (new, delete,etc.)
+        # operator could have been a conversion using a typedef (this lookup
+        # is put at the end only as it is unlikely and may trigger unwanted
+        # errors in class loaders in the backend, because a typical operator
+        # name is illegal as a class name)
+        handle = capi.c_get_typehandle(op)
+        if handle:
+            op = capi.charp2str_free(capi.c_final_name(handle))
+
+            try:
+                return _operator_mappings[op]
+            except KeyError:
+                pass
+
+    # might get here, as not all operator methods handled (although some with
+    # no python equivalent, such as new, delete, etc., are simply retained)
     # TODO: perhaps absorb or "pythonify" these operators?
     return cppname
 
@@ -120,6 +129,7 @@ _operator_mappings["&"]   = "__and__"
 _operator_mappings["|"]   = "__or__"
 _operator_mappings["^"]   = "__xor__"
 _operator_mappings["~"]   = "__inv__"
+_operator_mappings["!"]   = "__nonzero__"
 _operator_mappings["+="]  = "__iadd__"
 _operator_mappings["-="]  = "__isub__"
 _operator_mappings["*="]  = "__imul__"
@@ -161,3 +171,11 @@ _operator_mappings["bool"] = "__nonzero__"       # __bool__ in p3
 # the following are not python, but useful to expose
 _operator_mappings["->"]  = "__follow__"
 _operator_mappings["="]   = "__assign__"
+
+# a bundle of operators that have no equivalent and are left "as-is" for now:
+_operator_mappings["&&"]       = "&&"
+_operator_mappings["||"]       = "||"
+_operator_mappings["new"]      = "new"
+_operator_mappings["delete"]   = "delete"
+_operator_mappings["new[]"]    = "new[]"
+_operator_mappings["delete[]"] = "delete[]"
