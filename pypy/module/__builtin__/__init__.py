@@ -12,7 +12,6 @@ class Module(MixedModule):
     expose__file__attribute = False
 
     appleveldefs = {
-        'execfile'      : 'app_io.execfile',
         'input'         : 'app_io.input',
         'print'         : 'app_io.print_',
 

@@ -5,28 +5,6 @@ Plain Python definition of the builtin I/O-related functions.
 
 import sys
 
-def execfile(filename, glob=None, loc=None):
-    """execfile(filename[, globals[, locals]])
-
-Read and execute a Python script from a file.
-The globals and locals are dictionaries, defaulting to the current
-globals and locals.  If only globals is given, locals defaults to it."""
-    if glob is None:
-        # Warning this is at hidden_applevel
-        glob = globals()
-        if loc is None:
-            loc = locals()
-    elif loc is None:
-        loc = glob
-    f = open(filename, 'rU')
-    try:
-        source = f.read()
-    finally:
-        f.close()
-    #Don't exec the source directly, as this loses the filename info
-    co = compile(source.rstrip()+"\n", filename, 'exec')
-    exec(co, glob, loc)
-
 def _write_prompt(stdout, prompt):
     print(prompt, file=stdout, end='')
     try:
