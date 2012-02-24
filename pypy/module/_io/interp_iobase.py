@@ -5,6 +5,8 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib import rweakref
+
 
 DEFAULT_BUFFER_SIZE = 8192
 
@@ -43,6 +45,8 @@ class W_IOBase(Wrappable):
         self.space = space
         self.w_dict = space.newdict()
         self.__IOBase_closed = False
+        self.streamholder = None # needed by AutoFlusher
+        get_autoflushher(space).add(self)
 
     def getdict(self, space):
         return self.w_dict
@@ -98,6 +102,7 @@ class W_IOBase(Wrappable):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+            get_autoflushher(space).remove(self)
 
     def flush_w(self, space):
         if self._CLOSED():
@@ -303,3 +308,52 @@ W_RawIOBase.typedef = TypeDef(
     read = interp2app(W_RawIOBase.read_w),
     readall = interp2app(W_RawIOBase.readall_w),
 )
+
+
+# ------------------------------------------------------------
+# functions to make sure that all streams are flushed on exit
+# ------------------------------------------------------------
+
+class StreamHolder(object):
+
+    def __init__(self, w_iobase):
+        self.w_iobase_ref = rweakref.ref(w_iobase)
+        w_iobase.autoflusher = self
+
+    def autoflush(self, space):
+        w_iobase = self.w_iobase_ref()
+        if w_iobase is not None:
+            space.call_method(w_iobase, 'flush') # XXX: ignore IOErrors?
+        
+
+class AutoFlusher(object):
+    
+    def __init__(self, space):
+        self.streams = {}
+
+    def add(self, w_iobase):
+        assert w_iobase.streamholder is None
+        holder = StreamHolder(w_iobase)
+        w_iobase.streamholder = holder
+        self.streams[holder] = None
+
+    def remove(self, w_iobase):
+        holder = w_iobase.streamholder
+        if holder is not None:
+            del self.streams[holder]
+
+    def flush_all(self, space):
+        while self.streams:
+            for streamholder in self.streams.keys():
+                try:
+                    del self.streams[streamholder]
+                except KeyError:
+                    pass    # key was removed in the meantime
+                else:
+                    streamholder.autoflush(space)
+
+
+def get_autoflushher(space):
+    return space.fromcache(AutoFlusher)
+
+
