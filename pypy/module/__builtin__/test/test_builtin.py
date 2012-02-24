@@ -183,7 +183,6 @@ class AppTestBuiltinApp:
         assert format(10, "o") == "12"
         assert format(10, "#o") == "0o12"
         assert format("hi") == "hi"
-        assert isinstance(format(4, u""), str)
 
     def test_vars(self):
         def f():
