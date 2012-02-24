@@ -128,7 +128,8 @@ class TestObjSpace:
         w = self.space.wrap
         w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
         w_instance = self.space.appexec([], "(): return object()")
-        assert self.space.lookup(w_instance, "__doc__") == w_object_doc 
+        w_doc = self.space.lookup(w_instance, "__doc__")
+        assert self.space.str_w(w_doc) == self.space.str_w(w_object_doc)
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
