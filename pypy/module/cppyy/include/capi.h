@@ -6,6 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif // ifdef __cplusplus
+
     typedef void* cppyy_typehandle_t;
     typedef void* cppyy_object_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
@@ -80,9 +81,9 @@ extern "C" {
     long long cppyy_strtoll(const char* str);
     unsigned long long cppyy_strtuoll(const char* str);
 
-    void* cppyy_charp2stdstring(const char* str);
-    void* cppyy_stdstring2stdstring(void* ptr);
-    void cppyy_free_stdstring(void* ptr);
+    cppyy_object_t cppyy_charp2stdstring(const char* str);
+    cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
+    void cppyy_free_stdstring(cppyy_object_t ptr);
 
 #ifdef __cplusplus
 }

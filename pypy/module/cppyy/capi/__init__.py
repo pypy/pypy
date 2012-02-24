@@ -254,15 +254,15 @@ def charp2str_free(charp):
 
 c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
-    [rffi.CCHARP], rffi.VOIDP,
+    [rffi.CCHARP], C_OBJECT,
     compilation_info=backend.eci)
 
 c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",
-    [rffi.VOIDP], rffi.VOIDP,
+    [C_OBJECT], C_OBJECT,
     compilation_info=backend.eci)
 
 c_free_stdstring = rffi.llexternal(
     "cppyy_free_stdstring",
-    [rffi.VOIDP], lltype.Void,
+    [C_OBJECT], lltype.Void,
     compilation_info=backend.eci)

@@ -552,7 +552,7 @@ class StdStringConverter(InstanceConverter):
            return capi.c_stdstring2stdstring(arg)
 
     def free_argument(self, arg):
-        capi.c_free_stdstring(rffi.cast(rffi.VOIDPP, arg)[0])
+        capi.c_free_stdstring(rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
     _immutable_ = True

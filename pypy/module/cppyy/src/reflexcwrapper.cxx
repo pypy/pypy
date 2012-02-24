@@ -65,7 +65,7 @@ void* cppyy_allocate(cppyy_typehandle_t handle) {
 
 void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance) {
     Reflex::Type t = type_from_handle(handle);
-    t.Deallocate(instance);
+    t.Deallocate((void*)instance);
 }
 
 void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
@@ -81,7 +81,7 @@ void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
-        Reflex::Object o((Reflex::Type)s, self);
+        Reflex::Object o((Reflex::Type)s, (void*)self);
         m.Invoke(o, 0, arguments);
     } else {
         m.Invoke(0, arguments);
@@ -96,10 +96,10 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
-        Reflex::Object o((Reflex::Type)s, self);
+        Reflex::Object o((Reflex::Type)s, (void*)self);
         m.Invoke(o, *((long*)result), arguments);
     } else {
-       m.Invoke(*((long*)result), arguments);
+        m.Invoke(*((long*)result), arguments);
     }
     return (long)result;
 }
@@ -112,7 +112,7 @@ static inline T cppyy_call_T(cppyy_typehandle_t handle, int method_index,
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
-        Reflex::Object o((Reflex::Type)s, self);
+        Reflex::Object o((Reflex::Type)s, (void*)self);
         m.Invoke(o, result, arguments);
     } else {
         m.Invoke(result, arguments);
@@ -167,10 +167,10 @@ char* cppyy_call_s(cppyy_typehandle_t handle, int method_index,
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     if (self) {
-        Reflex::Object o((Reflex::Type)s, self);
+        Reflex::Object o((Reflex::Type)s, (void*)self);
         m.Invoke(o, result, arguments);
     } else {
-       m.Invoke(result, arguments);
+        m.Invoke(result, arguments);
     }
     return cppstring_to_cstring(result);
 }
@@ -284,7 +284,7 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_obj
 
         for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
             if (ibase->first.ToType() == tb)
-                return (size_t)ibase->first.Offset(address);
+                return (size_t)ibase->first.Offset((void*)address);
         }
 
         // contrary to typical invoke()s, the result of the internal getbases function
@@ -306,9 +306,9 @@ char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string name;
     if (m.IsConstructor())
-       name = s.Name(Reflex::FINAL);    // to get proper name for templates
+        name = s.Name(Reflex::FINAL);   // to get proper name for templates
     else
-       name = m.Name();
+        name = m.Name();
     return cppstring_to_cstring(name);
 }
 
@@ -414,14 +414,14 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-void* cppyy_charp2stdstring(const char* str) {
-    return new std::string(str);
+cppyy_object_t cppyy_charp2stdstring(const char* str) {
+   return (cppyy_object_t)new std::string(str);
 }
 
-void* cppyy_stdstring2stdstring(void* ptr) {
-    return new std::string(*(std::string*)ptr);
+cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
+   return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
-void cppyy_free_stdstring(void* ptr) {
+void cppyy_free_stdstring(cppyy_object_t ptr) {
     delete (std::string*)ptr;
 }

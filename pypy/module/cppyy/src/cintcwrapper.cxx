@@ -506,15 +506,15 @@ void cppyy_free(void* ptr) {
     free(ptr);
 }
 
-void* cppyy_charp2stdstring(const char* str) {
-    return new std::string(str);
+cppyy_object_t cppyy_charp2stdstring(const char* str) {
+   return (cppyy_object_t)new std::string(str);
 }
 
-void* cppyy_stdstring2stdstring(void* ptr) {
-    return new std::string(*(std::string*)ptr);
+cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
+   return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
-void cppyy_free_stdstring(void* ptr) {
+void cppyy_free_stdstring(cppyy_object_t ptr) {
     delete (std::string*)ptr;
 }
 
