@@ -637,10 +637,11 @@ def fn(): pass
         pr("Hello,", "person!", file=out, sep="X")
         assert out.getvalue() == "Hello,Xperson!\n"
         out = io.StringIO()
-        pr(u"Hello,", u"person!", file=out)
+        pr(b"Hello,", b"person!", file=out)
         result = out.getvalue()
         assert isinstance(result, str)
-        assert result == u"Hello, person!\n"
+        print('XXXXXX', result)
+        assert result == "b'Hello,' b'person!'\n"
         pr("Hello", file=None) # This works.
         out = io.StringIO()
         pr(None, file=out)
