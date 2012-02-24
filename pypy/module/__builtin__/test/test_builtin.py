@@ -412,8 +412,8 @@ class AppTestBuiltinApp:
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
         assert cmp(9,0) > 0
+        assert cmp(b"abc", 12) != 0
         assert cmp("abc", 12) != 0
-        assert cmp(u"abc", 12) != 0
 
     def test_cmp_more(self):
         class C(object):
