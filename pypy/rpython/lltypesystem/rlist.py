@@ -309,12 +309,13 @@ def ll_setitem_fast(l, index, item):
 
 # fixed size versions
 
+@typeMethod
 def ll_fixed_newlist(LIST, length):
     ll_assert(length >= 0, "negative fixed list length")
     l = malloc(LIST, length)
     return l
-ll_fixed_newlist = typeMethod(ll_fixed_newlist)
 
+@typeMethod
 def ll_fixed_newemptylist(LIST):
     return ll_fixed_newlist(LIST, 0)
 
