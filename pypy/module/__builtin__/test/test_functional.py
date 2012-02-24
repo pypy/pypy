@@ -143,7 +143,7 @@ class AppTestRange:
        assert list(range(0, 10, A())) == [0, 5]
 
    def test_range_float(self):
-      raises(TypeError, range(0.1, 2.0, 1.1))
+      raises(TypeError, "range(0.1, 2.0, 1.1)")
 
    def test_range_long(self):
        import sys
