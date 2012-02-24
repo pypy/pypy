@@ -170,7 +170,7 @@ def test_flush_at_exit():
     space = make_objspace(config)
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         import io
-        f = io.open(tmpfile, 'w')
+        f = io.open(tmpfile, 'w', encoding='ascii')
         f.write('42')
         # no flush() and no close()
         import sys; sys._keepalivesomewhereobscure = f
