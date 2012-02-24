@@ -198,9 +198,8 @@ class AppTestBuiltinApp:
         assert getattr(a, 'i') == 5
         raises(AttributeError, getattr, a, 'k')
         assert getattr(a, 'k', 42) == 42
-        assert getattr(a, u'i') == 5
-        raises(AttributeError, getattr, a, u'k')
-        assert getattr(a, u'k', 42) == 42
+        raises(TypeError, getattr, a, b'i')
+        raises(TypeError, getattr, a, b'k', 42)
 
     def test_getattr_typecheck(self):
         class A(object):
