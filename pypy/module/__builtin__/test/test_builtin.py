@@ -244,7 +244,7 @@ class AppTestBuiltinApp:
         # it tests 4 calls to __iter__() in one assert.  It could
         # be modified if better granularity on the assert is required.
         mydict = {'a':1,'b':2,'c':3}
-        assert list(iter(mydict)) ==mydict.keys()
+        assert list(iter(mydict)) == list(mydict.keys())
 
     def test_iter_callable_sentinel(self):
         class count(object):
