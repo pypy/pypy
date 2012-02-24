@@ -95,7 +95,7 @@ def test_tb_normalization():
     tmpfile.write(TB_NORMALIZATION_CHK)
     tmpfile.close()
 
-    popen = subprocess.Popen([sys.executable, str(pypypath), tmpfilepath],
+    popen = subprocess.Popen([sys.executable, str(pypypath), '-S', tmpfilepath],
                              stderr=subprocess.PIPE)
     _, stderr = popen.communicate()
     assert stderr.endswith('KeyError: <normalized>\n')
