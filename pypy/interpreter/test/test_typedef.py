@@ -119,7 +119,7 @@ class TestTypeDef:
                             x = X()
                             import __pypy__
                             irepr = __pypy__.internal_repr(x)
-                            print irepr
+                            print(irepr)
                             %s
                             %s
                             %s
