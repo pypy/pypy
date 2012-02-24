@@ -147,10 +147,10 @@ class AppTestRange:
 
    def test_range_long(self):
        import sys
-       a = long(10 * sys.maxint)
-       raises(OverflowError, range, a)
-       raises(OverflowError, range, 0, a)
-       raises(OverflowError, range, 0, 1, a)
+       a = 10 * sys.maxsize
+       assert range(a)[-1] == a-1
+       assert range(0, a)[-1] == a-1
+       assert range(0, 1, a)[-1] == 0
 
    def test_range_reduce(self):
       x = range(2, 9, 3)
