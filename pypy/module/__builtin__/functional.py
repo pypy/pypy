@@ -325,9 +325,11 @@ class W_Range(Wrappable):
         return space.add(self.w_start, space.mul(w_index, self.w_step))
         
     def _compute_item(self, space, w_index):
-        if space.is_true(space.lt(w_index, space.newint(0))):
+        w_zero = space.newint(0)
+        if space.is_true(space.lt(w_index, w_zero)):
             w_index = space.add(w_index, self.w_length)
-        if space.is_true(space.ge(w_index, self.w_length)):
+        if (space.is_true(space.ge(w_index, self.w_length)) or
+            space.is_true(space.lt(w_index, w_zero))):
             raise OperationError(space.w_IndexError, space.wrap(
                     "range object index out of range"))
         return self._compute_item0(space, w_index)
