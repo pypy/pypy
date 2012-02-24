@@ -102,10 +102,6 @@ def hash__Int(space, w_int1):
     # Make sure this is consistent with the hash of floats and longs.
     return get_integer(space, w_int1)
 
-# coerce
-def coerce__Int_Int(space, w_int1, w_int2):
-    return space.newtuple([w_int1, w_int2])
-
 
 def add__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval

@@ -107,14 +107,6 @@ def cmp(space, w_x, w_y):
     """return 0 when x == y, -1 when x < y and 1 when x > y """
     return space.cmp(w_x, w_y)
 
-def coerce(space, w_x, w_y):
-    """coerce(x, y) -> (x1, y1)
-
-Return a tuple consisting of the two numeric arguments converted to
-a common type, using the same rules as used by arithmetic operations.
-If coercion is not possible, raise TypeError."""
-    return space.coerce(w_x, w_y)
-
 def divmod(space, w_x, w_y):
     """Return the tuple ((x-x%y)/y, x%y).  Invariant: div*y + mod == x."""
     return space.divmod(w_x, w_y)

@@ -33,7 +33,6 @@ binaryfunc = P(FT([PyO, PyO], PyO))
 ternaryfunc = P(FT([PyO, PyO, PyO], PyO))
 inquiry = P(FT([PyO], rffi.INT_real))
 lenfunc = P(FT([PyO], Py_ssize_t))
-coercion = P(FT([PyOPtr, PyOPtr], rffi.INT_real))
 intargfunc = P(FT([PyO, rffi.INT_real], PyO))
 intintargfunc = P(FT([PyO, rffi.INT_real, rffi.INT], PyO))
 ssizeargfunc = P(FT([PyO, Py_ssize_t], PyO))
@@ -89,7 +88,6 @@ PyNumberMethods = cpython_struct("PyNumberMethods", (
     ("nb_and", binaryfunc),
     ("nb_xor", binaryfunc),
     ("nb_or", binaryfunc),
-    ("nb_coerce", coercion),
     ("nb_int", unaryfunc),
     ("nb_long", unaryfunc),
     ("nb_float", unaryfunc),

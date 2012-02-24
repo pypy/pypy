@@ -58,7 +58,6 @@ class Module(MixedModule):
         'hex'           : 'operation.hex',
         'round'         : 'operation.round',
         'cmp'           : 'operation.cmp',
-        'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
         'format'        : 'operation.format',
         'issubclass'    : 'abstractinst.app_issubclass',

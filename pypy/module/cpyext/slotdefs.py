@@ -513,8 +513,6 @@ static slotdef slotdefs[] = {
         RBINSLOT("__rxor__", nb_xor, slot_nb_xor, "^"),
         BINSLOT("__or__", nb_or, slot_nb_or, "|"),
         RBINSLOT("__ror__", nb_or, slot_nb_or, "|"),
-        NBSLOT("__coerce__", nb_coerce, slot_nb_coerce, wrap_coercefunc,
-               "x.__coerce__(y) <==> coerce(x, y)"),
         UNSLOT("__int__", nb_int, slot_nb_int, wrap_unaryfunc,
                "int(x)"),
         UNSLOT("__long__", nb_long, slot_nb_long, wrap_unaryfunc,

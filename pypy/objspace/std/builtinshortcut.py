@@ -37,7 +37,7 @@ KNOWN_MISSING = ['getattr',   # mostly non-builtins or optimized by CALL_METHOD
                  'delitem', 'trunc',              # rare stuff?
                  'abs', 'hex', 'oct',             # rare stuff?
                  'pos', 'divmod', 'cmp',          # rare stuff?
-                 'float', 'long', 'coerce',       # rare stuff?
+                 'float', 'long',                 # rare stuff?
                  'isinstance', 'issubtype',
                  ]
 

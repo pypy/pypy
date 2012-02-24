@@ -339,10 +339,6 @@ def _hash_float(space, v):
     return x
 
 
-# coerce
-def coerce__Float_Float(space, w_float1, w_float2):
-    return space.newtuple([w_float1, w_float2])
-
 
 def add__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval

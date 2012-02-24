@@ -249,11 +249,8 @@ class AppTest_Descroperation:
                     ('__and__',      'x & y',                   'x &= y'),
                     ('__or__',       'x | y',                   'x |= y'),
                     ('__xor__',      'x ^ y',                   'x ^= y'),
-                    ('__coerce__',   'coerce(x, y)',            None)]:
-                if name == '__coerce__':
-                    rname = name
-                else:
-                    rname = '__r' + name[2:]
+                    ]:
+                rname = '__r' + name[2:]
                 A = metaclass('A', (), {name: specialmethod})
                 B = metaclass('B', (), {rname: specialmethod})
                 a = A()

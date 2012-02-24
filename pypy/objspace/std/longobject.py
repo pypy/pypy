@@ -170,11 +170,6 @@ def ge__Int_Long(space, w_int1, w_long2):
 def hash__Long(space, w_value):
     return space.wrap(w_value.num.hash())
 
-# coerce
-def coerce__Long_Long(space, w_long1, w_long2):
-    return space.newtuple([w_long1, w_long2])
-
-
 def add__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.add(w_long2.num))
 

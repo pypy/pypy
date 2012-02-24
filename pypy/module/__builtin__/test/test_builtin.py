@@ -440,17 +440,6 @@ class AppTestBuiltinApp:
         raises(RuntimeError, cmp, a, c)
         # okay, now break the cycles
         a.pop(); b.pop(); c.pop()
-        
-    def test_coerce(self):
-        assert coerce(1, 2)    == (1, 2)
-        assert coerce(1L, 2L)  == (1L, 2L)
-        assert coerce(1, 2L)   == (1L, 2L)
-        assert coerce(1L, 2)   == (1L, 2L)
-        assert coerce(1, 2.0)  == (1.0, 2.0)
-        assert coerce(1.0, 2L) == (1.0, 2.0)
-        assert coerce(1L, 2.0) == (1.0, 2.0)
-        raises(TypeError,coerce, 1    , 'a')
-        raises(TypeError,coerce, u'a' , 'a')
 
     def test_return_None(self):
         class X(object): pass

@@ -217,7 +217,6 @@ Table = [
     ('inplace_or',      inplace_or),
     ('inplace_xor',     inplace_xor),
     ('cmp',             cmp),
-    ('coerce',          coerce),
     ('iter',            iter),
     ('next',            next),
     ('get',             get),
@@ -302,10 +301,9 @@ def _add_except_ovf(names):
 
 for _name in 'getattr', 'delattr':
     _add_exceptions(_name, AttributeError)
-for _name in 'iter', 'coerce':
-    _add_exceptions(_name, TypeError)
 del _name
 
+_add_exceptions('iter', TypeError)
 _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_div inplace_mod inplace_divmod inplace_truediv
                    inplace_floordiv inplace_pow""", ZeroDivisionError)
