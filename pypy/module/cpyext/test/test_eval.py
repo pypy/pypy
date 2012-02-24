@@ -117,8 +117,12 @@ class TestEval(BaseApiTest):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
         flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
         w_globals = space.newdict()
-        api.PyRun_StringFlags("a = u'caf\xc3\xa9'", Py_single_input,
-                              w_globals, w_globals, flags)
+        buf = rffi.str2charp("a = u'caf\xc3\xa9'")
+        try:
+            api.PyRun_StringFlags(buf, Py_single_input,
+                                  w_globals, w_globals, flags)
+        finally:
+            rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
         assert space.unwrap(w_a) == u'caf\xe9'
         lltype.free(flags, flavor='raw')
