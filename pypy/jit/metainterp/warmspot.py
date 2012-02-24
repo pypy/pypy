@@ -13,6 +13,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
+from pypy.translator.unsimplify import call_initial_function
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
@@ -850,6 +851,9 @@ class WarmRunnerDesc(object):
         checkgraph(origportalgraph)
 
     def add_finish(self):
+        def start():
+            self.cpu.early_initialization()
+
         def finish():
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
@@ -858,6 +862,9 @@ class WarmRunnerDesc(object):
         if self.cpu.translate_support_code:
             call_final_function(self.translator, finish,
                                 annhelper = self.annhelper)
+            if hasattr(self.cpu, 'early_initialization'):
+                call_initial_function(self.translator, start,
+                                      annhelper = self.annhelper)
 
     def rewrite_set_param(self):
         from pypy.rpython.lltypesystem.rstr import STR

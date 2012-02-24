@@ -104,7 +104,6 @@ class Assembler386(object):
         self._debug = v
 
     def setup_once(self):
-        self._check_sse2()
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
@@ -165,6 +164,9 @@ class Assembler386(object):
     _CHECK_SSE2_FUNC_PTR = lltype.Ptr(lltype.FuncType([], lltype.Signed))
 
     def _check_sse2(self):
+        """This function is called early in the execution of the program.
+        It checks if the CPU really supports SSE2.  It is only invoked in
+        translated versions for now."""
         if WORD == 8:
             return     # all x86-64 CPUs support SSE2
         if not self.cpu.supports_floats:
