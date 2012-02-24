@@ -590,11 +590,11 @@ class AppTestBuiltinApp:
         assert hasattr(x, '__class__') is True
         assert hasattr(x, 'foo') is True
         assert hasattr(x, 'bar') is False
-        assert hasattr(x, 'abc') is False    # CPython compliance
-        assert hasattr(x, 'bac') is False    # CPython compliance
+        raises(TypeError, "hasattr(x, 'abc')")
+        raises(TypeError, "hasattr(x, 'bac')")
         raises(TypeError, hasattr, x, None)
         raises(TypeError, hasattr, x, 42)
-        raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
+        assert hasattr(x, '\u5678') is False
 
     def test_compile_leading_newlines(self):
         src = """
