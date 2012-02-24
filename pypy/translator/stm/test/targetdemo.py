@@ -72,6 +72,11 @@ def check_pointer_equality(arg, retry_counter):
     if res is not arg:
         debug_print("ERROR: bogus pointer equality")
         raise AssertionError
+    raw1 = rffi.cast(rffi.CCHARP, retry_counter)
+    raw2 = rffi.cast(rffi.CCHARP, -1)
+    if raw1 == raw2:
+        debug_print("ERROR: retry_counter == -1")
+        raise AssertionError
 
 def run_me():
     rstm.descriptor_init()

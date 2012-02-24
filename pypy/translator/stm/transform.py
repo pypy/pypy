@@ -182,6 +182,10 @@ class STMTransformer(object):
         newoperations.append(op)
 
     def pointer_comparison(self, newoperations, op):
+        T = op.args[0].concretetype.TO
+        if T._gckind == 'raw':
+            newoperations.append(op)
+            return
         if (self.localtracker.is_local(op.args[0]) and
             self.localtracker.is_local(op.args[1])):
             newoperations.append(op)
