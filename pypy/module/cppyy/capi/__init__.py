@@ -6,8 +6,8 @@ import reflex_capi as backend
 
 identify = backend.identify
 
-_C_OPAQUE_PTR = rffi.VOIDP
-_C_OPAQUE_NULL = lltype.nullptr(_C_OPAQUE_PTR.TO)
+_C_OPAQUE_PTR = rffi.LONG
+_C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
 
 C_TYPEHANDLE = _C_OPAQUE_PTR
 C_NULL_TYPEHANDLE = rffi.cast(C_TYPEHANDLE, _C_OPAQUE_NULL)
