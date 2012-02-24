@@ -262,7 +262,6 @@ def ll_newlist(LIST, length):
     l.items = malloc(LIST.items.TO, length)
     return l
 ll_newlist = typeMethod(ll_newlist)
-ll_newlist.oopspec = 'newlist(length)'
 
 def ll_newlist_hint(LIST, lengthhint):
     ll_assert(lengthhint >= 0, "negative list length")
@@ -271,7 +270,6 @@ def ll_newlist_hint(LIST, lengthhint):
     l.items = malloc(LIST.items.TO, lengthhint)
     return l
 ll_newlist_hint = typeMethod(ll_newlist_hint)
-ll_newlist_hint.oopspec = 'newlist(lengthhint)'
 
 # should empty lists start with no allocated memory, or with a preallocated
 # minimal number of entries?  XXX compare memory usage versus speed, and
@@ -294,11 +292,9 @@ def ll_newemptylist(LIST):
     l.items = _ll_new_empty_item_array(LIST)
     return l
 ll_newemptylist = typeMethod(ll_newemptylist)
-ll_newemptylist.oopspec = 'newlist(0)'
 
 def ll_length(l):
     return l.length
-ll_length.oopspec = 'list.len(l)'
 
 def ll_items(l):
     return l.items
@@ -306,12 +302,10 @@ def ll_items(l):
 def ll_getitem_fast(l, index):
     ll_assert(index < l.length, "getitem out of bounds")
     return l.ll_items()[index]
-ll_getitem_fast.oopspec = 'list.getitem(l, index)'
 
 def ll_setitem_fast(l, index, item):
     ll_assert(index < l.length, "setitem out of bounds")
     l.ll_items()[index] = item
-ll_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
 # fixed size versions
 
@@ -320,15 +314,12 @@ def ll_fixed_newlist(LIST, length):
     l = malloc(LIST, length)
     return l
 ll_fixed_newlist = typeMethod(ll_fixed_newlist)
-ll_fixed_newlist.oopspec = 'newlist(length)'
 
 def ll_fixed_newemptylist(LIST):
     return ll_fixed_newlist(LIST, 0)
-ll_fixed_newemptylist = typeMethod(ll_fixed_newemptylist)
 
 def ll_fixed_length(l):
     return len(l)
-ll_fixed_length.oopspec = 'list.len(l)'
 
 def ll_fixed_items(l):
     return l
@@ -336,12 +327,10 @@ def ll_fixed_items(l):
 def ll_fixed_getitem_fast(l, index):
     ll_assert(index < len(l), "fixed getitem out of bounds")
     return l[index]
-ll_fixed_getitem_fast.oopspec = 'list.getitem(l, index)'
 
 def ll_fixed_setitem_fast(l, index, item):
     ll_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
-ll_fixed_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
 def newlist(llops, r_list, items_v, v_sizehint=None):
     LIST = r_list.LIST
