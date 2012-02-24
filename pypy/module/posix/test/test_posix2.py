@@ -1049,6 +1049,7 @@ class TestPexpect(object):
 
     def _spawn(self, *args, **kwds):
         import pexpect
+        kwds.setdefault('timeout', 600)
         print 'SPAWN:', args, kwds
         child = pexpect.spawn(*args, **kwds)
         child.logfile = sys.stdout
