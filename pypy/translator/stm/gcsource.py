@@ -5,6 +5,8 @@ from pypy.translator.simplify import get_graph
 
 COPIES_POINTER = set([
     'force_cast', 'cast_pointer', 'same_as', 'cast_opaque_ptr',
+    'jit_force_virtual',
+    # as well as most 'hint' operations, but not all --- see below
     ])
 
 
