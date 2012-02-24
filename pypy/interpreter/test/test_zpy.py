@@ -17,14 +17,14 @@ def run(*args):
 def test_executable():
     """Ensures sys.executable points to the py.py script"""
     # TODO : watch out for spaces/special chars in pypypath
-    output = run(sys.executable, pypypath,
+    output = run(sys.executable, pypypath, '-S',
                  "-c", "import sys;print sys.executable")
     assert output.splitlines()[-1] == pypypath
 
 def test_special_names():
     """Test the __name__ and __file__ special global names"""
     cmd = "print __name__; print '__file__' in globals()"
-    output = run(sys.executable, pypypath, '-c', cmd)
+    output = run(sys.executable, pypypath, '-S', '-c', cmd)
     assert output.splitlines()[-2] == '__main__'
     assert output.splitlines()[-1] == 'False'
 
@@ -33,24 +33,24 @@ def test_special_names():
     tmpfile.write("print __name__; print __file__\n")
     tmpfile.close()
 
-    output = run(sys.executable, pypypath, tmpfilepath)
+    output = run(sys.executable, pypypath, '-S', tmpfilepath)
     assert output.splitlines()[-2] == '__main__'
     assert output.splitlines()[-1] == str(tmpfilepath)
 
 def test_argv_command():
     """Some tests on argv"""
     # test 1 : no arguments
-    output = run(sys.executable, pypypath,
+    output = run(sys.executable, pypypath, '-S',
                  "-c", "import sys;print sys.argv")
     assert output.splitlines()[-1] == str(['-c'])
 
     # test 2 : some arguments after
-    output = run(sys.executable, pypypath,
+    output = run(sys.executable, pypypath, '-S',
                  "-c", "import sys;print sys.argv", "hello")
     assert output.splitlines()[-1] == str(['-c','hello'])
     
     # test 3 : additionnal pypy parameters
-    output = run(sys.executable, pypypath,
+    output = run(sys.executable, pypypath, '-S',
                  "-O", "-c", "import sys;print sys.argv", "hello")
     assert output.splitlines()[-1] == str(['-c','hello'])
 
@@ -65,15 +65,15 @@ def test_scripts():
     tmpfile.close()
 
     # test 1 : no arguments
-    output = run(sys.executable, pypypath, tmpfilepath)
+    output = run(sys.executable, pypypath, '-S', tmpfilepath)
     assert output.splitlines()[-1] == str([tmpfilepath])
     
     # test 2 : some arguments after
-    output = run(sys.executable, pypypath, tmpfilepath, "hello")
+    output = run(sys.executable, pypypath, '-S', tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
     # test 3 : additionnal pypy parameters
-    output = run(sys.executable, pypypath, "-O", tmpfilepath, "hello")
+    output = run(sys.executable, pypypath, '-S', "-O", tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
 
@@ -95,7 +95,7 @@ def test_tb_normalization():
     tmpfile.write(TB_NORMALIZATION_CHK)
     tmpfile.close()
 
-    popen = subprocess.Popen([sys.executable, str(pypypath), tmpfilepath],
+    popen = subprocess.Popen([sys.executable, str(pypypath), '-S', tmpfilepath],
                              stderr=subprocess.PIPE)
     _, stderr = popen.communicate()
     assert stderr.endswith('KeyError: <normalized>\n')

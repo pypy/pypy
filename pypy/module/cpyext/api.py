@@ -407,7 +407,7 @@ def build_exported_objects():
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Int Long Dict Tuple Class'.split():
+    for cpyname in 'Method List Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
 build_exported_objects()

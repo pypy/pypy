@@ -170,10 +170,27 @@ def test_flush_at_exit():
     space = make_objspace(config)
     space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
         import io
-        f = io.open(tmpfile, 'w')
+        f = io.open(tmpfile, 'w', encoding='ascii')
         f.write('42')
         # no flush() and no close()
         import sys; sys._keepalivesomewhereobscure = f
     """)
     space.finish()
     assert tmpfile.read() == '42'
+
+def test_flush_at_exit_IOError():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+
+    config = make_config(conftest.option)
+    space = make_objspace(config)
+    space.appexec([], """():
+        import io
+        class MyStream(io.IOBase):
+            def flush(self):
+                raise IOError
+
+        s = MyStream()
+        import sys; sys._keepalivesomewhereobscure = s
+    """)
+    space.finish() # the IOError has been ignored

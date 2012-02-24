@@ -323,7 +323,12 @@ class StreamHolder(object):
     def autoflush(self, space):
         w_iobase = self.w_iobase_ref()
         if w_iobase is not None:
-            space.call_method(w_iobase, 'flush') # XXX: ignore IOErrors?
+            try:
+                space.call_method(w_iobase, 'flush')
+            except OperationError, e:
+                # if it's an IOError, ignore it
+                if not e.match(space, space.w_IOError):
+                    raise
         
 
 class AutoFlusher(object):
