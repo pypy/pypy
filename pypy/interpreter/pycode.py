@@ -4,7 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
-import imp, struct, types, new, sys, dis
+import dis, imp, struct, types, new, sys
 
 from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
@@ -14,6 +14,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import compute_hash
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
@@ -264,7 +265,6 @@ class PyCode(eval.Code):
 
     def dump(self):
         """A dis.dis() dump of the code object."""
-        return
         co = self._to_code()
         dis.dis(co)
 
