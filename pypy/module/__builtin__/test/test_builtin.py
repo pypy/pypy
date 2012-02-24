@@ -316,7 +316,7 @@ class AppTestBuiltinApp:
     def test_range_repr(self): 
         assert repr(range(1)) == 'range(1)'
         assert repr(range(1,2)) == 'range(1, 2)'
-        assert repr(range(1,2,3)) == 'range(1, 4, 3)'
+        assert repr(range(1,2,3)) == 'range(1, 2, 3)'
 
     def test_range_up(self):
         x = range(2)
