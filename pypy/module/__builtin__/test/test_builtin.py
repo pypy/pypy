@@ -131,8 +131,9 @@ class AppTestBuiltinApp:
             def __getitem__(self, item):
                 raise KeyError(item)
             def keys(self):
-                return 'a'    # not a list!
-        raises(TypeError, eval, "dir()", {}, C())
+                return 'abcd'    # not a list!
+        names = eval("dir()", {}, C())
+        assert names == ['a', 'b', 'c', 'd']
 
     def test_dir_broken_module(self):
         import types
