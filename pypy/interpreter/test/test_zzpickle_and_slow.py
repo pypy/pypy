@@ -90,8 +90,8 @@ class AppTestInterpObjectPickling:
         assert code == result
     
     def test_pickle_global_func(self):
-        import new
-        mod = new.module('mod')
+        import types
+        mod = types.ModuleType('mod')
         import sys
         sys.modules['mod'] = mod
         try:
@@ -107,8 +107,8 @@ class AppTestInterpObjectPickling:
             del sys.modules['mod']
     
     def test_pickle_not_imported_module(self):
-        import new
-        mod = new.module('mod')
+        import types
+        mod = types.ModuleType('mod')
         mod.__dict__['a'] = 1
         import pickle
         pckl = pickle.dumps(mod)
@@ -286,10 +286,10 @@ class AppTestInterpObjectPickling:
                 return 42
             def __reduce__(self):
                 return (myclass, ())
-        import pickle, sys, new
+        import pickle, sys, types
         myclass.__module__ = 'mod'
         myclass_inst = myclass()
-        mod = new.module('mod')
+        mod = types.ModuleType('mod')
         mod.myclass = myclass
         sys.modules['mod'] = mod
         try:
@@ -317,9 +317,9 @@ class AppTestInterpObjectPickling:
             def f(cls):
                 return cls
             f = classmethod(f)
-        import pickle, sys, new
+        import pickle, sys, types
         myclass.__module__ = 'mod'
-        mod = new.module('mod')
+        mod = types.ModuleType('mod')
         mod.myclass = myclass
         sys.modules['mod'] = mod
         try:
@@ -403,8 +403,8 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
 
     def test_pickle_generator(self):
-        import new
-        mod = new.module('mod')
+        import types
+        mod = types.ModuleType('mod')
         import sys
         sys.modules['mod'] = mod
         try:
@@ -427,8 +427,8 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_generator_blk(self):
         # same as above but with the generator inside a block
-        import new
-        mod = new.module('mod')
+        import types
+        mod = types.ModuleType('mod')
         import sys
         sys.modules['mod'] = mod
         try:
@@ -471,11 +471,11 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_submodule(self):
         import pickle
-        import sys, new
+        import sys, types
 
-        mod = new.module('pack.mod')
+        mod = types.ModuleType('pack.mod')
         sys.modules['pack.mod'] = mod
-        pack = new.module('pack')
+        pack = types.ModuleType('pack')
         pack.mod = mod
         sys.modules['pack'] = pack
 
