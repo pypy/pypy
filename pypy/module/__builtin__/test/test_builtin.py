@@ -512,14 +512,8 @@ class AppTestBuiltinApp:
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
 
-    def test_unicode_compile(self):
-        try:
-            compile(u'-', '?', 'eval')
-        except SyntaxError, e:
-            assert e.lineno == 1
-
     def test_unicode_encoding_compile(self):
-        code = u"# -*- coding: utf-8 -*-\npass\n"
+        code = "# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
 
     def test_bytes_compile(self):
