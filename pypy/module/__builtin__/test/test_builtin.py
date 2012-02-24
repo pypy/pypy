@@ -68,6 +68,9 @@ class AppTestBuiltinApp:
         # Issue #9804: surrogates should be joined even for printable
         # wide characters (UCS-2 builds).
         assert ascii('\U0001d121') == "'\\U0001d121'"
+        # another buggy case
+        x = ascii("\U00012fff")
+        assert x == r"'\U00012fff'"
         # All together
         s = "'\0\"\n\r\t abcd\x85é\U00012fff\uD800\U0001D121xxx."
         assert ascii(s) == \
