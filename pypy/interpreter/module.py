@@ -80,7 +80,7 @@ class Module(Wrappable):
     def descr__reduce__(self, space):
         w_name = space.finditem(self.w_dict, space.wrap('__name__'))
         if (w_name is None or
-            not space.is_true(space.isinstance(w_name, space.w_str))):
+            not space.is_true(space.isinstance(w_name, space.w_unicode))):
             # maybe raise exception here (XXX this path is untested)
             return space.w_None
         w_modules = space.sys.get('modules')
