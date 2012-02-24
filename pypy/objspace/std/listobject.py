@@ -33,8 +33,10 @@ def make_empty_list(space):
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 @jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
-def get_strategy_from_list_objects(space, list_w):
+def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
+        if sizehint != -1:
+            return SizeListStrategy(space, sizehint)
         return space.fromcache(EmptyListStrategy)
 
     # check for ints
@@ -80,10 +82,10 @@ class W_ListObject(W_AbstractListObject):
         w_self.space = space
         if space.config.objspace.std.withliststrategies:
             w_self.strategy = get_strategy_from_list_objects(space,
-                                                             wrappeditems)
+                                                             wrappeditems,
+                                                             sizehint)
         else:
             w_self.strategy = space.fromcache(ObjectListStrategy)
-        w_self.sizehint = sizehint
         w_self.init_from_list_w(wrappeditems)
 
     @staticmethod
@@ -257,6 +259,7 @@ registerimplementation(W_ListObject)
 
 
 class ListStrategy(object):
+    sizehint = 0
 
     def __init__(self, space):
         self.space = space
@@ -338,6 +341,7 @@ class ListStrategy(object):
     def sort(self, w_list, reverse):
         raise NotImplementedError
 
+
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
     The storage is None. When items are added to the W_List a new RPython list
@@ -399,7 +403,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage(w_list.sizehint)
+        storage = strategy.get_empty_storage(self.sizehint)
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -439,6 +443,13 @@ class EmptyListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         pass
+
+class SizeListStrategy(EmptyListStrategy):
+    """ Like empty, but when modified it'll preallocate the size to sizehint
+    """
+    def __init__(self, space, sizehint):
+        self.sizehint = sizehint
+        ListStrategy.__init__(self, space)
 
 class RangeListStrategy(ListStrategy):
     """RangeListStrategy is used when a list is created using the range method.
