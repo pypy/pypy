@@ -70,20 +70,43 @@ class AppTestOutArg(BaseNumpyAppTest):
         assert c.dtype is a.dtype
         c[0,0] = 100
         assert out[0, 0] == 100
+        out[:] = 100
         raises(ValueError, 'c = add(a, a, out=out[1])')
         c = add(a[0], a[1], out=out[1])
         assert (c == out[1]).all()
         assert (c == [4, 6]).all()
+        assert (out[0] == 100).all()
         c = add(a[0], a[1], out=out)
         assert (c == out[1]).all()
         assert (c == out[0]).all()
+        out = array(16, dtype=int)
+        b = add(10, 10, out=out)
+        assert b==out
+        assert b.dtype == out.dtype
         
-
+    def test_applevel(self):
+        from _numpypy import array, sum, max, min
+        a = array([[1, 2], [3, 4]])
+        out = array([[0, 0], [0, 0]])
+        c = sum(a, axis=0, out=out[0])
+        assert (c == [4, 6]).all()
+        assert (c == out[0]).all()
+        assert (c != out[1]).all()
+        c = max(a, axis=1, out=out[0])
+        assert (c == [2, 4]).all()
+        assert (c == out[0]).all()
+        assert (c != out[1]).all()
+        
     def test_ufunc_cast(self):
-        from _numpypy import array, negative
+        from _numpypy import array, negative, add, sum
         a = array(16, dtype = int)
         c = array(0, dtype = float)
         b = negative(a, out=c)
+        assert b == c
+        b = add(a, a, out=c)
+        assert b == c
+        d = array([16, 16], dtype=int)
+        b = sum(d, out=c)
         assert b == c
         try:
             from _numpypy import version
@@ -92,6 +115,10 @@ class AppTestOutArg(BaseNumpyAppTest):
             v = ['1', '6', '0'] # numpypy is api compatable to what version?
         if v[0]<'2':
             b = negative(c, out=a)
+            assert b == a
+            b = add(c, c, out=a)
+            assert b == a
+            b = sum(array([16, 16], dtype=float), out=a)
             assert b == a
         else:
             cast_error = raises(TypeError, negative, c, a)

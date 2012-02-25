@@ -321,10 +321,17 @@ class W_Ufunc2(W_Ufunc):
         else:
             res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return space.wrap(self.func(calc_dtype,
+            arr = self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
-            ))
+            )
+            if isinstance(out,Scalar):
+                out.value=arr
+            elif isinstance(out, BaseArray):
+                out.fill(space, arr)
+            else:
+                out = arr
+            return space.wrap(out)
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         # Test correctness of out.shape
         if out and out.shape != shape_agreement(space, new_shape, out.shape):
