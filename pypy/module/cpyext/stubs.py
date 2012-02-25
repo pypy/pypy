@@ -182,16 +182,6 @@ def PyInstance_New(space, cls, arg, kw):
     used as the positional and keyword parameters to the object's constructor."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_Check(space, co):
-    """Return true if co is a code object"""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCode_GetNumFree(space, co):
-    """Return the number of free variables in co."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyCodec_Register(space, search_function):
     """Register a new codec search function.
@@ -1853,26 +1843,6 @@ def PyUnicode_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISTITLE(space, ch):
-    """Return 1 or 0 depending on whether ch is a titlecase character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISDIGIT(space, ch):
-    """Return 1 or 0 depending on whether ch is a digit character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISNUMERIC(space, ch):
-    """Return 1 or 0 depending on whether ch is a numeric character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISALPHA(space, ch):
-    """Return 1 or 0 depending on whether ch is an alphabetic character."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], PyObject)
 def PyUnicode_FromFormat(space, format):
     """Take a C printf()-style format string and a variable number of
@@ -2317,17 +2287,6 @@ def PyUnicode_Translate(space, str, table, errors):
     use the default error handling."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], rffi.INT_real, error=-1)
-def PyUnicode_Tailmatch(space, str, substr, start, end, direction):
-    """Return 1 if substr matches str*[*start:end] at the given tail end
-    (direction == -1 means to do a prefix match, direction == 1 a suffix match),
-    0 otherwise. Return -1 if an error occurred.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
 def PyUnicode_Find(space, str, substr, start, end, direction):
     """Return the first position of substr in str*[*start:end] using the given
@@ -2524,17 +2483,6 @@ def PyParser_SimpleParseFileFlags(space, fp, filename, start, flags):
     source code is read from fp instead of an in-memory string."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject, PyCompilerFlags], PyObject)
-def PyRun_StringFlags(space, str, start, globals, locals, flags):
-    """Execute Python source code from str in the context specified by the
-    dictionaries globals and locals with the compiler flags specified by
-    flags.  The parameter start specifies the start token that should be used to
-    parse the source code.
-
-    Returns the result of executing the code as a Python object, or NULL if an
-    exception was raised."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real], PyObject)
 def PyRun_FileEx(space, fp, filename, start, globals, locals, closeit):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
@@ -2553,13 +2501,6 @@ def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flag
     fp instead of an in-memory string. filename should be the name of the file.
     If closeit is true, the file is closed before PyRun_FileExFlags()
     returns."""
-    raise NotImplementedError
-
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
-def PyEval_EvalCode(space, co, globals, locals):
-    """This is a simplified interface to PyEval_EvalCodeEx(), with just
-    the code object, and the dictionaries of global and local variables.
-    The other arguments are set to NULL."""
     raise NotImplementedError
 
 @cpython_api([PyCodeObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
@@ -2584,12 +2525,6 @@ def PyEval_EvalFrameEx(space, f, throwflag):
     The additional throwflag parameter can mostly be ignored - if true, then
     it causes an exception to immediately be thrown; this is used for the
     throw() methods of generator objects."""
-    raise NotImplementedError
-
-@cpython_api([PyCompilerFlags], rffi.INT_real, error=CANNOT_FAIL)
-def PyEval_MergeCompilerFlags(space, cf):
-    """This function changes the flags of the current evaluation frame, and returns
-    true on success, false on failure."""
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
