@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: untyped operations             ***/
   /***  as OP_XXX() macros calling the CPython API          ***/
-
+#ifdef PYPY_CPYTHON_EXTENSION
 
 #define op_bool(r,what) { \
 		int _retval = what; \
@@ -261,3 +261,5 @@ long long RPyLong_AsLongLong(PyObject *v)
 }
 
 #endif
+
+#endif  /* PYPY_CPYTHON_EXTENSION */

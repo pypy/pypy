@@ -7760,6 +7760,59 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
         
+    def test_constant_failargs(self):
+        ops = """
+        [p1, i2, i3]
+        setfield_gc(p1, ConstPtr(myptr), descr=nextdescr)
+        p16 = getfield_gc(p1, descr=nextdescr)
+        guard_true(i2) [p16, i3]
+        jump(p1, i3, i2)
+        """
+        preamble = """
+        [p1, i2, i3]
+        setfield_gc(p1, ConstPtr(myptr), descr=nextdescr)
+        guard_true(i2) [i3]
+        jump(p1, i3)
+        """
+        expected = """
+        [p1, i3]
+        guard_true(i3) []
+        jump(p1, 1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_issue1048(self):
+        ops = """
+        [p1, i2, i3]
+        p16 = getfield_gc(p1, descr=nextdescr)
+        guard_true(i2) [p16]
+        setfield_gc(p1, ConstPtr(myptr), descr=nextdescr)
+        jump(p1, i3, i2)
+        """
+        expected = """
+        [p1, i3]
+        guard_true(i3) []
+        jump(p1, 1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_issue1048_ok(self):
+        ops = """
+        [p1, i2, i3]
+        p16 = getfield_gc(p1, descr=nextdescr)
+        call(p16, descr=nonwritedescr)
+        guard_true(i2) [p16]
+        setfield_gc(p1, ConstPtr(myptr), descr=nextdescr)
+        jump(p1, i3, i2)
+        """
+        expected = """
+        [p1, i3]
+        call(ConstPtr(myptr), descr=nonwritedescr)
+        guard_true(i3) []
+        jump(p1, 1)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 

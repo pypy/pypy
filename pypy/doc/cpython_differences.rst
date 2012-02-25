@@ -313,5 +313,10 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
+* the ``__dict__`` attribute of new-style classes returns a normal dict, as
+  opposed to a dict proxy like in CPython. Mutating the dict will change the
+  type and vice versa. For builtin types, a dictionary will be returned that
+  cannot be changed (but still looks and behaves like a normal dictionary).
+
 
 .. include:: _ref.txt

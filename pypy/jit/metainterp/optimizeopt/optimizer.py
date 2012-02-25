@@ -567,7 +567,7 @@ class Optimizer(Optimization):
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         try:
-            newboxes = modifier.finish(self.values, self.pendingfields)
+            newboxes = modifier.finish(self, self.pendingfields)
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
                 raise resume.TagOverflow
         except resume.TagOverflow:

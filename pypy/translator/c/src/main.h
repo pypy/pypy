@@ -36,6 +36,9 @@ int pypy_main_function(int argc, char *argv[])
     RPyListOfString *list;
 
     pypy_asm_stack_bottom();
+#ifdef PYPY_X86_CHECK_SSE2_DEFINED
+    pypy_x86_check_sse2();
+#endif
     instrument_setup();
 
     if (sizeof(void*) != SIZEOF_LONG) {

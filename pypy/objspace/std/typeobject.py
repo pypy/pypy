@@ -345,9 +345,9 @@ class W_TypeObject(W_Object):
 
         return w_self._lookup_where(name)
 
+    @unroll_safe
     def lookup_starting_at(w_self, w_starttype, name):
         space = w_self.space
-        # XXX Optimize this with method cache
         look = False
         for w_class in w_self.mro_w:
             if w_class is w_starttype:

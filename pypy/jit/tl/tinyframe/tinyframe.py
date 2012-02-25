@@ -210,7 +210,7 @@ class CombinedFunc(Func):
     def repr(self):
         return "<function %s(%s)>" % (self.outer.repr(), self.inner.repr())
 
-driver = JitDriver(greens = ['code', 'i'], reds = ['self'],
+driver = JitDriver(greens = ['i', 'code'], reds = ['self'],
                    virtualizables = ['self'])
 
 class Frame(object):

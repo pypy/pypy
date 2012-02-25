@@ -1333,6 +1333,7 @@ BaseArray.typedef = TypeDef(
     nbytes = GetSetProperty(BaseArray.descr_get_nbytes),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
+    transpose = interp2app(BaseArray.descr_get_transpose),
     flat = GetSetProperty(BaseArray.descr_get_flatiter),
     ravel = interp2app(BaseArray.descr_ravel),
     item = interp2app(BaseArray.descr_item),

@@ -1489,6 +1489,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array((range(10), range(20, 30)))
         b = a.T
         assert(b[:, 0] == a[0, :]).all()
+        assert (a.transpose() == b).all()
 
     def test_flatiter(self):
         from _numpypy import array, flatiter, arange
