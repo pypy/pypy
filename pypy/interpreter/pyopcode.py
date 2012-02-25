@@ -719,7 +719,9 @@ class __extend__(pyframe.PyFrame):
         last_val = self.popvalue()
         try:
             lgt = self.space.int_w(self.space.len(last_val))
-        except OperationError:
+        except OperationError, e:
+            if e.async(space):
+                raise
             lgt = 0 # oh well
         self.pushvalue(self.space.newlist([], sizehint=lgt))
         self.pushvalue(last_val)
