@@ -521,6 +521,14 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.name == "unicode256"
         assert d.num == 19
 
+    def test_string_boxes(self):
+        from _numpypy import str_
+        assert str_(3) == '3'
+
+    def test_unicode_boxes(self):
+        from _numpypy import str_
+        assert str_(3) == '3'
+
 class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
         from _numpypy import dtype, void

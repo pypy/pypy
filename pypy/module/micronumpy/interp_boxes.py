@@ -197,9 +197,6 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
 
 
 class W_FlexibleBox(W_GenericBox):
-    pass
-
-class W_VoidBox(W_FlexibleBox):
     def __init__(self, arr, ofs):
         self.arr = arr # we have to keep array alive
         self.ofs = ofs
@@ -207,6 +204,7 @@ class W_VoidBox(W_FlexibleBox):
     def get_dtype(self, space):
         return self.arr.dtype
 
+class W_VoidBox(W_FlexibleBox):
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
         try:
@@ -230,10 +228,26 @@ class W_CharacterBox(W_FlexibleBox):
     pass
 
 class W_StringBox(W_CharacterBox):
-    pass
+    def descr__new__(space, w_subtype, w_arg):
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        from pypy.module.micronumpy.interp_dtype import new_string_dtype
+
+        arg = space.str_w(space.str(w_arg))
+        arr = W_NDimArray([1], new_string_dtype(space, len(arg)))
+        for i in range(len(arg)):
+            arr.storage[i] = arg[i]
+        return W_StringBox(arr, 0)
 
 class W_UnicodeBox(W_CharacterBox):
-    pass
+    def descr__new__(space, w_subtype, w_arg):
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
+
+        arg = space.unicode_w(space.unicode(w_arg))
+        arr = W_NDimArray([1], new_unicode_dtype(space, len(arg)))
+        for i in range(len(arg)):
+            arr.setitem(i, arg[i])
+        return W_UnicodeBox(arr, 0)
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
@@ -394,9 +408,11 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
 
 W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
+    __new__ = interp2app(W_StringBox.descr__new__.im_func),
 )
 
 W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
+    __new__ = interp2app(W_UnicodeBox.descr__new__.im_func),
 )
                                           

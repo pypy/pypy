@@ -247,6 +247,27 @@ else:
     byteorder_prefix = '>'
     nonnative_byteorder_prefix = '<'
 
+def new_string_dtype(space, size):
+    return W_Dtype(
+        types.StringType(size),
+        num=18,
+        kind=STRINGLTR,
+        name='string',
+        char='S' + str(size),
+        w_box_type = space.gettypefor(interp_boxes.W_StringBox),
+    )
+
+def new_unicode_dtype(space, size):
+    return W_Dtype(
+        types.UnicodeType(size),
+        num=19,
+        kind=UNICODELTR,
+        name='unicode',
+        char='U' + str(size),
+        w_box_type = space.gettypefor(interp_boxes.W_UnicodeBox),
+    )
+
+
 class DtypeCache(object):
     def __init__(self, space):
         self.w_booldtype = W_Dtype(
@@ -379,7 +400,7 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_ULongLongBox),
         )
         self.w_stringdtype = W_Dtype(
-            types.StringType(0),
+            types.StringType(1),
             num=18,
             kind=STRINGLTR,
             name='string',
@@ -388,7 +409,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_str],
         )
         self.w_unicodedtype = W_Dtype(
-            types.UnicodeType(0),
+            types.UnicodeType(1),
             num=19,
             kind=UNICODELTR,
             name='unicode',
