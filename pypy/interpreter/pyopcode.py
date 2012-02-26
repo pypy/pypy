@@ -718,7 +718,7 @@ class __extend__(pyframe.PyFrame):
         # value
         last_val = self.popvalue()
         try:
-            lgt = self.space.int_w(self.space.len(last_val))
+            lgt = self.space.len_w(last_val)
         except OperationError, e:
             if e.async(space):
                 raise
