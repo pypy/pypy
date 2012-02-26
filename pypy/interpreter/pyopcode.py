@@ -720,7 +720,7 @@ class __extend__(pyframe.PyFrame):
         try:
             lgt = self.space.len_w(last_val)
         except OperationError, e:
-            if e.async(space):
+            if e.async(self.space):
                 raise
             lgt = 0 # oh well
         self.pushvalue(self.space.newlist([], sizehint=lgt))
