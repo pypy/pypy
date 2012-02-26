@@ -1,5 +1,5 @@
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
-from pypy.rpython.memory.gctransform.shadowstack import ShadowStackRootWalker
+from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.lltypesystem import llmemory
 from pypy.annotation import model as annmodel
 
@@ -27,6 +27,12 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_commit_ptr = getfn(
             self.gcdata.gc.commit_transaction.im_func,
             [s_gc], annmodel.s_None)
+
+    def push_roots(self, hop, keep_current_args=False):
+        pass
+
+    def pop_roots(self, hop, livevars):
+        pass
 
     def build_root_walker(self):
         return StmStackRootWalker(self)
@@ -63,5 +69,7 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop("direct_call", [self.stm_commit_ptr, self.c_const_gc])
 
 
-class StmStackRootWalker(ShadowStackRootWalker):
-    pass
+class StmStackRootWalker(BaseRootWalker):
+
+    def walk_stack_roots(self, collect_stack_root):
+        raise NotImplementedError
