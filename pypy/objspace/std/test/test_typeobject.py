@@ -993,7 +993,9 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'append', 42)
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
-        
+        raises(TypeError, 'int.__dict__["a"] = 1')
+        raises(TypeError, 'int.__dict__.clear()')
+
     def test_nontype_in_mro(self):
         class OldStyle:
             pass
