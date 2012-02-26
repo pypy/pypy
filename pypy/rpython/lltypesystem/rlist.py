@@ -321,6 +321,7 @@ def ll_fixed_newemptylist(LIST):
 
 def ll_fixed_length(l):
     return len(l)
+ll_fixed_length._always_inline_ = True
 
 def ll_fixed_items(l):
     return l
@@ -328,10 +329,12 @@ def ll_fixed_items(l):
 def ll_fixed_getitem_fast(l, index):
     ll_assert(index < len(l), "fixed getitem out of bounds")
     return l[index]
+ll_fixed_getitem_fast._always_inline_ = True
 
 def ll_fixed_setitem_fast(l, index, item):
     ll_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
+ll_fixed_setitem_fast._always_inline_ = True
 
 def newlist(llops, r_list, items_v, v_sizehint=None):
     LIST = r_list.LIST

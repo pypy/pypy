@@ -559,7 +559,7 @@ def ll_list_is_true(l):
 
 def ll_len_foldable(l):
     return l.ll_length()
-ll_len_foldable.oopspec = 'list.len_foldable(l)'
+ll_len_foldable._always_inline_ = True
 
 def ll_list_is_true_foldable(l):
     return bool(l) and ll_len_foldable(l) != 0
@@ -618,7 +618,6 @@ def ll_pop_nonneg(func, l, index):
     res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
-ll_pop_nonneg.oopspec = 'list.pop(l, index)'
 
 def ll_pop_default(func, l):
     length = l.ll_length()
@@ -652,7 +651,6 @@ def ll_pop_zero(func, l):
         l.ll_setitem_fast(newlength, null)
     l._ll_resize_le(newlength)
     return res
-ll_pop_zero.oopspec = 'list.pop(l, 0)'
 
 def ll_pop(func, l, index):
     length = l.ll_length()
@@ -712,7 +710,7 @@ def ll_getitem(func, l, index):
 def ll_getitem_foldable_nonneg(l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")
     return l.ll_getitem_fast(index)
-ll_getitem_foldable_nonneg.oopspec = 'list.getitem_foldable(l, index)'
+ll_getitem_foldable_nonneg._always_inline_ = True
 
 def ll_getitem_foldable(l, index):
     if index < 0:
