@@ -258,4 +258,4 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=10)
+        self.check_simple_loop(getfield_gc=4)
