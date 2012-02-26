@@ -33,7 +33,7 @@ def make_empty_list(space):
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 @jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
-def get_strategy_from_list_objects(space, list_w, sizehint):
+def get_strategy_from_list_objects(space, list_w, sizehint=-1):
     if not list_w:
         if sizehint != -1:
             return SizeListStrategy(space, sizehint)
