@@ -256,6 +256,7 @@ class TestLLtype(ListTests, LLJitMixin):
             return a * b
         res = self.meta_interp(f, [37])
         assert res == f(37)
-        # There is the one actual field on a, plus several fields on the list
-        # itself
+        # by unrolling there should be no actual getfields on a in the
+        # loop. if caches were invalidated, there will be 2.
+        # getfields are 2 reads of items and 2 of length
         self.check_simple_loop(getfield_gc=4)
