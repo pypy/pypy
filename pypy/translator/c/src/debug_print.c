@@ -1,3 +1,4 @@
+#define PYPY_NOT_MAIN_FILE
 
 #include <string.h>
 #include <stddef.h>

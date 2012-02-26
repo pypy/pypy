@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call, CONST_STRING,
+    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
@@ -48,6 +48,7 @@ def init_functionobject(space):
 
 PyFunction_Check, PyFunction_CheckExact = build_type_checkers("Function", Function)
 PyMethod_Check, PyMethod_CheckExact = build_type_checkers("Method", Method)
+PyCode_Check, PyCode_CheckExact = build_type_checkers("Code", PyCode)
 
 def function_attach(space, py_obj, w_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
@@ -166,4 +167,10 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              lnotab="",
                              freevars=[],
                              cellvars=[]))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyCode_GetNumFree(space, w_co):
+    """Return the number of free variables in co."""
+    co = space.interp_w(PyCode, w_co)
+    return len(co.co_freevars)
 

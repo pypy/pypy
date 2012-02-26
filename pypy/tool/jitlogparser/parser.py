@@ -387,7 +387,7 @@ def import_log(logname, ParserCls=SimpleParser):
             m = re.search('guard \d+', comm)
             name = m.group(0)
         else:
-            name = comm[2:comm.find(':')-1]
+            name = " ".join(comm[2:].split(" ", 2)[:2])
         if name in dumps:
             bname, start_ofs, dump = dumps[name]
             loop.force_asm = (lambda dump=dump, start_ofs=start_ofs,
