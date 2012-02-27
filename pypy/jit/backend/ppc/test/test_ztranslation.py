@@ -18,8 +18,9 @@ class TestTranslationPPC(CCompiledMixin):
     def _check_cbuilder(self, cbuilder):
         # We assume here that we have sse2.  If not, the CPUClass
         # needs to be changed to CPU386_NO_SSE2, but well.
-        assert '-msse2' in cbuilder.eci.compile_extra
-        assert '-mfpmath=sse' in cbuilder.eci.compile_extra
+        #assert '-msse2' in cbuilder.eci.compile_extra
+        #assert '-mfpmath=sse' in cbuilder.eci.compile_extra
+        pass
 
     def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
@@ -176,7 +177,7 @@ class TestTranslationRemoveTypePtrPPC(CCompiledMixin):
     def _get_TranslationContext(self):
         t = TranslationContext()
         t.config.translation.gc = DEFL_GC   # 'hybrid' or 'minimark'
-        t.config.translation.gcrootfinder = 'asmgcc'
+        t.config.translation.gcrootfinder = 'shadowstack'
         t.config.translation.list_comprehension_operations = True
         t.config.translation.gcremovetypeptr = True
         return t

@@ -32,7 +32,7 @@ class PPC_64_CPU(AbstractLLCPU):
             gcdescr.force_index_ofs = FORCE_INDEX_OFS
             # XXX for now the ppc backend does not support the gcremovetypeptr
             # translation option
-            assert gcdescr.config.translation.gcremovetypeptr is False
+            # assert gcdescr.config.translation.gcremovetypeptr is False
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 

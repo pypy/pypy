@@ -50,37 +50,33 @@ class PPCRegisterManager(RegisterManager):
     save_around_call_regs = r.VOLATILES
 
     REGLOC_TO_COPY_AREA_OFS = {
-        r.r0:   MY_COPY_OF_REGS + 0 * WORD,
-        r.r2:   MY_COPY_OF_REGS + 1 * WORD,
-        r.r3:   MY_COPY_OF_REGS + 2 * WORD,
-        r.r4:   MY_COPY_OF_REGS + 3 * WORD,
-        r.r5:   MY_COPY_OF_REGS + 4 * WORD,
-        r.r6:   MY_COPY_OF_REGS + 5 * WORD,
-        r.r7:   MY_COPY_OF_REGS + 6 * WORD,
-        r.r8:   MY_COPY_OF_REGS + 7 * WORD,
-        r.r9:   MY_COPY_OF_REGS + 8 * WORD,
-        r.r10:  MY_COPY_OF_REGS + 9 * WORD,
-        r.r11:  MY_COPY_OF_REGS + 10 * WORD,
-        r.r12:  MY_COPY_OF_REGS + 11 * WORD,
-        r.r13:  MY_COPY_OF_REGS + 12 * WORD,
-        r.r14:  MY_COPY_OF_REGS + 13 * WORD,
-        r.r15:  MY_COPY_OF_REGS + 14 * WORD,
-        r.r16:  MY_COPY_OF_REGS + 15 * WORD,
-        r.r17:  MY_COPY_OF_REGS + 16 * WORD,
-        r.r18:  MY_COPY_OF_REGS + 17 * WORD,
-        r.r19:  MY_COPY_OF_REGS + 18 * WORD,
-        r.r20:  MY_COPY_OF_REGS + 19 * WORD,
-        r.r21:  MY_COPY_OF_REGS + 20 * WORD,
-        r.r22:  MY_COPY_OF_REGS + 21 * WORD,
-        r.r23:  MY_COPY_OF_REGS + 22 * WORD,
-        r.r24:  MY_COPY_OF_REGS + 23 * WORD,
-        r.r25:  MY_COPY_OF_REGS + 24 * WORD,
-        r.r26:  MY_COPY_OF_REGS + 25 * WORD,
-        r.r27:  MY_COPY_OF_REGS + 26 * WORD,
-        r.r28:  MY_COPY_OF_REGS + 27 * WORD,
-        r.r29:  MY_COPY_OF_REGS + 28 * WORD,
-        r.r30:  MY_COPY_OF_REGS + 29 * WORD,
-        r.r31:  MY_COPY_OF_REGS + 30 * WORD,
+        r.r3:   MY_COPY_OF_REGS + 0 * WORD,
+        r.r4:   MY_COPY_OF_REGS + 1 * WORD,
+        r.r5:   MY_COPY_OF_REGS + 2 * WORD,
+        r.r6:   MY_COPY_OF_REGS + 3 * WORD,
+        r.r7:   MY_COPY_OF_REGS + 4 * WORD,
+        r.r8:   MY_COPY_OF_REGS + 5 * WORD,
+        r.r9:   MY_COPY_OF_REGS + 6 * WORD,
+        r.r10:  MY_COPY_OF_REGS + 7 * WORD,
+        r.r11:  MY_COPY_OF_REGS + 8 * WORD,
+        r.r12:  MY_COPY_OF_REGS + 9 * WORD,
+        r.r14:  MY_COPY_OF_REGS + 10 * WORD,
+        r.r15:  MY_COPY_OF_REGS + 11 * WORD,
+        r.r16:  MY_COPY_OF_REGS + 12 * WORD,
+        r.r17:  MY_COPY_OF_REGS + 13 * WORD,
+        r.r18:  MY_COPY_OF_REGS + 14 * WORD,
+        r.r19:  MY_COPY_OF_REGS + 15 * WORD,
+        r.r20:  MY_COPY_OF_REGS + 16 * WORD,
+        r.r21:  MY_COPY_OF_REGS + 17 * WORD,
+        r.r22:  MY_COPY_OF_REGS + 18 * WORD,
+        r.r23:  MY_COPY_OF_REGS + 19 * WORD,
+        r.r24:  MY_COPY_OF_REGS + 20 * WORD,
+        r.r25:  MY_COPY_OF_REGS + 21 * WORD,
+        r.r26:  MY_COPY_OF_REGS + 22 * WORD,
+        r.r27:  MY_COPY_OF_REGS + 23 * WORD,
+        r.r28:  MY_COPY_OF_REGS + 24 * WORD,
+        r.r29:  MY_COPY_OF_REGS + 25 * WORD,
+        r.r30:  MY_COPY_OF_REGS + 26 * WORD,
     }
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
@@ -177,7 +173,7 @@ class Regalloc(object):
     def prepare_loop(self, inputargs, operations):
         self._prepare(inputargs, operations)
         self._set_initial_bindings(inputargs)
-        self.possibly_free_vars(list(inputargs))
+        self.possibly_free_vars(inputargs)
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
@@ -425,7 +421,7 @@ class Regalloc(object):
     prepare_guard_not_invalidated = prepare_guard_no_overflow
 
     def prepare_guard_exception(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc = self._ensure_value_is_boxed(arg0)
         loc1 = self.get_scratch_reg(INT, boxes)
@@ -447,7 +443,7 @@ class Regalloc(object):
         return arglocs
 
     def prepare_guard_value(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         l0 = self._ensure_value_is_boxed(a0, boxes)
         l1 = self._ensure_value_is_boxed(a1, boxes)
@@ -459,7 +455,7 @@ class Regalloc(object):
 
     def prepare_guard_class(self, op):
         assert isinstance(op.getarg(0), Box)
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         x = self._ensure_value_is_boxed(boxes[0], boxes)
         y = self.get_scratch_reg(REF, forbidden_vars=boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
@@ -559,7 +555,7 @@ class Regalloc(object):
         return []
 
     def prepare_setfield_gc(self, op):
-        boxes = list(op.getarglist())
+        boxes = op.getarglist()
         a0, a1 = boxes
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0, boxes)
@@ -608,6 +604,7 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
                                     imm(itemsize), imm(fieldsize)]
+    prepare_getinteriorfield_raw = prepare_getinteriorfield_gc
 
     def prepare_setinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -622,6 +619,7 @@ class Regalloc(object):
             ofs_loc = self._ensure_value_is_boxed(ConstInt(ofs), args)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
+    prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
 
     def prepare_arraylen_gc(self, op):
         arraydescr = op.getdescr()
@@ -811,6 +809,7 @@ class Regalloc(object):
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void
+    prepare_keepalive = void
 
     def prepare_cond_call_gc_wb(self, op):
         assert op.result is None

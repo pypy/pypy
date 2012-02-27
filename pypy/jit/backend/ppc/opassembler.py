@@ -12,7 +12,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.helper.assembler import (count_reg_args,
                                                           Saved_Volatiles)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
-from pypy.jit.backend.ppc.codebuilder import OverwritingBuilder
+from pypy.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
+                                              PPCBuilder)
 from pypy.jit.backend.ppc.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
@@ -210,12 +211,11 @@ class GuardOpAssembler(object):
     #        instead of XER could be more efficient
     def _emit_ovf_guard(self, op, arglocs, cond):
         # move content of XER to GPR
-        self.mc.alloc_scratch_reg()
-        self.mc.mfspr(r.SCRATCH.value, 1)
-        # shift and mask to get comparison result
-        self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 1, 0, 0)
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.mfspr(r.SCRATCH.value, 1)
+            # shift and mask to get comparison result
+            self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 1, 0, 0)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self._emit_guard(op, arglocs, cond)
 
     def emit_guard_no_overflow(self, op, arglocs, regalloc):
@@ -244,14 +244,13 @@ class GuardOpAssembler(object):
     def _cmp_guard_class(self, op, locs, regalloc):
         offset = locs[2]
         if offset is not None:
-            self.mc.alloc_scratch_reg()
-            if offset.is_imm():
-                self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
-            else:
-                assert offset.is_reg()
-                self.mc.loadx(r.SCRATCH.value, locs[0].value, offset.value)
-            self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
-            self.mc.free_scratch_reg()
+            with scratch_reg(self.mc):
+                if offset.is_imm():
+                    self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
+                else:
+                    assert offset.is_reg()
+                    self.mc.loadx(r.SCRATCH.value, locs[0].value, offset.value)
+                self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
         else:
             assert 0, "not implemented yet"
         self._emit_guard(op, locs[3:], c.NE)
@@ -288,10 +287,9 @@ class MiscOpAssembler(object):
                     adr = self.fail_boxes_int.get_addr_for_num(i)
                 else:
                     assert 0
-                self.mc.alloc_scratch_reg()
-                self.mc.load_imm(r.SCRATCH, adr)
-                self.mc.storex(loc.value, 0, r.SCRATCH.value)
-                self.mc.free_scratch_reg()
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.storex(loc.value, 0, r.SCRATCH.value)
             elif loc.is_vfp_reg():
                 assert box.type == FLOAT
                 assert 0, "not implemented yet"
@@ -305,13 +303,12 @@ class MiscOpAssembler(object):
                         adr = self.fail_boxes_int.get_addr_for_num(i)
                     else:
                         assert 0
-                    self.mc.alloc_scratch_reg()
-                    self.mov_loc_loc(loc, r.SCRATCH)
-                    # store content of r5 temporary in ENCODING AREA
-                    self.mc.store(r.r5.value, r.SPP.value, 0)
-                    self.mc.load_imm(r.r5, adr)
-                    self.mc.store(r.SCRATCH.value, r.r5.value, 0)
-                    self.mc.free_scratch_reg()
+                    with scratch_reg(self.mc):
+                        self.mov_loc_loc(loc, r.SCRATCH)
+                        # store content of r5 temporary in ENCODING AREA
+                        self.mc.store(r.r5.value, r.SPP.value, 0)
+                        self.mc.load_imm(r.r5, adr)
+                        self.mc.store(r.SCRATCH.value, r.r5.value, 0)
                     # restore r5
                     self.mc.load(r.r5.value, r.SPP.value, 0)
             else:
@@ -362,10 +359,9 @@ class MiscOpAssembler(object):
         failargs = arglocs[5:]
         self.mc.load_imm(loc1, pos_exception.value)
 
-        self.mc.alloc_scratch_reg()
-        self.mc.load(r.SCRATCH.value, loc1.value, 0)
-        self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, loc1.value, 0)
+            self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
 
         self._emit_guard(op, failargs, c.NE, save_exc=True)
         self.mc.load_imm(loc, pos_exc_value.value)
@@ -373,11 +369,10 @@ class MiscOpAssembler(object):
         if resloc:
             self.mc.load(resloc.value, loc.value, 0)
 
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, 0)
-        self.mc.store(r.SCRATCH.value, loc.value, 0)
-        self.mc.store(r.SCRATCH.value, loc1.value, 0)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, 0)
+            self.mc.store(r.SCRATCH.value, loc.value, 0)
+            self.mc.store(r.SCRATCH.value, loc1.value, 0)
 
     def emit_call(self, op, args, regalloc, force_index=-1):
         adr = args[0].value
@@ -426,13 +421,12 @@ class MiscOpAssembler(object):
             param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS)
                     * WORD) # space for first 8 parameters
 
-        self.mc.alloc_scratch_reg()
-        for i, arg in enumerate(stack_args):
-            offset = param_offset + i * WORD
-            if arg is not None:
-                self.regalloc_mov(regalloc.loc(arg), r.SCRATCH)
-            self.mc.store(r.SCRATCH.value, r.SP.value, offset)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            for i, arg in enumerate(stack_args):
+                offset = param_offset + i * WORD
+                if arg is not None:
+                    self.regalloc_mov(regalloc.loc(arg), r.SCRATCH)
+                self.mc.store(r.SCRATCH.value, r.SP.value, offset)
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
@@ -542,31 +536,31 @@ class FieldOpAssembler(object):
     def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, res_loc,
             ofs_loc, ofs, itemsize, fieldsize) = arglocs
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, itemsize.value)
-        self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
-        if ofs.value > 0:
-            if ofs_loc.is_imm():
-                self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
-            else:
-                self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, itemsize.value)
+            self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
+            if ofs.value > 0:
+                if ofs_loc.is_imm():
+                    self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+                else:
+                    self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
 
-        if fieldsize.value == 8:
-            self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 4:
-            self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 2:
-            self.mc.lhzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-        elif fieldsize.value == 1:
-            self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-        else:
-            assert 0
-        self.mc.free_scratch_reg()
+            if fieldsize.value == 8:
+                self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 4:
+                self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 2:
+                self.mc.lhzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+            elif fieldsize.value == 1:
+                self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
+            else:
+                assert 0
 
         #XXX Hack, Hack, Hack
         if not we_are_translated():
             signed = op.getdescr().fielddescr.is_field_signed()
             self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
+    emit_getinteriorfield_raw = emit_getinteriorfield_gc
 
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc,
@@ -588,7 +582,7 @@ class FieldOpAssembler(object):
             self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
         else:
             assert 0
-
+    emit_setinteriorfield_raw = emit_setinteriorfield_gc
 
 class ArrayOpAssembler(object):
     
@@ -752,13 +746,12 @@ class StrOpAssembler(object):
             bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
             scale = self._get_unicode_item_scale()
             assert length_loc.is_reg()
-            self.mc.alloc_scratch_reg()
-            self.mc.load_imm(r.SCRATCH, 1 << scale)
-            if IS_PPC_32:
-                self.mc.mullw(bytes_loc.value, r.SCRATCH.value, length_loc.value)
-            else:
-                self.mc.mulld(bytes_loc.value, r.SCRATCH.value, length_loc.value)
-            self.mc.free_scratch_reg()
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, 1 << scale)
+                if IS_PPC_32:
+                    self.mc.mullw(bytes_loc.value, r.SCRATCH.value, length_loc.value)
+                else:
+                    self.mc.mulld(bytes_loc.value, r.SCRATCH.value, length_loc.value)
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
@@ -873,15 +866,15 @@ class AllocOpAssembler(object):
     def set_vtable(self, box, vtable):
         if self.cpu.vtable_offset is not None:
             adr = rffi.cast(lltype.Signed, vtable)
-            self.mc.alloc_scratch_reg()
-            self.mc.load_imm(r.SCRATCH, adr)
-            self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
-            self.mc.free_scratch_reg()
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, adr)
+                self.mc.store(r.SCRATCH.value, r.RES.value, self.cpu.vtable_offset)
 
     def emit_debug_merge_point(self, op, arglocs, regalloc):
         pass
 
     emit_jit_debug = emit_debug_merge_point
+    emit_keepalive = emit_debug_merge_point
 
     def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
         # Write code equivalent to write_barrier() in the GC: it checks
@@ -906,26 +899,25 @@ class AllocOpAssembler(object):
             raise AssertionError(opnum)
         loc_base = arglocs[0]
 
-        self.mc.alloc_scratch_reg()
-        self.mc.load(r.SCRATCH.value, loc_base.value, 0)
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, loc_base.value, 0)
 
-        # get the position of the bit we want to test
-        bitpos = descr.jit_wb_if_flag_bitpos
+            # get the position of the bit we want to test
+            bitpos = descr.jit_wb_if_flag_bitpos
 
-        if IS_PPC_32:
-            # put this bit to the rightmost bitposition of r0
-            if bitpos > 0:
-                self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
-                               32 - bitpos, 31, 31)
-            # test whether this bit is set
-            self.mc.cmpwi(0, r.SCRATCH.value, 1)
-        else:
-            if bitpos > 0:
-                self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
-                               64 - bitpos, 63)
-            # test whether this bit is set
-            self.mc.cmpdi(0, r.SCRATCH.value, 1)
-        self.mc.free_scratch_reg()
+            if IS_PPC_32:
+                # put this bit to the rightmost bitposition of r0
+                if bitpos > 0:
+                    self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
+                                   32 - bitpos, 31, 31)
+                # test whether this bit is set
+                self.mc.cmpwi(0, r.SCRATCH.value, 1)
+            else:
+                if bitpos > 0:
+                    self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
+                                   64 - bitpos, 63)
+                # test whether this bit is set
+                self.mc.cmpdi(0, r.SCRATCH.value, 1)
 
         jz_location = self.mc.currpos()
         self.mc.nop()
@@ -947,7 +939,7 @@ class AllocOpAssembler(object):
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
         pmc = OverwritingBuilder(self.mc, jz_location, 1)
-        pmc.bc(4, 2, offset) # jump if the two values are equal
+        pmc.bc(12, 2, offset) # jump if the two values are equal
         pmc.overwrite()
 
     emit_cond_call_gc_wb_array = emit_cond_call_gc_wb
@@ -989,10 +981,9 @@ class ForceOpAssembler(object):
         # check value
         resloc = regalloc.try_allocate_reg(resbox)
         assert resloc is r.RES
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, value)
-        self.mc.cmp_op(0, resloc.value, r.SCRATCH.value)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, value)
+            self.mc.cmp_op(0, resloc.value, r.SCRATCH.value)
         regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
@@ -1035,11 +1026,10 @@ class ForceOpAssembler(object):
             assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
-            self.mc.alloc_scratch_reg()
-            self.mov_loc_loc(arglocs[1], r.SCRATCH)
-            self.mc.li(resloc.value, 0)
-            self.mc.storex(resloc.value, 0, r.SCRATCH.value)
-            self.mc.free_scratch_reg()
+            with scratch_reg(self.mc):
+                self.mov_loc_loc(arglocs[1], r.SCRATCH)
+                self.mc.li(resloc.value, 0)
+                self.mc.storex(resloc.value, 0, r.SCRATCH.value)
             regalloc.possibly_free_var(resbox)
 
         if op.result is not None:
@@ -1055,13 +1045,12 @@ class ForceOpAssembler(object):
                 raise AssertionError(kind)
             resloc = regalloc.force_allocate_reg(op.result)
             regalloc.possibly_free_var(resbox)
-            self.mc.alloc_scratch_reg()
-            self.mc.load_imm(r.SCRATCH, adr)
-            if op.result.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
-            self.mc.free_scratch_reg()
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, adr)
+                if op.result.type == FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
 
         # merge point
         offset = self.mc.currpos() - jmp_pos
@@ -1070,10 +1059,9 @@ class ForceOpAssembler(object):
             pmc.b(offset)
             pmc.overwrite()
 
-        self.mc.alloc_scratch_reg()
-        self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
 
         self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
 
@@ -1102,10 +1090,9 @@ class ForceOpAssembler(object):
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         ENCODING_AREA = len(r.MANAGED_REGS) * WORD
-        self.mc.alloc_scratch_reg()
-        self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self._emit_guard(guard_op, arglocs, c.LT, save_exc=True)
 
     emit_guard_call_release_gil = emit_guard_call_may_force

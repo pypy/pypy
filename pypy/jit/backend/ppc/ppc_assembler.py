@@ -3,7 +3,7 @@ import struct
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
-                                                  Regalloc)
+                                                  Regalloc, PPCRegisterManager)
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
 from pypy.jit.backend.ppc.symbol_lookup import lookup
@@ -37,15 +37,23 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
+from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
+                             have_debug_prints)
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
+from pypy.rlib.jit import AsmInfo
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
                             sandboxsafe=True, _nowrapper=True)
+
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('type', lltype.Char),  # 'b'ridge, 'l'abel or
+                                                      # 'e'ntry point
+                              ('number', lltype.Signed))
 def hi(w):
     return w >> 16
 
@@ -85,6 +93,7 @@ class AssemblerPPC(OpAssembler):
     EMPTY_LOC = '\xFE'
     END_OF_LOCS = '\xFF'
 
+    FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
     ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
@@ -108,6 +117,12 @@ class AssemblerPPC(OpAssembler):
         self.max_stack_params = 0
         self.propagate_exception_path = 0
         self.setup_failure_recovery()
+        self._debug = False
+        self.loop_run_counters = []
+        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+
+    def set_debug(self, v):
+        self._debug = v
 
     def _save_nonvolatiles(self):
         """ save nonvolatile GPRs in GPR SAVE AREA 
@@ -298,24 +313,64 @@ class AssemblerPPC(OpAssembler):
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
-        with Saved_Volatiles(mc):
-            # Values to compute size stored in r3 and r4
-            mc.subf(r.r3.value, r.r3.value, r.r4.value)
-            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
-            mc.call(addr)
+        if IS_PPC_64:
+            for _ in range(6):
+                mc.write32(0)
+        frame_size = (# add space for floats later
+                    + BACKCHAIN_SIZE * WORD)
+        if IS_PPC_32:
+            mc.stwu(r.SP.value, r.SP.value, -frame_size)
+            mc.mflr(r.SCRATCH.value)
+            mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
+        else:
+            mc.stdu(r.SP.value, r.SP.value, -frame_size)
+            mc.mflr(r.SCRATCH.value)
+            mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+        # managed volatiles are saved below
+        if self.cpu.supports_floats:
+            assert 0, "make sure to save floats here"
+        # Values to compute size stored in r3 and r4
+        mc.subf(r.r3.value, r.r3.value, r.r4.value)
+        addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.store(reg.value, r.SPP.value, ofs)
+        mc.call(addr)
+        for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
+            mc.load(reg.value, r.SPP.value, ofs)
 
         mc.cmp_op(0, r.r3.value, 0, imm=True)
         jmp_pos = mc.currpos()
         mc.nop()
+
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.load_imm(r.r4, nursery_free_adr)
         mc.load(r.r4.value, r.r4.value, 0)
+ 
+        if IS_PPC_32:
+            ofs = WORD
+        else:
+            ofs = WORD * 2
+        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+        mc.mtlr(r.SCRATCH.value)
+        mc.addi(r.SP.value, r.SP.value, frame_size)
+        mc.blr()
 
+        # if r3 == 0 we skip the return above and jump to the exception path
+        offset = mc.currpos() - jmp_pos
         pmc = OverwritingBuilder(mc, jmp_pos, 1)
-        pmc.bc(4, 2, jmp_pos) # jump if the two values are equal
+        pmc.bc(12, 2, offset) 
         pmc.overwrite()
+        # restore the frame before leaving
+        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+        mc.mtlr(r.SCRATCH.value)
+        mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.b_abs(self.propagate_exception_path)
+
+
+        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        if IS_PPC_64:
+            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.malloc_slowpath = rawstart
 
     def _build_propagate_exception_path(self):
@@ -362,8 +417,8 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
-        mc.mr(r.r4.value, r.SPP.value)         # load spilling pointer
+        mc.load(r.r3.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
+        mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
         #
         # call decoding function
         mc.call(addr)
@@ -430,6 +485,23 @@ class AssemblerPPC(OpAssembler):
         self.exit_code_adr = self._gen_exit_path()
         self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
+        debug_start('jit-backend-counts')
+        self.set_debug(have_debug_prints())
+        debug_stop('jit-backend-counts')
+
+    def finish_once(self):
+        if self._debug:
+            debug_start('jit-backend-counts')
+            for i in range(len(self.loop_run_counters)):
+                struct = self.loop_run_counters[i]
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
+            debug_stop('jit-backend-counts')
 
     @staticmethod
     def _release_gil_shadowstack():
@@ -475,6 +547,7 @@ class AssemblerPPC(OpAssembler):
         looptoken._ppc_loop_code = start_pos
         clt.frame_depth = clt.param_depth = -1
         spilling_area, param_depth = self._assemble(operations, regalloc)
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
         clt.frame_depth = spilling_area
         clt.param_depth = param_depth
      
@@ -502,7 +575,11 @@ class AssemblerPPC(OpAssembler):
             print 'Loop', inputargs, operations
             self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling loop with token %r' % looptoken
+        ops_offset = self.mc.ops_offset
         self._teardown()
+
+        # XXX 3rd arg may not be correct yet
+        return AsmInfo(ops_offset, real_start, size_excluding_failure_stuff)
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
@@ -531,7 +608,9 @@ class AssemblerPPC(OpAssembler):
 
         sp_patch_location = self._prepare_sp_patch_position()
 
+        startpos = self.mc.get_relative_pos()
         spilling_area, param_depth = self._assemble(operations, regalloc)
+        codeendpos = self.mc.get_relative_pos()
 
         self.write_pending_failure_recoveries()
 
@@ -553,7 +632,11 @@ class AssemblerPPC(OpAssembler):
             print 'Loop', inputargs, operations
             self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
             print 'Done assembling bridge with token %r' % looptoken
+
+        ops_offset = self.mc.ops_offset
         self._teardown()
+
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _patch_sp_offset(self, sp_patch_location, rawstart):
         mc = PPCBuilder()
@@ -828,11 +911,10 @@ class AssemblerPPC(OpAssembler):
                 return
             # move immediate value to memory
             elif loc.is_stack():
-                self.mc.alloc_scratch_reg()
-                offset = loc.value
-                self.mc.load_imm(r.SCRATCH, value)
-                self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
-                self.mc.free_scratch_reg()
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_stack():
@@ -845,10 +927,9 @@ class AssemblerPPC(OpAssembler):
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.value
-                self.mc.alloc_scratch_reg()
-                self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
-                self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
-                self.mc.free_scratch_reg()
+                with scratch_reg(self.mc):
+                    self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
+                    self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
@@ -883,10 +964,7 @@ class AssemblerPPC(OpAssembler):
         elif loc.is_reg():
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
-            if IS_PPC_32:
-                self.mc.stw(loc.value, r.SP.value, 0)
-            else:
-                self.mc.std(loc.value, r.SP.value, 0)
+            self.mc.store(loc.value, r.SP.value, 0)
         elif loc.is_imm():
             assert 0, "not implemented yet"
         elif loc.is_imm_float():
@@ -946,17 +1024,17 @@ class AssemblerPPC(OpAssembler):
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
 
-        self.mc.load_imm(r.RES.value, nursery_free_adr)
+        self.mc.load_imm(r.RES, nursery_free_adr)
         self.mc.load(r.RES.value, r.RES.value, 0)
 
         if _check_imm_arg(size):
             self.mc.addi(r.r4.value, r.RES.value, size)
         else:
-            self.mc.load_imm(r.r4.value, size)
+            self.mc.load_imm(r.r4, size)
             self.mc.add(r.r4.value, r.RES.value, r.r4.value)
 
         with scratch_reg(self.mc):
-            self.mc.gen_load_int(r.SCRATCH.value, nursery_top_adr)
+            self.mc.load_imm(r.SCRATCH, nursery_top_adr)
             self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
 
         self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
@@ -977,10 +1055,11 @@ class AssemblerPPC(OpAssembler):
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
         pmc.bc(4, 1, offset) # jump if LE (not GT)
+        pmc.overwrite()
         
         with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH.value, nursery_free_adr)
-            self.mc.storex(r.r1.value, 0, r.SCRATCH.value)
+            self.mc.load_imm(r.SCRATCH, nursery_free_adr)
+            self.mc.storex(r.r4.value, 0, r.SCRATCH.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
@@ -1010,10 +1089,9 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, fail_index)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, fail_index)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()
