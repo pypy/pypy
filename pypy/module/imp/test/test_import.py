@@ -553,14 +553,14 @@ class AppTestImport:
         import sys
         oldpath = sys.path
         try:
-            del sys.setdefaultencoding
+            del sys.settrace
         except AttributeError:
             pass
 
         reload(sys)
 
         assert sys.path is oldpath
-        assert 'setdefaultencoding' in dir(sys)
+        assert 'settrace' in dir(sys)
 
     def test_reload_infinite(self):
         import infinite_reload
