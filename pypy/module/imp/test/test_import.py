@@ -364,13 +364,13 @@ class AppTestImport:
         import sys, os
         p = os.path.join(sys.path[-1], 'readonly')
         try:
-            os.chmod(p, 0555)
+            os.chmod(p, 0o555)
         except:
             skip("cannot chmod() the test directory to read-only")
         try:
             import readonly.x    # cannot write x.pyc, but should not crash
         finally:
-            os.chmod(p, 0775)
+            os.chmod(p, 0o775)
 
     def test__import__empty_string(self):
         raises(ValueError, __import__, "")
