@@ -63,7 +63,7 @@ class AppTestImpModule:
         assert not self.imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
 
-    def test_load_module_pyx(self):
+    def test_load_module_py(self):
         fn = self._py_file()
         descr = ('.py', 'U', self.imp.PY_SOURCE)
         f = open(fn, 'U')
