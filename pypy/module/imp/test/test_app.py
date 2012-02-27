@@ -25,7 +25,7 @@ class AppTestImpModule:
 
     def test_find_module(self):
         import os
-        file, pathname, description = self.imp.find_module('StringIO')
+        file, pathname, description = self.imp.find_module('cmd')
         assert file is not None
         file.close()
         assert os.path.exists(pathname)
@@ -63,7 +63,7 @@ class AppTestImpModule:
         assert not self.imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
 
-    def test_load_module_py(self):
+    def test_load_module_pyx(self):
         fn = self._py_file()
         descr = ('.py', 'U', self.imp.PY_SOURCE)
         f = open(fn, 'U')
@@ -164,7 +164,7 @@ class AppTestImpModule:
         with open(file_name, "wb") as f:
             f.write(code)
         compiled_name = file_name + ("c" if __debug__ else "o")
-        chmod(file_name, 0777)
+        chmod(file_name, 0o777)
 
         # Setup
         sys_path = path[:]
