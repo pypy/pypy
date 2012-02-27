@@ -608,8 +608,9 @@ class MiniMarkGC(MovingGCBase):
         specified as 0 if the object is not varsized.  The returned
         object is fully initialized and zero-filled."""
         #
-        # Here we really need a valid 'typeid'.
-        ll_assert(rffi.cast(lltype.Signed, typeid) != 0,
+        # Here we really need a valid 'typeid', not 0 (as the JIT might
+        # try to send us if there is still a bug).
+        ll_assert(bool(self.combine(typeid, 0)),
                   "external_malloc: typeid == 0")
         #
         # Compute the total size, carefully checking for overflows.
