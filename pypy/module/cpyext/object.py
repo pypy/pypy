@@ -193,7 +193,7 @@ def PyObject_Init(space, obj, type):
     if not obj:
         PyErr_NoMemory(space)
     obj.c_ob_type = type
-    _Py_NewReference(space, obj)
+    obj.c_ob_refcnt = 1
     return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
