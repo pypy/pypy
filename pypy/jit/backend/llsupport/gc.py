@@ -773,8 +773,6 @@ class GcLLDescr_framework(GcLLDescription):
         # allocate a fixed-size object, but not in the nursery, because
         # it is too big.
         def malloc_big_fixedsize(size, tid):
-            """Allocate 'size' null bytes out of the nursery.
-            Note that the fast path is typically inlined by the backend."""
             if self.DEBUG:
                 self._random_usage_of_xmm_registers()
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
