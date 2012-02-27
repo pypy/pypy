@@ -81,7 +81,7 @@ class FileWriter(AbstractReaderWriter):
 
     def write(self, data):
         space = self.space
-        space.call_function(self.func, space.wrap(data))
+        space.call_function(self.func, space.wrapbytes(data))
 
 
 class FileReader(AbstractReaderWriter):
