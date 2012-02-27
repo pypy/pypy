@@ -2,7 +2,7 @@ import py
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-import pypy.interpreter.pycode
+from pypy.interpreter.pycode import PyCode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
 from pypy.conftest import gettestobjspace
@@ -649,13 +649,18 @@ def _getlong(data):
     x = marshal.dumps(data)
     return x[-4:]
 
-def _testfile(magic, mtime, co=None):
+def _testfile(space, magic, mtime, co=None):
     cpathname = str(udir.join('test.pyc'))
     f = file(cpathname, "wb")
     f.write(_getlong(magic))
     f.write(_getlong(mtime))
     if co:
-        marshal.dump(co, f)
+        # marshal the code object with the PyPy marshal impl
+        pyco = PyCode._from_code(space, co)
+        w_marshal = space.getbuiltinmodule('marshal')
+        w_marshaled_code = space.call_method(w_marshal, 'dumps', pyco)
+        marshaled_code = space.bytes_w(w_marshaled_code)
+        f.write(marshaled_code)
     f.close()
     return cpathname
 
@@ -712,7 +717,7 @@ class TestPycStuff:
         space = self.space
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
-        cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
+        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
             stream.seek(8, 0)
@@ -721,7 +726,7 @@ class TestPycStuff:
             pycode = space.interpclass_w(w_code)
         finally:
             stream.close()
-        assert type(pycode) is pypy.interpreter.pycode.PyCode
+        assert type(pycode) is PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
@@ -764,7 +769,7 @@ class TestPycStuff:
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
-        assert type(pycode) is pypy.interpreter.pycode.PyCode
+        assert type(pycode) is PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
@@ -908,7 +913,7 @@ class TestPycStuff:
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
-        assert type(pycode) is pypy.interpreter.pycode.PyCode
+        assert type(pycode) is PyCode
 
         cpathname = str(udir.join('cpathname.pyc'))
         mode = 0777
