@@ -1012,24 +1012,24 @@ def test_PYTHONPATH_takes_precedence(space):
             os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
-    def test_meta_path(self):
+    def test_meta_path_1(self):
         tried_imports = []
         class Importer(object):
             def find_module(self, fullname, path=None):
                 tried_imports.append((fullname, path))
 
-        import sys, datetime
-        del sys.modules["datetime"]
+        import sys, math
+        del sys.modules["math"]
 
         sys.meta_path.append(Importer())
         try:
-            import datetime
+            import math
             assert len(tried_imports) == 1
             package_name = '.'.join(__name__.split('.')[:-1])
             if package_name:
-                assert tried_imports[0][0] == package_name + ".datetime"
+                assert tried_imports[0][0] == package_name + ".math"
             else:
-                assert tried_imports[0][0] == "datetime"
+                assert tried_imports[0][0] == "math"
         finally:
             sys.meta_path.pop()
 
