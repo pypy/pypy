@@ -167,9 +167,8 @@ class FloatTypeConverterMixin(NumericTypeConverterMixin):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(self.rffiptype, address)
         x[0] = self._unwrap_object(space, w_obj)
-        typecode = rffi.cast(rffi.CCHARP,
-            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = self.typecode
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = self.typecode
 
 
 class VoidConverter(TypeConverter):
@@ -360,9 +359,8 @@ class CStringConverter(TypeConverter):
         x = rffi.cast(rffi.LONGP, address)
         arg = space.str_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
-        typecode = rffi.cast(rffi.CCHARP,
-            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'o'
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'o'
 
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
@@ -379,9 +377,8 @@ class VoidPtrConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
-        typecode = rffi.cast(rffi.CCHARP,
-           capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'a'
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'a'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(get_rawobject(space, w_obj))
@@ -393,9 +390,8 @@ class VoidPtrPtrConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
-        typecode = rffi.cast(rffi.CCHARP,
-            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'p'
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'p'
 
 
 class VoidPtrRefConverter(TypeConverter):
@@ -404,9 +400,8 @@ class VoidPtrRefConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
-        typecode = rffi.cast(rffi.CCHARP,
-            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'r'
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'r'
 
 
 class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
@@ -516,9 +511,8 @@ class InstancePtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
         address = rffi.cast(capi.C_OBJECT, address)
-        typecode = rffi.cast(rffi.CCHARP,
-            capi.direct_ptradd(address, capi.c_function_arg_typeoffset()))
-        typecode[0] = 'o'
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'o'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
