@@ -1,19 +1,16 @@
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rstackovf
-from pypy.module._file.interp_file import W_File
 
 
 Py_MARSHAL_VERSION = 2
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     """Write the 'data' object into the open file 'f'."""
-    # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        writer = DirectStreamWriter(space, file)
-    else:
-        writer = FileWriter(space, w_f)
+    # XXX: before py3k, we special-cased W_File to use a more performant
+    # FileWriter class. Should we do the same for py3k? Look also at
+    # DirectStreamWriter
+    writer = FileWriter(space, w_f)
     try:
         # note: bound methods are currently not supported,
         # so we have to pass the instance in, instead.
@@ -32,12 +29,10 @@ by dump(data, file)."""
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
-    # special case real files for performance
-    file = space.interpclass_w(w_f)
-    if isinstance(file, W_File):
-        reader = DirectStreamReader(space, file)
-    else:
-        reader = FileReader(space, w_f)
+    # XXX: before py3k, we special-cased W_File to use a more performant
+    # FileWriter class. Should we do the same for py3k? Look also at
+    # DirectStreamReader
+    reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
         return u.load_w_obj()
@@ -120,10 +115,16 @@ class StreamReaderWriter(AbstractReaderWriter):
         self.file.unlock()
 
 class DirectStreamWriter(StreamReaderWriter):
+    """
+    XXX: this class is unused right now. Look at the comment in dump()
+    """
     def write(self, data):
         self.file.do_direct_write(data)
 
 class DirectStreamReader(StreamReaderWriter):
+    """
+    XXX: this class is unused right now. Look at the comment in dump()
+    """
     def read(self, n):
         data = self.file.direct_read(n)
         if len(data) < n:

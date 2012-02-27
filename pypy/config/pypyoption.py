@@ -13,14 +13,14 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "builtins", "posix"]
+    ["exceptions", "_io", "sys", "builtins", "posix"]
 )
 
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
      "math", "cmath", "_sre", "_pickle_support", "operator",
-     "parser", "symbol", "token", "_ast",  "_io", "_random", "__pypy__",
+     "parser", "symbol", "token", "_ast", "_random", "__pypy__",
      "_string", "_testing"]))
 
 

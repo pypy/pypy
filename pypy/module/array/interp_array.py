@@ -4,7 +4,6 @@ from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
-from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
