@@ -371,7 +371,9 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
                                 %(bdescr.basesize + 104)d,    \
                                 descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 8765, descr=tiddescr)
+            i0 = getfield_raw(p0, descr=tiddescr)
+            i1 = int_or(i0, 8765)
+            setfield_gc(p0, i1, descr=tiddescr)
             setfield_gc(p0, 103, descr=blendescr)
             jump()
         """)
@@ -437,7 +439,9 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 104, \
                                 descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 9315, descr=tiddescr)
+            i0 = getfield_raw(p0, descr=tiddescr)
+            i1 = int_or(i0, 9315)
+            setfield_gc(p0, i1, descr=tiddescr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
         """)

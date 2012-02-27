@@ -1,6 +1,6 @@
 import sys
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
+from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.symbolic import WORD
@@ -96,8 +96,8 @@ class GcRewriterAssembler(object):
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
         size = descr.size
-        self.gen_malloc_nursery(size, op.result)
-        self.gen_initialize_tid(op.result, descr.tid)
+        in_nursery = self.gen_malloc_nursery(size, op.result)
+        self.gen_initialize_tid(op.result, descr.tid, in_nursery)
 
     def handle_new_array(self, arraydescr, op):
         v_length = op.getarg(0)
@@ -113,8 +113,8 @@ class GcRewriterAssembler(object):
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
         if 0 <= total_size <= 0xffffff:     # up to 16MB, arbitrarily
-            self.gen_malloc_nursery(total_size, op.result)
-            self.gen_initialize_tid(op.result, arraydescr.tid)
+            in_nursery = self.gen_malloc_nursery(total_size, op.result)
+            self.gen_initialize_tid(op.result, arraydescr.tid, in_nursery)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
         elif self.gc_ll_descr.kind == 'boehm':
             self.gen_boehm_malloc_array(arraydescr, v_length, op.result)
@@ -212,7 +212,7 @@ class GcRewriterAssembler(object):
         size = self.round_up_for_allocation(size)
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
             self.gen_malloc_fixedsize(size, v_result)
-            return
+            return False
         #
         op = None
         if self._op_malloc_nursery is not None:
@@ -238,12 +238,26 @@ class GcRewriterAssembler(object):
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
         self.recent_mallocs[v_result] = None
+        return True
 
-    def gen_initialize_tid(self, v_newgcobj, tid):
+    def gen_initialize_tid(self, v_newgcobj, tid, in_nursery):
         if self.gc_ll_descr.fielddescr_tid is not None:
             # produce a SETFIELD to initialize the GC header
+            v_tid = ConstInt(tid)
+            if not in_nursery:
+                # important: must preserve the gcflags!  rare case.
+                v_tidbase = BoxInt()
+                v_tidcombined = BoxInt()
+                op = ResOperation(rop.GETFIELD_RAW,
+                                  [v_newgcobj], v_tidbase,
+                                  descr=self.gc_ll_descr.fielddescr_tid)
+                self.newops.append(op)
+                op = ResOperation(rop.INT_OR,
+                                  [v_tidbase, v_tid], v_tidcombined)
+                self.newops.append(op)
+                v_tid = v_tidcombined
             op = ResOperation(rop.SETFIELD_GC,
-                              [v_newgcobj, ConstInt(tid)], None,
+                              [v_newgcobj, v_tid], None,
                               descr=self.gc_ll_descr.fielddescr_tid)
             self.newops.append(op)
 
