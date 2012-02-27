@@ -422,17 +422,18 @@ class AppTestImport:
         assert pkg.pkg1.__package__ == 'pkg.pkg1'
 
     def test_future_relative_import_error_when_in_non_package(self):
-        ns = {}
+        ns = {'__name__': __name__}
         exec("""def imp():
+                    print('__name__ =', __name__)
                     from .string import inpackage
-        """.rstrip(), ns)
+        """, ns)
         raises(ValueError, ns['imp'])
 
     def test_future_relative_import_error_when_in_non_package2(self):
-        ns = {}
+        ns = {'__name__': __name__}
         exec("""def imp():
                     from .. import inpackage
-        """.rstrip(), ns)
+        """, ns)
         raises(ValueError, ns['imp'])
 
     def test_relative_import_with___name__(self):
