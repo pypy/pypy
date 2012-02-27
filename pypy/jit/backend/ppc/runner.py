@@ -91,6 +91,11 @@ class PPC_64_CPU(AbstractLLCPU):
         adr = llmemory.cast_ptr_to_adr(x)
         return PPC_64_CPU.cast_adr_to_int(adr)
 
+    # XXX find out how big FP registers are on PPC32
+    all_null_registers = lltype.malloc(rffi.LONGP.TO,
+                        len(r.MANAGED_REGS),
+                        flavor='raw', zero=True, immortal=True)
+
     def force(self, spilling_pointer):
         TP = rffi.CArrayPtr(lltype.Signed)
 
@@ -101,9 +106,13 @@ class PPC_64_CPU(AbstractLLCPU):
         faildescr = self.get_fail_descr_from_number(fail_index)
         rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
 
+        bytecode = self.asm._find_failure_recovery_bytecode(faildescr)
+        addr_all_null_registers = rffi.cast(rffi.LONG, self.all_null_registers)
         # start of "no gc operation!" block
         fail_index_2 = self.asm.decode_registers_and_descr(
-                faildescr._failure_recovery_code, spilling_pointer)
+                bytecode,
+                spilling_pointer,
+                self.all_null_registers)
         self.asm.leave_jitted_hook()
         # end of "no gc operation!" block
         assert fail_index == fail_index_2

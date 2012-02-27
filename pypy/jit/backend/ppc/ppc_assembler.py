@@ -162,12 +162,13 @@ class AssemblerPPC(OpAssembler):
         @rgc.no_collect
         def failure_recovery_func(mem_loc, spilling_pointer):
             """
-                mem_loc is a structure in memory describing where the values for
-                the failargs are stored.
+                mem_loc is a pointer to the beginning of the encoding.
 
                 spilling_pointer is the address of the FORCE_INDEX.
             """
-            return self.decode_registers_and_descr(mem_loc, spilling_pointer)
+            regs = rffi.cast(rffi.LONGP, spilling_pointer)
+            return self.decode_registers_and_descr(mem_loc, 
+                                                   spilling_pointer, regs)
 
         self.failure_recovery_func = failure_recovery_func
 
@@ -175,110 +176,125 @@ class AssemblerPPC(OpAssembler):
             lltype.Signed], lltype.Signed))
 
     @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, spp_loc):
-        ''' 
-            mem_loc     : pointer to encoded state
-            spp_loc     : pointer to begin of the spilling area
-            '''
-        enc = rffi.cast(rffi.CCHARP, mem_loc)
-        managed_size = WORD * len(r.MANAGED_REGS)
-        regs = rffi.cast(rffi.CCHARP, spp_loc)
-        i = -1
-        fail_index = -1
-        while(True):
-            i += 1
-            fail_index += 1
-            res = enc[i]
-            if res == self.END_OF_LOCS:
-                break
-            if res == self.EMPTY_LOC:
-                continue
-
-            group = res
-            i += 1
-            res = enc[i]
-            if res == self.IMM_LOC:
-               # imm value
-                if group == self.INT_TYPE or group == self.REF_TYPE:
-                    if IS_PPC_32:
-                        value = decode32(enc, i+1)
-                        i += 4
-                    else:
-                        value = decode64(enc, i+1)
-                        i += 8
-                else:
-                    assert 0, "not implemented yet"
-            elif res == self.STACK_LOC:
-                stack_location = decode32(enc, i+1)
-                i += 4
-                if group == self.FLOAT_TYPE:
+    def decode_registers_and_descr(self, mem_loc, spp, registers):
+        """Decode locations encoded in memory at mem_loc and write the values
+        to the failboxes.  Values for spilled vars and registers are stored on
+        stack at frame_loc """
+        assert spp & 1 == 0
+        self.fail_force_index = spp
+        bytecode = rffi.cast(rffi.UCHARP, mem_loc)
+        num = 0
+        value = 0
+        fvalue = 0
+        code_inputarg = False
+        while True:
+            code = rffi.cast(lltype.Signed, bytecode[0])
+            bytecode = rffi.ptradd(bytecode, 1)
+            if code >= self.CODE_FROMSTACK:
+                if code > 0x7F:
+                    shift = 7
+                    code &= 0x7F
+                    while True:
+                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
+                        bytecode = rffi.ptradd(bytecode, 1)
+                        code |= (nextcode & 0x7F) << shift
+                        shift += 7
+                        if nextcode <= 0x7F:
+                            break
+                # load the value from the stack
+                kind = code & 3
+                code = int((code - self.CODE_FROMSTACK) >> 2)
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
+                if kind == self.DESCR_FLOAT:
                     assert 0, "not implemented yet"
                 else:
-                    start = spp_loc + get_spp_offset(stack_location)
+                    start = spp + get_spp_offset(int(code))
                     value = rffi.cast(rffi.LONGP, start)[0]
-            else: # REG_LOC
-                reg = ord(enc[i])
-                if group == self.FLOAT_TYPE:
-                    assert 0, "not implemented yet"
-                else:
-                    regindex = r.get_managed_reg_index(reg)
-                    if IS_PPC_32:
-                        value = decode32(regs, regindex * WORD)
-                    else:
-                        value = decode64(regs, regindex * WORD)
-    
-            if group == self.INT_TYPE:
-                self.fail_boxes_int.setitem(fail_index, value)
-            elif group == self.REF_TYPE:
-                tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
-                rffi.cast(rffi.LONGP, tgt)[0] = value
             else:
-                assert 0, 'unknown type'
-
-        assert enc[i] == self.END_OF_LOCS
-        descr = decode32(enc, i+1)
-        self.fail_boxes_count = fail_index
-        self.fail_force_index = spp_loc
-        assert isinstance(descr, int)
-        return descr
-
-    def decode_inputargs(self, enc):
-        locs = []
-        j = 0
-        while enc[j] != self.END_OF_LOCS:
-            res = enc[j]
-            if res == self.EMPTY_LOC:
-                j += 1
-                continue
-
-            assert res in [self.INT_TYPE, self.REF_TYPE],\
-                    'location type is not supported'
-            res_type = res
-            j += 1
-            res = enc[j]
-            if res == self.IMM_LOC:
-                # XXX decode imm if necessary
-                assert 0, 'Imm Locations are not supported'
-            elif res == self.STACK_LOC:
-                if res_type == self.FLOAT_TYPE:
-                    t = FLOAT
-                elif res_type == self.INT_TYPE:
-                    t = INT
-                else:
-                    t = REF
-                assert t != FLOAT
-                stack_loc = decode32(enc, j+1)
-                loc = PPCFrameManager.frame_pos(stack_loc, t)
-                j += 4
-            else: # REG_LOC
-                if res_type == self.FLOAT_TYPE:
+                # 'code' identifies a register: load its value
+                kind = code & 3
+                if kind == self.DESCR_SPECIAL:
+                    if code == self.CODE_HOLE:
+                        num += 1
+                        continue
+                    if code == self.CODE_INPUTARG:
+                        code_inputarg = True
+                        continue
+                    assert code == self.CODE_STOP
+                    break
+                code >>= 2
+                if kind == self.DESCR_FLOAT:
                     assert 0, "not implemented yet"
                 else:
-                    reg = ord(res)
-                    loc = r.MANAGED_REGS[r.get_managed_reg_index(reg)]
-            j += 1
-            locs.append(loc)
-        return locs
+                    reg_index = r.get_managed_reg_index(code)
+                    value = registers[reg_index]
+            # store the loaded value into fail_boxes_<type>
+            if kind == self.DESCR_FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                if kind == self.DESCR_INT:
+                    tgt = self.fail_boxes_int.get_addr_for_num(num)
+                elif kind == self.DESCR_REF:
+                    assert (value & 3) == 0, "misaligned pointer"
+                    tgt = self.fail_boxes_ptr.get_addr_for_num(num)
+                else:
+                    assert 0, "bogus kind"
+                rffi.cast(rffi.LONGP, tgt)[0] = value
+            num += 1
+        self.fail_boxes_count = num
+        fail_index = rffi.cast(rffi.INTP, bytecode)[0]
+        fail_index = rffi.cast(lltype.Signed, fail_index)
+        return fail_index
+
+    def decode_inputargs(self, code):
+        descr_to_box_type = [REF, INT, FLOAT]
+        bytecode = rffi.cast(rffi.UCHARP, code)
+        arglocs = []
+        code_inputarg = False
+        while 1:
+            # decode the next instruction from the bytecode
+            code = rffi.cast(lltype.Signed, bytecode[0])
+            bytecode = rffi.ptradd(bytecode, 1)
+            if code >= self.CODE_FROMSTACK:
+                # 'code' identifies a stack location
+                if code > 0x7F:
+                    shift = 7
+                    code &= 0x7F
+                    while True:
+                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
+                        bytecode = rffi.ptradd(bytecode, 1)
+                        code |= (nextcode & 0x7F) << shift
+                        shift += 7
+                        if nextcode <= 0x7F:
+                            break
+                kind = code & 3
+                code = (code - self.CODE_FROMSTACK) >> 2
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
+                loc = PPCFrameManager.frame_pos(code, descr_to_box_type[kind])
+            elif code == self.CODE_STOP:
+                break
+            elif code == self.CODE_HOLE:
+                continue
+            elif code == self.CODE_INPUTARG:
+                code_inputarg = True
+                continue
+            else:
+                # 'code' identifies a register
+                kind = code & 3
+                code >>= 2
+                if kind == self.DESCR_FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    #loc = r.all_regs[code]
+                    assert (r.ALL_REGS[code] is 
+                            r.MANAGED_REGS[r.get_managed_reg_index(code)])
+                    loc = r.ALL_REGS[code]
+            arglocs.append(loc)
+        return arglocs[:]
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
@@ -505,10 +521,9 @@ class AssemblerPPC(OpAssembler):
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
         operations = self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
-        code = faildescr._failure_recovery_code
-        enc = rffi.cast(rffi.CCHARP, code)
+        code = self._find_failure_recovery_bytecode(faildescr)
         frame_depth = faildescr._ppc_frame_depth
-        arglocs = self.decode_inputargs(enc)
+        arglocs = self.decode_inputargs(code)
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)
         regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
@@ -550,56 +565,65 @@ class AssemblerPPC(OpAssembler):
         mc.prepare_insts_blocks()
         mc.copy_to_raw_memory(rawstart + sp_patch_location)
 
-    # For an explanation of the encoding, see
-    # backend/arm/assembler.py
-    def gen_descr_encoding(self, descr, args, arglocs):
-        minsize = (len(arglocs) - 1) * 6 + 5
-        memsize = self.align(minsize)
-        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
-        mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
-        i = 0
-        j = 0
-        while i < len(args):
-            if arglocs[i+1]:
-                arg = args[i]
-                loc = arglocs[i+1]
-                if arg.type == INT:
-                    mem[j] = self.INT_TYPE
-                    j += 1
-                elif arg.type == REF:
-                    mem[j] = self.REF_TYPE
-                    j += 1
+    DESCR_REF       = 0x00
+    DESCR_INT       = 0x01
+    DESCR_FLOAT     = 0x02
+    DESCR_SPECIAL   = 0x03
+    CODE_FROMSTACK  = 128
+    CODE_STOP       = 0 | DESCR_SPECIAL
+    CODE_HOLE       = 4 | DESCR_SPECIAL
+    CODE_INPUTARG   = 8 | DESCR_SPECIAL
+
+    def gen_descr_encoding(self, descr, failargs, locs):
+        assert self.mc is not None
+        buf = []
+        for i in range(len(failargs)):
+            arg = failargs[i]
+            if arg is not None:
+                if arg.type == REF:
+                    kind = self.DESCR_REF
+                elif arg.type == INT:
+                    kind = self.DESCR_INT
                 elif arg.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    assert 0, "not implemented"
                 else:
-                    assert 0, 'unknown type'
-
-                if loc.is_reg() or loc.is_vfp_reg():
-                    mem[j] = chr(loc.value)
-                    j += 1
-                elif loc.is_imm() or loc.is_imm_float():
-                    assert (arg.type == INT or arg.type == REF
-                                or arg.type == FLOAT)
-                    mem[j] = self.IMM_LOC
-                    if IS_PPC_32:
-                        encode32(mem, j+1, loc.getint())
-                        j += 5
-                    else:
-                        encode64(mem, j+1, loc.getint())
-                        j += 9
+                    raise AssertionError("bogus kind")
+                loc = locs[i]
+                if loc.is_stack():
+                    pos = loc.position
+                    if pos < 0:
+                        buf.append(self.CODE_INPUTARG)
+                        pos = ~pos
+                    n = self.CODE_FROMSTACK // 4 + pos
                 else:
-                    mem[j] = self.STACK_LOC
-                    encode32(mem, j+1, loc.position)
-                    j += 5
+                    assert loc.is_reg() or loc.is_vfp_reg()
+                    n = loc.value
+                n = kind + 4 * n
+                while n > 0x7F:
+                    buf.append((n & 0x7F) | 0x80)
+                    n >>= 7
             else:
-                mem[j] = self.EMPTY_LOC
-                j += 1
-            i += 1
+                n = self.CODE_HOLE
+            buf.append(n)
+        buf.append(self.CODE_STOP)
 
-        mem[j] = chr(0xFF)
-        n = self.cpu.get_fail_descr_number(descr)
-        encode32(mem, j+1, n)
-        return memaddr
+        fdescr = self.cpu.get_fail_descr_number(descr)
+
+        buf.append((fdescr >> 24) & 0xFF)
+        buf.append((fdescr >> 16) & 0xFF)
+        buf.append((fdescr >>  8) & 0xFF)
+        buf.append( fdescr        & 0xFF)
+        
+        lenbuf = len(buf)
+        # XXX fix memory leaks
+        enc_arr = lltype.malloc(rffi.CArray(rffi.CHAR), lenbuf, 
+                                flavor='raw', track_allocation=False)
+        enc_ptr = rffi.cast(lltype.Signed, enc_arr)
+        for i, byte in enumerate(buf):
+            enc_arr[i] = chr(byte)
+        # assert that the fail_boxes lists are big enough
+        assert len(failargs) <= self.fail_boxes_int.SIZE
+        return enc_ptr
 
     def align(self, size):
         while size % 8 != 0:
@@ -700,6 +724,9 @@ class AssemblerPPC(OpAssembler):
 
         return frame_depth
     
+    def _find_failure_recovery_bytecode(self, faildescr):
+        return faildescr._failure_recovery_code_adr
+
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._ppc_loop_code += rawstart
@@ -726,29 +753,29 @@ class AssemblerPPC(OpAssembler):
             pos = self.mc.currpos()
             tok.pos_recovery_stub = pos 
 
-            memaddr = self.gen_exit_stub(descr, tok.failargs,
+            encoding_adr = self.gen_exit_stub(descr, tok.failargs,
                                             tok.faillocs,
                                             save_exc=tok.save_exc)
+
             # store info on the descr
             descr._ppc_frame_depth = tok.faillocs[0].getint()
-            descr._failure_recovery_code = memaddr
+            descr._failure_recovery_code_adr = encoding_adr
             descr._ppc_guard_pos = pos
 
     def gen_exit_stub(self, descr, args, arglocs, save_exc=False):
-        memaddr = self.gen_descr_encoding(descr, args, arglocs)
-
-        # store addr in force index field
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.SCRATCH, memaddr)
-        self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
-        self.mc.free_scratch_reg()
-
         if save_exc:
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
+
+        # write state encoding to memory and store the address of the beginning
+        # of the encoding in the FORCE INDEX slot
+        encoding_adr = self.gen_descr_encoding(descr, args, arglocs[1:])
+        with scratch_reg(self.mc):
+            self.mc.load_imm(r.SCRATCH, encoding_adr)
+            self.mc.store(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.b_abs(path)
-        return memaddr
+        return encoding_adr
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt
@@ -775,6 +802,7 @@ class AssemblerPPC(OpAssembler):
         mc.b_abs(bridge_addr)
         mc.prepare_insts_blocks()
         mc.copy_to_raw_memory(patch_addr)
+        faildescr._failure_recovery_code_ofs = 0
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -1023,3 +1051,6 @@ for key, value in rop.__dict__.items():
 
 AssemblerPPC.operations = operations
 AssemblerPPC.operations_with_guard = operations_with_guard
+
+class BridgeAlreadyCompiled(Exception):
+    pass
