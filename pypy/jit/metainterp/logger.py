@@ -18,6 +18,10 @@ class Logger(object):
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif number == -2:
+            debug_start("jit-log-compiling-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, '(%s)' % name , ":", type,
@@ -31,6 +35,10 @@ class Logger(object):
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
+        elif number == -2:
+            debug_start("jit-log-compiling-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
