@@ -608,6 +608,10 @@ class MiniMarkGC(MovingGCBase):
         specified as 0 if the object is not varsized.  The returned
         object is fully initialized and zero-filled."""
         #
+        # Here we really need a valid 'typeid'.
+        ll_assert(rffi.cast(lltype.Signed, typeid) != 0,
+                  "external_malloc: typeid == 0")
+        #
         # Compute the total size, carefully checking for overflows.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + self.fixed_size(typeid)
