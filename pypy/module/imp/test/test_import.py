@@ -737,7 +737,7 @@ class TestPycStuff:
         space = self.space
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
-        cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
+        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "rb")
         try:
