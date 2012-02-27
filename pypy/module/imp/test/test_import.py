@@ -1135,7 +1135,7 @@ class AppTestImportHooks(object):
         sys.path_hooks.append(ImpWrapper)
         sys.path_importer_cache.clear()
         try:
-            mnames = ("colorsys", "urlparse", "distutils.core", "compiler.misc")
+            mnames = ("colorsys", "html.parser")
             for mname in mnames:
                 parent = mname.split(".")[0]
                 for n in sys.modules.keys():
