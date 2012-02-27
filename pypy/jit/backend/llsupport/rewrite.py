@@ -114,7 +114,7 @@ class GcRewriterAssembler(object):
                 pass    # total_size is still -1
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
-        if (0 <= total_size <= 0xffffff and     # up to 16MB, arbitrarily
+        if (total_size >= 0 and
                 self.gen_malloc_nursery(total_size, op.result)):
             self.gen_initialize_tid(op.result, arraydescr.tid)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
