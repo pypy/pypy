@@ -1035,6 +1035,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.trap()
         self.bctr()
 
+    def bl_abs(self, address):
+        with scratch_reg(self):
+            self.load_imm(r.SCRATCH, address)
+            self.mtctr(r.SCRATCH.value)
+        self.bctrl()
+
     def call(self, address):
         """ do a call to an absolute address
         """
