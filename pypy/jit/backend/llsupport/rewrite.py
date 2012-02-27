@@ -1,6 +1,6 @@
 import sys
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr, BoxInt
+from pypy.jit.metainterp.history import ConstInt, BoxPtr, ConstPtr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.backend.llsupport.symbolic import WORD
