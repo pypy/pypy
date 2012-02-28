@@ -910,14 +910,13 @@ class AllocOpAssembler(object):
                 if bitpos > 0:
                     self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
                                    32 - bitpos, 31, 31)
-                # test whether this bit is set
-                self.mc.cmpwi(0, r.SCRATCH.value, 1)
             else:
                 if bitpos > 0:
                     self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
                                    64 - bitpos, 63)
-                # test whether this bit is set
-                self.mc.cmpdi(0, r.SCRATCH.value, 1)
+
+            # test whether this bit is set
+            self.mc.cmp_op(0, r.SCRATCH.value, 1, imm=True)
 
         jz_location = self.mc.currpos()
         self.mc.nop()
