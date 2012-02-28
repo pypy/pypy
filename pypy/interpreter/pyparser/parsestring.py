@@ -109,13 +109,14 @@ def hexbyte(val):
         result = "0" + result
     return result
 
+from pypy.rlib.rstring import StringBuilder
+
 def PyString_DecodeEscape(space, s, recode_encoding):
     """
     Unescape a backslash-escaped string. If recode_encoding is non-zero,
     the string is UTF-8 encoded and should be re-encoded in the
     specified encoding.
     """
-    from pypy.rlib.rstring import StringBuilder
     builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
