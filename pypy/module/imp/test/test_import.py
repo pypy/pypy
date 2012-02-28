@@ -679,7 +679,7 @@ class TestPycStuff:
     def test_check_compiled_module(self):
         space = self.space
         mtime = 12345
-        cpathname = _testfile(importing.get_pyc_magic(space), mtime)
+        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime)
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
@@ -700,7 +700,7 @@ class TestPycStuff:
         os.remove(cpathname)
 
         # check for wrong version
-        cpathname = _testfile(importing.get_pyc_magic(space)+1, mtime)
+        cpathname = _testfile(space, importing.get_pyc_magic(space)+1, mtime)
         ret = importing.check_compiled_module(space,
                                               cpathname,
                                               mtime)
@@ -968,7 +968,7 @@ class TestPycStuff:
                 pathname = "whatever"
                 mtime = 12345
                 co = compile('x = 42', '?', 'exec')
-                cpathname = _testfile(importing.get_pyc_magic(space1),
+                cpathname = _testfile(space1, importing.get_pyc_magic(space1),
                                       mtime, co)
                 w_modulename = space2.wrap('somemodule')
                 stream = streamio.open_file_as_stream(cpathname, "rb")
