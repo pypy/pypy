@@ -176,13 +176,15 @@ class AppTestImport:
         def imp():
             import notapackage
 
-        import warnings
-        
-        warnings.simplefilter('error', ImportWarning)
+        import _warnings
+        def simplefilter(action, category):
+            _warnings.filters.insert(0, (action, None, category, None, 0))
+            
+        simplefilter('error', ImportWarning)
         try:
             raises(ImportWarning, imp)
         finally:
-            warnings.simplefilter('default', ImportWarning)
+            simplefilter('default', ImportWarning)
 
     def test_import_sys(self):
         import sys
