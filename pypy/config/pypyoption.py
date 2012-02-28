@@ -13,7 +13,7 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_io", "sys", "builtins", "posix"]
+    ["exceptions", "_io", "sys", "builtins", "posix", "_warnings"]
 )
 
 default_modules = essential_modules.copy()
