@@ -206,7 +206,7 @@ void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
 /* method/function dispatching -------------------------------------------- */
 static inline G__value cppyy_call_T(cppyy_method_t method,
         cppyy_object_t self, int nargs, void* args) {
-    
+
     G__InterfaceMethod meth = (G__InterfaceMethod)method;
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == nargs);
@@ -466,7 +466,7 @@ cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
 int cppyy_is_constructor(cppyy_type_t handle, int method_index) {
     TClassRef cr = type_from_handle(handle);
     TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    return strcmp(m->GetName(), cr->GetName()) == 0;
+    return strcmp(m->GetName(), ((G__ClassInfo*)cr->GetClassInfo())->Name()) == 0;
 }
 
 int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
