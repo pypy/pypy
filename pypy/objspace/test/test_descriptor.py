@@ -110,7 +110,7 @@ class AppTest_Descriptor:
         # useless result).
         class B(object):
             def __eq__(self, other): pass 
-        hash(B())
+        raises(TypeError, "hash(B())") # because we define __eq__ but not __hash__
 
         # same as above for __cmp__
         class C(object):
@@ -121,25 +121,11 @@ class AppTest_Descriptor:
             def __hash__(self): 
                 return "something"
         raises(TypeError, hash, E())
-        class F: # can return long
-            def __hash__(self):
-                return long(2**33)
-        assert hash(F()) == hash(2**33) # 2.5 behavior
 
         class G:
             def __hash__(self):
                 return 1
         assert isinstance(hash(G()), int)
-
-        # __hash__ can return a subclass of long, but the fact that it's
-        # a subclass is ignored
-        class mylong(long):
-            def __hash__(self):
-                return 0
-        class H(object):
-            def __hash__(self):
-                return mylong(42)
-        assert hash(H()) == hash(42L)
 
         # don't return a subclass of int, either
         class myint(int):
