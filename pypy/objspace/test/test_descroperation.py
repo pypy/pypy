@@ -300,37 +300,26 @@ class AppTest_Descroperation:
         x.__class__ = Y
         raises(AttributeError, getattr, x, 'a')
 
-    def test_silly_but_consistent_order(self):
+    def test_unordeable_types(self):
         # incomparable objects sort by type name :-/
         class A(object): pass
         class zz(object): pass
-        assert A() < zz()
-        assert zz() > A()
+        raises(TypeError, "A() < zz()")
+        raises(TypeError, "zz() > A()")
+        raises(TypeError, "A() < A()")
         # if in doubt, CPython sorts numbers before non-numbers
-        assert 0 < ()
-        assert 0L < ()
-        assert 0.0 < ()
-        assert 0j < ()
-        assert 0 < []
-        assert 0L < []
-        assert 0.0 < []
-        assert 0j < []
-        assert 0 < A()
-        assert 0L < A()
-        assert 0.0 < A()
-        assert 0j < A()
-        assert 0 < zz()
-        assert 0L < zz()
-        assert 0.0 < zz()
-        assert 0j < zz()
-        # what if the type name is the same... whatever, but
-        # be consistent
-        a1 = A()
-        a2 = A()
-        class A(object): pass
-        a3 = A()
-        a4 = A()
-        assert (a1 < a3) == (a1 < a4) == (a2 < a3) == (a2 < a4)
+        raises(TypeError, "0 < ()")
+        raises(TypeError, "0.0 < ()")
+        raises(TypeError, "0j < ()")
+        raises(TypeError, "0 < []")
+        raises(TypeError, "0.0 < []")
+        raises(TypeError, "0j < []")
+        raises(TypeError, "0 < A()")
+        raises(TypeError, "0.0 < A()")
+        raises(TypeError, "0j < A()")
+        raises(TypeError, "0 < zz()")
+        raises(TypeError, "0.0 < zz()")
+        raises(TypeError, "0j < zz()")
 
     def test_setattrweakref(self):
         skip("fails, works in cpython")
