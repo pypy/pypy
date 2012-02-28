@@ -362,6 +362,7 @@ size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
 }
 
 
+/* data member properties ------------------------------------------------  */
 int cppyy_is_publicdata(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
