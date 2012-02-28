@@ -46,7 +46,7 @@ for name in ["_rawffi", "_ffi", "cpyext",
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array", "_ffi",
+     "struct", "_md5", "array", "_ffi",
      # the following are needed for pyrepl (and hence for the
      # interactive prompt/pdb)
      "termios", "_minimal_curses",
@@ -54,7 +54,7 @@ translation_modules.update(dict.fromkeys(
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "cStringIO", "itertools"]
+    ["_md5", "_sha", "itertools"]
 ))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"
