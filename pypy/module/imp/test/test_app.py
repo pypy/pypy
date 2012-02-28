@@ -148,14 +148,14 @@ class AppTestImpModule:
         from sys import modules, path
         from shutil import rmtree
         from tempfile import mkdtemp
-        code = """if 1:
+        code = b"""if 1:
             import sys
             code_filename = sys._getframe().f_code.co_filename
             module_filename = __file__
             constant = 1
             def func():
                 pass
-            func_filename = func.func_code.co_filename
+            func_filename = func.__code__.co_filename
             """
 
         module_name = "unlikely_module_name"
@@ -181,7 +181,7 @@ class AppTestImpModule:
         try:
             # Ensure proper results
             assert mod != orig_module
-            assert mod.module_filename == compiled_name
+            assert mod.module_filename == file_name
             assert mod.code_filename == file_name
             assert mod.func_filename == file_name
         finally:
