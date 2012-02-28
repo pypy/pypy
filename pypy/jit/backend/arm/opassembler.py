@@ -16,6 +16,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_unary_float_op,
                                                 saved_registers,
                                                 count_reg_args)
+from pypy.jit.backend.arm.helper.regalloc import check_imm_arg
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.arm.regalloc import TempInt, TempPtr
@@ -534,16 +535,10 @@ class OpAssembler(object):
         else:
             raise AssertionError(opnum)
         loc_base = arglocs[0]
-        self.mc.LDR_ri(r.ip.value, loc_base.value)
-        # calculate the shift value to rotate the ofs according to the ARM
-        # shifted imm values
-        # (4 - 0) * 4 & 0xF = 0
-        # (4 - 1) * 4 & 0xF = 12
-        # (4 - 2) * 4 & 0xF = 8
-        # (4 - 3) * 4 & 0xF = 4
-        ofs = (((4 - descr.jit_wb_if_flag_byteofs) * 4) & 0xF) << 8
-        ofs |= descr.jit_wb_if_flag_singlebyte
-        self.mc.TST_ri(r.ip.value, imm=ofs)
+        assert check_imm_arg(descr.jit_wb_if_flag_byteofs)
+        assert check_imm_arg(descr.jit_wb_if_flag_singlebyte)
+        self.mc.LDRB_ri(r.ip.value, loc_base.value, imm=descr.jit_wb_if_flag_byteofs)
+        self.mc.TST_ri(r.ip.value, imm=descr.jit_wb_if_flag_singlebyte)
 
         jz_location = self.mc.currpos()
         self.mc.BKPT()
@@ -551,11 +546,10 @@ class OpAssembler(object):
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking:
-            # calculate the shift value to rotate the ofs according to the ARM
-            # shifted imm values
-            ofs = (((4 - descr.jit_wb_cards_set_byteofs) * 4) & 0xF) << 8
-            ofs |= descr.jit_wb_cards_set_singlebyte
-            self.mc.TST_ri(r.ip.value, imm=ofs)
+            assert check_imm_arg(descr.jit_wb_cards_set_byteofs)
+            assert check_imm_arg(descr.jit_wb_cards_set_singlebyte)
+            self.mc.LDRB_ri(r.ip.value, loc_base.value, imm=descr.jit_wb_cards_set_byteofs)
+            self.mc.TST_ri(r.ip.value, imm=descr.jit_wb_cards_set_singlebyte)
             #
             jnz_location = self.mc.currpos()
             self.mc.BKPT()
