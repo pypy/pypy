@@ -398,6 +398,50 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
 
+    def test_maybe_issue1045_related(self):
+        ops = """
+        [p8]
+        p54 = getfield_gc(p8, descr=valuedescr)
+        mark_opaque_ptr(p54)
+        i55 = getfield_gc(p54, descr=nextdescr)
+        p57 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p57, i55, descr=otherdescr)
+        p69 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p69, i55, descr=otherdescr)
+        i71 = int_eq(i55, -9223372036854775808)
+        guard_false(i71) []
+        i73 = int_mod(i55, 2)
+        i75 = int_rshift(i73, 63)
+        i76 = int_and(2, i75)
+        i77 = int_add(i73, i76)
+        p79 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p79, i77, descr=otherdescr)
+        i81 = int_eq(i77, 1)
+        guard_false(i81) []
+        i0 = int_ge(i55, 1)
+        guard_true(i0) []
+        label(p57)
+        jump(p57)
+        """
+        expected = """
+        [p8]
+        p54 = getfield_gc(p8, descr=valuedescr)
+        i55 = getfield_gc(p54, descr=nextdescr)
+        i71 = int_eq(i55, -9223372036854775808)
+        guard_false(i71) []
+        i73 = int_mod(i55, 2)
+        i75 = int_rshift(i73, 63)
+        i76 = int_and(2, i75)
+        i77 = int_add(i73, i76)
+        i81 = int_eq(i77, 1)
+        guard_false(i81) []
+        i0 = int_ge(i55, 1)
+        guard_true(i0) []
+        label(i55)
+        jump(i55)
+        """
+        self.optimize_loop(ops, expected)
+        
 class OptRenameStrlen(Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -457,7 +501,6 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         jump(p1, i11)
         """
         self.optimize_loop(ops, expected)
-
         
 
 class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
