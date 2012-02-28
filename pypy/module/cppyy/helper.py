@@ -99,7 +99,7 @@ def map_operator_name(cppname, nargs, result_type):
         # is put at the end only as it is unlikely and may trigger unwanted
         # errors in class loaders in the backend, because a typical operator
         # name is illegal as a class name)
-        handle = capi.c_get_typehandle(op)
+        handle = capi.c_get_scope(op)
         if handle:
             op = capi.charp2str_free(capi.c_final_name(handle))
 

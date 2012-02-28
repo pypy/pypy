@@ -9,10 +9,16 @@ identify = backend.identify
 _C_OPAQUE_PTR = rffi.LONG
 _C_OPAQUE_NULL = lltype.nullptr(rffi.LONGP.TO)# ALT: _C_OPAQUE_PTR.TO
 
-C_TYPEHANDLE = _C_OPAQUE_PTR
-C_NULL_TYPEHANDLE = rffi.cast(C_TYPEHANDLE, _C_OPAQUE_NULL)
+C_SCOPE = _C_OPAQUE_PTR
+C_NULL_SCOPE = rffi.cast(C_SCOPE, _C_OPAQUE_NULL)
+
+C_TYPE = C_SCOPE
+C_NULL_TYPE = C_NULL_SCOPE
+
 C_OBJECT = _C_OPAQUE_PTR
 C_NULL_OBJECT = rffi.cast(C_OBJECT, _C_OPAQUE_NULL)
+
+C_METHOD = _C_OPAQUE_PTR
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
@@ -26,128 +32,85 @@ def direct_ptradd(ptr, offset):
 
 c_load_dictionary = backend.c_load_dictionary
 
-c_get_typehandle = rffi.llexternal(
-    "cppyy_get_typehandle",
-    [rffi.CCHARP], C_OBJECT,
+# name to opaque C++ scope representation ------------------------------------
+c_get_scope = rffi.llexternal(
+    "cppyy_get_scope",
+    [rffi.CCHARP], C_SCOPE,
     compilation_info=backend.eci)
-c_get_templatehandle = rffi.llexternal(
-    "cppyy_get_templatehandle",
-    [rffi.CCHARP], C_TYPEHANDLE,
+c_get_template = rffi.llexternal(
+    "cppyy_get_template",
+    [rffi.CCHARP], C_TYPE,
     compilation_info=backend.eci)
 
+# memory management ----------------------------------------------------------
 c_allocate = rffi.llexternal(
     "cppyy_allocate",
-    [C_TYPEHANDLE], C_OBJECT,
+    [C_TYPE], C_OBJECT,
     compilation_info=backend.eci)
 c_deallocate = rffi.llexternal(
     "cppyy_deallocate",
-    [C_TYPEHANDLE, C_OBJECT], lltype.Void,
+    [C_TYPE, C_OBJECT], lltype.Void,
     compilation_info=backend.eci)
 c_destruct = rffi.llexternal(
     "cppyy_destruct",
-    [C_TYPEHANDLE, C_OBJECT], lltype.Void,
+    [C_TYPE, C_OBJECT], lltype.Void,
     compilation_info=backend.eci)
 
-c_is_namespace = rffi.llexternal(
-    "cppyy_is_namespace",
-    [C_TYPEHANDLE], rffi.INT,
-    compilation_info=backend.eci)
-c_final_name = rffi.llexternal(
-    "cppyy_final_name",
-    [C_TYPEHANDLE], rffi.CCHARP,
-    compilation_info=backend.eci)
-
-c_has_complex_hierarchy = rffi.llexternal(
-    "cppyy_has_complex_hierarchy",
-    [C_TYPEHANDLE], rffi.INT,
-    compilation_info=backend.eci)
-c_num_bases = rffi.llexternal(
-    "cppyy_num_bases",
-    [C_TYPEHANDLE], rffi.INT,
-    compilation_info=backend.eci)
-c_base_name = rffi.llexternal(
-    "cppyy_base_name",
-    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
-    compilation_info=backend.eci)
-
-_c_is_subtype = rffi.llexternal(
-    "cppyy_is_subtype",
-    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
-    compilation_info=backend.eci,
-    elidable_function=True)
-
-@jit.elidable_promote()
-def c_is_subtype(td, tb):
-    if td == tb:
-        return 1
-    return _c_is_subtype(td, tb)
-
-_c_base_offset = rffi.llexternal(
-    "cppyy_base_offset",
-    [C_TYPEHANDLE, C_TYPEHANDLE, C_OBJECT], rffi.SIZE_T,
-    compilation_info=backend.eci,
-    elidable_function=True)
-
-@jit.elidable_promote()
-def c_base_offset(td, tb, address):
-    if td == tb:
-        return 0
-    return _c_base_offset(td, tb, address)
-
+# method/function dispatching ------------------------------------------------
 c_call_v = rffi.llexternal(
     "cppyy_call_v",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
-    compilation_info=backend.eci)
-c_call_o = rffi.llexternal(
-    "cppyy_call_o",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPEHANDLE], rffi.LONG,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
     compilation_info=backend.eci)
 c_call_b = rffi.llexternal(
     "cppyy_call_b",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
     compilation_info=backend.eci)
 c_call_c = rffi.llexternal(
     "cppyy_call_c",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CHAR,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CHAR,
     compilation_info=backend.eci)
 c_call_h = rffi.llexternal(
     "cppyy_call_h",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.SHORT,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.SHORT,
     compilation_info=backend.eci)
 c_call_i = rffi.llexternal(
     "cppyy_call_i",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.INT,
     compilation_info=backend.eci)
-
 c_call_l = rffi.llexternal(
     "cppyy_call_l",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONG,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONG,
     compilation_info=backend.eci)
 c_call_f = rffi.llexternal(
     "cppyy_call_f",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
     compilation_info=backend.eci)
 c_call_d = rffi.llexternal(
     "cppyy_call_d",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,
     compilation_info=backend.eci)
 
 c_call_r = rffi.llexternal(
     "cppyy_call_r",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.VOIDP,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.VOIDP,
     compilation_info=backend.eci)
-
 c_call_s = rffi.llexternal(
     "cppyy_call_s",
-    [C_TYPEHANDLE, rffi.INT, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
+    compilation_info=backend.eci)
+
+c_call_o = rffi.llexternal(
+    "cppyy_call_o",
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPE], rffi.LONG,
     compilation_info=backend.eci)
 
 c_get_methptr_getter = rffi.llexternal(
     "cppyy_get_methptr_getter",
-    [C_TYPEHANDLE, rffi.INT], C_METHPTRGETTER_PTR,
+    [C_SCOPE, rffi.INT], C_METHPTRGETTER_PTR,
     compilation_info=backend.eci,
     elidable_function=True)
 
+# handling of function argument buffer ---------------------------------------
 c_allocate_function_args = rffi.llexternal(
     "cppyy_allocate_function_args",
     [rffi.SIZE_T], rffi.VOIDP,
@@ -167,80 +130,136 @@ c_function_arg_typeoffset = rffi.llexternal(
     compilation_info=backend.eci,
     elidable_function=True)
 
+# scope reflection information -----------------------------------------------
+c_is_namespace = rffi.llexternal(
+    "cppyy_is_namespace",
+    [C_SCOPE], rffi.INT,
+    compilation_info=backend.eci)
+
+# type/class reflection information ------------------------------------------
+c_final_name = rffi.llexternal(
+    "cppyy_final_name",
+    [C_TYPE], rffi.CCHARP,
+    compilation_info=backend.eci)
+c_has_complex_hierarchy = rffi.llexternal(
+    "cppyy_has_complex_hierarchy",
+    [C_TYPE], rffi.INT,
+    compilation_info=backend.eci)
+c_num_bases = rffi.llexternal(
+    "cppyy_num_bases",
+    [C_TYPE], rffi.INT,
+    compilation_info=backend.eci)
+c_base_name = rffi.llexternal(
+    "cppyy_base_name",
+    [C_TYPE, rffi.INT], rffi.CCHARP,
+    compilation_info=backend.eci)
+
+_c_is_subtype = rffi.llexternal(
+    "cppyy_is_subtype",
+    [C_TYPE, C_TYPE], rffi.INT,
+    compilation_info=backend.eci,
+    elidable_function=True)
+
+@jit.elidable_promote()
+def c_is_subtype(derived, base):
+    if derived == base:
+        return 1
+    return _c_is_subtype(derived, base)
+
+_c_base_offset = rffi.llexternal(
+    "cppyy_base_offset",
+    [C_TYPE, C_TYPE, C_OBJECT], rffi.SIZE_T,
+    compilation_info=backend.eci,
+    elidable_function=True)
+
+@jit.elidable_promote()
+def c_base_offset(derived, base, address):
+    if derived == base:
+        return 0
+    return _c_base_offset(derived, base, address)
+
+# method/function reflection information -------------------------------------
 c_num_methods = rffi.llexternal(
     "cppyy_num_methods",
-    [C_TYPEHANDLE], rffi.INT,
+    [C_SCOPE], rffi.INT,
     compilation_info=backend.eci)
 c_method_name = rffi.llexternal(
     "cppyy_method_name",
-    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 c_method_result_type = rffi.llexternal(
     "cppyy_method_result_type",
-    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_SCOPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 c_method_req_args = rffi.llexternal(
     "cppyy_method_req_args",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_SCOPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
-    [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 c_method_arg_default = rffi.llexternal(
     "cppyy_method_arg_default",
-    [C_TYPEHANDLE, rffi.INT, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 
+c_get_method = rffi.llexternal(
+    "cppyy_get_method",
+    [C_SCOPE, rffi.INT], C_METHOD,
+    compilation_info=backend.eci)
+
+# method properties ----------------------------------------------------------
 c_is_constructor = rffi.llexternal(
     "cppyy_is_constructor",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_TYPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 c_is_staticmethod = rffi.llexternal(
     "cppyy_is_staticmethod",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_TYPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 
+# data member reflection information -----------------------------------------
 c_num_data_members = rffi.llexternal(
     "cppyy_num_data_members",
-    [C_TYPEHANDLE], rffi.INT,
+    [C_SCOPE], rffi.INT,
     compilation_info=backend.eci)
 c_data_member_name = rffi.llexternal(
     "cppyy_data_member_name",
-    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 c_data_member_type = rffi.llexternal(
     "cppyy_data_member_type",
-    [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
 c_data_member_offset = rffi.llexternal(
     "cppyy_data_member_offset",
-    [C_TYPEHANDLE, rffi.INT], rffi.SIZE_T,
+    [C_SCOPE, rffi.INT], rffi.SIZE_T,
     compilation_info=backend.eci)
 
+# data member properties -----------------------------------------------------
 c_is_publicdata = rffi.llexternal(
     "cppyy_is_publicdata",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_SCOPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 c_is_staticdata = rffi.llexternal(
     "cppyy_is_staticdata",
-    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    [C_SCOPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
 
+# misc helpers ---------------------------------------------------------------
 c_strtoll = rffi.llexternal(
     "cppyy_strtoll",
     [rffi.CCHARP], rffi.LONGLONG,
     compilation_info=backend.eci)
-
 c_strtoull = rffi.llexternal(
     "cppyy_strtoull",
     [rffi.CCHARP], rffi.ULONGLONG,
     compilation_info=backend.eci)
-
 c_free = rffi.llexternal(
     "cppyy_free",
     [rffi.VOIDP], lltype.Void,
@@ -256,12 +275,10 @@ c_charp2stdstring = rffi.llexternal(
     "cppyy_charp2stdstring",
     [rffi.CCHARP], C_OBJECT,
     compilation_info=backend.eci)
-
 c_stdstring2stdstring = rffi.llexternal(
     "cppyy_stdstring2stdstring",
     [C_OBJECT], C_OBJECT,
     compilation_info=backend.eci)
-
 c_free_stdstring = rffi.llexternal(
     "cppyy_free_stdstring",
     [C_OBJECT], lltype.Void,

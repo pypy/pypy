@@ -27,36 +27,39 @@ def load_dictionary(space, name):
 
 class State(object):
     def __init__(self, space):
-        self.cpptype_cache = {
-            "void" : W_CPPType(space, "void", capi.C_NULL_TYPEHANDLE) }
-        self.cpptemplatetype_cache = {}
+        self.r_cppscope_cache = {
+            "void" : W_CPPType(space, "void", capi.C_NULL_TYPE) }
+        self.r_cpptemplate_cache = {}
 
 @unwrap_spec(name=str)
 def type_byname(space, name):
     state = space.fromcache(State)
     try:
-        return state.cpptype_cache[name]
+        return state.r_cppscope_cache[name]
     except KeyError:
         pass
 
-    handle = capi.c_get_typehandle(name)
-    assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
-    if handle:
-        final_name = capi.charp2str_free(capi.c_final_name(handle))
-        if capi.c_is_namespace(handle):
-            cpptype = W_CPPNamespace(space, final_name, handle)
-        elif capi.c_has_complex_hierarchy(handle):
-            cpptype = W_ComplexCPPType(space, final_name, handle)
+    cppscope = capi.c_get_scope(name)
+    assert lltype.typeOf(cppscope) == capi.C_SCOPE
+    if cppscope:
+        final_name = capi.charp2str_free(capi.c_final_name(cppscope))
+        if capi.c_is_namespace(cppscope):
+            r_cppscope = W_CPPNamespace(space, final_name, cppscope)
+        elif capi.c_has_complex_hierarchy(cppscope):
+            r_cppscope = W_ComplexCPPType(space, final_name, cppscope)
         else:
-            cpptype = W_CPPType(space, final_name, handle)
-        state.cpptype_cache[name] = cpptype
+            r_cppscope = W_CPPType(space, final_name, cppscope)
+        state.r_cppscope_cache[name] = r_cppscope
 
+        # prevent getting reflection info that may be linked in through the
+        # back-end libs or that may be available through an auto-loader, during
+        # translation time (else it will get translated, too)
         if space.config.translating and not objectmodel.we_are_translated():
-            return cpptype
+            return r_cppscope
 
-        cpptype._find_methods()
-        cpptype._find_data_members()
-        return cpptype
+        r_cppscope._find_methods()
+        r_cppscope._find_data_members()
+        return r_cppscope
 
     return None
 
@@ -64,16 +67,16 @@ def type_byname(space, name):
 def template_byname(space, name):
     state = space.fromcache(State)
     try:
-        return state.cpptemplatetype_cache[name]
+        return state.r_cpptemplate_cache[name]
     except KeyError:
         pass
 
-    handle = capi.c_get_templatehandle(name)
-    assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
-    if handle:
-        template = W_CPPTemplateType(space, name, handle)
-        state.cpptype_cache[name] = template
-        return template
+    cpptemplate = capi.c_get_template(name)
+    assert lltype.typeOf(cpptemplate) == capi.C_TYPE
+    if cpptemplate:
+        r_cpptemplate = W_CPPTemplateType(space, name, cpptemplate)
+        state.r_cpptemplate_cache[name] = r_cpptemplate
+        return r_cpptemplate
 
     return None
 
@@ -96,9 +99,10 @@ class CPPMethod(object):
     _immutable_ = True
     
     def __init__(self, cpptype, method_index, result_type, arg_defs, args_required):
-        self.cpptype = cpptype
         self.space = cpptype.space
+        self.cpptype = cpptype
         self.method_index = method_index
+        self.cppmethod = capi.c_get_method(self.cpptype.handle, method_index)
         self.arg_defs = arg_defs
         self.args_required = args_required
         self.executor = executor.get_executor(self.space, result_type)
@@ -129,7 +133,7 @@ class CPPMethod(object):
 
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, w_type, self, cppthis, len(args_w), args)
+            return self.executor.execute(self.space, w_type, self.cppmethod, cppthis, len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
 
@@ -229,7 +233,7 @@ class W_CPPOverload(Wrappable):
 
     def __init__(self, space, scope_handle, func_name, functions):
         self.space = space
-        assert lltype.typeOf(scope_handle) == capi.C_TYPEHANDLE
+        assert lltype.typeOf(scope_handle) == capi.C_SCOPE
         self.scope_handle = scope_handle
         self.func_name = func_name
         self.functions = debug.make_sure_not_resized(functions)
@@ -279,7 +283,7 @@ class W_CPPDataMember(Wrappable):
 
     def __init__(self, space, scope_handle, type_name, offset, is_static):
         self.space = space
-        assert lltype.typeOf(scope_handle) == capi.C_TYPEHANDLE
+        assert lltype.typeOf(scope_handle) == capi.C_SCOPE
         self.scope_handle = scope_handle
         self.converter = converter.get_converter(self.space, type_name, '')
         self.offset = offset
@@ -341,7 +345,7 @@ class W_CPPScope(Wrappable):
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
-        assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
+        assert lltype.typeOf(handle) == capi.C_SCOPE
         self.handle = handle
         self.methods = {}
         # Do not call "self._find_methods()" here, so that a distinction can
@@ -539,7 +543,7 @@ class W_CPPTemplateType(Wrappable):
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
-        assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
+        assert lltype.typeOf(handle) == capi.C_TYPE
         self.handle = handle
 
     def __call__(self, args_w):

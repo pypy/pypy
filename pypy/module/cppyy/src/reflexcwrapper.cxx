@@ -1,6 +1,7 @@
 #include "cppyy.h"
 #include "reflexcwrapper.h"
 
+#include "Reflex/Kernel.h"
 #include "Reflex/Type.h"
 #include "Reflex/Base.h"
 #include "Reflex/Member.h"
@@ -13,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include <assert.h>
 #include <stdlib.h>
 
 
@@ -23,18 +25,18 @@ static inline char* cppstring_to_cstring(const std::string& name) {
     return name_char;
 }
 
-static inline Reflex::Scope scope_from_handle(cppyy_typehandle_t handle) {
+static inline Reflex::Scope scope_from_handle(cppyy_type_t handle) {
     return Reflex::Scope((Reflex::ScopeName*)handle);
 }
 
-static inline Reflex::Type type_from_handle(cppyy_typehandle_t handle) {
+static inline Reflex::Type type_from_handle(cppyy_type_t handle) {
     return Reflex::Scope((Reflex::ScopeName*)handle);
 }
 
-static inline std::vector<void*> build_args(int numargs, void* args) {
+static inline std::vector<void*> build_args(int nargs, void* args) {
     std::vector<void*> arguments;
-    arguments.reserve(numargs);
-    for (int i=0; i < numargs; ++i) {
+    arguments.reserve(nargs);
+    for (int i=0; i < nargs; ++i) {
 	char tc = ((CPPYY_G__value*)args)[i].type;
         if (tc != 'a' && tc != 'o')
             arguments.push_back(&((CPPYY_G__value*)args)[i]);
@@ -45,134 +47,98 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
 }
 
 
-/* name to handle --------------------------------------------------------- */
-cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
-    Reflex::Scope s = Reflex::Scope::ByName(class_name);
-    return (cppyy_typehandle_t)s.Id();
+/* name to opaque C++ scope representation -------------------------------- */
+cppyy_scope_t cppyy_get_scope(const char* scope_name) {
+    Reflex::Scope s = Reflex::Scope::ByName(scope_name);
+    return (cppyy_type_t)s.Id();
 }
 
-cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name) {
+cppyy_type_t cppyy_get_template(const char* template_name) {
    Reflex::TypeTemplate tt = Reflex::TypeTemplate::ByName(template_name);
-   return (cppyy_typehandle_t)tt.Id();
+   return (cppyy_type_t)tt.Id();
 }
 
 
 /* memory management ------------------------------------------------------ */
-void* cppyy_allocate(cppyy_typehandle_t handle) {
+cppyy_object_t cppyy_allocate(cppyy_type_t handle) {
     Reflex::Type t = type_from_handle(handle);
-    return t.Allocate();
+    return (cppyy_object_t)t.Allocate();
 }
 
-void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance) {
+void cppyy_deallocate(cppyy_type_t handle, cppyy_object_t instance) {
     Reflex::Type t = type_from_handle(handle);
     t.Deallocate((void*)instance);
 }
 
-void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self) {
+void cppyy_destruct(cppyy_type_t handle, cppyy_object_t self) {
     Reflex::Type t = type_from_handle(handle);
     t.Destruct((void*)self, true);
 }
 
 
 /* method/function dispatching -------------------------------------------- */
-void cppyy_call_v(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args) {
-    std::vector<void*> arguments = build_args(numargs, args);
-    Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.FunctionMemberAt(method_index);
-    if (self) {
-        Reflex::Object o((Reflex::Type)s, (void*)self);
-        m.Invoke(o, 0, arguments);
-    } else {
-        m.Invoke(0, arguments);
-    }
-}
-
-long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args,
-                  cppyy_typehandle_t rettype) {
-    void* result = cppyy_allocate(rettype);
-    std::vector<void*> arguments = build_args(numargs, args);
-    Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.FunctionMemberAt(method_index);
-    if (self) {
-        Reflex::Object o((Reflex::Type)s, (void*)self);
-        m.Invoke(o, *((long*)result), arguments);
-    } else {
-        m.Invoke(*((long*)result), arguments);
-    }
-    return (long)result;
+void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    std::vector<void*> arguments = build_args(nargs, args);
+    Reflex::StubFunction stub = (Reflex::StubFunction)method;
+    stub(NULL /* return address */, (void*)self, arguments, NULL /* stub context */);
 }
 
 template<typename T>
-static inline T cppyy_call_T(cppyy_typehandle_t handle, int method_index,
-                             cppyy_object_t self, int numargs, void* args) {
+static inline T cppyy_call_T(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     T result;
-    std::vector<void*> arguments = build_args(numargs, args);
-    Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.FunctionMemberAt(method_index);
-    if (self) {
-        Reflex::Object o((Reflex::Type)s, (void*)self);
-        m.Invoke(o, result, arguments);
-    } else {
-        m.Invoke(result, arguments);
-    }
+    std::vector<void*> arguments = build_args(nargs, args);
+    Reflex::StubFunction stub = (Reflex::StubFunction)method;
+    stub(&result, (void*)self, arguments, NULL /* stub context */);
     return result;
 }
 
-int cppyy_call_b(cppyy_typehandle_t handle, int method_index,
-                 cppyy_object_t self, int numargs, void* args) {
-    return (int)cppyy_call_T<bool>(handle, method_index, self, numargs, args);
+int cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return (int)cppyy_call_T<bool>(method, self, nargs, args);
 }
 
-char cppyy_call_c(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<char>(handle, method_index, self, numargs, args);
+char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<char>(method, self, nargs, args);
 }
 
-short cppyy_call_h(cppyy_typehandle_t handle, int method_index,
-                   cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<short>(handle, method_index, self, numargs, args);
+short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<short>(method, self, nargs, args);
 }
 
-int cppyy_call_i(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<int>(handle, method_index, self, numargs, args);
+int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<int>(method, self, nargs, args);
 }
 
-long cppyy_call_l(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<long>(handle, method_index, self, numargs, args);
+long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<long>(method, self, nargs, args);
 }
 
-double cppyy_call_f(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<float>(handle, method_index, self, numargs, args);
+double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<float>(method, self, nargs, args);
 }
 
-double cppyy_call_d(cppyy_typehandle_t handle, int method_index,
-                    cppyy_object_t self, int numargs, void* args) {
-    return cppyy_call_T<double>(handle, method_index, self, numargs, args);
+double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<double>(method, self, nargs, args);
 }   
 
-void* cppyy_call_r(cppyy_typehandle_t handle, int method_index,
-                  cppyy_object_t self, int numargs, void* args) {
-   return (void*)cppyy_call_T<long>(handle, method_index, self, numargs, args);
+void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+   return (void*)cppyy_call_T<long>(method, self, nargs, args);
 }
 
-char* cppyy_call_s(cppyy_typehandle_t handle, int method_index,
-                   cppyy_object_t self, int numargs, void* args) {
+char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     std::string result("");
-    std::vector<void*> arguments = build_args(numargs, args);
-    Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.FunctionMemberAt(method_index);
-    if (self) {
-        Reflex::Object o((Reflex::Type)s, (void*)self);
-        m.Invoke(o, result, arguments);
-    } else {
-        m.Invoke(result, arguments);
-    }
+    std::vector<void*> arguments = build_args(nargs, args);
+    Reflex::StubFunction stub = (Reflex::StubFunction)method;
+    stub(&result, (void*)self, arguments, NULL /* stub context */);
     return cppstring_to_cstring(result);
+}
+
+cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args,
+                  cppyy_type_t result_type) {
+   void* result = (void*)cppyy_allocate(result_type);
+    std::vector<void*> arguments = build_args(nargs, args);
+    Reflex::StubFunction stub = (Reflex::StubFunction)method;
+    stub(result, (void*)self, arguments, NULL /* stub context */);
+    return (cppyy_object_t)result;
 }
 
 static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
@@ -184,7 +150,7 @@ static cppyy_methptrgetter_t get_methptr_getter(Reflex::Member m) {
     return 0;
 }
 
-cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index) {
+cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_type_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return get_methptr_getter(m);
@@ -213,14 +179,14 @@ size_t cppyy_function_arg_typeoffset() {
 
 
 /* scope reflection information ------------------------------------------- */
-int cppyy_is_namespace(cppyy_typehandle_t handle) {
+int cppyy_is_namespace(cppyy_scope_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     return s.IsNamespace();
 }
 
 
-/* type/class reflection information -------------------------------------- */
-char* cppyy_final_name(cppyy_typehandle_t handle) {
+/* class reflection information ------------------------------------------- */
+char* cppyy_final_name(cppyy_type_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     std::string name = s.Name(Reflex::FINAL);
     return cppstring_to_cstring(name);
@@ -245,36 +211,36 @@ static int cppyy_has_complex_hierarchy(const Reflex::Type& t) {
     return is_complex;
 }   
 
-int cppyy_has_complex_hierarchy(cppyy_typehandle_t handle) {
+int cppyy_has_complex_hierarchy(cppyy_type_t handle) {
     Reflex::Type t = type_from_handle(handle);
     return cppyy_has_complex_hierarchy(t);
 }
 
-int cppyy_num_bases(cppyy_typehandle_t handle) {
+int cppyy_num_bases(cppyy_type_t handle) {
     Reflex::Type t = type_from_handle(handle);
     return t.BaseSize();
 }
 
-char* cppyy_base_name(cppyy_typehandle_t handle, int base_index) {
+char* cppyy_base_name(cppyy_type_t handle, int base_index) {
     Reflex::Type t = type_from_handle(handle);
     Reflex::Base b = t.BaseAt(base_index);
     std::string name = b.Name(Reflex::FINAL|Reflex::SCOPED);
     return cppstring_to_cstring(name);
 }
 
-int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
-    Reflex::Type td = type_from_handle(dh);
-    Reflex::Type tb = type_from_handle(bh);
-    return (int)td.HasBase(tb);
+int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
+    Reflex::Type derived_type = type_from_handle(derived_handle);
+    Reflex::Type base_type = type_from_handle(base_handle);
+    return (int)derived_type.HasBase(base_type);
 }
 
-size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address) {
-    Reflex::Type td = type_from_handle(dh);
-    Reflex::Type tb = type_from_handle(bh);
+size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, cppyy_object_t address) {
+    Reflex::Type derived_type = type_from_handle(derived_handle);
+    Reflex::Type base_type = type_from_handle(base_handle);
 
     // when dealing with virtual inheritance the only (reasonably) well-defined info is
     // in a Reflex internal base table, that contains all offsets within the hierarchy
-    Reflex::Member getbases = td.FunctionMemberByName(
+    Reflex::Member getbases = derived_type.FunctionMemberByName(
            "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
     if (getbases) {
         typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
@@ -283,7 +249,7 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_obj
         getbases.Invoke(&bases_holder);
 
         for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
-            if (ibase->first.ToType() == tb)
+            if (ibase->first.ToType() == base_type)
                 return (size_t)ibase->first.Offset((void*)address);
         }
 
@@ -296,12 +262,12 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_obj
 
 
 /* method/function reflection information --------------------------------- */
-int cppyy_num_methods(cppyy_typehandle_t handle) {
+int cppyy_num_methods(cppyy_scope_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     return s.FunctionMemberSize();
 }
 
-char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
+char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string name;
@@ -312,7 +278,7 @@ char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
+char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     Reflex::Type rt = m.TypeOf().ReturnType();
@@ -320,19 +286,19 @@ char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
     return cppstring_to_cstring(name);
 }
 
-int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index) {
+int cppyy_method_num_args(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.FunctionParameterSize();
 }
 
-int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index) {
+int cppyy_method_req_args(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.FunctionParameterSize(true);
 }
 
-char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg_index) {
+char* cppyy_method_arg_type(cppyy_scope_t handle, int method_index, int arg_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     Reflex::Type at = m.TypeOf().FunctionParameterAt(arg_index);
@@ -340,21 +306,29 @@ char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_method_arg_default(cppyy_typehandle_t handle, int method_index, int arg_index) {
+char* cppyy_method_arg_default(cppyy_scope_t handle, int method_index, int arg_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string dflt = m.FunctionParameterDefaultAt(arg_index);
     return cppstring_to_cstring(dflt);
 }
 
+cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    assert(m.IsFunctionMember());
+    return (cppyy_method_t)m.Stubfunction();
+}
 
-int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index) {
+
+/* method properties -----------------------------------------------------  */
+int cppyy_is_constructor(cppyy_type_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.IsConstructor();
 }
 
-int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index) {
+int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
     return m.IsStatic();
@@ -362,39 +336,39 @@ int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index) {
 
 
 /* data member reflection information ------------------------------------- */
-int cppyy_num_data_members(cppyy_typehandle_t handle) {
+int cppyy_num_data_members(cppyy_scope_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     return s.DataMemberSize();
 }
 
-char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index) {
+char* cppyy_data_member_name(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
     std::string name = m.Name();
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index) {
+char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
     std::string name = m.TypeOf().Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);
 }
 
-size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index) {
+size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
     return m.Offset();
 }
 
 
-int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index) {
+int cppyy_is_publicdata(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
     return m.IsPublic();
 }
 
-int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
+int cppyy_is_staticdata(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
     return m.IsStatic();

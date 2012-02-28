@@ -7,76 +7,81 @@
 extern "C" {
 #endif // ifdef __cplusplus
 
-    typedef void* cppyy_typehandle_t;
-    typedef void* cppyy_object_t;
+    typedef long cppyy_scope_t;
+    typedef cppyy_scope_t cppyy_type_t;
+    typedef long cppyy_object_t;
+    typedef long cppyy_method_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 
-    /* name to handle */
-    cppyy_typehandle_t cppyy_get_typehandle(const char* class_name);
-    cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name);
+    /* name to opaque C++ scope representation -------------------------------- */
+    cppyy_scope_t cppyy_get_scope(const char* scope_name);
+    cppyy_type_t cppyy_get_template(const char* template_name);
 
-    /* memory management */
-    void* cppyy_allocate(cppyy_typehandle_t handle);
-    void cppyy_deallocate(cppyy_typehandle_t handle, cppyy_object_t instance);
-    void cppyy_destruct(cppyy_typehandle_t handle, cppyy_object_t self);
+    /* memory management ------------------------------------------------------ */
+    cppyy_object_t cppyy_allocate(cppyy_type_t type);
+    void cppyy_deallocate(cppyy_type_t type, cppyy_object_t self);
+    void cppyy_destruct(cppyy_type_t type, cppyy_object_t self);
 
-    /* method/function dispatching */
-    void   cppyy_call_v(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    long   cppyy_call_o(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args, cppyy_typehandle_t rettype);
-    int    cppyy_call_b(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    char   cppyy_call_c(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    short  cppyy_call_h(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    int    cppyy_call_i(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    long   cppyy_call_l(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    double cppyy_call_f(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    double cppyy_call_d(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
+    /* method/function dispatching -------------------------------------------- */
+    void   cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    int    cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    char   cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    short  cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    int    cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    long   cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
-    void*  cppyy_call_r(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
-    char*  cppyy_call_s(cppyy_typehandle_t handle, int method_index, cppyy_object_t self, int numargs, void* args);
+    void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
-    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_typehandle_t handle, int method_index);
+    cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
-    /* handling of function argument buffer */
+    cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, int method_index);
+
+    /* handling of function argument buffer ----------------------------------- */
     void*  cppyy_allocate_function_args(size_t nargs);
     void   cppyy_deallocate_function_args(void* args);
     size_t cppyy_function_arg_sizeof();
     size_t cppyy_function_arg_typeoffset();
 
     /* scope reflection information ------------------------------------------- */
-    int cppyy_is_namespace(cppyy_typehandle_t handle);
+    int cppyy_is_namespace(cppyy_scope_t scope);
 
-    /* type/class reflection information -------------------------------------- */
-    char* cppyy_final_name(cppyy_typehandle_t handle);
-    int cppyy_has_complex_hierarchy(cppyy_typehandle_t handle);
-    int cppyy_num_bases(cppyy_typehandle_t handle);
-    char* cppyy_base_name(cppyy_typehandle_t handle, int base_index);
-    int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh);
-    size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address);
+    /* class reflection information ------------------------------------------- */
+    char* cppyy_final_name(cppyy_type_t type);
+    int cppyy_has_complex_hierarchy(cppyy_type_t type);
+    int cppyy_num_bases(cppyy_type_t type);
+    char* cppyy_base_name(cppyy_type_t type, int base_index);
+    int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
+    size_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address);
 
-    /* method/function reflection information */
-    int cppyy_num_methods(cppyy_typehandle_t handle);
-    char* cppyy_method_name(cppyy_typehandle_t handle, int method_index);
-    char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index);
-    int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index);
-    int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index);
-    char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int index);
-    char* cppyy_method_arg_default(cppyy_typehandle_t handle, int method_index, int index);
+    /* method/function reflection information --------------------------------- */
+    int cppyy_num_methods(cppyy_scope_t scope);
+    char* cppyy_method_name(cppyy_scope_t scope, int method_index);
+    char* cppyy_method_result_type(cppyy_scope_t scope, int method_index);
+    int cppyy_method_num_args(cppyy_scope_t scope, int method_index);
+    int cppyy_method_req_args(cppyy_scope_t scope, int method_index);
+    char* cppyy_method_arg_type(cppyy_scope_t scope, int method_index, int index);
+    char* cppyy_method_arg_default(cppyy_scope_t scope, int method_index, int index);
 
-    /* method properties */
-    int cppyy_is_constructor(cppyy_typehandle_t handle, int method_index);
-    int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index);
+    cppyy_method_t cppyy_get_method(cppyy_scope_t scope, int method_index);
 
-    /* data member reflection information */
-    int cppyy_num_data_members(cppyy_typehandle_t handle);
-    char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index);
-    char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index);
-    size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index);
+    /* method properties -----------------------------------------------------  */
+    int cppyy_is_constructor(cppyy_type_t type, int method_index);
+    int cppyy_is_staticmethod(cppyy_type_t type, int method_index);
 
-    /* data member properties */
-    int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index);
-    int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index);
+    /* data member reflection information ------------------------------------  */
+    int cppyy_num_data_members(cppyy_scope_t scope);
+    char* cppyy_data_member_name(cppyy_scope_t scope, int data_member_index);
+    char* cppyy_data_member_type(cppyy_scope_t scope, int data_member_index);
+    size_t cppyy_data_member_offset(cppyy_scope_t scope, int data_member_index);
 
-    /* misc helpers */
+    /* data member properties ------------------------------------------------  */
+    int cppyy_is_publicdata(cppyy_type_t type, int data_member_index);
+    int cppyy_is_staticdata(cppyy_type_t type, int data_member_index);
+
+    /* misc helpers ----------------------------------------------------------- */
     void cppyy_free(void* ptr);
     long long cppyy_strtoll(const char* str);
     unsigned long long cppyy_strtuoll(const char* str);
