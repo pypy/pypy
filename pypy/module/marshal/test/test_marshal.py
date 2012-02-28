@@ -162,13 +162,13 @@ class AppTestMarshal:
 
     def test_unicode(self):
         import marshal, sys
-        self.marshal_check(u'\uFFFF')
+        self.marshal_check('\uFFFF')
 
-        self.marshal_check(unichr(sys.maxunicode))
+        self.marshal_check(chr(sys.maxunicode))
 
     def test_reject_subtypes(self):
         import marshal
-        types = (float, complex, int, long, tuple, list, dict, set, frozenset)
+        types = (float, complex, int, tuple, list, dict, set, frozenset)
         for cls in types:
             class subtype(cls):
                 pass
