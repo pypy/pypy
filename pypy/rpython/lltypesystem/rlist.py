@@ -392,7 +392,11 @@ class ListIteratorRepr(AbstractListIteratorRepr):
                                          ('list', r_list.lowleveltype),
                                          ('index', Signed)))
         self.ll_listiter = ll_listiter
-        self.ll_listnext = ll_listnext
+        if (isinstance(r_list, FixedSizeListRepr)
+                and not r_list.listitem.mutated):
+            self.ll_listnext = ll_listnext_foldable
+        else:
+            self.ll_listnext = ll_listnext
         self.ll_getnextindex = ll_getnextindex
 
 def ll_listiter(ITERPTR, lst):
@@ -408,6 +412,15 @@ def ll_listnext(iter):
         raise StopIteration
     iter.index = index + 1      # cannot overflow because index < l.length
     return l.ll_getitem_fast(index)
+
+def ll_listnext_foldable(iter):
+    from pypy.rpython.rlist import ll_getitem_foldable_nonneg
+    l = iter.list
+    index = iter.index
+    if index >= l.ll_length():
+        raise StopIteration
+    iter.index = index + 1      # cannot overflow because index < l.length
+    return ll_getitem_foldable_nonneg(l, index)
 
 def ll_getnextindex(iter):
     return iter.index
