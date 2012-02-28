@@ -48,19 +48,19 @@ def setup_directory_structure(space):
              abs_b      = "import b",
              abs_x_y    = "import x.y",
              abs_sys    = "import sys",
-             string     = "inpackage = 1",
+             struct     = "inpackage = 1",
              errno      = "",
-             absolute   = "from __future__ import absolute_import\nimport string",
-             relative_b = "from __future__ import absolute_import\nfrom . import string",
-             relative_c = "from __future__ import absolute_import\nfrom .string import inpackage",
+             absolute   = "from __future__ import absolute_import\nimport struct",
+             relative_b = "from __future__ import absolute_import\nfrom . import struct",
+             relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
              )
     setuppkg("pkg.pkg1",
              __init__   = 'from . import a',
              a          = '',
-             relative_d = "from __future__ import absolute_import\nfrom ..string import inpackage",
-             relative_e = "from __future__ import absolute_import\nfrom .. import string",
+             relative_d = "from __future__ import absolute_import\nfrom ..struct import inpackage",
+             relative_e = "from __future__ import absolute_import\nfrom .. import struct",
              relative_g = "from .. import pkg1\nfrom ..pkg1 import b",
              b          = "insubpackage = 1",
              )
@@ -386,12 +386,12 @@ class AppTestImport:
     def test_future_absolute_import(self):
         def imp():
             from pkg import absolute
-            absolute.string.inpackage
-        raises(AttributeError, imp)
+            assert hasattr(absolute.struct, 'pack')
+        imp()
 
     def test_future_relative_import_without_from_name(self):
         from pkg import relative_b
-        assert relative_b.string.inpackage == 1
+        assert relative_b.struct.inpackage == 1
 
     def test_no_relative_import(self):
         def imp():
@@ -415,7 +415,7 @@ class AppTestImport:
 
     def test_future_relative_import_level_2_without_from_name(self):
         from pkg.pkg1 import relative_e
-        assert relative_e.string.inpackage == 1
+        assert relative_e.struct.inpackage == 1
 
     def test_future_relative_import_level_3(self):
         from pkg.pkg1 import relative_g
@@ -427,7 +427,7 @@ class AppTestImport:
         ns = {'__name__': __name__}
         exec("""def imp():
                     print('__name__ =', __name__)
-                    from .string import inpackage
+                    from .struct import inpackage
         """, ns)
         raises(ValueError, ns['imp'])
 
