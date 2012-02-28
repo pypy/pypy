@@ -257,3 +257,66 @@ class TestMallocFastpath(BaseTestRegalloc):
         assert gc_ll_descr.addrs[0] == nurs_adr + 24
         # this should call slow path once
         assert gc_ll_descr.calls == [24]
+
+    def test_save_regs_around_malloc(self):
+        S1 = lltype.GcStruct('S1')
+        S2 = lltype.GcStruct('S2', ('s0', lltype.Ptr(S1)),
+                                   ('s1', lltype.Ptr(S1)),
+                                   ('s2', lltype.Ptr(S1)),
+                                   ('s3', lltype.Ptr(S1)),
+                                   ('s4', lltype.Ptr(S1)),
+                                   ('s5', lltype.Ptr(S1)),
+                                   ('s6', lltype.Ptr(S1)),
+                                   ('s7', lltype.Ptr(S1)),
+                                   ('s8', lltype.Ptr(S1)),
+                                   ('s9', lltype.Ptr(S1)),
+                                   ('s10', lltype.Ptr(S1)),
+                                   ('s11', lltype.Ptr(S1)),
+                                   ('s12', lltype.Ptr(S1)),
+                                   ('s13', lltype.Ptr(S1)),
+                                   ('s14', lltype.Ptr(S1)),
+                                   ('s15', lltype.Ptr(S1)))
+        cpu = self.cpu
+        self.namespace = self.namespace.copy()
+        for i in range(16):
+            self.namespace['ds%i' % i] = cpu.fielddescrof(S2, 's%d' % i)
+        ops = '''
+        [p0]
+        p1 = getfield_gc(p0, descr=ds0)
+        p2 = getfield_gc(p0, descr=ds1)
+        p3 = getfield_gc(p0, descr=ds2)
+        p4 = getfield_gc(p0, descr=ds3)
+        p5 = getfield_gc(p0, descr=ds4)
+        p6 = getfield_gc(p0, descr=ds5)
+        p7 = getfield_gc(p0, descr=ds6)
+        p8 = getfield_gc(p0, descr=ds7)
+        p9 = getfield_gc(p0, descr=ds8)
+        p10 = getfield_gc(p0, descr=ds9)
+        p11 = getfield_gc(p0, descr=ds10)
+        p12 = getfield_gc(p0, descr=ds11)
+        p13 = getfield_gc(p0, descr=ds12)
+        p14 = getfield_gc(p0, descr=ds13)
+        p15 = getfield_gc(p0, descr=ds14)
+        p16 = getfield_gc(p0, descr=ds15)
+        #
+        # now all registers are in use
+        p17 = call_malloc_nursery(40)
+        p18 = call_malloc_nursery(40)     # overflow
+        #
+        finish(p1, p2, p3, p4, p5, p6, p7, p8,         \
+               p9, p10, p11, p12, p13, p14, p15, p16)
+        '''
+        s2 = lltype.malloc(S2)
+        for i in range(16):
+            setattr(s2, 's%d' % i, lltype.malloc(S1))
+        s2ref = lltype.cast_opaque_ptr(llmemory.GCREF, s2)
+        #
+        self.interpret(ops, [s2ref])
+        gc_ll_descr = cpu.gc_ll_descr
+        gc_ll_descr.check_nothing_in_nursery()
+        assert gc_ll_descr.calls == [40]
+        # check the returned pointers
+        for i in range(16):
+            s1ref = self.cpu.get_latest_value_ref(i)
+            s1 = lltype.cast_opaque_ptr(lltype.Ptr(S1), s1ref)
+            assert s1 == getattr(s2, 's%d' % i)
