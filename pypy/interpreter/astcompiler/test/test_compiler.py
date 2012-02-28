@@ -891,7 +891,7 @@ class TestOptimizations:
 
         monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
         source = """def f():
-        return u"\uE01F"[0]
+        return "\uE01F"[0]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
@@ -900,11 +900,11 @@ class TestOptimizations:
         # getslice is not yet optimized.
         # Still, check a case which yields the empty string.
         source = """def f():
-        return u"abc"[:0]
+        return "abc"[:0]
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 2, ops.SLICE+2: 1,
-                          ops.RETURN_VALUE: 1}
+        assert counts == {ops.LOAD_CONST: 3, ops.BUILD_SLICE: 1,
+                          ops.BINARY_SUBSCR: 1, ops.RETURN_VALUE: 1}
 
     def test_remove_dead_code(self):
         source = """def f(x):
