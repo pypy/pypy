@@ -1,9 +1,9 @@
 from __future__ import with_statement
-from pypy.tool.udir import udir
 MARKER = 42
 
 class AppTestImpModule:
     def setup_class(cls):
+        from pypy.tool.udir import udir
         cls.w_imp = cls.space.getbuiltinmodule('imp')
         cls.w_file_module = cls.space.wrap(__file__)
         latin1 = udir.join('latin1.py')
