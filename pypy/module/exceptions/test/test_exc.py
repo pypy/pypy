@@ -71,18 +71,18 @@ class AppTestExc(object):
 
     def test_unicode_translate_error(self):
         from exceptions import UnicodeTranslateError
-        ut = UnicodeTranslateError(u"x", 1, 5, "bah")
-        assert ut.object == u'x'
+        ut = UnicodeTranslateError("x", 1, 5, "bah")
+        assert ut.object == 'x'
         assert ut.start == 1
         assert ut.end == 5
         assert ut.reason == 'bah'
-        assert ut.args == (u'x', 1, 5, 'bah')
+        assert ut.args == ('x', 1, 5, 'bah')
         assert ut.message == ''
-        ut.object = u'y'
-        assert ut.object == u'y'
+        ut.object = 'y'
+        assert ut.object == 'y'
         assert str(ut) == "can't translate characters in position 1-4: bah"
         ut.start = 4
-        ut.object = u'012345'
+        ut.object = '012345'
         assert str(ut) == "can't translate character u'\\x34' in position 4: bah"
         ut.object = []
         assert ut.object == []
