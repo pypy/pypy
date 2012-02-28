@@ -334,7 +334,7 @@ class AssemblerPPC(OpAssembler):
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.store(reg.value, r.SPP.value, ofs)
-        mc.call(addr)
+        mc.call(rffi.cast(lltype.Signed, addr))
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.load(reg.value, r.SPP.value, ofs)
 
