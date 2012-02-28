@@ -586,10 +586,6 @@ class AppTest_Descroperation:
             def __len__(self):
                 return -1
         raises(ValueError, len, X())
-        class Y(object):
-            def __len__(self):
-                return -1L
-        raises(ValueError, len, Y())
 
     def test_len_custom__int__(self):
         class X(object):
