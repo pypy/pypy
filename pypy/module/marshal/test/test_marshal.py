@@ -120,8 +120,8 @@ class AppTestMarshal:
         case = scopefunc.__code__
         self.marshal_check(case)
 
-    def test_u_quote_hello_quote_(self):
-        case = u'hello'
+    def test_b_quote_hello_quote_(self):
+        case = b'hello'
         self.marshal_check(case)
 
     def test_set_brace__ecarb_(self):
@@ -149,7 +149,7 @@ class AppTestMarshal:
         f = open(self.tmpfile, 'wb')
         marshal.dump(obj1, f)
         marshal.dump(obj2, f)
-        f.write('END')
+        f.write(b'END')
         f.close()
         f = open(self.tmpfile, 'rb')
         obj1b = marshal.load(f)
@@ -158,7 +158,7 @@ class AppTestMarshal:
         f.close()
         assert obj1b == obj1
         assert obj2b == obj2
-        assert tail == 'END'
+        assert tail == b'END'
 
     def test_unicode(self):
         import marshal, sys
