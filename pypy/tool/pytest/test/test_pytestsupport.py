@@ -49,18 +49,18 @@ def app_test_exception():
     except AssertionError:
         pass
     else:
-        raise AssertionError, "app level AssertionError mixup!"
+        raise AssertionError("app level AssertionError mixup!")
 
 def app_test_exception_with_message():
     try:
         assert 0, "Failed"
-    except AssertionError, e:
+    except AssertionError as e:
         assert e.msg == "Failed"
 
 def app_test_comparison():
     try:
         assert 3 > 4
-    except AssertionError, e:
+    except AssertionError as e:
         assert "3 > 4" in e.msg
 
 
@@ -162,7 +162,7 @@ class ExpectTest:
 def test_app_test_blow(testdir):
     conftestpath.copy(testdir.tmpdir)
     sorter = testdir.inline_runsource("""class AppTestBlow:
-    def test_one(self): exec 'blow'
+    def test_one(self): exec('blow')
     """)
 
     ev, = sorter.getreports("pytest_runtest_logreport")
