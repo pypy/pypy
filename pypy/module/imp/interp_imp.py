@@ -2,6 +2,7 @@ from pypy.module.imp import importing
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.objspace.std import unicodetype
 from pypy.rlib import streamio
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.module._io import interp_io
@@ -69,7 +70,9 @@ def find_module(space, w_name, w_path=None):
         # open(). However, CPython 3 just passes the fd, so the returned file
         # object doesn't have a name attached. We do the same in PyPy, because
         # there is no easy way to attach the filename -- too bad
-        w_fileobj = interp_io.open(space, space.wrap(fd), find_info.filemode)        
+        encoding = unicodetype.getdefaultencoding(space)
+        w_fileobj = interp_io.open(space, space.wrap(fd), find_info.filemode,
+                                   encoding=encoding)
     else:
         w_fileobj = space.w_None
     w_import_info = space.newtuple(
