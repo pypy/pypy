@@ -4,6 +4,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib import streamio
 from pypy.module._io.interp_iobase import W_IOBase
+from pypy.module._io import interp_io
 from pypy.module._file.interp_stream import wrap_streamerror
 
 
@@ -63,11 +64,12 @@ def find_module(space, w_name, w_path=None):
     stream = find_info.stream
 
     if stream is not None:
-        fileobj = W_File(space)
-        fileobj.fdopenstream(
-            stream, stream.try_to_find_file_descriptor(),
-            find_info.filemode, w_filename)
-        w_fileobj = space.wrap(fileobj)
+        fd = stream.try_to_find_file_descriptor()
+        # in python2, both CPython and PyPy pass the filename to
+        # open(). However, CPython 3 just passes the fd, so the returned file
+        # object doesn't have a name attached. We do the same in PyPy, because
+        # there is no easy way to attach the filename -- too bad
+        w_fileobj = interp_io.open(space, space.wrap(fd), find_info.filemode)        
     else:
         w_fileobj = space.w_None
     w_import_info = space.newtuple(
