@@ -611,7 +611,7 @@ class AppTestImport:
         # 'import itertools' is supposed to find itertools.py if there is
         # one in sys.path.
         import sys
-        assert 'itertools' not in sys.modules
+        sys.modules.pop('itertools', None)
         import itertools
         assert hasattr(itertools, 'hello_world')
         assert not hasattr(itertools, 'count')
@@ -624,7 +624,7 @@ class AppTestImport:
         # if there is also one in sys.path as long as it is *after* the
         # special entry '.../lib_pypy/__extensions__'.
         import sys
-        assert 'itertools' not in sys.modules
+        sys.modules.pop('itertools', None)
         sys.path.append(sys.path.pop(0))
         try:
             import itertools
