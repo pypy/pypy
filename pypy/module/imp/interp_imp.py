@@ -1,4 +1,6 @@
 from pypy.module.imp import importing
+from pypy.rlib import streamio
+from pypy.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
@@ -7,7 +9,7 @@ from pypy.objspace.std import unicodetype
 from pypy.rlib import streamio
 from pypy.module._io.interp_iobase import W_IOBase
 from pypy.module._io import interp_io
-from pypy.module._file.interp_stream import wrap_streamerror
+from pypy.interpreter.streamutil import wrap_streamerror
 
 
 def get_suffixes(space):

@@ -56,6 +56,8 @@ typedef struct {
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
 
+#define _Py_ForgetReference(ob) /* nothing */
+
 #define Py_None (&_Py_NoneStruct)
 
 /*
