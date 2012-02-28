@@ -317,7 +317,7 @@ class AssemblerPPC(OpAssembler):
             for _ in range(6):
                 mc.write32(0)
         frame_size = (# add space for floats later
-                    + BACKCHAIN_SIZE * WORD)
+                    + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
         if IS_PPC_32:
             mc.stwu(r.SP.value, r.SP.value, -frame_size)
             mc.mflr(r.SCRATCH.value)
