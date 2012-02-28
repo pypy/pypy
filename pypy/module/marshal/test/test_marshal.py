@@ -8,12 +8,12 @@ class AppTestMarshal:
 
     def w_marshal_check(self, case):
         import marshal
-        from io import StringIO
+        from io import BytesIO
         s = marshal.dumps(case)
         print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
-        f = StringIO()
+        f = BytesIO()
         marshal.dump(case, f)
         f.seek(0)
         x = marshal.load(f)
@@ -70,8 +70,7 @@ class AppTestMarshal:
         self.marshal_check(case)
 
     def test_long(self):
-        self.marshal_check(42L)
-        case = -1234567890123456789012345678901234567890L
+        case = -1234567890123456789012345678901234567890
         self.marshal_check(case)
 
     def test_hello_____not_interned(self):
