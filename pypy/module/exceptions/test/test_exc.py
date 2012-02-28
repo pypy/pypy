@@ -43,15 +43,6 @@ class AppTestExc(object):
         x = X(x=8)
         assert x.x == 8
 
-    def test_catch_with_unpack(self):
-        from exceptions import LookupError
-
-        try:
-            raise LookupError(1, 2)
-        except LookupError, (one, two):
-            assert one == 1
-            assert two == 2
-
     def test_exc(self):
         from exceptions import Exception, BaseException
 
