@@ -1,10 +1,10 @@
 from pypy.module.imp import importing
-from pypy.module._file.interp_file import W_File
-from pypy.rlib import streamio
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
+from pypy.rlib import streamio
+from pypy.module._io.interp_iobase import W_IOBase
+from pypy.module._file.interp_stream import wrap_streamerror
 
 
 def get_suffixes(space):
@@ -35,13 +35,17 @@ def get_file(space, w_file, filename, filemode):
     if w_file is None or space.is_w(w_file, space.w_None):
         try:
             return streamio.open_file_as_stream(filename, filemode)
-        except StreamErrors, e:
+        except streamio.StreamErrors, e:
             # XXX this is not quite the correct place, but it will do for now.
             # XXX see the issue which I'm sure exists already but whose number
             # XXX I cannot find any more...
             raise wrap_streamerror(space, e)
     else:
-        return space.interp_w(W_File, w_file).stream
+        w_iobase = space.interp_w(W_IOBase, w_file)
+        # XXX: not all W_IOBase have a fileno method: in that case, we should
+        # probably raise a TypeError?
+        fd = space.int_w(space.call_method(w_iobase, 'fileno'))
+        return streamio.fdopen_as_stream(fd, filemode)
 
 def find_module(space, w_name, w_path=None):
     name = space.str0_w(w_name)
