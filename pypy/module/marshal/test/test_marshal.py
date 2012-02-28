@@ -110,14 +110,14 @@ class AppTestMarshal:
     def test_func_dot_func_code(self):
         def func(x):
             return lambda y: x+y
-        case = func.func_code
+        case = func.__code__
         self.marshal_check(case)
 
     def test_scopefunc_dot_func_code(self):
         def func(x):
             return lambda y: x+y
         scopefunc = func(42)
-        case = scopefunc.func_code
+        case = scopefunc.__code__
         self.marshal_check(case)
 
     def test_u_quote_hello_quote_(self):
