@@ -189,7 +189,7 @@ class AppTestSmallLong(AppTestMarshal):
 
     def test_smalllong(self):
         import __pypy__
-        x = -123456789012345L
+        x = -123456789012345
         assert 'SmallLong' in __pypy__.internal_repr(x)
         y = self.marshal_check(x)
         assert y == x
