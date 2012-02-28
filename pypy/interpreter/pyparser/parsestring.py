@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import unicodehelper
+from pypy.rlib.rstring import StringBuilder
 
 def parsestr(space, encoding, s, unicode_literals=False):
     # compiler.transformer.Transformer.decode_literal depends on what 
@@ -108,8 +109,6 @@ def hexbyte(val):
     if len(result) == 1:
         result = "0" + result
     return result
-
-from pypy.rlib.rstring import StringBuilder
 
 def PyString_DecodeEscape(space, s, recode_encoding):
     """
