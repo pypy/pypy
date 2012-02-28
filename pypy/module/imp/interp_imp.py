@@ -2,6 +2,7 @@ from pypy.module.imp import importing
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pyparser import pytokenizer
 from pypy.objspace.std import unicodetype
 from pypy.rlib import streamio
 from pypy.module._io.interp_iobase import W_IOBase
@@ -65,12 +66,20 @@ def find_module(space, w_name, w_path=None):
     stream = find_info.stream
 
     if stream is not None:
-        fd = stream.try_to_find_file_descriptor()
+        # try to find the declared encoding
+        encoding = None
+        firstline = stream.readline()
+        stream.seek(0, 0) # reset position
+        if firstline.startswith('#'):
+            encoding = pytokenizer.match_encoding_declaration(firstline)
+        if encoding is None:
+            encoding = unicodetype.getdefaultencoding(space)
+        #
         # in python2, both CPython and PyPy pass the filename to
         # open(). However, CPython 3 just passes the fd, so the returned file
         # object doesn't have a name attached. We do the same in PyPy, because
         # there is no easy way to attach the filename -- too bad
-        encoding = unicodetype.getdefaultencoding(space)
+        fd = stream.try_to_find_file_descriptor()
         w_fileobj = interp_io.open(space, space.wrap(fd), find_info.filemode,
                                    encoding=encoding)
     else:

@@ -1,10 +1,16 @@
 from __future__ import with_statement
+from pypy.tool.udir import udir
 MARKER = 42
 
 class AppTestImpModule:
     def setup_class(cls):
         cls.w_imp = cls.space.getbuiltinmodule('imp')
         cls.w_file_module = cls.space.wrap(__file__)
+        latin1 = udir.join('latin1.py')
+        latin1.write("# -*- coding: iso-8859-1 -*\n")
+        fake_latin1 = udir.join('fake_latin1.py')
+        fake_latin1.write("print('-*- coding: iso-8859-1 -*')")
+        cls.w_udir = cls.space.wrap(str(udir))
 
     def w__py_file(self):
         fn = self.file_module
@@ -32,6 +38,18 @@ class AppTestImpModule:
         pathname = pathname.lower()
         assert pathname.endswith('.py') # even if .pyc is up-to-date
         assert description in self.imp.get_suffixes()
+
+    def test_find_module_with_encoding(self):
+        import sys
+        sys.path.insert(0, self.udir)
+        try:
+            file, pathname, description = self.imp.find_module('latin1')
+            assert file.encoding == 'iso-8859-1'
+            #
+            file, pathname, description = self.imp.find_module('fake_latin1')
+            assert file.encoding == 'utf-8'
+        finally:
+            del sys.path[0]
 
     def test_load_dynamic(self):
         raises(ImportError, self.imp.load_dynamic, 'foo', 'bar')
