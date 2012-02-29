@@ -457,7 +457,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         optimize_unroll(metainterp_sd, loop, [OptRenameStrlen(), OptPure()], True)
 
-    def test_optimizer_renaming_boxes(self):
+    def test_optimizer_renaming_boxes1(self):
         ops = """
         [p1]
         i1 = strlen(p1)
