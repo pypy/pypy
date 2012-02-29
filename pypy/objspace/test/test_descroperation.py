@@ -301,13 +301,13 @@ class AppTest_Descroperation:
         raises(AttributeError, getattr, x, 'a')
 
     def test_unordeable_types(self):
-        # incomparable objects sort by type name :-/
         class A(object): pass
         class zz(object): pass
         raises(TypeError, "A() < zz()")
         raises(TypeError, "zz() > A()")
         raises(TypeError, "A() < A()")
-        # if in doubt, CPython sorts numbers before non-numbers
+        raises(TypeError, "A() < None")
+        raises(TypeError, "None < A()")
         raises(TypeError, "0 < ()")
         raises(TypeError, "0.0 < ()")
         raises(TypeError, "0j < ()")

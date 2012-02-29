@@ -526,10 +526,6 @@ def _cmp(space, w_obj1, w_obj2, symbol):
     # fall back to internal rules
     if space.is_w(w_obj1, w_obj2):
         return space.wrap(0)
-    if space.is_w(w_obj1, space.w_None):
-        return space.wrap(-1)
-    if space.is_w(w_obj2, space.w_None):
-        return space.wrap(1)
     else:
         typename1 = space.type(w_obj1).getname(space)
         typename2 = space.type(w_obj2).getname(space)
