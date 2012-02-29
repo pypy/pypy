@@ -60,3 +60,11 @@ class TestPyPyTests:
         assert "test_code_in_docstring_ignored" in passed[0].nodeid
         assert "app_test_code_in_docstring_failing" in failed[0].nodeid
         assert "test_code_in_docstring_failing" in failed[1].nodeid
+
+    def test_raises_inside_closure(self, testdir):
+        sorter = testdir.inline_run(innertest, '-k', 'app_test_raise_in_a_closure',
+                                    '--runappdirect')
+        passed, skipped, failed = sorter.listoutcomes()
+        assert len(passed) == 1
+        print passed
+        assert "app_test_raise_in_a_closure" in passed[0].nodeid

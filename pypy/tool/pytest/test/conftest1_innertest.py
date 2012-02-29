@@ -31,3 +31,7 @@ class TestSomething:
     def test_method(self): 
         assert self.space 
  
+def app_test_raise_in_a_closure():
+    def f(x):
+        raises(AttributeError, "x.foo")
+    f(42)

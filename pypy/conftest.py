@@ -201,6 +201,7 @@ def run_with_python(python, target):
     if python is None:
         py.test.skip("Cannot find the default python3 interpreter to run with -A")
     helpers = r"""if 1:
+    import sys
     def skip(message):
         print(message)
         raise SystemExit(0)
@@ -213,7 +214,8 @@ def run_with_python(python, target):
                     # it's probably an indented block, so we prefix if True:
                     # to avoid SyntaxError
                     func = "if True:\n" + func
-                exec(func)
+                frame = sys._getframe(1)
+                exec(func, frame.f_globals, frame.f_locals)
             else:
                 func(*args, **kwargs)
         except exc as e:
