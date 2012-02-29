@@ -441,23 +441,7 @@ class DescrOperation(object):
             space.get_and_call_function(w_del, w_obj)
 
     def cmp(space, w_v, w_w):
-
-        if space.is_w(w_v, w_w):
-            return space.wrap(0)
-
-        # The real comparison
-        if space.is_w(space.type(w_v), space.type(w_w)):
-            # for object of the same type, prefer __cmp__ over rich comparison.
-            w_cmp = space.lookup(w_v, '__cmp__')
-            w_res = _invoke_binop(space, w_cmp, w_v, w_w)
-            if w_res is not None:
-                return w_res
-        # fall back to rich comparison.
-        if space.eq_w(w_v, w_w):
-            return space.wrap(0)
-        elif space.is_true(space.lt(w_v, w_w)):
-            return space.wrap(-1)
-        return space.wrap(1)
+        raise NotImplementedError
 
     def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
@@ -492,46 +476,6 @@ def _invoke_binop(space, w_impl, w_obj1, w_obj2):
         if _check_notimplemented(space, w_res):
             return w_res
     return None
-
-# helper for invoking __cmp__
-
-def _conditional_neg(space, w_obj, flag):
-    if flag:
-        return space.neg(w_obj)
-    else:
-        return w_obj
-
-def _cmp(space, w_obj1, w_obj2, symbol):
-    w_typ1 = space.type(w_obj1)
-    w_typ2 = space.type(w_obj2)
-    w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__cmp__')
-    do_neg1 = False
-    do_neg2 = True
-    if space.is_w(w_typ1, w_typ2):
-        w_right_impl = None
-    else:
-        w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__cmp__')
-        if (w_left_src is not w_right_src
-            and space.is_true(space.issubtype(w_typ2, w_typ1))):
-            w_obj1, w_obj2 = w_obj2, w_obj1
-            w_left_impl, w_right_impl = w_right_impl, w_left_impl
-            do_neg1, do_neg2 = do_neg2, do_neg1
-
-    w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-    if w_res is not None:
-        return _conditional_neg(space, w_res, do_neg1)
-    w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-    if w_res is not None:
-        return _conditional_neg(space, w_res, do_neg2)
-    # fall back to internal rules
-    if space.is_w(w_obj1, w_obj2):
-        return space.wrap(0)
-    else:
-        typename1 = space.type(w_obj1).getname(space)
-        typename2 = space.type(w_obj2).getname(space)
-        raise operationerrfmt(space.w_TypeError,
-                              "unorderable types: %s %s %s",
-                              typename1, symbol, typename2)
 
 
 # regular methods def helpers
@@ -581,6 +525,12 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
     def comparison_impl(space, w_obj1, w_obj2):
+        # for == and !=, we do a quick check for identity.  This also
+        # guarantees that identity implies equality.
+        if left == '__eq__' or left == '__ne__':
+            if space.is_w(w_obj1, w_obj2):
+                return space.wrap(left == '__eq__')
+        #
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -610,10 +560,12 @@ def _make_comparison_impl(symbol, specialnames):
         w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
-        # fallback: lt(a, b) <= lt(cmp(a, b), 0) ...
-        w_res = _cmp(space, w_first, w_second, symbol)
-        res = space.int_w(w_res)
-        return space.wrap(op(res, 0))
+        #
+        typename1 = space.type(w_obj1).getname(space)
+        typename2 = space.type(w_obj2).getname(space)
+        raise operationerrfmt(space.w_TypeError,
+                              "unorderable types: %s %s %s",
+                              typename1, symbol, typename2)
 
     return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
 
