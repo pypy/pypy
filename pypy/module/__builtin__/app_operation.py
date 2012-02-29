@@ -1,4 +1,5 @@
+import operator
+
 def bin(x):
-    if not isinstance(x, int):
-        raise TypeError("%s object cannot be interpreted as an integer" % type(x))
+    x = operator.index(x)
     return x.__format__("#b")

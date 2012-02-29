@@ -77,10 +77,14 @@ class AppTestBuiltinApp:
             r"""'\'\x00"\n\r\t abcd\x85\xe9\U00012fff\ud800\U0001d121xxx.'"""
 
     def test_bin(self):
+        class Foo:
+            def __index__(self):
+                return 4
         assert bin(0) == "0b0"
         assert bin(-1) == "-0b1"
         assert bin(2) == "0b10"
         assert bin(-2) == "-0b10"
+        assert bin(Foo()) == "0b100"
         raises(TypeError, bin, 0.)
 
     def test_chr(self):
