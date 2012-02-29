@@ -257,6 +257,7 @@ class GuardOpAssembler(object):
 
     def emit_guard_class(self, op, arglocs, regalloc):
         self._cmp_guard_class(op, arglocs, regalloc)
+        self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         offset = self.cpu.vtable_offset
