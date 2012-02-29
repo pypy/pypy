@@ -28,7 +28,8 @@ class Module(MixedModule):
         'dir'           : 'app_inspect.dir',
 
         'bin'           : 'app_operation.bin',
-
+        'oct'           : 'app_operation.oct',
+        'hex'           : 'app_operation.hex',
     }
 
     interpleveldefs = {
@@ -53,8 +54,6 @@ class Module(MixedModule):
         'pow'           : 'operation.pow',
         'repr'          : 'operation.repr',
         'hash'          : 'operation.hash',
-        'oct'           : 'operation.oct',
-        'hex'           : 'operation.hex',
         'round'         : 'operation.round',
         'cmp'           : 'operation.cmp',
         'divmod'        : 'operation.divmod',

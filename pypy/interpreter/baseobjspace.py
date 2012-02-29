@@ -1528,8 +1528,10 @@ ObjSpace.MethodTable = [
     ('neg',             'neg',       1, ['__neg__']),
     ('nonzero',         'truth',     1, ['__bool__']),
     ('abs' ,            'abs',       1, ['__abs__']),
-    ('hex',             'hex',       1, ['__hex__']),
-    ('oct',             'oct',       1, ['__oct__']),
+    # hex and oct no longer calls special methods in py3k, but we need to keep
+    # them in this table for the flow object space
+    ('hex',             'hex',       1, []),
+    ('oct',             'oct',       1, []),
     ('ord',             'ord',       1, []),
     ('invert',          '~',         1, ['__invert__']),
     ('add',             '+',         2, ['__add__', '__radd__']),

@@ -271,18 +271,6 @@ class TestW_IntObject:
         result = iobj.int__Int(self.space, f1)
         assert result == f1
 
-    def test_oct(self):
-        x = 012345
-        f1 = iobj.W_IntObject(x)
-        result = iobj.oct__Int(self.space, f1)
-        assert self.space.unwrap(result) == oct(x)
-
-    def test_hex(self):
-        x = 0x12345
-        f1 = iobj.W_IntObject(x)
-        result = iobj.hex__Int(self.space, f1)
-        assert self.space.unwrap(result) == hex(x)
-
 class AppTestInt:
 
     def test_conjugate(self):

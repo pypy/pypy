@@ -97,7 +97,7 @@ class AppTest_Descriptor:
         raises(TypeError, repr, inst) 
         raises(TypeError, oct, inst) 
         raises(TypeError, hex, inst) 
-        assert A.seen == [1,2,3,4]
+        assert A.seen == [1,2] # __oct__ and __hex__ are no longer called
 
     def test_hash(self): 
         class A(object):

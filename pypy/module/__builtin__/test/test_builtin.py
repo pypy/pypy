@@ -87,6 +87,28 @@ class AppTestBuiltinApp:
         assert bin(Foo()) == "0b100"
         raises(TypeError, bin, 0.)
 
+    def test_oct(self):
+        class Foo:
+            def __index__(self):
+                return 4
+        assert oct(0) == "0o0"
+        assert oct(-1) == "-0o1"
+        assert oct(8) == "0o10"
+        assert oct(-8) == "-0o10"
+        assert oct(Foo()) == "0o4"
+        raises(TypeError, oct, 0.)
+
+    def test_hex(self):
+        class Foo:
+            def __index__(self):
+                return 4
+        assert hex(0) == "0x0"
+        assert hex(-1) == "-0x1"
+        assert hex(16) == "0x10"
+        assert hex(-16) == "-0x10"
+        assert hex(Foo()) == "0x4"
+        raises(TypeError, hex, 0.)
+
     def test_chr(self):
         import sys
         assert chr(65) == 'A'

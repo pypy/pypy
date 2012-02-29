@@ -287,12 +287,6 @@ def xor__Long_Long(space, w_long1, w_long2):
 def or__Long_Long(space, w_long1, w_long2):
     return W_LongObject(w_long1.num.or_(w_long2.num))
 
-def oct__Long(space, w_long1):
-    return space.wrap(w_long1.num.oct())
-
-def hex__Long(space, w_long1):
-    return space.wrap(w_long1.num.hex())
-
 def getnewargs__Long(space, w_long1):
     return space.newtuple([W_LongObject(w_long1.num)])
 

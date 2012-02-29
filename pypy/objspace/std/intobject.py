@@ -330,12 +330,6 @@ def float__Int(space, w_int1):
     x = float(a)
     return space.newfloat(x)
 
-def oct__Int(space, w_int1):
-    return space.wrap(oct(w_int1.intval))
-
-def hex__Int(space, w_int1):
-    return space.wrap(hex(w_int1.intval))
-
 def getnewargs__Int(space, w_int1):
     return space.newtuple([wrapint(space, w_int1.intval)])
 

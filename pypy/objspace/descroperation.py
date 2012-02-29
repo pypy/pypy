@@ -718,9 +718,7 @@ for targetname, specialname, checkerspec in [
 
 for targetname, specialname in [
     ('str', '__str__'),
-    ('repr', '__repr__'),
-    ('oct', '__oct__'),
-    ('hex', '__hex__')]:
+    ('repr', '__repr__')]:
 
     source = """if 1:
         def %(targetname)s(space, w_obj):

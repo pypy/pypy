@@ -94,15 +94,6 @@ equal have the same hash value.  It is possible, but unlikely, for
 two un-equal objects to have the same hash value."""
     return space.hash(w_object)
 
-def oct(space, w_val):
-    """Return the octal representation of an integer."""
-    # XXX does this need to be a space operation?
-    return space.oct(w_val)
-
-def hex(space, w_val):
-    """Return the hexadecimal representation of an integer."""
-    return space.hex(w_val)
-
 def id(space, w_object):
     "Return the identity of an object: id(x) == id(y) if and only if x is y."
     return space.id(w_object)

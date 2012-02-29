@@ -213,18 +213,6 @@ class TestW_IntObject:
         result = self.space.int(f1)
         assert result == f1
 
-    def test_oct(self):
-        x = 012345
-        f1 = wrapint(self.space, x)
-        result = self.space.oct(f1)
-        assert self.space.unwrap(result) == oct(x)
-
-    def test_hex(self):
-        x = 0x12345
-        f1 = wrapint(self.space, x)
-        result = self.space.hex(f1)
-        assert self.space.unwrap(result) == hex(x)
-
 
 class AppTestSmallInt(AppTestInt):
 
