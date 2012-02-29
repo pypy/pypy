@@ -219,7 +219,6 @@ Table = [
     ('inplace_and',     inplace_and),
     ('inplace_or',      inplace_or),
     ('inplace_xor',     inplace_xor),
-    ('cmp',             cmp),
     ('iter',            iter),
     ('next',            next),
     ('get',             get),

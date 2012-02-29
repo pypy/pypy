@@ -1566,7 +1566,6 @@ ObjSpace.MethodTable = [
     ('ne',              '!=',        2, ['__ne__', '__ne__']),
     ('gt',              '>',         2, ['__gt__', '__lt__']),
     ('ge',              '>=',        2, ['__ge__', '__le__']),
-    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
     ('next',            'next',      1, ['__next__']),

@@ -176,8 +176,7 @@ class W_TypeObject(W_Object):
             # ^^^ conservative default, fixed during real usage
 
         if space.config.objspace.std.withidentitydict:
-            if (key is None or key == '__eq__' or
-                key == '__cmp__' or key == '__hash__'):
+            if (key is None or key == '__eq__' or key == '__hash__'):
                 w_self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
@@ -242,7 +241,6 @@ class W_TypeObject(W_Object):
         my_eq = w_self.lookup('__eq__')
         overrides_eq = (my_eq and my_eq is not type_eq(w_self.space))
         overrides_eq_cmp_or_hash = (overrides_eq or
-                                    w_self.lookup('__cmp__') or
                                     w_self.lookup('__hash__') is not default_hash)
         if overrides_eq_cmp_or_hash:
             w_self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH

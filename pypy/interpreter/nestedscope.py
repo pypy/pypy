@@ -32,6 +32,7 @@ class Cell(Wrappable):
         self.w_value = None
   
     def descr__cmp__(self, space, w_other):
+        # XXX fix me, cmp is gone
         other = space.interpclass_w(w_other)
         if not isinstance(other, Cell):
             return space.w_NotImplemented

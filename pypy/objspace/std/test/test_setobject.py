@@ -97,7 +97,6 @@ class AppTestAppSetTest:
         assert d == a
 
     def test_compare(self):
-        raises(TypeError, cmp, set('abc'), set('abd'))
         assert set('abc') != 'abc'
         raises(TypeError, "set('abc') < 42")
         assert not (set('abc') < set('def'))

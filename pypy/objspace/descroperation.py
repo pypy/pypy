@@ -440,9 +440,6 @@ class DescrOperation(object):
         if w_del is not None:
             space.get_and_call_function(w_del, w_obj)
 
-    def cmp(space, w_v, w_w):
-        raise NotImplementedError
-
     def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 

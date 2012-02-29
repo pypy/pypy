@@ -112,11 +112,6 @@ class AppTest_Descriptor:
             def __eq__(self, other): pass 
         raises(TypeError, "hash(B())") # because we define __eq__ but not __hash__
 
-        # same as above for __cmp__
-        class C(object):
-            def __cmp__(self, other): pass 
-        hash(C())
-
         class E(object):
             def __hash__(self): 
                 return "something"

@@ -605,15 +605,6 @@ def iter__Set(space, w_left):
 
 iter__Frozenset = iter__Set
 
-def cmp__Set_settypedef(space, w_left, w_other):
-    # hack hack until we get the expected result
-    raise OperationError(space.w_TypeError,
-            space.wrap('cannot compare sets using cmp()'))
-
-cmp__Set_frozensettypedef = cmp__Set_settypedef
-cmp__Frozenset_settypedef = cmp__Set_settypedef
-cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
-
 init_signature = Signature(['some_iterable'], None, None)
 init_defaults = [None]
 def init__Set(space, w_set, __args__):

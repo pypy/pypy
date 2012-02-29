@@ -453,14 +453,6 @@ class AppTestInt:
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
-
-    def test_cmp(self):
-        skip("This is a 'wont fix' case")
-        # We don't have __cmp__, we consistently have __eq__ & the others
-        # instead.  In CPython some types have __cmp__ and some types have
-        # __eq__ & the others.
-        assert 1 .__cmp__
-        assert int .__cmp__
     
     def test_bit_length(self):
         for val, bits in [
