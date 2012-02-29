@@ -67,7 +67,7 @@ def make_method(meth_name, cppol):
     return method
 
 
-def make_datamember(cppdm):
+def make_data_member(cppdm):
     rettype = cppdm.get_returntype()
     if not rettype:                              # return builtin type
         cppclass = None
@@ -103,7 +103,7 @@ def update_cppnamespace(nsdct, metans):
     # static ones also to the meta class (needed for property setters)
     for dm in cppns.get_data_member_names():
         cppdm = cppns.get_data_member(dm)
-        pydm = make_datamember(cppdm)
+        pydm = make_data_member(cppdm)
         nsdct[dm] = pydm
         setattr(metans, dm, pydm)
 
@@ -178,7 +178,7 @@ def make_cppclass(class_name, cpptype):
     # static ones also to the meta class (needed for property setters)
     for dm_name in cpptype.get_data_member_names():
         cppdm = cpptype.get_data_member(dm_name)
-        pydm = make_datamember(cppdm)
+        pydm = make_data_member(cppdm)
 
         setattr(pycpptype, dm_name, pydm)
         if cppdm.is_static():
@@ -199,23 +199,35 @@ def get_cppitem(name, scope=None):
         scope = gbl
         fullname = name
 
-    # lookup class ...
+    # lookup if already created (e.g. as a function return type)
     try:
         return _existing_cppitems[fullname]
     except KeyError:
         pass
 
-    # ... if lookup failed, create (classes, templates, functions)
+    # ... if lookup failed, create as appropriate
     pycppitem = None
 
+    # namespaces are "open"; TODO: classes are too (template methods, inner classes ...)
+    if isinstance(scope, CppyyNamespaceMeta):
+        global _loaded_dictionaries_isdirty
+        if _loaded_dictionaries_isdirty:  # TODO: this should be per namespace
+            if not scope._cpp_proxy:
+                scope._cpp_proxy = cppyy._type_byname(scope.__name__)
+            scope._cpp_proxy.update()     # TODO: this is currently quadratic
+            _loaded_dictionaries_isdirty = False
+
+    # classes
     cppitem = cppyy._type_byname(fullname)
     if cppitem:
         if cppitem.is_namespace():
             pycppitem = make_cppnamespace(fullname, cppitem)
         else:
             pycppitem = make_cppclass(fullname, cppitem)
+        _existing_cppitems[fullname] = pycppitem
         scope.__dict__[name] = pycppitem
 
+    # templates
     if not cppitem:
         cppitem = cppyy._template_byname(fullname)
         if cppitem:
@@ -223,18 +235,29 @@ def get_cppitem(name, scope=None):
             _existing_cppitems[fullname] = pycppitem
             scope.__dict__[name] = pycppitem
 
-    if not cppitem and isinstance(scope, CppyyNamespaceMeta):
-        global _loaded_dictionaries_isdirty
-        if _loaded_dictionaries_isdirty:  # TODO: this should've been per namespace
-            scope._cpp_proxy.update()  # TODO: this is currently quadratic
-        cppitem = scope._cpp_proxy.get_overload(name)
-        pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
-        setattr(scope.__class__, name, pycppitem)
-        pycppitem = getattr(scope, name)
-        _loaded_dictionaries_isdirty = False
+    # functions
+    if not cppitem:
+        try:
+            cppitem = scope._cpp_proxy.get_overload(name)
+            pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
+            setattr(scope.__class__, name, pycppitem)
+            pycppitem = getattr(scope, name)      # binds function as needed
+        except AttributeError:
+            pass
+
+    # data
+    if not cppitem:
+        try:
+            cppitem = scope._cpp_proxy.get_data_member(name)
+            pycppitem = make_data_member(cppitem)
+            setattr(scope, name, pycppitem)
+            if cppitem.is_static():
+                setattr(scope.__class__, name, pycppitem)
+            pycppitem = getattr(scope, name)      # gets actual property value
+        except AttributeError:
+            pass
 
     if pycppitem:
-        _existing_cppitems[fullname] = pycppitem
         return pycppitem
 
     raise AttributeError("'%s' has no attribute '%s'", (str(scope), name))

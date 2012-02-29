@@ -233,7 +233,7 @@ class AppTestADVANCEDCPP:
         assert b.m_a          == 11
         assert b.m_da         == 11.11
         assert b.m_b          == 22
-      # assert b.get_value()  == 22
+        assert b.get_value()  == 22
 
         b.m_db = 22.22
         assert b.m_db         == 22.22
@@ -257,7 +257,7 @@ class AppTestADVANCEDCPP:
         assert c1.m_a         == 11
         assert c1.m_b         == 22
         assert c1.m_c         == 33
-      # assert c1.get_value() == 33
+        assert c1.get_value() == 33
 
         c1.destruct()
 
@@ -285,7 +285,7 @@ class AppTestADVANCEDCPP:
         assert d.m_b          == 22
         assert d.m_c          == 33
         assert d.m_d          == 44
-      # assert d.get_value()  == 44
+        assert d.get_value()  == 44
 
         d.destruct()
 

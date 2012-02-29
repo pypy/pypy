@@ -332,3 +332,21 @@ class AppTestDATATYPES:
         raises(TypeError, c.m_int,      1.)
 
         c.destruct()
+
+    def test09_global_builtin_type(self):
+        """Test access to a global builtin type"""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        import pprint
+        pprint.pprint(dir(gbl))
+        assert gbl.g_int == gbl.get_global_int()
+
+        gbl.set_global_int(32)
+        assert gbl.get_global_int() == 32
+        assert gbl.g_int == 32
+
+        gbl.g_int = 22
+        assert gbl.get_global_int() == 22
+        assert gbl.g_int == 22

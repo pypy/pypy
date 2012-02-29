@@ -114,7 +114,18 @@ private:
 };
 
 
-// global functions
+//= global functions ========================================================
 long get_pod_address(cppyy_test_data& c);
 long get_int_address(cppyy_test_data& c);
 long get_double_address(cppyy_test_data& c);
+
+
+//= global variables/pointers ===============================================
+extern int g_int;
+void set_global_int(int i);
+int get_global_int();
+
+extern cppyy_test_pod* g_pod;
+bool is_global_pod(cppyy_test_pod* t);
+void set_global_pod(cppyy_test_pod* t);
+cppyy_test_pod* get_global_pod();

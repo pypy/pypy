@@ -1,6 +1,7 @@
 #include "datatypes.h"
 
 
+//===========================================================================
 cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
 {
     m_bool   = false;
@@ -72,7 +73,7 @@ void cppyy_test_data::destroy_arrays() {
     }
 }
 
-// getters
+//- getters -----------------------------------------------------------------
 bool           cppyy_test_data::get_bool()   { return m_bool; }
 char           cppyy_test_data::get_char()   { return m_char; }
 unsigned char  cppyy_test_data::get_uchar()  { return m_uchar; }
@@ -103,7 +104,7 @@ float*  cppyy_test_data::get_float_array2()  { return m_float_array2; }
 double* cppyy_test_data::get_double_array()  { return m_double_array; }
 double* cppyy_test_data::get_double_array2() { return m_double_array2; }
 
-// setters
+//- setters -----------------------------------------------------------------
 void cppyy_test_data::set_bool(bool b)              { m_bool   = b; }
 void cppyy_test_data::set_char(char c)              { m_char   = c; }
 void cppyy_test_data::set_uchar(unsigned char uc)   { m_uchar  = uc; }
@@ -127,6 +128,8 @@ unsigned long  cppyy_test_data::s_ulong  =  303ul;
 float          cppyy_test_data::s_float  = -404.f;
 double         cppyy_test_data::s_double = -505.;
 
+
+//= global functions ========================================================
 long get_pod_address(cppyy_test_data& c)
 {
     return (long)&c.m_pod;
@@ -140,4 +143,29 @@ long get_int_address(cppyy_test_data& c)
 long get_double_address(cppyy_test_data& c)
 {
     return (long)&c.m_pod.m_double;
+}
+
+//= global variables/pointers ===============================================
+int g_int = 42;
+
+void set_global_int(int i) {
+   g_int = i;
+}
+
+int get_global_int() {
+   return g_int;
+}
+
+cppyy_test_pod* g_pod = (cppyy_test_pod*)0;
+
+bool is_global_pod(cppyy_test_pod* t) {
+   return t == g_pod;
+}
+
+void set_global_pod(cppyy_test_pod* t) {
+   g_pod = t;
+}
+
+cppyy_test_pod* get_global_pod() {
+   return g_pod;
 }
