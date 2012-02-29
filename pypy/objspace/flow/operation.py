@@ -19,6 +19,9 @@ MethodTable.extend([
     ('getslice',        'getslice',  3, ['__getslice__']),
     ('setslice',        'setslice',  4, ['__setslice__']),
     ('delslice',        'delslice',  3, ['__delslice__']),
+    # hex and oct no longer calls special methods in py3k
+    ('hex',             'hex',       1, []),
+    ('oct',             'oct',       1, []),
 ])
 
 
