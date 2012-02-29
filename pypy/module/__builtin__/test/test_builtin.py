@@ -432,40 +432,6 @@ class AppTestBuiltinApp:
         obj = SomeClass()
         assert reversed(obj) == 42
     
-        
-    def test_cmp(self):
-        assert cmp(9,9) == 0
-        assert cmp(0,9) < 0
-        assert cmp(9,0) > 0
-        assert cmp(b"abc", 12) != 0
-        assert cmp("abc", 12) != 0
-
-    def test_cmp_more(self):
-        class C(object):
-            def __eq__(self, other):
-                return True
-            def __cmp__(self, other):
-                raise RuntimeError
-        c1 = C()
-        c2 = C()
-        raises(RuntimeError, cmp, c1, c2)
-
-    def test_cmp_cyclic(self):
-        if not self.sane_lookup:
-            skip("underlying Python implementation has insane dict lookup")
-        if not self.safe_runtimerror:
-            skip("underlying Python may raise random exceptions on stack ovf")
-        a = []; a.append(a)
-        b = []; b.append(b)
-        from UserList import UserList
-        c = UserList(); c.append(c)
-        raises(RuntimeError, cmp, a, b)
-        raises(RuntimeError, cmp, b, c)
-        raises(RuntimeError, cmp, c, a)
-        raises(RuntimeError, cmp, a, c)
-        # okay, now break the cycles
-        a.pop(); b.pop(); c.pop()
-
     def test_return_None(self):
         class X(object): pass
         x = X()
