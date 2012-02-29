@@ -55,7 +55,6 @@ class Module(MixedModule):
         'repr'          : 'operation.repr',
         'hash'          : 'operation.hash',
         'round'         : 'operation.round',
-        'cmp'           : 'operation.cmp',
         'divmod'        : 'operation.divmod',
         'format'        : 'operation.format',
         'issubclass'    : 'abstractinst.app_issubclass',

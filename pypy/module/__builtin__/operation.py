@@ -98,10 +98,6 @@ def id(space, w_object):
     "Return the identity of an object: id(x) == id(y) if and only if x is y."
     return space.id(w_object)
 
-def cmp(space, w_x, w_y):
-    """return 0 when x == y, -1 when x < y and 1 when x > y """
-    return space.cmp(w_x, w_y)
-
 def divmod(space, w_x, w_y):
     """Return the tuple ((x-x%y)/y, x%y).  Invariant: div*y + mod == x."""
     return space.divmod(w_x, w_y)
