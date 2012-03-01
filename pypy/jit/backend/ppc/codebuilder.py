@@ -1085,6 +1085,18 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         else:
             self.stdx(from_reg, base_reg, offset_reg)
 
+    def srli_op(self, target_reg, from_reg, numbits):
+        if IS_PPC_32:
+            self.srwi(target_reg, from_reg, numbits)
+        else:
+            self.srdi(target_reg, from_reg, numbits)
+
+    def sl_op(self, target_reg, from_reg, numbit_reg):
+        if IS_PPC_32:
+            self.slw(target_reg, from_reg, numbit_reg)
+        else:
+            self.sld(target_reg, from_reg, numbit_reg)
+
     def prepare_insts_blocks(self, show=False):
         self.assemble(show)
         insts = self.insts
