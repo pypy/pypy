@@ -892,14 +892,15 @@ class AllocOpAssembler(object):
         if opnum == rop.COND_CALL_GC_WB:
             N = 2
             addr = descr.get_write_barrier_fn(self.cpu)
+            card_marking = False
         elif opnum == rop.COND_CALL_GC_WB_ARRAY:
             N = 3
             addr = descr.get_write_barrier_from_array_fn(self.cpu)
             assert addr != 0
+            card_marking = descr.jit_wb_cards_set != 0
         else:
             raise AssertionError(opnum)
         loc_base = arglocs[0]
-
         with scratch_reg(self.mc):
             self.mc.load(r.SCRATCH.value, loc_base.value, 0)
 
@@ -922,6 +923,33 @@ class AllocOpAssembler(object):
         jz_location = self.mc.currpos()
         self.mc.nop()
 
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking:
+            with scratch_reg(self.mc):
+                self.mc.load(r.SCRATCH.value, loc_base.value, 0)
+
+                # get the position of the bit we want to test
+                bitpos = descr.jit_wb_cards_set_bitpos
+
+                if IS_PPC_32:
+                    # put this bit to the rightmost bitposition of r0
+                    if bitpos > 0:
+                        self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value,
+                                       32 - bitpos, 31, 31)
+                else:
+                    if bitpos > 0:
+                        self.mc.rldicl(r.SCRATCH.value, r.SCRATCH.value,
+                                       64 - bitpos, 63)
+
+                # test whether this bit is set
+                self.mc.cmp_op(0, r.SCRATCH.value, 1, imm=True)
+
+                jnz_location = self.mc.currpos()
+                self.mc.nop()
+        else:
+            jnz_location = 0
+
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         with Saved_Volatiles(self.mc):
@@ -935,6 +963,57 @@ class AllocOpAssembler(object):
             # misaligned stack in the call, but it's ok because the write barrier
             # is not going to call anything more.  
             self.mc.call(func)
+
+        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
+        # be done in the CALL above with just four instructions, so here
+        # is an inline copy of them
+        if card_marking:
+            with scratch_reg(self.mc):
+                jmp_location = self.mc.currpos()
+                self.mc.nop()  # jump to the exit, patched later
+                # patch the JNZ above
+                offset = self.mc.currpos()
+                pmc = OverwritingBuilder(self.mc, jnz_location, 1)
+                pmc.bc(12, 2, offset - jnz_location)     # jump on equality
+                pmc.overwrite()
+                #
+                loc_index = arglocs[1]
+                assert loc_index.is_reg()
+                tmp1 = arglocs[-2]
+                tmp2 = arglocs[-1]
+                #byteofs
+                s = 3 + descr.jit_wb_card_page_shift
+
+                # use r20 as temporay register, save it in FORCE INDEX slot
+                temp_reg = r.r20
+                ENCODING_AREA = len(r.MANAGED_REGS) * WORD
+                self.mc.store(temp_reg.value, r.SPP.value, ENCODING_AREA)
+
+                self.mc.srli_op(temp_reg.value, loc_index.value, s)
+                self.mc.not_(temp_reg.value, temp_reg.value)
+
+                # byte_index
+                self.mc.li(r.SCRATCH.value, 7)
+                self.mc.srli_op(loc_index.value, loc_index.value,
+                                descr.jit_wb_card_page_shift)
+                self.mc.and_(tmp1.value, r.SCRATCH.value, loc_index.value)
+
+                # set the bit
+                self.mc.li(tmp2.value, 1)
+                self.mc.lbzx(r.SCRATCH.value, loc_base.value, temp_reg.value)
+                self.mc.sl_op(tmp2.value, tmp2.value, tmp1.value)
+                self.mc.or_(r.SCRATCH.value, r.SCRATCH.value, tmp2.value)
+                self.mc.stbx(r.SCRATCH.value, loc_base.value, temp_reg.value)
+                # done
+
+                # patch the JMP above
+                offset = self.mc.currpos()
+                pmc = OverwritingBuilder(self.mc, jmp_location, 1)
+                pmc.b(offset - jmp_location)
+                pmc.overwrite()
+
+                # restore temporary register r20
+                self.mc.load(temp_reg.value, r.SPP.value, ENCODING_AREA)
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
