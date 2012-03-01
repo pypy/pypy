@@ -37,7 +37,7 @@ def get_jitcell_at(next_instr, is_being_profiled, bytecode, w_f_trace, w_tracefu
 def set_jitcell_at(newcell, next_instr, is_being_profiled, bytecode, w_f_trace, w_tracefunc):
     bytecode.jit_cells[next_instr, is_being_profiled, w_f_trace, w_tracefunc] = newcell
 
-def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
+def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode, w_f_trace, w_tracefunc):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
 class PyPyJitDriver(JitDriver):
