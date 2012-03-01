@@ -450,8 +450,8 @@ class BaseArrayTests:
 
     def test_compare(self):
         class comparable(object):
-            def __cmp__(self, other):
-                return 0
+            def __eq__(self, other):
+                return True
         class incomparable(object):
             pass
         
