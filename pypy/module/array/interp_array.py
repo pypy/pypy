@@ -583,13 +583,31 @@ def make_array(mytype):
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
     # Compare methods
-    def cmp__Array_ANY(space, self, other):
+    def _cmp_impl(space, self, other, space_fn):
         if isinstance(other, W_ArrayBase):
             w_lst1 = array_tolist__Array(space, self)
             w_lst2 = space.call_method(other, 'tolist')
-            return space.cmp(w_lst1, w_lst2)
+            return space_fn(w_lst1, w_lst2)
         else:
             return space.w_NotImplemented
+
+    def eq__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.eq)
+
+    def ne__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.ne)
+
+    def lt__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.lt)
+
+    def le__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.le)
+
+    def gt__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.gt)
+
+    def ge__Array_ANY(space, self, other):
+        return _cmp_impl(space, self, other, space.ge)
 
     # Misc methods
 
