@@ -19,14 +19,24 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
 
-def fatalerror(msg, traceback=False):
+def fatalerror(msg):
+    # print the RPython traceback and abort with a fatal error
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
-    if traceback:
-        llop.debug_print_traceback(lltype.Void)
+    llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
-fatalerror._annspecialcase_ = 'specialize:arg(1)'
+fatalerror._jit_look_inside_ = False
+fatalerror._annenforceargs_ = [str]
+
+def fatalerror_notb(msg):
+    # a variant of fatalerror() that doesn't print the RPython traceback
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    llop.debug_fatalerror(lltype.Void, msg)
+fatalerror_notb._dont_inline_ = True
+fatalerror_notb._jit_look_inside_ = False
+fatalerror_notb._annenforceargs_ = [str]
 
 
 class DebugLog(list):

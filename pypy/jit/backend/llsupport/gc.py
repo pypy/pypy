@@ -1,7 +1,6 @@
 import os
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem import llgroup
@@ -770,11 +769,19 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
 
-        # Rarely called: allocate a fixed-size amount of bytes, but
-        # not in the nursery, because it is too big.  Implemented like
-        # malloc_nursery_slowpath() above.
-        self.generate_function('malloc_fixedsize', malloc_nursery_slowpath,
-                               [lltype.Signed])
+        # Never called as far as I can tell, but there for completeness:
+        # allocate a fixed-size object, but not in the nursery, because
+        # it is too big.
+        def malloc_big_fixedsize(size, tid):
+            if self.DEBUG:
+                self._random_usage_of_xmm_registers()
+            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
+            check_typeid(type_id)
+            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                   type_id, size,
+                                                   False, False, False)
+        self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
+                               [lltype.Signed] * 2)
 
     def _bh_malloc(self, sizedescr):
         from pypy.rpython.memory.gctypelayout import check_typeid

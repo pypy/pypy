@@ -81,6 +81,14 @@ class TestFunctionObject(BaseApiTest):
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
 
+    def test_getnumfree(self, space, api):
+        w_function = space.appexec([], """():
+            a = 5
+            def method(x): return a, x
+            return method
+        """)
+        assert api.PyCode_GetNumFree(w_function.code) == 1
+
     def test_classmethod(self, space, api):
         w_function = space.appexec([], """():
             def method(x): return x

@@ -96,8 +96,10 @@ class GcRewriterAssembler(object):
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
         size = descr.size
-        self.gen_malloc_nursery(size, op.result)
-        self.gen_initialize_tid(op.result, descr.tid)
+        if self.gen_malloc_nursery(size, op.result):
+            self.gen_initialize_tid(op.result, descr.tid)
+        else:
+            self.gen_malloc_fixedsize(size, descr.tid, op.result)
 
     def handle_new_array(self, arraydescr, op):
         v_length = op.getarg(0)
@@ -112,8 +114,8 @@ class GcRewriterAssembler(object):
                 pass    # total_size is still -1
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
-        if 0 <= total_size <= 0xffffff:     # up to 16MB, arbitrarily
-            self.gen_malloc_nursery(total_size, op.result)
+        if (total_size >= 0 and
+                self.gen_malloc_nursery(total_size, op.result)):
             self.gen_initialize_tid(op.result, arraydescr.tid)
             self.gen_initialize_len(op.result, v_length, arraydescr.lendescr)
         elif self.gc_ll_descr.kind == 'boehm':
@@ -147,13 +149,22 @@ class GcRewriterAssembler(object):
         # mark 'v_result' as freshly malloced
         self.recent_mallocs[v_result] = None
 
-    def gen_malloc_fixedsize(self, size, v_result):
-        """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, Const(size)).
-        Note that with the framework GC, this should be called very rarely.
+    def gen_malloc_fixedsize(self, size, typeid, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, ...).
+        Used on Boehm, and on the framework GC for large fixed-size
+        mallocs.  (For all I know this latter case never occurs in
+        practice, but better safe than sorry.)
         """
-        addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_fixedsize')
-        self._gen_call_malloc_gc([ConstInt(addr), ConstInt(size)], v_result,
-                                 self.gc_ll_descr.malloc_fixedsize_descr)
+        if self.gc_ll_descr.fielddescr_tid is not None:  # framework GC
+            assert (size & (WORD-1)) == 0, "size not aligned?"
+            addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_big_fixedsize')
+            args = [ConstInt(addr), ConstInt(size), ConstInt(typeid)]
+            descr = self.gc_ll_descr.malloc_big_fixedsize_descr
+        else:                                            # Boehm
+            addr = self.gc_ll_descr.get_malloc_fn_addr('malloc_fixedsize')
+            args = [ConstInt(addr), ConstInt(size)]
+            descr = self.gc_ll_descr.malloc_fixedsize_descr
+        self._gen_call_malloc_gc(args, v_result, descr)
 
     def gen_boehm_malloc_array(self, arraydescr, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...) for Boehm."""
@@ -211,8 +222,7 @@ class GcRewriterAssembler(object):
         """
         size = self.round_up_for_allocation(size)
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
-            self.gen_malloc_fixedsize(size, v_result)
-            return
+            return False
         #
         op = None
         if self._op_malloc_nursery is not None:
@@ -238,6 +248,7 @@ class GcRewriterAssembler(object):
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
         self.recent_mallocs[v_result] = None
+        return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:

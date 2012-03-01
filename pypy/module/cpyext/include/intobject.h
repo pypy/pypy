@@ -7,6 +7,11 @@
 extern "C" {
 #endif
 
+typedef struct {
+    PyObject_HEAD
+    long ob_ival;
+} PyIntObject;
+
 #ifdef __cplusplus
 }
 #endif
