@@ -255,7 +255,7 @@ def get_cppitem(name, scope=None):
     if pycppitem:
         return pycppitem
 
-    raise AttributeError("'%s' has no attribute '%s'", (str(scope), name))
+    raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
 
 get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
 
