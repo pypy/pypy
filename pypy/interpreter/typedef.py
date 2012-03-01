@@ -66,7 +66,7 @@ class TypeDef:
 
 @interp2app
 def auto__le__(space, w_self, w_other):
-    return space.not_(space.gt(w_self, w_other))
+    return space.not_(space.lt(w_other, w_self))
 
 @interp2app
 def auto__gt__(space, w_self, w_other):
