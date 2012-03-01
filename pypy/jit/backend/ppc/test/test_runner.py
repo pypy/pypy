@@ -23,9 +23,6 @@ class TestPPC(LLtypeBackendTest):
         cls.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
         cls.cpu.setup_once()
 
-    def test_cond_call_gc_wb_array_card_marking_fast_path(self):
-        py.test.skip("unsure what to do here")
-
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 16):
             for _ in range(numargs):
