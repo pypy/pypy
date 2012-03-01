@@ -288,10 +288,10 @@ class BasicTests:
                 if y&4 == 0:
                     x1, x2 = x2, x1
             return res
-        res = self.meta_interp(f, [sys.maxint, 6, 32, 48])
-        assert res == f(sys.maxint, 6, 32, 48)
         res = self.meta_interp(f, [6, sys.maxint, 32, 48])
         assert res == f(6, sys.maxint, 32, 48)
+        res = self.meta_interp(f, [sys.maxint, 6, 32, 48])
+        assert res == f(sys.maxint, 6, 32, 48)
         
 
     def test_loop_invariant_intbox(self):
