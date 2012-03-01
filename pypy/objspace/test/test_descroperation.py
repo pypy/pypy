@@ -321,6 +321,30 @@ class AppTest_Descroperation:
         raises(TypeError, "0.0 < zz()")
         raises(TypeError, "0j < zz()")
 
+    def test_equality_among_different_types(self):
+        class A(object): pass
+        class zz(object): pass
+        a = A()
+        assert a == a
+        for x, y in [(A(), A()),
+                     (A(), zz()),
+                     (A(), A()),
+                     (A(), None),
+                     (None, A()),
+                     (0, ()),
+                     (0.0, ()),
+                     (0j, ()),
+                     (0, []),
+                     (0.0, []),
+                     (0j, []),
+                     (0, A()),
+                     (0.0, A()),
+                     (0j, A()),
+                     ]:
+            assert not x == y
+            assert x != y
+
+
     def test_setattrweakref(self):
         skip("fails, works in cpython")
         # The issue is that in CPython, none of the built-in types have

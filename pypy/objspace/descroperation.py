@@ -558,6 +558,15 @@ def _make_comparison_impl(symbol, specialnames):
         if w_res is not None:
             return w_res
         #
+        # we did not find any special method, let's do the default logic for
+        # == and !=
+        if left == '__eq__' or left == '__ne__':
+            # they are not identical, else it would have been caught by the if
+            # at the top of the function
+            assert not space.is_w(w_obj1, w_obj2)
+            return space.wrap(left != '__eq__')
+        #
+        # if we arrived here, they are unorderable
         typename1 = space.type(w_obj1).getname(space)
         typename2 = space.type(w_obj2).getname(space)
         raise operationerrfmt(space.w_TypeError,
