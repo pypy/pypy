@@ -536,12 +536,6 @@ class BaseArrayTests:
                 assert (a >= c) is False
                 assert (c >= a) is True
 
-                assert cmp(a, a) == 0
-                assert cmp(a, b) == 0
-                assert cmp(a, c) <  0
-                assert cmp(b, a) == 0
-                assert cmp(c, a) >  0
-
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
