@@ -2,7 +2,7 @@
 /************************************************************/
 /***  C header file for code produced by genc.py          ***/
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 #  include "Python.h"
 #  include "compile.h"
 #  include "frameobject.h"

@@ -13,6 +13,7 @@ class Module(MixedModule):
         'ResOperation': 'interp_resop.WrappedOp',
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'Box': 'interp_resop.WrappedBox',
+        'PARAMETER_DOCS': 'space.wrap(pypy.rlib.jit.PARAMETER_DOCS)',
     }
 
     def setup_after_space_initialization(self):

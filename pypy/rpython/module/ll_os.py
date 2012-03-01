@@ -180,9 +180,14 @@ class CConfig:
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
 
-        GID_T = platform.SimpleType('gid_t',rffi.INT)
+        GID_T = platform.SimpleType('gid_t', rffi.INT)
         #TODO right now is used only in getgroups, may need to update other
         #functions like setgid
+
+    # For now we require off_t to be the same size as LONGLONG, which is the
+    # interface required by callers of functions that thake an argument of type
+    # off_t
+    OFF_T_SIZE = platform.SizeOf('off_t')
 
     SEEK_SET = platform.DefinedConstantInteger('SEEK_SET')
     SEEK_CUR = platform.DefinedConstantInteger('SEEK_CUR')
@@ -197,6 +202,7 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
+	assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
@@ -963,7 +969,7 @@ class RegisterOs(BaseLazyRegistering):
 
         os_lseek = self.llexternal(funcname,
                                    [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG)
+                                   rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
             how = fix_seek_arg(how)
@@ -988,7 +994,7 @@ class RegisterOs(BaseLazyRegistering):
     @registering_if(os, 'ftruncate')
     def register_os_ftruncate(self):
         os_ftruncate = self.llexternal('ftruncate',
-                                       [rffi.INT, rffi.LONGLONG], rffi.INT)
+                                       [rffi.INT, rffi.LONGLONG], rffi.INT, macro=True)
 
         def ftruncate_llimpl(fd, length):
             res = rffi.cast(rffi.LONG,

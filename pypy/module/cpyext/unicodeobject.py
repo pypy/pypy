@@ -395,6 +395,16 @@ def PyUnicode_FromStringAndSize(space, s, size):
     w_str = space.wrap(rffi.charpsize2str(s, size))
     return space.call_method(w_str, 'decode', space.wrap("utf-8"))
 
+@cpython_api([rffi.INT_real], PyObject)
+def PyUnicode_FromOrdinal(space, ordinal):
+    """Create a Unicode Object from the given Unicode code point ordinal.
+
+    The ordinal must be in range(0x10000) on narrow Python builds
+    (UCS2), and range(0x110000) on wide builds (UCS4). A ValueError is
+    raised in case it is not."""
+    w_ordinal = space.wrap(rffi.cast(lltype.Signed, ordinal))
+    return space.call_function(space.builtin.get('unichr'), w_ordinal)
+
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicode_Resize(space, ref, newsize):
     # XXX always create a new string so far

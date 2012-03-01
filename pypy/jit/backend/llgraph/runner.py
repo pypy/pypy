@@ -179,6 +179,8 @@ class BaseCPU(model.AbstractCPU):
 
     def _compile_operations(self, c, operations, var2index, clt):
         for op in operations:
+            if op.getopnum() == -124: # force_spill
+                continue
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):

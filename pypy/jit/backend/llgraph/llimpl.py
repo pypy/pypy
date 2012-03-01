@@ -20,6 +20,7 @@ from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
@@ -929,6 +930,11 @@ class Frame(object):
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
+        effectinfo = calldescr.get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                return do_math_sqrt(args[0])
         return self._do_call(calldescr, func, args, call_with_llptr=False)
 
     def op_call_release_gil(self, calldescr, func, *args):
@@ -1625,6 +1631,12 @@ def do_copyunicodecontent(src, dst, srcstart, dststart, length):
     assert 0 <= srcstart <= srcstart + length <= len(src.chars)
     assert 0 <= dststart <= dststart + length <= len(dst.chars)
     rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
+def do_math_sqrt(value):
+    import math
+    y = cast_from_floatstorage(lltype.Float, value)
+    x = math.sqrt(y)
+    return cast_to_floatstorage(x)
 
 # ---------- call ----------
 
