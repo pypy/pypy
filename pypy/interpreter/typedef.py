@@ -66,12 +66,11 @@ class TypeDef:
 
 @interp2app
 def auto__le__(space, w_self, w_other):
-    return space.or_(space.lt(w_self, w_other),
-                     space.eq(w_self, w_other))
+    return space.not_(space.gt(w_self, w_other))
 
 @interp2app
 def auto__gt__(space, w_self, w_other):
-    return space.not_(space.le(w_self, w_other))
+    return space.lt(w_other, w_self)
 
 @interp2app
 def auto__ge__(space, w_self, w_other):
