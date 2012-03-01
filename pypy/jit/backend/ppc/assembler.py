@@ -38,6 +38,7 @@ class Assembler(object):
     def get_number_of_ops(self):
         return len(self.insts)
 
+    # XXX don't need multiplication
     def get_rel_pos(self):
         return 4 * len(self.insts)
 
