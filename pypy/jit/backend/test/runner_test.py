@@ -630,27 +630,48 @@ class BaseBackendTest(Runner):
                                          'float', descr=calldescr)
             assert abs(res.getfloat() - 4.6) < 0.0001
 
-
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than
         # 6, which will force passing some arguments on the stack on 64-bit)
-        num_args = 16
+
         def func(*args):
-            assert len(args) == num_args
+            assert len(args) == 16
             # Try to sum up args in a way that would probably detect a
             # transposed argument
             return sum(arg * (2**i) for i, arg in enumerate(args))
 
-        FUNC = self.FuncType([lltype.Signed]*num_args, lltype.Signed)
+        FUNC = self.FuncType([lltype.Signed]*16, lltype.Signed)
         FPTR = self.Ptr(FUNC)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
         func_ptr = llhelper(FPTR, func)
-        args = range(num_args)
+        args = range(16)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         res = self.execute_operation(rop.CALL, [funcbox] + map(BoxInt, args), 'int', descr=calldescr)
         assert res.value == func(*args)
 
+    def test_call_box_func(self):
+        def a(a1, a2):
+            return a1 + a2
+        def b(b1, b2):
+            return b1 * b2
+
+        arg1 = 40
+        arg2 = 2
+        for f in [a, b]:
+            TP = lltype.Signed
+            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+            func_ptr = llhelper(FPTR, f)
+            FUNC = deref(FPTR)
+            funcconst = self.get_funcbox(self.cpu, func_ptr)
+            funcbox = funcconst.clonebox()
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(arg1), BoxInt(arg2)],
+                                         'int', descr=calldescr)
+            assert res.getint() == f(arg1, arg2)
+        
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
         # also test the ordering of the arguments.
@@ -775,6 +796,7 @@ class BaseBackendTest(Runner):
         for (opname, args) in all:
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
+
 
     def test_passing_guard_class(self):
         t_box, T_box = self.alloc_instance(self.T)
@@ -1255,7 +1277,7 @@ class BaseBackendTest(Runner):
                 else:
                     assert 0
                 assert type(got) == type(val)
-                #assert got == val
+                assert got == val
 
     def test_compile_bridge_float(self):
         if not self.cpu.supports_floats:
@@ -2120,6 +2142,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 values.append(descr)
                 values.append(self.cpu.get_latest_value_int(0))
                 values.append(self.cpu.get_latest_value_int(1))
+                values.append(token)
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
@@ -2150,7 +2173,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 1
         assert self.cpu.get_latest_value_int(0) == 1
         assert self.cpu.get_latest_value_int(1) == 10
-        assert values == [faildescr, 1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [faildescr, 1, 10, token]
 
     def test_force_operations_returning_int(self):
         values = []
@@ -2159,6 +2183,7 @@ class LLtypeBackendTest(BaseBackendTest):
                self.cpu.force(token)
                values.append(self.cpu.get_latest_value_int(0))
                values.append(self.cpu.get_latest_value_int(2))
+               values.append(token)
             return 42
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
@@ -2192,7 +2217,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert self.cpu.get_latest_value_int(0) == 1
         assert self.cpu.get_latest_value_int(1) == 42
         assert self.cpu.get_latest_value_int(2) == 10
-        assert values == [1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [1, 10, token]
 
     def test_force_operations_returning_float(self):
         if not self.cpu.supports_floats:
@@ -2203,6 +2229,7 @@ class LLtypeBackendTest(BaseBackendTest):
                self.cpu.force(token)
                values.append(self.cpu.get_latest_value_int(0))
                values.append(self.cpu.get_latest_value_int(2))
+               values.append(token)
             return 42.5
 
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
@@ -2238,7 +2265,8 @@ class LLtypeBackendTest(BaseBackendTest):
         x = self.cpu.get_latest_value_float(1)
         assert longlong.getrealfloat(x) == 42.5
         assert self.cpu.get_latest_value_int(2) == 10
-        assert values == [1, 10]
+        token = self.cpu.get_latest_force_token()
+        assert values == [1, 10, token]
 
     def test_call_to_c_function(self):
         from pypy.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
@@ -2442,6 +2470,35 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail is faildescr2
         print 'step 4 ok'
         print '-'*79
+
+    def test_guard_not_invalidated_and_label(self):
+        # test that the guard_not_invalidated reserves enough room before
+        # the label.  If it doesn't, then in this example after we invalidate
+        # the guard, jumping to the label will hit the invalidation code too
+        cpu = self.cpu
+        i0 = BoxInt()
+        faildescr = BasicFailDescr(1)
+        labeldescr = TargetToken()
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [], None, descr=faildescr),
+            ResOperation(rop.LABEL, [i0], None, descr=labeldescr),
+            ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(3)),
+        ]
+        ops[0].setfailargs([])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0], ops, looptoken)
+        # mark as failing
+        self.cpu.invalidate_loop(looptoken)
+        # attach a bridge
+        i2 = BoxInt()
+        ops = [
+            ResOperation(rop.JUMP, [ConstInt(333)], None, descr=labeldescr),
+        ]
+        self.cpu.compile_bridge(faildescr, [], ops, looptoken)
+        # run: must not be caught in an infinite loop
+        fail = self.cpu.execute_token(looptoken, 16)
+        assert fail.identifier == 3
+        assert self.cpu.get_latest_value_int(0) == 333
 
     def test_guard_not_invalidated_and_label(self):
         # test that the guard_not_invalidated reserves enough room before
@@ -3323,6 +3380,55 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
 
+    def test_compile_asmlen(self):
+        from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
+        if not isinstance(self.cpu, AbstractLLCPU):
+            py.test.skip("pointless test on non-asm")
+        from pypy.jit.backend.tool.viewcode import machine_code_dump
+        import ctypes
+        ops = """
+        [i3, i2]
+        i0 = same_as(i2)    # but forced to be in a register
+        label(i0, descr=1)
+        i1 = int_add(i0, i0)
+        guard_true(i1, descr=faildesr) [i1]
+        jump(i1, descr=1)
+        """
+        faildescr = BasicFailDescr(2)
+        loop = parse(ops, self.cpu, namespace=locals())
+        faildescr = loop.operations[-2].getdescr()
+        jumpdescr = loop.operations[-1].getdescr()
+        bridge_ops = """
+        [i0]
+        jump(i0, descr=jumpdescr)
+        """
+        bridge = parse(bridge_ops, self.cpu, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.assembler.set_debug(False)
+        info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        bridge_info = self.cpu.compile_bridge(faildescr, bridge.inputargs,
+                                              bridge.operations,
+                                              looptoken)
+        self.cpu.assembler.set_debug(True) # always on untranslated
+        assert info.asmlen != 0
+        cpuname = autodetect_main_model_and_size()
+        # XXX we have to check the precise assembler, otherwise
+        # we don't quite know if borders are correct
+
+        def checkops(mc, ops):
+            assert len(mc) == len(ops)
+            for i in range(len(mc)):
+                assert mc[i].split("\t")[2].startswith(ops[i])
+
+        data = ctypes.string_at(info.asmaddr, info.asmlen)
+        mc = list(machine_code_dump(data, info.asmaddr, cpuname))
+        lines = [line for line in mc if line.count('\t') >= 2]
+        checkops(lines, self.add_loop_instructions)
+        data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
+        mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
+        lines = [line for line in mc if line.count('\t') >= 2]
+        checkops(lines, self.bridge_loop_instructions)
+
     def test_compile_bridge_with_target(self):
         # This test creates a loopy piece of code in a bridge, and builds another
         # unrelated loop that ends in a jump directly to this loopy bit of code.
@@ -3407,6 +3513,43 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken2, -9)
         assert fail.identifier == 42
 
+    def test_forcing_op_with_fail_arg_in_reg(self):
+        values = []
+        def maybe_force(token, flag):
+            self.cpu.force(token)
+            values.append(self.cpu.get_latest_value_int(0))
+            values.append(token)
+            return 42
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(23)
+        ops = [
+        ResOperation(rop.FORCE_TOKEN, [], tok),
+        ResOperation(rop.CALL_MAY_FORCE, [funcbox, tok, i1], i2,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i2], None, descr=BasicFailDescr(0))
+        ]
+        ops[2].setfailargs([i2])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0, i1], ops, looptoken)
+        fail = self.cpu.execute_token(looptoken, 20, 0)
+        assert fail.identifier == 23
+        assert self.cpu.get_latest_value_int(0) == 42
+        # make sure that force reads the registers from a zeroed piece of
+        # memory
+        assert values[0] == 0
+        token = self.cpu.get_latest_force_token()
+        assert values[1] == token
+
     def test_finish_with_long_arglist(self):
         boxes = [BoxInt(i) for i in range(30)]
         ops = [ResOperation(rop.FINISH, boxes, None, descr=BasicFailDescr(1))]
@@ -3421,7 +3564,7 @@ class LLtypeBackendTest(BaseBackendTest):
         boxes = [BoxInt(i) for i in range(30)]
         ops = [ResOperation(rop.GUARD_FALSE, [boxes[1]], None, descr=BasicFailDescr(1)),
 		ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(2))]
-	ops[0].setfailargs(boxes)
+        ops[0].setfailargs(boxes)
         looptoken = JitCellToken()
         self.cpu.compile_loop(boxes, ops, looptoken)
         fail = self.cpu.execute_token(looptoken, *range(30))
