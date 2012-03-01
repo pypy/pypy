@@ -225,7 +225,7 @@ class CPPConstructor(CPPMethod):
         except Exception:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return new_instance(self.space, w_type, self.cpptype, newthis, True)
+        return new_instance(self.space, w_type, self.cpptype, newthis, False, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -300,7 +300,7 @@ class W_CPPDataMember(Wrappable):
         if cppinstance:
             assert lltype.typeOf(cppinstance.cppclass.handle) == lltype.typeOf(self.scope_handle)
             offset = self.offset + capi.c_base_offset(
-                cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
+                cppinstance.cppclass.handle, self.scope_handle, cppinstance.get_rawobject())
         else:
             offset = self.offset
         return offset
@@ -310,7 +310,7 @@ class W_CPPDataMember(Wrappable):
         offset = self._get_offset(cppinstance)
         try:
             return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
-        except Exception, e:
+        except TypeError, e:
             raise OperationError(self.space.w_TypeError, self.space.wrap(str(e)))
         except ValueError, e:
             raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
@@ -490,7 +490,7 @@ class W_CPPType(W_CPPScope):
 
     def get_cppthis(self, cppinstance, scope_handle):
         assert self.handle == cppinstance.cppclass.handle
-        return cppinstance.rawobject
+        return cppinstance.get_rawobject()
 
     def is_namespace(self):
         return self.space.w_False
@@ -521,8 +521,8 @@ class W_ComplexCPPType(W_CPPType):
 
     def get_cppthis(self, cppinstance, scope_handle):
         assert self.handle == cppinstance.cppclass.handle
-        offset = capi.c_base_offset(self.handle, scope_handle, cppinstance.rawobject)
-        return capi.direct_ptradd(cppinstance.rawobject, offset)
+        offset = capi.c_base_offset(self.handle, scope_handle, cppinstance.get_rawobject())
+        return capi.direct_ptradd(cppinstance.get_rawobject(), offset)
 
 W_ComplexCPPType.typedef = TypeDef(
     'ComplexCPPType',
@@ -559,24 +559,34 @@ W_CPPTemplateType.typedef.acceptable_as_base_class = False
 
 
 class W_CPPInstance(Wrappable):
-    _immutable_fields_ = ["cppclass"]
+    _immutable_fields_ = ["cppclass", "isref"]
 
-    def __init__(self, space, cppclass, rawobject, python_owns):
+    def __init__(self, space, cppclass, rawobject, isref, python_owns):
         self.space = space
         assert isinstance(cppclass, W_CPPType)
         self.cppclass = cppclass
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
-        self.rawobject = rawobject
+        assert not isref or rawobject
+        self._rawobject = rawobject
+        assert not isref or not python_owns
+        self.isref = isref
         self.python_owns = python_owns
 
     def _nullcheck(self):
-        if not self.rawobject:
+        if not self._rawobject or (self.isref and not self.get_rawobject()):
             raise OperationError(self.space.w_ReferenceError,
                                  self.space.wrap("trying to access a NULL pointer"))
 
+    def get_rawobject(self):
+        if not self.isref:
+            return self._rawobject
+        else:
+            ptrptr = rffi.cast(rffi.VOIDPP, self._rawobject)
+            return rffi.cast(capi.C_OBJECT, ptrptr[0])
+
     def instance__eq__(self, w_other):
         other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
-        iseq = self.rawobject == other.rawobject
+        iseq = self._rawobject == other._rawobject
         return self.space.wrap(iseq)
 
     def instance__ne__(self, w_other):
@@ -584,16 +594,15 @@ class W_CPPInstance(Wrappable):
 
     def destruct(self):
         assert isinstance(self, W_CPPInstance)
-        if self.rawobject:
+        if self._rawobject and not self.isref:
             memory_regulator.unregister(self)
-            capi.c_destruct(self.cppclass.handle, self.rawobject)
-            self.rawobject = capi.C_NULL_OBJECT
+            capi.c_destruct(self.cppclass.handle, self._rawobject)
+            self._rawobject = capi.C_NULL_OBJECT
 
     def __del__(self):
         if self.python_owns:
             self.enqueue_for_destruction(self.space, W_CPPInstance.destruct,
                                          '__del__() method of ')
-
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
@@ -617,11 +626,11 @@ class MemoryRegulator:
         self.objects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
 
     def register(self, obj):
-        int_address = int(rffi.cast(rffi.LONG, obj.rawobject))
+        int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
         self.objects.set(int_address, obj)
 
     def unregister(self, obj):
-        int_address = int(rffi.cast(rffi.LONG, obj.rawobject))
+        int_address = int(rffi.cast(rffi.LONG, obj._rawobject))
         self.objects.set(int_address, None)
 
     def retrieve(self, address):
@@ -631,19 +640,19 @@ class MemoryRegulator:
 memory_regulator = MemoryRegulator()
 
 
-def new_instance(space, w_type, cpptype, rawobject, python_owns):
+def new_instance(space, w_type, cpptype, rawobject, isref, python_owns):
     obj = memory_regulator.retrieve(rawobject)
     if obj and obj.cppclass == cpptype:
         return obj
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-    W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, python_owns)
+    W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, isref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
-     address = rffi.cast(rffi.LONG, cppinstance.rawobject)
+     address = rffi.cast(rffi.LONG, cppinstance.get_rawobject())
      return space.wrap(address)
 
 @unwrap_spec(address=int, owns=bool)
@@ -656,4 +665,4 @@ def bind_object(space, address, w_type, owns=False):
     if obj and obj.cppclass == cpptype:
         return obj
 
-    return new_instance(space, w_type, cpptype, rawobject, owns)
+    return new_instance(space, w_type, cpptype, rawobject, False, owns)

@@ -339,8 +339,6 @@ class AppTestDATATYPES:
         import cppyy
         gbl = cppyy.gbl
 
-        import pprint
-        pprint.pprint(dir(gbl))
         assert gbl.g_int == gbl.get_global_int()
 
         gbl.set_global_int(32)
@@ -350,3 +348,34 @@ class AppTestDATATYPES:
         gbl.g_int = 22
         assert gbl.get_global_int() == 22
         assert gbl.g_int == 22
+
+    def test10_global_ptr(self):
+        """Test access of global objects through a pointer"""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        raises(ReferenceError, 'gbl.g_pod.m_int')
+
+        c = gbl.cppyy_test_pod()
+        c.m_int = 42
+        c.m_double = 3.14
+
+        gbl.set_global_pod(c)
+        assert gbl.is_global_pod(c)
+        assert gbl.g_pod.m_int == 42
+        assert gbl.g_pod.m_double == 3.14
+
+        d = gbl.get_global_pod()
+        assert gbl.is_global_pod(d)
+        assert c == d
+        assert id(c) == id(d)
+
+        e = gbl.cppyy_test_pod()
+        e.m_int = 43
+        e.m_double = 2.14
+
+        gbl.g_pod = e
+        assert gbl.is_global_pod(e)
+        assert gbl.g_pod.m_int == 43
+        assert gbl.g_pod.m_double == 2.14

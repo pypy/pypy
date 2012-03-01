@@ -16,8 +16,19 @@ def get_rawobject(space, w_obj):
     from pypy.module.cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
     if cppinstance:
-        assert lltype.typeOf(cppinstance.rawobject) == capi.C_OBJECT
-        return cppinstance.rawobject
+        rawobject = cppinstance.get_rawobject()
+        assert lltype.typeOf(rawobject) == capi.C_OBJECT
+        return rawobject
+    return capi.C_NULL_OBJECT
+
+def get_rawobject_nonnull(space, w_obj):
+    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    if cppinstance:
+        cppinstance._nullcheck()
+        rawobject = cppinstance.get_rawobject()
+        assert lltype.typeOf(rawobject) == capi.C_OBJECT
+        return rawobject
     return capi.C_NULL_OBJECT
 
 
@@ -31,7 +42,7 @@ class TypeConverter(object):
         pass
 
     def _get_raw_address(self, space, w_obj, offset):
-        rawobject = get_rawobject(space, w_obj)
+        rawobject = get_rawobject_nonnull(space, w_obj)
         assert lltype.typeOf(rawobject) == capi.C_OBJECT
         if rawobject:
             fieldptr = capi.direct_ptradd(rawobject, offset)
@@ -123,7 +134,7 @@ class PtrTypeConverterMixin(object):
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
-        rawobject = get_rawobject(space, w_obj)
+        rawobject = get_rawobject_nonnull(space, w_obj)
         byteptr = rffi.cast(rffi.CCHARPP, capi.direct_ptradd(rawobject, offset))
         buf = space.buffer_w(w_value)
         try:
@@ -500,9 +511,10 @@ class InstancePtrConverter(TypeConverter):
         obj = space.interpclass_w(w_obj)
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
+                rawobject = obj.get_rawobject()
                 offset = capi.c_base_offset(
-                    obj.cppclass.handle, self.cpptype.handle, obj.rawobject)
-                obj_address = capi.direct_ptradd(obj.rawobject, offset)
+                    obj.cppclass.handle, self.cpptype.handle, rawobject)
+                obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise TypeError("cannot pass %s as %s" %
                         (space.type(w_obj).getname(space, "?"), self.cpptype.name))
@@ -517,6 +529,14 @@ class InstancePtrConverter(TypeConverter):
     def convert_argument_libffi(self, space, w_obj, argchain):
         argchain.arg(self._unwrap_object(space, w_obj))
 
+    def from_memory(self, space, w_obj, w_type, offset):
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+        from pypy.module.cppyy import interp_cppyy
+        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, True, False)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
+        address[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_value))
 
 class InstanceConverter(InstancePtrConverter):
     _immutable_ = True
@@ -524,7 +544,10 @@ class InstanceConverter(InstancePtrConverter):
     def from_memory(self, space, w_obj, w_type, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False)
+        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False, False)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        self._is_abstract(space)
 
 
 class StdStringConverter(InstanceConverter):
