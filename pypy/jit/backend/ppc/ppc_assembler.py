@@ -1,12 +1,6 @@
-import os
-import struct
-from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
-from pypy.jit.backend.ppc.ppc_field import ppc_fields
-from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
+from pypy.jit.backend.ppc.regalloc import (PPCFrameManager,
                                                   Regalloc, PPCRegisterManager)
-from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.opassembler import OpAssembler
-from pypy.jit.backend.ppc.symbol_lookup import lookup
 from pypy.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
                                               scratch_reg)
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
@@ -16,26 +10,17 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP)
 from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
-                                                   encode32, encode64,
-                                                   decode32, decode64,
-                                                   count_reg_args,
-                                                          Saved_Volatiles)
+                                                   decode64, Saved_Volatiles)
 from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c
-from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
-                                         TargetToken, AbstractFailDescr)
-from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, 
-                                                  AsmMemoryManager,
-                                                  MachineDataBlockWrapper)
-from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
-                                                 compute_vars_longevity)
-from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.metainterp.history import AbstractFailDescr
+from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
-                                         ConstFloat, Box, INT, REF, FLOAT)
+from pypy.jit.metainterp.history import (INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
