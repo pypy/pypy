@@ -1098,10 +1098,9 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.sld(target_reg, from_reg, numbit_reg)
 
     def prepare_insts_blocks(self, show=False):
-        self.assemble(show)
         insts = self.insts
         for inst in insts:
-            self.write32(inst)#.assemble())
+            self.write32(inst)
 
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():
