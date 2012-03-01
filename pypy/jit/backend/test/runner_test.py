@@ -266,6 +266,38 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
+    def test_compile_big_bridge_out_of_small_loop(self):
+        i0 = BoxInt()
+        faildescr1 = BasicFailDescr(1)
+        looptoken = JitCellToken()
+        operations = [
+            ResOperation(rop.GUARD_FALSE, [i0], None, descr=faildescr1),
+            ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(2)),
+            ]
+        inputargs = [i0]
+        operations[0].setfailargs([i0])
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+
+        i1list = [BoxInt() for i in range(1000)]
+        bridge = []
+        iprev = i0
+        for i1 in i1list:
+            bridge.append(ResOperation(rop.INT_ADD, [iprev, ConstInt(1)], i1))
+            iprev = i1
+        bridge.append(ResOperation(rop.GUARD_FALSE, [i0], None,
+                                   descr=BasicFailDescr(3)))
+        bridge.append(ResOperation(rop.FINISH, [], None,
+                                   descr=BasicFailDescr(4)))
+        bridge[-2].setfailargs(i1list)
+
+        self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
+
+        fail = self.cpu.execute_token(looptoken, 1)
+        assert fail.identifier == 3
+        for i in range(1000):
+            res = self.cpu.get_latest_value_int(i)
+            assert res == 2 + i
+
     def test_get_latest_value_count(self):
         i0 = BoxInt()
         i1 = BoxInt()
