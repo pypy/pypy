@@ -536,12 +536,6 @@ class BaseArrayTests:
                 assert (a >= c) is False
                 assert (c >= a) is True
 
-                assert a == a
-                assert a == b
-                assert a < c
-                assert b == a
-                assert c > a
-
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
