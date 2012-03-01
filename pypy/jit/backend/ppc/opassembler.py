@@ -2,9 +2,8 @@ from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op,
                                                           gen_emit_unary_cmp_op)
 import pypy.jit.backend.ppc.condition as c
 import pypy.jit.backend.ppc.register as r
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD,
-                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
-                                              MAX_REG_PARAMS)
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
+                                       MAX_REG_PARAMS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
@@ -465,7 +464,7 @@ class MiscOpAssembler(object):
 
         # restore the arguments stored on the stack
         if result is not None:
-            resloc = regalloc.after_call(result)
+            regalloc.after_call(result)
 
 
 class FieldOpAssembler(object):
@@ -763,7 +762,6 @@ class StrOpAssembler(object):
         regalloc.possibly_free_var(srcaddr_box)
 
     def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        cpu = self.cpu
         if is_unicode:
             ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.cpu.translate_support_code)
@@ -1107,7 +1105,6 @@ class ForceOpAssembler(object):
             from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
-            ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
             with scratch_reg(self.mc):
                 self.mov_loc_loc(arglocs[1], r.SCRATCH)
