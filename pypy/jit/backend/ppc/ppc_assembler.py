@@ -1036,8 +1036,8 @@ class AssemblerPPC(OpAssembler):
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, nursery_top_adr)
             self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
+            self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
 
-        self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
         fast_jmp_pos = self.mc.currpos()
         self.mc.nop()
 
