@@ -30,21 +30,27 @@ class Cell(Wrappable):
         if self.w_value is None:
             raise ValueError, "delete() on an empty cell"
         self.w_value = None
-  
-    def descr__cmp__(self, space, w_other):
-        # XXX fix me, cmp is gone
+
+    def descr__lt__(self, space, w_other):
         other = space.interpclass_w(w_other)
         if not isinstance(other, Cell):
             return space.w_NotImplemented
-
         if self.w_value is None:
+            # an empty cell is alway less than a non-empty one
             if other.w_value is None:
-                return space.newint(0)
-            return space.newint(-1)
+                return space.w_False
+            return space.w_True
         elif other.w_value is None:
-            return space.newint(1)
+            return space.w_False
+        return space.lt(self.w_value, other.w_value)
 
-        return space.cmp(self.w_value, other.w_value)
+    def descr__eq__(self, space, w_other):
+        other = space.interpclass_w(w_other)
+        if not isinstance(other, Cell):
+            return space.w_NotImplemented
+        if self.w_value is None or other.w_value is None:
+            return space.wrap(self.w_value == other.w_value)
+        return space.eq(self.w_value, other.w_value)
 
     def descr__reduce__(self, space):
         w_mod    = space.getbuiltinmodule('_pickle_support')

@@ -82,14 +82,25 @@ class AppTestNestedScope:
     def test_compare_cells(self):
         def f(n):
             if n:
-                x = 42
+                x = n
             def f(y):
                   return x + y
             return f
 
-        g0 = f(0).__closure__[0]
+        empty_cell_1 = f(0).__closure__[0]
+        empty_cell_2 = f(0).__closure__[0]
         g1 = f(1).__closure__[0]
-        assert cmp(g0, g1) == -1
+        g2 = f(2).__closure__[0]
+        assert g1 < g2
+        assert g1 <= g2
+        assert g2 > g1
+        assert g2 >= g1
+        assert not g1 == g2
+        assert g1 != g2
+        #
+        assert empty_cell_1 == empty_cell_2
+        assert not empty_cell_1 != empty_cell_2
+        assert empty_cell_1 < g1
 
     def test_leaking_class_locals(self):
         def f(x):
