@@ -241,32 +241,31 @@ class GuardOpAssembler(object):
     emit_guard_nonnull = emit_guard_true
     emit_guard_isnull = emit_guard_false
 
-    def _cmp_guard_class(self, op, locs, regalloc):
-        offset = locs[2]
-        if offset is not None:
-            with scratch_reg(self.mc):
-                if offset.is_imm():
-                    self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
-                else:
-                    assert offset.is_reg()
-                    self.mc.loadx(r.SCRATCH.value, locs[0].value, offset.value)
-                self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
-        else:
-            assert 0, "not implemented yet"
-        self._emit_guard(op, locs[3:], c.NE)
-
     def emit_guard_class(self, op, arglocs, regalloc):
         self._cmp_guard_class(op, arglocs, regalloc)
         self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
-        offset = self.cpu.vtable_offset
-        self.mc.cmp_op(0, arglocs[0].value, 0, imm=True)
+        self.mc.cmp_op(0, arglocs[0].value, 1, imm=True, signed=False)
+        patch_pos = self.mc.currpos()
+        self.mc.nop()
+        self._cmp_guard_class(op, arglocs, regalloc)
+        pmc = OverwritingBuilder(self.mc, patch_pos, 1)
+        pmc.bc(12, 0, self.mc.currpos() - patch_pos)
+        pmc.overwrite()
+        self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
+
+    def _cmp_guard_class(self, op, locs, regalloc):
+        offset = locs[2]
         if offset is not None:
-            self._emit_guard(op, arglocs[3:], c.EQ)
+            #self.mc.LDR_ri(r.ip.value, locs[0].value, offset.value, cond=fcond)
+            #self.mc.CMP_rr(r.ip.value, locs[1].value, cond=fcond)
+            with scratch_reg(self.mc):
+                self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
+                self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
         else:
             raise NotImplementedError
-        self._cmp_guard_class(op, arglocs, regalloc)
+            # XXX port from x86 backend once gc support is in place
 
     def emit_guard_not_invalidated(self, op, locs, regalloc):
         return self._emit_guard(op, locs, c.EQ, is_guard_not_invalidated=True)

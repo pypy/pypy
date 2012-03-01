@@ -456,14 +456,18 @@ class Regalloc(object):
     def prepare_guard_class(self, op):
         assert isinstance(op.getarg(0), Box)
         boxes = op.getarglist()
+
         x = self._ensure_value_is_boxed(boxes[0], boxes)
-        y = self.get_scratch_reg(REF, forbidden_vars=boxes)
+        y = self.get_scratch_reg(INT, forbidden_vars=boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
         self.assembler.load(y, imm(y_val))
+
         offset = self.cpu.vtable_offset
         assert offset is not None
-        offset_loc = self._ensure_value_is_boxed(ConstInt(offset), boxes)
+        assert _check_imm_arg(offset)
+        offset_loc = imm(offset)
         arglocs = self._prepare_guard(op, [x, y, offset_loc])
+
         return arglocs
 
     prepare_guard_nonnull_class = prepare_guard_class
