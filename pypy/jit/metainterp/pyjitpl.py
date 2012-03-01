@@ -2064,11 +2064,12 @@ class MetaInterp(object):
             pass # XXX we want to do something special in resume descr,
                  # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.execute_raised(OverflowError(), constant=True)
-            try:
-                self.finishframe_exception()
-            except ChangeFrame:
-                pass
+            if not dont_change_position:
+                self.execute_raised(OverflowError(), constant=True)
+                try:
+                    self.finishframe_exception()
+                except ChangeFrame:
+                    pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:
