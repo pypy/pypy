@@ -1,5 +1,4 @@
 from pypy.jit.metainterp.history import ConstInt
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.history import Box
 
 IMM_SIZE = 2 ** 15 - 1
@@ -63,8 +62,6 @@ def prepare_binary_int_op_with_imm():
     def f(self, op):
         boxes = op.getarglist()
         b0, b1 = boxes
-        imm_b0 = check_imm_box(b0)
-        imm_b1 = check_imm_box(b1)
         l0 = self._ensure_value_is_boxed(b0, boxes)
         l1 = self._ensure_value_is_boxed(b1, boxes)
         locs = [l0, l1]

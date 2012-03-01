@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.history import INT, FLOAT, REF
+from pypy.jit.metainterp.history import INT, FLOAT
 import sys
 
 # XXX import from arch.py, currently we have a circular import

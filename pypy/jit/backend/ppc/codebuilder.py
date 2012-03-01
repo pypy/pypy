@@ -1,27 +1,13 @@
 import os
-import struct
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
-from pypy.jit.backend.ppc.regalloc import (TempInt, PPCFrameManager,
-                                                  Regalloc)
 from pypy.jit.backend.ppc.assembler import Assembler
-from pypy.jit.backend.ppc.symbol_lookup import lookup
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, NONVOLATILES,
-                                              GPR_SAVE_AREA, IS_PPC_64)
-from pypy.jit.backend.ppc.helper.assembler import gen_emit_cmp_op
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64)
 import pypy.jit.backend.ppc.register as r
-import pypy.jit.backend.ppc.condition as c
-from pypy.jit.metainterp.history import (Const, ConstPtr, JitCellToken, 
-                                         TargetToken, AbstractFailDescr)
-from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, AsmMemoryManager, MachineDataBlockWrapper)
-from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
-                                                 compute_vars_longevity)
-from pypy.jit.backend.llsupport import symbolic
-from pypy.jit.backend.model import CompiledLoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
+from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from pypy.jit.backend.llsupport.regalloc import RegisterManager
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
-                                         ConstFloat, Box, INT, REF, FLOAT)
 from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -1180,17 +1166,6 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def free_scratch_reg(self):
         assert self.r0_in_use
         self.r0_in_use = False
-
-    def _dump_trace(self, addr, name, formatter=-1):
-        if not we_are_translated():
-            if formatter != -1:
-                name = name % formatter
-            dir = udir.ensure('asm', dir=True)
-            f = dir.join(name).open('wb')
-            data = rffi.cast(rffi.CCHARP, addr)
-            for i in range(self.currpos()):
-                f.write(data[i])
-            f.close()
 
 class scratch_reg(object):
     def __init__(self, mc):

@@ -1,22 +1,12 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp import history, compile
-from pypy.jit.metainterp.history import BoxPtr
-from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.ppc.arch import FORCE_INDEX_OFS
-from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
-from pypy.jit.backend.x86 import regloc
-from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppc_assembler import AssemblerPPC
-from pypy.jit.backend.ppc.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
-from pypy.jit.backend.ppc.regalloc import PPCRegisterManager, PPCFrameManager
+from pypy.jit.backend.ppc.arch import WORD
 from pypy.jit.backend.ppc.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc import register as r
-import sys
 
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer('jitbackend')
