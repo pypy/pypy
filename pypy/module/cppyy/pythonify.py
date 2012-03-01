@@ -91,30 +91,25 @@ def make_data_member(cppdm):
     return property(binder, setter)
 
 
-def update_cppnamespace(nsdct, metans):
-    cppns = nsdct["_cpp_proxy"]
-
-    # insert static methods into the "namespace" dictionary
-    for func_name in cppns.get_method_names():
-        cppol = cppns.get_overload(func_name)
-        nsdct[func_name] = make_static_function(cppns, func_name, cppol)
-
-    # add all data members to the dictionary of the class to be created, and
-    # static ones also to the meta class (needed for property setters)
-    for dm in cppns.get_data_member_names():
-        cppdm = cppns.get_data_member(dm)
-        pydm = make_data_member(cppdm)
-        nsdct[dm] = pydm
-        setattr(metans, dm, pydm)
-
-def make_cppnamespace(namespace_name, cppns, update=True):
+def make_cppnamespace(namespace_name, cppns, build_in_full=True):
     nsdct = {"_cpp_proxy" : cppns }
 
     # create a meta class to allow properties (for static data write access)
     metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
 
-    if update:
-        update_cppnamespace(nsdct, metans)
+    if build_in_full:   # if False, rely on lazy build-up
+        # insert static methods into the "namespace" dictionary
+        for func_name in cppns.get_method_names():
+            cppol = cppns.get_overload(func_name)
+            nsdct[func_name] = make_static_function(cppns, func_name, cppol)
+
+        # add all data members to the dictionary of the class to be created, and
+        # static ones also to the meta class (needed for property setters)
+        for dm in cppns.get_data_member_names():
+            cppdm = cppns.get_data_member(dm)
+            pydm = make_data_member(cppdm)
+            nsdct[dm] = pydm
+            setattr(metans, dm, pydm)
 
     # create the python-side C++ namespace representation
     pycppns = metans(namespace_name, (object,), nsdct)
@@ -316,7 +311,6 @@ def load_reflection_info(name):
 # cause the creation of classes in the global namespace, so gbl must exist at
 # that point to cache them)
 gbl = make_cppnamespace("::", cppyy._type_byname(""), False)     # global C++ namespace
-update_cppnamespace(gbl.__dict__, type(gbl))
 
 # mostly for the benefit of CINT, which treats std as special
 gbl.std = make_cppnamespace("std", cppyy._type_byname("std"), False)

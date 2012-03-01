@@ -121,7 +121,7 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
 }   
 
 void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-   return (void*)cppyy_call_T<long>(method, self, nargs, args);
+    return (void*)cppyy_call_T<long>(method, self, nargs, args);
 }
 
 char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
@@ -134,7 +134,7 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 
 cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args,
                   cppyy_type_t result_type) {
-   void* result = (void*)cppyy_allocate(result_type);
+    void* result = (void*)cppyy_allocate(result_type);
     std::vector<void*> arguments = build_args(nargs, args);
     Reflex::StubFunction stub = (Reflex::StubFunction)method;
     stub(result, (void*)self, arguments, NULL /* stub context */);
@@ -390,11 +390,11 @@ void cppyy_free(void* ptr) {
 }
 
 cppyy_object_t cppyy_charp2stdstring(const char* str) {
-   return (cppyy_object_t)new std::string(str);
+    return (cppyy_object_t)new std::string(str);
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
-   return (cppyy_object_t)new std::string(*(std::string*)ptr);
+    return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
 void cppyy_free_stdstring(cppyy_object_t ptr) {

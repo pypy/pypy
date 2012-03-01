@@ -17,12 +17,13 @@
 #include "TClassEdit.h"
 #include "TClassRef.h"
 #include "TDataMember.h"
+#include "TFunction.h"
+#include "TGlobal.h"
 #include "TMethod.h"
 #include "TMethodArg.h"
 
 #include <assert.h>
 #include <string.h>
-#include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
@@ -45,16 +46,23 @@ static ClassRefIndices_t g_classref_indices;
 
 class ClassRefsInit {
 public:
-    ClassRefsInit() {   // setup dummy holder for global namespace
+    ClassRefsInit() {   // setup dummy holders for global and std namespaces
         assert(g_classrefs.size() == (ClassRefs_t::size_type)GLOBAL_HANDLE);
         g_classref_indices[""] = (ClassRefs_t::size_type)GLOBAL_HANDLE;
         g_classrefs.push_back(TClassRef(""));
+        g_classref_indices["std"] = g_classrefs.size();
+        g_classrefs.push_back(TClassRef(""));    // CINT ignores std
+        g_classref_indices["::std"] = g_classrefs.size();
+        g_classrefs.push_back(TClassRef(""));    // id.
     }
 };
 static ClassRefsInit _classrefs_init;
 
 typedef std::vector<TFunction*> GlobalFuncs_t;
 static GlobalFuncs_t g_globalfuncs;
+
+typedef std::vector<TGlobal*> GlobalVars_t;
+static GlobalVars_t g_globalvars;
 
 
 /* initialization of th ROOT system (debatable ... ) ---------------------- */
@@ -230,7 +238,7 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
 }
 
 void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
-   cppyy_call_T(method, self, nargs, args);
+    cppyy_call_T(method, self, nargs, args);
 }
 
 int cppyy_call_b(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
@@ -277,9 +285,9 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
     G__value result = cppyy_call_T(method, self, nargs, args);
     G__pop_tempobject_nodel();
     if (result.ref && *(long*)result.ref) {
-       char* charp = cppstring_to_cstring(*(std::string*)result.ref);
-       delete (std::string*)result.ref;
-       return charp;
+        char* charp = cppstring_to_cstring(*(std::string*)result.ref);
+        delete (std::string*)result.ref;
+        return charp;
     }
     return cppstring_to_cstring("");
 }
@@ -404,7 +412,7 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, 
 /* method/function reflection information --------------------------------- */
 int cppyy_num_methods(cppyy_scope_t handle) {
     TClassRef cr = type_from_handle(handle);
-     if (cr.GetClass() && cr->GetListOfMethods())
+    if (cr.GetClass() && cr->GetListOfMethods())
         return cr->GetListOfMethods()->GetSize();
     else if (strcmp(cr.GetClassName(), "") == 0) {
     // NOTE: the updated list of global funcs grows with 5 "G__ateval"'s just
@@ -452,8 +460,8 @@ char* cppyy_method_arg_type(cppyy_scope_t handle, int method_index, int arg_inde
 }
 
 char* cppyy_method_arg_default(cppyy_scope_t, int, int) {
-/* unused: libffi does not work with CINT back-end */
-   return cppstring_to_cstring("");
+    /* unused: libffi does not work with CINT back-end */
+    return cppstring_to_cstring("");
 }
 
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
@@ -480,48 +488,80 @@ int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
 int cppyy_num_data_members(cppyy_scope_t handle) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfDataMembers())
-       return cr->GetListOfDataMembers()->GetSize();
+        return cr->GetListOfDataMembers()->GetSize();
+    else if (strcmp(cr.GetClassName(), "") == 0) {
+        TCollection* vars = gROOT->GetListOfGlobals(kTRUE);
+       	if (g_globalvars.size() != (GlobalVars_t::size_type)vars->GetSize()) {
+            g_globalvars.clear();
+	    g_globalvars.reserve(vars->GetSize());
+
+            TIter ivar(vars);
+
+            TGlobal* var = 0;
+            while ((var = (TGlobal*)ivar.Next()))
+                g_globalvars.push_back(var);
+        }
+	return (int)g_globalvars.size();
+    }
     return 0;
 }
 
 char* cppyy_data_member_name(cppyy_scope_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
-    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return cppstring_to_cstring(m->GetName());
+    if (cr.GetClass()) {
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        return cppstring_to_cstring(m->GetName());
+    }
+    TGlobal* gbl = g_globalvars[data_member_index];
+    return cppstring_to_cstring(gbl->GetName());
 }
 
 char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
-    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    std::string fullType = m->GetFullTypeName();
-    if ((int)m->GetArrayDim() > 1 || (!m->IsBasic() && m->IsaPointer()))
-        fullType.append("*");
-    else if ((int)m->GetArrayDim() == 1) {
-        std::ostringstream s;
-        s << '[' << m->GetMaxIndex(0) << ']' << std::ends;
-        fullType.append(s.str());
+    if (cr.GetClass())  {
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        std::string fullType = m->GetFullTypeName();
+        if ((int)m->GetArrayDim() > 1 || (!m->IsBasic() && m->IsaPointer()))
+            fullType.append("*");
+        else if ((int)m->GetArrayDim() == 1) {
+            std::ostringstream s;
+            s << '[' << m->GetMaxIndex(0) << ']' << std::ends;
+            fullType.append(s.str());
+        }
+        return cppstring_to_cstring(fullType);
     }
-    return cppstring_to_cstring(fullType);
+    TGlobal* gbl = g_globalvars[data_member_index];
+    return cppstring_to_cstring(gbl->GetFullTypeName());
 }
 
 size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
-    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return m->GetOffsetCint();
+    if (cr.GetClass()) {
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        return (size_t)m->GetOffsetCint();
+    }
+    TGlobal* gbl = g_globalvars[data_member_index];
+    return (size_t)gbl->GetAddress();
 }
 
 
 /* data member properties ------------------------------------------------  */
 int cppyy_is_publicdata(cppyy_scope_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
-    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return m->Property() & G__BIT_ISPUBLIC;
+    if (cr.GetClass()) {
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        return m->Property() & G__BIT_ISPUBLIC;
+    }
+    return 1;  // global data is always public
 }
 
 int cppyy_is_staticdata(cppyy_scope_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
-    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return m->Property() & G__BIT_ISSTATIC;
+    if (cr.GetClass()) {
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        return m->Property() & G__BIT_ISSTATIC;
+    }
+    return 1;  // global data is always static
 }
 
 
@@ -539,11 +579,11 @@ void cppyy_free(void* ptr) {
 }
 
 cppyy_object_t cppyy_charp2stdstring(const char* str) {
-   return (cppyy_object_t)new std::string(str);
+    return (cppyy_object_t)new std::string(str);
 }
 
 cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr) {
-   return (cppyy_object_t)new std::string(*(std::string*)ptr);
+    return (cppyy_object_t)new std::string(*(std::string*)ptr);
 }
 
 void cppyy_free_stdstring(cppyy_object_t ptr) {
@@ -551,7 +591,7 @@ void cppyy_free_stdstring(cppyy_object_t ptr) {
 }
 
 void* cppyy_load_dictionary(const char* lib_name) {
-   if (0 <= gSystem->Load(lib_name))
-      return (void*)1;
-   return (void*)0;
+    if (0 <= gSystem->Load(lib_name))
+        return (void*)1;
+    return (void*)0;
 }
