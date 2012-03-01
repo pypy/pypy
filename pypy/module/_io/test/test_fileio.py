@@ -178,7 +178,7 @@ def test_flush_at_exit():
     space.finish()
     assert tmpfile.read() == '42'
 
-def test_flush_at_exit_IOError():
+def test_flush_at_exit_IOError_and_ValueError():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
 
@@ -190,7 +190,12 @@ def test_flush_at_exit_IOError():
             def flush(self):
                 raise IOError
 
+        class MyStream2(io.IOBase):
+            def flush(self):
+                raise ValueError
+
         s = MyStream()
+        s2 = MyStream2()
         import sys; sys._keepalivesomewhereobscure = s
     """)
     space.finish() # the IOError has been ignored
