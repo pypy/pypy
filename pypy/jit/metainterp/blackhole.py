@@ -1379,7 +1379,8 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it did not used to overflow, but now it does.
-            return get_llexception(self.cpu, OverflowError())
+            if not dont_change_position:
+                return get_llexception(self.cpu, OverflowError())
         #
         elif opnum == rop.GUARD_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
