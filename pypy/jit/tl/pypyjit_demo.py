@@ -1,17 +1,21 @@
+import pypyjit
+pypyjit.set_param(threshold=200)
+
+
+def g(*args):
+    return len(args)
+
+def f(n):
+    s = 0
+    for i in range(n):
+        l = [i, n, 2]
+        s += g(*l)
+    return s
 
 try:
-    def main(n):
-        def g(n):
-            return range(n)
-        s = 0
-        for i in range(n):  # ID: for
-            tmp = g(n)
-            s += tmp[i]     # ID: getitem
-            a = 0
-        return s
-    main(10)
+    print f(301)
 
 except Exception, e:
     print "Exception: ", type(e)
     print e
-    
+

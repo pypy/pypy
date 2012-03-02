@@ -277,20 +277,25 @@ class AppTestInterpreter:
         class Out(object):
             def __init__(self):
                 self.data = []
-
             def write(self, x):
-                self.data.append(x)
+                self.data.append((type(x), x))
         sys.stdout = out = Out()
         try:
-            raises(UnicodeError, "print unichr(0xa2)")
-            assert out.data == []
-            out.encoding = "cp424"
             print unichr(0xa2)
-            assert out.data == [unichr(0xa2).encode("cp424"), "\n"]
+            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
+            out.data = []
+            out.encoding = "cp424"     # ignored!
+            print unichr(0xa2)
+            assert out.data == [(unicode, unichr(0xa2)), (str, "\n")]
             del out.data[:]
             del out.encoding
             print u"foo\t", u"bar\n", u"trick", u"baz\n"  # softspace handling
-            assert out.data == ["foo\t", "bar\n", "trick", " ", "baz\n", "\n"]
+            assert out.data == [(unicode, "foo\t"),
+                                (unicode, "bar\n"),
+                                (unicode, "trick"),
+                                (str, " "),
+                                (unicode, "baz\n"),
+                                (str, "\n")]
         finally:
             sys.stdout = save
 

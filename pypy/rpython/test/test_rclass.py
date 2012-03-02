@@ -3,8 +3,11 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
+from pypy.rpython.error import TyperError
 from pypy.objspace.flow.model import summary
 
 class EmptyBase(object):
@@ -454,12 +457,16 @@ class BaseTestRclass(BaseRtypingTest):
                     compute_identity_hash(d))
 
         res = self.interpret(f, [])
-        # xxx this is too precise, checking the exact implementation
-        assert res.item0 == res.item1
+        # xxx the following test is too precise, checking the exact
+        # implementation.  On Python 2.7 it doesn't work anyway, because
+        # object.__hash__(x) is different from id(x).  The test is disabled
+        # for now, and nobody should rely on compute_identity_hash() returning
+        # a value that is (or was) the current_object_addr_as_int().
+        # --- disabled: assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
         # otherwise prebuilt dictionaries are broken.  It's wrong on
         # top of the ootypesystem though.
-        if type(self) is TestLLtype:
+        if isinstance(self, LLRtypeMixin):
             assert res.item2 == h_c
             assert res.item3 == h_d
 
@@ -746,8 +753,10 @@ class BaseTestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         A_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = A_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_x" : "", "inst_y" : "[*]"} or \
-               accessor.fields == {"ox" : "", "oy" : "[*]"} # for ootype
+        assert accessor.fields == {"inst_x": IR_IMMUTABLE,
+                                   "inst_y": IR_IMMUTABLE_ARRAY} or \
+               accessor.fields == {"ox": IR_IMMUTABLE,
+                                   "oy": IR_IMMUTABLE_ARRAY} # for ootype
 
     def test_immutable_fields_subclass_1(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -765,8 +774,8 @@ class BaseTestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_x" : ""} or \
-               accessor.fields == {"ox" : ""} # for ootype
+        assert accessor.fields == {"inst_x": IR_IMMUTABLE} or \
+               accessor.fields == {"ox": IR_IMMUTABLE} # for ootype
 
     def test_immutable_fields_subclass_2(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -785,8 +794,10 @@ class BaseTestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_x" : "", "inst_y" : ""} or \
-               accessor.fields == {"ox" : "", "oy" : ""} # for ootype
+        assert accessor.fields == {"inst_x": IR_IMMUTABLE,
+                                   "inst_y": IR_IMMUTABLE} or \
+               accessor.fields == {"ox": IR_IMMUTABLE,
+                                   "oy": IR_IMMUTABLE} # for ootype
 
     def test_immutable_fields_only_in_subclass(self):
         from pypy.jit.metainterp.typesystem import deref
@@ -804,8 +815,8 @@ class BaseTestRclass(BaseRtypingTest):
         t, typer, graph = self.gengraph(f, [])
         B_TYPE = deref(graph.getreturnvar().concretetype)
         accessor = B_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_y" : ""} or \
-               accessor.fields == {"oy" : ""} # for ootype
+        assert accessor.fields == {"inst_y": IR_IMMUTABLE} or \
+               accessor.fields == {"oy": IR_IMMUTABLE} # for ootype
 
     def test_immutable_forbidden_inheritance_1(self):
         from pypy.rpython.rclass import ImmutableConflictError
@@ -849,8 +860,8 @@ class BaseTestRclass(BaseRtypingTest):
         except AttributeError:
             A_TYPE = B_TYPE._superclass  # for ootype
         accessor = A_TYPE._hints["immutable_fields"]
-        assert accessor.fields == {"inst_v" : ""} or \
-               accessor.fields == {"ov" : ""} # for ootype
+        assert accessor.fields == {"inst_v": IR_IMMUTABLE} or \
+               accessor.fields == {"ov": IR_IMMUTABLE} # for ootype
 
     def test_immutable_subclass_1(self):
         from pypy.rpython.rclass import ImmutableConflictError
@@ -895,6 +906,58 @@ class BaseTestRclass(BaseRtypingTest):
         B_TYPE = deref(graph.getreturnvar().concretetype)
         assert B_TYPE._hints["immutable"]
 
+    def test_quasi_immutable(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ['x', 'y', 'a?', 'b?']
+        class B(A):
+            pass
+        def f():
+            a = A()
+            a.x = 42
+            a.a = 142
+            b = B()
+            b.x = 43
+            b.y = 41
+            b.a = 44
+            b.b = 45
+            return B()
+        t, typer, graph = self.gengraph(f, [])
+        B_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = B_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_y": IR_IMMUTABLE,
+                                   "inst_b": IR_QUASIIMMUTABLE} or \
+               accessor.fields == {"ox": IR_IMMUTABLE,
+                                   "oy": IR_IMMUTABLE,
+                                   "oa": IR_QUASIIMMUTABLE,
+                                   "ob": IR_QUASIIMMUTABLE} # for ootype
+        found = []
+        for op in graph.startblock.operations:
+            if op.opname == 'jit_force_quasi_immutable':
+                found.append(op.args[1].value)
+        assert found == ['mutate_a', 'mutate_a', 'mutate_b']
+
+    def test_quasi_immutable_array(self):
+        from pypy.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_fields_ = ['c?[*]']
+        class B(A):
+            pass
+        def f():
+            a = A()
+            a.c = [3, 4, 5]
+            return A()
+        t, typer, graph = self.gengraph(f, [])
+        A_TYPE = deref(graph.getreturnvar().concretetype)
+        accessor = A_TYPE._hints["immutable_fields"]
+        assert accessor.fields == {"inst_c": IR_QUASIIMMUTABLE_ARRAY} or \
+               accessor.fields == {"oc": IR_QUASIIMMUTABLE_ARRAY} # for ootype
+        found = []
+        for op in graph.startblock.operations:
+            if op.opname == 'jit_force_quasi_immutable':
+                found.append(op.args[1].value)
+        assert found == ['mutate_c']
+
 
 class TestLLtype(BaseTestRclass, LLRtypeMixin):
 
@@ -913,10 +976,10 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        queryptr = RTTI._obj.query_funcptr # should not raise
+        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
-    
+
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:
@@ -963,7 +1026,25 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
         assert destrptra is not None
         assert destrptrb is not None
-        
+
+    def test_del_forbidden(self):
+        class A(object):
+            def __del__(self):
+                self.foo()
+            def foo(self):
+                self.bar()
+            def bar(self):
+                pass
+            bar._dont_reach_me_in_del_ = True
+        def f():
+            a = A()
+            a.foo()
+            a.bar()
+        t = TranslationContext()
+        t.buildannotator().build_types(f, [])
+        e = py.test.raises(TyperError, t.buildrtyper().specialize)
+        print e.value
+
     def test_instance_repr(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
         class FooBar(object):
@@ -1048,6 +1129,18 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         else:
             assert sorted([u]) == [6]                    # 32-bit types
             assert sorted([i, r, d, l]) == [2, 3, 4, 5]  # 64-bit types
+
+    def test_nonmovable(self):
+        for (nonmovable, opname) in [(True, 'malloc_nonmovable'),
+                                     (False, 'malloc')]:
+            class A(object):
+                _alloc_nonmovable_ = nonmovable
+            def f():
+                return A()
+            t, typer, graph = self.gengraph(f, [])
+            assert summary(graph) == {opname: 1,
+                                      'cast_pointer': 1,
+                                      'setfield': 1}
 
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):

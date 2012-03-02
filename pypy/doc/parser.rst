@@ -100,4 +100,4 @@ emitted, it's time to build the code object.  Jump offsets and bytecode
 information like the line number table and stack depth are computed.  Finally,
 everything is passed to a brand new ``PyCode`` object.
 
-.. include:: _ref.rst
+.. include:: _ref.txt

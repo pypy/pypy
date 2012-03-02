@@ -86,18 +86,19 @@ class ListItem(object):
             read_locations = self.read_locations.copy()
             other_read_locations = other.read_locations.copy()
             self.read_locations.update(other.read_locations)
-            self.patch()    # which should patch all refs to 'other'
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
+            if s_new_value != s_value:
+                if self.dont_change_any_more:
+                    raise TooLateForChange
             if isdegenerated(s_new_value):
                 if self.bookkeeper:
                     self.bookkeeper.ondegenerated(self, s_new_value)
                 elif other.bookkeeper:
                     other.bookkeeper.ondegenerated(other, s_new_value)
+            self.patch()    # which should patch all refs to 'other'
             if s_new_value != s_value:
-                if self.dont_change_any_more:
-                    raise TooLateForChange
                 self.s_value = s_new_value
                 # reflow from reading points
                 for position_key in read_locations:
@@ -184,6 +185,11 @@ class ListDef(object):
     def generalize(self, s_value):
         self.listitem.generalize(s_value)
 
+    def generalize_range_step(self, range_step):
+        newlistitem = ListItem(self.listitem.bookkeeper, s_ImpossibleValue)
+        newlistitem.range_step = range_step
+        self.listitem.merge(newlistitem)
+
     def __repr__(self):
         return '<[%r]%s%s%s%s>' % (self.listitem.s_value,
                                self.listitem.mutated and 'm' or '',
@@ -217,4 +223,5 @@ class ListDef(object):
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 
-s_list_of_strings = SomeList(ListDef(None, SomeString(), resized = True))
+s_list_of_strings = SomeList(ListDef(None, SomeString(no_nul=True),
+                                     resized = True))

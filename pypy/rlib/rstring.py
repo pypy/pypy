@@ -1,9 +1,10 @@
 """ String builder interface and string functions
 """
 
-from pypy.annotation.model import SomeObject, SomeString, s_None,\
-     SomeChar, SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString
+from pypy.annotation.model import (SomeObject, SomeString, s_None, SomeChar,
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.tool.pairtype import pair, pairtype
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 
@@ -52,19 +53,37 @@ INIT_SIZE = 100 # XXX tweak
 class AbstractStringBuilder(object):
     def __init__(self, init_size=INIT_SIZE):
         self.l = []
+        self.size = 0
+
+    def _grow(self, size):
+        try:
+            self.size = ovfcheck(self.size + size)
+        except OverflowError:
+            raise MemoryError
 
     def append(self, s):
         assert isinstance(s, self.tp)
         self.l.append(s)
+        self._grow(len(s))
 
     def append_slice(self, s, start, end):
         assert isinstance(s, self.tp)
         assert 0 <= start <= end <= len(s)
-        self.l.append(s[start:end])
+        s = s[start:end]
+        self.l.append(s)
+        self._grow(len(s))
 
     def append_multiple_char(self, c, times):
         assert isinstance(c, self.tp)
         self.l.append(c * times)
+        self._grow(times)
+
+    def append_charpsize(self, s, size):
+        l = []
+        for i in xrange(size):
+            l.append(s[i])
+        self.l.append(self.tp("").join(l))
+        self._grow(size)
 
     def build(self):
         return self.tp("").join(self.l)
@@ -78,32 +97,6 @@ class StringBuilder(AbstractStringBuilder):
 class UnicodeBuilder(AbstractStringBuilder):
     tp = unicode
 
-
-# XXX: This does log(mul) mallocs, the GCs probably make that efficient, but
-# some measurement should be done at some point.
-def string_repeat(s, mul):
-    """Repeat a string or unicode.  Note that this assumes that 'mul' > 0."""
-    result = None
-    factor = 1
-    assert mul > 0
-    try:
-        ovfcheck(len(s) * mul)
-    except OverflowError:
-        raise MemoryError
-    
-    limit = mul >> 1
-    while True:
-        if mul & factor:
-            if result is None:
-                result = s
-            else:
-                result = s + result
-            if factor > limit:
-                break
-        s += s
-        factor *= 2
-    return result
-string_repeat._annspecialcase_ = 'specialize:argtype(0)'
 
 # ------------------------------------------------------------
 # ----------------- implementation details -------------------
@@ -125,6 +118,11 @@ class SomeStringBuilder(SomeObject):
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeChar)
         assert isinstance(s_times, SomeInteger)
+        return s_None
+
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
         return s_None
 
     def method_getlength(self):
@@ -154,12 +152,17 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_times, SomeInteger)
         return s_None
 
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
+        return s_None
+
     def method_getlength(self):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
         return SomeUnicodeString()
-    
+
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.unicodebuilder_repr
 
@@ -170,7 +173,7 @@ class BaseEntry(object):
         if self.use_unicode:
             return SomeUnicodeBuilder()
         return SomeStringBuilder()
-    
+
     def specialize_call(self, hop):
         return hop.r_result.rtyper_new(hop)
 
@@ -181,3 +184,66 @@ class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
+
+class __extend__(pairtype(SomeStringBuilder, SomePBC)):
+    def union((sb, p)):
+        assert p.const is None
+        return SomeStringBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomePBC, SomeStringBuilder)):
+    def union((p, sb)):
+        assert p.const is None
+        return SomeStringBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
+    def union((sb, p)):
+        assert p.const is None
+        return SomeUnicodeBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
+    def union((p, sb)):
+        assert p.const is None
+        return SomeUnicodeBuilder(can_be_None=True)
+
+#___________________________________________________________________
+# Support functions for SomeString.no_nul
+
+def assert_str0(fname):
+    assert '\x00' not in fname, "NUL byte in string"
+    return fname
+
+class Entry(ExtRegistryEntry):
+    _about_ = assert_str0
+
+    def compute_result_annotation(self, s_obj):
+        if s_None.contains(s_obj):
+            return s_obj
+        assert isinstance(s_obj, (SomeString, SomeUnicodeString))
+        if s_obj.no_nul:
+            return s_obj
+        new_s_obj = SomeObject.__new__(s_obj.__class__)
+        new_s_obj.__dict__ = s_obj.__dict__.copy()
+        new_s_obj.no_nul = True
+        return new_s_obj
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
+
+def check_str0(fname):
+    """A 'probe' to trigger a failure at translation time, if the
+    string was not proved to not contain NUL characters."""
+    assert '\x00' not in fname, "NUL byte in string"
+
+class Entry(ExtRegistryEntry):
+    _about_ = check_str0
+
+    def compute_result_annotation(self, s_obj):
+        if not isinstance(s_obj, (SomeString, SomeUnicodeString)):
+            return s_obj
+        if not s_obj.no_nul:
+            raise ValueError("Value is not no_nul")
+
+    def specialize_call(self, hop):
+        pass
+

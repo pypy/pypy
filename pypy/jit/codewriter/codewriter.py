@@ -13,13 +13,13 @@ from pypy.tool.udir import udir
 
 class CodeWriter(object):
     callcontrol = None    # for tests
+    debug = False
 
-    def __init__(self, cpu=None, jitdrivers_sd=[], debug=False):
+    def __init__(self, cpu=None, jitdrivers_sd=[]):
         self.cpu = cpu
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
         self._seen_files = set()
-        self.debug = debug
 
     def transform_func_to_jitcode(self, func, values, type_system='lltype'):
         """For testing."""
@@ -104,6 +104,8 @@ class CodeWriter(object):
         else:
             name = 'unnamed' % id(ssarepr)
         i = 1
+        # escape <lambda> names for windows
+        name = name.replace('<lambda>', '_(lambda)_')
         extra = ''
         while name+extra in self._seen_files:
             i += 1

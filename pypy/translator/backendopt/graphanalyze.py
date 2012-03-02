@@ -3,6 +3,8 @@ from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.rpython.lltypesystem import lltype
 
 class GraphAnalyzer(object):
+    verbose = False
+
     def __init__(self, translator):
         self.translator = translator
         self.analyzed_calls = {}
@@ -71,12 +73,24 @@ class GraphAnalyzer(object):
         if op.opname == "direct_call":
             graph = get_graph(op.args[0], self.translator)
             if graph is None:
-                return self.analyze_external_call(op, seen)
-            return self.analyze_direct_call(graph, seen)
+                x = self.analyze_external_call(op, seen)
+                if self.verbose and x:
+                    print '\tanalyze_external_call %s: %r' % (op, x)
+                return x
+            x = self.analyze_direct_call(graph, seen)
+            if self.verbose and x:
+                print '\tanalyze_direct_call(%s): %r' % (graph, x)
+            return x
         elif op.opname == "indirect_call":
-            if op.args[-1].value is None:
+            graphs = op.args[-1].value
+            if graphs is None:
+                if self.verbose:
+                    print '\t%s to unknown' % (op,)
                 return self.top_result()
-            return self.analyze_indirect_call(op.args[-1].value, seen)
+            x = self.analyze_indirect_call(graphs, seen)
+            if self.verbose and x:
+                print '\tanalyze_indirect_call(%s): %r' % (graphs, x)
+            return x
         elif op.opname == "oosend":
             name = op.args[0].value
             TYPE = op.args[1].concretetype
@@ -85,7 +99,10 @@ class GraphAnalyzer(object):
             if graph is None:
                 return self.analyze_external_method(op, TYPE, meth)
             return self.analyze_oosend(TYPE, name, seen)
-        return self.analyze_simple_operation(op, graphinfo)
+        x = self.analyze_simple_operation(op, graphinfo)
+        if self.verbose and x:
+            print '\t%s: %r' % (op, x)
+        return x
 
     def analyze_direct_call(self, graph, seen=None):
         if graph in self.analyzed_calls:

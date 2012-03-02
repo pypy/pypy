@@ -739,6 +739,19 @@ class TestNonInteractive:
         data = self.run(p + os.sep)
         assert data == p + os.sep + '\n'
 
+    def test_getfilesystemencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test requires Python >= 2.7")
+        p = getscript_in_dir("""
+        import sys
+        sys.stdout.write(u'15\u20ac')
+        sys.stdout.flush()
+        """)
+        env = os.environ.copy()
+        env["LC_CTYPE"] = 'en_US.UTF-8'
+        data = self.run(p, env=env)
+        assert data == '15\xe2\x82\xac'
+
     def test_pythonioencoding(self):
         if sys.version_info < (2, 7):
             skip("test requires Python >= 2.7")
@@ -781,7 +794,7 @@ class AppTestAppMain:
         # setup code for test_get_library_path
         # ------------------------------------
         from pypy.module.sys.version import CPYTHON_VERSION, PYPY_VERSION
-        cpy_ver = '%d.%d.%d' % CPYTHON_VERSION[:3]
+        cpy_ver = '%d.%d' % CPYTHON_VERSION[:2]
         
         goal_dir = os.path.dirname(app_main)
         # build a directory hierarchy like which contains both bin/pypy-c and
@@ -808,6 +821,8 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
+            if newpath[0].endswith('__extensions__'):
+                newpath = newpath[1:]
             # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
             assert newpath[:len(self.expected_path)] == self.expected_path
         finally:

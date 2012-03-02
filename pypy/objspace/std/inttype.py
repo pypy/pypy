@@ -11,14 +11,19 @@ from pypy.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
 
-int_conjugate = SMM("conjugate", 1, doc="Returns self, the complex conjugate of any int.")
+def descr_conjugate(space, w_int):
+    "Returns self, the complex conjugate of any int."
+    return space.int(w_int)
 
-def int_conjugate__ANY(space, w_int):
-    return space.pos(w_int)
+def descr_bit_length(space, w_int):
+    """int.bit_length() -> int
 
-int_bit_length = SMM("bit_length", 1, doc="int.bit_length() -> int\n\nNumber of bits necessary to represent self in binary.\n>>> bin(37)\n'0b100101'\n>>> (37).bit_length()\n6")
-
-def int_bit_length__ANY(space, w_int):
+    Number of bits necessary to represent self in binary.
+    >>> bin(37)
+    '0b100101'
+    >>> (37).bit_length()
+    6
+    """
     val = space.int_w(w_int)
     if val < 0:
         val = -val
@@ -27,8 +32,6 @@ def int_bit_length__ANY(space, w_int):
         bits += 1
         val >>= 1
     return space.wrap(bits)
-
-register_all(vars(), globals())
 
 
 def wrapint(space, x):
@@ -96,10 +99,10 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
         if type(w_value) is W_IntObject:
             value = w_value.intval
             ok = True
-        elif space.is_true(space.isinstance(w_value, space.w_str)):
+        elif space.isinstance_w(w_value, space.w_str):
             value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
             ok = True
-        elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+        elif space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
@@ -142,7 +145,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     else:
         base = space.int_w(w_base)
 
-        if space.is_true(space.isinstance(w_value, space.w_unicode)):
+        if space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
@@ -179,7 +182,7 @@ def descr_get_denominator(space, w_obj):
     return space.wrap(1)
 
 def descr_get_real(space, w_obj):
-    return w_obj
+    return space.int(w_obj)
 
 def descr_get_imag(space, w_obj):
     return space.wrap(0)
@@ -196,6 +199,8 @@ the optional base.  It is an error to supply a base when converting a
 non-string. If the argument is outside the integer range a long object
 will be returned instead.''',
     __new__ = gateway.interp2app(descr__new__),
+    conjugate = gateway.interp2app(descr_conjugate),
+    bit_length = gateway.interp2app(descr_bit_length),
     numerator = typedef.GetSetProperty(descr_get_numerator),
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),

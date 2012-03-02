@@ -4,12 +4,10 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
-import math
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
 
@@ -49,7 +47,7 @@ def checkattrname(space, w_name):
     # space.{get,set,del}attr()...
     # Note that if w_name is already a string (or a subclass of str),
     # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
-    if not space.is_true(space.is_(w_name, space.w_str)):
+    if not space.is_w(space.type(w_name), space.w_str):
         name = space.str_w(w_name)    # typecheck
         w_name = space.wrap(name)     # rewrap as a real string
     return w_name
@@ -185,7 +183,7 @@ iter(callable, sentinel) -> iterator calling callable() until it returns
                             the sentinal.
 """
     if w_sentinel is None:
-        return space.iter(w_collection_or_callable) 
+        return space.iter(w_collection_or_callable)
     else:
         return iter_sentinel(space, w_collection_or_callable, w_sentinel)
 

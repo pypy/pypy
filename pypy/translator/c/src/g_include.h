@@ -2,7 +2,7 @@
 /************************************************************/
 /***  C header file for code produced by genc.py          ***/
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 #  include "Python.h"
 #  include "compile.h"
 #  include "frameobject.h"
@@ -31,25 +31,23 @@
 #include "src/char.h"
 #include "src/float.h"
 #include "src/address.h"
-#ifndef AVR
 #include "src/unichar.h"
-#endif
 #include "src/llgroup.h"
 
 #include "src/instrument.h"
 #include "src/asm.h"
 
+#include "src/profiling.h"
+
+#include "src/debug_print.h"
 
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
-#  include "src/debug_print.h"
 #  include "src/debug_traceback.h"
 #  include "src/debug_alloc.h"
-#ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_strtod.h"
-#endif
 #endif
 
 #ifdef PYPY_STANDALONE

@@ -4,7 +4,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.interpreter import gateway, argument
 from pypy.interpreter.gateway import ObjSpace, W_Root
-from pypy.interpreter.function import Defaults
 import py
 import sys
 
@@ -12,7 +11,7 @@ class FakeFunc(object):
     def __init__(self, space, name):
         self.space = space
         self.name = name
-        self.defs = Defaults([])
+        self.defs_w = []
 
 class TestBuiltinCode:
     def test_signature(self):
@@ -705,7 +704,7 @@ y = a.m(33)
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_stackless',), **{
+        space = gettestobjspace(usemodules=('itertools',), **{
             "objspace.opcodes.CALL_METHOD": True
             })
         cls.space = space

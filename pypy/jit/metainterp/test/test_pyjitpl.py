@@ -6,7 +6,7 @@ from pypy.jit.metainterp import jitprof
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.history import History
 from pypy.jit.metainterp.resoperation import ResOperation, rop
-from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
+from pypy.jit.metainterp.optimizeopt.util import equaloplists
 from pypy.jit.codewriter.jitcode import JitCode
 
 

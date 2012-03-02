@@ -1,10 +1,14 @@
-from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.libffi import Func
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib import clibffi, libffi
+from pypy.rlib.debug import debug_print
+from pypy.rlib.libffi import Func
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.lltypesystem import llmemory, rffi
+
 
 class FuncInfo(object):
 
@@ -12,28 +16,31 @@ class FuncInfo(object):
     restype = None
     descr = None
     prepare_op = None
-    force_token_op = None
 
     def __init__(self, funcval, cpu, prepare_op):
         self.funcval = funcval
         self.opargs = []
-        argtypes, restype = self._get_signature(funcval)
-        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        argtypes, restype, flags = self._get_signature(funcval)
+        self.descr = cpu.calldescrof_dynamic(argtypes, restype,
+                                             EffectInfo.MOST_GENERAL,
+                                             ffi_flags=flags)
+        # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
+        self.delayed_ops = []
 
     def _get_signature(self, funcval):
         """
-        given the funcval, return a tuple (argtypes, restype), where the
-        actuall types are libffi.types.*
+        given the funcval, return a tuple (argtypes, restype, flags), where
+        the actuall types are libffi.types.*
 
         The implementation is tricky because we have three possible cases:
 
         - translated: the easiest case, we can just cast back the pointer to
-          the original Func instance and read .argtypes and .restype
+          the original Func instance and read .argtypes, .restype and .flags
 
         - completely untranslated: this is what we get from test_optimizeopt
           tests. funcval contains a FakeLLObject whose _fake_class is Func,
-          and we can just get .argtypes and .restype
+          and we can just get .argtypes, .restype and .flags
 
         - partially translated: this happens when running metainterp tests:
           funcval contains the low-level equivalent of a Func, and thus we
@@ -41,14 +48,14 @@ class FuncInfo(object):
           inst_argtypes is actually a low-level array, but we can use it
           directly since the only thing we do with it is to read its items
         """
-        
+
         llfunc = funcval.box.getref_base()
         if we_are_translated():
             func = cast_base_ptr_to_instance(Func, llfunc)
-            return func.argtypes, func.restype
+            return func.argtypes, func.restype, func.flags
         elif getattr(llfunc, '_fake_class', None) is Func:
             # untranslated
-            return llfunc.argtypes, llfunc.restype
+            return llfunc.argtypes, llfunc.restype, llfunc.flags
         else:
             # partially translated
             # llfunc contains an opaque pointer to something like the following:
@@ -59,42 +66,47 @@ class FuncInfo(object):
             # because we don't have the exact TYPE to cast to.  Instead, we
             # just fish it manually :-(
             f = llfunc._obj.container
-            return f.inst_argtypes, f.inst_restype
+            return f.inst_argtypes, f.inst_restype, f.inst_flags
 
 
 class OptFfiCall(Optimization):
 
-    def __init__(self):
+    def setup(self):
         self.funcinfo = None
+        if self.optimizer.loop is not None:
+            self.logops = self.optimizer.loop.logops
+        else:
+            self.logops = None
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def new(self):
         return OptFfiCall()
-        # FIXME: Should any status be saved for next iteration?
 
     def begin_optimization(self, funcval, op):
-        self.rollback_maybe()
+        self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
 
     def commit_optimization(self):
         self.funcinfo = None
 
-    def rollback_maybe(self):
+    def rollback_maybe(self, msg, op):
         if self.funcinfo is None:
             return # nothing to rollback
         #
         # we immediately set funcinfo to None to prevent recursion when
         # calling emit_op
+        if self.logops is not None:
+            debug_print('rollback: ' + msg + ': ', self.logops.repr_of_resop(op))
         funcinfo = self.funcinfo
         self.funcinfo = None
         self.emit_operation(funcinfo.prepare_op)
         for op in funcinfo.opargs:
             self.emit_operation(op)
-        if funcinfo.force_token_op:
-            self.emit_operation(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            self.emit_operation(delayed_op)
 
     def emit_operation(self, op):
         # we cannot emit any operation during the optimization
-        self.rollback_maybe()
+        self.rollback_maybe('invalid op', op)
         Optimization.emit_operation(self, op)
 
     def optimize_CALL(self, op):
@@ -106,6 +118,9 @@ class OptFfiCall(Optimization):
             ops = self.do_push_arg(op)
         elif oopspec == EffectInfo.OS_LIBFFI_CALL:
             ops = self.do_call(op)
+        elif (oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM or
+            oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM):
+            ops = self.do_getsetarrayitem(op, oopspec)
         #
         for op in ops:
             self.emit_operation(op)
@@ -135,13 +150,18 @@ class OptFfiCall(Optimization):
         # call_may_force and the setfield_gc, so the final result we get is
         # again force_token/setfield_gc/call_may_force.
         #
+        # However, note that nowadays we also allow to have any setfield_gc
+        # between libffi_prepare and libffi_call, so while the comment above
+        # it's a bit superfluous, it has been left there for future reference.
         if self.funcinfo is None:
             self.emit_operation(op)
         else:
-            self.funcinfo.force_token_op = op
+            self.funcinfo.delayed_ops.append(op)
+
+    optimize_SETFIELD_GC = optimize_FORCE_TOKEN
 
     def do_prepare_call(self, op):
-        self.rollback_maybe()
+        self.rollback_maybe('prepare call', op)
         funcval = self._get_funcval(op)
         if not funcval.is_constant():
             return [op] # cannot optimize
@@ -158,38 +178,84 @@ class OptFfiCall(Optimization):
     def do_call(self, op):
         funcval = self._get_funcval(op)
         funcinfo = self.funcinfo
-        if not funcinfo or funcinfo.funcval is not funcval:
+        if (not funcinfo or funcinfo.funcval is not funcval or
+            funcinfo.descr is None):
             return [op] # cannot optimize
         funcsymval = self.getvalue(op.getarg(2))
-        arglist = [funcsymval.force_box()]
+        arglist = [funcsymval.get_key_box()]
         for push_op in funcinfo.opargs:
             argval = self.getvalue(push_op.getarg(2))
-            arglist.append(argval.force_box())
-        newop = ResOperation(rop.CALL_MAY_FORCE, arglist, op.result,
+            arglist.append(argval.get_key_box())
+        newop = ResOperation(rop.CALL_RELEASE_GIL, arglist, op.result,
                              descr=funcinfo.descr)
         self.commit_optimization()
         ops = []
-        if funcinfo.force_token_op:
-            ops.append(funcinfo.force_token_op)
+        for delayed_op in funcinfo.delayed_ops:
+            ops.append(delayed_op)
         ops.append(newop)
         return ops
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
+    def do_getsetarrayitem(self, op, oopspec):
+        ffitypeval = self.getvalue(op.getarg(1))
+        widthval = self.getvalue(op.getarg(2))
+        offsetval = self.getvalue(op.getarg(5))
+        if not ffitypeval.is_constant() or not widthval.is_constant() or not offsetval.is_constant():
+            return [op]
+
+        ffitypeaddr = ffitypeval.box.getaddr()
+        ffitype = llmemory.cast_adr_to_ptr(ffitypeaddr, clibffi.FFI_TYPE_P)
+        offset = offsetval.box.getint()
+        width = widthval.box.getint()
+        descr = self._get_interior_descr(ffitype, width, offset)
+
+        arglist = [
+            self.getvalue(op.getarg(3)).force_box(self.optimizer),
+            self.getvalue(op.getarg(4)).force_box(self.optimizer),
+        ]
+        if oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM:
+            opnum = rop.GETINTERIORFIELD_RAW
+        elif oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM:
+            opnum = rop.SETINTERIORFIELD_RAW
+            arglist.append(self.getvalue(op.getarg(6)).force_box(self.optimizer))
         else:
-            self.emit_operation(op)
+            assert False
+        return [
+            ResOperation(opnum, arglist, op.result, descr=descr),
+        ]
+
+    def _get_interior_descr(self, ffitype, width, offset):
+        kind = libffi.types.getkind(ffitype)
+        is_pointer = is_float = is_signed = False
+        if ffitype is libffi.types.pointer:
+            is_pointer = True
+        elif kind == 'i':
+            is_signed = True
+        elif kind == 'f' or kind == 'I' or kind == 'U':
+            # longlongs are treated as floats, see
+            # e.g. llsupport/descr.py:getDescrClass
+            is_float = True
+        elif kind == 'u' or kind == 's':
+            # they're all False
+            pass
+        else:
+            raise NotImplementedError("unsupported ffitype or kind: %s" % kind)
+        #
+        fieldsize = rffi.getintfield(ffitype, 'c_size')
+        return self.optimizer.cpu.interiorfielddescrof_dynamic(
+            offset, width, fieldsize, is_pointer, is_float, is_signed
+        )
+
+    def propagate_forward(self, op):
+        if self.logops is not None:
+            debug_print(self.logops.repr_of_resop(op))
+        dispatch_opt(self, op)
 
     def _get_oopspec(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            return effectinfo.oopspecindex
-        return EffectInfo.OS_NONE
+        return effectinfo.oopspecindex
 
     def _get_funcval(self, op):
         return self.getvalue(op.getarg(1))
 
-optimize_ops = _findall(OptFfiCall, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptFfiCall, 'optimize_',
+        default=OptFfiCall.emit_operation)

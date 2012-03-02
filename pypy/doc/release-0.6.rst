@@ -9,11 +9,11 @@ is eminently a preview release.*
 What it is and where to start 
 -----------------------------
 
-Getting started:    http://codespeak.net/pypy/index.cgi?doc/getting-started.html
+Getting started:    getting-started.html
 
-PyPy Documentation: http://codespeak.net/pypy/index.cgi?doc
+PyPy Documentation: index.html
 
-PyPy Homepage:      http://codespeak.net/pypy/
+PyPy Homepage:      http://pypy.org
 
 PyPy is a MIT-licensed reimplementation of Python written in
 Python itself.  The long term goals are an implementation that
@@ -89,9 +89,9 @@ not have got that far without the coding and feedback support
 from numerous people.   Please feel free to give feedback and 
 raise questions. 
 
-    contact points: http://codespeak.net/pypy/index.cgi?contact
+    contact points: http://pypy.org/contact.html
 
-    contributor list: http://codespeak.net/pypy/index.cgi?doc/contributor.html 
+    contributor list: contributor.html
 
 have fun, 
 

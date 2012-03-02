@@ -166,6 +166,20 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         res = module.test_string_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
+    def test_intern_inplace(self):
+        module = self.import_extension('foo', [
+            ("test_intern_inplace", "METH_O",
+             '''
+                 PyObject *s = args;
+                 Py_INCREF(s);
+                 PyString_InternInPlace(&s);
+                 return s;
+             '''
+             )
+            ])
+        # This does not test much, but at least the refcounts are checked.
+        assert module.test_intern_inplace('s') == 's'
+
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
         py_str = new_empty_str(space, 10)
@@ -283,3 +297,13 @@ class TestString(BaseApiTest):
         self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
             space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
         )
+
+    def test_eq(self, space, api):
+        assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
+        assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))
+
+    def test_join(self, space, api):
+        w_sep = space.wrap('<sep>')
+        w_seq = space.wrap(['a', 'b'])
+        w_joined = api._PyString_Join(w_sep, w_seq)
+        assert space.unwrap(w_joined) == 'a<sep>b'

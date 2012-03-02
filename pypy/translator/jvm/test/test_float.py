@@ -22,3 +22,14 @@ class TestJvmFloat(JvmTest, BaseTestRfloat):
 
     def test_r_singlefloat(self):
         py.test.skip("not implemented: single-precision floats")
+
+    def test_format_float(self):
+        from pypy.rlib.rfloat import _formatd
+        def fn(precision):
+            return _formatd(10.01, 'd', precision, 0)
+
+        res = self.interpret(fn, [2])
+        assert res == "10.01"
+
+        res = self.interpret(fn, [1])
+        assert res == "10.0"

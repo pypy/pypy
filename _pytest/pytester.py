@@ -6,7 +6,7 @@ import re
 import inspect
 import time
 from fnmatch import fnmatch
-from _pytest.main import Session
+from _pytest.main import Session, EXIT_OK
 from py.builtin import print_
 from _pytest.core import HookRelay
 
@@ -236,13 +236,14 @@ class TmpTestdir:
     def _makefile(self, ext, args, kwargs):
         items = list(kwargs.items())
         if args:
-            source = "\n".join(map(str, args)) + "\n"
+            source = py.builtin._totext("\n").join(
+                map(py.builtin._totext, args)) + py.builtin._totext("\n")
             basename = self.request.function.__name__
             items.insert(0, (basename, source))
         ret = None
         for name, value in items:
             p = self.tmpdir.join(name).new(ext=ext)
-            source = str(py.code.Source(value)).lstrip()
+            source = py.builtin._totext(py.code.Source(value)).lstrip()
             p.write(source.encode("utf-8"), "wb")
             if ret is None:
                 ret = p
@@ -291,13 +292,19 @@ class TmpTestdir:
         assert '::' not in str(arg)
         p = py.path.local(arg)
         x = session.fspath.bestrelpath(p)
-        return session.perform_collect([x], genitems=False)[0]
+        config.hook.pytest_sessionstart(session=session)
+        res = session.perform_collect([x], genitems=False)[0]
+        config.hook.pytest_sessionfinish(session=session, exitstatus=EXIT_OK)
+        return res
 
     def getpathnode(self, path):
-        config = self.parseconfig(path)
+        config = self.parseconfigure(path)
         session = Session(config)
         x = session.fspath.bestrelpath(path)
-        return session.perform_collect([x], genitems=False)[0]
+        config.hook.pytest_sessionstart(session=session)
+        res = session.perform_collect([x], genitems=False)[0]
+        config.hook.pytest_sessionfinish(session=session, exitstatus=EXIT_OK)
+        return res
 
     def genitems(self, colitems):
         session = colitems[0].session
@@ -311,7 +318,9 @@ class TmpTestdir:
         config = self.parseconfigure(*args)
         rec = self.getreportrecorder(config)
         session = Session(config)
+        config.hook.pytest_sessionstart(session=session)
         session.perform_collect()
+        config.hook.pytest_sessionfinish(session=session, exitstatus=EXIT_OK)
         return session.items, rec
 
     def runitem(self, source):
@@ -381,6 +390,8 @@ class TmpTestdir:
             c.basetemp = py.path.local.make_numbered_dir(prefix="reparse",
                 keep=0, rootdir=self.tmpdir, lock_timeout=None)
             c.parse(args)
+            c.pluginmanager.do_configure(c)
+            self.request.addfinalizer(lambda: c.pluginmanager.do_unconfigure(c))
             return c
         finally:
             py.test.config = oldconfig

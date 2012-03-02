@@ -1,7 +1,7 @@
-from pypy.rpython.lltypesystem.lltype import \
-     Primitive, Ptr, typeOf, RuntimeTypeInfo, \
-     Struct, Array, FuncType, PyObject, Void, \
-     ContainerType, OpaqueType, FixedSizeArray, _uninitialized
+
+from pypy.rpython.lltypesystem.lltype import (
+    Primitive, Ptr, typeOf, RuntimeTypeInfo, Struct, Array, FuncType, PyObject,
+    Void, ContainerType, OpaqueType, FixedSizeArray, _uninitialized, Typedef)
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.llmemory import WeakRef, _WeakRefType, GCREF
 from pypy.rpython.lltypesystem.rffi import CConstant
@@ -28,14 +28,14 @@ class LowLevelDatabase(object):
     gctransformer = None
 
     def __init__(self, translator=None, standalone=False,
+                 cpython_extension=False,
                  gcpolicyclass=None,
-                 stacklesstransformer=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
         self.standalone = standalone
+        self.cpython_extension = cpython_extension
         self.sandbox    = sandbox
-        self.stacklesstransformer = stacklesstransformer
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
@@ -100,6 +100,8 @@ class LowLevelDatabase(object):
     def gettype(self, T, varlength=1, who_asks=None, argnames=[]):
         if isinstance(T, Primitive) or T == GCREF:
             return PrimitiveType[T]
+        elif isinstance(T, Typedef):
+            return '%s @' % T.c_name
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
                 T.TO.hints.get('c_pointer_typedef') is not None):
@@ -176,7 +178,7 @@ class LowLevelDatabase(object):
                      # introduced by the GC transformer, or the type_info_table
         return node
 
-    def get(self, obj):
+    def get(self, obj, funcgen=None):
         if isinstance(obj, CConstant):
             return obj.c_name  # without further checks
         T = typeOf(obj)
@@ -228,6 +230,8 @@ class LowLevelDatabase(object):
                     return '((%s) %d)' % (cdecl(self.gettype(T), ''),
                                           obj._obj)
                 node = self.getcontainernode(container)
+                if node._funccodegen_owner is None:
+                    node._funccodegen_owner = funcgen
                 return node.getptrname()
             else:
                 return '((%s) NULL)' % (cdecl(self.gettype(T), ''), )
@@ -249,8 +253,8 @@ class LowLevelDatabase(object):
         else:
             show_i = -1
 
-        # The order of database completion is fragile with stackless and
-        # gc transformers.  Here is what occurs:
+        # The order of database completion is fragile with gc transformers.
+        # Here is what occurs:
         #
         # 1. follow dependencies recursively from the entry point: data
         #    structures pointing to other structures or functions, and
@@ -268,23 +272,11 @@ class LowLevelDatabase(object):
         #    ll_finalize().  New FuncNodes are built for them.  No more
         #    FuncNodes can show up after this step.
         #
-        # 4. stacklesstransform.finish() - freeze the stackless resume point
-        #    table.
+        # 4. gctransformer.finish_tables() - freeze the gc types table.
         #
-        # 5. follow new dependencies (this should be only the new frozen
-        #    table, which contains only numbers and already-seen function
-        #    pointers).
-        #
-        # 6. gctransformer.finish_tables() - freeze the gc types table.
-        #
-        # 7. follow new dependencies (this should be only the gc type table,
+        # 5. follow new dependencies (this should be only the gc type table,
         #    which contains only numbers and pointers to ll_finalizer
         #    functions seen in step 3).
-        #
-        # I think that there is no reason left at this point that force
-        # step 4 to be done before step 6, nor to have a follow-new-
-        # dependencies step inbetween.  It is important though to have step 3
-        # before steps 4 and 6.
         #
         # This is implemented by interleaving the follow-new-dependencies
         # steps with calls to the next 'finish' function from the following
@@ -293,21 +285,19 @@ class LowLevelDatabase(object):
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
                                      self.gctransformer.finish_helpers))
-        if self.stacklesstransformer:
-            finish_callbacks.append(('Stackless transformer: finished',
-                                     self.stacklesstransformer.finish))
-        if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 
-        def add_dependencies(newdependencies):
+        def add_dependencies(newdependencies, parent=None):
             for value in newdependencies:
                 #if isinstance(value, _uninitialized):
                 #    continue
                 if isinstance(typeOf(value), ContainerType):
-                    self.getcontainernode(value)
+                    node = self.getcontainernode(value)
+                    if parent and node._funccodegen_owner is not None:
+                        node._funccodegen_owner = parent._funccodegen_owner
                 else:
-                    self.get(value)
+                    self.get(value, parent and parent._funccodegen_owner)
 
         while True:
             while True:
@@ -319,7 +309,7 @@ class LowLevelDatabase(object):
                 if i == len(self.containerlist):
                     break
                 node = self.containerlist[i]
-                add_dependencies(node.enum_dependencies())
+                add_dependencies(node.enum_dependencies(), node)
                 i += 1
                 self.completedcontainers = i
                 if i == show_i:

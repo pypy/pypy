@@ -65,7 +65,7 @@ class AppTestMethodCaching(AppTestTypeObject):
         cache_counter = __pypy__.method_cache_counter("f")
         # the cache hits come from A.f = ..., which first does a lookup on A as
         # well
-        assert cache_counter == (9, 11)
+        assert cache_counter == (17, 3)
 
     def test_subclasses(self):
         import __pypy__
@@ -88,30 +88,37 @@ class AppTestMethodCaching(AppTestTypeObject):
   
     def test_many_names(self):
         import __pypy__
-        class A(object):
-            foo = 5
-            bar = 6
-            baz = 7
-            xyz = 8
-            stuff = 9
-            a = 10
-            foobar = 11
+        for j in range(20):
+            class A(object):
+                foo = 5
+                bar = 6
+                baz = 7
+                xyz = 8
+                stuff = 9
+                a = 10
+                foobar = 11
 
-        a = A()
-        names = [name for name in A.__dict__.keys()
-                      if not name.startswith('_')]
-        names.sort()
-        names_repeated = names * 10
-        result = []
-        __pypy__.reset_method_cache_counter()
-        for name in names_repeated:
-            result.append(getattr(a, name))
-        append_counter = __pypy__.method_cache_counter("append")
-        names_counters = [__pypy__.method_cache_counter(name)
-                          for name in names]
-        assert append_counter[0] >= 5 * len(names)
-        for name, count in zip(names, names_counters):
-            assert count[0] >= 5, str((name, count))
+            a = A()
+            names = [name for name in A.__dict__.keys()
+                          if not name.startswith('_')]
+            names.sort()
+            names_repeated = names * 10
+            result = []
+            __pypy__.reset_method_cache_counter()
+            for name in names_repeated:
+                result.append(getattr(a, name))
+            append_counter = __pypy__.method_cache_counter("append")
+            names_counters = [__pypy__.method_cache_counter(name)
+                              for name in names]
+            try:
+                assert append_counter[0] >= 10 * len(names) - 1
+                for name, count in zip(names, names_counters):
+                    assert count == (9, 1), str((name, count))
+                break
+            except AssertionError:
+                pass
+        else:
+            raise
 
     def test_mutating_bases(self):
         class C(object):
@@ -134,17 +141,50 @@ class AppTestMethodCaching(AppTestTypeObject):
 
     def test_custom_metaclass(self):
         import __pypy__
-        class MetaA(type):
-            def __getattribute__(self, x):
-                return 1
-        def f(self):
-            return 42
-        A = type.__new__(MetaA, "A", (), {"f": f})
-        l = [type.__getattribute__(A, "__new__")(A)] * 10
+        for j in range(20):
+            class MetaA(type):
+                def __getattribute__(self, x):
+                    return 1
+            def f(self):
+                return 42
+            A = type.__new__(MetaA, "A", (), {"f": f})
+            l = [type.__getattribute__(A, "__new__")(A)] * 10
+            __pypy__.reset_method_cache_counter()
+            for i, a in enumerate(l):
+                assert a.f() == 42
+            cache_counter = __pypy__.method_cache_counter("f")
+            assert sum(cache_counter) == 10
+            if cache_counter == (9, 1):
+                break
+            #else the moon is misaligned, try again
+        else:
+            raise AssertionError("cache_counter = %r" % (cache_counter,))
+
+    def test_mutate_class(self):
+        import __pypy__
+        class A(object):
+            x = 1
+            y = 2
         __pypy__.reset_method_cache_counter()
-        for i, a in enumerate(l):
-            assert a.f() == 42
-        cache_counter = __pypy__.method_cache_counter("f")
-        assert cache_counter[0] >= 5
-        assert cache_counter[1] >= 1 # should be (27, 3)
-        assert sum(cache_counter) == 10
+        a = A()
+        for i in range(100):
+            assert a.y == 2
+            assert a.x == i + 1
+            A.x += 1
+        cache_counter = __pypy__.method_cache_counter("x")
+        assert cache_counter[0] >= 350
+        assert cache_counter[1] >= 1
+        assert sum(cache_counter) == 400
+
+        __pypy__.reset_method_cache_counter()
+        a = A()
+        for i in range(100):
+            assert a.y == 2
+            setattr(a, "a%s" % i, i)
+        cache_counter = __pypy__.method_cache_counter("x")
+        assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
+
+    def test_get_module_from_namedtuple(self):
+        # this used to crash
+        from collections import namedtuple
+        assert namedtuple("a", "b").__module__

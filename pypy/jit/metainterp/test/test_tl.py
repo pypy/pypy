@@ -1,6 +1,6 @@
 import py
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
+from pypy.jit.metainterp.test.support import OOJitMixin, LLJitMixin
 
 
 class ToyLanguageTests:
@@ -58,7 +58,7 @@ class ToyLanguageTests:
             exit:
                 RETURN
         ''')
-        
+
         codes = [code, code2]
         def main(n, inputarg):
             code = codes[n]
@@ -72,16 +72,16 @@ class ToyLanguageTests:
         res = self.meta_interp(main, [0, 6], listops=True,
                                backendopt=True)
         assert res == 5040
-        self.check_loops({'int_mul':1, 'jump':1,
-                          'int_sub':1, 'int_le':1, 'guard_false':1})
+        self.check_simple_loop({'jump': 1, 'int_le': 1,
+                                'int_mul': 1, 'guard_false': 1, 'int_sub': 1})
 
     def test_tl_2(self):
         main = self._get_main()
         res = self.meta_interp(main, [1, 10], listops=True,
                                backendopt=True)
         assert res == main(1, 10)
-        self.check_loops({'int_sub':1, 'int_le':1,
-                          'guard_false':1, 'jump':1})
+        self.check_simple_loop({'int_le': 1, 'int_sub': 1, 'jump': 1,
+                                'guard_false': 1})
 
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp
@@ -116,7 +116,7 @@ class ToyLanguageTests:
         codes = [code, '']
         def main(num, arg):
             return interp(codes[num], inputarg=arg)
-        
+
         res = self.meta_interp(main, [0, 20], enable_opts='',
                                listops=listops, backendopt=True, policy=policy)
         assert res == 0
@@ -128,7 +128,6 @@ class ToyLanguageTests:
         from pypy.jit.tl.tl import Stack
         methods = [Stack.put,
                    Stack.pick,
-                   Stack.roll,
                    Stack.append,
                    Stack.pop]
         for meth in methods:

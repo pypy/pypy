@@ -1,12 +1,13 @@
-
-from pypy.rpython.rbuilder import AbstractStringBuilderRepr
-from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rpython.lltypesystem.rstr import STR, UNICODE, char_repr,\
-     string_repr, unichar_repr, unicode_repr
-from pypy.rpython.annlowlevel import llstr
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
+from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.lltypesystem.lltype import staticAdtMethod
+from pypy.rpython.annlowlevel import llstr
+from pypy.rpython.rptr import PtrRepr
+from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rpython.lltypesystem.lltype import staticAdtMethod, nullptr
+from pypy.rpython.lltypesystem.rstr import (STR, UNICODE, char_repr,
+    string_repr, unichar_repr, unicode_repr)
+from pypy.rpython.rbuilder import AbstractStringBuilderRepr
 from pypy.tool.sourcetools import func_with_new_name
 
 # Think about heuristics below, maybe we can come up with something
@@ -15,6 +16,7 @@ from pypy.tool.sourcetools import func_with_new_name
 GROW_FAST_UNTIL = 100*1024*1024      # 100 MB
 
 def new_grow_func(name, mallocfn, copycontentsfn):
+    @enforceargs(None, int)
     def stringbuilder_grow(ll_builder, needed):
         allocated = ll_builder.allocated
         #if allocated < GROW_FAST_UNTIL:
@@ -27,7 +29,7 @@ def new_grow_func(name, mallocfn, copycontentsfn):
         except OverflowError:
             raise MemoryError
         newbuf = mallocfn(new_allocated)
-        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.allocated)
+        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.used)
         ll_builder.buf = newbuf
         ll_builder.allocated = new_allocated
     return func_with_new_name(stringbuilder_grow, name)
@@ -52,6 +54,9 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
 MAX = 16*1024*1024
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
+    def empty(self):
+        return nullptr(self.lowleveltype.TO)
+
     @classmethod
     def ll_new(cls, init_size):
         if init_size < 0 or init_size > MAX:
@@ -71,7 +76,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             ll_builder.grow(ll_builder, lgt)
         ll_str.copy_contents(ll_str, ll_builder.buf, 0, used, lgt)
         ll_builder.used = needed
-    
+
     @staticmethod
     def ll_append_char(ll_builder, char):
         if ll_builder.used == ll_builder.allocated:
@@ -90,12 +95,23 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = needed + used
 
     @staticmethod
+    @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
     def ll_append_multiple_char(ll_builder, char, times):
         used = ll_builder.used
         if times + used > ll_builder.allocated:
             ll_builder.grow(ll_builder, times)
         for i in range(times):
             ll_builder.buf.chars[used] = char
+            used += 1
+        ll_builder.used = used
+
+    @staticmethod
+    def ll_append_charpsize(ll_builder, charp, size):
+        used = ll_builder.used
+        if used + size > ll_builder.allocated:
+            ll_builder.grow(ll_builder, size)
+        for i in xrange(size):
+            ll_builder.buf.chars[used] = charp[i]
             used += 1
         ll_builder.used = used
 
@@ -107,9 +123,14 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def ll_build(ll_builder):
         final_size = ll_builder.used
         assert final_size >= 0
-        if final_size == ll_builder.allocated:
-            return ll_builder.buf
-        return rgc.ll_shrink_array(ll_builder.buf, final_size)
+        if final_size < ll_builder.allocated:
+            ll_builder.allocated = final_size
+            ll_builder.buf = rgc.ll_shrink_array(ll_builder.buf, final_size)
+        return ll_builder.buf
+
+    @classmethod
+    def ll_is_true(cls, ll_builder):
+        return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(STRINGBUILDER)
@@ -117,6 +138,9 @@ class StringBuilderRepr(BaseStringBuilderRepr):
     mallocfn = staticmethod(rstr.mallocstr)
     string_repr = string_repr
     char_repr = char_repr
+    raw_ptr_repr = PtrRepr(
+        lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+    )
 
 class UnicodeBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(UNICODEBUILDER)
@@ -124,6 +148,9 @@ class UnicodeBuilderRepr(BaseStringBuilderRepr):
     mallocfn = staticmethod(rstr.mallocunicode)
     string_repr = unicode_repr
     char_repr = unichar_repr
+    raw_ptr_repr = PtrRepr(
+        lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
+    )
 
 unicodebuilder_repr = UnicodeBuilderRepr()
 stringbuilder_repr = StringBuilderRepr()

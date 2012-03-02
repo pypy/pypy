@@ -23,12 +23,22 @@ int main(int argc, char *argv[]);
 #include "src/winstuff.c"
 #endif
 
-int PYPY_MAIN_FUNCTION(int argc, char *argv[])
+#ifdef __GNUC__
+/* Hack to prevent this function from being inlined.  Helps asmgcc
+   because the main() function has often a different prologue/epilogue. */
+int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
+#endif
+
+int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;
     RPyListOfString *list;
 
+    pypy_asm_stack_bottom();
+#ifdef PYPY_X86_CHECK_SSE2_DEFINED
+    pypy_x86_check_sse2();
+#endif
     instrument_setup();
 
     if (sizeof(void*) != SIZEOF_LONG) {
@@ -68,10 +78,14 @@ int PYPY_MAIN_FUNCTION(int argc, char *argv[])
  memory_out:
     errmsg = "out of memory";
  error:
-#ifndef AVR
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
-#endif
     abort();
+    return 1;
+}
+
+int PYPY_MAIN_FUNCTION(int argc, char *argv[])
+{
+    return pypy_main_function(argc, argv);
 }
 
 #endif /* PYPY_NOT_MAIN_FILE */

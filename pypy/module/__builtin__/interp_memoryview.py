@@ -2,7 +2,7 @@
 Implementation of the 'buffer' and 'memoryview' types.
 """
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter import gateway, buffer
+from pypy.interpreter import buffer
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError

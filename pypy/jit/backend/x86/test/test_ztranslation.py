@@ -1,8 +1,8 @@
 import py, os, sys
 from pypy.tool.udir import udir
-from pypy.rlib.jit import JitDriver, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters, set_param
 from pypy.rlib.jit import PARAMETERS, dont_look_inside
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import promote
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.support import CCompiledMixin
@@ -47,11 +47,12 @@ class TestTranslationX86(CCompiledMixin):
         def f(i, j):
             for param, _ in unroll_parameters:
                 defl = PARAMETERS[param]
-                jitdriver.set_param(param, defl)
-            jitdriver.set_param("threshold", 3)
-            jitdriver.set_param("trace_eagerness", 2)
+                set_param(jitdriver, param, defl)
+            set_param(jitdriver, "threshold", 3)
+            set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             frame = Frame(i)
+            j = float(j)
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)
@@ -78,8 +79,7 @@ class TestTranslationX86(CCompiledMixin):
             x = float(j)
             while i > 0:
                 jitdriver2.jit_merge_point(i=i, res=res, func=func, x=x)
-                jitdriver2.can_enter_jit(i=i, res=res, func=func, x=x)
-                func = hint(func, promote=True)
+                promote(func)
                 argchain = ArgChain()
                 argchain.arg(x)
                 res = func.call(argchain, rffi.DOUBLE)
@@ -214,8 +214,8 @@ class TestTranslationRemoveTypePtrX86(CCompiledMixin):
             else:
                 return Base()
         def myportal(i):
-            jitdriver.set_param("threshold", 3)
-            jitdriver.set_param("trace_eagerness", 2)
+            set_param(jitdriver, "threshold", 3)
+            set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             n = i
             while True:

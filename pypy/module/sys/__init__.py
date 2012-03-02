@@ -7,6 +7,8 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
+    _immutable_fields_ = ["defaultencoding?"]
+
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
         if space.config.translating:
@@ -40,11 +42,12 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv',
         'py3kwarning'           : 'space.w_False',
         'warnoptions'           : 'state.get(space).w_warnoptions', 
-        'builtin_module_names'  : 'state.w_None',
+        'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_initial_path'     : 'state.pypy_initial_path',
 
         '_getframe'             : 'vm._getframe', 
+        '_current_frames'       : 'currentframes._current_frames', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 
         'getrecursionlimit'     : 'vm.getrecursionlimit', 
         'setcheckinterval'      : 'vm.setcheckinterval', 
@@ -52,6 +55,7 @@ class Module(MixedModule):
         'exc_info'              : 'vm.exc_info', 
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
+        'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',
@@ -150,7 +154,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return space.wrap(operror.application_traceback)
+                return space.wrap(operror.get_traceback())
         return None 
 
     def get_w_default_encoder(self):
@@ -166,3 +170,7 @@ class Module(MixedModule):
     def get_flag(self, name):
         space = self.space
         return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
+
+    def get_state(self, space):
+        from pypy.module.sys import state
+        return state.get(space)

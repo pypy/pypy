@@ -77,6 +77,8 @@ opcodes = _proc_dict({
     'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
+    'oobox_int':                jvm.PYPYBOXINT,
+    'oounbox_int':              jvm.PYPYUNBOXINT,
     'cast_to_object':           DoNothing,
     'cast_from_object':         [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
@@ -95,10 +97,11 @@ opcodes = _proc_dict({
 
     'gc__collect':              jvm.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
-    'resume_point':             Ignore,
     'jit_marker':               Ignore,
     'jit_force_virtualizable':  Ignore,
     'jit_force_virtual':        DoNothing,
+    'jit_force_quasi_immutable': Ignore,
+    'jit_is_virtual':           PushPrimitive(ootype.Bool, False),
 
     'debug_assert':              [], # TODO: implement?
     'debug_start_traceback':    Ignore,
@@ -106,6 +109,10 @@ opcodes = _proc_dict({
     'debug_catch_exception':    Ignore,
     'debug_reraise_traceback':  Ignore,
     'debug_print_traceback':    Ignore,
+    'debug_start':              Ignore,
+    'debug_stop':               Ignore,
+    'debug_print':              Ignore,
+    'keepalive':                Ignore,
 
     # __________ numeric operations __________
 
@@ -144,6 +151,7 @@ opcodes = _proc_dict({
     'int_xor_ovf':              jvm.IXOR,
     'int_floordiv_ovf_zer':     jvm.IFLOORDIVZEROVF,
     'int_mod_ovf_zer':          _check_zer(jvm.IREMOVF),
+    'int_between':              jvm.PYPYINTBETWEEN,
 
     'uint_invert':              'bitwise_negate',
 
@@ -185,8 +193,8 @@ opcodes = _proc_dict({
     'llong_mod_zer':            _check_zer(jvm.LREM),
     'llong_and':                jvm.LAND,
     'llong_or':                 jvm.LOR,
-    'llong_lshift':             [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
-    'llong_rshift':             [PushAllArgs, jvm.L2I, jvm.LSHR, StoreResult],
+    'llong_lshift':             [PushAllArgs, jvm.LSHL, StoreResult],
+    'llong_rshift':             [PushAllArgs, jvm.LSHR, StoreResult],
     'llong_xor':                jvm.LXOR,
     'llong_floordiv_ovf':       jvm.LFLOORDIVOVF,
     'llong_floordiv_ovf_zer':   jvm.LFLOORDIVZEROVF,    
@@ -202,9 +210,11 @@ opcodes = _proc_dict({
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvm.LDIV, # valid?
     'ullong_mod':               jvm.PYPYULONGMOD,
-    'ullong_lshift':            [PushAllArgs, jvm.L2I, jvm.LSHL, StoreResult],
-    'ullong_rshift':            [PushAllArgs, jvm.L2I, jvm.LUSHR, StoreResult],
+    'ullong_lshift':            [PushAllArgs, jvm.LSHL, StoreResult],
+    'ullong_rshift':            [PushAllArgs, jvm.LUSHR, StoreResult],
     'ullong_mod_zer':           jvm.PYPYULONGMOD,
+    'ullong_or':                jvm.LOR,
+    'ullong_and':               jvm.LAND,
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
@@ -227,5 +237,8 @@ opcodes = _proc_dict({
     'cast_float_to_uint':       jvm.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvm.L2I,
     'cast_longlong_to_float':   jvm.L2D,
+    'cast_float_to_ulonglong':  jvm.PYPYDOUBLETOULONG,
+    'cast_ulonglong_to_float':  jvm.PYPYULONGTODOUBLE,
     'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
+    'force_cast':               [PushAllArgs, CastPrimitive, StoreResult],
 })

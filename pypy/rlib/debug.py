@@ -19,13 +19,24 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
 
-def fatalerror(msg, traceback=False):
+def fatalerror(msg):
+    # print the RPython traceback and abort with a fatal error
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
-    if traceback:
-        llop.debug_print_traceback(lltype.Void)
+    llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
+fatalerror._jit_look_inside_ = False
+fatalerror._annenforceargs_ = [str]
+
+def fatalerror_notb(msg):
+    # a variant of fatalerror() that doesn't print the RPython traceback
+    from pypy.rpython.lltypesystem import lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    llop.debug_fatalerror(lltype.Void, msg)
+fatalerror_notb._dont_inline_ = True
+fatalerror_notb._jit_look_inside_ = False
+fatalerror_notb._annenforceargs_ = [str]
 
 
 class DebugLog(list):
@@ -140,6 +151,40 @@ class Entry(ExtRegistryEntry):
             return hop.inputconst(lltype.Bool, False)
 
 
+def debug_offset():
+    """ Return an offset in log file
+    """
+    return -1
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_offset
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.genop('debug_offset', [], resulttype=lltype.Signed)
+
+
+def debug_flush():
+    """ Flushes the debug file
+    """
+    pass
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_flush
+
+    def compute_result_annotation(self):
+        return None
+    
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('debug_flush', [])
+
+
 def llinterpcall(RESTYPE, pythonfunction, *args):
     """When running on the llinterp, this causes the llinterp to call to
     the provided Python function with the run-time value of the given args.
@@ -175,6 +220,7 @@ class Entry(ExtRegistryEntry):
         c_pythonfunction = hop.inputconst(lltype.Void, pythonfunction)
         args_v = [hop.inputarg(hop.args_r[i], arg=i)
                   for i in range(2, hop.nb_args)]
+        hop.exception_is_here()
         return hop.genop('debug_llinterpcall', [c_pythonfunction] + args_v,
                          resulttype=RESTYPE)
 
@@ -226,6 +272,28 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.inputarg(hop.args_r[0], arg=0)
 
+
+def mark_dict_non_null(d):
+    """ Mark dictionary as having non-null keys and values. A warning would
+    be emitted (not an error!) in case annotation disagrees.
+    """
+    assert isinstance(d, dict)
+    return d
+
+
+class DictMarkEntry(ExtRegistryEntry):
+    _about_ = mark_dict_non_null
+    
+    def compute_result_annotation(self, s_dict):
+        from pypy.annotation.model import SomeDict, s_None
+
+        assert isinstance(s_dict, SomeDict)
+        s_dict.dictdef.force_non_null = True
+        return s_dict
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.args_r[0], arg=0)
 
 class IntegerCanBeNegative(Exception):
     pass

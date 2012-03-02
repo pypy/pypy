@@ -71,7 +71,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.2.8'  # bump this for substantial changes
+GI_VERSION = '1.2.9'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -1175,8 +1175,7 @@ else:
             pass
         defaultsname = self.uniquename('default')
         self._defaults_cache[key] = defaultsname
-        self.initcode.append("from pypy.interpreter.function import Defaults")
-        self.initcode.append("%s = Defaults([%s])" % (defaultsname, ', '.join(names)))
+        self.initcode.append("%s = [%s]" % (defaultsname, ', '.join(names)))
         return defaultsname
 
     def gen_rpyfunction(self, func):

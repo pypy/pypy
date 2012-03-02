@@ -1,9 +1,7 @@
 from pypy.module.thread import ll_thread as thread
-from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, interp2app
-from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
-from pypy.interpreter.typedef import descr_set_dict
+from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
+    descr_get_dict)
 
 
 class Local(Wrappable):

@@ -1,8 +1,8 @@
 import py
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import ootype
@@ -30,9 +30,10 @@ class VirtualTests:
         assert f(10) == 55 * 10
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
-        self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=2, new=0)
+
 
     def test_virtualized2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
@@ -53,8 +54,8 @@ class VirtualTests:
                 n -= 1
             return node1.value * node2.value
         assert f(10) == self.meta_interp(f, [10])
-        self.check_loops(new=0, new_with_vtable=0,
-                         getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+                          new=0)
 
     def test_virtualized_circular1(self):
         class MyNode():
@@ -78,9 +79,9 @@ class VirtualTests:
         assert f(10) == 55 * 10
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
-        self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=3, new=0)
 
     def test_virtualized_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -96,8 +97,8 @@ class VirtualTests:
             return node.floatval
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_loop_count(1)
-        self.check_loops(new=0, float_add=0)
+        self.check_trace_count(1)
+        self.check_resops(new=0, float_add=1)
 
     def test_virtualized_float2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -114,8 +115,9 @@ class VirtualTests:
             return node.floatval
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_loop_count(1)
-        self.check_loops(new=0, float_add=1)
+        self.check_trace_count(1)
+        self.check_resops(new=0, float_add=2)
+
 
     def test_virtualized_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -138,9 +140,9 @@ class VirtualTests:
             return node.value * node.extra
         res = self.meta_interp(f, [10])
         assert res == 55 * 30
-        self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+                          new=0)
 
     def test_nonvirtual_obj_delays_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -159,9 +161,9 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [500])
         assert res == 640
-        self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=1, new=0)
 
     def test_two_loops_with_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -183,9 +185,10 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [18])
         assert res == f(18)
-        self.check_loop_count(2)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_trace_count(2)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=2, new=0)
+
         
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -211,9 +214,9 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
         assert res == f(20)
-        self.check_loop_count(3)
-        self.check_loops(**{self._new_op: 1})
-        self.check_loops(int_mul=0, call=1)
+        self.check_trace_count(2)
+        self.check_resops(**{self._new_op: 1})
+        self.check_resops(int_mul=0, call=1)
 
     def test_two_virtuals(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'prev'])
@@ -236,7 +239,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [12])
         assert res == 78
-        self.check_loops(new_with_vtable=0, new=0)
+        self.check_resops(new_with_vtable=0, new=0)
 
     def test_specialied_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
@@ -281,7 +284,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [20])
         assert res == 9
-        self.check_loops(new_with_vtable=0, new=0)
+        self.check_resops(new_with_vtable=0, new=0)
 
     def test_immutable_constant_getfield(self):
         myjitdriver = JitDriver(greens = ['stufflist'], reds = ['n', 'i'])
@@ -300,14 +303,14 @@ class VirtualTests:
             while n > 0:
                 myjitdriver.can_enter_jit(n=n, i=i, stufflist=stufflist)
                 myjitdriver.jit_merge_point(n=n, i=i, stufflist=stufflist)
-                i = hint(i, promote=True)
+                promote(i)
                 v = Stuff(i)
                 n -= stufflist.lst[v.x].x
             return n
 
         res = self.meta_interp(f, [10, 1, 0], listops=True)
         assert res == 0
-        self.check_loops(getfield_gc=0)
+        self.check_resops(getfield_gc=0)
 
     def test_escapes(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -336,7 +339,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10], policy=StopAtXPolicy(g))
         assert res == 3
-        self.check_loops(**{self._new_op: 1}) 
+        self.check_resops(**{self._new_op: 1}) 
 
     def test_virtual_on_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -366,7 +369,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10])
         assert res == 2
-        self.check_loops(new=0, new_with_vtable=0) 
+        self.check_resops(new=0, new_with_vtable=0)
 
     def test_bridge_from_interpreter(self):
         mydriver = JitDriver(reds = ['n', 'f'], greens = [])
@@ -388,7 +391,7 @@ class VirtualTests:
         fieldname = self._field_prefix + 'value'
         assert getattr(res, fieldname, -100) == f(21).value
 
-        self.check_tree_loop_count(2)      # the loop and the entry path
+        self.check_jitcell_token_count(1)   # the loop and the entry path
         # we get:
         #    ENTER             - compile the new loop and entry bridge
         #    ENTER             - compile the leaving path
@@ -562,7 +565,10 @@ class VirtualTests:
                 n -= 1
             return node1.value + node2.value
         assert self.meta_interp(f, [40, 3]) == f(40, 3)
-        self.check_loop_count(6)
+        # We get 4 versions of this loop:
+        #   preamble (no virtuals), node1 virtual, node2 virtual, both virtual
+        self.check_target_token_count(4)
+        self.check_resops(new=0, new_with_vtable=0)
 
     def test_single_virtual_forced_in_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node'])
@@ -609,10 +615,10 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [48, 3], policy=StopAtXPolicy(externfn))
         assert res == f(48, 3)
-        self.check_loop_count(3)
+        self.check_trace_count(4)
         res = self.meta_interp(f, [40, 3], policy=StopAtXPolicy(externfn))
         assert res == f(40, 3)
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
     def test_forced_virtual_assigned_different_class_in_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node', 'node2'])
@@ -758,6 +764,190 @@ class VirtualTests:
         res = self.meta_interp(f, [0x1F, 0x11])
         assert res == f(0x1F, 0x11)
 
+    def test_duplicated_virtual(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 0
+            node2 = self._new()
+            node2.value = 1
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, node1=node1, node2=node2)
+                next = self._new()
+                next.value = node1.value + node2.value + n
+                node1 = next
+                node2 = next
+                n -= 1
+            return node1.value 
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_resops(new_with_vtable=0, new=0)
+
+        
+
+    def test_retrace_not_matching_bridge(self):
+        @dont_look_inside
+        def external(node):
+            return node.value + 1
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'node', 'node2'])
+        class A():
+            def new(self):
+                return A()
+            def val(self, i):
+                return i + 7
+        class B(A):
+            def new(self):
+                return B()
+            def val(self, i):
+                return i + 42
+        def f(n):
+            node = self._new()
+            node2 = A()
+            node.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, node=node, node2=node2)
+                next = self._new()
+                next.value = node.value + n + node2.val(i)
+                if i != 7:
+                    next.value += external(next)
+                else:
+                    node2 = B()
+                node = next
+                node2 = node2.new()
+
+                i += 1
+            return node.value 
+        res = self.meta_interp(f, [10], repeat=10)
+        assert res == f(10)
+        self.check_resops(jump=2)
+
+    def test_retrace_not_matching_bridge_str(self):
+        @dont_look_inside
+        def external(node):
+            return node.value + 1
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'node', 'node2', 's'])
+        class A():
+            def new(self):
+                return A()
+            def val(self, i):
+                return i + 7
+        class B(A):
+            def new(self):
+                return B()
+            def val(self, i):
+                return i + 42
+        def f(n):
+            s = '*' * n
+            node = self._new()
+            node2 = A()
+            node.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, node=node, node2=node2, s=s)
+                next = self._new()
+                next.value = node.value + n + node2.val(i)
+                if i != 7:
+                    next.value += external(next)
+                else:
+                    node2 = B()
+                node = next
+                node2 = node2.new()
+                node.value += len(s)
+                i += 1
+            return node.value 
+        res = self.meta_interp(f, [10], repeat=10)
+        assert res == f(10)
+        self.check_resops(jump=2)
+
+    def test_nested_loops_1(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        bytecode = "iajb+JI"
+        def get_printable_location(i):
+            return "%d: %s" % (i, bytecode[i])
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'],
+                                get_printable_location=get_printable_location)
+        def f(n):
+            pc = sa = 0
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    sa += (i.val + 2) * (j.val + 2)
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+        self.check_resops(int_mul=2)
+
+    def test_nested_loops_bridge(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'])
+        bytecode = "iajb+JI"
+        def f(n):
+            pc = sa = 0
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    if i.val < n-8:
+                        sa += 7
+                    if j.val < n-16:
+                        sa += 42
+                    sa += i.val * j.val
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [32])
+        assert res == f(32)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+
 class VirtualMiscTests:
 
     def test_multiple_equal_virtuals(self):
@@ -841,7 +1031,7 @@ class VirtualMiscTests:
                 del t2
             return i
         assert self.meta_interp(f, []) == 10
-        self.check_loops(new_array=0)
+        self.check_resops(new_array=0)
 
     def test_virtual_streq_bug(self):
         mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
@@ -898,6 +1088,53 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [], repeat=7)
         assert res == f()
 
+    def test_virtual_attribute_pure_function(self):
+        mydriver = JitDriver(reds = ['i', 'sa', 'n', 'node'], greens = [])
+        class A(object):
+            def __init__(self, v1, v2):
+                self.v1 = v1
+                self.v2 = v2
+        def f(n):
+            i = sa = 0
+            node = A(1, 2)
+            while i < n:
+                mydriver.jit_merge_point(i=i, sa=sa, n=n, node=node)
+                sa += node.v1 + node.v2 + 2*node.v1
+                if i < n/2:
+                    node = A(n, 2*n)
+                else:
+                    node = A(n, 3*n)
+                i += 1
+            return sa
+
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+
+    def test_virtual_loop_invariant_getitem(self):
+        mydriver = JitDriver(reds = ['i', 'sa', 'n', 'node1', 'node2'], greens = [])
+        class A(object):
+            def __init__(self, v1, v2):
+                self.v1 = v1
+                self.v2 = v2
+        def f(n):
+            i = sa = 0
+            node1 = A(1, 2)
+            node2 = A(n, n)
+            while i < n:
+                mydriver.jit_merge_point(i=i, sa=sa, n=n, node1=node1, node2=node2)
+                sa += node1.v1 + node2.v1 + node2.v2
+                if i < n/2:
+                    node1 = A(node2.v1, 2)
+                else:
+                    node1 = A(i, 2)
+                i += 1
+            return sa
+
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+        self.check_resops(getfield_gc=7)
+     
+
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
 
@@ -937,11 +1174,9 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
         assert f(10) == 20
         res = self.meta_interp(f, [10])
         assert res == 20
-        self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
-
-
+        self.check_trace_count(1)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
+                          new=0)
 
 class TestOOtype_Instance(VirtualTests, OOJitMixin):
     _new_op = 'new_with_vtable'

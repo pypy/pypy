@@ -1,11 +1,12 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 
 from pypy.objspace.std.stringtype import wrapstr
 
-class W_StringJoinObject(W_Object):
+class W_StringJoinObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, joined_strs, until=-1):
@@ -29,6 +30,7 @@ class W_StringJoinObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self.force()
+    str_w = unwrap
 
 registerimplementation(W_StringJoinObject)
 
@@ -44,9 +46,6 @@ def len__StringJoin(space, w_self):
     for i in range(w_self.until):
         result += len(w_self.joined_strs[i])
     return space.wrap(result)
-
-def str_w__StringJoin(space, w_str):
-    return w_str.force()
 
 def add__StringJoin_StringJoin(space, w_self, w_other):
     if len(w_self.joined_strs) > w_self.until:

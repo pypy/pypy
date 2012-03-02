@@ -1,4 +1,3 @@
-.. include:: crufty.rst
 
 Making a PyPy Release
 =======================
@@ -10,17 +9,14 @@ As a meta rule setting up issues in the tracker for items here may help not
 forgetting things. A set of todo files may also work.
 
 Check and prioritize all issues for the release, postpone some if necessary,
-create new  issues also as necessary. A meeting (or meetings) should be
-organized to decide what things are priorities, should go in and work for
-the release. 
-
-An important thing is to get the documentation into an up-to-date state!
+create new  issues also as necessary. An important thing is to get
+the documentation into an up-to-date state!
 
 Release Steps
 ----------------
 
-* at code freeze make a release branch under
-  http://codepeak.net/svn/pypy/release/x.y(.z). IMPORTANT: bump the
+* at code freeze make a release branch using release-x.x.x in mercurial
+  IMPORTANT: bump the
   pypy version number in module/sys/version.py and in
   module/cpyext/include/patchlevel.h, notice that the branch
   will capture the revision number of this change for the release;
@@ -29,6 +25,7 @@ Release Steps
   necessary
 * update pypy/doc/contributor.txt (and possibly LICENSE)
 * update README
+* change the tracker to have a new release tag to file bugs against
 * go to pypy/tool/release and run:
   force-builds.py /release/<release branch>
 * wait for builds to complete, make sure there are no failures
@@ -39,17 +36,10 @@ Release Steps
     JIT: windows, linux, os/x
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
-    stackless: windows, linux, os/x
 
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
-
-* update http://codespeak.net/pypy/trunk:
-   code0> + chmod -R yourname:users /www/codespeak.net/htdocs/pypy/trunk
-   local> cd ..../pypy/doc && py.test
-   local> cd ..../pypy
-   local> rsync -az doc codespeak.net:/www/codespeak.net/htdocs/pypy/trunk/pypy/
 
 * post announcement on morepypy.blogspot.com
 * send announcements to pypy-dev, python-list,

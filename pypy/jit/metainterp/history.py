@@ -2,30 +2,37 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
+from pypy.rlib.objectmodel import we_are_translated, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_int64
+from pypy.rlib.rarithmetic import r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.rlib.objectmodel import compute_identity_hash
+import weakref
 
 # ____________________________________________________________
 
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
 
 FAILARGS_LIMIT = 1000
 
-def getkind(TYPE, supports_floats=True, supports_longlong=True):
+def getkind(TYPE, supports_floats=True,
+                  supports_longlong=True,
+                  supports_singlefloats=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
         if TYPE is lltype.Float and supports_floats:
             return 'float'
+        if TYPE is lltype.SingleFloat and supports_singlefloats:
+            return 'int'     # singlefloats are stored in an int
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
@@ -100,7 +107,7 @@ class AbstractValue(object):
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
-        raise NotImplementedError
+        return compute_identity_hash(self)
 
     def clonebox(self):
         raise NotImplementedError
@@ -117,9 +124,6 @@ class AbstractValue(object):
     def sort_key(self):
         raise NotImplementedError
 
-    def set_future_value(self, cpu, j):
-        raise NotImplementedError
-
     def nonnull(self):
         raise NotImplementedError
 
@@ -129,58 +133,14 @@ class AbstractValue(object):
     def _get_str(self):
         raise NotImplementedError
 
+    def same_box(self, other):
+        return self is other
+
 class AbstractDescr(AbstractValue):
     __slots__ = ()
 
     def repr_of_descr(self):
         return '%r' % (self,)
-
-    def get_arg_types(self):
-        """ Implement in call descr.
-        Must return a string of INT, REF and FLOAT ('i', 'r', 'f').
-        """
-        raise NotImplementedError
-
-    def get_return_type(self):
-        """ Implement in call descr.
-        Must return INT, REF, FLOAT, or 'v' for void.
-        On 32-bit (hack) it can also be 'L' for longlongs.
-        """
-        raise NotImplementedError
-
-    def get_extra_info(self):
-        """ Implement in call descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_pointers(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_floats(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_pointer_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def is_float_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def as_vtable_size_descr(self):
-        """ Implement for size descr representing objects with vtables.
-        Returns self.  (it's an annotation hack)
-        """
-        raise NotImplementedError
-
-    def count_fields_if_immutable(self):
-        return -1
 
     def _clone_if_mutable(self):
         return self
@@ -236,31 +196,14 @@ class Const(AbstractValue):
     def constbox(self):
         return self
 
+    def same_box(self, other):
+        return self.same_constant(other)
+
     def same_constant(self, other):
         raise NotImplementedError
 
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
-
-    def __eq__(self, other):
-        "NOT_RPYTHON"
-        # Remember that you should not compare Consts with '==' in RPython.
-        # Consts have no special __hash__, in order to force different Consts
-        # from being considered as different keys when stored in dicts
-        # (as they always are after translation).  Use a dict_equal_consts()
-        # to get the other behavior (i.e. using this __eq__).
-        if self.__class__ is not other.__class__:
-            return False
-        try:
-            return self.value == other.value
-        except TypeError:
-            if (isinstance(self.value, Symbolic) and
-                isinstance(other.value, Symbolic)):
-                return self.value is other.value
-            raise
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 class ConstInt(Const):
@@ -290,12 +233,9 @@ class ConstInt(Const):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def same_constant(self, other):
-        if isinstance(other, Const):
-            return self.value == other.getint()
+        if isinstance(other, ConstInt):
+            return self.value == other.value
         return False
 
     def nonnull(self):
@@ -329,9 +269,6 @@ class ConstFloat(Const):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
@@ -378,9 +315,6 @@ class ConstPtr(Const):
 
     def getaddr(self):
         return llmemory.cast_ptr_to_adr(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstPtr):
@@ -432,9 +366,6 @@ class ConstObj(Const):
             return ootype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
 ##    def getaddr(self):
 ##        # so far this is used only when calling
@@ -541,9 +472,6 @@ class BoxInt(Box):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def nonnull(self):
         return self.value != 0
 
@@ -575,9 +503,6 @@ class BoxFloat(Box):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
         return self.value != longlong.ZEROF
@@ -620,9 +545,6 @@ class BoxPtr(Box):
             return lltype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def nonnull(self):
         return bool(self.value)
@@ -668,54 +590,24 @@ class BoxObj(Box):
     def nonnull(self):
         return bool(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
-
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
 
     _getrepr_ = repr_object
 
 
-def set_future_values(cpu, boxes):
-    for j in range(len(boxes)):
-        boxes[j].set_future_value(cpu, j)
-
 # ____________________________________________________________
 
-def dict_equal_consts():
-    "NOT_RPYTHON"
-    # Returns a dict in which Consts that compare as equal
-    # are identified when used as keys.
-    return r_dict(dc_eq, dc_hash)
-
-def dc_eq(c1, c2):
-    return c1 == c2
-
-def dc_hash(c):
-    "NOT_RPYTHON"
-    # This is called during translation only.  Avoid using identityhash(),
-    # to avoid forcing a hash, at least on lltype objects.
-    if not isinstance(c, Const):
-        return hash(c)
-    if isinstance(c.value, Symbolic):
-        return id(c.value)
-    try:
-        if isinstance(c, ConstPtr):
-            p = lltype.normalizeptr(c.value)
-            if p is not None:
-                return hash(p._obj)
-            else:
-                return 0
-        return c._get_hash_()
-    except lltype.DelayedPointer:
-        return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
+    from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
         adr = heaptracker.int2adr(i)
-        return llmemory.cast_adr_to_int(adr, "emulated")
+        try:
+            return llmemory.cast_adr_to_int(adr, "emulated")
+        except NotCtypesAllocatedStructure:
+            return 12345 # use an arbitrary number for the hash
     return i
 
 def get_const_ptr_for_string(s):
@@ -748,20 +640,21 @@ _const_ptr_for_unicode = {}
 
 # ____________________________________________________________
 
-# The TreeLoop class contains a loop or a generalized loop, i.e. a tree
-# of operations.  Each branch ends in a jump which can go either to
-# the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
+# The JitCellToken class is the root of a tree of traces.  Each branch ends
+# in a jump which goes to a LABEL operation; or it ends in a FINISH.
 
-class LoopToken(AbstractDescr):
+class JitCellToken(AbstractDescr):
     """Used for rop.JUMP, giving the target of the jump.
     This is different from TreeLoop: the TreeLoop class contains the
     whole loop, including 'operations', and goes away after the loop
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
-    short_preamble = None
+    target_tokens = None
     failed_states = None
+    retraced_count = 0
     terminating = False # see TerminatingLoopToken in compile.py
+    invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
     number = -1
@@ -774,10 +667,11 @@ class LoopToken(AbstractDescr):
 
     def __init__(self):
         # For memory management of assembled loops
-        self._keepalive_target_looktokens = {}      # set of other LoopTokens
+        self._keepalive_jitcell_tokens = {}      # set of other JitCellToken
 
-    def record_jump_to(self, target_loop_token):
-        self._keepalive_target_looktokens[target_loop_token] = None
+    def record_jump_to(self, jitcell_token):
+        assert isinstance(jitcell_token, JitCellToken)
+        self._keepalive_jitcell_tokens[jitcell_token] = None
 
     def __repr__(self):
         return '<Loop %d, gen=%d>' % (self.number, self.generation)
@@ -785,16 +679,55 @@ class LoopToken(AbstractDescr):
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
 
+    def dump(self):
+        self.compiled_loop_token.cpu.dump_loop_token(self)
 
+class TargetToken(AbstractDescr):
+    def __init__(self, targeting_jitcell_token=None):
+        # Warning, two different jitcell_tokens here!
+        #
+        # * 'targeting_jitcell_token' is only useful for the front-end,
+        #   and it means: consider the LABEL that uses this TargetToken.
+        #   At this position, the state is logically the one given
+        #   by targeting_jitcell_token.  So e.g. if we want to enter the
+        #   JIT with some given green args, if the jitcell matches, then
+        #   we can jump to this LABEL.
+        #
+        # * 'original_jitcell_token' is information from the backend's
+        #   point of view: it means that this TargetToken is used in
+        #   a LABEL that belongs to either:
+        #   - a loop; then 'original_jitcell_token' is this loop
+        #   - or a bridge; then 'original_jitcell_token' is the loop
+        #     out of which we made this bridge
+        #
+        self.targeting_jitcell_token = targeting_jitcell_token
+        self.original_jitcell_token = None
+
+        self.virtual_state = None
+        self.exported_state = None
+
+    def repr_of_descr(self):
+        return 'TargetToken(%d)' % compute_unique_id(self)
+        
 class TreeLoop(object):
     inputargs = None
     operations = None
-    token = None
     call_pure_results = None
+    logops = None
+    quasi_immutable_deps = None
+    resume_at_jump_descr = None
+
+    def _token(*args):
+        raise Exception("TreeLoop.token is killed")
+    token = property(_token, _token)
+
+    # This is the jitcell where the trace starts. Labels within the trace might
+    # belong to some other jitcells in the sens that jumping to this other
+    # jitcell will result in a jump to the label.
+    original_jitcell_token = None
 
     def __init__(self, name):
         self.name = name
-        # self.inputargs = list of distinct Boxes
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
@@ -827,6 +760,10 @@ class TreeLoop(object):
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
         self.check_consistency_of(self.inputargs, self.operations)
+        for op in self.operations:
+            descr = op.getdescr()
+            if op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
+                assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod
     def check_consistency_of(inputargs, operations):
@@ -861,15 +798,23 @@ class TreeLoop(object):
                 assert isinstance(box, Box)
                 assert box not in seen
                 seen[box] = True
+            if op.getopnum() == rop.LABEL:
+                inputargs = op.getarglist()
+                for box in inputargs:
+                    assert isinstance(box, Box), "LABEL contains %r" % (box,)
+                seen = dict.fromkeys(inputargs)
+                assert len(seen) == len(inputargs), (
+                    "duplicate Box in the LABEL arguments")
+                
         assert operations[-1].is_final()
         if operations[-1].getopnum() == rop.JUMP:
             target = operations[-1].getdescr()
             if target is not None:
-                assert isinstance(target, LoopToken)
+                assert isinstance(target, TargetToken)
 
     def dump(self):
         # RPython-friendly
-        print '%r: inputargs =' % self, self._dump_args(self.inputargs)
+        print '%r: inputargs =' % self, self._dump_args(self.inputargs)        
         for op in self.operations:
             args = op.getarglist()
             print '\t', op.getopname(), self._dump_args(args), \
@@ -948,21 +893,46 @@ class NoStats(object):
     def view(self, **kwds):
         pass
 
+    def clear(self):
+        pass
+
+    def add_jitcell_token(self, token):
+        pass
+
 class Stats(object):
     """For tests."""
 
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
-    history = None
+    operations = None
 
     def __init__(self):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
+        self.invalidated_token_numbers = set()    # <- not RPython
+        self.jitcell_token_wrefs = []
+        self.jitcell_dicts = []                   # <- not RPython
 
+    def clear(self):
+        del self.loops[:]
+        del self.locations[:]
+        del self.aborted_keys[:]
+        del self.jitcell_token_wrefs[:]
+        self.invalidated_token_numbers.clear()
+        self.compiled_count = 0
+        self.enter_count = 0
+        self.aborted_count = 0
+        for dict in self.jitcell_dicts:
+            dict.clear()
+
+    def add_jitcell_token(self, token):
+        assert isinstance(token, JitCellToken)
+        self.jitcell_token_wrefs.append(weakref.ref(token))
+        
     def set_history(self, history):
-        self.history = history
+        self.operations = history.operations
 
     def aborted(self):
         self.aborted_count += 1
@@ -990,9 +960,18 @@ class Stats(object):
     def get_all_loops(self):
         return self.loops
 
+    def get_all_jitcell_tokens(self):
+        tokens = [t() for t in self.jitcell_token_wrefs]
+        if None in tokens:
+            assert False, "get_all_jitcell_tokens will not work as "+\
+                          "loops have been freed"
+        return tokens
+            
+        
+
     def check_history(self, expected=None, **check):
         insns = {}
-        for op in self.history.operations:
+        for op in self.operations:
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
@@ -1005,16 +984,71 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
+    def check_resops(self, expected=None, **check):
+        insns = {}
+        for loop in self.get_all_loops():
+            insns = loop.summary(adding_insns=insns)
+        return self._check_insns(insns, expected, check)
+
+    def _check_insns(self, insns, expected, check):
+        if expected is not None:
+            insns.pop('debug_merge_point', None)
+            insns.pop('label', None)
+            assert insns == expected
+        for insn, expected_count in check.items():
+            getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
+            found = insns.get(insn, 0)
+            assert found == expected_count, (
+                "found %d %r, expected %d" % (found, insn, expected_count))
+        return insns
+
+    def check_simple_loop(self, expected=None, **check):
+        """ Usefull in the simplest case when we have only one trace ending with
+        a jump back to itself and possibly a few bridges.
+        Only the operations within the loop formed by that single jump will
+        be counted.
+        """
+        loops = self.get_all_loops()
+        assert len(loops) == 1
+        loop = loops[0]
+        jumpop = loop.operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
+        targets = [op._descr_wref() for op in labels]
+        assert None not in targets # TargetToken was freed, give up
+        target = jumpop._descr_wref()
+        assert target
+        assert targets.count(target) == 1
+        i = loop.operations.index(labels[targets.index(target)])
+        insns = {}
+        for op in loop.operations[i:]:
+            opname = op.getopname()
+            insns[opname] = insns.get(opname, 0) + 1
+        return self._check_insns(insns, expected, check)
+        
     def check_loops(self, expected=None, everywhere=False, **check):
         insns = {}
-        for loop in self.loops:
-            if not everywhere:
-                if getattr(loop, '_ignore_during_counting', False):
-                    continue
+        for loop in self.get_all_loops():
+            #if not everywhere:
+            #    if getattr(loop, '_ignore_during_counting', False):
+            #        continue
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
-            assert insns == expected
+            print
+            print
+            print "        self.check_resops(%s)" % str(insns)
+            print
+            import pdb; pdb.set_trace()
+        else:
+            chk = ['%s=%d' % (i, insns.get(i, 0)) for i in check]
+            print
+            print
+            print "        self.check_resops(%s)" % ', '.join(chk)
+            print
+            import pdb; pdb.set_trace()
+        return
+        
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
             found = insns.get(insn, 0)
@@ -1024,21 +1058,26 @@ class Stats(object):
 
     def check_consistency(self):
         "NOT_RPYTHON"
-        for loop in self.loops:
+        for loop in self.get_all_loops():
             loop.check_consistency()
 
     def maybe_view(self):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extraloops=[]):
-        from pypy.jit.metainterp.graphpage import display_loops
-        loops = self.get_all_loops()[:]
-        for loop in extraloops:
-            if loop in loops:
-                loops.remove(loop)
-            loops.append(loop)
-        display_loops(loops, errmsg, extraloops)
+    def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
+        from pypy.jit.metainterp.graphpage import display_procedures
+        procedures = self.get_all_loops()[:]
+        for procedure in extraprocedures:
+            if procedure in procedures:
+                procedures.remove(procedure)
+            procedures.append(procedure)
+        highlight_procedures = dict.fromkeys(extraprocedures, 1)
+        for procedure in procedures:
+            if hasattr(procedure, '_looptoken_number') and (
+               procedure._looptoken_number in self.invalidated_token_numbers):
+                highlight_procedures.setdefault(procedure, 2)
+        display_procedures(procedures, errmsg, highlight_procedures, metainterp_sd)
 
 # ----------------------------------------------------------------
 

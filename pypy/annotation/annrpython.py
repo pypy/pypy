@@ -93,6 +93,10 @@ class RPythonAnnotator(object):
         # make input arguments and set their type
         args_s = [self.typeannotation(t) for t in input_arg_types]
 
+        # XXX hack
+        annmodel.TLS.check_str_without_nul = (
+            self.translator.config.translation.check_str_without_nul)
+
         flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
         if not isinstance(flowgraph, FunctionGraph):
             assert isinstance(flowgraph, annmodel.SomeObject)
@@ -149,7 +153,7 @@ class RPythonAnnotator(object):
         desc = olddesc.bind_self(classdef)
         args = self.bookkeeper.build_args("simple_call", args_s[:])
         desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
-            args, annmodel.s_ImpossibleValue)
+            args, annmodel.s_ImpossibleValue, None)
         result = []
         def schedule(graph, inputcells):
             result.append((graph, inputcells))
@@ -228,7 +232,7 @@ class RPythonAnnotator(object):
             # graph -- it's already low-level operations!
             for a, s_newarg in zip(graph.getargs(), cells):
                 s_oldarg = self.binding(a)
-                assert s_oldarg.contains(s_newarg)
+                assert annmodel.unionof(s_oldarg, s_newarg) == s_oldarg
         else:
             assert not self.frozen
             for a in cells:

@@ -15,6 +15,8 @@ _WIN32 = sys.platform == "win32"
 _MSVC  = target_platform.name == "msvc"
 _MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
+_MACOSX = sys.platform == "darwin"
+_HAS_AF_PACKET = sys.platform.startswith('linux')   # only Linux for now
 
 if _POSIX:
     includes = ('sys/types.h',
@@ -33,11 +35,12 @@ if _POSIX:
                 'stdint.h', 
                 'errno.h',
                 )
+    if _HAS_AF_PACKET:
+        includes += ('netpacket/packet.h',
+                     'sys/ioctl.h',
+                     'net/if.h')
 
-    cond_includes = [('AF_NETLINK', 'linux/netlink.h'),
-                     ('AF_PACKET', 'netpacket/packet.h'),
-                     ('AF_PACKET', 'sys/ioctl.h'),
-                     ('AF_PACKET', 'net/if.h')]
+    cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
     
     libraries = ()
     calling_conv = 'c'
@@ -89,35 +92,10 @@ if _WIN32:
     COND_HEADER = ''
 constants = {}
 
-sources = ["""
-    void pypy_macro_wrapper_FD_SET(int fd, fd_set *set)
-    {
-        FD_SET(fd, set);
-    }
-    void pypy_macro_wrapper_FD_ZERO(fd_set *set)
-    {
-        FD_ZERO(set);
-    }
-    void pypy_macro_wrapper_FD_CLR(int fd, fd_set *set)
-    {
-        FD_CLR(fd, set);
-    }
-    int pypy_macro_wrapper_FD_ISSET(int fd, fd_set *set)
-    {
-        return FD_ISSET(fd, set);
-    }
-    """]
-
 eci = ExternalCompilationInfo(
     post_include_bits = [HEADER, COND_HEADER],
     includes = includes,
     libraries = libraries,
-    separate_module_sources = sources,
-    export_symbols = ['pypy_macro_wrapper_FD_ZERO',
-                      'pypy_macro_wrapper_FD_SET',
-                      'pypy_macro_wrapper_FD_CLR',
-                      'pypy_macro_wrapper_FD_ISSET',
-                      ],
 )
 
 class CConfig:
@@ -344,18 +322,18 @@ if _POSIX:
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
 
-    CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
+    if _HAS_AF_PACKET:
+        CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
                               [('sll_ifindex', rffi.INT),
                                ('sll_protocol', rffi.INT),
                                ('sll_pkttype', rffi.INT),
                                ('sll_hatype', rffi.INT),
                                ('sll_addr', rffi.CFixedArray(rffi.CHAR, 8)),
-                               ('sll_halen', rffi.INT)],
-                              ifdef='AF_PACKET')
+                               ('sll_halen', rffi.INT)])
 
-    CConfig.ifreq = platform.Struct('struct ifreq', [('ifr_ifindex', rffi.INT),
-                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))],
-                                    ifdef='AF_PACKET')
+        CConfig.ifreq = platform.Struct('struct ifreq',
+                                [('ifr_ifindex', rffi.INT),
+                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
 
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
@@ -410,6 +388,8 @@ for name, default in constants_w_defaults:
         constants[name] = value
     else:
         constants[name] = default
+if not _HAS_AF_PACKET and 'AF_PACKET' in constants:
+    del constants['AF_PACKET']
 
 constants['has_ipv6'] = True # This is a configuration option in CPython
 for name, value in constants.items():
@@ -438,7 +418,7 @@ assert WIN32 == _WIN32
 if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
-    INVALID_SOCKET = cConfig.INVALID_SOCKET
+    INVALID_SOCKET = r_uint(cConfig.INVALID_SOCKET)
 else:
     def invalid_socket(fd):
         return fd < 0
@@ -463,28 +443,22 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
-    sockaddr_ll = cConfig.sockaddr_ll
-    ifreq = cConfig.ifreq
+    if _HAS_AF_PACKET:
+        sockaddr_ll = cConfig.sockaddr_ll
+        ifreq = cConfig.ifreq
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
 timeval = cConfig.timeval
 
-#if _POSIX:
-#    includes = list(includes)
-#    for _name, _header in cond_includes:
-#        if getattr(cConfig, _name) is not None:
-#            includes.append(_header)
-#    eci = ExternalCompilationInfo(includes=includes, libraries=libraries,
-#                                  separate_module_sources=sources)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv=calling_conv)
+                           calling_conv=calling_conv, **kwds)
 
-def external_c(name, args, result):
+def external_c(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv='c')
+                           calling_conv='c', **kwargs)
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type)
@@ -499,9 +473,9 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT)
+    socketclose = external('closesocket', [socketfd_type], rffi.INT, threadsafe=False)
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT)
+    socketclose = external('close', [socketfd_type], rffi.INT, threadsafe=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
@@ -512,10 +486,10 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT)
-htons = external('htons', [rffi.USHORT], rffi.USHORT)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT)
+htonl = external('htonl', [rffi.UINT], rffi.UINT, threadsafe=False)
+htons = external('htons', [rffi.USHORT], rffi.USHORT, threadsafe=False)
+ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
+ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
@@ -567,7 +541,7 @@ if _POSIX:
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT)
-    if ifreq is not None:
+    if _HAS_AF_PACKET:
         ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
                          rffi.INT)
 
@@ -581,16 +555,20 @@ select = external('select',
                    fd_set, lltype.Ptr(timeval)],
                   rffi.INT)
 
-FD_CLR = external_c('pypy_macro_wrapper_FD_CLR', [rffi.INT, fd_set], lltype.Void)
-FD_ISSET = external_c('pypy_macro_wrapper_FD_ISSET', [rffi.INT, fd_set], rffi.INT)
-FD_SET = external_c('pypy_macro_wrapper_FD_SET', [rffi.INT, fd_set], lltype.Void)
-FD_ZERO = external_c('pypy_macro_wrapper_FD_ZERO', [fd_set], lltype.Void)
+FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
+FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)
+FD_SET = external_c('FD_SET', [rffi.INT, fd_set], lltype.Void, macro=True)
+FD_ZERO = external_c('FD_ZERO', [fd_set], lltype.Void, macro=True)
 
 if _POSIX:
     pollfdarray = rffi.CArray(pollfd)
     poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
                     rffi.INT)
-    
+    # workaround for Mac OS/X on which poll() seems to behave a bit strangely
+    # (see test_recv_send_timeout in pypy.module._socket.test.test_sock_app)
+    # https://issues.apache.org/bugzilla/show_bug.cgi?id=34332
+    poll_may_be_broken = _MACOSX
+
 elif WIN32:
     from pypy.rlib import rwin32
     #

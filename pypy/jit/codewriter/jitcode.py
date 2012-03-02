@@ -1,7 +1,6 @@
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.codewriter import heaptracker
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.lltypesystem import llmemory
 
 
 class JitCode(AbstractDescr):
@@ -100,6 +99,9 @@ class JitCode(AbstractDescr):
     def __repr__(self):
         return '<JitCode %r>' % self.name
 
+    def _clone_if_mutable(self):
+        raise NotImplementedError
+
 class MissingLiveness(Exception):
     pass
 
@@ -110,6 +112,9 @@ class SwitchDictDescr(AbstractDescr):
     def __repr__(self):
         dict = getattr(self, 'dict', '?')
         return '<SwitchDictDescr %s>' % (dict,)
+
+    def _clone_if_mutable(self):
+        raise NotImplementedError
 
 
 class LiveVarsInfo(object):

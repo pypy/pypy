@@ -1,4 +1,5 @@
 from pypy.tool.pairtype import pairtype
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.error import TyperError
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
      AbstractUniCharRepr, AbstractStringIteratorRepr,\
@@ -115,6 +116,8 @@ class LLHelpers(AbstractLLHelpers):
         return ootype.oounicode(ch, -1)
 
     def ll_strhash(s):
+        if not s:
+            return 0
         return s.ll_hash()
 
     def ll_strfasthash(s):
@@ -132,6 +135,19 @@ class LLHelpers(AbstractLLHelpers):
         while i<times:
             buf.ll_append_char(ch)
             i+= 1
+        return buf.ll_build()
+
+    def ll_str_mul(s, times):
+        if times < 0:
+            times = 0
+        try:
+            size = ovfcheck(s.ll_strlen() * times)
+        except OverflowError:
+            raise MemoryError
+        buf = ootype.new(typeOf(s).builder)
+        buf.ll_allocate(size)
+        for i in xrange(times):
+            buf.ll_append(s)
         return buf.ll_build()
 
     def ll_streq(s1, s2):
@@ -203,7 +219,7 @@ class LLHelpers(AbstractLLHelpers):
         return s.ll_substring(start, s.ll_strlen() - start)
 
     def ll_stringslice_startstop(s, start, stop):
-        length = s.ll_strlen()        
+        length = s.ll_strlen()
         if stop > length:
             stop = length
         return s.ll_substring(start, stop-start)
@@ -265,7 +281,7 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_float(ll_str):
         return ootype.ooparse_float(ll_str)
-    
+
     # interface to build strings:
     #   x = ll_build_start(n)
     #   ll_build_push(x, next_string, 0)
@@ -300,7 +316,7 @@ class LLHelpers(AbstractLLHelpers):
         c8 = hop.inputconst(ootype.Signed, 8)
         c10 = hop.inputconst(ootype.Signed, 10)
         c16 = hop.inputconst(ootype.Signed, 16)
-        c_StringBuilder = hop.inputconst(ootype.Void, ootype.StringBuilder)        
+        c_StringBuilder = hop.inputconst(ootype.Void, ootype.StringBuilder)
         v_buf = hop.genop("new", [c_StringBuilder], resulttype=ootype.StringBuilder)
 
         things = cls.parse_fmt_string(s)
@@ -334,7 +350,7 @@ class LLHelpers(AbstractLLHelpers):
             hop.genop('oosend', [c_append, v_buf, vchunk], resulttype=ootype.Void)
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
-        return hop.genop('oosend', [c_build, v_buf], resulttype=ootype.String)        
+        return hop.genop('oosend', [c_build, v_buf], resulttype=ootype.String)
     do_stringformat = classmethod(do_stringformat)
 
 
@@ -399,7 +415,7 @@ def ll_unicodeiter(string):
     return iter
 
 def ll_strnext(iter):
-    string = iter.string    
+    string = iter.string
     index = iter.index
     if index >= string.ll_strlen():
         raise StopIteration

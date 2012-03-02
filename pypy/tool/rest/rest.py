@@ -10,14 +10,12 @@ else:
         pass
 
 def convert_rest_html(source, source_path, stylesheet=None, encoding='latin1'):
-    from pypy.tool.rest import directive
     """ return html latin1-encoded document for the given input. 
         source  a ReST-string
         sourcepath where to look for includes (basically)
         stylesheet path (to be used if any)
     """
     from docutils.core import publish_string
-    directive.set_backend_and_register_directives("html")
     kwargs = {
         'stylesheet' : stylesheet, 
         'stylesheet_path': None,

@@ -1,5 +1,5 @@
 import py
-from pypy.jit.metainterp.test import test_basic
+from pypy.jit.metainterp.test import support
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rsre.test.test_match import get_code
 from pypy.rlib.rsre import rsre_core
@@ -45,7 +45,7 @@ def test_jit_unroll_safe():
         assert m._jit_unroll_safe_
 
 
-class TestJitRSre(test_basic.LLJitMixin):
+class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)
@@ -70,7 +70,8 @@ class TestJitRSre(test_basic.LLJitMixin):
     def test_simple_match_repeated(self):
         res = self.meta_interp_match(r"abcdef", "abcdef", repeat=10)
         assert res == 6
-        self.check_tree_loop_count(1)
+        self.check_trace_count(1)
+        self.check_jitcell_token_count(1)
 
     def test_match_minrepeat_1(self):
         res = self.meta_interp_match(r".*?abc", "xxxxxxxxxxxxxxabc")
@@ -96,7 +97,7 @@ class TestJitRSre(test_basic.LLJitMixin):
     def test_fast_search(self):
         res = self.meta_interp_search(r"<foo\w+>", "e<f<f<foxd<f<fh<foobar>ua")
         assert res == 15
-        self.check_loops(guard_value=0)
+        self.check_resops(guard_value=0)
 
     def test_regular_search(self):
         res = self.meta_interp_search(r"<\w+>", "eiofweoxdiwhdoh<foobar>ua")
@@ -120,7 +121,7 @@ class TestJitRSre(test_basic.LLJitMixin):
     def test_aorbstar(self):
         res = self.meta_interp_match("(a|b)*a", "a" * 100)
         assert res == 100
-        self.check_loops(guard_value=0)
+        self.check_resops(guard_value=0)
 
 
     # group guards tests
@@ -160,3 +161,9 @@ class TestJitRSre(test_basic.LLJitMixin):
         res = self.meta_interp_match(r"<[\S ]+>", "<..a   .. aa>")
         assert res == 13
         self.check_enter_count(1)
+
+
+    def test_find_repetition_end_fastpath(self):
+        res = self.meta_interp_search(r"b+", "a"*30 + "b")
+        assert res == 30
+        self.check_resops(call=0)

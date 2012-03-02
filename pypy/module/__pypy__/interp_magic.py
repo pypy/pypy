@@ -1,10 +1,9 @@
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from pypy.module._file.interp_file import W_File
-
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
@@ -59,3 +58,25 @@ def builtinify(space, w_func):
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
+
+@unwrap_spec(ObjSpace, W_Root, str)
+def lookup_special(space, w_obj, meth):
+    """Lookup up a special method on an object."""
+    if space.is_oldstyle_instance(w_obj):
+        w_msg = space.wrap("this doesn't do what you want on old-style classes")
+        raise OperationError(space.w_TypeError, w_msg)
+    w_descr = space.lookup(w_obj, meth)
+    if w_descr is None:
+        return space.w_None
+    return space.get(w_descr, w_obj)
+
+def do_what_I_mean(space):
+    return space.wrap(42)
+
+def list_strategy(space, w_list):
+    from pypy.objspace.std.listobject import W_ListObject
+    if isinstance(w_list, W_ListObject):
+        return space.wrap(w_list.strategy._applevel_repr)
+    else:
+        w_msg = space.wrap("Can only get the list strategy of a list")
+        raise OperationError(space.w_TypeError, w_msg)

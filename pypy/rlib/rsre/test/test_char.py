@@ -1,5 +1,5 @@
 from pypy.rlib.rsre import rsre_char
-from pypy.rlib.rsre.rsre_char import SRE_FLAG_UNICODE
+from pypy.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
     from pypy.module.unicodedata import unicodedb
@@ -27,6 +27,12 @@ def test_getlower():
     assert rsre_char.getlower(ord('2'), SRE_FLAG_UNICODE) == ord('2')
     assert rsre_char.getlower(10, SRE_FLAG_UNICODE) == 10
     assert rsre_char.getlower(UPPER_PI, SRE_FLAG_UNICODE) == LOWER_PI
+    #
+    # xxx the following cases are like CPython's.  They are obscure.
+    # (iko) that's a nice way to say "broken"
+    assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE) == UPPER_PI
+    assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
+                                                         == UPPER_PI
 
 def test_is_word():
     assert rsre_char.is_word(ord('A'))

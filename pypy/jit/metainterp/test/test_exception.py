@@ -1,5 +1,5 @@
 import py, sys
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from pypy.jit.codewriter.policy import StopAtXPolicy
@@ -35,10 +35,8 @@ class ExceptionTests:
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_loops({'jump': 1,
-                          'int_gt': 1, 'guard_true': 1,
-                          'int_sub': 1})
-
+        self.check_resops({'jump': 1, 'guard_true': 2,
+                           'int_gt': 2, 'int_sub': 2})
 
     def test_bridge_from_guard_exception(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -514,7 +512,7 @@ class ExceptionTests:
 
         res = self.meta_interp(main, [41], repeat=7)
         assert res == -1
-        self.check_tree_loop_count(2)      # the loop and the entry path
+        self.check_target_token_count(2)      # the loop and the entry path
         # we get:
         #    ENTER    - compile the new loop and the entry bridge
         #    ENTER    - compile the leaving path (raising MyError)

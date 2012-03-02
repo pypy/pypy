@@ -78,6 +78,4 @@ A good summary of the progress over the years.....enjoy!
     .. _`CERN (July 2010)`: http://morepypy.blogspot.com/2010/07/cern-sprint-report-wrapping-c-libraries.html
     .. _`Düsseldorf (October 2010)`: http://morepypy.blogspot.com/2010/10/dusseldorf-sprint-report-2010.html
 
-Further event notes:
 
-* :ref:`eventhistory.rst`

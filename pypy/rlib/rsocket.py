@@ -8,6 +8,7 @@ a drop-in replacement for the 'socket' module.
 # Known missing features:
 #
 #   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
+#   - AF_PACKET is only supported on Linux
 #   - methods makefile(),
 #   - SSL
 #
@@ -16,9 +17,10 @@ a drop-in replacement for the 'socket' module.
 
 from pypy.rlib.objectmodel import instantiate, keepalive_until_here
 from pypy.rlib import _rsocket_rffi as _c
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
+INVALID_SOCKET = _c.INVALID_SOCKET
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
@@ -55,6 +57,7 @@ def htonl(x):
 
 
 _FAMILIES = {}
+
 class Address(object):
     """The base class for RPython-level objects representing addresses.
     Fields:  addr    - a _c.sockaddr_ptr (memory owned by the Address instance)
@@ -76,9 +79,8 @@ class Address(object):
         self.addrlen = addrlen
 
     def __del__(self):
-        addr = self.addr_p
-        if addr:
-            lltype.free(addr, flavor='raw')
+        if self.addr_p:
+            lltype.free(self.addr_p, flavor='raw')
 
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
@@ -130,11 +132,12 @@ class Address(object):
     from_object = staticmethod(from_object)
 
     @staticmethod
-    def _check_port(space, port):
+    def make_ushort_port(space, port):
         from pypy.interpreter.error import OperationError
         if port < 0 or port > 0xffff:
             raise OperationError(space.w_ValueError, space.wrap(
                 "port must be 0-65535."))
+        return rffi.cast(rffi.USHORT, port)
 
     def fill_from_object(self, space, w_address):
         """ Purely abstract
@@ -166,7 +169,7 @@ def makeipaddr(name, result=None):
 
     # IPv4 also supports the special name "<broadcast>".
     if name == '<broadcast>':
-        return makeipv4addr(intmask(INADDR_BROADCAST), result)
+        return makeipv4addr(r_uint(INADDR_BROADCAST), result)
 
     # "dd.dd.dd.dd" format.
     digits = name.split('.')
@@ -183,9 +186,11 @@ def makeipaddr(name, result=None):
                 0 <= d1 <= 255 and
                 0 <= d2 <= 255 and
                 0 <= d3 <= 255):
-                return makeipv4addr(intmask(htonl(
-                    (intmask(d0 << 24)) | (d1 << 16) | (d2 << 8) | (d3 << 0))),
-                                    result)
+
+                addr = intmask(d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)
+                addr = rffi.cast(rffi.UINT, addr)
+                addr = htonl(addr)
+                return makeipv4addr(addr, result)
 
     # generic host name to IP conversion
     info = getaddrinfo(name, None, family=family, address_to_fill=result)
@@ -235,7 +240,9 @@ if 'AF_PACKET' in constants:
 
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
-            res = ntohs(rffi.getintfield(a, 'c_sll_protocol'))
+            proto = rffi.getintfield(a, 'c_sll_protocol')
+            proto = rffi.cast(rffi.USHORT, proto)
+            res = ntohs(proto)
             self.unlock()
             return res
 
@@ -276,6 +283,7 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
+        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
@@ -302,13 +310,10 @@ class INETAddress(IPAddress):
 
     def from_object(space, w_address):
         # Parse an app-level object representing an AF_INET address
-        try:
-            w_host, w_port = space.unpackiterable(w_address, 2)
-        except ValueError:
-            raise TypeError("AF_INET address must be a tuple of length 2")
+        w_host, w_port = space.unpackiterable(w_address, 2)
         host = space.str_w(w_host)
         port = space.int_w(w_port)
-        Address._check_port(space, port)
+        port = Address.make_ushort_port(space, port)
         return INETAddress(host, port)
     from_object = staticmethod(from_object)
 
@@ -317,7 +322,7 @@ class INETAddress(IPAddress):
         from pypy.interpreter.error import OperationError
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
-        self._check_port(space, port)
+        port = self.make_ushort_port(space, port)
         a = self.lock(_c.sockaddr_in)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
@@ -402,7 +407,7 @@ class INET6Address(IPAddress):
                                "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
-        Address._check_port(space, port)
+        port = Address.make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
@@ -418,7 +423,7 @@ class INET6Address(IPAddress):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
-        self._check_port(space, port)
+        port = self.make_ushort_port(space, port)
         if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
         if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
@@ -536,10 +541,7 @@ if 'AF_NETLINK' in constants:
                                    space.wrap(self.get_groups())])
 
         def from_object(space, w_address):
-            try:
-                w_pid, w_groups = space.unpackiterable(w_address, 2)
-            except ValueError:
-                raise TypeError("AF_NETLINK address must be a tuple of length 2")
+            w_pid, w_groups = space.unpackiterable(w_address, 2)
             return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
         from_object = staticmethod(from_object)
 
@@ -612,7 +614,10 @@ class RSocket(object):
         self.timeout = defaults.timeout
         
     def __del__(self):
-        self.close()
+        fd = self.fd
+        if fd != _c.INVALID_SOCKET:
+            self.fd = _c.INVALID_SOCKET
+            _c.socketclose(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
@@ -629,7 +634,7 @@ class RSocket(object):
             _c.ioctlsocket(self.fd, _c.FIONBIO, flag)
             lltype.free(flag, flavor='raw')
 
-    if hasattr(_c, 'poll'):
+    if hasattr(_c, 'poll') and not _c.poll_may_be_broken:
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
@@ -1291,9 +1296,13 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    return ntohs(servent.c_s_port)
+    port = rffi.cast(rffi.UINT, servent.c_s_port)
+    return ntohs(port)
 
 def getservbyport(port, proto=None):
+    # This function is only called from pypy/module/_socket and the range of
+    # port is checked there
+    port = rffi.cast(rffi.USHORT, port)
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")

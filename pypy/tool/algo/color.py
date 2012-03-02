@@ -29,7 +29,7 @@ class DependencyGraph(object):
         return [v for v in self._all_nodes if v in self.neighbours]
 
     def lexicographic_order(self):
-        """Enumerate a lexicographic breath-first ordering of the nodes."""
+        """Enumerate a lexicographic breadth-first ordering of the nodes."""
         sigma = [self.getnodes()[::-1]]
         if not sigma[0]:
             return

@@ -10,7 +10,8 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    build_type_checkers)
+    Py_TPFLAGS_HAVE_GETCHARBUFFER,
+    build_type_checkers, PyObjectFields)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, RefcountState, borrow_from)
@@ -24,9 +25,10 @@ from pypy.module.cpyext.pyobject import Py_IncRef, Py_DecRef, _Py_Dealloc
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyTypeObjectPtr, PyTypeObject, PyGetSetDef, PyMemberDef, newfunc,
-    PyNumberMethods, PySequenceMethods, PyBufferProcs)
+    PyNumberMethods, PyMappingMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
+from pypy.interpreter.buffer import Buffer
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rstring import rsplit
 from pypy.rlib.objectmodel import specialize
@@ -37,6 +39,19 @@ from pypy.rlib import jit
 WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers("Type", "w_type")
+
+PyHeapTypeObjectStruct = lltype.ForwardReference()
+PyHeapTypeObject = lltype.Ptr(PyHeapTypeObjectStruct)
+PyHeapTypeObjectFields = (
+    ("ht_type", PyTypeObject),
+    ("ht_name", PyObject),
+    ("as_number", PyNumberMethods),
+    ("as_mapping", PyMappingMethods),
+    ("as_sequence", PySequenceMethods),
+    ("as_buffer", PyBufferProcs),
+    )
+cpython_struct("PyHeapTypeObject", PyHeapTypeObjectFields, PyHeapTypeObjectStruct,
+               level=2)
 
 class W_GetSetPropertyEx(GetSetProperty):
     def __init__(self, getset, w_type):
@@ -135,6 +150,8 @@ def update_all_slots(space, w_type, pto):
             assert len(slot_names) == 2
             struct = getattr(pto, slot_names[0])
             if not struct:
+                assert not space.config.translating
+                assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
                 if slot_names[0] == 'c_tp_as_number':
                     STRUCT_TYPE = PyNumberMethods
                 elif slot_names[0] == 'c_tp_as_sequence':
@@ -300,6 +317,7 @@ def init_typeobject(space):
 
     make_typedescr(space.w_type.instancetypedef,
                    basestruct=PyTypeObject,
+                   alloc=type_alloc,
                    attach=type_attach,
                    realize=type_realize,
                    dealloc=type_dealloc)
@@ -318,11 +336,13 @@ def init_typeobject(space):
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
+    track_reference(space, lltype.nullptr(PyObject.TO), space.w_str)
 
     # create the objects
     py_type = create_ref(space, space.w_type)
     py_object = create_ref(space, space.w_object)
     py_tuple = create_ref(space, space.w_tuple)
+    py_str = create_ref(space, space.w_str)
 
     # form cycles
     pto_type = rffi.cast(PyTypeObjectPtr, py_type)
@@ -339,10 +359,15 @@ def init_typeobject(space):
     pto_object.c_tp_bases.c_ob_type = pto_tuple
     pto_tuple.c_tp_bases.c_ob_type = pto_tuple
 
+    for typ in (py_type, py_object, py_tuple, py_str):
+        heaptype = rffi.cast(PyHeapTypeObject, typ)
+        heaptype.c_ht_name.c_ob_type = pto_type
+
     # Restore the mapping
     track_reference(space, py_type, space.w_type, replace=True)
     track_reference(space, py_object, space.w_object, replace=True)
     track_reference(space, py_tuple, space.w_tuple, replace=True)
+    track_reference(space, py_str, space.w_str, replace=True)
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -394,14 +419,37 @@ def str_getcharbuffer(space, w_str, segment, ref):
     Py_DecRef(space, pyref)
     return space.len_w(w_str)
 
+@cpython_api([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed,
+             external=False, error=-1)
+def buf_getreadbuffer(space, pyref, segment, ref):
+    from pypy.module.cpyext.bufferobject import PyBufferObject
+    if segment != 0:
+        raise OperationError(space.w_SystemError, space.wrap
+                             ("accessing non-existent string segment"))
+    py_buf = rffi.cast(PyBufferObject, pyref)
+    ref[0] = py_buf.c_b_ptr
+    #Py_DecRef(space, pyref)
+    return py_buf.c_b_size
+
 def setup_string_buffer_procs(space, pto):
     c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
     c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
                                       str_segcount.api_func.get_wrapper(space))
     c_buf.c_bf_getreadbuffer = llhelper(str_getreadbuffer.api_func.functype,
                                  str_getreadbuffer.api_func.get_wrapper(space))
     c_buf.c_bf_getcharbuffer = llhelper(str_getcharbuffer.api_func.functype,
                                  str_getcharbuffer.api_func.get_wrapper(space))
+    pto.c_tp_as_buffer = c_buf
+    pto.c_tp_flags |= Py_TPFLAGS_HAVE_GETCHARBUFFER
+
+def setup_buffer_buffer_procs(space, pto):
+    c_buf = lltype.malloc(PyBufferProcs, flavor='raw', zero=True)
+    lltype.render_immortal(c_buf)
+    c_buf.c_bf_getsegcount = llhelper(str_segcount.api_func.functype,
+                                      str_segcount.api_func.get_wrapper(space))
+    c_buf.c_bf_getreadbuffer = llhelper(buf_getreadbuffer.api_func.functype,
+                                 buf_getreadbuffer.api_func.get_wrapper(space))
     pto.c_tp_as_buffer = c_buf
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -414,16 +462,33 @@ def type_dealloc(space, obj):
     Py_DecRef(space, obj_pto.c_tp_cache) # let's do it like cpython
     Py_DecRef(space, obj_pto.c_tp_dict)
     if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        if obj_pto.c_tp_as_buffer:
-            lltype.free(obj_pto.c_tp_as_buffer, flavor='raw')
-        if obj_pto.c_tp_as_number:
-            lltype.free(obj_pto.c_tp_as_number, flavor='raw')
-        if obj_pto.c_tp_as_sequence:
-            lltype.free(obj_pto.c_tp_as_sequence, flavor='raw')
+        heaptype = rffi.cast(PyHeapTypeObject, obj)
+        Py_DecRef(space, heaptype.c_ht_name)
         Py_DecRef(space, base_pyo)
-        rffi.free_charp(obj_pto.c_tp_name)
         PyObject_dealloc(space, obj)
 
+
+def type_alloc(space, w_metatype):
+    size = rffi.sizeof(PyHeapTypeObject)
+    metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
+    # Don't increase refcount for non-heaptypes
+    if metatype:
+        flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
+        if not flags & Py_TPFLAGS_HEAPTYPE:
+            Py_DecRef(space, w_metatype)
+
+    heaptype = lltype.malloc(PyHeapTypeObject.TO,
+                             flavor='raw', zero=True)
+    pto = heaptype.c_ht_type
+    pto.c_ob_refcnt = 1
+    pto.c_ob_type = metatype
+    pto.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
+    pto.c_tp_as_number = heaptype.c_as_number
+    pto.c_tp_as_sequence = heaptype.c_as_sequence
+    pto.c_tp_as_mapping = heaptype.c_as_mapping
+    pto.c_tp_as_buffer = heaptype.c_as_buffer
+    
+    return rffi.cast(PyObject, heaptype)
 
 def type_attach(space, py_obj, w_type):
     """
@@ -442,13 +507,21 @@ def type_attach(space, py_obj, w_type):
     # buffer protocol
     if space.is_w(w_type, space.w_str):
         setup_string_buffer_procs(space, pto)
+    if space.is_w(w_type, space.gettypefor(Buffer)):
+        setup_buffer_buffer_procs(space, pto)
 
-    pto.c_tp_flags = Py_TPFLAGS_HEAPTYPE
     pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
-    pto.c_tp_name = rffi.str2charp(w_type.getname(space, "?"))
+    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+        w_typename = space.getattr(w_type, space.wrap('__name__'))
+        heaptype = rffi.cast(PyHeapTypeObject, pto)
+        heaptype.c_ht_name = make_ref(space, w_typename)
+        from pypy.module.cpyext.stringobject import PyString_AsString
+        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
+    else:
+        pto.c_tp_name = rffi.str2charp(w_type.getname(space))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:
@@ -615,7 +688,7 @@ def finish_type_2(space, pto, w_obj):
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)
-        w_dict = space.newdict(from_strdict_shared=w_obj.dict_w)
+        w_dict = w_obj.getdict(space)
         pto.c_tp_dict = make_ref(space, w_dict)
 
 @cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
@@ -648,3 +721,13 @@ def _PyType_Lookup(space, type, w_name):
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
     return borrow_from(w_type, w_obj)
+
+@cpython_api([PyTypeObjectPtr], lltype.Void)
+def PyType_Modified(space, w_obj):
+    """Invalidate the internal lookup cache for the type and all of its
+    subtypes.  This function must be called after any manual
+    modification of the attributes or base classes of the type.
+    """
+    # PyPy already takes care of direct modifications to type.__dict__
+    # (which is a W_DictProxyObject).
+    pass

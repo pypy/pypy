@@ -59,7 +59,7 @@ The highlights of this fourth release of PyPy are:
 **testing refinements**
     py.test, our testing tool, now has preliminary support for doctests.
     We now run all our tests every night, and you can see the summary at:
-    http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+    http://buildbot.pypy.org/summary
 
 What is PyPy (about)? 
 ------------------------------------------------

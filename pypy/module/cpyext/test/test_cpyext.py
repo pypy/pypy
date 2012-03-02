@@ -188,7 +188,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             kwds["compile_extra"] = ["/we4013"]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
-            if sys.platform == 'linux2':
+            if sys.platform.startswith('linux'):
                 kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
         return compile_module(self.space, name, **kwds)
 
@@ -304,7 +304,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.unimport_module(name)
         self.cleanup_references(self.space)
         if self.check_and_print_leaks():
-            assert False, "Test leaks or loses object(s)."
+            assert False, (
+                "Test leaks or loses object(s).  You should also check if "
+                "the test actually passed in the first place; if it failed "
+                "it is likely to reach this place.")
+            # XXX find out how to disable check_and_print_leaks() if the
+            # XXX test failed...
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -738,6 +743,22 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         p = mod.get_programname()
         print p
         assert 'py' in p
+
+    def test_get_version(self):
+        mod = self.import_extension('foo', [
+            ('get_version', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetVersion();
+             char* name2 = Py_GetVersion();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_version()
+        print p
+        assert 'PyPy' in p
 
     def test_no_double_imports(self):
         import sys, os

@@ -2,7 +2,7 @@
 
 import py
 from pypy.jit.tl.tlopcode import *
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside, promote
 
 def char2int(c):
     t = ord(c)
@@ -40,6 +40,7 @@ class Stack(object):
         assert n >= 0
         self.stack[n] = elem
 
+    @dont_look_inside
     def roll(self, r):
         if r < -1:
             i = self.stackpos + r
@@ -80,7 +81,7 @@ def make_interp(supports_call):
             myjitdriver.jit_merge_point(pc=pc, code=code,
                                         stack=stack, inputarg=inputarg)
             opcode = ord(code[pc])
-            stack.stackpos = hint(stack.stackpos, promote=True)
+            stack.stackpos = promote(stack.stackpos)
             pc += 1
 
             if opcode == NOP:

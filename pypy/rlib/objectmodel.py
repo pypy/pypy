@@ -19,11 +19,15 @@ import math
 # def f(...
 #
 
+from pypy.rpython.extregistry import ExtRegistryEntry
+
 class _Specialize(object):
     def memo(self):
-        """ Specialize functions based on argument values. All arguments has
-        to be constant at the compile time. The whole function call is replaced
-        by a call result then.
+        """ Specialize the function based on argument values.  All arguments
+        have to be either constants or PBCs (i.e. instances of classes with a
+        _freeze_ method returning True).  The function call is replaced by
+        just its result, or in case several PBCs are used, by some fast
+        look-up of the result.
         """
         def decorated_func(func):
             func._annspecialcase_ = 'specialize:memo'
@@ -31,8 +35,8 @@ class _Specialize(object):
         return decorated_func
 
     def arg(self, *args):
-        """ Specialize function based on values of given positions of arguments.
-        They must be compile-time constants in order to work.
+        """ Specialize the function based on the values of given positions
+        of arguments.  They must be compile-time constants in order to work.
 
         There will be a copy of provided function for each combination
         of given arguments on positions in args (that can lead to
@@ -40,6 +44,17 @@ class _Specialize(object):
         """
         def decorated_func(func):
             func._annspecialcase_ = 'specialize:arg' + self._wrap(args)
+            return func
+
+        return decorated_func
+
+    def arg_or_var(self, *args):
+        """ Same as arg, but additionally allow for a 'variable' annotation,
+        that would simply be a situation where designated arg is not
+        a constant
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'specialize:arg_or_var' + self._wrap(args)
             return func
 
         return decorated_func
@@ -68,18 +83,27 @@ class _Specialize(object):
 
         return decorated_func
 
-    def ll_and_arg(self, arg):
-        """ XXX what does that do?
+    def ll_and_arg(self, *args):
+        """ This is like ll(), and additionally like arg(...).
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'specialize:ll_and_arg(%d)' % arg
+            func._annspecialcase_ = 'specialize:ll_and_arg' + self._wrap(args)
+            return func
+
+        return decorated_func
+
+    def call_location(self):
+        """ Specializes the function for each call site.
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = "specialize:call_location"
             return func
 
         return decorated_func
 
     def _wrap(self, args):
         return "("+','.join([repr(arg) for arg in args]) +")"
-        
+
 specialize = _Specialize()
 
 def enforceargs(*args):
@@ -107,18 +131,28 @@ class Symbolic(object):
         if self is other:
             return 0
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __hash__(self):
-        raise TypeError("Symbolics are not hashable!")
-    
+        raise TypeError("Symbolics are not hashable! %r" % (self,))
+
     def __nonzero__(self):
-        raise TypeError("Symbolics are not comparable")
+        raise TypeError("Symbolics are not comparable! %r" % (self,))
 
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):
         self.compute_fn = compute_fn
+
+    def __repr__(self):
+        # repr(self.compute_fn) can arrive back here in an
+        # infinite recursion
+        try:
+            name = self.compute_fn.__name__
+        except (AttributeError, TypeError):
+            name = hex(id(self.compute_fn))
+        return '%s(%r)' % (self.__class__.__name__, name)
 
     def annotation(self):
         from pypy.annotation import model
@@ -134,6 +168,9 @@ class CDefinedIntSymbolic(Symbolic):
         self.expr = expr
         self.default = default
 
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.expr)
+
     def annotation(self):
         from pypy.annotation import model
         return model.SomeInteger()
@@ -141,7 +178,7 @@ class CDefinedIntSymbolic(Symbolic):
     def lltype(self):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
-    
+
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
 # running_on_llinterp is meant to have the value 0 in all backends
@@ -157,10 +194,28 @@ def instantiate(cls):
 
 def we_are_translated():
     return False
-# annotation -> True
+# annotation -> True (replaced by the flow objspace)
 
 def keepalive_until_here(*values):
     pass
+
+def is_annotation_constant(thing):
+    """ Returns whether the annotator can prove that the argument is constant.
+    For advanced usage only."""
+    return True
+
+class Entry(ExtRegistryEntry):
+    _about_ = is_annotation_constant
+
+    def compute_result_annotation(self, s_arg):
+        from pypy.annotation import model
+        r = model.SomeBool()
+        r.const = s_arg.is_constant()
+        return r
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 
@@ -175,6 +230,34 @@ def free_non_gc_object(obj):
     assert not getattr(obj.__class__, "_alloc_flavor_", 'gc').startswith('gc'), "trying to free gc object"
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
+
+# ____________________________________________________________
+
+def newlist(sizehint=0):
+    """ Create a new list, but pass a hint how big the size should be
+    preallocated
+    """
+    return []
+
+class Entry(ExtRegistryEntry):
+    _about_ = newlist
+
+    def compute_result_annotation(self, s_sizehint):
+        from pypy.annotation.model import SomeInteger
+
+        assert isinstance(s_sizehint, SomeInteger)
+        return self.bookkeeper.newlist()
+
+    def specialize_call(self, orig_hop, i_sizehint=None):
+        from pypy.rpython.rlist import rtype_newlist
+        # fish a bit hop
+        hop = orig_hop.copy()
+        v = hop.args_v[0]
+        r, s = hop.r_s_popfirstarg()
+        if s.is_constant():
+            v = hop.inputconst(r, s.const)
+        hop.exception_is_here()
+        return rtype_newlist(hop, v_sizehint=v)
 
 # ____________________________________________________________
 #
@@ -219,6 +302,7 @@ def compute_identity_hash(x):
     same before and after translation, except for RPython instances on the
     lltypesystem.
     """
+    assert x is not None
     result = object.__hash__(x)
     try:
         x.__dict__['__precomputed_identity_hash'] = result
@@ -267,14 +351,15 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from pypy.rlib.rarithmetic import intmask
-    from pypy.rlib.rfloat import isinf, isnan
-    if isinf(f):
-        if f < 0.0:
-            return -271828
-        else:
-            return 314159
-    elif isnan(f):
-        return 0
+    from pypy.rlib.rfloat import isfinite, isinf
+    if not isfinite(f):
+        if isinf(f):
+            if f < 0.0:
+                return -271828
+            else:
+                return 314159
+        else: #isnan(f):
+            return 0
     v, expo = math.frexp(f)
     v *= TAKE_NEXT
     hipart = int(v)
@@ -298,8 +383,6 @@ def _hash_tuple(t):
     return x
 
 # ----------
-
-from pypy.rpython.extregistry import ExtRegistryEntry
 
 class Entry(ExtRegistryEntry):
     _about_ = compute_hash
@@ -351,7 +434,7 @@ class Entry(ExtRegistryEntry):
                   vobj.concretetype.TO._gckind == 'gc')
         else:
             from pypy.rpython.ootypesystem import ootype
-            ok = isinstance(vobj.concretetype, ootype.Instance)
+            ok = isinstance(vobj.concretetype, (ootype.Instance, ootype.BuiltinType))
         if not ok:
             from pypy.rpython.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"
@@ -446,10 +529,11 @@ class r_dict(object):
     The functions key_eq() and key_hash() are used by the key comparison
     algorithm."""
 
-    def __init__(self, key_eq, key_hash):
+    def __init__(self, key_eq, key_hash, force_non_null=False):
         self._dict = {}
         self.key_eq = key_eq
         self.key_hash = key_hash
+        self.force_non_null = force_non_null
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]

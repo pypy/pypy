@@ -1,6 +1,7 @@
 
 # -*- coding: utf-8 -*-
 
+from __future__ import with_statement
 from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
@@ -28,6 +29,7 @@ def setup_module(mod):
     mod.pdir = pdir
     unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
     unicode_dir.join('somefile').write('who cares?')
+    unicode_dir.join('caf\xe9').write('who knows?')
     mod.unicode_dir = unicode_dir
 
     # in applevel tests, os.stat uses the CPython os.stat.
@@ -124,13 +126,13 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux2'):
+        #if sys.platform.startswith('linux'):
         #    # expects non-integer timestamps - it's unlikely that they are
         #    # all three integers
         #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
         #            (st[7],       st[8],       st[9]))
         #    assert st.st_blksize * st.st_blocks >= st.st_size
-        if sys.platform.startswith('linux2'):
+        if sys.platform.startswith('linux'):
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
@@ -270,8 +272,12 @@ class AppTestPosix:
         f.close()
 
         # Ensure that fcntl is not faked
-        import fcntl
-        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        try:
+            import fcntl
+        except ImportError:
+            pass
+        else:
+            assert fcntl.__file__.endswith('pypy/module/fcntl')
         exc = raises(OSError, posix.fdopen, fd)
         assert exc.value.errno == errno.EBADF
 
@@ -303,14 +309,22 @@ class AppTestPosix:
                           'file2']
 
     def test_listdir_unicode(self):
+        import sys
         unicode_dir = self.unicode_dir
         if unicode_dir is None:
             skip("encoding not good enough")
         posix = self.posix
         result = posix.listdir(unicode_dir)
-        result.sort()
-        assert result == [u'somefile']
-        assert type(result[0]) is unicode
+        typed_result = [(type(x), x) for x in result]
+        assert (unicode, u'somefile') in typed_result
+        try:
+            u = "caf\xe9".decode(sys.getfilesystemencoding())
+        except UnicodeDecodeError:
+            # Could not decode, listdir returned the byte string
+            assert (str, "caf\xe9") in typed_result
+        else:
+            assert (unicode, u) in typed_result
+
 
     def test_access(self):
         pdir = self.pdir + '/file1'
@@ -366,6 +380,8 @@ class AppTestPosix:
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
             import sys
+            if 'freebsd' in sys.platform:
+                skip("hangs indifinitly on FreeBSD (also on CPython).")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)
@@ -410,6 +426,23 @@ class AppTestPosix:
                 else:
                     py.test.fail("didn't raise")
 
+        def test_execv_unicode(self):
+            os = self.posix
+            import sys
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execv()")
+            try:
+                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                skip("encoding not good enough")
+            pid = os.fork()
+            if pid == 0:
+                os.execv(u"/bin/sh", ["sh", "-c",
+                                      u"echo caf\xe9 \u1234 > onefile"])
+            os.waitpid(pid, 0)
+            assert open("onefile").read() == output
+            os.unlink("onefile")
+
         def test_execve(self):
             os = self.posix
             if not hasattr(os, "fork"):
@@ -420,6 +453,24 @@ class AppTestPosix:
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
+
+        def test_execve_unicode(self):
+            os = self.posix
+            import sys
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execve()")
+            try:
+                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                skip("encoding not good enough")
+            pid = os.fork()
+            if pid == 0:
+                os.execve(u"/bin/sh", ["sh", "-c",
+                                      u"echo caf\xe9 \u1234 > onefile"],
+                          {'ddd': 'xxx'})
+            os.waitpid(pid, 0)
+            assert open("onefile").read() == output
+            os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), "spawnv"):
@@ -429,6 +480,17 @@ class AppTestPosix:
             print self.python
             ret = os.spawnv(os.P_WAIT, self.python,
                             ['python', '-c', 'raise(SystemExit(42))'])
+            assert ret == 42
+
+    if hasattr(__import__(os.name), "spawnve"):
+        def test_spawnve(self):
+            os = self.posix
+            import sys
+            print self.python
+            ret = os.spawnve(os.P_WAIT, self.python,
+                             ['python', '-c',
+                              "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
+                             {'FOOBAR': '42'})
             assert ret == 42
 
     def test_popen(self):
@@ -507,7 +569,8 @@ class AppTestPosix:
     if hasattr(os, 'setuid'):
         def test_os_setuid_error(self):
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setuid, -100000)
+            raises(OverflowError, os.setuid, -2**31-1)
+            raises(OverflowError, os.setuid, 2**32)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -528,13 +591,14 @@ class AppTestPosix:
     if hasattr(os, 'setgid'):
         def test_os_setgid_error(self):
             os = self.posix
-            raises((OSError, ValueError, OverflowError), os.setgid, -100000)
+            raises(OverflowError, os.setgid, -2**31-1)
+            raises(OverflowError, os.setgid, 2**32)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
-            raises((OSError, ValueError, OverflowError), os.getsid, -100000)
+            raises(OSError, os.getsid, -100000)
 
     if hasattr(os, 'sysconf'):
         def test_os_sysconf(self):
@@ -603,7 +667,11 @@ class AppTestPosix:
                 os.fsync(f)     # <- should also work with a file, or anything
             finally:            #    with a fileno() method
                 f.close()
-            raises(OSError, os.fsync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fsync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
@@ -615,7 +683,11 @@ class AppTestPosix:
                 os.fdatasync(fd)
             finally:
                 f.close()
-            raises(OSError, os.fdatasync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fdatasync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fdatasync, -1)
 
     if hasattr(os, 'fchdir'):
@@ -798,6 +870,16 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+    try:
+        os.getlogin()
+    except (AttributeError, OSError):
+        pass
+    else:
+        def test_getlogin(self):
+            assert isinstance(self.posix.getlogin(), str)
+            # How else could we test that getlogin is properly
+            # working?
+
     def test_tmpfile(self):
         os = self.posix
         f = os.tmpfile()
@@ -843,6 +925,21 @@ class AppTestPosix:
                     assert os.path.dirname(s2) == dir
                 assert os.path.basename(s1).startswith(prefix or 'tmp')
                 assert os.path.basename(s2).startswith(prefix or 'tmp')
+
+    def test_tmpnam_warning(self):
+        import warnings, os
+        #
+        def f_tmpnam_warning(): os.tmpnam()    # a single line
+        #
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f_tmpnam_warning()
+            assert len(w) == 1
+            assert issubclass(w[-1].category, RuntimeWarning)
+            assert "potential security risk" in str(w[-1].message)
+            # check that the warning points to the call to os.tmpnam(),
+            # not to some code inside app_posix.py
+            assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
 
 class AppTestEnvironment(object):

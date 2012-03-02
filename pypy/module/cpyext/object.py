@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
-    PyVarObject, Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    PyVarObject, Py_buffer,
+    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, CONST_STRING, FILEP, fwrite)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, create_ref, from_ref, Py_IncRef, Py_DecRef,
@@ -192,7 +193,7 @@ def PyObject_Init(space, obj, type):
     if not obj:
         PyErr_NoMemory(space)
     obj.c_ob_type = type
-    _Py_NewReference(space, obj)
+    obj.c_ob_refcnt = 1
     return obj
 
 @cpython_api([PyVarObject, PyTypeObjectPtr, Py_ssize_t], PyObject)
@@ -380,6 +381,15 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
+@cpython_api([PyObject], PyObject)
+def PyObject_Dir(space, w_o):
+    """This is equivalent to the Python expression dir(o), returning a (possibly
+    empty) list of strings appropriate for the object argument, or NULL if there
+    was an error.  If the argument is NULL, this is like the Python dir(),
+    returning the names of the current locals; in this case, if no execution frame
+    is active then NULL is returned but PyErr_Occurred() will return false."""
+    return space.call_function(space.builtin.get('dir'), w_o)
+
 @cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
@@ -428,3 +438,45 @@ def PyObject_Print(space, w_obj, fp, flags):
         rffi.free_nonmovingbuffer(data, buf)
     return 0
 
+
+PyBUF_WRITABLE = 0x0001  # Copied from object.h
+
+@cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
+              lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
+def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
+    """
+    Fills in a buffer-info structure correctly for an exporter that can only
+    share a contiguous chunk of memory of "unsigned bytes" of the given
+    length. Returns 0 on success and -1 (with raising an error) on error.
+
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
+    """
+    view.c_buf = buf
+    view.c_len = length
+    view.c_obj = obj
+    Py_IncRef(space, obj)
+    view.c_itemsize = 1
+    if flags & PyBUF_WRITABLE:
+        rffi.setintfield(view, 'c_readonly', 0)
+    else:
+        rffi.setintfield(view, 'c_readonly', 1)
+    rffi.setintfield(view, 'c_ndim', 0)
+    view.c_format = lltype.nullptr(rffi.CCHARP.TO)
+    view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+
+    return 0
+
+
+@cpython_api([lltype.Ptr(Py_buffer)], lltype.Void, error=CANNOT_FAIL)
+def PyBuffer_Release(space, view):
+    """
+    Releases a Py_buffer obtained from getbuffer ParseTuple's s*.
+
+    This is not a complete re-implementation of the CPython API; it only
+    provides a subset of CPython's behavior.
+    """
+    Py_DecRef(space, view.c_obj)

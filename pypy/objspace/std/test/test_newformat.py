@@ -323,7 +323,14 @@ class AppTestFloatFormatting:
 
     def test_locale(self):
         import locale
-        locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF8')
+        for name in ['en_US.UTF8', 'en_US', 'en']:
+            try:
+                locale.setlocale(locale.LC_NUMERIC, name)
+                break
+            except locale.Error:
+                pass
+        else:
+            skip("no 'en' or 'en_US' or 'en_US.UTF8' locale??")
         x = 1234.567890
         try:
             assert locale.format('%g', x, grouping=True) == '1,234.57'

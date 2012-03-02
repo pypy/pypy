@@ -1,3 +1,4 @@
+from __future__ import with_statement
 from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
@@ -7,7 +8,7 @@ class AppTestMMap:
         space = gettestobjspace(usemodules=('mmap',))
         cls.space = space
         cls.w_tmpname = space.wrap(str(udir.join('mmap-')))
-    
+
     def test_page_size(self):
         import mmap
         assert mmap.PAGESIZE > 0
@@ -42,7 +43,7 @@ class AppTestMMap:
 
         raises(TypeError, mmap, "foo")
         raises(TypeError, mmap, 0, "foo")
-             
+
         if os.name == "posix":
             raises(ValueError, mmap, 0, 1, 2, 3, 4)
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
@@ -71,7 +72,7 @@ class AppTestMMap:
 
         from mmap import mmap
         f = open(self.tmpname + "a", "w+")
-        
+
         f.write("c")
         f.flush()
         raises(ValueError, mmap, f.fileno(), 123)
@@ -80,18 +81,18 @@ class AppTestMMap:
     def test_create(self):
         from mmap import mmap
         f = open(self.tmpname + "b", "w+")
-        
+
         f.write("c")
         f.flush()
         m = mmap(f.fileno(), 1)
         assert m.read(99) == "c"
-        
+
         f.close()
 
     def test_close(self):
         from mmap import mmap
         f = open(self.tmpname + "c", "w+")
-        
+
         f.write("c")
         f.flush()
         m = mmap(f.fileno(), 1)
@@ -130,7 +131,7 @@ class AppTestMMap:
     def test_read(self):
         from mmap import mmap
         f = open(self.tmpname + "f", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
@@ -216,7 +217,7 @@ class AppTestMMap:
     def test_is_modifiable(self):
         import mmap
         f = open(self.tmpname + "h", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
@@ -228,7 +229,7 @@ class AppTestMMap:
     def test_seek(self):
         from mmap import mmap
         f = open(self.tmpname + "i", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
@@ -269,7 +270,7 @@ class AppTestMMap:
     def test_write_byte(self):
         import mmap
         f = open(self.tmpname + "k", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
@@ -285,7 +286,7 @@ class AppTestMMap:
     def test_size(self):
         from mmap import mmap
         f = open(self.tmpname + "l", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap(f.fileno(), 5)
@@ -296,7 +297,7 @@ class AppTestMMap:
     def test_tell(self):
         from mmap import mmap
         f = open(self.tmpname + "m", "w+")
-        
+
         f.write("c")
         f.flush()
         m = mmap(f.fileno(), 1)
@@ -307,7 +308,7 @@ class AppTestMMap:
     def test_flush(self):
         from mmap import mmap
         f = open(self.tmpname + "n", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
@@ -318,10 +319,18 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_length_0_large_offset(self):
+        import mmap
+
+        with open(self.tmpname, "wb") as f:
+            f.write(115699 * 'm')
+        with open(self.tmpname, "w+b") as f:
+            raises(ValueError, mmap.mmap, f.fileno(), 0, offset=2147418112)
+
     def test_move(self):
         import mmap
         f = open(self.tmpname + "o", "w+")
-        
+
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
@@ -338,15 +347,15 @@ class AppTestMMap:
         assert a == "frarar"
         m.close()
         f.close()
-    
+
     def test_resize(self):
         import sys
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
             skip("resize does not work under OSX or FreeBSD")
-        
+
         import mmap
         import os
-        
+
         f = open(self.tmpname + "p", "w+")
         f.write("foobar")
         f.flush()
@@ -363,9 +372,31 @@ class AppTestMMap:
         m.close()
         f.close()
 
+    def test_resize_bsd(self):
+        import sys
+        if ("darwin" not in sys.platform) and ("freebsd" not in sys.platform):
+            skip("resize works under not OSX or FreeBSD")
+
+        import mmap
+        import os
+
+        f = open(self.tmpname + "p", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
+        raises(TypeError, m.resize, 1)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+        raises(SystemError, m.resize, 10)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+
     def test_len(self):
         from mmap import mmap
-        
+
         f = open(self.tmpname + "q", "w+")
         f.write("foobar")
         f.flush()
@@ -374,14 +405,14 @@ class AppTestMMap:
         assert len(m) == 6
         m.close()
         f.close()
-     
+
     def test_get_item(self):
         from mmap import mmap
-        
+
         f = open(self.tmpname + "r", "w+")
         f.write("foobar")
         f.flush()
-        
+
         m = mmap(f.fileno(), 6)
         fn = lambda: m["foo"]
         raises(TypeError, fn)
@@ -393,10 +424,10 @@ class AppTestMMap:
         assert m[4:1:-2] == 'ao'
         m.close()
         f.close()
-    
+
     def test_set_item(self):
         import mmap
-        
+
         f = open(self.tmpname + "s", "w+")
         f.write("foobar")
         f.flush()
@@ -432,14 +463,14 @@ class AppTestMMap:
         assert data == "yxxBaR"
         m.close()
         f.close()
-    
+
     def test_del_item(self):
         from mmap import mmap
-        
+
         f = open(self.tmpname + "t", "w+")
         f.write("foobar")
         f.flush()
-        
+
         m = mmap(f.fileno(), 6)
         def fn(): del m["foo"]
         raises(TypeError, fn)
@@ -452,11 +483,11 @@ class AppTestMMap:
 
     def test_concatenation(self):
         from mmap import mmap
-        
+
         f = open(self.tmpname + "u", "w+")
         f.write("foobar")
         f.flush()
-        
+
         m = mmap(f.fileno(), 6)
         def fn(): m + 1
         raises((SystemError, TypeError), fn)     # SystemError is in CPython,
@@ -469,11 +500,11 @@ class AppTestMMap:
 
     def test_repeatition(self):
         from mmap import mmap
-        
+
         f = open(self.tmpname + "v", "w+")
         f.write("foobar")
         f.flush()
-        
+
         m = mmap(f.fileno(), 6)
         def fn(): m * 1
         raises((SystemError, TypeError), fn)      # SystemError is in CPython,
@@ -483,14 +514,14 @@ class AppTestMMap:
         raises((SystemError, TypeError), fn)
         m.close()
         f.close()
-         
+
     def test_slicing(self):
         from mmap import mmap
 
         f = open(self.tmpname + "v", "w+")
         f.write("foobar")
         f.flush()
-        
+
         f.seek(0)
         m = mmap(f.fileno(), 6)
         assert m[-3:7] == "bar"
@@ -560,17 +591,56 @@ class AppTestMMap:
             assert m.size() == halfsize + 512
         m.close()
 
+    def test_large_offset(self):
+        import mmap
+        import sys
+        size = 0x14FFFFFFF
+        if sys.platform.startswith('win') or sys.platform == 'darwin':
+            self.skip('test requires %s bytes and a long time to run' % size)
+
+        with open(self.tmpname, "w+b") as f:
+            f.seek(size)
+            f.write("A")
+            f.flush()
+        with open(self.tmpname, 'rb') as f2:
+            f2.seek(size)
+            c = f2.read(1)
+            assert c == b'A'
+            m = mmap.mmap(f2.fileno(), 0, offset=0x140000000,
+                          access=mmap.ACCESS_READ)
+            try:
+                assert m[0xFFFFFFF] == b'A'
+            finally:
+                m.close()
+
+    def test_large_filesize(self):
+        import mmap
+        import sys
+        size = 0x17FFFFFFF
+        if sys.platform.startswith('win') or sys.platform == 'darwin':
+            self.skip('test requires %s bytes and a long time to run' % size)
+
+        with open(self.tmpname, "w+b") as f:
+            f.seek(size)
+            f.write(" ")
+            f.flush()
+            m = mmap.mmap(f.fileno(), 0x10000, access=mmap.ACCESS_READ)
+            try:
+                assert m.size() ==  0x180000000
+            finally:
+                m.close()
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap
         from mmap import PAGESIZE
         import sys
         import os
-        
+
         filename = self.tmpname + "w"
-    
+
         f = open(filename, "w+")
-    
+
         # write 2 pages worth of data to the file
         f.write('\0' * PAGESIZE)
         f.write('foo')
@@ -578,24 +648,24 @@ class AppTestMMap:
         f.flush()
         m = mmap.mmap(f.fileno(), 2 * PAGESIZE)
         f.close()
-    
+
         # sanity checks
         assert m.find("foo") == PAGESIZE
         assert len(m) == 2 * PAGESIZE
         assert m[0] == '\0'
         assert m[0:3] == '\0\0\0'
-    
+
         # modify the file's content
         m[0] = '3'
         m[PAGESIZE+3:PAGESIZE+3+3] = 'bar'
-    
+
         # check that the modification worked
         assert m[0] == '3'
         assert m[0:3] == '3\0\0'
         assert m[PAGESIZE-1:PAGESIZE+7] == '\0foobar\0'
 
         m.flush()
-    
+
         # test seeking around
         m.seek(0,0)
         assert m.tell() == 0
@@ -603,28 +673,28 @@ class AppTestMMap:
         assert m.tell() == 42
         m.seek(0, 2)
         assert m.tell() == len(m)
-        
+
         raises(ValueError, m.seek, -1)
         raises(ValueError, m.seek, 1, 2)
         raises(ValueError, m.seek, -len(m) - 1, 2)
-        
+
         # try resizing map
         if not (("darwin" in sys.platform) or ("freebsd" in sys.platform)):
             m.resize(512)
-        
+
             assert len(m) == 512
             raises(ValueError, m.seek, 513, 0)
-            
+
             # check that the underlying file is truncated too
             f = open(filename)
             f.seek(0, 2)
             assert f.tell() == 512
             f.close()
             assert m.size() == 512
-        
+
         m.close()
         f.close()
-        
+
         # test access=ACCESS_READ
         mapsize = 10
         f = open(filename, "wb")
@@ -644,21 +714,21 @@ class AppTestMMap:
         if not (("darwin" in sys.platform) or ("freebsd" in sys.platform)):
             raises(TypeError, m.resize, 2 * mapsize)
             assert open(filename, "rb").read() == 'a' * mapsize
-        
+
         # opening with size too big
         f = open(filename, "r+b")
         if not os.name == "nt":
             # this should work under windows
             raises(ValueError, mmap.mmap, f.fileno(), mapsize + 1)
         f.close()
-        
+
         # if _MS_WINDOWS:
         #     # repair damage from the resizing test.
         #     f = open(filename, 'r+b')
         #     f.truncate(mapsize)
         #     f.close()
         m.close()
-        
+
         # test access=ACCESS_WRITE"
         f = open(filename, "r+b")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_WRITE)
@@ -673,7 +743,7 @@ class AppTestMMap:
         stuff = f.read()
         f.close()
         assert stuff == 'c' * mapsize
-        
+
         # test access=ACCESS_COPY
         f = open(filename, "r+b")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_COPY)
@@ -687,12 +757,12 @@ class AppTestMMap:
             raises(TypeError, m.resize, 2 * mapsize)
         m.close()
         f.close()
-        
+
         # test invalid access
         f = open(filename, "r+b")
         raises(ValueError, mmap.mmap, f.fileno(), mapsize, access=4)
         f.close()
-        
+
         # test incompatible parameters
         if os.name == "posix":
             f = open(filename, "r+b")
@@ -700,10 +770,10 @@ class AppTestMMap:
                 prot=mmap.PROT_READ, access=mmap.ACCESS_WRITE)
             f.close()
 
-        
+
         # bad file descriptor
         raises(EnvironmentError, mmap.mmap, -2, 4096)
-        
+
         # do a tougher .find() test.  SF bug 515943 pointed out that, in 2.2,
         # searching for data with embedded \0 bytes didn't work.
         f = open(filename, 'w+')
@@ -713,14 +783,14 @@ class AppTestMMap:
         f.flush()
         m = mmap.mmap(f.fileno(), n)
         f.close()
-        
+
         for start in range(n + 1):
             for finish in range(start, n + 1):
                 sl = data[start:finish]
                 assert m.find(sl) == data.find(sl)
                 assert m.find(sl + 'x') ==  -1
         m.close()
-        
+
         # test mapping of entire file by passing 0 for map length
         f = open(filename, "w+")
         f.write(2**16 * 'm')
@@ -731,7 +801,7 @@ class AppTestMMap:
         assert m.read(2**16) == 2**16 * "m"
         m.close()
         f.close()
-        
+
         # make move works everywhere (64-bit format problem earlier)
         f = open(filename, 'w+')
         f.write("ABCDEabcde")

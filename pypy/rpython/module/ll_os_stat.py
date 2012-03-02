@@ -12,6 +12,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rlib import rposix
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import hlstr
@@ -21,7 +22,7 @@ from pypy.rpython.annlowlevel import hlstr
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
 
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
     TIMESPEC = platform.Struct('struct timespec',
                                [('tv_sec', rffi.TIME_T),
                                 ('tv_nsec', rffi.LONG)])
@@ -49,19 +50,8 @@ ALL_STAT_FIELDS = [
     ]
 N_INDEXABLE_FIELDS = 10
 
-# for now, check the host Python to know which st_xxx fields exist
-STAT_FIELDS = [(_name, _TYPE) for (_name, _TYPE) in ALL_STAT_FIELDS
-                              if hasattr(os.stat_result, _name)]
-
-STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
-
-STAT_FIELD_NAMES = [_name for (_name, _TYPE) in ALL_STAT_FIELDS
-                          if _name in STAT_FIELD_TYPES]
-
-del _name, _TYPE
-
 # For OO backends, expose only the portable fields (the first 10).
-PORTABLE_STAT_FIELDS = STAT_FIELDS[:N_INDEXABLE_FIELDS]
+PORTABLE_STAT_FIELDS = ALL_STAT_FIELDS[:N_INDEXABLE_FIELDS]
 
 # ____________________________________________________________
 #
@@ -142,17 +132,22 @@ compilation_info = ExternalCompilationInfo(
     includes = INCLUDES
 )
 
-if sys.platform != 'win32':
+if TIMESPEC is not None:
+    class CConfig_for_timespec:
+        _compilation_info_ = compilation_info
+        TIMESPEC = TIMESPEC
+    TIMESPEC = lltype.Ptr(
+        platform.configure(CConfig_for_timespec)['TIMESPEC'])
+
+
+def posix_declaration(try_to_add=None):
+    global STAT_STRUCT
 
     LL_STAT_FIELDS = STAT_FIELDS[:]
-    
-    if TIMESPEC is not None:
-        class CConfig_for_timespec:
-            _compilation_info_ = compilation_info
-            TIMESPEC = TIMESPEC
+    if try_to_add:
+        LL_STAT_FIELDS.append(try_to_add)
 
-        TIMESPEC = lltype.Ptr(
-            platform.configure(CConfig_for_timespec)['TIMESPEC'])
+    if TIMESPEC is not None:
 
         def _expand(lst, originalname, timespecname):
             for i, (_name, _TYPE) in enumerate(lst):
@@ -178,16 +173,42 @@ if sys.platform != 'win32':
     class CConfig:
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
-    config = platform.configure(CConfig)
+    try:
+        config = platform.configure(CConfig, ignore_errors=
+                                    try_to_add is not None)
+    except platform.CompilationError:
+        if try_to_add:
+            return    # failed to add this field, give up
+        raise
 
     STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
+    if try_to_add:
+        STAT_FIELDS.append(try_to_add)
+
+
+# This lists only the fields that have been found on the underlying platform.
+# Initially only the PORTABLE_STAT_FIELDS, but more may be added by the
+# following loop.
+STAT_FIELDS = PORTABLE_STAT_FIELDS[:]
+
+if sys.platform != 'win32':
+    posix_declaration()
+    for _i in range(len(PORTABLE_STAT_FIELDS), len(ALL_STAT_FIELDS)):
+        posix_declaration(ALL_STAT_FIELDS[_i])
+    del _i
+
+# these two global vars only list the fields defined in the underlying platform
+STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
+STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
+del _name, _TYPE
+
 
 def build_stat_result(st):
     # only for LL backends
     if TIMESPEC is not None:
-        atim = st.c_st_atim; atime = atim.c_tv_sec + 1E-9 * atim.c_tv_nsec
-        mtim = st.c_st_mtim; mtime = mtim.c_tv_sec + 1E-9 * mtim.c_tv_nsec
-        ctim = st.c_st_ctim; ctime = ctim.c_tv_sec + 1E-9 * ctim.c_tv_nsec
+        atim = st.c_st_atim; atime = int(atim.c_tv_sec) + 1E-9 * int(atim.c_tv_nsec)
+        mtim = st.c_st_mtim; mtime = int(mtim.c_tv_sec) + 1E-9 * int(mtim.c_tv_nsec)
+        ctim = st.c_st_ctim; ctime = int(ctim.c_tv_sec) + 1E-9 * int(ctim.c_tv_nsec)
     else:
         atime = st.c_st_atime
         mtime = st.c_st_mtime
@@ -215,7 +236,7 @@ def build_stat_result(st):
 def register_stat_variant(name, traits):
     if name != 'fstat':
         arg_is_path = True
-        s_arg = traits.str
+        s_arg = traits.str0
         ARG1 = traits.CCHARP
     else:
         arg_is_path = False
@@ -230,10 +251,8 @@ def register_stat_variant(name, traits):
             [s_arg], s_StatResult, traits.ll_os_name(name),
             llimpl=posix_stat_llimpl)
 
-    assert traits.str is str
-
     if sys.platform.startswith('linux'):
-        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler 
+        # because we always use _FILE_OFFSET_BITS 64 - this helps things work that are not a c compiler
         _functions = {'stat':  'stat64',
                       'fstat': 'fstat64',
                       'lstat': 'lstat64'}
@@ -262,7 +281,7 @@ def register_stat_variant(name, traits):
 
     @func_renamer('os_%s_fake' % (name,))
     def posix_fakeimpl(arg):
-        if s_arg == str:
+        if s_arg == traits.str0:
             arg = hlstr(arg)
         st = getattr(os, name)(arg)
         fields = [TYPE for fieldname, TYPE in STAT_FIELDS]
@@ -422,20 +441,19 @@ def make_win32_stat_impl(name, traits):
 # Helper functions for win32
 
 def make_longlong(high, low):
-    return (lltype.r_longlong(high) << 32) + lltype.r_longlong(low)
+    return (rffi.r_longlong(high) << 32) + rffi.r_longlong(low)
 
 # Seconds between 1.1.1601 and 1.1.1970
-secs_between_epochs = lltype.r_longlong(11644473600)
+secs_between_epochs = rffi.r_longlong(11644473600)
 
 def FILE_TIME_to_time_t_nsec(filetime):
     ft = make_longlong(filetime.c_dwHighDateTime, filetime.c_dwLowDateTime)
     # FILETIME is in units of 100 nsec
     nsec = (ft % 10000000) * 100
     time = (ft / 10000000) - secs_between_epochs
-    return time, nsec
+    return intmask(time), intmask(nsec)
 
 def time_t_to_FILE_TIME(time, filetime):
-    ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
-    filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
-    filetime.c_dwLowDateTime = lltype.r_uint(ft & lltype.r_uint(-1))
-
+    ft = (rffi.r_longlong(time) + secs_between_epochs) * 10000000
+    filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
+    filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits

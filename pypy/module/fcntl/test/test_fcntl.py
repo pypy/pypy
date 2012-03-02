@@ -42,12 +42,9 @@ class AppTestFcntl:
         else:
             start_len = "qq"
 
-        if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3',
-                            'Darwin1.2', 'darwin',
-                            'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
-                            'freebsd6', 'freebsd7', 'freebsd8', 'freebsd9',
-                            'bsdos2', 'bsdos3', 'bsdos4',
-                            'openbsd', 'openbsd2', 'openbsd3'):
+        if any(substring in sys.platform.lower()
+               for substring in ('netbsd', 'darwin', 'freebsd', 'bsdos',
+                                 'openbsd')):
             if struct.calcsize('l') == 8:
                 off_t = 'l'
                 pid_t = 'i'
@@ -180,6 +177,10 @@ class AppTestFcntl:
         fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_large_flag(self):
+        import sys
+        if any(plat in sys.platform
+               for plat in ('darwin', 'openbsd', 'freebsd')):
+            skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
         if sys.maxint == 2147483647:
             assert fcntl.DN_MULTISHOT == -2147483648

@@ -374,6 +374,7 @@ def round_up_for_allocation(size, minsize=0):
     following an object.  For arenas containing heterogenous objects.
     If minsize is specified, it gives a minimum on the resulting size."""
     return _round_up_for_allocation(size, minsize)
+round_up_for_allocation._annenforceargs_ = [int, int]
 
 def _round_up_for_allocation(size, minsize):    # internal
     return RoundedUpForAllocation(size, minsize)
@@ -404,7 +405,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.extfunc import register_external
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux'):
     # This only works with linux's madvise(), which is really not a memory
     # usage hint but a real command.  It guarantees that after MADV_DONTNEED
     # the pages are cleared again.

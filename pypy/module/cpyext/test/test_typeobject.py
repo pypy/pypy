@@ -119,16 +119,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = module.FuuType(u"xyz")
+        newobj = module.UnicodeSubtype(u"xyz")
         assert newobj == u"xyz"
-        assert isinstance(newobj, module.FuuType)
+        assert isinstance(newobj, module.UnicodeSubtype)
 
         assert isinstance(module.fooType(), module.fooType)
         class bar(module.fooType):
             pass
         assert isinstance(bar(), bar)
 
-        fuu = module.FuuType
+        fuu = module.UnicodeSubtype
         class fuu2(fuu):
             def baz(self):
                 return self
@@ -137,20 +137,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def test_init(self):
         module = self.import_module(name="foo")
-        newobj = module.FuuType()
+        newobj = module.UnicodeSubtype()
         assert newobj.get_val() == 42
 
         # this subtype should inherit tp_init
-        newobj = module.Fuu2Type()
+        newobj = module.UnicodeSubtype2()
         assert newobj.get_val() == 42
 
         # this subclass redefines __init__
-        class Fuu2(module.FuuType):
+        class UnicodeSubclass2(module.UnicodeSubtype):
             def __init__(self):
                 self.foobar = 32
-                super(Fuu2, self).__init__()
+                super(UnicodeSubclass2, self).__init__()
         
-        newobj = Fuu2()
+        newobj = UnicodeSubclass2()
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
 
@@ -268,6 +268,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is foo.Custom
         assert type(foo.Custom) is foo.MetaType
 
+    def test_heaptype(self):
+        module = self.import_extension('foo', [
+           ("name_by_heaptype", "METH_O",
+            '''
+                 PyHeapTypeObject *heaptype = (PyHeapTypeObject *)args;
+                 Py_INCREF(heaptype->ht_name);
+                 return heaptype->ht_name;
+             '''
+             )
+            ])
+        class C(object):
+            pass
+        assert module.name_by_heaptype(C) == "C"
+        
+
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
         w_class = space.appexec([], """():
@@ -382,3 +397,60 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             def __str__(self):
                 return "text"
         assert module.tp_str(C()) == "text"
+
+    def test_mp_ass_subscript(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_as_mapping = &tp_as_mapping;
+                tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static int
+            mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
+            {
+                PyErr_SetNone(PyExc_ZeroDivisionError);
+                return -1;
+            }
+            PyMappingMethods tp_as_mapping;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.new_obj()
+        raises(ZeroDivisionError, obj.__setitem__, 5, None)
+
+    def test_tp_iter(self):
+        module = self.import_extension('foo', [
+           ("tp_iter", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iter)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iter(args);
+             '''
+             ),
+           ("tp_iternext", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iternext)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iternext(args);
+             '''
+             )
+            ])
+        l = [1]
+        it = module.tp_iter(l)
+        assert type(it) is type(iter([]))
+        assert module.tp_iternext(it) == 1
+        raises(StopIteration, module.tp_iternext, it)

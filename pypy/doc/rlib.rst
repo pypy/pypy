@@ -14,13 +14,11 @@ are not RPython). Most of these modules are somewhat rough still and are likely
 to change at some point.  Usually it is useful to look at the tests in
 `pypy/rlib/test`_ to get an impression of how to use a module.
 
-.. _`pypy/rlib`: ../../../../pypy/rlib
-.. _`pypy/rlib/test`: ../../../../pypy/rlib/test
 
 ``listsort``
 ============
 
-The listsort_ module contains an implementation of the timsort sorting algorithm
+The `pypy/rlib/listsort.py`_ module contains an implementation of the timsort sorting algorithm
 (the sort method of lists is not RPython). To use it, subclass from the
 ``listsort.TimSort`` class and override the ``lt`` method to change the
 comparison behaviour. The constructor of ``TimSort`` takes a list as an
@@ -29,19 +27,16 @@ argument, which will be sorted in place when the ``sort`` method of the
 be sorted using the ``listsort`` module in one program, otherwise the annotator
 will be confused.
 
-.. _listsort: ../../../../pypy/rlib/listsort.py
-
 ``nonconst``
 ============
 
-The nonconst_ module is useful mostly for tests. The `flow object space`_ and
+The `pypy/rlib/nonconst.py`_ module is useful mostly for tests. The `flow object space`_ and
 the `annotator`_ do quite some constant folding, which is sometimes not desired
 in a test. To prevent constant folding on a certain value, use the ``NonConst``
 class. The constructor of ``NonConst`` takes an arbitrary value. The instance of
 ``NonConst`` will behave during annotation like that value, but no constant
 folding will happen.
 
-.. _nonconst: ../../../../pypy/rlib/nonconst.py
 .. _`flow object space`: objspace.html#the-flow-object-space
 .. _`annotator`: translation.html#the-annotation-pass
 
@@ -49,7 +44,7 @@ folding will happen.
 ``objectmodel``
 ===============
 
-The objectmodel_ module is a mixed bag of various functionality. Some of the
+The `pypy/rlib/objectmodel.py`_ module is a mixed bag of various functionality. Some of the
 more useful ones are:
 
 ``ComputedIntSymbolic``:
@@ -95,24 +90,21 @@ more useful ones are:
     won't be allocated but represented by *tagged pointers**, that is pointers
     that have the lowest bit set.
 
-.. _objectmodel: ../../../../pypy/rlib/objectmodel.py
-
 
 ``rarithmetic``
 ===============
 
-The rarithmetic_ module contains functionality to handle the small differences
+The `pypy/rlib/rarithmetic.py`_ module contains functionality to handle the small differences
 in the behaviour of arithmetic code in regular Python and RPython code. Most of
 them are already described in the `coding guide`_
 
-.. _rarithmetic: ../../../../pypy/rlib/rarithmetic.py
 .. _`coding guide`: coding-guide.html
 
 
 ``rbigint``
 ===========
 
-The rbigint module contains a full RPython implementation of the Python ``long``
+The `pypy/rlib/rbigint.py`_ module contains a full RPython implementation of the Python ``long``
 type (which itself is not supported in RPython). The ``rbigint`` class contains
 that implementation. To construct ``rbigint`` instances use the static methods
 ``fromint``, ``frombool``, ``fromfloat`` and ``fromdecimalstr``. To convert back
@@ -122,120 +114,47 @@ special methods of ``rbigint`` that would normally start and end with "__" have
 these underscores left out for better readability (so ``a.add(b)`` can be used
 to add two rbigint instances).
 
-.. _rbigint: ../../../../pypy/rlib/rbigint.py
-
 
 ``rrandom``
 ===========
 
-The rrandom_ module contains an implementation of the mersenne twister random
+The `pypy/rlib/rrandom.py`_ module contains an implementation of the mersenne twister random
 number generator. It contains one class ``Random`` which most importantly has a
 ``random`` method which returns a pseudo-random floating point number between
 0.0 and 1.0.
 
-.. _rrandom: ../../../../pypy/rlib/rrandom.py
-
 ``rsocket``
 ===========
 
-The rsocket_ module contains an RPython implementation of the functionality of
+The `pypy/rlib/rsocket.py`_ module contains an RPython implementation of the functionality of
 the socket standard library with a slightly different interface.  The
 difficulty with the Python socket API is that addresses are not "well-typed"
 objects: depending on the address family they are tuples, or strings, and
 so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
-.. _rsocket: ../../../../pypy/rlib/rsocket.py
-
-
-``rstack``
-==========
-
-The rstack_ module allows an RPython program to control its own execution stack.
-This is only useful if the program is translated using stackless. An old
-description of the exposed functions is below.
-
-We introduce an RPython type ``frame_stack_top`` and a built-in function
-``yield_current_frame_to_caller()`` that work as follows (see example below):
-
-* The built-in function ``yield_current_frame_to_caller()`` causes the current
-  function's state to be captured in a new ``frame_stack_top`` object that is
-  returned to the parent.  Only one frame, the current one, is captured this
-  way.  The current frame is suspended and the caller continues to run.  Note
-  that the caller is only resumed once: when
-  ``yield_current_frame_to_caller()`` is called.  See below.
-
-* A ``frame_stack_top`` object can be jumped to by calling its ``switch()``
-  method with no argument.
-
-* ``yield_current_frame_to_caller()`` and ``switch()`` themselves return a new
-  ``frame_stack_top`` object: the freshly captured state of the caller of the
-  source ``switch()`` that was just executed, or None in the case described
-  below.
-
-* the function that called ``yield_current_frame_to_caller()`` also has a
-  normal return statement, like all functions.  This statement must return
-  another ``frame_stack_top`` object.  The latter is *not* returned to the
-  original caller; there is no way to return several times to the caller.
-  Instead, it designates the place to which the execution must jump, as if by
-  a ``switch()``.  The place to which we jump this way will see a None as the
-  source frame stack top.
-
-* every frame stack top must be resumed once and only once.  Not resuming
-  it at all causes a leak.  Resuming it several times causes a crash.
-
-* a function that called ``yield_current_frame_to_caller()`` should not raise.
-  It would have no implicit parent frame to propagate the exception to.  That
-  would be a crashingly bad idea.
-
-The following example would print the numbers from 1 to 7 in order::
-
-    def g():
-        print 2
-        frametop_before_5 = yield_current_frame_to_caller()
-        print 4
-        frametop_before_7 = frametop_before_5.switch()
-        print 6
-        return frametop_before_7
-
-    def f():
-        print 1
-        frametop_before_4 = g()
-        print 3
-        frametop_before_6 = frametop_before_4.switch()
-        print 5
-        frametop_after_return = frametop_before_6.switch()
-        print 7
-        assert frametop_after_return is None
-
-    f()
-
-.. _rstack: ../../../../pypy/rlib/rstack.py
-
 
 ``streamio``
 ============
 
-The streamio_ contains an RPython stream I/O implementation (which was started
+The `pypy/rlib/streamio.py`_ contains an RPython stream I/O implementation (which was started
 by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
 upcoming new file implementation in Python 3000).
 
-.. _streamio: ../../../../pypy/rlib/streamio.py
 .. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
 
 ``unroll``
 ==========
 
-The unroll_ module most importantly contains the function ``unrolling_iterable``
+The `pypy/rlib/unroll.py`_ module most importantly contains the function ``unrolling_iterable``
 which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
-.. _unroll: ../../../../pypy/rlib/unroll.py
 
 ``parsing``
 ===========
 
-The parsing_ module is a still in-development module to generate tokenizers and
+The `pypy/rlib/parsing/`_ module is a still in-development module to generate tokenizers and
 parsers in RPython. It is still highly experimental and only really used by the
 `Prolog interpreter`_ (although in slightly non-standard ways). The easiest way
 to specify a tokenizer/grammar is to write it down using regular expressions and
@@ -289,7 +208,7 @@ function ``make_runner(s)`` in the ``pypy.rlib.parsing.regexparse`` module.  It
 returns a object with a ``recognize(input)`` method that returns True or False
 depending on whether ``input`` matches the string or not.
 
-.. _`re`: http://docs.python.org/lib/module-re.html
+.. _`re`: http://docs.python.org/library/re.html
 
 EBNF
 ----
@@ -341,14 +260,42 @@ the literals "+", "*", "(" or ")". Any space will be ignored. The grammar
 produces a syntax tree that follows the precedence of the operators. For example
 the expression ``12 + 4 * 5`` is parsed into the following tree:
 
-.. graphviz:: image/parsing_example1.dot
+.. graphviz::
+
+    digraph G{
+    "-1213931828" [label="additive"];
+    "-1213931828" -> "-1213951956";
+    "-1213951956" [label="multitive"];
+    "-1213951956" -> "-1213949172";
+    "-1213949172" [label="primary"];
+    "-1213949172" -> "-1213949812";
+    "-1213949812" [shape=box,label="DECIMAL\l'12'"];
+    "-1213931828" -> "-1213935220";
+    "-1213935220" [shape=box,label="__0_+\l'+'"];
+    "-1213931828" -> "-1213951316";
+    "-1213951316" [label="additive"];
+    "-1213951316" -> "-1213948180";
+    "-1213948180" [label="multitive"];
+    "-1213948180" -> "-1213951380";
+    "-1213951380" [label="primary"];
+    "-1213951380" -> "-1213951508";
+    "-1213951508" [shape=box,label="DECIMAL\l'4'"];
+    "-1213948180" -> "-1213948788";
+    "-1213948788" [shape=box,label="__1_*\l'*'"];
+    "-1213948180" -> "-1213951060";
+    "-1213951060" [label="multitive"];
+    "-1213951060" -> "-1213948980";
+    "-1213948980" [label="primary"];
+    "-1213948980" -> "-1213950420";
+    "-1213950420" [shape=box,label="DECIMAL\l'5'"];
+    }
 
 Parse Trees
 -----------
 
 The parsing process builds up a tree consisting of instances of ``Symbol`` and
 ``Nonterminal``, the former corresponding to tokens, the latter to nonterminal
-symbols. Both classes live in the `pypy.rlib.parsing.tree`_ module. You can use
+symbols. Both classes live in the `pypy/rlib/parsing/tree.py`_ module. You can use
 the ``view()`` method ``Nonterminal`` instances to get a pygame view of the
 parse tree.
 
@@ -359,13 +306,11 @@ name of the token and ``additional_info`` which is the matched source.
 of the nonterminal and ``children`` which is a list of the children attributes.
 
 
-.. _`pypy.rlib.parsing.tree`: ../../../../pypy/rlib/parsing/tree.py
-
 Visitors
 ++++++++
 
 To write tree visitors for the parse trees that are RPython, there is a special
-baseclass ``RPythonVisitor`` in ``pypy.rlib.parsing.tree``_ to use. If your
+baseclass ``RPythonVisitor`` in `pypy/rlib/parsing/tree.py`_ to use. If your
 class uses this, it will grow a ``dispatch(node)`` method, that calls an
 appropriate ``visit_<symbol>`` method, depending on the ``node`` argument. Here
 the <symbol> is replaced by the ``symbol`` attribute of the visited node.
@@ -400,11 +345,43 @@ Example::
 
 Parsing the string "A, A, A" gives the tree:
 
-.. graphviz:: image/parsing_example2.dot
+.. graphviz::
+
+    digraph G{
+    "-1213678004" [label="n"];
+    "-1213678004" -> "-1213681108";
+    "-1213681108" [shape=box,label="__0_A\n'A'"];
+    "-1213678004" -> "-1213681332";
+    "-1213681332" [shape=box,label="__1_,\n','"];
+    "-1213678004" -> "-1213837780";
+    "-1213837780" [label="n"];
+    "-1213837780" -> "-1213837716";
+    "-1213837716" [shape=box,label="__0_A\n'A'"];
+    "-1213837780" -> "-1213839476";
+    "-1213839476" [shape=box,label="__1_,\n','"];
+    "-1213837780" -> "-1213839956";
+    "-1213839956" [label="n"];
+    "-1213839956" -> "-1213840948";
+    "-1213840948" [shape=box,label="__0_A\n'A'"];
+    }
 
 After transformation the tree has the "," nodes removed:
 
-.. graphviz:: image/parsing_example3.dot
+.. graphviz::
+
+    digraph G{
+    "-1219325716" [label="n"];
+    "-1219325716" -> "-1219325844";
+    "-1219325844" [shape=box,label="__0_A\n'A'"];
+    "-1219325716" -> "-1219324372";
+    "-1219324372" [label="n"];
+    "-1219324372" -> "-1219325524";
+    "-1219325524" [shape=box,label="__0_A\n'A'"];
+    "-1219324372" -> "-1219324308";
+    "-1219324308" [label="n"];
+    "-1219324308" -> "-1219325492";
+    "-1219325492" [shape=box,label="__0_A\n'A'"];
+    }
 
 <symbol>
 ++++++++
@@ -421,12 +398,61 @@ Example::
 
 Parsing the string "a b c (a b c d)" gives the tree:
 
-.. graphviz:: image/parsing_example4.dot
+.. graphviz::
+
+    digraph G{
+    "-1214029460" [label="n"];
+    "-1214029460" -> "-1214026452";
+    "-1214026452" [shape=box,label="__0_a\n'a'"];
+    "-1214029460" -> "-1214028276";
+    "-1214028276" [shape=box,label="__1_b\n'b'"];
+    "-1214029460" -> "-1214027316";
+    "-1214027316" [shape=box,label="__2_c\n'c'"];
+    "-1214029460" -> "-1214026868";
+    "-1214026868" [label="m"];
+    "-1214026868" -> "-1214140436";
+    "-1214140436" [shape=box,label="__3_(\n'('"];
+    "-1214026868" -> "-1214143508";
+    "-1214143508" [label="n"];
+    "-1214143508" -> "-1214141364";
+    "-1214141364" [shape=box,label="__0_a\n'a'"];
+    "-1214143508" -> "-1214141748";
+    "-1214141748" [shape=box,label="__1_b\n'b'"];
+    "-1214143508" -> "-1214140756";
+    "-1214140756" [shape=box,label="__2_c\n'c'"];
+    "-1214143508" -> "-1214144468";
+    "-1214144468" [label="m"];
+    "-1214144468" -> "-1214414868";
+    "-1214414868" [shape=box,label="__5_d\n'd'"];
+    "-1214026868" -> "-1214141492";
+    "-1214141492" [shape=box,label="__4_)\n')'"];
+    }
 
 After transformation the tree looks like this:
 
-.. graphviz:: image/parsing_example5.dot
+.. graphviz::
 
+    digraph G{
+    "-1219949908" [label="n"];
+    "-1219949908" -> "-1214026452";
+    "-1214026452" [shape=box,label="__0_a\n'a'"];
+    "-1219949908" -> "-1214028276";
+    "-1214028276" [shape=box,label="__1_b\n'b'"];
+    "-1219949908" -> "-1214027316";
+    "-1214027316" [shape=box,label="__2_c\n'c'"];
+    "-1219949908" -> "-1219949876";
+    "-1219949876" [label="n"];
+    "-1219949876" -> "-1214141364";
+    "-1214141364" [shape=box,label="__0_a\n'a'"];
+    "-1219949876" -> "-1214141748";
+    "-1214141748" [shape=box,label="__1_b\n'b'"];
+    "-1219949876" -> "-1214140756";
+    "-1214140756" [shape=box,label="__2_c\n'c'"];
+    "-1219949876" -> "-1219949748";
+    "-1219949748" [label="m"];
+    "-1219949748" -> "-1214414868";
+    "-1214414868" [shape=box,label="__5_d\n'd'"];
+    }
 
 >nonterminal_1 nonterminal_2 ... nonterminal_n<
 +++++++++++++++++++++++++++++++++++++++++++++++
@@ -441,23 +467,76 @@ Example::
 
 Parsing the string "1 2" gives the tree:
 
-.. graphviz:: image/parsing_example6.dot
-    
+.. graphviz::
+
+    digraph G{
+    "-1213518708" [label="list"];
+    "-1213518708" -> "-1213518196";
+    "-1213518196" [shape=box,label="DECIMAL\n'1'"];
+    "-1213518708" -> "-1213518260";
+    "-1213518260" [label="list"];
+    "-1213518260" -> "-1213520308";
+    "-1213520308" [shape=box,label="DECIMAL\n'2'"];
+    }
+
 after the transformation the tree looks like:
 
-.. graphviz:: image/parsing_example7.dot
+.. graphviz::
+
+    digraph G{
+    "-1219505652" [label="list"];
+    "-1219505652" -> "-1213518196";
+    "-1213518196" [shape=box,label="DECIMAL\n'1'"];
+    "-1219505652" -> "-1213520308";
+    "-1213520308" [shape=box,label="DECIMAL\n'2'"];
+    }
 
 Note that the transformation works recursively. That means that the following
 also works: if the string "1 2 3 4 5" is parsed the tree at first looks like
 this:
 
-.. graphviz:: image/parsing_example8.dot
+.. graphviz::
+
+    digraph G{
+    "-1213611892" [label="list"];
+    "-1213611892" -> "-1213608980";
+    "-1213608980" [shape=box,label="DECIMAL\n'1'"];
+    "-1213611892" -> "-1213623476";
+    "-1213623476" [label="list"];
+    "-1213623476" -> "-1213623380";
+    "-1213623380" [shape=box,label="DECIMAL\n'2'"];
+    "-1213623476" -> "-1213442868";
+    "-1213442868" [label="list"];
+    "-1213442868" -> "-1213441652";
+    "-1213441652" [shape=box,label="DECIMAL\n'3'"];
+    "-1213442868" -> "-1213441332";
+    "-1213441332" [label="list"];
+    "-1213441332" -> "-1213441620";
+    "-1213441620" [shape=box,label="DECIMAL\n'4'"];
+    "-1213441332" -> "-1213443060";
+    "-1213443060" [label="list"];
+    "-1213443060" -> "-1213442100";
+    "-1213442100" [shape=box,label="DECIMAL\n'5'"];
+    }
 
 But after transformation the whole thing collapses to one node with a lot of
 children:
 
-.. graphviz:: image/parsing_example9.dot
+.. graphviz::
 
+    digraph G{
+    "-1219430228" [label="list"];
+    "-1219430228" -> "-1213608980";
+    "-1213608980" [shape=box,label="DECIMAL\n'1'"];
+    "-1219430228" -> "-1213623380";
+    "-1213623380" [shape=box,label="DECIMAL\n'2'"];
+    "-1219430228" -> "-1213441652";
+    "-1213441652" [shape=box,label="DECIMAL\n'3'"];
+    "-1219430228" -> "-1213441620";
+    "-1213441620" [shape=box,label="DECIMAL\n'4'"];
+    "-1219430228" -> "-1213442100";
+    "-1213442100" [shape=box,label="DECIMAL\n'5'"];
+    }
 
 Extensions to the EBNF grammar format
 -------------------------------------
@@ -526,10 +605,48 @@ The resulting tree for parsing the string::
 
 looks like this:
 
-.. graphviz:: image/parsing_example10.dot
+.. graphviz::
+
+    digraph G{
+    "-1220061652" [label="object"];
+    "-1220061652" -> "-1220127636";
+    "-1220127636" [label="entry"];
+    "-1220127636" -> "-1213915636";
+    "-1213915636" [shape=box,label="STRING\n'a'"];
+    "-1220127636" -> "-1214251156";
+    "-1214251156" [shape=box,label="STRING\n'5'"];
+    "-1220061652" -> "-1220063188";
+    "-1220063188" [label="entry"];
+    "-1220063188" -> "-1214253076";
+    "-1214253076" [shape=box,label="STRING\n'b'"];
+    "-1220063188" -> "-1220059444";
+    "-1220059444" [label="array"];
+    "-1220059444" -> "-1214253364";
+    "-1214253364" [shape=box,label="NUMBER\n'1'"];
+    "-1220059444" -> "-1214254292";
+    "-1214254292" [shape=box,label="__0_null\n'null'"];
+    "-1220059444" -> "-1214253268";
+    "-1214253268" [shape=box,label="NUMBER\n'3'"];
+    "-1220059444" -> "-1214252596";
+    "-1214252596" [shape=box,label="__1_true\n'true'"];
+    "-1220059444" -> "-1220062260";
+    "-1220062260" [label="object"];
+    "-1220062260" -> "-1220060116";
+    "-1220060116" [label="entry"];
+    "-1220060116" -> "-1214211860";
+    "-1214211860" [shape=box,label="STRING\n'f'"];
+    "-1220060116" -> "-1214210132";
+    "-1214210132" [shape=box,label="STRING\n'g'"];
+    "-1220062260" -> "-1220062868";
+    "-1220062868" [label="entry"];
+    "-1220062868" -> "-1214211956";
+    "-1214211956" [shape=box,label="STRING\n'h'"];
+    "-1220062868" -> "-1214212308";
+    "-1214212308" [shape=box,label="NUMBER\n'6'"];
+    }
 
 
-
-.. _`Prolog interpreter`: http://codespeak.net/svn/pypy/lang/prolog/
-.. _parsing: ../../../../pypy/rlib/parsing/
+.. _`Prolog interpreter`: https://bitbucket.org/cfbolz/pyrolog/
 .. _`json format`: http://www.json.org
+
+.. include:: _ref.txt

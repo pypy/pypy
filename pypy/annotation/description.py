@@ -3,7 +3,6 @@ from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
-from pypy.interpreter.function import Defaults
 from pypy.tool.sourcetools import valid_identifier
 from pypy.tool.pairtype import extendabletype
 
@@ -181,7 +180,12 @@ class FunctionDesc(Desc):
         if name is None:
             name = pyobj.func_name
         if signature is None:
-            signature = cpython_code_signature(pyobj.func_code)
+            if hasattr(pyobj, '_generator_next_method_of_'):
+                from pypy.interpreter.argument import Signature
+                signature = Signature(['entry'])     # haaaaaack
+                defaults = ()
+            else:
+                signature = cpython_code_signature(pyobj.func_code)
         if defaults is None:
             defaults = pyobj.func_defaults
         self.name = name
@@ -251,12 +255,17 @@ class FunctionDesc(Desc):
             for x in defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
         try:
-            inputcells = args.match_signature(signature, Defaults(defs_s))
+            inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
+            raise TypeError("signature mismatch: %s() %s" % 
+                            (self.name, e.getmsg()))
         return inputcells
 
-    def specialize(self, inputcells):
+    def specialize(self, inputcells, op=None):
+        if (op is None and
+            getattr(self.bookkeeper, "position_key", None) is not None):
+            _, block, i = self.bookkeeper.position_key
+            op = block.operations[i]
         if self.specializer is None:
             # get the specializer based on the tag of the 'pyobj'
             # (if any), according to the current policy
@@ -270,11 +279,14 @@ class FunctionDesc(Desc):
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
-        return self.specializer(self, inputcells)
+        if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
+            return self.specializer(self, inputcells, op)
+        else:
+            return self.specializer(self, inputcells)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
-        result = self.specialize(inputcells)
+        result = self.specialize(inputcells, op)
         if isinstance(result, FunctionGraph):
             graph = result         # common case
             # if that graph has a different signature, we need to re-parse
@@ -297,17 +309,17 @@ class FunctionDesc(Desc):
                                              None,       # selfclassdef
                                              name)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args)
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 
-    def variant_for_call_site(bookkeeper, family, descs, args):
+    def variant_for_call_site(bookkeeper, family, descs, args, op):
         shape = rawshape(args)
         bookkeeper.enter(None)
         try:
-            row = FunctionDesc.row_to_consider(descs, args)
+            row = FunctionDesc.row_to_consider(descs, args, op)
         finally:
             bookkeeper.leave()
         index = family.calltable_lookup_row(shape, row)
@@ -317,7 +329,7 @@ class FunctionDesc(Desc):
     def rowkey(self):
         return self
 
-    def row_to_consider(descs, args):
+    def row_to_consider(descs, args, op):
         # see comments in CallFamily
         from pypy.annotation.model import s_ImpossibleValue
         row = {}
@@ -325,7 +337,7 @@ class FunctionDesc(Desc):
             def enlist(graph, ignore):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
-            desc.pycall(enlist, args, s_ImpossibleValue)
+            desc.pycall(enlist, args, s_ImpossibleValue, op)
         return row
     row_to_consider = staticmethod(row_to_consider)
 
@@ -400,9 +412,7 @@ class ClassDesc(Desc):
                 if b1 is object:
                     continue
                 if b1.__dict__.get('_mixin_', False):
-                    assert b1.__bases__ == () or b1.__bases__ == (object,), (
-                        "mixin class %r should have no base" % (b1,))
-                    self.add_sources_for_class(b1, mixin=True)
+                    self.add_mixin(b1)
                 else:
                     assert base is object, ("multiple inheritance only supported "
                                             "with _mixin_: %r" % (cls,))
@@ -470,6 +480,15 @@ class ClassDesc(Desc):
                 return
         self.classdict[name] = Constant(value)
 
+    def add_mixin(self, base):
+        for subbase in base.__bases__:
+            if subbase is object:
+                continue
+            assert subbase.__dict__.get("_mixin_", False), ("Mixin class %r has non"
+                "mixin base class %r" % (base, subbase))
+            self.add_mixin(subbase)
+        self.add_sources_for_class(base, mixin=True)
+
     def add_sources_for_class(self, cls, mixin=False):
         for name, value in cls.__dict__.items():
             self.add_source_attribute(name, value, mixin)
@@ -515,7 +534,7 @@ class ClassDesc(Desc):
                             "specialization" % (self.name,))
         return self.getclassdef(None)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomeInstance, SomeImpossibleValue
         if self.specialize:
             if self.specialize == 'specialize:ctr_location':
@@ -566,7 +585,7 @@ class ClassDesc(Desc):
         if self.is_exception_class():
             if self.pyobj.__module__ == 'exceptions':
                 return True
-            if self.pyobj is py.code._AssertionError:
+            if issubclass(self.pyobj, AssertionError):
                 return True
         return False
 
@@ -638,16 +657,19 @@ class ClassDesc(Desc):
         return None
 
     def maybe_return_immutable_list(self, attr, s_result):
-        # hack: 'x.lst' where lst is listed in _immutable_fields_ as 'lst[*]'
+        # hack: 'x.lst' where lst is listed in _immutable_fields_ as
+        # either 'lst[*]' or 'lst?[*]'
         # should really return an immutable list as a result.  Implemented
         # by changing the result's annotation (but not, of course, doing an
         # actual copy in the rtyper).  Tested in pypy.rpython.test.test_rlist,
         # test_immutable_list_out_of_instance.
-        search = '%s[*]' % (attr,)
+        search1 = '%s[*]' % (attr,)
+        search2 = '%s?[*]' % (attr,)
         cdesc = self
         while cdesc is not None:
             if '_immutable_fields_' in cdesc.classdict:
-                if search in cdesc.classdict['_immutable_fields_'].value:
+                if (search1 in cdesc.classdict['_immutable_fields_'].value or
+                    search2 in cdesc.classdict['_immutable_fields_'].value):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()
@@ -655,7 +677,7 @@ class ClassDesc(Desc):
             cdesc = cdesc.basedesc
         return s_result     # common case
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         from pypy.annotation.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -700,7 +722,7 @@ class ClassDesc(Desc):
             initdescs[0].mergecallfamilies(*initdescs[1:])
             initfamily = initdescs[0].getcallfamily()
             MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
-                                          args, s_None)
+                                          args, s_None, op)
     consider_call_site = staticmethod(consider_call_site)
 
     def getallbases(self):
@@ -773,13 +795,13 @@ class MethodDesc(Desc):
     def getuniquegraph(self):
         return self.funcdesc.getuniquegraph()
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
         s_instance = SomeInstance(self.selfclassdef, flags = self.flags)
         args = args.prepend(s_instance)
-        return self.funcdesc.pycall(schedule, args, s_previous_result)
+        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
     def bind_under(self, classdef, name):
         self.bookkeeper.warning("rebinding an already bound %r" % (self,))
@@ -792,10 +814,10 @@ class MethodDesc(Desc):
                                              self.name,
                                              flags)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
         funcdescs = [methoddesc.funcdesc for methoddesc in descs]
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 
@@ -880,6 +902,11 @@ class FrozenDesc(Desc):
         except AttributeError:
             return False
 
+    def warn_missing_attribute(self, attr):
+        # only warn for missing attribute names whose name doesn't start
+        # with '$', to silence the warnings about '$memofield_xxx'.
+        return not self.has_attribute(attr) and not attr.startswith('$')
+
     def read_attribute(self, attr):
         try:
             return self.attrcache[attr]
@@ -942,16 +969,16 @@ class MethodOfFrozenDesc(Desc):
         return '<MethodOfFrozenDesc %r of %r>' % (self.funcdesc,
                                                   self.frozendesc)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomePBC
         s_self = SomePBC([self.frozendesc])
         args = args.prepend(s_self)
-        return self.funcdesc.pycall(schedule, args, s_previous_result)
+        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
         funcdescs = [mofdesc.funcdesc for mofdesc in descs]
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 

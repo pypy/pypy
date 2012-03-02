@@ -229,7 +229,8 @@ class CompletingReader(Reader):
 
     def after_command(self, cmd):
         super(CompletingReader, self).after_command(cmd)
-        if not isinstance(cmd, complete) and not isinstance(cmd, self_insert):
+        if not isinstance(cmd, self.commands['complete']) \
+           and not isinstance(cmd, self.commands['self_insert']):
             self.cmpltn_reset()
 
     def calc_screen(self):

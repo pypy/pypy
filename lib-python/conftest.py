@@ -61,7 +61,7 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split()
+        self._usemodules = usemodules.split() + ['signal']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
@@ -154,18 +154,18 @@ testmap = [
     RegrTest('test_cmd.py'),
     RegrTest('test_cmd_line_script.py'),
     RegrTest('test_codeccallbacks.py', core=True),
-    RegrTest('test_codecencodings_cn.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_hk.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_jp.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_kr.py', skip="encodings not available"),
-    RegrTest('test_codecencodings_tw.py', skip="encodings not available"),
+    RegrTest('test_codecencodings_cn.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecencodings_hk.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecencodings_jp.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecencodings_kr.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecencodings_tw.py', usemodules='_multibytecodec'),
 
-    RegrTest('test_codecmaps_cn.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_hk.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_jp.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_kr.py', skip="encodings not available"),
-    RegrTest('test_codecmaps_tw.py', skip="encodings not available"),
-    RegrTest('test_codecs.py', core=True),
+    RegrTest('test_codecmaps_cn.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecmaps_hk.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecmaps_jp.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecmaps_kr.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecmaps_tw.py', usemodules='_multibytecodec'),
+    RegrTest('test_codecs.py', core=True, usemodules='_multibytecodec'),
     RegrTest('test_codeop.py', core=True),
     RegrTest('test_coercion.py', core=True),
     RegrTest('test_collections.py'),
@@ -201,7 +201,7 @@ testmap = [
     RegrTest('test_difflib.py'),
     RegrTest('test_dircache.py', core=True),
     RegrTest('test_dis.py'),
-    RegrTest('test_distutils.py'),
+    RegrTest('test_distutils.py', skip=True),
     RegrTest('test_dl.py', skip=True),
     RegrTest('test_doctest.py', usemodules="thread"),
     RegrTest('test_doctest2.py'),
@@ -314,10 +314,11 @@ testmap = [
     RegrTest('test_mmap.py'),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
-    RegrTest('test_multibytecodec.py', skip="unsupported codecs"),
+    RegrTest('test_msilib.py', skip=only_win32),
+    RegrTest('test_multibytecodec.py', usemodules='_multibytecodec'),
     RegrTest('test_multibytecodec_support.py', skip="not a test"),
     RegrTest('test_multifile.py'),
-    RegrTest('test_multiprocessing.py', skip='FIXME leaves subprocesses'),
+    RegrTest('test_multiprocessing.py', skip="FIXME leaves subprocesses"),
     RegrTest('test_mutants.py', core="possibly"),
     RegrTest('test_mutex.py'),
     RegrTest('test_netrc.py'),
@@ -359,7 +360,7 @@ testmap = [
     RegrTest('test_property.py', core=True),
     RegrTest('test_pstats.py'),
     RegrTest('test_pty.py', skip="unsupported extension module"),
-    RegrTest('test_pwd.py', skip=skip_win32),
+    RegrTest('test_pwd.py', usemodules="pwd", skip=skip_win32),
     RegrTest('test_py3kwarn.py'),
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pydoc.py'),
@@ -400,7 +401,7 @@ testmap = [
 
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
-    RegrTest('test_ssl.py'),
+    RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_str.py', core=True),
 
     RegrTest('test_strftime.py'),
@@ -569,7 +570,6 @@ class RunFileExternal(py.test.collect.File):
 #
 import os
 import time
-import socket
 import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item): 

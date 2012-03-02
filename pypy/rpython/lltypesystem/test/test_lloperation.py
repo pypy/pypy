@@ -5,6 +5,7 @@ from pypy.rpython.ootypesystem import ootype, ooopimpl
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython import rclass
+from pypy.rlib.rarithmetic import LONGLONG_MASK, r_longlong, r_ulonglong
 
 LL_INTERP_OPERATIONS = [name[3:] for name in LLFrame.__dict__.keys()
                                  if name.startswith('op_')]
@@ -54,6 +55,7 @@ def test_llop_with_voids_interp():
 
 def test_is_pure():
     from pypy.objspace.flow.model import Variable, Constant
+    from pypy.rpython import rclass
     assert llop.bool_not.is_pure([Variable()])
     assert llop.debug_assert.is_pure([Variable()])
     assert not llop.int_add_ovf.is_pure([Variable(), Variable()])
@@ -85,38 +87,60 @@ def test_is_pure():
     assert llop.getarrayitem.is_pure([v_a2, Variable()])
     assert llop.getarraysize.is_pure([v_a2])
     #
-    accessor = rclass.FieldListAccessor()
-    S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
-                         hints={'immutable_fields': accessor})
-    accessor.initialize(S3, {'x': ''})
-    v_s3 = Variable()
-    v_s3.concretetype = lltype.Ptr(S3)
-    assert not llop.setfield.is_pure([v_s3, Constant('x'), Variable()])
-    assert not llop.setfield.is_pure([v_s3, Constant('y'), Variable()])
-    assert llop.getfield.is_pure([v_s3, Constant('x')])
-    assert not llop.getfield.is_pure([v_s3, Constant('y')])
+    for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
+                 rclass.IR_IMMUTABLE_ARRAY, rclass.IR_QUASIIMMUTABLE,
+                 rclass.IR_QUASIIMMUTABLE_ARRAY]:
+        accessor = rclass.FieldListAccessor()
+        S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
+                             hints={'immutable_fields': accessor})
+        accessor.initialize(S3, {'x': kind})
+        v_s3 = Variable()
+        v_s3.concretetype = lltype.Ptr(S3)
+        assert not llop.setfield.is_pure([v_s3, Constant('x'), Variable()])
+        assert not llop.setfield.is_pure([v_s3, Constant('y'), Variable()])
+        assert llop.getfield.is_pure([v_s3, Constant('x')]) is kind
+        assert not llop.getfield.is_pure([v_s3, Constant('y')])
 
 def test_getfield_pure():
     S1 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
     S2 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
                          hints={'immutable': True})
     accessor = rclass.FieldListAccessor()
-    S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
-                         hints={'immutable_fields': accessor})
-    accessor.initialize(S3, {'x': ''})
     #
     s1 = lltype.malloc(S1); s1.x = 45
     py.test.raises(TypeError, llop.getfield, lltype.Signed, s1, 'x')
     s2 = lltype.malloc(S2); s2.x = 45
     assert llop.getfield(lltype.Signed, s2, 'x') == 45
-    s3 = lltype.malloc(S3); s3.x = 46; s3.y = 47
-    assert llop.getfield(lltype.Signed, s3, 'x') == 46
-    py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'y')
     #
     py.test.raises(TypeError, llop.getinteriorfield, lltype.Signed, s1, 'x')
     assert llop.getinteriorfield(lltype.Signed, s2, 'x') == 45
-    assert llop.getinteriorfield(lltype.Signed, s3, 'x') == 46
-    py.test.raises(TypeError, llop.getinteriorfield, lltype.Signed, s3, 'y')
+    #
+    for kind in [rclass.IR_MUTABLE, rclass.IR_IMMUTABLE,
+                 rclass.IR_IMMUTABLE_ARRAY, rclass.IR_QUASIIMMUTABLE,
+                 rclass.IR_QUASIIMMUTABLE_ARRAY]:
+        #
+        S3 = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed),
+                             hints={'immutable_fields': accessor})
+        accessor.initialize(S3, {'x': kind})
+        s3 = lltype.malloc(S3); s3.x = 46; s3.y = 47
+        if kind in [rclass.IR_IMMUTABLE, rclass.IR_IMMUTABLE_ARRAY]:
+            assert llop.getfield(lltype.Signed, s3, 'x') == 46
+            assert llop.getinteriorfield(lltype.Signed, s3, 'x') == 46
+        else:
+            py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'x')
+            py.test.raises(TypeError, llop.getinteriorfield,
+                           lltype.Signed, s3, 'x')
+        py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'y')
+        py.test.raises(TypeError, llop.getinteriorfield,
+                       lltype.Signed, s3, 'y')
+
+def test_cast_float_to_ulonglong():
+    f = 12350000000000000000.0
+    py.test.raises(OverflowError, r_longlong, f)
+    r_longlong(f / 2)   # does not raise OverflowError
+    #
+    x = llop.cast_float_to_ulonglong(lltype.UnsignedLongLong, f)
+    assert x == r_ulonglong(f)
 
 # ___________________________________________________________________________
 # This tests that the LLInterpreter and the LL_OPERATIONS tables are in sync.
@@ -129,6 +153,4 @@ def test_llinterp_complete():
     for opname, llop in LL_OPERATIONS.items():
         if llop.canrun:
             continue
-        if opname.startswith('gc_x_'):
-            continue   # ignore experimental stuff
         assert opname in LL_INTERP_OPERATIONS

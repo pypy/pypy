@@ -30,6 +30,7 @@ class AppTestStructSeq(AppTestCpythonExtensionBase):
              """
                  PyObject *seq;
                  PyStructSequence_InitType(&PyDatatype, &Data_desc);
+                 if (PyErr_Occurred()) return NULL;
                  seq = PyStructSequence_New(&PyDatatype);
                  if (!seq) return NULL;
                  PyStructSequence_SET_ITEM(seq, 0, PyInt_FromLong(42));

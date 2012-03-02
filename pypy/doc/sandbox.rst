@@ -1,7 +1,3 @@
-.. include:: crufty.rst
-
-     .. ^^ it continues to work, but is unmaintained
-
 PyPy's sandboxing features
 ==========================
 

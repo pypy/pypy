@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
+#include <assert.h>
 
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
@@ -79,6 +80,7 @@ struct RPyOpaque_ThreadLock {
 	/* a <cond, mutex> pair to handle an acquire of a locked lock */
 	pthread_cond_t   lock_released;
 	pthread_mutex_t  mut;
+	struct RPyOpaque_ThreadLock *prev, *next;
 };
 
 #define RPyOpaque_INITEXPR_ThreadLock  {        \
@@ -98,6 +100,7 @@ int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
 long RPyThreadGetStackSize(void);
 long RPyThreadSetStackSize(long);
+void RPyThreadAfterFork(void);
 
 
 /* implementations */
@@ -241,6 +244,10 @@ long RPyThreadSetStackSize(long newsize)
 
 #include <semaphore.h>
 
+void RPyThreadAfterFork(void)
+{
+}
+
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
@@ -312,6 +319,29 @@ void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 #else                                      /* no semaphores */
 /************************************************************/
 
+struct RPyOpaque_ThreadLock *alllocks;   /* doubly-linked list */
+
+void RPyThreadAfterFork(void)
+{
+	/* Mess.  We have no clue about how it works on CPython on OSX,
+	   but the issue is that the state of mutexes is not really
+	   preserved across a fork().  So we need to walk over all lock
+	   objects here, and rebuild their mutex and condition variable.
+
+	   See e.g. http://hackage.haskell.org/trac/ghc/ticket/1391 for
+	   a similar bug about GHC.
+	*/
+	struct RPyOpaque_ThreadLock *p = alllocks;
+	alllocks = NULL;
+	while (p) {
+		struct RPyOpaque_ThreadLock *next = p->next;
+		int was_locked = p->locked;
+		RPyThreadLockInit(p);
+		p->locked = was_locked;
+		p = next;
+	}
+}
+
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
@@ -330,6 +360,12 @@ int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 	if (error)
 		return 0;
 	lock->initialized = 1;
+	/* add 'lock' in the doubly-linked list */
+	if (alllocks)
+		alllocks->prev = lock;
+	lock->next = alllocks;
+	lock->prev = NULL;
+	alllocks = lock;
 	return 1;
 }
 
@@ -337,6 +373,16 @@ void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
 	if (lock->initialized) {
+		/* remove 'lock' from the doubly-linked list */
+		if (lock->prev)
+			lock->prev->next = lock->next;
+		else {
+			assert(alllocks == lock);
+			alllocks = lock->next;
+		}
+		if (lock->next)
+			lock->next->prev = lock->prev;
+
 		status = pthread_mutex_destroy(&lock->mut);
 		CHECK_STATUS("pthread_mutex_destroy");
 
@@ -412,6 +458,115 @@ char *RPyThreadTLS_Create(RPyThreadTLS *result)
 
 #define RPyThreadTLS_Get(key)		pthread_getspecific(key)
 #define RPyThreadTLS_Set(key, value)	pthread_setspecific(key, value)
+
+
+/************************************************************/
+/* GIL code                                                 */
+/************************************************************/
+
+#ifdef __llvm__
+#  define HAS_ATOMIC_ADD
+#endif
+
+#ifdef __GNUC__
+#  if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)
+#    define HAS_ATOMIC_ADD
+#  endif
+#endif
+
+#ifdef HAS_ATOMIC_ADD
+#  define atomic_add __sync_fetch_and_add
+#else
+#  if defined(__amd64__)
+#    define atomic_add(ptr, value)  asm volatile ("lock addq %0, %1"        \
+                                 : : "ri"(value), "m"(*(ptr)) : "memory")
+#  elif defined(__i386__)
+#    define atomic_add(ptr, value)  asm volatile ("lock addl %0, %1"        \
+                                 : : "ri"(value), "m"(*(ptr)) : "memory")
+#  else
+#    error "Please use gcc >= 4.1 or write a custom 'asm' for your CPU."
+#  endif
+#endif
+
+#define ASSERT_STATUS(call)                             \
+    if (call != 0) {                                    \
+        fprintf(stderr, "Fatal error: " #call "\n");    \
+        abort();                                        \
+    }
+
+static void _debug_print(const char *msg)
+{
+#if 0
+    int col = (int)pthread_self();
+    col = 31 + ((col / 8) % 8);
+    fprintf(stderr, "\033[%dm%s\033[0m", col, msg);
+#endif
+}
+
+static volatile long pending_acquires = -1;
+static pthread_mutex_t mutex_gil = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t cond_gil = PTHREAD_COND_INITIALIZER;
+
+static void assert_has_the_gil(void)
+{
+#ifdef RPY_ASSERT
+    assert(pthread_mutex_trylock(&mutex_gil) != 0);
+    assert(pending_acquires >= 0);
+#endif
+}
+
+long RPyGilAllocate(void)
+{
+    _debug_print("RPyGilAllocate\n");
+    pending_acquires = 0;
+    pthread_mutex_trylock(&mutex_gil);
+    assert_has_the_gil();
+    return 1;
+}
+
+long RPyGilYieldThread(void)
+{
+    /* can be called even before RPyGilAllocate(), but in this case,
+       pending_acquires will be -1 */
+#ifdef RPY_ASSERT
+    if (pending_acquires >= 0)
+        assert_has_the_gil();
+#endif
+    if (pending_acquires <= 0)
+        return 0;
+    atomic_add(&pending_acquires, 1L);
+    _debug_print("{");
+    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
+    ASSERT_STATUS(pthread_cond_wait(&cond_gil, &mutex_gil));
+    _debug_print("}");
+    atomic_add(&pending_acquires, -1L);
+    assert_has_the_gil();
+    return 1;
+}
+
+void RPyGilRelease(void)
+{
+    _debug_print("RPyGilRelease\n");
+#ifdef RPY_ASSERT
+    assert(pending_acquires >= 0);
+#endif
+    assert_has_the_gil();
+    ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
+    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
+}
+
+void RPyGilAcquire(void)
+{
+    _debug_print("about to RPyGilAcquire...\n");
+#ifdef RPY_ASSERT
+    assert(pending_acquires >= 0);
+#endif
+    atomic_add(&pending_acquires, 1L);
+    ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
+    atomic_add(&pending_acquires, -1L);
+    assert_has_the_gil();
+    _debug_print("RPyGilAcquire\n");
+}
 
 
 #endif /* PYPY_NOT_MAIN_FILE */

@@ -268,13 +268,14 @@ class Instance(OOType):
         return self._superclass._get_fields_with_default() + self._fields_with_default
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 
 class SpecializableType(OOType):
@@ -432,7 +433,9 @@ class AbstractString(BuiltinADTType):
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
             "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
             "ll_startswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_startswith_char": Meth([self.CHAR], Bool),
             "ll_endswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_endswith_char": Meth([self.CHAR], Bool),
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
@@ -509,6 +512,7 @@ class StringBuilder(BuiltinADTType):
             "ll_append_char": Meth([CHARTP], Void),
             "ll_append": Meth([STRINGTP], Void),
             "ll_build": Meth([], STRINGTP),
+            "ll_getlength": Meth([], Signed),
             })
         self._setup_methods({})
 
@@ -1373,6 +1377,9 @@ class _builtin_type(object):
     def _cast_to_object(self):
         return make_object(self)
 
+    def _identityhash(self):
+        return object.__hash__(self)
+
 class _string(_builtin_type):
 
     def __init__(self, STRING, value = ''):
@@ -1428,9 +1435,17 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.startswith(s._str)
 
+    def ll_startswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.startswith(s)
+
     def ll_endswith(self, s):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
+
+    def ll_endswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.endswith(s)
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON
@@ -1531,6 +1546,9 @@ class _string_builder(_builtin_type):
             return make_string(''.join(self._buf))
         else:
             return make_unicode(u''.join(self._buf))
+
+    def ll_getlength(self):
+        return self.ll_build().ll_strlen()
 
 class _null_string_builder(_null_mixin(_string_builder), _string_builder):
     def __init__(self, STRING_BUILDER):
@@ -1926,6 +1944,17 @@ def cast_to_object(whatever):
 def cast_from_object(EXPECTED_TYPE, obj):
     assert typeOf(obj) is Object
     return obj._cast_to(EXPECTED_TYPE)
+
+class Box(_object):
+    def __init__(self, i):
+        self._TYPE = Object
+        self.i = i
+
+def oobox_int(i):
+    return Box(i)
+
+def oounbox_int(x):
+    return x.i
 
 def oostring(obj, base):
     """

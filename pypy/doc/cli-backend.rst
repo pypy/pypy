@@ -198,12 +198,12 @@ arguments and store the result into the appropriate places::
     int_add
     STORE v2
 
-The code produced works correctly but has some inefficiency issue that
+The code produced works correctly but has some inefficiency issues that
 can be addressed during the optimization phase.
 
 The CLI Virtual Machine is fairly expressive, so the conversion
 between PyPy's low level operations and CLI instruction is relatively
-simple: many operations maps directly to the correspondent
+simple: many operations maps directly to the corresponding
 instruction, e.g int_add and sub.
 
 By contrast some instructions do not have a direct correspondent and
@@ -223,7 +223,7 @@ The code that implements the mapping is in the modules opcodes.py.
 Mapping exceptions
 ------------------
 
-Both RPython and CLI have its own set of exception classes: some of
+Both RPython and CLI have their own set of exception classes: some of
 these are pretty similar; e.g., we have OverflowError,
 ZeroDivisionError and IndexError on the first side and
 OverflowException, DivideByZeroException and IndexOutOfRangeException
@@ -435,14 +435,14 @@ might also want to test them on top of CPython.
 To do so, you can install `Python for .NET`_. Unfortunately, it does
 not work out of the box under Linux.
 
-To make it working, download and unpack the source package of Python
+To make it work, download and unpack the source package of Python
 for .NET; the only version tested with PyPy is the 1.0-rc2, but it
 might work also with others. Then, you need to create a file named
 Python.Runtime.dll.config at the root of the unpacked archive; put the
-following lines inside the file (assuming you are using Python 2.4)::
+following lines inside the file (assuming you are using Python 2.7)::
 
   <configuration>
-    <dllmap dll="python24" target="libpython2.4.so.1.0" os="!windows"/>
+    <dllmap dll="python27" target="libpython2.7.so.1.0" os="!windows"/>
   </configuration>
 
 The installation should be complete now. To run Python for .NET,

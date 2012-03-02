@@ -1,11 +1,10 @@
 import py
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.jit import JitDriver
 
 class ListTests(object):
 
     def test_basic_list(self):
-        py.test.skip("not yet")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
         def f(n):
             lst = []
@@ -34,7 +33,7 @@ class ListTests(object):
             return m
         res = self.interp_operations(f, [11], listops=True)
         assert res == 49
-        self.check_operations_history(call=5)
+        self.check_operations_history(call=3)
 
     def test_list_of_voids(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
@@ -77,7 +76,7 @@ class ListTests(object):
             return lst[i]
         res = self.meta_interp(f, [21], listops=True)
         assert res == f(21)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_getitem_neg(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'n'])
@@ -93,7 +92,7 @@ class ListTests(object):
             return x
         res = self.meta_interp(f, [-2], listops=True)
         assert res == 41
-        self.check_loops(call=1, guard_value=0)
+        self.check_resops(call=0, guard_value=0)
 
 # we don't support resizable lists on ootype
 #class TestOOtype(ListTests, OOJitMixin):

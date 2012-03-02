@@ -67,3 +67,14 @@ class AppTestSliceMembers(AppTestCpythonExtensionBase):
              """),
             ])
         assert module.nullslice() == slice(None, None, None)
+
+    def test_ellipsis(self):
+        module = self.import_extension('foo', [
+            ("get_ellipsis", "METH_NOARGS",
+             """
+                 PyObject *ret = Py_Ellipsis;
+                 Py_INCREF(ret);
+                 return ret;
+             """),
+            ])
+        assert module.get_ellipsis() is Ellipsis

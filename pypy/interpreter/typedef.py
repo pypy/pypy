@@ -9,25 +9,34 @@ from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import promote
 
 class TypeDef:
-    def __init__(self, __name, __base=None, **rawdict):
+    def __init__(self, __name, __base=None, __total_ordering__=None, **rawdict):
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
-        self.base = __base
+        if __base is None:
+            bases = []
+        elif isinstance(__base, tuple):
+            bases = list(__base)
+        else:
+            bases = [__base]
+        self.bases = bases
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
         self.doc = rawdict.pop('__doc__', None)
-        if __base is not None:
-            self.hasdict     |= __base.hasdict
-            self.weakrefable |= __base.weakrefable
+        for base in bases:
+            self.hasdict     |= base.hasdict
+            self.weakrefable |= base.weakrefable
         self.rawdict = {}
-        self.acceptable_as_base_class = True
+        self.acceptable_as_base_class = '__new__' in rawdict
         self.applevel_subclasses_base = None
         # xxx used by faking
         self.fakedcpytype = None
         self.add_entries(**rawdict)
+        assert __total_ordering__ in (None, 'auto'), "Unknown value for __total_ordering"
+        if __total_ordering__ == 'auto':
+            self.auto_total_ordering()
     
     def add_entries(self, **rawdict):
         # xxx fix the names of the methods to match what app-level expects
@@ -35,7 +44,15 @@ class TypeDef:
             if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
         self.rawdict.update(rawdict)
-    
+
+    def auto_total_ordering(self):
+        assert '__lt__' in self.rawdict, "__total_ordering='auto' requires __lt__"
+        assert '__eq__' in self.rawdict, "__total_ordering='auto' requires __eq__"
+        self.add_entries(__le__ = auto__le__,
+                         __gt__ = auto__gt__,
+                         __ge__ = auto__ge__,
+                         __ne__ = auto__ne__)
+
     def _freeze_(self):
         # hint for the annotator: track individual constant instances of TypeDef
         return True
@@ -44,11 +61,35 @@ class TypeDef:
         return "<%s name=%r>" % (self.__class__.__name__, self.name)
 
 
+# generic special cmp methods defined on top of __lt__ and __eq__, used by
+# automatic total ordering
+
+@interp2app
+def auto__le__(space, w_self, w_other):
+    return space.not_(space.lt(w_other, w_self))
+
+@interp2app
+def auto__gt__(space, w_self, w_other):
+    return space.lt(w_other, w_self)
+
+@interp2app
+def auto__ge__(space, w_self, w_other):
+    return space.not_(space.lt(w_self, w_other))
+
+@interp2app
+def auto__ne__(space, w_self, w_other):
+    return space.not_(space.eq(w_self, w_other))
+
+
 # ____________________________________________________________
 #  Hash support
 
 def default_identity_hash(space, w_obj):
-    return space.wrap(compute_identity_hash(w_obj))
+    w_unique_id = w_obj.immutable_unique_id(space)
+    if w_unique_id is None:     # common case
+        return space.wrap(compute_identity_hash(w_obj))
+    else:
+        return space.hash(w_unique_id)
 
 # ____________________________________________________________
 #
@@ -206,7 +247,7 @@ def _builduserclswithfeature(config, supercls, *features):
             user_overridden_class = True
 
             def getclass(self, space):
-                return hint(self.w__class__, promote=True)
+                return promote(self.w__class__)
 
             def setclass(self, space, w_subtype):
                 # only used by descr_set___class__
@@ -228,21 +269,26 @@ def _builduserclswithfeature(config, supercls, *features):
                 return self._lifeline_
             def setweakref(self, space, weakreflifeline):
                 self._lifeline_ = weakreflifeline
+            def delweakref(self):
+                self._lifeline_ = None
         add(Proto)
 
     if "del" in features:
+        parent_destructor = getattr(supercls, '__del__', None)
+        def call_parent_del(self):
+            assert isinstance(self, subcls)
+            parent_destructor(self)
+        def call_applevel_del(self):
+            assert isinstance(self, subcls)
+            self.space.userdel(self)
         class Proto(object):
             def __del__(self):
-                self._enqueue_for_destruction(self.space)
-        # if the base class needs its own interp-level __del__,
-        # we override the _call_builtin_destructor() method to invoke it
-        # after the app-level destructor.
-        parent_destructor = getattr(supercls, '__del__', None)
-        if parent_destructor is not None:
-            def _call_builtin_destructor(self):
-                parent_destructor(self)
-            Proto._call_builtin_destructor = _call_builtin_destructor
-
+                self.clear_all_weakrefs()
+                self.enqueue_for_destruction(self.space, call_applevel_del,
+                                             'method __del__ of ')
+                if parent_destructor is not None:
+                    self.enqueue_for_destruction(self.space, call_parent_del,
+                                                 'internal destructor of ')
         add(Proto)
 
     if "slots" in features:
@@ -253,6 +299,11 @@ def _builduserclswithfeature(config, supercls, *features):
                     self.slots_w = [None] * nslots
             def setslotvalue(self, index, w_value):
                 self.slots_w[index] = w_value
+            def delslotvalue(self, index):
+                if self.slots_w[index] is None:
+                    return False
+                self.slots_w[index] = None
+                return True
             def getslotvalue(self, index):
                 return self.slots_w[index]
         add(Proto)
@@ -525,11 +576,10 @@ class Member(Wrappable):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
         self.typecheck(space, w_obj)
-        w_oldresult = w_obj.getslotvalue(self.index)
-        if w_oldresult is None:
+        success = w_obj.delslotvalue(self.index)
+        if not success:
             raise OperationError(space.w_AttributeError,
                                  space.wrap(self.name)) # XXX better message
-        w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(
     "member_descriptor",
@@ -630,9 +680,12 @@ def make_weakref_descr(cls):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
     cls._lifeline_ = None
     cls.getweakref = getweakref
     cls.setweakref = setweakref
+    cls.delweakref = delweakref
     return weakref_descr
 
 
@@ -761,12 +814,15 @@ Function.typedef = TypeDef("function",
     )
 Function.typedef.acceptable_as_base_class = False
 
-Method.typedef = TypeDef("method",
+Method.typedef = TypeDef(
+    "method",
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
     im_func  = interp_attrproperty_w('w_function', cls=Method),
+    __func__ = interp_attrproperty_w('w_function', cls=Method),
     im_self  = interp_attrproperty_w('w_instance', cls=Method),
+    __self__ = interp_attrproperty_w('w_instance', cls=Method),
     im_class = interp_attrproperty_w('w_class', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
@@ -855,8 +911,6 @@ GeneratorIterator.typedef = TypeDef("generator",
                             descrmismatch='close'),
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
-    __del__    = interp2app(GeneratorIterator.descr__del__,
-                            descrmismatch='__del__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gi_frame),
     gi_code    = GetSetProperty(GeneratorIterator.descr_gi_code),

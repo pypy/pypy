@@ -9,4 +9,3 @@
 
    cli-backend.rst
    clr-module.rst
-   carbonpython.rst

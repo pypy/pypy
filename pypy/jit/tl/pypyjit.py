@@ -30,17 +30,20 @@ else:
     BACKEND = 'c'
 
 config = get_pypy_config(translating=True)
+config.translation.backendopt.inline_threshold = 0.1
 config.translation.gc = 'boehm'
 config.objspace.nofaking = True
 config.translating = True
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
-config.objspace.usemodules.array = True
+config.objspace.usemodules.array = False
 config.objspace.usemodules._weakref = True
 config.objspace.usemodules._sre = False
+config.objspace.usemodules._lsprof = False
 #
 config.objspace.usemodules._ffi = True
+config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
 
@@ -74,7 +77,7 @@ def readfile(filename):
 
 def read_code():
     from pypy.module.marshal.interp_marshal import dumps
-    
+
     filename = 'pypyjit_demo.py'
     source = readfile(filename)
     ec = space.getexecutioncontext()
@@ -99,7 +102,7 @@ def test_run_translation():
     from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
     from pypy.rpython.test.test_llinterp import get_interpreter
 
-    # first annotate, rtype, and backendoptimize PyPy
+    # first annotate and rtype
     try:
         interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
@@ -114,6 +117,8 @@ def test_run_translation():
     # print a message, and restart
     unixcheckpoint.restartable_point(auto='run')
 
+    from pypy.jit.codewriter.codewriter import CodeWriter
+    CodeWriter.debug = True
     from pypy.jit.tl.pypyjit_child import run_child, run_child_ootype
     if BACKEND == 'c':
         run_child(globals(), locals())

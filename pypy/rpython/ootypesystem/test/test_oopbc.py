@@ -81,3 +81,18 @@ def test_classes_attribute():
     res = interpret(f, [1], type_system='ootype')
     assert res == 2
 
+def test_quasi_immutable():
+    class A(object):
+        _immutable_fields_ = ['x?']
+        def __init__(self):
+            self.x = 3
+        def foo(self):
+            return self.x
+
+    a = A()
+
+    def f():
+        return a.foo()
+    
+    res = interpret(f, [], type_system='ootype')
+    assert res == 3

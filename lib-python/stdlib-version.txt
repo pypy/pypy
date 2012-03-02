@@ -1,0 +1,6 @@
+the 2.7 directory is a copy of the Lib/ directory of the CPython HG repository
+at http://hg.python.org/cpython/ ::
+
+   $ hg id
+   5395f96588d4 (2.7) v2.7.1
+

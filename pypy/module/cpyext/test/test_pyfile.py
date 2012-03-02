@@ -1,5 +1,6 @@
 from pypy.module.cpyext.api import fopen, fclose, fwrite
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.tool.udir import udir
 import pytest
@@ -52,6 +53,13 @@ class TestFile(BaseApiTest):
 
         space.call_method(w_file, "close")
 
+    def test_file_name(self, space, api):
+        name = str(udir / "_test_file")
+        with rffi.scoped_str2charp(name) as filename:
+            with rffi.scoped_str2charp("wb") as mode:
+                w_file = api.PyFile_FromString(filename, mode)
+        assert space.str_w(api.PyFile_Name(w_file)) == name
+
     @pytest.mark.xfail
     def test_file_fromfile(self, space, api):
         api.PyFile_Fromfile()
@@ -70,3 +78,28 @@ class TestFile(BaseApiTest):
         out = out.replace('\r\n', '\n')
         assert out == "test\n"
 
+    def test_file_writeobject(self, space, api, capfd):
+        w_obj = space.wrap("test\n")
+        w_stdout = space.sys.get("stdout")
+        api.PyFile_WriteObject(w_obj, w_stdout, Py_PRINT_RAW)
+        api.PyFile_WriteObject(w_obj, w_stdout, 0)
+        space.call_method(w_stdout, "flush")
+        out, err = capfd.readouterr()
+        out = out.replace('\r\n', '\n')
+        assert out == "test\n'test\\n'"
+
+    def test_file_softspace(self, space, api, capfd):
+        w_stdout = space.sys.get("stdout")
+        assert api.PyFile_SoftSpace(w_stdout, 1) == 0
+        assert api.PyFile_SoftSpace(w_stdout, 0) == 1
+        
+        api.PyFile_SoftSpace(w_stdout, 1)
+        w_ns = space.newdict()
+        space.exec_("print 1,", w_ns, w_ns)
+        space.exec_("print 2,", w_ns, w_ns)
+        api.PyFile_SoftSpace(w_stdout, 0)
+        space.exec_("print 3", w_ns, w_ns)
+        space.call_method(w_stdout, "flush")
+        out, err = capfd.readouterr()
+        out = out.replace('\r\n', '\n')
+        assert out == " 1 23\n"

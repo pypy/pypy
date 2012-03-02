@@ -16,14 +16,14 @@ import operator
 is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
 class Base:
-    def codetest(self, func):
+    def codetest(self, func, **kwds):
         import inspect
         try:
             func = func.im_func
         except AttributeError:
             pass
         #name = func.func_name
-        graph = self.space.build_flow(func)
+        graph = self.space.build_flow(func, **kwds)
         graph.source = inspect.getsource(func)
         self.show(graph)
         return graph
@@ -501,6 +501,24 @@ class TestFlowObjSpace(Base):
             assert op.args[1].value == 3
 
     #__________________________________________________________
+
+    def wearetranslated(x):
+        from pypy.rlib.objectmodel import we_are_translated
+        if we_are_translated():
+            return x
+        else:
+            some_name_error_here
+
+    def test_wearetranslated(self):
+        x = self.codetest(self.wearetranslated)
+        from pypy.translator.simplify import join_blocks
+        join_blocks(x)
+        # check that 'x' is an empty graph
+        assert len(x.startblock.operations) == 0
+        assert len(x.startblock.exits) == 1
+        assert x.startblock.exits[0].target is x.returnblock
+
+    #__________________________________________________________
     def jump_target_specialization(x):
         if x:
             n = 5
@@ -863,12 +881,6 @@ class TestFlowObjSpace(Base):
             for name in ['CALL_METHOD', 'LOOKUP_METHOD']:
                 num = bytecode_spec.opmap[name]
                 flow_meth_names[num] = locals()['old_' + name]
-
-    def test_generator(self):
-        def f():
-            yield 3
-
-        py.test.raises(TypeError, "self.codetest(f)")
 
     def test_dont_capture_RuntimeError(self):
         class Foo:

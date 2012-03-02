@@ -209,8 +209,8 @@ class Bookkeeper(object):
                 self.consider_call_site(call_op)
 
             for pbc, args_s in self.emulated_pbc_calls.itervalues():
-                self.consider_call_site_for_pbc(pbc, 'simple_call', 
-                                                args_s, s_ImpossibleValue)
+                self.consider_call_site_for_pbc(pbc, 'simple_call',
+                                                args_s, s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
         finally:
             self.leave()
@@ -257,18 +257,18 @@ class Bookkeeper(object):
             args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
             s_result = binding(call_op.result, s_ImpossibleValue)
-            self.consider_call_site_for_pbc(s_callable,
-                                            call_op.opname,
-                                            args_s, s_result)
+            self.consider_call_site_for_pbc(s_callable, call_op.opname, args_s,
+                                            s_result, call_op)
 
-    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result):
+    def consider_call_site_for_pbc(self, s_callable, opname, args_s, s_result,
+                                   call_op):
         descs = list(s_callable.descriptions)
         if not descs:
             return
         family = descs[0].getcallfamily()
         args = self.build_args(opname, args_s)
         s_callable.getKind().consider_call_site(self, family, descs, args,
-                                                s_result)
+                                                s_result, call_op)
 
     def getuniqueclassdef(self, cls):
         """Get the ClassDef associated with the given user cls.
@@ -279,13 +279,13 @@ class Bookkeeper(object):
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
 
-    def getlistdef(self, **flags):
+    def getlistdef(self, **flags_if_new):
         """Get the ListDef associated with the current position."""
         try:
             listdef = self.listdefs[self.position_key]
         except KeyError:
             listdef = self.listdefs[self.position_key] = ListDef(self)
-            listdef.listitem.__dict__.update(flags)
+            listdef.listitem.__dict__.update(flags_if_new)
         return listdef
 
     def newlist(self, *s_values, **flags):
@@ -294,14 +294,18 @@ class Bookkeeper(object):
         listdef = self.getlistdef(**flags)
         for s_value in s_values:
             listdef.generalize(s_value)
+        if flags:
+            assert flags.keys() == ['range_step']
+            listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
-    def getdictdef(self, is_r_dict=False):
+    def getdictdef(self, is_r_dict=False, force_non_null=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
-            dictdef = DictDef(self, is_r_dict=is_r_dict)
+            dictdef = DictDef(self, is_r_dict=is_r_dict,
+                              force_non_null=force_non_null)
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 
@@ -338,10 +342,11 @@ class Bookkeeper(object):
             else:
                 raise Exception("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
+            no_nul = not '\x00' in x
             if len(x) == 1:
-                result = SomeChar()
+                result = SomeChar(no_nul=no_nul)
             else:
-                result = SomeString()
+                result = SomeString(no_nul=no_nul)
         elif tp is unicode:
             if len(x) == 1:
                 result = SomeUnicodeCodePoint()
@@ -652,6 +657,7 @@ class Bookkeeper(object):
                 whence = None
             else:
                 whence = emulated # callback case
+            op = None
             s_previous_result = s_ImpossibleValue
 
         def schedule(graph, inputcells):
@@ -659,7 +665,7 @@ class Bookkeeper(object):
 
         results = []
         for desc in descs:
-            results.append(desc.pycall(schedule, args, s_previous_result))
+            results.append(desc.pycall(schedule, args, s_previous_result, op))
         s_result = unionof(*results)
         return s_result
 

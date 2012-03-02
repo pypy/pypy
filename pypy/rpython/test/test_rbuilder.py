@@ -1,8 +1,11 @@
+from __future__ import with_statement
 import py
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.lltypesystem.rbuilder import *
-from pypy.rpython.annlowlevel import llstr, hlstr
+
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rpython.annlowlevel import llstr, hlstr
+from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem.rbuilder import *
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
 class TestStringBuilderDirect(object):
@@ -73,11 +76,53 @@ class BaseTestStringBuilder(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res == 4
 
+    def test_append_charpsize(self):
+        def func(l):
+            s = StringBuilder()
+            with rffi.scoped_str2charp("hello world") as x:
+                s.append_charpsize(x, l)
+            return s.build()
+        res = self.ll_to_string(self.interpret(func, [5]))
+        assert res == "hello"
+
+    def test_builder_or_none(self):
+        def g(s):
+            if s:
+                s.append("3")
+            return bool(s)
+        
+        def func(i):
+            if i:
+                s = StringBuilder()
+            else:
+                s = None
+            return g(s)
+        res = self.interpret(func, [0])
+        assert not res
+        res = self.interpret(func, [1])
+        assert res
+
+    def test_unicode_builder_or_none(self):
+        def g(s):
+            if s:
+                s.append(u"3")
+            return bool(s)
+        
+        def func(i):
+            if i:
+                s = UnicodeBuilder()
+            else:
+                s = None
+            return g(s)
+        res = self.interpret(func, [0])
+        assert not res
+        res = self.interpret(func, [1])
+        assert res
+
+
 class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestStringBuilder, OORtypeMixin):
-    def test_string_getlength(self):
-        py.test.skip("getlength(): not implemented on ootype")
-    def test_unicode_getlength(self):
-        py.test.skip("getlength(): not implemented on ootype")
+    def test_append_charpsize(self):
+        py.test.skip("append_charpsize(): not implemented on ootype")

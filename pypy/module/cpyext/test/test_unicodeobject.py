@@ -188,6 +188,12 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(w_u) == 'sp'
         rffi.free_charp(u)
 
+    def test_encode_utf8(self, space, api):
+        u = rffi.unicode2wcharp(u'späm')
+        w_s = api.PyUnicode_EncodeUTF8(u, 4, None)
+        assert space.unwrap(w_s) == u'späm'.encode('utf-8')
+        rffi.free_wcharp(u)
+
     def test_IS(self, space, api):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,
@@ -198,8 +204,18 @@ class TestUnicode(BaseApiTest):
             assert api.Py_UNICODE_ISSPACE(unichr(char))
         assert not api.Py_UNICODE_ISSPACE(u'a')
 
+        assert api.Py_UNICODE_ISALPHA(u'a')
+        assert not api.Py_UNICODE_ISALPHA(u'0')
+        assert api.Py_UNICODE_ISALNUM(u'a')
+        assert api.Py_UNICODE_ISALNUM(u'0')
+        assert not api.Py_UNICODE_ISALNUM(u'+')
+
         assert api.Py_UNICODE_ISDECIMAL(u'\u0660')
         assert not api.Py_UNICODE_ISDECIMAL(u'a')
+        assert api.Py_UNICODE_ISDIGIT(u'9')
+        assert not api.Py_UNICODE_ISDIGIT(u'@')
+        assert api.Py_UNICODE_ISNUMERIC(u'9')
+        assert not api.Py_UNICODE_ISNUMERIC(u'@')
 
         for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
             assert api.Py_UNICODE_ISLINEBREAK(unichr(char))
@@ -210,6 +226,9 @@ class TestUnicode(BaseApiTest):
         assert not api.Py_UNICODE_ISUPPER(u'a')
         assert not api.Py_UNICODE_ISLOWER(u'Ä')
         assert api.Py_UNICODE_ISUPPER(u'Ä')
+        assert not api.Py_UNICODE_ISTITLE(u'A')
+        assert api.Py_UNICODE_ISTITLE(
+            u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}')
 
     def test_TOLOWER(self, space, api):
         assert api.Py_UNICODE_TOLOWER(u'ä') == u'ä'
@@ -218,6 +237,24 @@ class TestUnicode(BaseApiTest):
     def test_TOUPPER(self, space, api):
         assert api.Py_UNICODE_TOUPPER(u'ä') == u'Ä'
         assert api.Py_UNICODE_TOUPPER(u'Ä') == u'Ä'
+
+    def test_TOTITLE(self, space, api):
+        assert api.Py_UNICODE_TOTITLE(u'/') == u'/'
+        assert api.Py_UNICODE_TOTITLE(u'ä') == u'Ä'
+        assert api.Py_UNICODE_TOTITLE(u'Ä') == u'Ä'
+
+    def test_TODECIMAL(self, space, api):
+        assert api.Py_UNICODE_TODECIMAL(u'6') == 6
+        assert api.Py_UNICODE_TODECIMAL(u'A') == -1
+
+    def test_TODIGIT(self, space, api):
+        assert api.Py_UNICODE_TODIGIT(u'6') == 6
+        assert api.Py_UNICODE_TODIGIT(u'A') == -1
+
+    def test_TONUMERIC(self, space, api):
+        assert api.Py_UNICODE_TONUMERIC(u'6') == 6.0
+        assert api.Py_UNICODE_TONUMERIC(u'A') == -1.0
+        assert api.Py_UNICODE_TONUMERIC(u'\N{VULGAR FRACTION ONE HALF}') == .5
 
     def test_fromobject(self, space, api):
         w_u = space.wrap(u'a')
@@ -367,3 +404,56 @@ class TestUnicode(BaseApiTest):
                     data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_wcharp(data)
 
+    def test_latin1(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeLatin1(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeLatin1(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        ustr = "abcdef"
+        w_ustr = space.wrap(ustr.decode("ascii"))
+        result = api.PyUnicode_AsLatin1String(w_ustr)
+        assert space.eq_w(space.wrap(ustr), result)
+
+    def test_format(self, space, api):
+        w_format = space.wrap(u'hi %s')
+        w_args = space.wrap((u'test',))
+        w_formated = api.PyUnicode_Format(w_format, w_args)
+        assert space.unwrap(w_formated) == space.unwrap(space.mod(w_format, w_args))
+
+    def test_join(self, space, api):
+        w_sep = space.wrap(u'<sep>')
+        w_seq = space.wrap([u'a', u'b'])
+        w_joined = api.PyUnicode_Join(w_sep, w_seq)
+        assert space.unwrap(w_joined) == u'a<sep>b'
+
+    def test_fromordinal(self, space, api):
+        w_char = api.PyUnicode_FromOrdinal(65)
+        assert space.unwrap(w_char) == u'A'
+        w_char = api.PyUnicode_FromOrdinal(0)
+        assert space.unwrap(w_char) == u'\0'
+        w_char = api.PyUnicode_FromOrdinal(0xFFFF)
+        assert space.unwrap(w_char) == u'\uFFFF'
+
+    def test_replace(self, space, api):
+        w_str = space.wrap(u"abababab")
+        w_substr = space.wrap(u"a")
+        w_replstr = space.wrap(u"z")
+        assert u"zbzbabab" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, 2))
+        assert u"zbzbzbzb" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, -1))
+
+    def test_tailmatch(self, space, api):
+        w_str = space.wrap(u"abcdef")
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 2, 10, 1) == 1
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 5, -1) == 1
+        self.raises(space, api, TypeError,
+                    api.PyUnicode_Tailmatch, w_str, space.wrap(3), 2, 10, 1)

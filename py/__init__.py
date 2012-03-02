@@ -8,7 +8,7 @@ dictionary or an import path.
 
 (c) Holger Krekel and others, 2004-2010
 """
-__version__ = '1.4.3.dev0'
+__version__ = '1.4.4.dev1'
 
 from py import _apipkg
 
@@ -70,10 +70,6 @@ _apipkg.initpkg(__name__, attr={'_apipkg': _apipkg}, exportdefs={
         'getrawcode'        : '._code.code:getrawcode',
         'patch_builtins'    : '._code.code:patch_builtins',
         'unpatch_builtins'  : '._code.code:unpatch_builtins',
-        '_AssertionError'   : '._code.assertion:AssertionError',
-        '_reinterpret_old'  : '._code.assertion:reinterpret_old',
-        '_reinterpret'      : '._code.assertion:reinterpret',
-        '_reprcompare'      : '._code.assertion:_reprcompare',
     },
 
     # backports and additions of builtins

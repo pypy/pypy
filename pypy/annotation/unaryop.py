@@ -352,6 +352,7 @@ class __extend__(SomeList):
         check_negative_slice(s_start, s_stop)
         if not isinstance(s_iterable, SomeList):
             raise Exception("list[start:stop] = x: x must be a list")
+        lst.listdef.mutate()
         lst.listdef.agree(s_iterable.listdef)
         # note that setslice is not allowed to resize a list in RPython
 
@@ -439,6 +440,12 @@ class __extend__(SomeDict):
     def method_popitem(dct):
         return dct.getanyitem('items')
 
+    def method_pop(dct, s_key, s_dfl=None):
+        dct.dictdef.generalize_key(s_key)
+        if s_dfl is not None:
+            dct.dictdef.generalize_value(s_dfl)
+        return dct.dictdef.read_value()
+
     def _can_only_throw(dic, *ignore):
         if dic1.dictdef.dictkey.custom_eq_hash:
             return None    # r_dict: can throw anything
@@ -473,13 +480,13 @@ class __extend__(SomeString,
         return SomeInteger(nonneg=True)
 
     def method_strip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_lstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_rstrip(str, chr):
-        return str.basestringclass()
+        return str.basestringclass(no_nul=str.no_nul)
 
     def method_join(str, s_list):
         if s_None.contains(s_list):
@@ -490,7 +497,8 @@ class __extend__(SomeString,
             if isinstance(str, SomeUnicodeString):
                 return immutablevalue(u"")
             return immutablevalue("")
-        return str.basestringclass()
+        no_nul = str.no_nul and s_item.no_nul
+        return str.basestringclass(no_nul=no_nul)
 
     def iter(str):
         return SomeIterator(str)
@@ -501,18 +509,21 @@ class __extend__(SomeString,
 
     def method_split(str, patt, max=-1):
         getbookkeeper().count("str_split", str, patt)
-        return getbookkeeper().newlist(str.basestringclass())
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_rsplit(str, patt, max=-1):
         getbookkeeper().count("str_rsplit", str, patt)
-        return getbookkeeper().newlist(str.basestringclass())
+        s_item = str.basestringclass(no_nul=str.no_nul)
+        return getbookkeeper().newlist(s_item)
 
     def method_replace(str, s1, s2):
         return str.basestringclass()
 
     def getslice(str, s_start, s_stop):
         check_negative_slice(s_start, s_stop)
-        return str.basestringclass()
+        result = str.basestringclass(no_nul=str.no_nul)
+        return result
 
 class __extend__(SomeUnicodeString):
     def method_encode(uni, s_enc):

@@ -5,7 +5,41 @@ Based on initial code from Ross Lawley.
 
 import py
 import os
+import re
+import sys
 import time
+
+
+# Python 2.X and 3.X compatibility
+try:
+    unichr(65)
+except NameError:
+    unichr = chr
+try:
+    unicode('A')
+except NameError:
+    unicode = str
+try:
+    long(1)
+except NameError:
+    long = int
+
+
+# We need to get the subset of the invalid unicode ranges according to
+# XML 1.0 which are valid in this python build.  Hence we calculate
+# this dynamically instead of hardcoding it.  The spec range of valid
+# chars is: Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD]
+#                    | [#x10000-#x10FFFF]
+_illegal_unichrs = [(0x00, 0x08), (0x0B, 0x0C), (0x0E, 0x19),
+                   (0xD800, 0xDFFF), (0xFDD0, 0xFFFF)]
+_illegal_ranges = [unicode("%s-%s") % (unichr(low), unichr(high))
+                  for (low, high) in _illegal_unichrs
+                  if low < sys.maxunicode]
+illegal_xml_re = re.compile(unicode('[%s]') %
+                            unicode('').join(_illegal_ranges))
+del _illegal_unichrs
+del _illegal_ranges
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting")
@@ -28,9 +62,11 @@ def pytest_unconfigure(config):
         del config._xml
         config.pluginmanager.unregister(xml)
 
+
 class LogXML(object):
     def __init__(self, logfile, prefix):
-        self.logfile = logfile
+        logfile = os.path.expanduser(os.path.expandvars(logfile))
+        self.logfile = os.path.normpath(logfile)
         self.prefix = prefix
         self.test_logs = []
         self.passed = self.skipped = 0
@@ -41,7 +77,7 @@ class LogXML(object):
         names = report.nodeid.split("::")
         names[0] = names[0].replace("/", '.')
         names = tuple(names)
-        d = {'time': self._durations.pop(names, "0")}
+        d = {'time': self._durations.pop(report.nodeid, "0")}
         names = [x.replace(".py", "") for x in names if x != "()"]
         classnames = names[:-1]
         if self.prefix:
@@ -55,7 +91,14 @@ class LogXML(object):
         self.test_logs.append("</testcase>")
 
     def appendlog(self, fmt, *args):
-        args = tuple([py.xml.escape(arg) for arg in args])
+        def repl(matchobj):
+            i = ord(matchobj.group())
+            if i <= 0xFF:
+                return unicode('#x%02X') % i
+            else:
+                return unicode('#x%04X') % i
+        args = tuple([illegal_xml_re.sub(repl, py.xml.escape(arg))
+                      for arg in args])
         self.test_logs.append(fmt % args)
 
     def append_pass(self, report):
@@ -128,12 +171,11 @@ class LogXML(object):
             self.append_skipped(report)
 
     def pytest_runtest_call(self, item, __multicall__):
-        names = tuple(item.listnames())
         start = time.time()
         try:
             return __multicall__.execute()
         finally:
-            self._durations[names] = time.time() - start
+            self._durations[item.nodeid] = time.time() - start
 
     def pytest_collectreport(self, report):
         if not report.passed:

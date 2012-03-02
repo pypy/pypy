@@ -5,12 +5,47 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import W_LongObject
+from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
+from pypy.rlib import jit
 
 import math
 
-class W_ComplexObject(W_Object):
+
+class W_AbstractComplexObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from pypy.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractComplexObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        real1 = space.float_w(space.getattr(self,    space.wrap("real")))
+        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
+        imag1 = space.float_w(space.getattr(self,    space.wrap("imag")))
+        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
+        real1 = float2longlong(real1)
+        real2 = float2longlong(real2)
+        imag1 = float2longlong(imag1)
+        imag2 = float2longlong(imag2)
+        return real1 == real2 and imag1 == imag2
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
+        real = space.float_w(space.getattr(self, space.wrap("real")))
+        imag = space.float_w(space.getattr(self, space.wrap("imag")))
+        real_b = rbigint.fromrarith_int(float2longlong(real))
+        imag_b = rbigint.fromrarith_int(float2longlong(imag))
+        val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(val)
+
+
+class W_ComplexObject(W_AbstractComplexObject):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
     from pypy.objspace.std.complextype import complex_typedef as typedef
@@ -95,10 +130,10 @@ class W_ComplexObject(W_Object):
             ir = len * math.sin(phase)
         return W_ComplexObject(rr, ir)
 
-    def pow_int(self, n):
-        if n > 100 or n < -100:
-            return self.pow(W_ComplexObject(1.0 * n, 0.0))
-        elif n > 0:
+    def pow_small_int(self, n):
+        if n >= 0:
+            if jit.isconstant(n) and n == 2:
+                return self.mul(self)
             return self.pow_positive_int(n)
         else:
             return w_one.div(self.pow_positive_int(-n))
@@ -183,10 +218,10 @@ def floordiv__Complex_Complex(space, w_complex1, w_complex2):
 def pow__Complex_Complex_ANY(space, w_complex, w_exponent, thirdArg):
     if not space.is_w(thirdArg, space.w_None):
         raise OperationError(space.w_ValueError, space.wrap('complex modulo'))
-    int_exponent = int(w_exponent.realval)
     try:
-        if w_exponent.imagval == 0.0 and w_exponent.realval == int_exponent:
-            w_p = w_complex.pow_int(int_exponent)
+        r = w_exponent.realval
+        if w_exponent.imagval == 0.0 and -100.0 <= r <= 100.0 and r == int(r):
+            w_p = w_complex.pow_small_int(int(r))
         else:
             w_p = w_complex.pow(w_exponent)
     except ZeroDivisionError:

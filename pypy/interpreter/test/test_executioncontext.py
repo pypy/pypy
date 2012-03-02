@@ -42,6 +42,7 @@ class TestExecutionContext:
         assert i == 9
 
     def test_periodic_action(self):
+        from pypy.interpreter.executioncontext import ActionFlag
 
         class DemoAction(executioncontext.PeriodicAsyncAction):
             counter = 0
@@ -53,17 +54,20 @@ class TestExecutionContext:
 
         space = self.space
         a2 = DemoAction(space)
-        space.actionflag.register_periodic_action(a2, True)
         try:
-            for i in range(500):
-                space.appexec([], """():
-                    n = 5
-                    return n + 2
-                """)
-        except Finished:
-            pass
-        checkinterval = space.actionflag.getcheckinterval()
-        assert checkinterval / 10 < i < checkinterval * 1.1
+            space.actionflag.setcheckinterval(100)
+            space.actionflag.register_periodic_action(a2, True)
+            try:
+                for i in range(500):
+                    space.appexec([], """():
+                        n = 5
+                        return n + 2
+                    """)
+            except Finished:
+                pass
+        finally:
+            space.actionflag = ActionFlag()   # reset to default
+        assert 10 < i < 110
 
     def test_llprofile(self):
         l = []
@@ -106,7 +110,7 @@ class TestExecutionContext:
             if isinstance(seen[0], Method):
                 found = 'method %s of %s' % (
                     seen[0].w_function.name,
-                    seen[0].w_class.getname(space, '?'))
+                    seen[0].w_class.getname(space))
             else:
                 assert isinstance(seen[0], Function)
                 found = 'builtin %s' % seen[0].name
@@ -232,31 +236,6 @@ class TestExecutionContext:
         assert [i[0] for i in events] == ['c_call', 'c_return', 'return', 'c_call']
         assert events[0][1] == events[1][1]
 
-    def test_tracing_range_builtinshortcut(self):
-        opts = {"objspace.opcodes.CALL_LIKELY_BUILTIN": True}
-        space = gettestobjspace(**opts)
-        source = """def f(profile):
-        import sys
-        sys.setprofile(profile)
-        range(10)
-        sys.setprofile(None)
-        """
-        w_events = space.appexec([space.wrap(source)], """(source):
-        import sys
-        l = []
-        def profile(frame, event, arg):
-            l.append((event, arg))
-        d = {}
-        exec source in d
-        f = d['f']
-        f(profile)
-        import dis
-        print dis.dis(f)
-        return l
-        """)
-        events = space.unwrap(w_events)
-        assert [i[0] for i in events] == ['c_call', 'c_return', 'c_call']
-
     def test_profile_and_exception(self):
         space = self.space
         w_res = space.appexec([], """():
@@ -279,9 +258,6 @@ class TestExecutionContext:
             sys.setprofile(None)
         """)
 
-
-class TestExecutionContextWithCallLikelyBuiltin(TestExecutionContext):
-    keywords = {'objspace.opcodes.CALL_LIKELY_BUILTIN': True}
 
 class TestExecutionContextWithCallMethod(TestExecutionContext):
     keywords = {'objspace.opcodes.CALL_METHOD': True}
@@ -316,7 +292,7 @@ gc.collect()
         import os, sys
         print sys.executable, self.tmpfile
         if sys.platform == "win32":
-            cmdformat = '""%s" "%s""'    # excellent! tons of "!
+            cmdformat = '"%s" "%s"'
         else:
             cmdformat = "'%s' '%s'"
         g = os.popen(cmdformat % (sys.executable, self.tmpfile), 'r')
@@ -324,3 +300,70 @@ gc.collect()
         g.close()
         assert 'Called 1' in data
         assert 'Called 2' in data
+
+
+class AppTestProfile:
+
+    def test_return(self):
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append((event, arg))
+
+        def bar(x):
+            return 40 + x
+
+        sys.setprofile(profile)
+        bar(2)
+        sys.setprofile(None)
+        assert l == [('call', None),
+                     ('return', 42),
+                     ('c_call', sys.setprofile)], repr(l)
+
+    def test_c_return(self):
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append((event, arg))
+
+        sys.setprofile(profile)
+        max(2, 42)
+        sys.setprofile(None)
+        assert l == [('c_call', max),
+                     ('c_return', max),
+                     ('c_call', sys.setprofile)], repr(l)
+
+    def test_exception(self):
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append((event, arg))
+
+        def f():
+            raise ValueError("foo")
+
+        sys.setprofile(profile)
+        try:
+            f()
+        except ValueError:
+            pass
+        sys.setprofile(None)
+        assert l == [('call', None),
+                     ('return', None),
+                     ('c_call', sys.setprofile)], repr(l)
+
+    def test_c_exception(self):
+        import sys
+        l = []
+        def profile(frame, event, arg):
+            l.append((event, arg))
+
+        sys.setprofile(profile)
+        try:
+            divmod(5, 0)
+        except ZeroDivisionError:
+            pass
+        sys.setprofile(None)
+        assert l == [('c_call', divmod),
+                     ('c_exception', divmod),
+                     ('c_call', sys.setprofile)], repr(l)

@@ -1,17 +1,19 @@
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, r_longfloat,
-                                   base_int, normalizedinttype)
+                                   base_int, normalizedinttype, longlongmask)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
-from pypy.tool.tls import tlsobject
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
 from sys import maxint
 import weakref
 
-TLS = tlsobject()
+class State(object):
+    pass
+
+TLS = State()
 
 class WeakValueDictionary(weakref.WeakValueDictionary):
     """A subclass of weakref.WeakValueDictionary
@@ -46,7 +48,7 @@ class _uninitialized(object):
         self.TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
-        
+
 
 def saferecursive(func, defl, TLS=TLS):
     def safe(*args):
@@ -95,6 +97,8 @@ class LowLevelType(object):
     __slots__ = ['__dict__', '__cached_hash']
 
     def __eq__(self, other):
+        if isinstance(other, Typedef):
+            return other.__eq__(self)
         return self.__class__ is other.__class__ and (
             self is other or safe_equal(self.__dict__, other.__dict__))
 
@@ -192,6 +196,36 @@ class ContainerType(LowLevelType):
 
     def _container_example(self):
         raise NotImplementedError
+
+
+class Typedef(LowLevelType):
+    """A typedef is just another name for an existing type"""
+    def __init__(self, OF, c_name):
+        """
+        @param OF: the equivalent rffi type
+        @param c_name: the name we want in C code
+        """
+        assert isinstance(OF, LowLevelType)
+        # Look through typedefs, so other places don't have to
+        if isinstance(OF, Typedef):
+            OF = OF.OF # haha
+        self.OF = OF
+        self.c_name = c_name
+
+    def __repr__(self):
+        return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
+
+    def __eq__(self, other):
+        return other == self.OF
+
+    def __getattr__(self, name):
+        return self.OF.get(name)
+
+    def _defl(self, parent=None, parentindex=None):
+        return self.OF._defl()
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self.OF._allocate(initialization, parent, parentindex)
 
 
 class Struct(ContainerType):
@@ -309,13 +343,14 @@ class Struct(ContainerType):
         return _struct(self, n, initialization='example')
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 class RttiStruct(Struct):
     _runtime_type_info = None
@@ -327,7 +362,8 @@ class RttiStruct(Struct):
                                                 about=self)._obj
         Struct._install_extras(self, **kwds)
 
-    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
+    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
+                                          customtraceptr):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -341,7 +377,7 @@ class RttiStruct(Struct):
                 raise TypeError("expected a runtime type info function "
                                 "implementation, got: %s" % funcptr)
             self._runtime_type_info.query_funcptr = funcptr
-        if destrptr is not None :
+        if destrptr is not None:
             T = typeOf(destrptr)
             if (not isinstance(T, Ptr) or
                 not isinstance(T.TO, FuncType) or
@@ -351,6 +387,18 @@ class RttiStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
+        if customtraceptr is not None:
+            from pypy.rpython.lltypesystem import llmemory
+            T = typeOf(customtraceptr)
+            if (not isinstance(T, Ptr) or
+                not isinstance(T.TO, FuncType) or
+                len(T.TO.ARGS) != 2 or
+                T.TO.RESULT != llmemory.Address or
+                T.TO.ARGS[0] != llmemory.Address or
+                T.TO.ARGS[1] != llmemory.Address):
+                raise TypeError("expected a custom trace function "
+                                "implementation, got: %s" % customtraceptr)
+            self._runtime_type_info.custom_trace_funcptr = customtraceptr
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -489,9 +537,9 @@ class FuncType(ContainerType):
         return "Func ( %s ) -> %s" % (args, self.RESULT)
     __str__ = saferecursive(__str__, '...')
 
-    def _short_name(self):        
+    def _short_name(self):
         args = ', '.join([ARG._short_name() for ARG in self.ARGS])
-        return "Func(%s)->%s" % (args, self.RESULT._short_name())        
+        return "Func(%s)->%s" % (args, self.RESULT._short_name())
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
@@ -505,7 +553,7 @@ class FuncType(ContainerType):
 
 class OpaqueType(ContainerType):
     _gckind = 'raw'
-    
+
     def __init__(self, tag, hints={}):
         """ if hints['render_structure'] is set, the type is internal and not considered
             to come from somewhere else (it should be rendered as a structure) """
@@ -619,6 +667,9 @@ class Number(Primitive):
 
 _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
+if r_longlong is not r_int:
+    _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
+                                      longlongmask)
 
 def build_number(name, type):
     try:
@@ -672,10 +723,10 @@ class Ptr(LowLevelType):
 
     def __str__(self):
         return '* %s' % (self.TO, )
-    
+
     def _short_name(self):
         return 'Ptr %s' % (self.TO._short_name(), )
-    
+
     def _is_atomic(self):
         return self.TO._gckind == 'raw'
 
@@ -796,7 +847,7 @@ def cast_primitive(TGT, value):
     raise TypeError, "unsupported cast"
 
 def _cast_whatever(TGT, value):
-    from pypy.rpython.lltypesystem import llmemory
+    from pypy.rpython.lltypesystem import llmemory, rffi
     ORIG = typeOf(value)
     if ORIG == TGT:
         return value
@@ -812,6 +863,8 @@ def _cast_whatever(TGT, value):
                 return cast_pointer(TGT, value)
         elif ORIG == llmemory.Address:
             return llmemory.cast_adr_to_ptr(value, TGT)
+        elif TGT == rffi.VOIDP and ORIG == Unsigned:
+            return rffi.cast(TGT, value)
         elif ORIG == Signed:
             return cast_int_to_ptr(TGT, value)
     elif TGT == llmemory.Address and isinstance(ORIG, Ptr):
@@ -997,6 +1050,8 @@ def normalizeptr(p, check=True):
         return None   # null pointer
     if type(p._obj0) is int:
         return p      # a pointer obtained by cast_int_to_ptr
+    if getattr(p._obj0, '_carry_around_for_tests', False):
+        return p      # a pointer obtained by cast_instance_to_base_ptr
     container = obj._normalizedcontainer()
     if type(container) is int:
         # this must be an opaque ptr originating from an integer
@@ -1107,7 +1162,7 @@ class _abstract_ptr(object):
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
-            raise AttributeError("%r instance has no field %r" % (self._T,
+            raise AttributeError("%r instance has no field %r" % (self._T._name,
                                                                   field_name))
 
     def __setattr__(self, field_name, val):
@@ -1228,6 +1283,8 @@ class _abstract_ptr(object):
         try:
             return p._obj._hash_cache_
         except AttributeError:
+            assert self._T._gckind == 'gc'
+            assert self      # not for NULL
             result = hash(p._obj)
             if cache:
                 try:
@@ -1303,6 +1360,8 @@ class _ptr(_abstract_ptr):
         obj = normalizeptr(self, check)._getobj(check)
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results put into opaques
+        if getattr(obj, '_read_directly_intval', False):
+            return obj.intval   # special case for _llgcopaque
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
@@ -1463,7 +1522,7 @@ class _parentable(_container):
             and parentindex in (self._parent_type._names[0], 0)
             and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
-            self._keepparent = parent 
+            self._keepparent = parent
 
     def _parentstructure(self, check=True):
         if self._wrparent is not None:
@@ -1654,6 +1713,7 @@ class _array(_parentable):
         return v
 
     def setitem(self, index, value):
+        assert typeOf(value) == self._TYPE.OF
         self.items[index] = value
 
 assert not '__dict__' in dir(_array)
@@ -1663,7 +1723,7 @@ assert not '__dict__' in dir(_struct)
 class _subarray(_parentable):     # only for direct_fieldptr()
                                   # and direct_arrayitems()
     _kind = "subarray"
-    _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
+    _cache = {}  # TYPE -> weak{ parentarray -> {subarrays} }
 
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
@@ -1671,7 +1731,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         # Keep the parent array alive, we share the same allocation.
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
-        if typeOf(top_container(parent))._gckind == 'raw':
+        if (typeOf(top_container(parent))._gckind == 'raw' or
+            hasattr(top_container(parent)._storage, 'contents')):  # ll2ctypes
             self._keepparent = parent
 
     def __str__(self):
@@ -1720,10 +1781,15 @@ class _subarray(_parentable):     # only for direct_fieldptr()
 
     def _makeptr(parent, baseoffset_or_fieldname, solid=False):
         try:
-            cache = _subarray._cache.setdefault(parent, {})
+            d = _subarray._cache[parent._TYPE]
+        except KeyError:
+            d = _subarray._cache[parent._TYPE] = weakref.WeakKeyDictionary()
+        try:
+            cache = d.setdefault(parent, {})
         except RuntimeError:    # pointer comparison with a freed structure
             _subarray._cleanup_cache()
-            cache = _subarray._cache.setdefault(parent, {})    # try again
+            # try again
+            return _subarray._makeptr(parent, baseoffset_or_fieldname, solid)
         try:
             subarray = cache[baseoffset_or_fieldname]
         except KeyError:
@@ -1744,14 +1810,18 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         raise NotImplementedError('_subarray._getid()')
 
     def _cleanup_cache():
-        newcache = weakref.WeakKeyDictionary()
-        for key, value in _subarray._cache.items():
-            try:
-                if not key._was_freed():
-                    newcache[key] = value
-            except RuntimeError:
-                pass    # ignore "accessing subxxx, but already gc-ed parent"
-        _subarray._cache = newcache
+        for T, d in _subarray._cache.items():
+            newcache = weakref.WeakKeyDictionary()
+            for key, value in d.items():
+                try:
+                    if not key._was_freed():
+                        newcache[key] = value
+                except RuntimeError:
+                    pass    # ignore "accessing subxxx, but already gc-ed parent"
+            if newcache:
+                _subarray._cache[T] = newcache
+            else:
+                del _subarray._cache[T]
     _cleanup_cache = staticmethod(_cleanup_cache)
 
 
@@ -1849,8 +1919,8 @@ class _opaque(_parentable):
         if self.__class__ is not other.__class__:
             return NotImplemented
         if hasattr(self, 'container') and hasattr(other, 'container'):
-            obj1 = self.container._normalizedcontainer()
-            obj2 = other.container._normalizedcontainer()
+            obj1 = self._normalizedcontainer()
+            obj2 = other._normalizedcontainer()
             return obj1 == obj2
         else:
             return self is other
@@ -1874,6 +1944,8 @@ class _opaque(_parentable):
             # an integer, cast to a ptr, cast to an opaque    
             if type(self.container) is int:
                 return self.container
+            if getattr(self.container, '_carry_around_for_tests', False):
+                return self.container
             return self.container._normalizedcontainer()
         else:
             return _parentable._normalizedcontainer(self)
@@ -1895,7 +1967,7 @@ class _pyobject(Hashable, _container):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True):
+           track_allocation=True, add_memory_pressure=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
@@ -1998,10 +2070,12 @@ def cast_int_to_ptr(PTRTYPE, oddint):
         raise ValueError("only odd integers can be cast back to ptr")
     return _ptr(PTRTYPE, oddint, solid=True)
 
-def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
+                          customtraceptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
-    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
+                                               customtraceptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):

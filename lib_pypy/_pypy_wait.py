@@ -6,12 +6,12 @@ __all__ = ["wait3", "wait4"]
 
 libc = CDLL(find_library("c"))
 c_wait3 = libc.wait3
-
 c_wait3.argtypes = [POINTER(c_int), c_int, POINTER(_struct_rusage)]
+c_wait3.restype = c_int
 
 c_wait4 = libc.wait4
-
 c_wait4.argtypes = [c_int, POINTER(c_int), c_int, POINTER(_struct_rusage)]
+c_wait4.restype = c_int
 
 def create_struct_rusage(c_struct):
     return struct_rusage((

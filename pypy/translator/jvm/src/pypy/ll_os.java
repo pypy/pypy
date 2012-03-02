@@ -14,10 +14,22 @@ import com.sun.jna.Platform;
 
 abstract class FileWrapper
 {
+    private final String name;
+
+    public FileWrapper(String name)
+    {
+        this.name = name;
+    }
+
     public abstract void write(String buffer);
     public abstract String read(int count);
     public abstract void close();
     public abstract RandomAccessFile getFile();
+
+    public String getName()
+    {
+        return this.name;
+    }
 }
 
 class PrintStreamWrapper extends FileWrapper
@@ -25,8 +37,9 @@ class PrintStreamWrapper extends FileWrapper
     private final PrintStream stream;
     private final ll_os os;
 
-    public PrintStreamWrapper(PrintStream stream, ll_os os)
+    public PrintStreamWrapper(String name, PrintStream stream, ll_os os)
     {
+        super(name);
         this.stream = stream;
         this.os = os;
     }
@@ -58,8 +71,9 @@ class InputStreamWrapper extends FileWrapper
     private final InputStream stream;
     private final ll_os os;
 
-    public InputStreamWrapper(InputStream stream, ll_os os)
+    public InputStreamWrapper(String name, InputStream stream, ll_os os)
     {
+        super(name);
         this.stream = stream;
         this.os = os;
     }
@@ -102,11 +116,13 @@ class RandomAccessFileWrapper extends FileWrapper
     private final boolean canWrite;
     private final ll_os os;
 
-    public RandomAccessFileWrapper(RandomAccessFile file, 
+    public RandomAccessFileWrapper(String name,
+                                   RandomAccessFile file, 
                                    boolean canRead, 
                                    boolean canWrite,
                                    ll_os os)
     {
+        super(name);
         this.file = file;
         this.canRead = canRead;
         this.canWrite = canWrite;
@@ -228,9 +244,9 @@ public class ll_os implements Constants {
 
     public ll_os(Interlink interlink) {
         this.interlink = interlink;
-        FileDescriptors.put(0, new InputStreamWrapper(System.in, this));
-        FileDescriptors.put(1, new PrintStreamWrapper(System.out, this));
-        FileDescriptors.put(2, new PrintStreamWrapper(System.err, this));
+        FileDescriptors.put(0, new InputStreamWrapper("<stdin>", System.in, this));
+        FileDescriptors.put(1, new PrintStreamWrapper("<stdout>", System.out, this));
+        FileDescriptors.put(2, new PrintStreamWrapper("<stderr>", System.err, this));
         fdcount = 2;
     }
 
@@ -339,7 +355,7 @@ public class ll_os implements Constants {
         // XXX: we ignore O_CREAT
         RandomAccessFile file = open_file(name, javaMode, flags);
         RandomAccessFileWrapper wrapper = 
-          new RandomAccessFileWrapper(file, canRead, canWrite, this);
+            new RandomAccessFileWrapper(name, file, canRead, canWrite, this);
 
         fdcount++;
         FileDescriptors.put(fdcount, wrapper);
@@ -416,6 +432,12 @@ public class ll_os implements Constants {
     public StatResult ll_os_lstat(String path)
     {
         return ll_os_stat(path); // XXX
+    }
+
+    public StatResult ll_os_fstat(int fd)
+    {
+        String name = getfd(fd).getName();
+        return ll_os_stat(name);
     }
 
     public String ll_os_strerror(int errno)

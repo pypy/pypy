@@ -664,10 +664,11 @@ class AppTestOpcodes:
                 + [s.OPCODES["at"], s.ATCODES["at_loc_non_boundary"], s.OPCODES["success"]]
             s.assert_match(opcodes1, "bla\xFC")
             s.assert_no_match(opcodes2, "bla\xFC")
+            oldlocale = locale.setlocale(locale.LC_ALL)
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_no_match(opcodes1, "bla\xFC")
             s.assert_match(opcodes2, "bla\xFC")
-            locale.resetlocale() # is this the right way to rest the locale?
+            locale.setlocale(locale.LC_ALL, oldlocale)
         except locale.Error:
             # skip test
             skip("locale error")

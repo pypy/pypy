@@ -373,6 +373,13 @@ class Test_rbigint(object):
         print '--->', v
         assert v.tolong() == pow(x, y, z)
 
+    def test_pow_lll_bug(self):
+        two = rbigint.fromint(2)
+        t = rbigint.fromlong(2655689964083835493447941032762343136647965588635159615997220691002017799304)
+        for n, expected in [(37, 9), (1291, 931), (67889, 39464)]:
+            v = two.pow(t, rbigint.fromint(n))
+            assert v.toint() == expected
+
     def test_pow_lln(self):
         x = 10L
         y = 2L

@@ -39,8 +39,9 @@ extern long pypy_asm_stackwalk(void*, void*);
 #define pypy_asm_keepalive(v)  asm volatile ("/* keepalive %0 */" : : \
                                              "g" (v))
 
-/* marker for trackgcroot.py */
-#define pypy_asm_stack_bottom()  asm volatile ("/* GC_STACK_BOTTOM */" : : )
+/* marker for trackgcroot.py, and inhibits tail calls */
+#define pypy_asm_stack_bottom()  asm volatile ("/* GC_STACK_BOTTOM */" : : : \
+                                               "memory")
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
                i == 0 ? (void*)&__gcmapstart :         \
@@ -221,6 +222,15 @@ void boehm_gc_startup_code(void)
 #endif /* PYPY_NOT_MAIN_FILE */
 
 #endif /* USING_BOEHM_GC */
+
+
+#ifdef USING_NO_GC_AT_ALL
+#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)  \
+  r = (restype) calloc(1, size);
+#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r)  /* nothing */
+#define OP_GC__DISABLE_FINALIZERS(r)  /* nothing */
+#define OP_GC__ENABLE_FINALIZERS(r)  /* nothing */
+#endif
 
 /************************************************************/
 /* weakref support */

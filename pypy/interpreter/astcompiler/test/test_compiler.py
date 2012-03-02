@@ -55,7 +55,7 @@ class TestCompiler:
         co_expr = compile(evalexpr, '<evalexpr>', 'eval')
         space = self.space
         pyco_expr = PyCode._from_code(space, co_expr)
-        w_res = pyco_expr.exec_host_bytecode(space, w_dict, w_dict)
+        w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
         if not isinstance(expected, float):
             assert res == repr(expected)
@@ -72,6 +72,10 @@ class TestCompiler:
 
     def error_test(self, source, exc_type):
         py.test.raises(exc_type, self.simple_test, source, None, None)
+
+    def test_issue_713(self):
+        func = "def f(_=2): return (_ if _ else _) if False else _"
+        yield self.st, func, "f()", 2
 
     def test_long_jump(self):
         func = """def f(x):
@@ -304,6 +308,15 @@ class TestCompiler:
                "p.__name__", os.path.__name__)
         yield (self.st, 'from os import *',
                "path.__name__, sep", (os.path.__name__, os.sep))
+        yield (self.st, '''
+            class A(object):
+                def m(self):
+                    from __foo__.bar import x
+            try:
+                A().m()
+            except ImportError, e:
+                msg = str(e)
+            ''', "msg", "No module named __foo__")
 
     def test_if_stmts(self):
         yield self.st, "a = 42\nif a > 10: a += 2", "a", 44
@@ -824,6 +837,38 @@ class TestOptimizations:
         """
         # Just checking this doesn't crash out
         self.count_instructions(source)
+
+    def test_const_fold_unicode_subscr(self, monkeypatch):
+        source = """def f():
+        return u"abc"[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+
+        # getitem outside of the BMP should not be optimized
+        source = """def f():
+        return u"\U00012345"[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
+                          ops.RETURN_VALUE: 1}
+
+        monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
+        source = """def f():
+        return u"\uE01F"[0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+        monkeypatch.undo()
+
+        # getslice is not yet optimized.
+        # Still, check a case which yields the empty string.
+        source = """def f():
+        return u"abc"[:0]
+        """
+        counts = self.count_instructions(source)
+        assert counts == {ops.LOAD_CONST: 2, ops.SLICE+2: 1,
+                          ops.RETURN_VALUE: 1}
 
     def test_remove_dead_code(self):
         source = """def f(x):

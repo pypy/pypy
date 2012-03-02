@@ -9,11 +9,13 @@ class EffectInfo(object):
     _cache = {}
 
     # the 'extraeffect' field is one of the following values:
-    EF_PURE                            = 0 #pure function (and cannot raise)
+    EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_CAN_RAISE                       = 3 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 4 #can raise and force virtualizables
+    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 4 #normal function (can raise)
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
+    EF_RANDOM_EFFECTS                  = 6 #can do whatever
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -46,6 +48,8 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
+    OS_LIBFFI_GETARRAYITEM      = 63
+    OS_LIBFFI_SETARRAYITEM      = 64
     #
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
@@ -72,76 +76,135 @@ class EffectInfo(object):
     OS_LLONG_UGE                = 91
     OS_LLONG_URSHIFT            = 92
     OS_LLONG_FROM_UINT          = 93
+    OS_LLONG_U_TO_FLOAT         = 94
+    #
+    OS_MATH_SQRT                = 100
 
-    def __new__(cls, readonly_descrs_fields,
+    # for debugging:
+    _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL])
+
+    def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
-                oopspecindex=OS_NONE):
-        key = (frozenset(readonly_descrs_fields),
-               frozenset(write_descrs_fields),
-               frozenset(write_descrs_arrays),
+                oopspecindex=OS_NONE,
+                can_invalidate=False):
+        key = (frozenset_or_none(readonly_descrs_fields),
+               frozenset_or_none(readonly_descrs_arrays),
+               frozenset_or_none(write_descrs_fields),
+               frozenset_or_none(write_descrs_arrays),
                extraeffect,
-               oopspecindex)
+               oopspecindex,
+               can_invalidate)
         if key in cls._cache:
             return cls._cache[key]
+        if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
+            assert readonly_descrs_fields is None
+            assert readonly_descrs_arrays is None
+            assert write_descrs_fields is None
+            assert write_descrs_arrays is None
+        else:
+            assert readonly_descrs_fields is not None
+            assert readonly_descrs_arrays is not None
+            assert write_descrs_fields is not None
+            assert write_descrs_arrays is not None
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
+        result.readonly_descrs_arrays = readonly_descrs_arrays
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-           extraeffect == EffectInfo.EF_PURE:            
+           extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+           extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
         else:
             result.write_descrs_fields = write_descrs_fields
             result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
+        result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
+        if result.check_can_raise():
+            assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
         return result
+
+    def check_can_raise(self):
+        return self.extraeffect > self.EF_CANNOT_RAISE
+
+    def check_can_invalidate(self):
+        return self.can_invalidate
+
+    def check_is_elidable(self):
+        return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
 
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
+    def has_random_effects(self):
+        return self.extraeffect >= self.EF_RANDOM_EFFECTS
+
+
+def frozenset_or_none(x):
+    if x is None:
+        return None
+    return frozenset(x)
+
+EffectInfo.MOST_GENERAL = EffectInfo(None, None, None, None,
+                                     EffectInfo.EF_RANDOM_EFFECTS,
+                                     can_invalidate=True)
+
+
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
-                                 oopspecindex=EffectInfo.OS_NONE):
+                                 oopspecindex=EffectInfo.OS_NONE,
+                                 can_invalidate=False):
     from pypy.translator.backendopt.writeanalyze import top_set
-    if effects is top_set:
-        return None
-    readonly_descrs_fields = []
-    # readonly_descrs_arrays = [] --- not enabled for now
-    write_descrs_fields = []
-    write_descrs_arrays = []
+    if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
+        readonly_descrs_fields = None
+        readonly_descrs_arrays = None
+        write_descrs_fields = None
+        write_descrs_arrays = None
+        extraeffect = EffectInfo.EF_RANDOM_EFFECTS
+    else:
+        readonly_descrs_fields = []
+        readonly_descrs_arrays = []
+        write_descrs_fields = []
+        write_descrs_arrays = []
 
-    def add_struct(descrs_fields, (_, T, fieldname)):
-        T = deref(T)
-        if consider_struct(T, fieldname):
-            descr = cpu.fielddescrof(T, fieldname)
-            descrs_fields.append(descr)
+        def add_struct(descrs_fields, (_, T, fieldname)):
+            T = deref(T)
+            if consider_struct(T, fieldname):
+                descr = cpu.fielddescrof(T, fieldname)
+                descrs_fields.append(descr)
 
-    def add_array(descrs_arrays, (_, T)):
-        ARRAY = deref(T)
-        if consider_array(ARRAY):
-            descr = cpu.arraydescrof(ARRAY)
-            descrs_arrays.append(descr)
+        def add_array(descrs_arrays, (_, T)):
+            ARRAY = deref(T)
+            if consider_array(ARRAY):
+                descr = cpu.arraydescrof(ARRAY)
+                descrs_arrays.append(descr)
 
-    for tup in effects:
-        if tup[0] == "struct":
-            add_struct(write_descrs_fields, tup)
-        elif tup[0] == "readstruct":
-            tupw = ("struct",) + tup[1:]
-            if tupw not in effects:
-                add_struct(readonly_descrs_fields, tup)
-        elif tup[0] == "array":
-            add_array(write_descrs_arrays, tup)
-        elif tup[0] == "readarray":
-            pass
-        else:
-            assert 0
+        for tup in effects:
+            if tup[0] == "struct":
+                add_struct(write_descrs_fields, tup)
+            elif tup[0] == "readstruct":
+                tupw = ("struct",) + tup[1:]
+                if tupw not in effects:
+                    add_struct(readonly_descrs_fields, tup)
+            elif tup[0] == "array":
+                add_array(write_descrs_arrays, tup)
+            elif tup[0] == "readarray":
+                tupw = ("array",) + tup[1:]
+                if tupw not in effects:
+                    add_array(readonly_descrs_arrays, tup)
+            else:
+                assert 0
+    #
     return EffectInfo(readonly_descrs_fields,
+                      readonly_descrs_arrays,
                       write_descrs_fields,
                       write_descrs_arrays,
                       extraeffect,
-                      oopspecindex)
+                      oopspecindex,
+                      can_invalidate)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -172,6 +235,24 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname in ('jit_force_virtualizable',
                              'jit_force_virtual')
+
+class QuasiImmutAnalyzer(BoolGraphAnalyzer):
+    def analyze_simple_operation(self, op, graphinfo):
+        return op.opname == 'jit_force_quasi_immutable'
+
+class RandomEffectsAnalyzer(BoolGraphAnalyzer):
+    def analyze_external_call(self, op, seen=None):
+        try:
+            funcobj = op.args[0].value._obj
+            if funcobj.random_effects_on_gcobjs:
+                return True
+        except (AttributeError, lltype.DelayedPointer):
+            return True   # better safe than sorry
+        return super(RandomEffectsAnalyzer, self).analyze_external_call(
+            op, seen)
+
+    def analyze_simple_operation(self, op, graphinfo):
+        return False
 
 # ____________________________________________________________
 

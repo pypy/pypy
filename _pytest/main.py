@@ -46,23 +46,25 @@ def pytest_addoption(parser):
 
 
 def pytest_namespace():
-    return dict(collect=dict(Item=Item, Collector=Collector, File=File))
+    collect = dict(Item=Item, Collector=Collector, File=File, Session=Session)
+    return dict(collect=collect)
         
 def pytest_configure(config):
     py.test.config = config # compatibiltiy
     if config.option.exitfirst:
         config.option.maxfail = 1
 
-def pytest_cmdline_main(config):
-    """ default command line protocol for initialization, session,
-    running tests and reporting. """
+def wrap_session(config, doit):
+    """Skeleton command line program"""
     session = Session(config)
     session.exitstatus = EXIT_OK
+    initstate = 0
     try:
         config.pluginmanager.do_configure(config)
+        initstate = 1
         config.hook.pytest_sessionstart(session=session)
-        config.hook.pytest_collection(session=session)
-        config.hook.pytest_runtestloop(session=session)
+        initstate = 2
+        doit(config, session)
     except pytest.UsageError:
         raise
     except KeyboardInterrupt:
@@ -71,24 +73,30 @@ def pytest_cmdline_main(config):
         session.exitstatus = EXIT_INTERRUPTED
     except:
         excinfo = py.code.ExceptionInfo()
-        config.pluginmanager.notify_exception(excinfo)
+        config.pluginmanager.notify_exception(excinfo, config.option)
         session.exitstatus = EXIT_INTERNALERROR
         if excinfo.errisinstance(SystemExit):
             sys.stderr.write("mainloop: caught Spurious SystemExit!\n")
     if not session.exitstatus and session._testsfailed:
         session.exitstatus = EXIT_TESTSFAILED
-    config.hook.pytest_sessionfinish(session=session,
-        exitstatus=session.exitstatus)
-    config.pluginmanager.do_unconfigure(config)
+    if initstate >= 2:
+        config.hook.pytest_sessionfinish(session=session,
+            exitstatus=session.exitstatus)
+    if initstate >= 1:
+        config.pluginmanager.do_unconfigure(config)
     return session.exitstatus
 
+def pytest_cmdline_main(config):
+    return wrap_session(config, _main)
+
+def _main(config, session):
+    """ default command line protocol for initialization, session,
+    running tests and reporting. """
+    config.hook.pytest_collection(session=session)
+    config.hook.pytest_runtestloop(session=session)
+
 def pytest_collection(session):
-    session.perform_collect()
-    hook = session.config.hook
-    hook.pytest_collection_modifyitems(session=session,
-        config=session.config, items=session.items)
-    hook.pytest_collection_finish(session=session)
-    return True
+    return session.perform_collect()
 
 def pytest_runtestloop(session):
     if session.config.option.collectonly:
@@ -374,6 +382,16 @@ class Session(FSCollector):
         return HookProxy(fspath, self.config)
 
     def perform_collect(self, args=None, genitems=True):
+        hook = self.config.hook
+        try:
+            items = self._perform_collect(args, genitems)
+            hook.pytest_collection_modifyitems(session=self,
+                config=self.config, items=items)
+        finally:
+            hook.pytest_collection_finish(session=self)
+        return items
+
+    def _perform_collect(self, args, genitems):
         if args is None:
             args = self.config.args
         self.trace("perform_collect", self, args)

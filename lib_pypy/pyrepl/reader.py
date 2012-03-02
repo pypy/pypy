@@ -37,16 +37,16 @@ def _make_unctrl_map():
     for i in range(256):
         c = unichr(i)
         if not uc_map.has_key(c):
-            uc_map[c] = u'\\%03o'%i 
+            uc_map[c] = u'\\%03o'%i
     return uc_map
 
 # disp_str proved to be a bottleneck for large inputs, so it's been
 # rewritten in C; it's not required though.
 try:
     raise ImportError # currently it's borked by the unicode support
-    
+
     from _pyrepl_utils import disp_str, init_unctrl_map
-    
+
     init_unctrl_map(_make_unctrl_map())
 
     del init_unctrl_map
@@ -118,7 +118,7 @@ default_keymap = tuple(
      (r'\C-x\C-u', 'upcase-region'),
      (r'\C-y', 'yank'),
      (r'\C-z', 'suspend'),
-     
+
      (r'\M-b', 'backward-word'),
      (r'\M-c', 'capitalize-word'),
      (r'\M-d', 'kill-word'),
@@ -303,7 +303,7 @@ feeling more loquacious than I am now."""
 
     def process_prompt(self, prompt):
         """ Process the prompt.
-        
+
         This means calculate the length of the prompt. The character \x01
         and \x02 are used to bracket ANSI control sequences and need to be
         excluded from the length calculation.  So also a copy of the prompt
@@ -372,7 +372,7 @@ feeling more loquacious than I am now."""
         while p >= 0 and b[p] <> '\n':
             p -= 1
         return p + 1
-    
+
     def eol(self, p=None):
         """Return the 0-based index of the line break following p most
         immediately.
@@ -401,13 +401,19 @@ feeling more loquacious than I am now."""
             return "(arg: %s) "%self.arg
         if "\n" in self.buffer:
             if lineno == 0:
-                return self._ps2
+                res = self.ps2
             elif lineno == self.buffer.count("\n"):
-                return self._ps4
+                res = self.ps4
             else:
-                return self._ps3
+                res = self.ps3
         else:
-            return self._ps1
+            res = self.ps1
+        # Lazily call str() on self.psN, and cache the results using as key
+        # the object on which str() was called.  This ensures that even if the
+        # same object is used e.g. for ps1 and ps2, str() is called only once.
+        if res not in self._pscache:
+            self._pscache[res] = str(res)
+        return self._pscache[res]
 
     def push_input_trans(self, itrans):
         self.input_trans_stack.append(self.input_trans)
@@ -457,7 +463,7 @@ feeling more loquacious than I am now."""
         """This function is called to allow post command cleanup."""
         if getattr(cmd, "kills_digit_arg", 1):
             if self.arg is not None:
-                self.dirty = 1                
+                self.dirty = 1
             self.arg = None
 
     def prepare(self):
@@ -473,8 +479,7 @@ feeling more loquacious than I am now."""
             self.pos = 0
             self.dirty = 1
             self.last_command = None
-            self._ps1, self._ps2, self._ps3, self._ps4 = \
-                           map(str, [self.ps1, self.ps2, self.ps3, self.ps4])
+            self._pscache = {}
         except:
             self.restore()
             raise
@@ -570,16 +575,20 @@ feeling more loquacious than I am now."""
     def push_char(self, char):
         self.console.push_char(char)
         self.handle1(0)
-    
-    def readline(self):
+
+    def readline(self, returns_unicode=False, startup_hook=None):
         """Read a line.  The implementation of this method also shows
         how to drive Reader if you want more control over the event
         loop."""
         self.prepare()
         try:
+            if startup_hook is not None:
+                startup_hook()
             self.refresh()
             while not self.finished:
                 self.handle1()
+            if returns_unicode:
+                return self.get_unicode()
             return self.get_buffer()
         finally:
             self.restore()

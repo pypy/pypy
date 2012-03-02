@@ -16,9 +16,6 @@ we have it for compatibility with CPython.
 */
 #define staticforward static
 
-typedef void* Py_buffer;
-
-
 #define PyObject_HEAD  \
     long ob_refcnt;       \
     struct _typeobject *ob_type;
@@ -58,6 +55,8 @@ typedef struct {
 #define Py_REFCNT(ob)		(((PyObject*)(ob))->ob_refcnt)
 #define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
 #define Py_SIZE(ob)		(((PyVarObject*)(ob))->ob_size)
+
+#define _Py_ForgetReference(ob) /* nothing */
 
 #define Py_None (&_Py_NoneStruct)
 
@@ -126,12 +125,66 @@ typedef Py_ssize_t (*writebufferproc)(PyObject *, Py_ssize_t, void **);
 typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
 typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
-typedef int (*objobjproc)(PyObject *, PyObject *);
-typedef int (*visitproc)(PyObject *, void *);
-typedef int (*traverseproc)(PyObject *, visitproc, void *);
+/* Py3k buffer interface */
+typedef struct bufferinfo {
+    void *buf;
+    PyObject *obj;        /* owned reference */
+    Py_ssize_t len;
+
+    /* This is Py_ssize_t so it can be
+       pointed to by strides in simple case.*/
+    Py_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    Py_ssize_t *shape;
+    Py_ssize_t *strides;
+    Py_ssize_t *suboffsets;
+
+    /* static store for shape and strides of
+       mono-dimensional buffers. */
+    /* Py_ssize_t smalltable[2]; */
+    void *internal;
+} Py_buffer;
+
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
+
+    /* Flags for getting buffers */
+#define PyBUF_SIMPLE 0
+#define PyBUF_WRITABLE 0x0001
+/*  we used to include an E, backwards compatible alias  */
+#define PyBUF_WRITEABLE PyBUF_WRITABLE
+#define PyBUF_FORMAT 0x0004
+#define PyBUF_ND 0x0008
+#define PyBUF_STRIDES (0x0010 | PyBUF_ND)
+#define PyBUF_C_CONTIGUOUS (0x0020 | PyBUF_STRIDES)
+#define PyBUF_F_CONTIGUOUS (0x0040 | PyBUF_STRIDES)
+#define PyBUF_ANY_CONTIGUOUS (0x0080 | PyBUF_STRIDES)
+#define PyBUF_INDIRECT (0x0100 | PyBUF_STRIDES)
+
+#define PyBUF_CONTIG (PyBUF_ND | PyBUF_WRITABLE)
+#define PyBUF_CONTIG_RO (PyBUF_ND)
+
+#define PyBUF_STRIDED (PyBUF_STRIDES | PyBUF_WRITABLE)
+#define PyBUF_STRIDED_RO (PyBUF_STRIDES)
+
+#define PyBUF_RECORDS (PyBUF_STRIDES | PyBUF_WRITABLE | PyBUF_FORMAT)
+#define PyBUF_RECORDS_RO (PyBUF_STRIDES | PyBUF_FORMAT)
+
+#define PyBUF_FULL (PyBUF_INDIRECT | PyBUF_WRITABLE | PyBUF_FORMAT)
+#define PyBUF_FULL_RO (PyBUF_INDIRECT | PyBUF_FORMAT)
+
+
+#define PyBUF_READ  0x100
+#define PyBUF_WRITE 0x200
+#define PyBUF_SHADOW 0x400
+/* end Py3k buffer interface */
+
+typedef int (*objobjproc)(PyObject *, PyObject *);
+typedef int (*visitproc)(PyObject *, void *);
+typedef int (*traverseproc)(PyObject *, visitproc, void *);
 
 typedef struct {
 	/* For numbers without flag bit Py_TPFLAGS_CHECKTYPES set, all
@@ -214,7 +267,7 @@ typedef struct {
 	writebufferproc bf_getwritebuffer;
 	segcountproc bf_getsegcount;
 	charbufferproc bf_getcharbuffer;
-  getbufferproc bf_getbuffer;
+	getbufferproc bf_getbuffer;
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
@@ -300,6 +353,15 @@ typedef struct _typeobject {
 	unsigned int tp_version_tag;
 
 } PyTypeObject;
+
+typedef struct {
+    PyTypeObject ht_type;
+    PyNumberMethods as_number;
+    PyMappingMethods as_mapping;
+    PySequenceMethods as_sequence;
+    PyBufferProcs as_buffer;
+    PyObject *ht_name, *ht_slots;
+} PyHeapTypeObject;
 
 /* Flag bits for printing: */
 #define Py_PRINT_RAW	1	/* No string quotes etc. */
@@ -480,6 +542,9 @@ typedef union _gc_head {
 
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
+#define Py_TRASHCAN_SAFE_END(pyObj)
 
 /* Copied from CPython ----------------------------- */
 int PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);

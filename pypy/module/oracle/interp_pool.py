@@ -100,11 +100,13 @@ class W_SessionPool(Wrappable):
                 status, "SessionPool_New(): create pool")
 
             self.w_name = config.w_string(space, poolnameptr[0],
-                                          poolnamelenptr[0])
+                              rffi.cast(lltype.Signed, poolnamelenptr[0]))
         finally:
             user_buf.clear()
             password_buf.clear()
             dsn_buf.clear()
+            lltype.free(poolnameptr, flavor='raw')
+            lltype.free(poolnamelenptr, flavor='raw')
 
         return space.wrap(self)
 
@@ -128,10 +130,19 @@ class W_SessionPool(Wrappable):
 
         self.checkConnected(space)
 
+        if __args__.keywords:
+             keywords = __args__.keywords + ["pool"]
+        else:
+             keywords = ["pool"]
+        if __args__.keywords_w:
+             keywords_w = __args__.keywords_w + [space.wrap(self)]
+        else:
+             keywords_w = [space.wrap(self)]
+             
         newargs = Arguments(space,
                             __args__.arguments_w,
-                            __args__.keywords + ["pool"],
-                            __args__.keywords_w + [space.wrap(self)])
+                            keywords,
+                            keywords_w)
         return space.call_args(self.w_connectionType, newargs)
 
     def release(self, space, w_connection):

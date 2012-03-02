@@ -10,9 +10,6 @@ import re
 REGEXES = [
     (('tracing_no', 'tracing_time'), '^Tracing:\s+([\d.]+)\s+([\d.]+)$'),
     (('backend_no', 'backend_time'), '^Backend:\s+([\d.]+)\s+([\d.]+)$'),
-    (('asm_no',), '^Running asm:\s+([\d.]+)$'),
-    (('blackhole_no',),
-         '^Blackhole:\s+([\d.]+)$'),
     (None, '^TOTAL.*$'),
     (('ops.total',), '^ops:\s+(\d+)$'),
     (('recorded_ops.total',), '^recorded ops:\s+(\d+)$'),
@@ -25,6 +22,7 @@ REGEXES = [
     (('abort.compiling',), '^abort: compiling:\s+(\d+)$'),
     (('abort.vable_escape',), '^abort: vable escape:\s+(\d+)$'),
     (('abort.bad_loop',), '^abort: bad loop:\s+(\d+)$'),
+    (('abort.force_quasiimmut',), '^abort: force quasi-immut:\s+(\d+)$'),
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
     (('nvreused',), '^nvreused:\s+(\d+)$'),

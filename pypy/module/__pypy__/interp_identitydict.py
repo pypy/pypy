@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.baseobjspace import Wrappable
 
 class W_IdentityDict(Wrappable):

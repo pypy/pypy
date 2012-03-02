@@ -5,17 +5,10 @@ import pypy
 pypydir = py.path.local(pypy.__file__).dirpath()
 distdir = pypydir.dirpath() 
 issue_url = 'http://codespeak.net/issue/pypy-dev/' 
+bitbucket_url = 'https://bitbucket.org/pypy/pypy/src/default/'
 
 import urllib2, posixpath
 
-
-possible_start_dirs = [
-    distdir,
-    distdir.join('pypy'),
-    # for now, let the jit links point to the oo-jit branch
-    'http://codespeak.net/svn/pypy/branch/oo-jit',
-    'http://codespeak.net/svn/pypy/branch/oo-jit/pypy',
-    ]
 
 def makeref(docdir):
     reffile = docdir.join('_ref.txt') 
@@ -30,36 +23,24 @@ def makeref(docdir):
                 return
         name2target.setdefault(linktarget, []).append(linkname)
 
-    for textfile in docdir.listdir():  # for subdirs, see below
-        if textfile.ext != '.txt':
+    for textfile in sorted(docdir.listdir()):  # for subdirs, see below
+        if textfile.ext != '.rst':
             continue
-        for linkname in linkrex.findall(textfile.read()): 
-            if '/' in linkname: 
-                for startdir in possible_start_dirs:
-                    if isinstance(startdir, str):
-                        assert startdir.startswith('http://')
-                        target = posixpath.join(startdir, linkname)
-                        try:
-                            urllib2.urlopen(target).close()
-                        except urllib2.HTTPError:
-                            continue
-                    else:
-                        cand = startdir.join(linkname)
-                        if not cand.check():
-                            continue
-                        assert cand.relto(distdir)
-                        dotdots = 0
-                        p = docdir
-                        while p != distdir:
-                            p = p.dirpath()
-                            dotdots += 1
-                        target = '../' * dotdots + cand.relto(distdir)
-                    addlink(linkname, target) 
-                    break
-                else: 
-                    print "WARNING %s: link %r may be bogus" %(textfile, linkname) 
+        content = textfile.read()
+        found = False
+        for linkname in linkrex.findall(content): 
+            if '/' in linkname:
+                found = True
+                assert distdir.join(linkname).check(), "link %s in %s is dead" % (linkname, textfile)
+                url = bitbucket_url + linkname
+                if not linkname.endswith("/") and distdir.join(linkname).check(dir=1):
+                    url += "/"
+                addlink(linkname, url)
             elif linkname.startswith('issue'): 
+                found = True
                 addlink(linkname, issue_url+linkname)
+        if found:
+            assert ".. include:: _ref.txt" in content, "you need to include _ref.txt in %s" % (textfile, )
 
     items = name2target.items() 
     items.sort() 

@@ -615,9 +615,27 @@ namespace pypy.runtime
             return s1.StartsWith(s2);
         }
 
+        public static bool ll_startswith_char(string s, char c)
+        {
+            if (s.Length == 0)
+            {
+                return false;
+            }
+            return s[0] == c;
+        }
+
         public static bool ll_endswith(string s1, string s2)
         {
             return s1.EndsWith(s2);
+        }
+
+        public static bool ll_endswith_char(string s, char c)
+        {
+            if (s.Length == 0)
+            {
+                return false;
+            }
+            return s[s.Length - 1] == c;
         }
         
         public static int ll_find(string s1, string s2, int start, int stop)

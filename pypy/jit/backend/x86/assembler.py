@@ -1,15 +1,16 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
-from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
-                                         LoopToken)
+from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-                                           _get_scale, gpr_reg_mgr_cls)
+from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
+    gpr_reg_mgr_cls, _valid_addressing_size)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
                                        IS_X86_32, IS_X86_64)
@@ -34,10 +35,12 @@ from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 from pypy.rlib import rgc
+from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
+from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import compute_unique_id
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -48,13 +51,18 @@ def align_stack_words(words):
 
 
 class GuardToken(object):
-    def __init__(self, faildescr, failargs, fail_locs, exc):
+    def __init__(self, faildescr, failargs, fail_locs, exc,
+                 is_guard_not_invalidated):
         self.faildescr = faildescr
         self.failargs = failargs
         self.fail_locs = fail_locs
         self.exc = exc
+        self.is_guard_not_invalidated = is_guard_not_invalidated
 
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed))
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('type', lltype.Char), # 'b'ridge, 'l'abel or
+                                                     # 'e'ntry point
+                              ('number', lltype.Signed))
 
 class Assembler386(object):
     _regalloc = None
@@ -65,10 +73,6 @@ class Assembler386(object):
         self.cpu = cpu
         self.verbose = False
         self.rtyper = cpu.rtyper
-        self.malloc_func_addr = 0
-        self.malloc_array_func_addr = 0
-        self.malloc_str_func_addr = 0
-        self.malloc_unicode_func_addr = 0
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
@@ -87,6 +91,8 @@ class Assembler386(object):
         self._current_depths_cache = (0, 0)
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
+        self.propagate_exception_path = 0
+        self.gcrootmap_retaddr_forced = 0
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -101,20 +107,6 @@ class Assembler386(object):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
-        ll_new = gc_ll_descr.get_funcptr_for_new()
-        self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
-            self.malloc_array_func_addr = rffi.cast(lltype.Signed,
-                                                    ll_new_array)
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            ll_new_str = gc_ll_descr.get_funcptr_for_newstr()
-            self.malloc_str_func_addr = rffi.cast(lltype.Signed,
-                                                  ll_new_str)
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            ll_new_unicode = gc_ll_descr.get_funcptr_for_newunicode()
-            self.malloc_unicode_func_addr = rffi.cast(lltype.Signed,
-                                                      ll_new_unicode)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(support.memcpy_fn)
         self._build_failure_recovery(False)
         self._build_failure_recovery(True)
@@ -123,9 +115,12 @@ class Assembler386(object):
             self._build_failure_recovery(True, withfloats=True)
             support.ensure_sse2_floats()
             self._build_float_constants()
+        self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
         self._build_stack_check_slowpath()
+        if gc_ll_descr.gcrootmap:
+            self._build_release_gil(gc_ll_descr.gcrootmap)
         debug_start('jit-backend-counts')
         self.set_debug(have_debug_prints())
         debug_stop('jit-backend-counts')
@@ -134,17 +129,22 @@ class Assembler386(object):
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
+        if WORD == 8:
+            self.pending_memoryerror_trampoline_from = []
+            self.error_trampoline_64 = 0
         self.mc = codebuf.MachineCodeBlockWrapper()
-        if self.datablockwrapper is None:
-            allblocks = self.get_asmmemmgr_blocks(looptoken)
-            self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
-                                                            allblocks)
+        #assert self.datablockwrapper is None --- but obscure case
+        # possible, e.g. getting MemoryError and continuing
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                        allblocks)
+        self.target_tokens_currently_compiling = {}
 
     def teardown(self):
         self.pending_guard_tokens = None
+        if WORD == 8:
+            self.pending_memoryerror_trampoline_from = None
         self.mc = None
-        self.looppos = -1
-        self.currently_compiling_loop = None
         self.current_clt = None
 
     def finish_once(self):
@@ -152,7 +152,13 @@ class Assembler386(object):
             debug_start('jit-backend-counts')
             for i in range(len(self.loop_run_counters)):
                 struct = self.loop_run_counters[i]
-                debug_print(str(i) + ':' + str(struct.i))
+                if struct.type == 'l':
+                    prefix = 'TargetToken(%d)' % struct.number
+                elif struct.type == 'b':
+                    prefix = 'bridge ' + str(struct.number)
+                else:
+                    prefix = 'entry ' + str(struct.number)
+                debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
@@ -176,6 +182,7 @@ class Assembler386(object):
         # instructions in assembler, with a mark_gc_roots in between.
         # With shadowstack, this is not needed, so we produce a single helper.
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
         #
         # ---------- first helper for the slow path of malloc ----------
         mc = codebuf.MachineCodeBlockWrapper()
@@ -185,10 +192,19 @@ class Assembler386(object):
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         #
-        if gcrootmap is not None and gcrootmap.is_shadow_stack:
+        # The registers to save in the copy area: with shadowstack, most
+        # registers need to be saved.  With asmgcc, the callee-saved registers
+        # don't need to.
+        save_in_copy_area = gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items()
+        if not shadow_stack:
+            save_in_copy_area = [(reg, ofs) for (reg, ofs) in save_in_copy_area
+                   if reg not in gpr_reg_mgr_cls.REGLOC_TO_GCROOTMAP_REG_INDEX]
+        #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_br(ofs, reg.value)
+        #
+        if shadow_stack:
             # ---- shadowstack ----
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_br(ofs, reg.value)
             mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
             if IS_X86_32:
                 mc.MOV_sr(0, edx.value)          # push argument
@@ -196,15 +212,13 @@ class Assembler386(object):
                 mc.MOV_rr(edi.value, edx.value)
             mc.CALL(imm(addr))
             mc.ADD_ri(esp.value, 16 - WORD)
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_rb(reg.value, ofs)
         else:
             # ---- asmgcc ----
             if IS_X86_32:
                 mc.MOV_sr(WORD, edx.value)       # save it as the new argument
             elif IS_X86_64:
-                # rdi can be clobbered: its content was forced to the stack
-                # by _fastpath_malloc(), like all other save_around_call_regs.
+                # rdi can be clobbered: its content was saved in the
+                # copy area of the stack
                 mc.MOV_rr(edi.value, edx.value)
             mc.JMP(imm(addr))                    # tail call to the real malloc
             rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -212,18 +226,55 @@ class Assembler386(object):
             # ---------- second helper for the slow path of malloc ----------
             mc = codebuf.MachineCodeBlockWrapper()
         #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_rb(reg.value, ofs)
+            assert reg is not eax and reg is not edx
+        #
         if self.cpu.supports_floats:          # restore the XMM registers
             for i in range(self.cpu.NUM_REGS):# from where they were saved
                 mc.MOVSD_xs(i, (WORD*2)+8*i)
+        #
+        # Note: we check this after the code above, just because the code
+        # above is more than 127 bytes on 64-bits...
+        mc.TEST_rr(eax.value, eax.value)
+        mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jz_location = mc.get_relative_pos()
+        #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         mc.RET()
+        #
+        # If the slowpath malloc failed, we raise a MemoryError that
+        # always interrupts the current loop, as a "good enough"
+        # approximation.  Also note that we didn't RET from this helper;
+        # but the code we jump to will actually restore the stack
+        # position based on EBP, which will get us out of here for free.
+        offset = mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jz_location-1, chr(offset))
+        mc.JMP(imm(self.propagate_exception_path))
+        #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath2 = rawstart
 
+    def _build_propagate_exception_path(self):
+        if self.cpu.propagate_exception_v < 0:
+            return      # not supported (for tests, or non-translated)
+        #
+        self.mc = codebuf.MachineCodeBlockWrapper()
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True,
+                                                default_to_memoryerror=True)
+        self.mc.CALL(imm(addr))
+        self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
+        self._call_footer()
+        rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
+        self.propagate_exception_path = rawstart
+        self.mc = None
+
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or self.cpu.exit_frame_with_exception_v < 0:
+        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
             return      # no stack check (for tests, or non-translated)
         #
         # make a "function" that is called immediately at the start of
@@ -248,12 +299,11 @@ class Assembler386(object):
                 mc.MOVSD_sx(8*i, i)     # xmm0 to xmm7
         #
         if IS_X86_32:
-            mc.LEA_rb(eax.value, +8)
             stack_size += 2*WORD
             mc.PUSH_r(eax.value)        # alignment
-            mc.PUSH_r(eax.value)
+            mc.PUSH_r(esp.value)
         elif IS_X86_64:
-            mc.LEA_rb(edi.value, +16)
+            mc.MOV_rr(edi.value, esp.value)
         #
         # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
@@ -264,7 +314,7 @@ class Assembler386(object):
         jnz_location = mc.get_relative_pos()
         #
         if IS_X86_32:
-            mc.ADD_ri(esp.value, 2*WORD)
+            mc.ADD_ri(esp.value, 2*WORD)    # cancel the two PUSHes above
         elif IS_X86_64:
             # restore the registers
             for i in range(7, -1, -1):
@@ -279,19 +329,11 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        # clear the exception from the global position
-        mc.MOV(eax, heap(self.cpu.pos_exc_value()))
-        mc.MOV(heap(self.cpu.pos_exception()), imm0)
-        mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
-        # save the current exception instance into fail_boxes_ptr[0]
-        adr = self.fail_boxes_ptr.get_addr_for_num(0)
-        mc.MOV(heap(adr), eax)
-        # call the helper function to set the GC flag on the fail_boxes_ptr
-        # array (note that there is no exception any more here)
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
         mc.CALL(imm(addr))
         #
-        mc.MOV_ri(eax.value, self.cpu.exit_frame_with_exception_v)
+        mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         #
         # footer -- note the ADD, which skips the return address of this
         # function, and will instead return to the caller's caller.  Note
@@ -303,14 +345,74 @@ class Assembler386(object):
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.stack_check_slowpath = rawstart
 
-    def assemble_loop(self, inputargs, operations, looptoken, log):
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_asmgcc(css):
+        # similar to trackgcroot.py:pypy_asm_stackwalk, first part
+        from pypy.rpython.memory.gctransform import asmgcroot
+        new = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        next = asmgcroot.gcrootanchor.next
+        new.next = next
+        new.prev = asmgcroot.gcrootanchor
+        asmgcroot.gcrootanchor.next = new
+        next.prev = new
+        # and now release the GIL
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_asmgcc(css):
+        # first reacquire the GIL
+        after = rffi.aroundstate.after
+        if after:
+            after()
+        # similar to trackgcroot.py:pypy_asm_stackwalk, second part
+        from pypy.rpython.memory.gctransform import asmgcroot
+        old = rffi.cast(asmgcroot.ASM_FRAMEDATA_HEAD_PTR, css)
+        prev = old.prev
+        next = old.next
+        prev.next = next
+        next.prev = prev
+
+    @staticmethod
+    @rgc.no_collect
+    def _release_gil_shadowstack():
+        before = rffi.aroundstate.before
+        if before:
+            before()
+
+    @staticmethod
+    @rgc.no_collect
+    def _reacquire_gil_shadowstack():
+        after = rffi.aroundstate.after
+        if after:
+            after()
+
+    _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
+    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
+                                                  lltype.Void))
+
+    def _build_release_gil(self, gcrootmap):
+        if gcrootmap.is_shadow_stack:
+            releasegil_func = llhelper(self._NOARG_FUNC,
+                                       self._release_gil_shadowstack)
+            reacqgil_func = llhelper(self._NOARG_FUNC,
+                                     self._reacquire_gil_shadowstack)
+        else:
+            releasegil_func = llhelper(self._CLOSESTACK_FUNC,
+                                       self._release_gil_asmgcc)
+            reacqgil_func = llhelper(self._CLOSESTACK_FUNC,
+                                     self._reacquire_gil_asmgcc)
+        self.releasegil_addr  = self.cpu.cast_ptr_to_int(releasegil_func)
+        self.reacqgil_addr = self.cpu.cast_ptr_to_int(reacqgil_func)
+
+    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
-               _x86_loop_code       (an integer giving an address)
-               _x86_bootstrap_code  (an integer giving an address)
-               _x86_direct_bootstrap_code  ( "    "     "    "   )
-               _x86_frame_depth
-               _x86_param_depth
-               _x86_arglocs
+               _x86_function_addr   (address of the generated func, as an int)
+               _x86_loop_code       (debug: addr of the start of the ResOps)
+               _x86_fullsize        (debug: full size including failure)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -319,55 +421,65 @@ class Assembler386(object):
         # for the duration of compiling one loop or a one bridge.
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.currently_compiling_loop = looptoken
-        funcname = self._find_debug_merge_point(operations)
         if log:
-            self._register_counter()
-            operations = self._inject_debugging_code(looptoken, operations)
-        
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
+
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        arglocs = regalloc.prepare_loop(inputargs, operations, looptoken)
-        looptoken._x86_arglocs = arglocs
-
-        bootstrappos = self.mc.get_relative_pos()
-        stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
-        self.looppos = self.mc.get_relative_pos()
-        looptoken._x86_frame_depth = -1     # temporarily
-        looptoken._x86_param_depth = -1     # temporarily        
+        #
+        self._call_header_with_stack_check()
+        stackadjustpos = self._patchable_stackadjust()
+        clt._debug_nbargs = len(inputargs)
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
+        looppos = self.mc.get_relative_pos()
+        looptoken._x86_loop_code = looppos
+        clt.frame_depth = -1     # temporarily
+        clt.param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
-        looptoken._x86_frame_depth = frame_depth
-        looptoken._x86_param_depth = param_depth
-
-        directbootstrappos = self.mc.get_relative_pos()
-        self._assemble_bootstrap_direct_call(arglocs, self.looppos,
-                                             frame_depth+param_depth)
+        clt.frame_depth = frame_depth
+        clt.param_depth = param_depth
+        #
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
-        fullsize = self.mc.get_relative_pos()
+        full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        debug_print("Loop #%d (%s) has address %x to %x" % (
-            looptoken.number, funcname,
-            rawstart + self.looppos,
-            rawstart + directbootstrappos))
+        debug_start("jit-backend-addr")
+        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
+            looptoken.number, loopname,
+            rawstart + looppos,
+            rawstart + size_excluding_failure_stuff,
+            rawstart))
+        debug_stop("jit-backend-addr")
         self._patch_stackadjust(rawstart + stackadjustpos,
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)
         #
-        looptoken._x86_bootstrap_code = rawstart + bootstrappos
-        looptoken._x86_loop_code = rawstart + self.looppos
-        looptoken._x86_direct_bootstrap_code = rawstart + directbootstrappos
+        ops_offset = self.mc.ops_offset
+        if not we_are_translated():
+            # used only by looptoken.dump() -- useful in tests
+            looptoken._x86_rawstart = rawstart
+            looptoken._x86_fullsize = full_size
+            looptoken._x86_ops_offset = ops_offset
+        looptoken._x86_function_addr = rawstart
+
+        self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
-            name = "Loop # %s: %s" % (looptoken.number, funcname)
+            name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
-                                                       rawstart, fullsize)
+                                                       rawstart, full_size)
+        return AsmInfo(ops_offset, rawstart + looppos,
+                       size_excluding_failure_stuff - looppos)
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                         original_loop_token, log):
@@ -376,18 +488,12 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         descr_number = self.cpu.get_fail_descr_number(faildescr)
-        try:
-            failure_recovery = self._find_failure_recovery_bytecode(faildescr)
-        except ValueError:
-            debug_print("Bridge out of guard", descr_number,
-                        "was already compiled!")
-            return
+        failure_recovery = self._find_failure_recovery_bytecode(faildescr)
 
         self.setup(original_loop_token)
-        funcname = self._find_debug_merge_point(operations)
         if log:
-            self._register_counter()
-            operations = self._inject_debugging_code(faildescr, operations)
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
 
         arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
         if not we_are_translated():
@@ -395,8 +501,10 @@ class Assembler386(object):
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         fail_depths = faildescr._x86_current_depths
-        regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
-                                operations)
+        startpos = self.mc.get_relative_pos()
+        operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
+                                             operations,
+                                             self.current_clt.allgcrefs)
 
         stackadjustpos = self._patchable_stackadjust()
         frame_depth, param_depth = self._assemble(regalloc, operations)
@@ -405,9 +513,10 @@ class Assembler386(object):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
-
-        debug_print("Bridge out of guard %d (%s) has address %x to %x" %
-                    (descr_number, funcname, rawstart, rawstart + codeendpos))
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard %d has address %x to %x" %
+                    (descr_number, rawstart, rawstart + codeendpos))
+        debug_stop("jit-backend-addr")
         self._patch_stackadjust(rawstart + stackadjustpos,
                                 frame_depth + param_depth)
         self.patch_pending_failure_recoveries(rawstart)
@@ -417,33 +526,67 @@ class Assembler386(object):
             faildescr._x86_bridge_param_depth = param_depth
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
+        ops_offset = self.mc.ops_offset
+        self.fixup_target_tokens(rawstart)
+        self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
+        self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
-            name = "Bridge # %s: %s" % (descr_number, funcname)
+            name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
+            self.error_trampoline_64 = self.generate_propagate_error_64()
 
     def patch_pending_failure_recoveries(self, rawstart):
         # after we wrote the assembler to raw memory, set up
         # tok.faildescr._x86_adr_jump_offset to contain the raw address of
         # the 4-byte target field in the JMP/Jcond instruction, and patch
         # the field in question to point (initially) to the recovery stub
+        clt = self.current_clt
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
             tok.faildescr._x86_adr_jump_offset = addr
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
-            mc = codebuf.MachineCodeBlockWrapper()
-            mc.writeimm32(relative_target)
-            mc.copy_to_raw_memory(addr)
+            if not tok.is_guard_not_invalidated:
+                mc = codebuf.MachineCodeBlockWrapper()
+                mc.writeimm32(relative_target)
+                mc.copy_to_raw_memory(addr)
+            else:
+                # GUARD_NOT_INVALIDATED, record an entry in
+                # clt.invalidate_positions of the form:
+                #     (addr-in-the-code-of-the-not-yet-written-jump-target,
+                #      relative-target-to-use)
+                relpos = tok.pos_jump_offset
+                clt.invalidate_positions.append((rawstart + relpos,
+                                                 relative_target))
+                # General idea: Although no code was generated by this
+                # guard, the code might be patched with a "JMP rel32" to
+                # the guard recovery code.  This recovery code is
+                # already generated, and looks like the recovery code
+                # for any guard, even if at first it has no jump to it.
+                # So we may later write 5 bytes overriding the existing
+                # instructions; this works because a CALL instruction
+                # would also take at least 5 bytes.  If it could take
+                # less, we would run into the issue that overwriting the
+                # 5 bytes here might get a few nonsense bytes at the
+                # return address of the following CALL.
+        if WORD == 8:
+            for pos_after_jz in self.pending_memoryerror_trampoline_from:
+                assert self.error_trampoline_64 != 0     # only if non-empty
+                mc = codebuf.MachineCodeBlockWrapper()
+                mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
+                mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -458,31 +601,29 @@ class Assembler386(object):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _find_debug_merge_point(self, operations):
-
-        for op in operations:
-            if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                funcname = op.getarg(0)._get_str()
-                break
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
+            struct.number = number
         else:
-            funcname = "<loop %d>" % len(self.loop_run_counters)
-        # invent the counter, so we don't get too confused
-        return funcname
-
-    def _register_counter(self):
-        if self._debug:
-            # YYY very minor leak -- we need the counters to stay alive
-            # forever, just because we want to report them at the end
-            # of the process
-            struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
-                                   track_allocation=False)
-            struct.i = 0
-            self.loop_run_counters.append(struct)
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)            
+        return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         if adr_jump_offset == 0:
-            raise ValueError
+            # This case should be prevented by the logic in compile.py:
+            # look for CNT_BUSY_FLAG, which disables tracing from a guard
+            # when another tracing from the same guard is already in progress.
+            raise BridgeAlreadyCompiled
         # follow the JMP/Jcond
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
@@ -490,7 +631,7 @@ class Assembler386(object):
         if WORD == 4:
             adr_target += 5     # CALL imm
         else:
-            adr_target += 13    # MOV r11, imm; CALL *r11
+            adr_target += 13    # MOV r11, imm-as-8-bytes; CALL *r11 xxxxxxxxxx
         return adr_target
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
@@ -506,9 +647,9 @@ class Assembler386(object):
             mc.writeimm32(offset)
             mc.copy_to_raw_memory(adr_jump_offset)
         else:
-            # "mov r11, addr; jmp r11" is 13 bytes, which fits in there
-            # because we always write "mov r11, addr; call *r11" in the
-            # first place.
+            # "mov r11, addr; jmp r11" is up to 13 bytes, which fits in there
+            # because we always write "mov r11, imm-as-8-bytes; call *r11" in
+            # the first place.
             mc.MOV_ri(X86_64_SCRATCH_REG.value, adr_new_target)
             mc.JMP_r(X86_64_SCRATCH_REG.value)
             p = rffi.cast(rffi.INTP, adr_jump_offset)
@@ -516,37 +657,55 @@ class Assembler386(object):
             mc.copy_to_raw_memory(adr_target)
         faildescr._x86_adr_jump_offset = 0    # means "patched"
 
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._x86_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
+
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
+        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+        box = BoxInt()
+        box2 = BoxInt()
+        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
+                            box, descr=self.debug_counter_descr),
+               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
+                            None, descr=self.debug_counter_descr)]
+        operations.extend(ops)
+        
     @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations):
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
             # before doing anything, let's increase a counter
             s = 0
             for op in operations:
                 s += op.getopnum()
             looptoken._x86_debug_checksum = s
-            c_adr = ConstInt(rffi.cast(lltype.Signed,
-                                       self.loop_run_counters[-1]))
-            box = BoxInt()
-            box2 = BoxInt()
-            ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                                box, descr=self.debug_counter_descr),
-                   ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-                   ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                                None, descr=self.debug_counter_descr)]
-            operations = ops + operations
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
         return operations
 
     def _assemble(self, regalloc, operations):
         self._regalloc = regalloc
-        regalloc.walk_operations(operations)        
+        regalloc.compute_hint_frame_locations(operations)
+        regalloc.walk_operations(operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
-        frame_depth = regalloc.fm.frame_depth
+        frame_depth = regalloc.fm.get_frame_depth()
         param_depth = regalloc.param_depth
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_frame_depth
-            target_param_depth = jump_target_descr._x86_param_depth
+            target_frame_depth = jump_target_descr._x86_clt.frame_depth
+            target_param_depth = jump_target_descr._x86_clt.param_depth
             frame_depth = max(frame_depth, target_frame_depth)
             param_depth = max(param_depth, target_param_depth)
         return frame_depth, param_depth
@@ -576,8 +735,8 @@ class Assembler386(object):
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         self.mc.PUSH_r(ebp.value)
         self.mc.MOV_rr(ebp.value, esp.value)
-        for regloc in self.cpu.CALLEE_SAVE_REGISTERS:
-            self.mc.PUSH_r(regloc.value)
+        for loc in self.cpu.CALLEE_SAVE_REGISTERS:
+            self.mc.PUSH_r(loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -587,11 +746,11 @@ class Assembler386(object):
         if self.stack_check_slowpath == 0:
             pass                # no stack check (e.g. not translated)
         else:
-            startaddr, length, _ = self.cpu.insert_stack_check()
-            self.mc.MOV(eax, esp)                       # MOV eax, current
-            self.mc.SUB(eax, heap(startaddr))           # SUB eax, [startaddr]
-            self.mc.CMP(eax, imm(length))               # CMP eax, length
-            self.mc.J_il8(rx86.Conditions['B'], 0)      # JB .skip
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            self.mc.MOV(eax, heap(endaddr))             # MOV eax, [start]
+            self.mc.SUB(eax, esp)                       # SUB eax, current
+            self.mc.CMP(eax, heap(lengthaddr))          # CMP eax, [length]
+            self.mc.J_il8(rx86.Conditions['BE'], 0)     # JBE .skip
             jb_location = self.mc.get_relative_pos()
             self.mc.CALL(imm(self.stack_check_slowpath))# CALL slowpath
             # patch the JB above                        # .skip:
@@ -615,164 +774,50 @@ class Assembler386(object):
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
-        # we need to put two words into the shadowstack: the MARKER
+        # we need to put two words into the shadowstack: the MARKER_FRAME
         # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
-        assert rx86.fits_in_32bits(rst)
-        self.mc.MOV_rj(eax.value, rst)                # MOV eax, [rootstacktop]
-        self.mc.LEA_rm(edx.value, (eax.value, 2*WORD))  # LEA edx, [eax+2*WORD]
-        self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
-        self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
-        self.mc.MOV_jr(rst, edx.value)                # MOV [rootstacktop], edx
+        if rx86.fits_in_32bits(rst):
+            self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
+        else:
+            self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
+            self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
+        #
+        MARKER = gcrootmap.MARKER_FRAME
+        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD)) # LEA ebx, [eax+2*WORD]
+        self.mc.MOV_mi((eax.value, WORD), MARKER)      # MOV [eax+WORD], MARKER
+        self.mc.MOV_mr((eax.value, 0), ebp.value)      # MOV [eax], ebp
+        #
+        if rx86.fits_in_32bits(rst):
+            self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
+        else:
+            self.mc.MOV_mr((r13.value, 0), ebx.value) # MOV [r13], ebx
 
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
-        assert rx86.fits_in_32bits(rst)
-        self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
-
-    def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
-        if IS_X86_64:
-            return self._assemble_bootstrap_direct_call_64(arglocs, jmppos, stackdepth)
-        # XXX pushing ebx esi and edi is a bit pointless, since we store
-        #     all regsiters anyway, for the case of guard_not_forced
-        # XXX this can be improved greatly. Right now it'll behave like
-        #     a normal call
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header_with_stack_check()
-        self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if isinstance(loc, RegLoc):
-                assert not loc.is_xmm
-                self.mc.MOV_rb(loc.value, (2 + i) * WORD)
-            loc = floatlocs[i]
-            if isinstance(loc, RegLoc):
-                assert loc.is_xmm
-                self.mc.MOVSD_xb(loc.value, (1 + i) * 2 * WORD)
-        tmp = eax
-        xmmtmp = xmm0
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is not None and not isinstance(loc, RegLoc):
-                self.mc.MOV_rb(tmp.value, (2 + i) * WORD)
-                self.mc.MOV(loc, tmp)
-            loc = floatlocs[i]
-            if loc is not None and not isinstance(loc, RegLoc):
-                self.mc.MOVSD_xb(xmmtmp.value, (1 + i) * 2 * WORD)
-                assert isinstance(loc, StackLoc)
-                self.mc.MOVSD_bx(loc.value, xmmtmp.value)
-        endpos = self.mc.get_relative_pos() + 5
-        self.mc.JMP_l(jmppos - endpos)
-        assert endpos == self.mc.get_relative_pos()
-
-    def _assemble_bootstrap_direct_call_64(self, arglocs, jmppos, stackdepth):
-        # XXX: Very similar to _emit_call_64
-
-        src_locs = []
-        dst_locs = []
-        xmm_src_locs = []
-        xmm_dst_locs = []
-        get_from_stack = []
-
-        # In reverse order for use with pop()
-        unused_gpr = [r9, r8, ecx, edx, esi, edi]
-        unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
-
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header_with_stack_check()
-        self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
-
-        # The lists are padded with Nones
-        assert len(nonfloatlocs) == len(floatlocs)
-
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is not None:
-                if len(unused_gpr) > 0:
-                    src_locs.append(unused_gpr.pop())
-                    dst_locs.append(loc)
-                else:
-                    get_from_stack.append((loc, False))
-
-            floc = floatlocs[i]
-            if floc is not None:
-                if len(unused_xmm) > 0:
-                    xmm_src_locs.append(unused_xmm.pop())
-                    xmm_dst_locs.append(floc)
-                else:
-                    get_from_stack.append((floc, True))
-
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
-
-        for i in range(len(get_from_stack)):
-            loc, is_xmm = get_from_stack[i]
-            if is_xmm:
-                self.mc.MOVSD_xb(X86_64_XMM_SCRATCH_REG.value, (2 + i) * WORD)
-                self.mc.MOVSD(loc, X86_64_XMM_SCRATCH_REG)
-            else:
-                self.mc.MOV_rb(X86_64_SCRATCH_REG.value, (2 + i) * WORD)
-                # XXX: We're assuming that "loc" won't require regloc to
-                # clobber the scratch register
-                self.mc.MOV(loc, X86_64_SCRATCH_REG)
-
-        endpos = self.mc.get_relative_pos() + 5
-        self.mc.JMP_l(jmppos - endpos)
-        assert endpos == self.mc.get_relative_pos()
+        if rx86.fits_in_32bits(rst):
+            self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
+        else:
+            self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
+            self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
-        oldnonfloatlocs, oldfloatlocs = oldlooptoken._x86_arglocs
-        newnonfloatlocs, newfloatlocs = newlooptoken._x86_arglocs
-        assert len(oldnonfloatlocs) == len(newnonfloatlocs)
-        assert len(oldfloatlocs) == len(newfloatlocs)
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
         # to start with a JMP to the new _x86_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
-        oldadr = oldlooptoken._x86_direct_bootstrap_code
-        target = newlooptoken._x86_direct_bootstrap_code
+        oldadr = oldlooptoken._x86_function_addr
+        target = newlooptoken._x86_function_addr
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
+        if WORD == 4:         # keep in sync with prepare_loop()
+            assert mc.get_relative_pos() == 5
+        else:
+            assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
-
-    def _assemble_bootstrap_code(self, inputargs, arglocs):
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header()
-        stackadjustpos = self._patchable_stackadjust()
-        tmp = eax
-        xmmtmp = xmm0
-        self.mc.begin_reuse_scratch_register()
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is None:
-                continue
-            if isinstance(loc, RegLoc):
-                target = loc
-            else:
-                target = tmp
-            if inputargs[i].type == REF:
-                adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.MOV(target, heap(adr))
-                self.mc.MOV(heap(adr), imm0)
-            else:
-                adr = self.fail_boxes_int.get_addr_for_num(i)
-                self.mc.MOV(target, heap(adr))
-            if target is not loc:
-                assert isinstance(loc, StackLoc)
-                self.mc.MOV_br(loc.value, target.value)
-        for i in range(len(floatlocs)):
-            loc = floatlocs[i]
-            if loc is None:
-                continue
-            adr = self.fail_boxes_float.get_addr_for_num(i)
-            if isinstance(loc, RegLoc):
-                self.mc.MOVSD(loc, heap(adr))
-            else:
-                self.mc.MOVSD(xmmtmp, heap(adr))
-                assert isinstance(loc, StackLoc)
-                self.mc.MOVSD_bx(loc.value, xmmtmp.value)
-        self.mc.end_reuse_scratch_register()
-        return stackadjustpos
 
     def dump(self, text):
         if not self.verbose:
@@ -791,15 +836,16 @@ class Assembler386(object):
         if (isinstance(from_loc, RegLoc) and from_loc.is_xmm) or (isinstance(to_loc, RegLoc) and to_loc.is_xmm):
             self.mc.MOVSD(to_loc, from_loc)
         else:
+            assert to_loc is not ebp
             self.mc.MOV(to_loc, from_loc)
 
     regalloc_mov = mov # legacy interface
 
     def regalloc_push(self, loc):
         if isinstance(loc, RegLoc) and loc.is_xmm:
-            self.mc.SUB_ri(esp.value, 2*WORD)
+            self.mc.SUB_ri(esp.value, 8)   # = size of doubles
             self.mc.MOVSD_sx(0, loc.value)
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.PUSH_b(get_ebp_ofs(loc.position))
             self.mc.PUSH_b(get_ebp_ofs(loc.position + 1))
@@ -809,13 +855,25 @@ class Assembler386(object):
     def regalloc_pop(self, loc):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.MOVSD_xs(loc.value, 0)
-            self.mc.ADD_ri(esp.value, 2*WORD)
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+            self.mc.ADD_ri(esp.value, 8)   # = size of doubles
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.POP_b(get_ebp_ofs(loc.position + 1))
             self.mc.POP_b(get_ebp_ofs(loc.position))
         else:
             self.mc.POP(loc)
+
+    def regalloc_immedmem2mem(self, from_loc, to_loc):
+        # move a ConstFloatLoc directly to a StackLoc, as two MOVs
+        # (even on x86-64, because the immediates are encoded as 32 bits)
+        assert isinstance(from_loc, ConstFloatLoc)
+        assert isinstance(to_loc,   StackLoc)
+        low_part  = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[0]
+        high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
+        low_part  = intmask(low_part)
+        high_part = intmask(high_part)
+        self.mc.MOV32_bi(to_loc.value,     low_part)
+        self.mc.MOV32_bi(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
@@ -827,6 +885,11 @@ class Assembler386(object):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         genop_llong_list[oopspecindex](self, op, arglocs, resloc)
+
+    def regalloc_perform_math(self, op, arglocs, resloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        genop_math_list[oopspecindex](self, op, arglocs, resloc)
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
                                     arglocs, resloc, current_depths):
@@ -949,9 +1012,10 @@ class Assembler386(object):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax):
+    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax,
+                   argtypes=None, callconv=FFI_DEFAULT_ABI):
         if IS_X86_64:
-            return self._emit_call_64(force_index, x, arglocs, start)
+            return self._emit_call_64(force_index, x, arglocs, start, argtypes)
 
         p = 0
         n = len(arglocs)
@@ -962,29 +1026,40 @@ class Assembler386(object):
                     self.mc.MOVSD_sx(p, loc.value)
                 else:
                     self.mc.MOV_sr(p, loc.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         p = 0
         for i in range(start, n):
             loc = arglocs[i]
             if not isinstance(loc, RegLoc):
-                if loc.width == 8:
+                if loc.get_width() == 8:
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 else:
                     self.mc.MOV(tmp, loc)
                     self.mc.MOV_sr(p, tmp.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         self._regalloc.reserve_param(p//WORD)
         # x is a location
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
+        #
+        if callconv != FFI_DEFAULT_ABI:
+            self._fix_stdcall(callconv, p)
 
-    def _emit_call_64(self, force_index, x, arglocs, start):
+    def _fix_stdcall(self, callconv, p):
+        from pypy.rlib.clibffi import FFI_STDCALL
+        assert callconv == FFI_STDCALL
+        # it's a bit stupid, but we're just going to cancel the fact that
+        # the called function just added 'p' to ESP, by subtracting it again.
+        self.mc.SUB_ri(esp.value, p)
+
+    def _emit_call_64(self, force_index, x, arglocs, start, argtypes):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
         xmm_dst_locs = []
         pass_on_stack = []
+        singlefloats = None
 
         # In reverse order for use with pop()
         unused_gpr = [r9, r8, ecx, edx, esi, edi]
@@ -1004,13 +1079,18 @@ class Assembler386(object):
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
                     pass_on_stack.append(loc)
+            elif (argtypes is not None and argtypes[i-start] == 'S' and
+                  len(unused_xmm) > 0):
+                # Singlefloat argument
+                if singlefloats is None: singlefloats = []
+                singlefloats.append((loc, unused_xmm.pop()))
             else:
                 if len(unused_gpr) > 0:
                     src_locs.append(loc)
                     dst_locs.append(unused_gpr.pop())
                 else:
                     pass_on_stack.append(loc)
-        
+
         # Emit instructions to pass the stack arguments
         # XXX: Would be nice to let remap_frame_layout take care of this, but
         # we'd need to create something like StackLoc, but relative to esp,
@@ -1031,9 +1111,21 @@ class Assembler386(object):
                 else:
                     self.mc.MOV_sr(i*WORD, loc.value)
 
-        # Handle register arguments
+        # Handle register arguments: first remap the xmm arguments
+        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
+                           X86_64_XMM_SCRATCH_REG)
+        # Load the singlefloat arguments from main regs or stack to xmm regs
+        if singlefloats is not None:
+            for src, dst in singlefloats:
+                self.mc.MOVD(dst, src)
+        # Finally remap the arguments in the main regs
+        # If x is a register and is in dst_locs, then oups, it needs to
+        # be moved away:
+        if x in dst_locs:
+            src_locs.append(x)
+            dst_locs.append(r10)
+            x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
@@ -1056,6 +1148,8 @@ class Assembler386(object):
             self.mc.MOV_bi(FORCE_INDEX_OFS, force_index)
             return force_index
         else:
+            # the return value is ignored, apart from the fact that it
+            # is not negative.
             return 0
 
     genop_int_neg = _unaryop("NEG")
@@ -1080,8 +1174,8 @@ class Assembler386(object):
     genop_int_ne = _cmpop("NE", "NE")
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
-    genop_ptr_eq = genop_int_eq
-    genop_ptr_ne = genop_int_ne
+    genop_ptr_eq = genop_instance_ptr_eq = genop_int_eq
+    genop_ptr_ne = genop_instance_ptr_ne = genop_int_ne
 
     genop_float_lt = _cmpop_float('B', 'A')
     genop_float_le = _cmpop_float('BE', 'AE')
@@ -1101,8 +1195,8 @@ class Assembler386(object):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
-    genop_guard_ptr_eq = genop_guard_int_eq
-    genop_guard_ptr_ne = genop_guard_int_ne
+    genop_guard_ptr_eq = genop_guard_instance_ptr_eq = genop_guard_int_eq
+    genop_guard_ptr_ne = genop_guard_instance_ptr_ne = genop_guard_int_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
@@ -1114,6 +1208,9 @@ class Assembler386(object):
     genop_guard_float_eq = _cmpop_guard_float("E", "E", "NE","NE")
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
+
+    def genop_math_sqrt(self, op, arglocs, resloc):
+        self.mc.SQRTSD(arglocs[0], resloc)
 
     def genop_guard_float_ne(self, op, guard_op, guard_token, arglocs, result_loc):
         guard_opnum = guard_op.getopnum()
@@ -1142,6 +1239,20 @@ class Assembler386(object):
 
     def genop_cast_int_to_float(self, op, arglocs, resloc):
         self.mc.CVTSI2SD(resloc, arglocs[0])
+
+    def genop_cast_float_to_singlefloat(self, op, arglocs, resloc):
+        loc0, loctmp = arglocs
+        self.mc.CVTSD2SS(loctmp, loc0)
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loctmp, RegLoc)
+        self.mc.MOVD_rx(resloc.value, loctmp.value)
+
+    def genop_cast_singlefloat_to_float(self, op, arglocs, resloc):
+        loc0, = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loc0, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc0.value)
+        self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
@@ -1173,7 +1284,8 @@ class Assembler386(object):
 
     def genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
-    #genop_cast_ptr_to_int = genop_same_as
+    genop_cast_ptr_to_int = genop_same_as
+    genop_cast_int_to_ptr = genop_same_as
 
     def genop_int_mod(self, op, arglocs, resloc):
         if IS_X86_32:
@@ -1258,43 +1370,24 @@ class Assembler386(object):
         self.mc.SHR_ri(resloc.value, 7)
         self.mc.AND_ri(resloc.value, 1)
 
-    def genop_new_with_vtable(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        loc_vtable = arglocs[-1]
-        assert isinstance(loc_vtable, ImmedLoc)
-        arglocs = arglocs[:-1]
-        self.call(self.malloc_func_addr, arglocs, eax)
-        # xxx ignore NULL returns for now
-        self.set_vtable(eax, loc_vtable)
+    # ----------
 
-    def set_vtable(self, loc, loc_vtable):
-        if self.cpu.vtable_offset is not None:
-            assert isinstance(loc, RegLoc)
-            assert isinstance(loc_vtable, ImmedLoc)
-            self.mc.MOV(mem(loc, self.cpu.vtable_offset), loc_vtable)
+    def genop_call_malloc_gc(self, op, arglocs, result_loc):
+        self.genop_call(op, arglocs, result_loc)
+        self.propagate_memoryerror_if_eax_is_null()
 
-    def set_new_array_length(self, loc, ofs_length, loc_num_elem):
-        assert isinstance(loc, RegLoc)
-        assert isinstance(loc_num_elem, ImmedLoc)
-        self.mc.MOV(mem(loc, ofs_length), loc_num_elem)
-
-    # XXX genop_new is abused for all varsized mallocs with Boehm, for now
-    # (instead of genop_new_array, genop_newstr, genop_newunicode)
-    def genop_new(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_func_addr, arglocs, eax)
-
-    def genop_new_array(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_array_func_addr, arglocs, eax)
-
-    def genop_newstr(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_str_func_addr, arglocs, eax)
-
-    def genop_newunicode(self, op, arglocs, result_loc):
-        assert result_loc is eax
-        self.call(self.malloc_unicode_func_addr, arglocs, eax)
+    def propagate_memoryerror_if_eax_is_null(self):
+        # if self.propagate_exception_path == 0 (tests), this may jump to 0
+        # and segfaults.  too bad.  the alternative is to continue anyway
+        # with eax==0, but that will segfault too.
+        self.mc.TEST_rr(eax.value, eax.value)
+        if WORD == 4:
+            self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
+            self.mc.add_pending_relocation()
+        elif WORD == 8:
+            self.mc.J_il(rx86.Conditions['Z'], 0)
+            pos = self.mc.get_relative_pos()
+            self.pending_memoryerror_trampoline_from.append(pos)
 
     # ----------
 
@@ -1365,11 +1458,49 @@ class Assembler386(object):
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
 
+    def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
+                                base_loc, ofs_loc):
+        assert isinstance(itemsize_loc, ImmedLoc)
+        if isinstance(index_loc, ImmedLoc):
+            temp_loc = imm(index_loc.value * itemsize_loc.value)
+        elif _valid_addressing_size(itemsize_loc.value):
+            return AddressLoc(base_loc, index_loc, _get_scale(itemsize_loc.value), ofs_loc.value)
+        else:
+            # XXX should not use IMUL in more cases, it can use a clever LEA
+            assert isinstance(temp_loc, RegLoc)
+            assert isinstance(index_loc, RegLoc)
+            assert not temp_loc.is_xmm
+            self.mc.IMUL_rri(temp_loc.value, index_loc.value,
+                             itemsize_loc.value)
+        assert isinstance(ofs_loc, ImmedLoc)
+        return AddressLoc(base_loc, temp_loc, 0, ofs_loc.value)
+
+    def genop_getinteriorfield_gc(self, op, arglocs, resloc):
+        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+            index_loc, temp_loc, sign_loc) = arglocs
+        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+                                                itemsize_loc, base_loc,
+                                                ofs_loc)
+        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+
+    genop_getinteriorfield_raw = genop_getinteriorfield_gc
+
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         dest_addr = AddressLoc(base_loc, ofs_loc)
         self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_setinteriorfield_gc(self, op, arglocs):
+        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+            index_loc, temp_loc, value_loc) = arglocs
+        dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+                                                 itemsize_loc, base_loc,
+                                                 ofs_loc)
+        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
+
+    genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
@@ -1436,6 +1567,17 @@ class Assembler386(object):
         else:
             assert 0, itemsize
 
+    def genop_read_timestamp(self, op, arglocs, resloc):
+        self.mc.RDTSC()
+        if longlong.is_64_bit:
+            self.mc.SHL_ri(edx.value, 32)
+            self.mc.OR_rr(edx.value, eax.value)
+        else:
+            loc1, = arglocs
+            self.mc.MOVD_xr(loc1.value, edx.value)
+            self.mc.MOVD_xr(resloc.value, eax.value)
+            self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
+
     def genop_guard_guard_true(self, ign_1, guard_op, guard_token, locs, ign_2):
         loc = locs[0]
         self.mc.TEST(loc, loc)
@@ -1446,6 +1588,12 @@ class Assembler386(object):
                                        locs, ign_2):
         self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
         self.implement_guard(guard_token, 'NZ')
+
+    def genop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
+                                     locs, ign_2):
+        pos = self.mc.get_relative_pos() + 1 # after potential jmp
+        guard_token.pos_jump_offset = pos
+        self.pending_guard_tokens.append(guard_token)
 
     def genop_guard_guard_exception(self, ign_1, guard_op, guard_token,
                                     locs, resloc):
@@ -1545,7 +1693,15 @@ class Assembler386(object):
         exc = (guard_opnum == rop.GUARD_EXCEPTION or
                guard_opnum == rop.GUARD_NO_EXCEPTION or
                guard_opnum == rop.GUARD_NOT_FORCED)
-        return GuardToken(faildescr, failargs, fail_locs, exc)
+        is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
+        return GuardToken(faildescr, failargs, fail_locs, exc,
+                          is_guard_not_invalidated)
+
+    def generate_propagate_error_64(self):
+        assert WORD == 8
+        startpos = self.mc.get_relative_pos()
+        self.mc.JMP(imm(self.propagate_exception_path))
+        return startpos
 
     def generate_quick_failure(self, guardtok):
         """Generate the initial code for handling a failure.  We try to
@@ -1560,7 +1716,18 @@ class Assembler386(object):
                 withfloats = True
                 break
         exc = guardtok.exc
-        mc.CALL(imm(self.failure_recovery_code[exc + 2 * withfloats]))
+        target = self.failure_recovery_code[exc + 2 * withfloats]
+        if WORD == 4:
+            mc.CALL(imm(target))
+        else:
+            # Generate exactly 13 bytes:
+            #        MOV r11, target-as-8-bytes
+            #        CALL *r11
+            # Keep the number 13 in sync with _find_failure_recovery_bytecode.
+            start = mc.get_relative_pos()
+            mc.MOV_ri64(X86_64_SCRATCH_REG.value, target)
+            mc.CALL_r(X86_64_SCRATCH_REG.value)
+            assert mc.get_relative_pos() == start + 13
         # write tight data that describes the failure recovery
         self.write_failure_recovery_description(mc, guardtok.failargs,
                                                 guardtok.fail_locs)
@@ -1577,10 +1744,10 @@ class Assembler386(object):
     DESCR_INT       = 0x01
     DESCR_FLOAT     = 0x02
     DESCR_SPECIAL   = 0x03
-    # XXX: 4*8 works on i386, should we optimize for that case?
-    CODE_FROMSTACK  = 4*16
+    CODE_FROMSTACK  = 4 * (8 + 8*IS_X86_64)
     CODE_STOP       = 0 | DESCR_SPECIAL
     CODE_HOLE       = 4 | DESCR_SPECIAL
+    CODE_INPUTARG   = 8 | DESCR_SPECIAL
 
     def write_failure_recovery_description(self, mc, failargs, locs):
         for i in range(len(failargs)):
@@ -1596,7 +1763,11 @@ class Assembler386(object):
                     raise AssertionError("bogus kind")
                 loc = locs[i]
                 if isinstance(loc, StackLoc):
-                    n = self.CODE_FROMSTACK//4 + loc.position
+                    pos = loc.position
+                    if pos < 0:
+                        mc.writechar(chr(self.CODE_INPUTARG))
+                        pos = ~pos
+                    n = self.CODE_FROMSTACK//4 + pos
                 else:
                     assert isinstance(loc, RegLoc)
                     n = loc.value
@@ -1616,6 +1787,7 @@ class Assembler386(object):
         descr_to_box_type = [REF, INT, FLOAT]
         bytecode = rffi.cast(rffi.UCHARP, bytecode)
         arglocs = []
+        code_inputarg = False
         while 1:
             # decode the next instruction from the bytecode
             code = rffi.cast(lltype.Signed, bytecode[0])
@@ -1634,14 +1806,16 @@ class Assembler386(object):
                             break
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
-                if kind == self.DESCR_FLOAT:
-                    size = 2
-                else:
-                    size = 1
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
                 loc = X86FrameManager.frame_pos(code, descr_to_box_type[kind])
             elif code == self.CODE_STOP:
                 break
             elif code == self.CODE_HOLE:
+                continue
+            elif code == self.CODE_INPUTARG:
+                code_inputarg = True
                 continue
             else:
                 # 'code' identifies a register
@@ -1658,6 +1832,7 @@ class Assembler386(object):
     def grab_frame_values(self, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!
         self.fail_ebp = allregisters[16 + ebp.value]
+        code_inputarg = False
         num = 0
         value_hi = 0
         while 1:
@@ -1678,6 +1853,9 @@ class Assembler386(object):
                 # load the value from the stack
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
                 stackloc = frame_addr + get_ebp_ofs(code)
                 value = rffi.cast(rffi.LONGP, stackloc)[0]
                 if kind == self.DESCR_FLOAT and WORD == 4:
@@ -1689,6 +1867,9 @@ class Assembler386(object):
                 if kind == self.DESCR_SPECIAL:
                     if code == self.CODE_HOLE:
                         num += 1
+                        continue
+                    if code == self.CODE_INPUTARG:
+                        code_inputarg = True
                         continue
                     assert code == self.CODE_STOP
                     break
@@ -1794,9 +1975,9 @@ class Assembler386(object):
         # returns in eax the fail_index
 
         # now we return from the complete frame, which starts from
-        # _assemble_bootstrap_code().  The LEA in _call_footer below throws
-        # away most of the frame, including all the PUSHes that we did just
-        # above.
+        # _call_header_with_stack_check().  The LEA in _call_footer below
+        # throws away most of the frame, including all the PUSHes that we
+        # did just above.
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
@@ -1820,8 +2001,9 @@ class Assembler386(object):
         for i in range(len(locs)):
             loc = locs[i]
             if not isinstance(loc, RegLoc):
-                if isinstance(loc, StackLoc) and loc.type == FLOAT:
-                    self.mc.MOVSD_xb(xmm0.value, loc.value)
+                if ((isinstance(loc, StackLoc) and loc.type == FLOAT) or
+                        isinstance(loc, ConstFloatLoc)):
+                    self.mc.MOVSD(xmm0, loc)
                     adr = self.fail_boxes_float.get_addr_for_num(i)
                     self.mc.MOVSD(heap(adr), xmm0)
                 else:
@@ -1860,25 +2042,29 @@ class Assembler386(object):
         self._genop_call(op, arglocs, resloc, force_index)
 
     def _genop_call(self, op, arglocs, resloc, force_index):
+        from pypy.jit.backend.llsupport.descr import CallDescr
+
         sizeloc = arglocs[0]
         assert isinstance(sizeloc, ImmedLoc)
         size = sizeloc.value
         signloc = arglocs[1]
 
-        if isinstance(op.getarg(0), Const):
-            x = imm(op.getarg(0).getint())
-        else:
-            x = arglocs[2]
+        x = arglocs[2]     # the function address
         if x is eax:
             tmp = ecx
         else:
             tmp = eax
 
-        self._emit_call(force_index, x, arglocs, 3, tmp=tmp)
+        descr = op.getdescr()
+        assert isinstance(descr, CallDescr)
 
-        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
+        self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
+                        argtypes=descr.get_arg_types(),
+                        callconv=descr.get_call_conv())
+
+        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.type == FLOAT:
             # a float or a long long return
-            if op.getdescr().get_return_type() == 'L':
+            if descr.get_result_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
                 self.mc.MOV_br(resloc.value + 4, edx.value)
                 # XXX should ideally not move the result on the stack,
@@ -1886,7 +2072,19 @@ class Assembler386(object):
                 #     and this way is simpler also because the result loc
                 #     can just be always a stack location
             else:
-                self.mc.FSTP_b(resloc.value)   # float return
+                self.mc.FSTPL_b(resloc.value)   # float return
+        elif descr.get_result_type() == 'S':
+            # singlefloat return
+            assert resloc is eax
+            if IS_X86_32:
+                # must convert ST(0) to a 32-bit singlefloat and load it into EAX
+                # mess mess mess
+                self.mc.SUB_ri(esp.value, 4)
+                self.mc.FSTPS_s(0)
+                self.mc.POP_r(eax.value)
+            elif IS_X86_64:
+                # must copy from the lower 32 bits of XMM0 into eax
+                self.mc.MOVD_rx(eax.value, xmm0.value)
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:
@@ -1909,17 +2107,130 @@ class Assembler386(object):
         self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
         self.implement_guard(guard_token, 'L')
 
+    def genop_guard_call_release_gil(self, op, guard_op, guard_token,
+                                     arglocs, result_loc):
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            self.call_release_gil(gcrootmap, arglocs)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
+        self._genop_call(op, arglocs, result_loc, fail_index)
+        # then reopen the stack
+        if gcrootmap:
+            self.call_reacquire_gil(gcrootmap, result_loc)
+        # finally, the guard_not_forced
+        self.mc.CMP_bi(FORCE_INDEX_OFS, 0)
+        self.implement_guard(guard_token, 'L')
+
+    def call_release_gil(self, gcrootmap, save_registers):
+        # First, we need to save away the registers listed in
+        # 'save_registers' that are not callee-save.  XXX We assume that
+        # the XMM registers won't be modified.  We store them in
+        # [ESP+4], [ESP+8], etc., leaving enough room in [ESP] for the
+        # single argument to closestack_addr below.
+        p = WORD
+        for reg in self._regalloc.rm.save_around_call_regs:
+            if reg in save_registers:
+                self.mc.MOV_sr(p, reg.value)
+                p += WORD
+        self._regalloc.reserve_param(p//WORD)
+        #
+        if gcrootmap.is_shadow_stack:
+            args = []
+        else:
+            # note that regalloc.py used save_all_regs=True to save all
+            # registers, so we don't have to care about saving them (other
+            # than ebp) in the close_stack_struct.  But if they are registers
+            # like %eax that would be destroyed by this call, *and* they are
+            # used by arglocs for the *next* call, then trouble; for now we
+            # will just push/pop them.
+            from pypy.rpython.memory.gctransform import asmgcroot
+            css = self._regalloc.close_stack_struct
+            if css == 0:
+                use_words = (2 + max(asmgcroot.INDEX_OF_EBP,
+                                     asmgcroot.FRAME_PTR) + 1)
+                pos = self._regalloc.fm.reserve_location_in_frame(use_words)
+                css = get_ebp_ofs(pos + use_words - 1)
+                self._regalloc.close_stack_struct = css
+            # The location where the future CALL will put its return address
+            # will be [ESP-WORD].  But we can't use that as the next frame's
+            # top address!  As the code after releasegil() runs without the
+            # GIL, it might not be set yet by the time we need it (very
+            # unlikely), or it might be overwritten by the following call
+            # to reaquiregil() (much more likely).  So we hack even more
+            # and use a dummy location containing a dummy value (a pointer
+            # to itself) which we pretend is the return address :-/ :-/ :-/
+            # It prevents us to store any %esp-based stack locations but we
+            # don't so far.
+            adr = self.datablockwrapper.malloc_aligned(WORD, WORD)
+            rffi.cast(rffi.CArrayPtr(lltype.Signed), adr)[0] = adr
+            self.gcrootmap_retaddr_forced = adr
+            frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
+            if rx86.fits_in_32bits(adr):
+                self.mc.MOV_bi(frame_ptr, adr)          # MOV [css.frame], adr
+            else:
+                self.mc.MOV_ri(eax.value, adr)          # MOV EAX, adr
+                self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
+            # Save ebp
+            index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
+            self.mc.MOV_br(index_of_ebp, ebp.value)     # MOV [css.ebp], EBP
+            # Call the closestack() function (also releasing the GIL)
+            if IS_X86_32:
+                reg = eax
+            elif IS_X86_64:
+                reg = edi
+            self.mc.LEA_rb(reg.value, css)
+            args = [reg]
+        #
+        self._emit_call(-1, imm(self.releasegil_addr), args)
+        # Finally, restore the registers saved above.
+        p = WORD
+        for reg in self._regalloc.rm.save_around_call_regs:
+            if reg in save_registers:
+                self.mc.MOV_rs(reg.value, p)
+                p += WORD
+
+    def call_reacquire_gil(self, gcrootmap, save_loc):
+        # save the previous result (eax/xmm0) into the stack temporarily.
+        # XXX like with call_release_gil(), we assume that we don't need
+        # to save xmm0 in this case.
+        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
+            self.mc.MOV_sr(WORD, save_loc.value)
+            self._regalloc.reserve_param(2)
+        # call the reopenstack() function (also reacquiring the GIL)
+        if gcrootmap.is_shadow_stack:
+            args = []
+        else:
+            assert self.gcrootmap_retaddr_forced == -1, (
+                      "missing mark_gc_roots() in CALL_RELEASE_GIL")
+            self.gcrootmap_retaddr_forced = 0
+            css = self._regalloc.close_stack_struct
+            assert css != 0
+            if IS_X86_32:
+                reg = eax
+            elif IS_X86_64:
+                reg = edi
+            self.mc.LEA_rb(reg.value, css)
+            args = [reg]
+        self._emit_call(-1, imm(self.reacqgil_addr), args)
+        # restore the result from the stack
+        if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
+            self.mc.MOV_rs(save_loc.value, WORD)
+
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
-        assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
+        assert isinstance(descr, JitCellToken)
+        assert len(arglocs) - 2 == descr.compiled_loop_token._debug_nbargs
         #
-        # Write a call to the direct_bootstrap_code of the target assembler
-        self._emit_call(fail_index, imm(descr._x86_direct_bootstrap_code),
+        # Write a call to the target assembler
+        self._emit_call(fail_index, imm(descr._x86_function_addr),
                         arglocs, 2, tmp=eax)
         if op.result is None:
             assert result_loc is None
@@ -1948,7 +2259,7 @@ class Assembler386(object):
         self._emit_call(fail_index, imm(asm_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
-            self.mc.FSTP_b(result_loc.value)
+            self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
@@ -1960,9 +2271,9 @@ class Assembler386(object):
         #
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, BaseFieldDescr)
+            assert isinstance(fielddescr, FieldDescr)
             ofs = fielddescr.offset
             self.mc.MOV(eax, arglocs[1])
             self.mc.MOV_mi((eax.value, ofs), 0)
@@ -1998,62 +2309,127 @@ class Assembler386(object):
     def genop_discard_cond_call_gc_wb(self, op, arglocs):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls the
-        # function remember_young_pointer() from the GC.  The two arguments
-        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # function remember_young_pointer() from the GC.  The arguments
+        # to the call are in arglocs[:N].  The rest, arglocs[N:], contains
         # registers that need to be saved and restored across the call.
+        # N is either 2 (regular write barrier) or 3 (array write barrier).
         descr = op.getdescr()
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
+        #
+        opnum = op.getopnum()
+        if opnum == rop.COND_CALL_GC_WB:
+            N = 2
+            func = descr.get_write_barrier_fn(self.cpu)
+            card_marking = False
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            N = 3
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert func != 0
+            card_marking = descr.jit_wb_cards_set != 0
+        else:
+            raise AssertionError(opnum)
+        #
         loc_base = arglocs[0]
         self.mc.TEST8(addr_add_const(loc_base, descr.jit_wb_if_flag_byteofs),
                       imm(descr.jit_wb_if_flag_singlebyte))
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
+
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking:
+            self.mc.TEST8(addr_add_const(loc_base,
+                                         descr.jit_wb_cards_set_byteofs),
+                          imm(descr.jit_wb_cards_set_singlebyte))
+            self.mc.J_il8(rx86.Conditions['NZ'], 0) # patched later
+            jnz_location = self.mc.get_relative_pos()
+        else:
+            jnz_location = 0
+
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         if IS_X86_32:
             limit = -1      # push all arglocs on the stack
         elif IS_X86_64:
-            limit = 1       # push only arglocs[2:] on the stack
+            limit = N - 1   # push only arglocs[N:] on the stack
         for i in range(len(arglocs)-1, limit, -1):
             loc = arglocs[i]
             if isinstance(loc, RegLoc):
                 self.mc.PUSH_r(loc.value)
             else:
-                assert not IS_X86_64 # there should only be regs in arglocs[2:]
+                assert not IS_X86_64 # there should only be regs in arglocs[N:]
                 self.mc.PUSH_i32(loc.getint())
         if IS_X86_64:
             # We clobber these registers to pass the arguments, but that's
             # okay, because consider_cond_call_gc_wb makes sure that any
             # caller-save registers with values in them are present in
-            # arglocs[2:] too, so they are saved on the stack above and
+            # arglocs[N:] too, so they are saved on the stack above and
             # restored below.
-            remap_frame_layout(self, arglocs[:2], [edi, esi],
+            if N == 2:
+                callargs = [edi, esi]
+            else:
+                callargs = [edi, esi, edx]
+            remap_frame_layout(self, arglocs[:N], callargs,
                                X86_64_SCRATCH_REG)
-
+        #
         # misaligned stack in the call, but it's ok because the write barrier
         # is not going to call anything more.  Also, this assumes that the
         # write barrier does not touch the xmm registers.  (Slightly delicate
         # assumption, given that the write barrier can end up calling the
         # platform's malloc() from AddressStack.append().  XXX may need to
         # be done properly)
-        self.mc.CALL(imm(descr.get_write_barrier_fn(self.cpu)))
+        self.mc.CALL(imm(func))
         if IS_X86_32:
-            self.mc.ADD_ri(esp.value, 2*WORD)
-        for i in range(2, len(arglocs)):
+            self.mc.ADD_ri(esp.value, N*WORD)
+        for i in range(N, len(arglocs)):
             loc = arglocs[i]
             assert isinstance(loc, RegLoc)
             self.mc.POP_r(loc.value)
+
+        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
+        # be done in the CALL above with just four instructions, so here
+        # is an inline copy of them
+        if card_marking:
+            self.mc.JMP_l8(0) # jump to the exit, patched later
+            jmp_location = self.mc.get_relative_pos()
+            # patch the JNZ above
+            offset = self.mc.get_relative_pos() - jnz_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jnz_location-1, chr(offset))
+            #
+            loc_index = arglocs[1]
+            if isinstance(loc_index, RegLoc):
+                # choose a scratch register
+                tmp1 = loc_index
+                self.mc.PUSH_r(tmp1.value)
+                # SHR tmp, card_page_shift
+                self.mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
+                # XOR tmp, -8
+                self.mc.XOR_ri(tmp1.value, -8)
+                # BTS [loc_base], tmp
+                self.mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                # done
+                self.mc.POP_r(tmp1.value)
+            elif isinstance(loc_index, ImmedLoc):
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                self.mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+            else:
+                raise AssertionError("index is neither RegLoc nor ImmedLoc")
+            # patch the JMP above
+            offset = self.mc.get_relative_pos() - jmp_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jmp_location-1, chr(offset))
+        #
         # patch the JZ above
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
         self.mc.overwrite(jz_location-1, chr(offset))
 
-    def genop_force_token(self, op, arglocs, resloc):
-        # RegAlloc.consider_force_token ensures this:
-        assert isinstance(resloc, RegLoc)
-        self.mc.LEA_rb(resloc.value, FORCE_INDEX_OFS)
+    genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
@@ -2076,20 +2452,32 @@ class Assembler386(object):
             if gcrootmap.is_shadow_stack:
                 gcrootmap.write_callshape(mark, force_index)
             else:
-                self.mc.insert_gcroot_marker(mark)
+                if self.gcrootmap_retaddr_forced == 0:
+                    self.mc.insert_gcroot_marker(mark)   # common case
+                else:
+                    assert self.gcrootmap_retaddr_forced != -1, (
+                              "two mark_gc_roots() in a CALL_RELEASE_GIL")
+                    gcrootmap.put(self.gcrootmap_retaddr_forced, mark)
+                    self.gcrootmap_retaddr_forced = -1
 
-    def target_arglocs(self, loop_token):
-        return loop_token._x86_arglocs
-
-    def closing_jump(self, loop_token):
-        if loop_token is self.currently_compiling_loop:
+    def closing_jump(self, target_token):
+        # The backend's logic assumes that the target code is in a piece of
+        # assembler that was also called with the same number of arguments,
+        # so that the locations [ebp+8..] of the input arguments are valid
+        # stack locations both before and after the jump.
+        my_nbargs = self.current_clt._debug_nbargs
+        target_nbargs = target_token._x86_clt._debug_nbargs
+        assert my_nbargs == target_nbargs
+        #
+        target = target_token._x86_loop_code
+        if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
-            self.mc.JMP_l(self.looppos - curpos)
+            self.mc.JMP_l(target - curpos)
         else:
-            self.mc.JMP(imm(loop_token._x86_loop_code))
+            self.mc.JMP(imm(target))
 
-    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
-        size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
+        assert size & (WORD-1) == 0     # must be correctly aligned
         self.mc.MOV(eax, heap(nursery_free_adr))
         self.mc.LEA_rm(edx.value, (eax.value, size))
         self.mc.CMP(edx, heap(nursery_top_adr))
@@ -2108,7 +2496,8 @@ class Assembler386(object):
         # a no-op.
 
         # reserve room for the argument to the real malloc and the
-        # 8 saved XMM regs
+        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
+        # word)
         self._regalloc.reserve_param(1+16)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -2117,22 +2506,19 @@ class Assembler386(object):
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
-        self.mark_gc_roots(self.write_new_force_index(),
-                           use_copy_area=shadow_stack)
+        self.mark_gc_roots(self.write_new_force_index(), use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        # on 64-bits, 'tid' is a value that fits in 31 bits
-        assert rx86.fits_in_32bits(tid)
-        self.mc.MOV_mi((eax.value, 0), tid)
         self.mc.MOV(heap(nursery_free_adr), edx)
-        
+
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
 genop_list = [Assembler386.not_implemented_op] * rop._LAST
 genop_llong_list = {}
+genop_math_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 for name, value in Assembler386.__dict__.iteritems():
@@ -2140,7 +2526,7 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_discard_'):]
         num = getattr(rop, opname.upper())
         genop_discard_list[num] = value
-    elif name.startswith('genop_guard_') and name != 'genop_guard_exception': 
+    elif name.startswith('genop_guard_') and name != 'genop_guard_exception':
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value
@@ -2148,15 +2534,14 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_llong_'):]
         num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
         genop_llong_list[num] = value
+    elif name.startswith('genop_math_'):
+        opname = name[len('genop_math_'):]
+        num = getattr(EffectInfo, 'OS_MATH_' + opname.upper())
+        genop_math_list[num] = value
     elif name.startswith('genop_'):
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
-
-def round_up_to_4(size):
-    if size < 4:
-        return 4
-    return size
 
 # XXX: ri386 migration shims:
 def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):
@@ -2174,3 +2559,6 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
+
+class BridgeAlreadyCompiled(Exception):
+    pass

@@ -1,21 +1,9 @@
 Some discussion about external objects in ootype
 ================================================
 
-Current approaches:
-
-* BasicExternal, used for js backend
+Current approach:
 
 * SomeCliXxx for .NET backend
-
-BasicExternal
--------------
-
-* Is using types to make rpython happy (ie, every single method or field
-  is hardcoded)
-
-* Supports callbacks by SomeGenericCallable
-
-* Supports fields, also with callable fields
 
 SomeCliXxx
 ----------
@@ -26,11 +14,11 @@ SomeCliXxx
 
 * Supports static methods
 
-Would be extremely cool to have just one approach instead of two,
-so here are some notes:
+Would be extremely cool to generalize the approach to be useful also for the
+JVM backend.  Here are some notes:
 
 * There should be one mechanism, factored out nicely out of any backend,
-  to support any possible backend (cli, js, jvm for now).
+  to support any possible backend (cli, jvm for now).
 
 * This approach might be eventually extended by a backend itself, but
   as much as possible code should be factored out.
@@ -46,24 +34,22 @@ Proposal of alternative approach
 ================================
 
 The goal of the task is to let RPython program access "external
-objects" which are available in the target platform; these include:
+entities" which are available in the target platform; these include:
 
   - external classes (e.g. for .NET: System.Collections.ArrayList)
 
-  - external instances (e.g. for js: window, window.document)
+  - external prebuilt instances (e.g. for .NET: typeof(System.Console))
 
-  - external functions? (they are not needed for .NET and JVM, maybe
-    for js?)
-
-External objects should behave as much as possible as "internal
-objects".
+External entities should behave as much as possible as "internal
+entities".
 
 Moreover, we want to preserve the possibility of *testing* RPython
 programs on top of CPython if possible. For example, it should be
 possible to RPython programs using .NET external objects using
-PythonNet; probably there is something similar for JVM, but not for
-JS as I know.
+PythonNet; for JVM, there are JPype_ and JTool_, to be investigated:
 
+.. _JPype: http://jpype.sourceforge.net/
+.. _JTool: http://wiki.europython.eu/Talks/Jtool%20Java%20In%20The%20Python%20Vm
 
 How to represent types
 ----------------------
@@ -124,11 +110,6 @@ To handle external objects we must specify their signatures. For CLI
 and JVM the job can be easily automatized, since the objects have got
 precise signatures.
 
-For JS, signatures must be written by hand, so we must provide a
-convenient syntax for it; I think it should be possible to use the
-current syntax and write a tool which translates it to low-level
-types.
-
 
 RPython interface
 -----------------
@@ -146,9 +127,8 @@ operations are allowed:
   - access to static methods: return an object which will be annotated
     as SomeExternalStaticMeth.
 
-Instances are annotated as SomeExternalInstance. Prebuilt external
-objects (such as JS's window.document) are annotated as
-SomeExternalInstance(const=...).
+Instances are annotated as SomeExternalInstance. Prebuilt external objects are
+annotated as SomeExternalInstance(const=...).
 
 Open issues
 -----------
@@ -179,18 +159,12 @@ Inheritance
 It would be nice to allow programmers to inherit from an external
 class. Not sure about the implications, though.
 
-Callbacks
-~~~~~~~~~
-
-I know that they are an issue for JS, but I don't know how they are
-currently implemented.
-
 Special methods/properties
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In .NET there are special methods that can be accessed using a special
 syntax, for example indexer or properties. It would be nice to have in
-RPython the same syntax as C#.
+RPython the same syntax as C#, although we can live without that.
 
 
 Implementation details

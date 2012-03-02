@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.objectmodel import we_are_translated
 import py
 
 def sc_import(space, fn, args):
@@ -129,6 +130,9 @@ def sc_r_uint(space, r_uint, args):
         return Constant(r_uint(w_value.value))
     return space.do_operation('simple_call', space.wrap(r_uint), w_value)
 
+def sc_we_are_translated(space, we_are_translated, args):
+    return Constant(True)
+
 def setup(space):
     # fn = pyframe.normalize_exception.get_function(space)
     # this is now routed through the objspace, directly.
@@ -144,3 +148,5 @@ def setup(space):
     # (normally, the 32-bit constant is a long, and is not allowed to
     # show up in the flow graphs at all)
     space.specialcases[r_uint] = sc_r_uint
+    # special case we_are_translated() to return True
+    space.specialcases[we_are_translated] = sc_we_are_translated

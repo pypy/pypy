@@ -23,6 +23,8 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.interp_classobj import W_ClassObject
+from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
@@ -37,7 +39,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 DEBUG_WRAPPER = True
 
 # update these for other platforms
-Py_ssize_t = lltype.Signed
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -56,6 +58,9 @@ class CConfig:
         includes=['Python.h', 'stdarg.h'],
         compile_extra=['-DPy_BUILD_CORE'],
         )
+
+class CConfig2:
+    _compilation_info_ = CConfig._compilation_info_
 
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
@@ -90,8 +95,8 @@ else:
 
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS 
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
+METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
@@ -192,14 +197,19 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
     if error is _NOT_SPECIFIED:
-        if isinstance(restype, lltype.Ptr):
-            error = lltype.nullptr(restype.TO)
-        elif restype is lltype.Void:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
-        error = rffi.cast(restype, error)
-    expect_integer = (isinstance(restype, lltype.Primitive) and
+        error = rffi.cast(real_restype, error)
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
                       rffi.cast(restype, 0) == 0)
 
     def decorate(func):
@@ -295,9 +305,13 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate
 
-def cpython_struct(name, fields, forward=None):
+def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
-    setattr(CConfig, configname, rffi_platform.Struct(name, fields))
+    if level == 1:
+        config = CConfig
+    else:
+        config = CConfig2
+    setattr(config, configname, rffi_platform.Struct(name, fields))
     if forward is None:
         forward = lltype.ForwardReference()
     TYPES[configname] = forward
@@ -305,6 +319,10 @@ def cpython_struct(name, fields, forward=None):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+
+# These are C symbols which cpyext will export, but which are defined in .c
+# files somewhere in the implementation of cpyext (rather than being defined in
+# RPython).
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -332,7 +350,7 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-    
+
     'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
@@ -343,6 +361,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
@@ -365,11 +384,15 @@ def build_exported_objects():
         "Dict": "space.w_dict",
         "Tuple": "space.w_tuple",
         "List": "space.w_list",
+        "Set": "space.w_set",
+        "FrozenSet": "space.w_frozenset",
         "Int": "space.w_int",
         "Bool": "space.w_bool",
         "Float": "space.w_float",
         "Long": "space.w_long",
         "Complex": "space.w_complex",
+        "ByteArray": "space.w_bytearray",
+        "MemoryView": "space.gettypeobject(W_MemoryView.typedef)",
         "BaseObject": "space.w_object",
         'None': 'space.type(space.w_None)',
         'NotImplemented': 'space.type(space.w_NotImplemented)',
@@ -377,12 +400,14 @@ def build_exported_objects():
         'Module': 'space.gettypeobject(Module.typedef)',
         'Property': 'space.gettypeobject(W_Property.typedef)',
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
+        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Int Long Dict Tuple Class'.split():
+    for cpyname in 'Method List Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
 build_exported_objects()
@@ -406,6 +431,23 @@ cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
 
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        ('obj', PyObject),
+        ('len', Py_ssize_t),
+        ('itemsize', Py_ssize_t),
+
+        ('readonly', lltype.Signed),
+        ('ndim', lltype.Signed),
+        ('format', rffi.CCHARP),
+        ('shape', Py_ssize_tP),
+        ('strides', Py_ssize_tP),
+        ('suboffsets', Py_ssize_tP),
+        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        ('internal', rffi.VOIDP)
+        ))
+
 @specialize.memo()
 def is_PyObject(TYPE):
     if not isinstance(TYPE, lltype.Ptr):
@@ -422,9 +464,10 @@ VA_TP_LIST = {}
 #              'int*': rffi.INTP}
 
 def configure_types():
-    for name, TYPE in rffi_platform.configure(CConfig).iteritems():
-        if name in TYPES:
-            TYPES[name].become(TYPE)
+    for config in (CConfig, CConfig2):
+        for name, TYPE in rffi_platform.configure(config).iteritems():
+            if name in TYPES:
+                TYPES[name].become(TYPE)
 
 def build_type_checkers(type_name, cls=None):
     """
@@ -539,6 +582,8 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
+            print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
+            print 'Either report a bug or consider not using this particular extension'
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()
@@ -720,7 +765,7 @@ def build_bridge(space):
             ctypes.c_void_p)
 
     setup_va_functions(eci)
-   
+
     setup_init_functions(eci)
     return modulename.new(ext='')
 
@@ -746,7 +791,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         export_symbols[:] = renamed_symbols
     else:
         export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
-    
+
     # Generate defines
     for macro_name, size in [
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
@@ -759,7 +804,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')
-    
+
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
@@ -827,9 +872,10 @@ def build_eci(building_bridge, export_symbols, code):
             # Sometimes the library is wrapped into another DLL, ensure that
             # the correct bootstrap code is installed
             kwds["link_extra"] = ["msvcrt.lib"]
-        elif sys.platform == 'linux2':
+        elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
+        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
@@ -943,6 +989,7 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
         return
+    old_context = state.package_context
     state.package_context = name, path
     try:
         from pypy.rlib import rdynload
@@ -968,7 +1015,7 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None, None
+        state.package_context = old_context
     state.fixup_extension(name, path)
 
 @specialize.ll()
@@ -981,7 +1028,7 @@ def generic_cpy_call_dont_decref(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
-@specialize.ll()    
+@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True, True)(space, func, *args)

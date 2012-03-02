@@ -66,7 +66,7 @@ consider each block of the flow graphs in turn, and perform some analysis on
 each operation.  In both cases the analysis of an operation depends on the
 annotations of its input arguments.  This is reflected in the usage of the same
 ``__extend__`` syntax in the source files (compare e.g.
-`annotation/binaryop.py`_ and `rpython/rint.py`_).
+`pypy/annotation/binaryop.py`_ and `pypy/rpython/rint.py`_).
 
 The analogy stops here, though: while it runs, the Annotator is in the middle
 of computing the annotations, so it might need to reflow and generalize until
@@ -104,7 +104,7 @@ This example shows that two representations may need very different low-level
 implementations for the same high-level operations.  This is the reason for
 turning representations into explicit objects.
 
-The base Repr class is defined in `rpython/rmodel.py`_.  Most of the
+The base Repr class is defined in `pypy/rpython/rmodel.py`_.  Most of the
 ``rpython/r*.py`` files define one or a few subclasses of Repr.  The method
 getrepr() of the RTyper will build and cache a single Repr instance per
 SomeXxx() instance; moreover, two SomeXxx() instances that are equal get the
@@ -131,9 +131,9 @@ Low-Level Types
 The RPython Typer uses a standard low-level model which we believe can
 correspond rather directly to various target languages such as C.
 This model is implemented in the first part of
-`rpython/lltypesystem/lltype.py`_.
+`pypy/rpython/lltypesystem/lltype.py`_.
 
-The second part of `rpython/lltypesystem/lltype.py`_ is a runnable
+The second part of `pypy/rpython/lltypesystem/lltype.py`_ is a runnable
 implementation of these types, for testing purposes.  It allows us to write
 and test plain Python code using a malloc() function to obtain and manipulate
 structures and arrays.  This is useful for example to implement and test
@@ -191,7 +191,7 @@ a very limited, easily controllable set of types, and define implementations of
 types like list in this elementary world.  The ``malloc()`` function is a kind
 of placeholder, which must eventually be provided by the code generator for the
 target platform; but as we have just seen its Python implementation in
-`rpython/lltypesystem/lltype.py`_ works too, which is primarily useful for
+`pypy/rpython/lltypesystem/lltype.py`_ works too, which is primarily useful for
 testing, interactive exploring, etc.
 
 The argument to ``malloc()`` is the structure type directly, but it returns a
@@ -316,7 +316,7 @@ go away when their container is deallocated (Struct, Array) must be handled
 with care: the bigger structure of which they are part of could be freed while
 the Ptr to the substructure is still in use.  In general, it is a good idea to
 avoid passing around pointers to inlined substructures of malloc()ed structures.
-(The testing implementation of `rpython/lltypesystem/lltype.py`_ checks to some
+(The testing implementation of `pypy/rpython/lltypesystem/lltype.py`_ checks to some
 extent that you are not trying to use a pointer to a structure after its
 container has been freed, using weak references.  But pointers to non-GC
 structures are not officially meant to be weak references: using them after what
@@ -429,7 +429,7 @@ this case, SomePtr maps directly to a low-level pointer type.  This is the only
 change needed to the Annotator to allow it to perform type inference of our
 very-low-level snippets of code.
 
-See for example `rpython/rlist.py`_.
+See for example `pypy/rpython/rlist.py`_.
 
 
 .. _`oo type`:
@@ -441,10 +441,10 @@ The standard `low-level type` model described above is fine for
 targeting low level backends such as C, but it is not good
 enough for targeting higher level backends such as .NET CLI or Java
 JVM, so a new object oriented model has been introduced. This model is
-implemented in the first part of `rpython/ootypesystem/ootype.py`_.
+implemented in the first part of `pypy/rpython/ootypesystem/ootype.py`_.
 
 As for the low-level typesystem, the second part of
-`rpython/ootypesystem/ootype.py`_ is a runnable implementation of
+`pypy/rpython/ootypesystem/ootype.py`_ is a runnable implementation of
 these types, for testing purposes.
 
 
@@ -791,4 +791,5 @@ you have to set the ``type_system`` parameter to the string
         assert res == ~3
 
 .. _annotator: translation.html#the-annotation-pass
-.. include:: _ref.rst
+
+.. include:: _ref.txt

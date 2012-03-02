@@ -5,18 +5,14 @@
 
 #ifdef PYPY_STANDALONE
 #  include "src/commondefs.h"
-#else
-#  include "Python.h"
 #endif
 
 #ifdef _WIN32
 #  include <io.h>   /* needed, otherwise _lseeki64 truncates to 32-bits (??) */
 #endif
 
-#ifndef AVR
 #include "thread.h"   /* needs to be included early to define the
                          struct RPyOpaque_ThreadLock */
-#endif
 
 #include <stddef.h>
 

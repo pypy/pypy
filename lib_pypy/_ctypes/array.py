@@ -1,9 +1,9 @@
-
+import _ffi
 import _rawffi
 
 from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
-from _ctypes.basics import CArgObject
+from _ctypes.basics import CArgObject, as_ffi_pointer
 
 class ArrayMeta(_CDataMeta):
     def __new__(self, name, cls, typedict):
@@ -208,6 +208,12 @@ class Array(_CData):
     def _get_buffer_value(self):
         return self._buffer.buffer
 
+    def _to_ffi_param(self):
+        return self._get_buffer_value()
+
+    def _as_ffi_pointer_(self, ffitype):
+        return as_ffi_pointer(self, ffitype)
+
 ARRAY_CACHE = {}
 
 def create_array_type(base, length):
@@ -225,5 +231,6 @@ def create_array_type(base, length):
             _type_ = base
         )
         cls = ArrayMeta(name, (Array,), tpdict)
+        cls._ffiargtype = _ffi.types.Pointer(base.get_ffi_argtype())
         ARRAY_CACHE[key] = cls
         return cls

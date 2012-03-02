@@ -22,7 +22,7 @@ class __extend__(annmodel.SomePtr):
 class __extend__(annmodel.SomeInteriorPtr):
     def rtyper_makerepr(self, rtyper):
         return InteriorPtrRepr(self.ll_ptrtype)
- 
+
 
 class PtrRepr(Repr):
 
@@ -91,7 +91,7 @@ class PtrRepr(Repr):
         vlist = hop.inputargs(*hop.args_r)
         nexpected = len(self.lowleveltype.TO.ARGS)
         nactual = len(vlist)-1
-        if nactual != nexpected: 
+        if nactual != nexpected:
             raise TyperError("argcount mismatch:  expected %d got %d" %
                             (nexpected, nactual))
         if isinstance(vlist[0], flowmodel.Constant):
@@ -111,7 +111,12 @@ class PtrRepr(Repr):
         hop.swap_fst_snd_args()
         hop.r_s_popfirstarg()
         return self.rtype_simple_call(hop)
-        
+
+class __extend__(pairtype(PtrRepr, PtrRepr)):
+    def convert_from_to((r_ptr1, r_ptr2), v, llop):
+        assert r_ptr1.lowleveltype == r_ptr2.lowleveltype
+        return v
+
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 
@@ -205,7 +210,7 @@ class LLADTMethRepr(Repr):
         self.lowleveltype = adtmeth.ll_ptrtype
         self.ll_ptrtype = adtmeth.ll_ptrtype
         self.lowleveltype = rtyper.getrepr(annmodel.lltype_to_annotation(adtmeth.ll_ptrtype)).lowleveltype
- 
+
     def rtype_simple_call(self, hop):
         hop2 = hop.copy()
         func = self.func
@@ -242,7 +247,7 @@ class InteriorPtrRepr(Repr):
         if numitemoffsets > 0:
             self.lowleveltype = lltype.Ptr(self.parentptrtype._interior_ptr_type_with_index(self.resulttype.TO))
         else:
-            self.lowleveltype = self.parentptrtype            
+            self.lowleveltype = self.parentptrtype
 
     def getinteriorfieldargs(self, hop, v_self):
         vlist = []
@@ -305,7 +310,7 @@ class InteriorPtrRepr(Repr):
 
 
 class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
-    def rtype_getitem((r_ptr, r_item), hop): 
+    def rtype_getitem((r_ptr, r_item), hop):
         ARRAY = r_ptr.resulttype.TO
         ITEM_TYPE = ARRAY.OF
         if isinstance(ITEM_TYPE, lltype.ContainerType):
@@ -325,7 +330,7 @@ class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
             vlist = r_ptr.getinteriorfieldargs(hop, v_self) + [v_index]
             return hop.genop('getinteriorfield', vlist,
                              resulttype=ITEM_TYPE)
-        
+
     def rtype_setitem((r_ptr, r_index), hop):
         ARRAY = r_ptr.resulttype.TO
         ITEM_TYPE = ARRAY.OF
@@ -333,11 +338,11 @@ class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
         v_self, v_index, v_value = hop.inputargs(r_ptr, lltype.Signed, hop.args_r[2])
         vlist = r_ptr.getinteriorfieldargs(hop, v_self) + [v_index, v_value]
         hop.genop('setinteriorfield', vlist)
-            
+
 class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
 
     def convert_from_to((r_from, r_to), v, llops):
         if r_from.lowleveltype == r_to.lowleveltype:
             return v
         return NotImplemented
-   
+

@@ -8,7 +8,7 @@ from pypy.tool.uid import uid
 
 class Cell(Wrappable):
     "A simple container for a wrapped value."
-    
+
     def __init__(self, w_value=None):
         self.w_value = w_value
 
@@ -90,32 +90,33 @@ class __extend__(pyframe.PyFrame):
     #     variables coming from a parent function in which i'm nested
     # 'closure' is a list of Cell instances: the received free vars.
 
-    cells = None
-
     @jit.unroll_safe
-    def initialize_frame_scopes(self, closure, code):
-        super_initialize_frame_scopes(self, closure, code)
+    def initialize_frame_scopes(self, outer_func, code):
+        super_initialize_frame_scopes(self, outer_func, code)
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
+                self.cells = []
                 return            # no self.cells needed - fast path
-            if closure is None:
-                closure = []
-        elif closure is None:
+        elif outer_func is None:
             space = self.space
             raise OperationError(space.w_TypeError,
                                  space.wrap("directly executed code object "
                                             "may not contain free variables"))
-        if len(closure) != nfreevars:
+        if outer_func and outer_func.closure:
+            closure_size = len(outer_func.closure)
+        else:
+            closure_size = 0
+        if closure_size != nfreevars:
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
         self.cells = [None] * (ncellvars + nfreevars)
         for i in range(ncellvars):
             self.cells[i] = Cell()
         for i in range(nfreevars):
-            self.cells[i + ncellvars] = closure[i]
-    
+            self.cells[i + ncellvars] = outer_func.closure[i]
+
     def _getcells(self):
         return self.cells
 
@@ -127,6 +128,7 @@ class __extend__(pyframe.PyFrame):
         if self.cells is not None:
             self.cells[:ncellvars] = cellvars
 
+    @jit.dont_look_inside
     def fast2locals(self):
         super_fast2locals(self)
         # cellvars are values exported to inner scopes
@@ -145,6 +147,7 @@ class __extend__(pyframe.PyFrame):
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
+    @jit.dont_look_inside
     def locals2fast(self):
         super_locals2fast(self)
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -168,7 +171,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
             if argnum >= 0:
-                self.cells[i].set(self.fastlocals_w[argnum])
+                self.cells[i].set(self.locals_stack_w[argnum])
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars

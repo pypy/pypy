@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.identity_dict import identity_dict
@@ -17,13 +16,21 @@ class GCData(object):
     _alloc_flavor_ = 'raw'
 
     OFFSETS_TO_GC_PTR = lltype.Array(lltype.Signed)
-    ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
-    FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
+
+    # When used as a finalizer, the following functions only take one
+    # address and ignore the second, and return NULL.  When used as a
+    # custom tracer (CT), it enumerates the addresses that contain GCREFs.
+    # It is called with the object as first argument, and the previous
+    # returned address (or NULL the first time) as the second argument.
+    FINALIZER_OR_CT_FUNC = lltype.FuncType([llmemory.Address,
+                                            llmemory.Address],
+                                           llmemory.Address)
+    FINALIZER_OR_CT = lltype.Ptr(FINALIZER_OR_CT_FUNC)
 
     # structure describing the layout of a typeid
     TYPE_INFO = lltype.Struct("type_info",
         ("infobits",       lltype.Signed),    # combination of the T_xxx consts
-        ("finalizer",      FINALIZERTYPE),
+        ("finalizer_or_customtrace", FINALIZER_OR_CT),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
         hints={'immutable': True},
@@ -71,7 +78,18 @@ class GCData(object):
         return (infobits & T_IS_GCARRAY_OF_GCPTR) != 0
 
     def q_finalizer(self, typeid):
-        return self.get(typeid).finalizer
+        typeinfo = self.get(typeid)
+        if typeinfo.infobits & T_HAS_FINALIZER:
+            return typeinfo.finalizer_or_customtrace
+        else:
+            return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)
+
+    def q_light_finalizer(self, typeid):
+        typeinfo = self.get(typeid)
+        if typeinfo.infobits & T_HAS_LIGHTWEIGHT_FINALIZER:
+            return typeinfo.finalizer_or_customtrace
+        else:
+            return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)        
 
     def q_offsets_to_gc_pointers(self, typeid):
         return self.get(typeid).ofstoptrs
@@ -105,12 +123,32 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_IS_RPYTHON_INSTANCE != 0
 
+    def q_has_custom_trace(self, typeid):
+        infobits = self.get(typeid).infobits
+        return infobits & T_HAS_CUSTOM_TRACE != 0
+
+    def q_get_custom_trace(self, typeid):
+        ll_assert(self.q_has_custom_trace(typeid),
+                  "T_HAS_CUSTOM_TRACE missing")
+        typeinfo = self.get(typeid)
+        return typeinfo.finalizer_or_customtrace
+
+    def q_fast_path_tracing(self, typeid):
+        # return True if none of the flags T_HAS_GCPTR_IN_VARSIZE,
+        # T_IS_GCARRAY_OF_GCPTR or T_HAS_CUSTOM_TRACE is set
+        T_ANY_SLOW_FLAG = (T_HAS_GCPTR_IN_VARSIZE |
+                           T_IS_GCARRAY_OF_GCPTR |
+                           T_HAS_CUSTOM_TRACE)
+        infobits = self.get(typeid).infobits
+        return infobits & T_ANY_SLOW_FLAG == 0
+
     def set_query_functions(self, gc):
         gc.set_query_functions(
             self.q_is_varsize,
             self.q_has_gcptr_in_varsize,
             self.q_is_gcarrayofgcptr,
             self.q_finalizer,
+            self.q_light_finalizer,
             self.q_offsets_to_gc_pointers,
             self.q_fixed_size,
             self.q_varsize_item_sizes,
@@ -119,18 +157,24 @@ class GCData(object):
             self.q_varsize_offsets_to_gcpointers_in_var_part,
             self.q_weakpointer_offset,
             self.q_member_index,
-            self.q_is_rpython_class)
+            self.q_is_rpython_class,
+            self.q_has_custom_trace,
+            self.q_get_custom_trace,
+            self.q_fast_path_tracing)
 
 
 # the lowest 16bits are used to store group member index
-T_MEMBER_INDEX         =  0xffff
-T_IS_VARSIZE           = 0x10000
-T_HAS_GCPTR_IN_VARSIZE = 0x20000
-T_IS_GCARRAY_OF_GCPTR  = 0x40000
-T_IS_WEAKREF           = 0x80000
-T_IS_RPYTHON_INSTANCE  = 0x100000    # the type is a subclass of OBJECT
-T_KEY_MASK             = intmask(0xFF000000)
-T_KEY_VALUE            = intmask(0x7A000000)    # bug detection only
+T_MEMBER_INDEX              =   0xffff
+T_IS_VARSIZE                = 0x010000
+T_HAS_GCPTR_IN_VARSIZE      = 0x020000
+T_IS_GCARRAY_OF_GCPTR       = 0x040000
+T_IS_WEAKREF                = 0x080000
+T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
+T_HAS_FINALIZER             = 0x200000
+T_HAS_CUSTOM_TRACE          = 0x400000
+T_HAS_LIGHTWEIGHT_FINALIZER = 0x800000
+T_KEY_MASK                  = intmask(0xFF000000)
+T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
 
 def _check_valid_type_info(p):
     ll_assert(p.infobits & T_KEY_MASK == T_KEY_VALUE, "invalid type_id")
@@ -151,7 +195,20 @@ def encode_type_shape(builder, info, TYPE, index):
     offsets = offsets_to_gc_pointers(TYPE)
     infobits = index
     info.ofstoptrs = builder.offsets2table(offsets, TYPE)
-    info.finalizer = builder.make_finalizer_funcptr_for_type(TYPE)
+    #
+    kind_and_fptr = builder.special_funcptr_for_type(TYPE)
+    if kind_and_fptr is not None:
+        kind, fptr = kind_and_fptr
+        info.finalizer_or_customtrace = fptr
+        if kind == "finalizer":
+            infobits |= T_HAS_FINALIZER
+        elif kind == 'light_finalizer':
+            infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
+        elif kind == "custom_trace":
+            infobits |= T_HAS_CUSTOM_TRACE
+        else:
+            assert 0, kind
+    #
     if not TYPE._is_varsize():
         info.fixedsize = llarena.round_up_for_allocation(
             llmemory.sizeof(TYPE), builder.GCClass.object_minimal_size)
@@ -216,7 +273,7 @@ class TypeLayoutBuilder(object):
         # for debugging, the following list collects all the prebuilt
         # GcStructs and GcArrays
         self.all_prebuilt_gc = []
-        self.finalizer_funcptrs = {}
+        self._special_funcptrs = {}
         self.offsettable_cache = {}
 
     def make_type_info_group(self):
@@ -317,16 +374,32 @@ class TypeLayoutBuilder(object):
         self.offsettable_cache = None
         return self.type_info_group
 
-    def finalizer_funcptr_for_type(self, TYPE):
-        if TYPE in self.finalizer_funcptrs:
-            return self.finalizer_funcptrs[TYPE]
-        fptr = self.make_finalizer_funcptr_for_type(TYPE)
-        self.finalizer_funcptrs[TYPE] = fptr
-        return fptr
+    def special_funcptr_for_type(self, TYPE):
+        if TYPE in self._special_funcptrs:
+            return self._special_funcptrs[TYPE]
+        fptr1, is_lightweight = self.make_finalizer_funcptr_for_type(TYPE)
+        fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
+        assert not (fptr1 and fptr2), (
+            "type %r needs both a finalizer and a custom tracer" % (TYPE,))
+        if fptr1:
+            if is_lightweight:
+                kind_and_fptr = "light_finalizer", fptr1
+            else:
+                kind_and_fptr = "finalizer", fptr1
+        elif fptr2:
+            kind_and_fptr = "custom_trace", fptr2
+        else:
+            kind_and_fptr = None
+        self._special_funcptrs[TYPE] = kind_and_fptr
+        return kind_and_fptr
 
     def make_finalizer_funcptr_for_type(self, TYPE):
         # must be overridden for proper finalizer support
-        return lltype.nullptr(GCData.ADDRESS_VOID_FUNC)
+        return None, False
+
+    def make_custom_trace_funcptr_for_type(self, TYPE):
+        # must be overridden for proper custom tracer support
+        return None
 
     def initialize_gc_query_function(self, gc):
         return GCData(self.type_info_group).set_query_functions(gc)
@@ -399,7 +472,7 @@ def gc_pointers_inside(v, adr, mutable_only=False):
             if t._hints.get('immutable'):
                 return
             if 'immutable_fields' in t._hints:
-                skip = t._hints['immutable_fields'].fields
+                skip = t._hints['immutable_fields'].all_immutable_fields()
         for n, t2 in t._flds.iteritems():
             if isinstance(t2, lltype.Ptr) and t2.TO._gckind == 'gc':
                 if n not in skip:

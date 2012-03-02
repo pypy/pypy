@@ -111,6 +111,7 @@ class AppTestTypeObject:
         del X.__abstractmethods__
         X()
         raises(AttributeError, getattr, type, "__abstractmethods__")
+        raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
     def test_call_type(self):
         assert type(42) is int
@@ -124,6 +125,25 @@ class AppTestTypeObject:
         raises(TypeError, type, 42, (object,), {})
         raises(TypeError, type, 'test', 42, {})
         raises(TypeError, type, 'test', (object,), 42)
+
+    def test_call_type_subclass(self):
+        class A(type):
+            pass
+
+        assert A("hello") is str
+
+        # Make sure type(x) doesn't call x.__class__.__init__
+        class T(type):
+            counter = 0
+            def __init__(self, *args):
+                T.counter += 1
+        class C:
+            __metaclass__ = T
+        assert T.counter == 1
+        a = C()
+        assert T.counter == 1
+        assert type(a) is C
+        assert T.counter == 1
 
     def test_bases(self):
         assert int.__bases__ == (object,)
@@ -973,7 +993,9 @@ class AppTestTypeObject:
         raises(TypeError, setattr, list, 'append', 42)
         raises(TypeError, setattr, list, 'foobar', 42)
         raises(TypeError, delattr, dict, 'keys')
-        
+        raises(TypeError, 'int.__dict__["a"] = 1')
+        raises(TypeError, 'int.__dict__.clear()')
+
     def test_nontype_in_mro(self):
         class OldStyle:
             pass
@@ -1015,6 +1037,25 @@ class AppTestTypeObject:
             __weakref__ = 42
         assert B().__weakref__ == 42
 
+    def test_change_dict(self):
+        class A(object):
+            pass
+
+        a = A()
+        A.x = 1
+        assert A.__dict__["x"] == 1
+        raises(AttributeError, "del A.__dict__")
+        raises((AttributeError, TypeError), "A.__dict__ = {}")
+
+    def test_mutate_dict(self):
+        class A(object):
+            pass
+
+        a = A()
+        A.x = 1
+        assert A.__dict__["x"] == 1
+        A.__dict__['x'] = 5
+        assert A.x == 5
 
 class AppTestMutableBuiltintypes:
 

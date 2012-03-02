@@ -96,11 +96,12 @@ class TestCompile(object):
         RETURN r1
         ''')
         s = StringIO()
+        prev = sys.stdout
         sys.stdout = s
         try:
             interpret(code)
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = prev
         lines = s.getvalue().splitlines()
         assert lines == [
             '0',

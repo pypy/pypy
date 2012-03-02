@@ -1,3 +1,5 @@
+#ifndef _PYPY_ASM_H
+#define _PYPY_ASM_H
 
 /* optional assembler bits */
 #if defined(__GNUC__) && defined(__i386__)
@@ -11,3 +13,5 @@
 #if defined(__GNUC__) && defined(__ppc__)
 #  include "src/asm_ppc.h"
 #endif
+
+#endif /* _PYPY_ASM_H */

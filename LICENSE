@@ -27,7 +27,7 @@ documentation in the 'pypy' directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2011
+PyPy Copyright holders 2003-2012
 ----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -37,78 +37,176 @@ copyrighted by one or more of the following people and organizations:
     Armin Rigo
     Maciej Fijalkowski
     Carl Friedrich Bolz
-    Samuele Pedroni
+    Amaury Forgeot d'Arc
     Antonio Cuni
+    Samuele Pedroni
     Michael Hudson
-    Christian Tismer
     Holger Krekel
+    Alex Gaynor
+    Christian Tismer
+    Hakan Ardo
+    Benjamin Peterson
+    David Schneider
     Eric van Riet Paap
-    Richard Emslie
     Anders Chrigstrom
-    Amaury Forgeot d Arc
+    Richard Emslie
+    Dan Villiom Podlaski Christiansen
+    Alexander Schremmer
+    Lukas Diekmann
     Aurelien Campeas
     Anders Lehmann
+    Camillo Bruni
     Niklaus Haldimann
-    Seo Sanghyeon
+    Sven Hager
     Leonardo Santagada
+    Toon Verwaest
+    Seo Sanghyeon
+    Justin Peel
     Lawrence Oluyede
+    Bartosz Skowron
     Jakub Gustak
     Guido Wesdorp
-    Benjamin Peterson
-    Alexander Schremmer
-    Niko Matsakis
-    Ludovic Aubry
-    Alex Martelli
-    Toon Verwaest
-    Stephan Diehl
+    Daniel Roberts
+    Laura Creighton
     Adrien Di Mascio
+    Ludovic Aubry
+    Niko Matsakis
+    Wim Lavrijsen
+    Matti Picus
+    Jason Creighton
+    Jacob Hallen
+    Alex Martelli
+    Anders Hammarquist
+    Jan de Mooij
+    Stephan Diehl
+    Michael Foord
     Stefan Schwarzer
     Tomek Meka
     Patrick Maupin
-    Jacob Hallen
-    Laura Creighton
     Bob Ippolito
-    Camillo Bruni
-    Simon Burton
     Bruno Gola
     Alexandre Fayolle
     Marius Gedminas
+    Simon Burton
+    David Edelsohn
+    Jean-Paul Calderone
+    John Witulski
+    Timo Paulssen
+    holger krekel
+    Dario Bertini
+    Mark Pearse
+    Andreas Stührk
+    Jean-Philippe St. Pierre
     Guido van Rossum
+    Pavel Vinogradov
     Valentino Volonghi
-    Adrian Kuhn
     Paul deGrandis
+    Ilya Osadchiy
+    Ronny Pfannschmidt
+    Adrian Kuhn
+    tav
+    Georg Brandl
+    Philip Jenvey
     Gerald Klix
     Wanja Saatkamp
-    Anders Hammarquist
+    Boris Feigin
     Oscar Nierstrasz
+    David Malcolm
     Eugene Oden
+    Henry Mason
+    Jeff Terrace
     Lukas Renggli
     Guenter Jantzen
-    Dinu Gherman
-    Bartosz Skowron
-    Georg Brandl
-    Ben Young
-    Jean-Paul Calderone
-    Nicolas Chauvat
-    Rocco Moretti
-    Michael Twomey
-    boria
-    Jared Grubb
-    Olivier Dormond
-    Stuart Williams
-    Jens-Uwe Mager
-    Justas Sadzevicius
-    Mikael Schönenberg
-    Brian Dorsey
-    Jonathan David Riehl
-    Beatrice During
-    Elmo Mäntynen
-    Andreas Friedge
-    Alex Gaynor
-    Anders Qvist
-    Alan McIntyre
+    Ned Batchelder
     Bert Freudenberg
-    Tav
+    Amit Regmi
+    Ben Young
+    Nicolas Chauvat
+    Andrew Durdin
+    Michael Schneider
+    Nicholas Riley
+    Rocco Moretti
+    Gintautas Miliauskas
+    Michael Twomey
+    Igor Trindade Oliveira
+    Lucian Branescu Mihaila
+    Olivier Dormond
+    Jared Grubb
+    Karl Bartel
+    Gabriel Lavoie
+    Victor Stinner
+    Brian Dorsey
+    Stuart Williams
+    Toby Watson
+    Antoine Pitrou
+    Justas Sadzevicius
+    Neil Shepperd
+    Mikael Schönenberg
+    Gasper Zejn
+    Jonathan David Riehl
+    Elmo Mäntynen
+    Anders Qvist
+    Beatrice During
+    Alexander Sedov
+    Corbin Simpson
+    Vincent Legoll
+    Romain Guillebert
+    Alan McIntyre
+    Alex Perry
+    Jens-Uwe Mager
+    Simon Cross
+    Dan Stromberg
+    Guillebert Romain
+    Carl Meyer
+    Pieter Zieschang
+    Alejandro J. Cura
+    Sylvain Thenault
+    Christoph Gerum
+    Travis Francis Athougies
+    Henrik Vendelbo
+    Lutz Paelike
+    Jacob Oscarson
+    Martin Blais
+    Lucio Torre
+    Lene Wagner
+    Miguel de Val Borro
+    Artur Lisiecki
+    Bruno Gola
+    Ignas Mikalajunas
+    Stefano Rivera
+    Joshua Gilbert
+    Godefroid Chappelle
+    Yusei Tahara
+    Christopher Armstrong
+    Stephan Busemann
+    Gustavo Niemeyer
+    William Leslie
+    Akira Li
+    Kristjan Valur Jonsson
+    Bobby Impollonia
+    Michael Hudson-Doyle
+    Laurence Tratt
+    Yasir Suhail
+    Andrew Thompson
+    Anders Sigfridsson
+    Floris Bruynooghe
+    Jacek Generowicz
+    Dan Colish
+    Zooko Wilcox-O Hearn
+    Dan Loewenherz
+    Chris Lambacher
+    Dinu Gherman
+    Brett Cannon
+    Daniel Neuhäuser
+    Michael Chermside
+    Konrad Delong
+    Anna Ravencroft
+    Greg Price
+    Armin Ronacher
+    Christian Muirhead
+    Jim Baker
+    Rodrigo Araújo
+    Romain Guillebert
 
     Heinrich-Heine University, Germany 
     Open End AB (formerly AB Strakt), Sweden
@@ -119,13 +217,16 @@ copyrighted by one or more of the following people and organizations:
     Impara, Germany
     Change Maker, Sweden 
 
+The PyPy Logo as used by http://speed.pypy.org and others was created
+by Samuel Reis and is distributed on terms of Creative Commons Share Alike
+License.
  
-License for 'lib-python/2.5.2' and 'lib-python/2.5.2-modified'
+License for 'lib-python/2.7.0' and 'lib-python/2.7.0-modified'
 ============================================================== 
 
 Except when otherwise stated (look for LICENSE files or
 copyright/license information at the beginning of each file) the files
-in the 'lib-python/2.5.2' and 'lib-python/2.5.2-modified' directories
+in the 'lib-python/2.7.0' and 'lib-python/2.7.0-modified' directories
 are all copyrighted by the Python Software Foundation and licensed under
 the Python Software License of which you can find a copy here:
 http://www.python.org/doc/Copyright.html 
@@ -158,21 +259,12 @@ License for 'pypy/module/unicodedata/'
 ======================================
 
 The following files are from the website of The Unicode Consortium
-at http://www.unicode.org/. For the terms of use of these files, see
-http://www.unicode.org/terms_of_use.html
+at http://www.unicode.org/.  For the terms of use of these files, see
+http://www.unicode.org/terms_of_use.html .  Or they are derived from
+files from the above website, and the same terms of use apply.
 
-    CompositionExclusions-3.2.0.txt
-    CompositionExclusions-4.1.0.txt
-    CompositionExclusions-5.0.0.txt
-    EastAsianWidth-3.2.0.txt
-    EastAsianWidth-4.1.0.txt
-    EastAsianWidth-5.0.0.txt
-    UnicodeData-3.2.0.txt
-    UnicodeData-4.1.0.txt
-    UnicodeData-5.0.0.txt
-    
-The following files are derived from files from the above website. The same
-terms of use apply.
-    UnihanNumeric-3.2.0.txt
-    UnihanNumeric-4.1.0.txt
-    UnihanNumeric-5.0.0.txt
+    CompositionExclusions-*.txt
+    EastAsianWidth-*.txt
+    LineBreak-*.txt
+    UnicodeData-*.txt
+    UnihanNumeric-*.txt

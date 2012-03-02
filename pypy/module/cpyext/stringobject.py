@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
-    PyObjectFields, Py_ssize_t, CONST_STRING)
+    PyObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
@@ -203,6 +203,10 @@ def _PyString_Resize(space, ref, newsize):
     ref[0] = rffi.cast(PyObject, py_newstr)
     return 0
 
+@cpython_api([PyObject, PyObject], rffi.INT, error=CANNOT_FAIL)
+def _PyString_Eq(space, w_str1, w_str2):
+    return space.eq_w(w_str1, w_str2)
+
 @cpython_api([PyObjectP, PyObject], lltype.Void)
 def PyString_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
@@ -246,6 +250,26 @@ def PyString_InternFromString(space, string):
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
 
+@cpython_api([PyObjectP], lltype.Void)
+def PyString_InternInPlace(space, string):
+    """Intern the argument *string in place.  The argument must be the
+    address of a pointer variable pointing to a Python string object.
+    If there is an existing interned string that is the same as
+    *string, it sets *string to it (decrementing the reference count
+    of the old string object and incrementing the reference count of
+    the interned string object), otherwise it leaves *string alone and
+    interns it (incrementing its reference count).  (Clarification:
+    even though there is a lot of talk about reference counts, think
+    of this function as reference-count-neutral; you own the object
+    after the call if and only if you owned it before the call.)
+
+    This function is not available in 3.x and does not have a PyBytes
+    alias."""
+    w_str = from_ref(space, string[0])
+    w_str = space.new_interned_w_str(w_str)
+    Py_DecRef(space, string[0])
+    string[0] = make_ref(space, w_str)
+
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_AsEncodedObject(space, w_str, encoding, errors):
     """Encode a string object using the codec registered for encoding and return
@@ -264,3 +288,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyString_Join(space, w_sep, w_seq):
+    return space.call_method(w_sep, 'join', w_seq)

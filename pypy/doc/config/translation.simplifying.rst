@@ -1,3 +1,0 @@
-Internal option.
-
-.. internal

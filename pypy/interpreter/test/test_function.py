@@ -98,6 +98,14 @@ class AppTestFunctionIntrospection:
             raises(TypeError, "dir.func_code = f.func_code")
             raises(TypeError, "list.append.im_func.func_code = f.func_code")
 
+    def test_set_module_to_name_eagerly(self):
+        skip("fails on PyPy but works on CPython.  Unsure we want to care")
+        exec '''if 1:
+            __name__ = "foo"
+            def f(): pass
+            __name__ = "bar"
+            assert f.__module__ == "foo"''' in {}
+
 
 class AppTestFunction:
     def test_simple_call(self):
@@ -579,7 +587,7 @@ class TestMethod:
         assert isinstance(meth2, Method)
         assert meth2.call_args(args) == obj1
         # Check method returned from unbound_method.__get__()
-        w_meth3 = descr_function_get(space, func, None, space.type(obj2))
+        w_meth3 = descr_function_get(space, func, space.w_None, space.type(obj2))
         meth3 = space.unwrap(w_meth3)
         w_meth4 = meth3.descr_method_get(obj2, space.w_None)
         meth4 = space.unwrap(w_meth4)
@@ -589,6 +597,17 @@ class TestMethod:
         # --- with an incompatible class
         w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
         assert space.is_w(w_meth5, w_meth3)
+        # Same thing, with an old-style class
+        w_oldclass = space.call_function(
+            space.builtin.get('__metaclass__'),
+            space.wrap('OldClass'), space.newtuple([]), space.newdict())
+        w_meth6 = meth3.descr_method_get(space.wrap('hello'), w_oldclass)
+        assert space.is_w(w_meth6, w_meth3)
+        # Reverse order of old/new styles
+        w_meth7 = descr_function_get(space, func, space.w_None, w_oldclass)
+        meth7 = space.unwrap(w_meth7)
+        w_meth8 = meth7.descr_method_get(space.wrap('hello'), space.w_str)
+        assert space.is_w(w_meth8, w_meth7)
 
 class TestShortcuts(object):
 

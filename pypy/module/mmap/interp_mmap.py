@@ -1,21 +1,21 @@
-from pypy.rpython.tool import rffi_platform
-from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
-from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError
-import sys
-import os
-import platform
-import stat
+from pypy.rlib import rmmap, rarithmetic
+from pypy.rlib.rmmap import RValueError, RTypeError
+
+if rmmap.HAVE_LARGEFILE_SUPPORT:
+    OFF_T = rarithmetic.r_longlong
+else:
+    OFF_T = int
+
 
 class W_MMap(Wrappable):
     def __init__(self, space, mmap_obj):
         self.space = space
         self.mmap = mmap_obj
-        
+
     def close(self):
         self.mmap.close()
 
@@ -60,7 +60,7 @@ class W_MMap(Wrappable):
             end = space.getindex_w(w_end, None)
         return space.wrap(self.mmap.find(tofind, start, end, True))
 
-    @unwrap_spec(pos='index', whence=int)
+    @unwrap_spec(pos=OFF_T, whence=int)
     def seek(self, pos, whence=0):
         try:
             self.mmap.seek(pos, whence)
@@ -123,6 +123,11 @@ class W_MMap(Wrappable):
             self.mmap.resize(newsize)
         except OSError, e:
             raise mmap_error(self.space, e)
+        except RValueError, e:
+            # obscure: in this case, RValueError translates to an app-level
+            # SystemError.
+            raise OperationError(self.space.w_SystemError,
+                                 self.space.wrap(e.message))
 
     def __len__(self):
         return self.space.wrap(self.mmap.size)
@@ -196,8 +201,8 @@ class W_MMap(Wrappable):
 
 if rmmap._POSIX:
 
-    @unwrap_spec(fileno=int, length='index', flags=int,
-                 prot=int, access=int, offset='index')
+    @unwrap_spec(fileno=int, length=int, flags=int,
+                 prot=int, access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, flags=rmmap.MAP_SHARED,
              prot=rmmap.PROT_WRITE | rmmap.PROT_READ,
              access=rmmap._ACCESS_DEFAULT, offset=0):
@@ -212,14 +217,12 @@ if rmmap._POSIX:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length='index', tagname=str,
-                 access=int, offset='index')
+    @unwrap_spec(fileno=int, length=int, tagname=str,
+                 access=int, offset=OFF_T)
     def mmap(space, w_subtype, fileno, length, tagname="",
              access=rmmap._ACCESS_DEFAULT, offset=0):
         self = space.allocate_instance(W_MMap, w_subtype)
@@ -233,8 +236,6 @@ elif rmmap._MS_WINDOWS:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 W_MMap.typedef = TypeDef("mmap",

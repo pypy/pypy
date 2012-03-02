@@ -1,3 +1,4 @@
+from pypy.translator.backendopt.finalizer import FinalizerAnalyzer
 from pypy.rpython.lltypesystem import lltype, llmemory, llheap
 from pypy.rpython import llinterp
 from pypy.rpython.annlowlevel import llhelper
@@ -64,6 +65,10 @@ class GCManagedHeap(object):
         if not self.gc.malloc_zero_filled:
             gctypelayout.zero_gc_pointers(result)
         return result
+
+    def add_memory_pressure(self, size):
+        if hasattr(self.gc, 'raw_malloc_memory_pressure'):
+            self.gc.raw_malloc_memory_pressure(size)
 
     def shrink_array(self, p, smallersize):
         if hasattr(self.gc, 'shrink_array'):
@@ -136,11 +141,14 @@ class GCManagedHeap(object):
         ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
         return self.gc.id(ptr)
 
-    def writebarrier_before_copy(self, source, dest):
+    def writebarrier_before_copy(self, source, dest,
+                                 source_start, dest_start, length):
         if self.gc.needs_write_barrier:
             source_addr = llmemory.cast_ptr_to_adr(source)
             dest_addr   = llmemory.cast_ptr_to_adr(dest)
-            return self.gc.writebarrier_before_copy(source_addr, dest_addr)
+            return self.gc.writebarrier_before_copy(source_addr, dest_addr,
+                                                    source_start, dest_start,
+                                                    length)
         else:
             return True
 
@@ -193,17 +201,30 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
             destrgraph = destrptr._obj.graph
         else:
-            return lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
+            return None, False
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
-        def ll_finalizer(addr):
+        t = self.llinterp.typer.annotator.translator
+        light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
+        def ll_finalizer(addr, dummy):
+            assert dummy == llmemory.NULL
             try:
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 self.llinterp.eval_graph(destrgraph, [v], recursive=True)
             except llinterp.LLException:
                 raise RuntimeError(
                     "a finalizer raised an exception, shouldn't happen")
-        return llhelper(gctypelayout.GCData.FINALIZERTYPE, ll_finalizer)
+            return llmemory.NULL
+        return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer), light
+
+    def make_custom_trace_funcptr_for_type(self, TYPE):
+        from pypy.rpython.memory.gctransform.support import get_rtti, \
+                type_contains_pyobjs
+        rtti = get_rtti(TYPE)
+        if rtti is not None and hasattr(rtti._obj, 'custom_trace_funcptr'):
+            return rtti._obj.custom_trace_funcptr
+        else:
+            return None
 
 
 def collect_constants(graphs):

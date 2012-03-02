@@ -41,8 +41,8 @@ class GenerationGC(SemiSpaceGC):
 
     # the following values override the default arguments of __init__ when
     # translating to a real backend.
-    TRANSLATION_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
-                          'nursery_size': 896*1024,
+    TRANSLATION_PARAMS = {'space_size': 8*1024*1024,     # 8 MB
+                          'nursery_size': 3*1024*1024,   # 3 MB
                           'min_nursery_size': 48*1024,
                           'auto_nursery_size': True}
 
@@ -92,8 +92,9 @@ class GenerationGC(SemiSpaceGC):
         # the GC is fully setup now.  The rest can make use of it.
         if self.auto_nursery_size:
             newsize = nursery_size_from_env()
-            if newsize <= 0:
-                newsize = env.estimate_best_nursery_size()
+            #if newsize <= 0:
+            #    ---disabled--- just use the default value.
+            #    newsize = env.estimate_best_nursery_size()
             if newsize > 0:
                 self.set_nursery_size(newsize)
 
@@ -166,9 +167,11 @@ class GenerationGC(SemiSpaceGC):
                 return False
         return self.nursery <= addr < self.nursery_top
 
-    def malloc_fixedsize_clear(self, typeid, size, can_collect,
-                               has_finalizer=False, contains_weakptr=False):
-        if (has_finalizer or not can_collect or
+    def malloc_fixedsize_clear(self, typeid, size,
+                               has_finalizer=False,
+                               is_finalizer_light=False,
+                               contains_weakptr=False):
+        if (has_finalizer or
             (raw_malloc_usage(size) > self.lb_young_fixedsize and
              raw_malloc_usage(size) > self.largest_young_fixedsize)):
             # ^^^ we do two size comparisons; the first one appears redundant,
@@ -178,8 +181,8 @@ class GenerationGC(SemiSpaceGC):
             ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
-                                                      can_collect,
                                                       has_finalizer,
+                                                      is_finalizer_light,
                                                       contains_weakptr)
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
@@ -195,7 +198,7 @@ class GenerationGC(SemiSpaceGC):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect):
+                             offset_to_length):
         # Only use the nursery if there are not too many items.
         if not raw_malloc_usage(itemsize):
             too_many_items = False
@@ -214,8 +217,7 @@ class GenerationGC(SemiSpaceGC):
             maxlength = maxlength_for_minimal_nursery << self.nursery_scale
             too_many_items = length > maxlength
 
-        if (not can_collect or
-            too_many_items or
+        if (too_many_items or
             (raw_malloc_usage(size) > self.lb_young_var_basesize and
              raw_malloc_usage(size) > self.largest_young_var_basesize)):
             # ^^^ we do two size comparisons; the first one appears redundant,
@@ -223,8 +225,7 @@ class GenerationGC(SemiSpaceGC):
             #     it almost always folds down to False, which kills the
             #     second comparison as well.
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
-                                                    itemsize, offset_to_length,
-                                                    can_collect)
+                                                    itemsize, offset_to_length)
         # with the above checks we know now that totalsize cannot be more
         # than about half of the nursery size; in particular, the + and *
         # cannot overflow
@@ -517,7 +518,8 @@ class GenerationGC(SemiSpaceGC):
             objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
             self.last_generation_root_objects.append(addr_struct)
 
-    def writebarrier_before_copy(self, source_addr, dest_addr):
+    def writebarrier_before_copy(self, source_addr, dest_addr,
+                                 source_start, dest_start, length):
         """ This has the same effect as calling writebarrier over
         each element in dest copied from source, except it might reset
         one of the following flags a bit too eagerly, which means we'll have

@@ -1,6 +1,9 @@
 
 import _rawffi, sys
-import threading
+try:
+    from thread import _local as local
+except ImportError:
+    local = object    # no threads
 
 class ConvMode:
     encoding = 'ascii'
@@ -28,7 +31,7 @@ def _wstring_at_addr(addr, lgt):
     arg = cobj._get_buffer_value()
     return _rawffi.wcharp2rawunicode(arg, lgt)
 
-class ErrorObject(threading.local):
+class ErrorObject(local):
     def __init__(self):
         self.errno = 0
         self.winerror = 0

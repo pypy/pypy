@@ -4,7 +4,8 @@ Syntax:
     python logparser.py <action> <logfilename> <output> <options...>
 
 Actions:
-    draw-time   draw a timeline image of the log (format PNG by default)
+    draw-time      draw a timeline image of the log (format PNG by default)
+    print-summary  print a summary of the log
 """
 import autopath
 import sys, re
@@ -74,9 +75,9 @@ def parse_log(lines, verbose=False):
     if verbose:
         sys.stderr.write('loaded\n')
     if performance_log and time_decrase:
-        raise Exception("The time decreases!  The log file may have been"
-                        " produced on a multi-CPU machine and the process"
-                        " moved between CPUs.")
+        print ("The time decreases!  The log file may have been"
+               " produced on a multi-CPU machine and the process"
+               " moved between CPUs.")
     return log
 
 def extract_category(log, catprefix='', toplevel=False):
@@ -85,9 +86,11 @@ def extract_category(log, catprefix='', toplevel=False):
     for entry in log:
         if entry[0] == 'debug_print':
             resulttext.append(entry[1])
-        else:
+        elif len(entry) == 4:
             got.extend(extract_category(
                 entry[3], catprefix, toplevel=entry[0].startswith(catprefix)))
+        else:
+            resulttext.append('... LOG TRUCATED ...')
     if toplevel:
         resulttext.append('')
         got.insert(0, '\n'.join(resulttext))
@@ -295,6 +298,8 @@ def render_histogram(times, time0, labels, width, barheight):
         image.paste(textpercent, (t1x, 5), textpercent)
         image.paste(textlabel,   (t2x, 5), textlabel)
         images.append(image)
+    if not images:
+        return None
     return combine(images, spacing=0, border=1, horizontal=False)
 
 def get_timesummary_single_image(totaltimes, totaltime0, componentdict,
@@ -330,6 +335,8 @@ def get_timesummary_image(log, summarywidth, summarybarheight):
         del totaltimes[None]
     img2 = render_histogram(totaltimes, totaltime0, {},
                             width, summarybarheight)
+    if img2 is None:
+        return img1
     return combine([img1, img2], spacing=spacing, horizontal=True)
 
 # ----------
@@ -383,6 +390,23 @@ def draw_timeline_image(log, output=None, mainwidth=3000, mainheight=150,
     else:
         image.save(output)
 
+def print_summary(log, out):
+    totaltimes = gettotaltimes(log)
+    if out == '-':
+        outfile = sys.stdout
+    else:
+        outfile = open(out, "w")
+    l = totaltimes.items()
+    l.sort(cmp=lambda a, b: cmp(b[1], a[1]))
+    total = sum([b for a, b in l])
+    for a, b in l:
+        if a is None:
+            a = 'interpret'
+        s = " " * (50 - len(a))
+        print >>outfile, a, s, str(b*100/total) + "%"
+    if out != '-':
+        outfile.close()
+
 # ____________________________________________________________
 
 
@@ -391,6 +415,7 @@ ACTIONS = {
                                         'mainwidth=', 'mainheight=',
                                         'summarywidth=', 'summarybarheight=',
                                         ]),
+    'print-summary': (print_summary, []),
     }
 
 if __name__ == '__main__':

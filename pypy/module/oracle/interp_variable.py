@@ -167,6 +167,12 @@ class W_Variable(Wrappable):
         self.initialize(self.environment.space, cursor)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_Variable.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_Variable)
         self.finalize()
         lltype.free(self.actualElementsPtr, flavor='raw')
         if self.actualLength:
@@ -279,6 +285,7 @@ class W_Variable(Wrappable):
                     self.actualLength, self.returnCode,
                     allocatedElements, actualElementsPtr,
                     roci.OCI_DEFAULT)
+                nameBuffer.clear()
             else:
                 status = roci.OCIBindByPos(
                     self.boundCursorHandle, bindHandlePtr,
@@ -352,14 +359,14 @@ class W_Variable(Wrappable):
         # Verifies that truncation or other problems did not take place on
         # retrieve.
         if self.isVariableLength:
-            if rffi.cast(lltype.Signed, self.returnCode[pos]) != 0:
+            error_code = rffi.cast(lltype.Signed, self.returnCode[pos])
+            if error_code != 0:
                 error = W_Error(space, self.environment,
                                 "Variable_VerifyFetch()", 0)
-                error.code = self.returnCode[pos]
+                error.code = error_code
                 error.message = space.wrap(
                     "column at array pos %d fetched with error: %d" %
-                    (pos,
-                     rffi.cast(lltype.Signed, self.returnCode[pos])))
+                    (pos, error_code))
                 w_error = get(space).w_DatabaseError
 
                 raise OperationError(get(space).w_DatabaseError,
@@ -601,6 +608,7 @@ class VT_LongString(W_Variable):
     def getValueProc(self, space, pos):
         ptr = rffi.ptradd(self.data, pos * self.bufferSize)
         length = rffi.cast(roci.Ptr(roci.ub4), ptr)[0]
+        length = rffi.cast(lltype.Signed, length)
 
         ptr = rffi.ptradd(ptr, rffi.sizeof(roci.ub4))
         return space.wrap(rffi.charpsize2str(ptr, length))
@@ -732,6 +740,7 @@ class VT_Float(W_Variable):
             finally:
                 rffi.keep_buffer_alive_until_here(textbuf, text)
                 lltype.free(sizeptr, flavor='raw')
+                format_buf.clear()
 
             if isinstance(self, VT_NumberAsString):
                 return w_strvalue
@@ -778,6 +787,8 @@ class VT_Float(W_Variable):
                 format_buf.ptr, format_buf.size,
                 None, 0,
                 dataptr)
+            text_buf.clear()
+            format_buf.clear()
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from long")
             return
@@ -810,6 +821,8 @@ class VT_Float(W_Variable):
                 format_buf.ptr, format_buf.size,
                 nls_params, len(nls_params),
                 dataptr)
+            text_buf.clear()
+            format_buf.clear()
             self.environment.checkForError(
                 status, "NumberVar_SetValue(): from decimal")
             return
@@ -1477,7 +1490,7 @@ def typeByValue(space, w_value, numElements):
     raise OperationError(
         moduledict.w_NotSupportedError,
         space.wrap("Variable_TypeByValue(): unhandled data type %s" %
-                   (space.type(w_value).getname(space, '?'),)))
+                   (space.type(w_value).getname(space),)))
 
 def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElements):
     w_var = space.call(w_inputTypeHandler,

@@ -10,7 +10,7 @@ import sys, math
 time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
 
 eci = ExternalCompilationInfo(includes=['time.h'])
-time = rffi.llexternal('time', [int], time_t,
+time = rffi.llexternal('time', [lltype.Signed], time_t,
                        compilation_info=eci)
 
 def get(space, name):

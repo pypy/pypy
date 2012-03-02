@@ -5,6 +5,8 @@ program introspection.
 
 import sys
 
+from __pypy__ import lookup_special
+
 def _caller_locals(): 
     # note: the reason why this is working is because the functions in here are
     # compiled by geninterp, so they don't have a frame
@@ -62,7 +64,22 @@ def dir(*args):
 
     obj = args[0]
 
-    if isinstance(obj, types.ModuleType):
+    dir_meth = None
+    if isinstance(obj, types.InstanceType):
+        try:
+            dir_meth = getattr(obj, "__dir__")
+        except AttributeError:
+            pass
+    else:
+        dir_meth = lookup_special(obj, "__dir__")
+    if dir_meth is not None:
+        result = dir_meth()
+        if not isinstance(result, list):
+            raise TypeError("__dir__() must return a list, not %r" % (
+                type(result),))
+        result.sort()
+        return result
+    elif isinstance(obj, types.ModuleType):
         try:
             result = list(obj.__dict__)
             result.sort()
@@ -76,22 +93,17 @@ def dir(*args):
         result.sort()
         return result
 
-    elif hasattr(obj, '__dir__'):
-        result = obj.__dir__()
-        if not isinstance(result, list):
-            raise TypeError("__dir__() must return a list, not %r" % (
-                type(result),))
-        result.sort()
-        return result
-
     else: #(regular item)
         Dict = {}
         try:
-            Dict.update(obj.__dict__)
-        except AttributeError: pass
+            if isinstance(obj.__dict__, dict):
+                Dict.update(obj.__dict__)
+        except AttributeError:
+            pass
         try:
             Dict.update(_classdir(obj.__class__))
-        except AttributeError: pass
+        except AttributeError:
+            pass
 
         ## Comment from object.c:
         ## /* Merge in __members__ and __methods__ (if any).
@@ -99,10 +111,14 @@ def dir(*args):
         ## XXX needed to get at im_self etc of method objects. */
         for attr in ['__members__','__methods__']:
             try:
-                for item in getattr(obj, attr):
+                l = getattr(obj, attr)
+                if not isinstance(l, list):
+                    continue
+                for item in l:
                     if isinstance(item, types.StringTypes):
                         Dict[item] = None
-            except (AttributeError, TypeError): pass
+            except (AttributeError, TypeError):
+                pass
 
         result = Dict.keys()
         result.sort()

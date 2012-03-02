@@ -1,5 +1,4 @@
-from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong
@@ -350,6 +349,8 @@ class W_FileIO(W_RawIOBase):
         try:
             s = os.read(self.fd, size)
         except OSError, e:
+            if e.errno == errno.EAGAIN:
+                return space.w_None
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
@@ -363,6 +364,8 @@ class W_FileIO(W_RawIOBase):
         try:
             buf = os.read(self.fd, length)
         except OSError, e:
+            if e.errno == errno.EAGAIN:
+                return space.w_None
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
         rwbuffer.setslice(0, buf)

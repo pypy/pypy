@@ -138,14 +138,14 @@ else:
 library = "GNU gdbm"
 
 funcs = {}
-_init_func('open', (c_char_p, c_int, c_int))
-_init_func('close', restype=c_void_p)
-_init_func('firstkey', restype=datum)
-_init_func('nextkey', restype=datum)
-_init_func('fetch', restype=datum)
-_init_func('store', restype=c_int)
-_init_func('error')
-_init_func('delete', restype=c_int)
+_init_func('open', (c_char_p, c_int, c_int), restype=c_void_p)
+_init_func('close', (c_void_p,), restype=c_void_p)
+_init_func('firstkey', (c_void_p,), restype=datum)
+_init_func('nextkey', (c_void_p,), restype=datum)
+_init_func('fetch', (c_void_p, datum), restype=datum)
+_init_func('store', (c_void_p, datum, datum, c_int), restype=c_int)
+_init_func('error', (c_void_p,), restype=c_int)
+_init_func('delete', (c_void_p, datum), restype=c_int)
 
 lib.DBM_INSERT = 0
 lib.DBM_REPLACE = 1

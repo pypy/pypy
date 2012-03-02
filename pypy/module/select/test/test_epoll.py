@@ -1,22 +1,16 @@
 import py
+import sys
 
 from pypy.conftest import gettestobjspace
 
 
 class AppTestEpoll(object):
     def setup_class(cls):
-        import errno
-        import select
-
+        # NB. we should ideally py.test.skip() if running on an old linux
+        # where the kernel doesn't support epoll()
+        if not sys.platform.startswith('linux'):
+            py.test.skip("test requires linux (assumed >= 2.6)")
         cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
-
-        if not hasattr(select, "epoll"):
-            py.test.skip("test requires linux 2.6")
-        try:
-            select.epoll()
-        except IOError, e:
-            if e.errno == errno.ENOSYS:
-                py.test.skip("kernel doesn't support epoll()")
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])
@@ -138,7 +132,7 @@ class AppTestEpoll(object):
         expected.sort()
 
         assert events == expected
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         now = time.time()
         events = ep.poll(timeout=2.1, maxevents=4)
@@ -151,7 +145,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         events.sort()
         expected = [
@@ -168,7 +162,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         expected = [(server.fileno(), select.EPOLLOUT)]
         assert events == expected
@@ -192,7 +186,7 @@ class AppTestEpoll(object):
         now = time.time()
         ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         server.close()
         ep.unregister(fd)

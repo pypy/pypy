@@ -10,7 +10,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, LONG_BIT
 from pypy.rlib.rfloat import (
-    isinf, isnan, INFINITY, NAN, copysign, formatd,
+    isinf, isnan, isfinite, INFINITY, NAN, copysign, formatd,
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
@@ -21,10 +21,33 @@ from pypy.tool.sourcetools import func_with_new_name
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
-class W_FloatObject(W_Object):
-    """This is a reimplementation of the CPython "PyFloatObject"
-       it is assumed that the constructor takes a real Python float as
-       an argument"""
+class W_AbstractFloatObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from pypy.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractFloatObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        one = float2longlong(space.float_w(self))
+        two = float2longlong(space.float_w(w_other))
+        return one == two
+
+    def immutable_unique_id(self, space):
+        if self.user_overridden_class:
+            return None
+        from pypy.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        val = float2longlong(space.float_w(self))
+        b = rbigint.fromrarith_int(val)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+
+class W_FloatObject(W_AbstractFloatObject):
+    """This is a implementation of the app-level 'float' type.
+    The constructor takes an RPython float as an argument."""
     from pypy.objspace.std.floattype import float_typedef as typedef
     _immutable_fields_ = ['floatval']
 
@@ -102,7 +125,7 @@ TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
 
 def float_hex__Float(space, w_float):
     value = w_float.floatval
-    if isinf(value) or isnan(value):
+    if not isfinite(value):
         return str__Float(space, w_float)
     if value == 0.0:
         if copysign(1., value) == -1.:
@@ -133,25 +156,24 @@ def float_hex__Float(space, w_float):
     else:
         return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
-def float2string(space, w_float, code, precision):
-    x = w_float.floatval
+def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
-    if isinf(x):
+    if isfinite(x):
+        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
+    elif isinf(x):
         if x > 0.0:
             s = "inf"
         else:
             s = "-inf"
-    elif isnan(x):
+    else:  # isnan(x):
         s = "nan"
-    else:
-        s = formatd(x, code, precision, DTSF_ADD_DOT_0)
-    return space.wrap(s)
+    return s
 
 def repr__Float(space, w_float):
-    return float2string(space, w_float, 'r', 0)
+    return space.wrap(float2string(w_float.floatval, 'r', 0))
 
 def str__Float(space, w_float):
-    return float2string(space, w_float, 'g', DTSF_STR_PRECISION)
+    return space.wrap(float2string(w_float.floatval, 'g', DTSF_STR_PRECISION))
 
 def format__Float_ANY(space, w_float, w_spec):
     return newformat.run_formatter(space, w_spec, "format_float", w_float)
@@ -179,7 +201,7 @@ def declare_compare_bigint(opname):
     if opname == 'eq' or opname == 'ne':
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1) or math.floor(f1) != f1:
+            if not isfinite(f1) or math.floor(f1) != f1:
                 return opname == 'ne'
             b1 = rbigint.fromfloat(f1)
             res = b1.eq(b2)
@@ -189,7 +211,7 @@ def declare_compare_bigint(opname):
     else:
         def do_compare_bigint(f1, b2):
             """f1 is a float.  b2 is a bigint."""
-            if isinf(f1) or isnan(f1):
+            if not isfinite(f1):
                 return op(f1, 0.0)
             if opname == 'gt' or opname == 'le':
                 # 'float > long'   <==>  'ceil(float) > long'
@@ -356,9 +378,21 @@ def mod__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
-    if (mod and ((y < 0.0) != (mod < 0.0))):
-        mod += y
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        mod = rfloat.NAN
+    else:
+        if mod:
+            # ensure the remainder has the same sign as the denominator
+            if (y < 0.0) != (mod < 0.0):
+                mod += y
+        else:
+            # the remainder is zero, and in the presence of signed zeroes
+            # fmod returns different results across platforms; ensure
+            # it has the same sign as the denominator; we'd like to do
+            # "mod = y * 0.0", but that may get optimized away
+            mod = copysign(0.0, y)
 
     return W_FloatObject(mod)
 
@@ -367,7 +401,10 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        return [W_FloatObject(rfloat.NAN), W_FloatObject(rfloat.NAN)]
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
     # vx - mod is an approximation; the result is that div may
@@ -414,6 +451,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     y = w_float2.floatval
 
     # Sort out special cases here instead of relying on pow()
+    if y == 2.0:                      # special case for performance:
+        return W_FloatObject(x * x)   # x * x is always correct
     if y == 0.0:
         # x**0 is 1, even 0**0
         return W_FloatObject(1.0)
@@ -457,8 +496,6 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
 
     if x == 0.0:
         if y < 0.0:
-            if isinf(y):
-                return space.wrap(INFINITY)
             raise OperationError(space.w_ZeroDivisionError,
                                  space.wrap("0.0 cannot be raised to "
                                             "a negative power"))
@@ -541,6 +578,12 @@ def float_as_integer_ratio__Float(space, w_float):
         w_den = w_exp
     # Try to return int.
     return space.newtuple([space.int(w_num), space.int(w_den)])
+
+def float_is_integer__Float(space, w_float):
+    v = w_float.floatval
+    if not rfloat.isfinite(v):
+        return space.w_False
+    return space.wrap(math.floor(v) == v)
 
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)

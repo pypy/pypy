@@ -541,7 +541,7 @@ call_function_tail(PyObject *callable, PyObject *args)
 }
 
 PyObject *
-PyObject_CallFunction(PyObject *callable, char *format, ...)
+PyObject_CallFunction(PyObject *callable, const char *format, ...)
 {
 	va_list va;
 	PyObject *args;
@@ -558,7 +558,7 @@ PyObject_CallFunction(PyObject *callable, char *format, ...)
 }
 
 PyObject *
-PyObject_CallMethod(PyObject *o, char *name, char *format, ...)
+PyObject_CallMethod(PyObject *o, const char *name, const char *format, ...)
 {
 	va_list va;
 	PyObject *args;
@@ -611,8 +611,8 @@ objargs_mktuple(va_list va)
 	if (result != NULL && n > 0) {
 		for (i = 0; i < n; ++i) {
 			tmp = (PyObject *)va_arg(va, PyObject *);
-			PyTuple_SET_ITEM(result, i, tmp);
 			Py_INCREF(tmp);
+			PyTuple_SET_ITEM(result, i, tmp);
 		}
 	}
 	return result;

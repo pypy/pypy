@@ -1,3 +1,5 @@
+from __future__ import with_statement
+
 import re
 
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -7,7 +9,8 @@ from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
-    cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, readbufferproc)
+    cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
+    readbufferproc)
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
@@ -173,6 +176,24 @@ def wrap_objobjproc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.wrap(res)
 
+def wrap_objobjargproc(space, w_self, w_args, func):
+    func_target = rffi.cast(objobjargproc, func)
+    check_num_args(space, w_args, 2)
+    w_key, w_value = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.wrap(res)
+
+def wrap_delitem(space, w_self, w_args, func):
+    func_target = rffi.cast(objobjargproc, func)
+    check_num_args(space, w_args, 1)
+    w_key, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_key, None)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.w_None
+
 def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     func_target = rffi.cast(ssizessizeargfunc, func)
     check_num_args(space, w_args, 2)
@@ -278,6 +299,14 @@ def slot_tp_str(space, w_self):
 @cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
 
 from pypy.rlib.nonconst import NonConstant
 
@@ -509,7 +538,7 @@ static slotdef slotdefs[] = {
                "oct(x)"),
         UNSLOT("__hex__", nb_hex, slot_nb_hex, wrap_unaryfunc,
                "hex(x)"),
-        NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc, 
+        NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc,
                "x[y:z] <==> x[y.__index__():z.__index__()]"),
         IBSLOT("__iadd__", nb_inplace_add, slot_nb_inplace_add,
                wrap_binaryfunc, "+"),
@@ -619,6 +648,19 @@ slotdefs = eval(slotdefs_str)
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
 )
+
+# partial sort to solve some slot conflicts:
+# Number slots before Mapping slots before Sequence slots.
+# These are the only conflicts between __name__ methods
+def slotdef_sort_key(slotdef):
+    if slotdef.slot_name.startswith('tp_as_number'):
+        return 1
+    if slotdef.slot_name.startswith('tp_as_mapping'):
+        return 2
+    if slotdef.slot_name.startswith('tp_as_sequence'):
+        return 3
+    return 0
+slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 
 slotdefs_for_tp_slots = unrolling_iterable(
     [(x.method_name, x.slot_name, x.slot_names, x.slot_func)

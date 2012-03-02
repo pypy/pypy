@@ -6,6 +6,7 @@ from pypy.module.cpyext.pyobject import PyObject, PyObjectP, borrow_from
 from pypy.module.cpyext.pyobject import RefcountState
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError
+from pypy.rlib.objectmodel import specialize
 
 @cpython_api([], PyObject)
 def PyDict_New(space):
@@ -41,9 +42,7 @@ def PyDict_DelItem(space, w_dict, w_key):
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     if PyDict_Check(space, w_dict):
         key = rffi.charp2str(key_ptr)
-        # our dicts dont have a standardized interface, so we need
-        # to go through the space
-        space.setitem(w_dict, space.wrap(key), w_obj)
+        space.setitem_str(w_dict, key, w_obj)
         return 0
     else:
         PyErr_BadInternalCall(space)
@@ -185,11 +184,34 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         w_item = space.call_method(w_iter, "next")
         w_key, w_value = space.fixedview(w_item, 2)
         state = space.fromcache(RefcountState)
-        pkey[0]   = state.make_borrowed(w_dict, w_key)
-        pvalue[0] = state.make_borrowed(w_dict, w_value)
+        if pkey:
+            pkey[0]   = state.make_borrowed(w_dict, w_key)
+        if pvalue:
+            pvalue[0] = state.make_borrowed(w_dict, w_value)
         ppos[0] += 1
     except OperationError, e:
         if not e.match(space, space.w_StopIteration):
             raise
         return 0
     return 1
+
+@specialize.memo()
+def make_frozendict(space):
+    return space.appexec([], '''():
+    import collections
+    class FrozenDict(collections.Mapping):
+        def __init__(self, *args, **kwargs):
+            self._d = dict(*args, **kwargs)
+        def __iter__(self):
+            return iter(self._d)
+        def __len__(self):
+            return len(self._d)
+        def __getitem__(self, key):
+            return self._d[key]
+    return FrozenDict''')
+
+@cpython_api([PyObject], PyObject)
+def PyDictProxy_New(space, w_dict):
+    w_frozendict = make_frozendict(space)
+    return space.call_function(w_frozendict, w_dict)
+

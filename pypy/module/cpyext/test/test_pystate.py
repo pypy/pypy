@@ -2,6 +2,7 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.rpython.lltypesystem.lltype import nullptr
 from pypy.module.cpyext.pystate import PyInterpreterState, PyThreadState
+from pypy.module.cpyext.pyobject import from_ref
 
 class AppTestThreads(AppTestCpythonExtensionBase):
     def test_allow_threads(self):
@@ -37,6 +38,7 @@ class TestThreadState(BaseApiTest):
     def test_thread_state_interp(self, space, api):
         ts = api.PyThreadState_Get()
         assert ts.c_interp == api.PyInterpreterState_Head()
+        assert ts.c_interp.c_next == nullptr(PyInterpreterState.TO)
 
     def test_basic_threadstate_dance(self, space, api):
         # Let extension modules call these functions,
@@ -48,3 +50,10 @@ class TestThreadState(BaseApiTest):
 
         api.PyEval_AcquireThread(tstate)
         api.PyEval_ReleaseThread(tstate)
+
+    def test_threadstate_dict(self, space, api):
+        ts = api.PyThreadState_Get()
+        ref = ts.c_dict
+        assert ref == api.PyThreadState_GetDict()
+        w_obj = from_ref(space, ref)
+        assert space.isinstance_w(w_obj, space.w_dict)

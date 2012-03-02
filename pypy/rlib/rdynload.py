@@ -14,7 +14,7 @@ _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
-_FREEBSD = platform.name == "freebsd"
+_FREEBSD = sys.platform.startswith("freebsd")
 
 if _WIN32:
     from pypy.rlib import rwin32
@@ -63,7 +63,7 @@ class DLOpenError(Exception):
 
 if not _WIN32:
     c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP)
-    c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
+    c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT, threadsafe=False)
     c_dlerror = external('dlerror', [], rffi.CCHARP)
     c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
 
@@ -87,9 +87,10 @@ if not _WIN32:
         """
         if mode == -1:
             if RTLD_LOCAL is not None:
-                mode = RTLD_LOCAL | RTLD_NOW
+                mode = RTLD_LOCAL
             else:
-                mode = RTLD_NOW
+                mode = 0
+        mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
             err = dlerror()
@@ -114,7 +115,8 @@ if not _WIN32:
 if _WIN32:
     DLLHANDLE = rwin32.HMODULE
 
-    def dlopen(name):
+    def dlopen(name, mode=-1):
+        # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError()

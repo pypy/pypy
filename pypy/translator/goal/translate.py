@@ -89,7 +89,6 @@ OVERRIDES = {
     'translation.debug': False,
 }
 
-# we want 2.4 expand_default functionality
 import optparse
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
@@ -104,6 +103,8 @@ def load_target(targetspec):
     specname = os.path.splitext(os.path.basename(targetspec))[0]
     sys.path.insert(0, os.path.dirname(targetspec))
     mod = __import__(specname)
+    if 'target' not in mod.__dict__:
+        raise Exception("file %r is not a valid targetxxx.py." % (targetspec,))
     return mod.__dict__
 
 def parse_options_and_load_target():
@@ -150,6 +151,9 @@ def parse_options_and_load_target():
             log.ERROR("Could not find target %r" % (arg, ))
             sys.exit(1)
 
+    # apply the platform settings
+    set_platform(config)
+
     targetspec = translateconfig.targetspec
     targetspec_dic = load_target(targetspec)
 
@@ -164,9 +168,6 @@ def parse_options_and_load_target():
                 optiondescr,
                 existing_config=config,
                 translating=True)
-
-    # apply the platform settings
-    set_platform(config)
 
     # apply the optimization level settings
     set_opt_level(config, translateconfig.opt)
@@ -185,7 +186,7 @@ def parse_options_and_load_target():
             print "\n\nTarget specific help:\n\n"
             targetspec_dic['print_help'](config)
         print "\n\nFor detailed descriptions of the command line options see"
-        print "http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"
+        print "http://pypy.readthedocs.org/en/latest/config/commandline.html"
         sys.exit(0)
     
     return targetspec_dic, translateconfig, config, args
@@ -210,6 +211,10 @@ def main():
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
+
+    if translateconfig.view:
+        translateconfig.pdb = True
+
     if translateconfig.profile:
         from cProfile import Profile
         prof = Profile()
@@ -221,12 +226,14 @@ def main():
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
-    def debug(got_error):
+    def finish_profiling():
         if prof:
             prof.disable()
             statfilename = 'prof.dump'
             log.info('Dumping profiler stats to: %s' % statfilename)
-            prof.dump_stats(statfilename)
+            prof.dump_stats(statfilename)        
+
+    def debug(got_error):
         tb = None
         if got_error:
             import traceback
@@ -285,7 +292,19 @@ def main():
         elif drv.exe_name is None and '__name__' in targetspec_dic:
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
+        # Double check to ensure we are not overwriting the current interpreter
         goals = translateconfig.goals
+        if not goals or 'compile' in goals:
+            try:
+                this_exe = py.path.local(sys.executable).new(ext='')
+                exe_name = drv.compute_exe_name()
+                samefile = this_exe.samefile(exe_name)
+                assert not samefile, (
+                    'Output file %s is the currently running '
+                    'interpreter (use --output=...)'% exe_name)
+            except EnvironmentError:
+                pass
+
         try:
             drv.proceed(goals)
         finally:
@@ -293,9 +312,11 @@ def main():
     except SystemExit:
         raise
     except:
+        finish_profiling()
         debug(True)
         raise SystemExit(1)
     else:
+        finish_profiling()
         if translateconfig.pdb:
             debug(False)
 

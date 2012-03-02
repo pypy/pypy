@@ -18,7 +18,7 @@ from pypy.rpython import llinterp
 
 class DictRepr(AbstractDictRepr):
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.custom_eq_hash = custom_eq_hash is not None
 
@@ -160,6 +160,16 @@ class DictRepr(AbstractDictRepr):
         hop.exception_is_here()
         return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
 
+    def rtype_method_pop(self, hop):
+        if hop.nb_args == 2:
+            v_args = hop.inputargs(self, self.key_repr)
+            target = ll_pop
+        elif hop.nb_args == 3:
+            v_args = hop.inputargs(self, self.key_repr, self.value_repr)
+            target = ll_pop_default
+        hop.exception_is_here()
+        return hop.gendirectcall(target, *v_args)
+
     def __get_func(self, interp, r_func, fn, TYPE):
         if isinstance(r_func, MethodOfFrozenPBCRepr):
             obj = r_func.r_im_self.convert_const(fn.im_self)
@@ -247,7 +257,7 @@ def _get_call_args(hop, r_func, arg, params_annotation):
         fn = None
         v_obj = hop.inputarg(r_func, arg=arg)
         s_pbc_fn = hop.args_s[arg]
-        methodname = r_func._get_method_name("simple_call", s_pbc_fn, params_annotation)
+        methodname = r_func._get_method_name("simple_call", s_pbc_fn, params_annotation, hop)
     elif isinstance(r_func, MethodOfFrozenPBCRepr):
         r_impl, nimplicitarg = r_func.get_r_implfunc()
         fn = r_impl.get_unique_llfn().value
@@ -255,7 +265,7 @@ def _get_call_args(hop, r_func, arg, params_annotation):
         methodname = None
     return fn, v_obj, methodname
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=None):
     from pypy.rlib import jit
 
     r_dict = hop.r_result
@@ -369,6 +379,20 @@ def ll_popitem(ELEM, d):
         d.ll_remove(key)
         return res
     raise KeyError
+
+def ll_pop(d, key):
+    if d.ll_contains(key):
+        value = d.ll_get(key)
+        d.ll_remove(key)
+        return value
+    else:
+        raise KeyError
+
+def ll_pop_default(d, key, dfl):
+    try:
+        return ll_pop(d, key)
+    except KeyError:
+        return dfl
 
 # ____________________________________________________________
 #

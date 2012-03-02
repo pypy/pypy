@@ -4,7 +4,7 @@ from pypy.translator.sandbox.pypy_interact import PyPySandboxedProc
 from pypy.translator.interactive import Translation
 from pypy.module.sys.version import CPYTHON_VERSION
 
-VERSION = '%d.%d.%d' % CPYTHON_VERSION[:3]
+VERSION = '%d.%d' % CPYTHON_VERSION[:2]
 SITE_PY_CONTENT = open(os.path.join(autopath.pypydir,
                                     '..',
                                     'lib-python',

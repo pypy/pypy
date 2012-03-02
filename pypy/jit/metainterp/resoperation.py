@@ -1,5 +1,4 @@
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import make_sure_not_resized
 
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
@@ -17,15 +16,15 @@ class AbstractResOp(object):
     # debug
     name = ""
     pc = 0
+    opnum = 0
+
+    _attrs_ = ('result',)
 
     def __init__(self, result):
         self.result = result
 
-    # methods implemented by each concrete class
-    # ------------------------------------------
-    
     def getopnum(self):
-        raise NotImplementedError
+        return self.opnum
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -65,6 +64,9 @@ class AbstractResOp(object):
     def setdescr(self, descr):
         raise NotImplementedError
 
+    def cleardescr(self):
+        pass
+
     # common methods
     # --------------
 
@@ -91,7 +93,10 @@ class AbstractResOp(object):
         return op
 
     def __repr__(self):
-        return self.repr()
+        try:
+            return self.repr()
+        except NotImplementedError:
+            return object.__repr__(self)
 
     def repr(self, graytext=False):
         # RPython-friendly version
@@ -191,9 +196,18 @@ class ResOpWithDescr(AbstractResOp):
         # of the operation.  It must inherit from AbstractDescr.  The
         # backend provides it with cpu.fielddescrof(), cpu.arraydescrof(),
         # cpu.calldescrof(), and cpu.typedescrof().
+        self._check_descr(descr)
+        self._descr = descr
+
+    def cleardescr(self):
+        self._descr = None
+
+    def _check_descr(self, descr):
+        if not we_are_translated() and getattr(descr, 'I_am_a_descr', False):
+            return # needed for the mock case in oparser_model
         from pypy.jit.metainterp.history import check_descr
         check_descr(descr)
-        self._descr = descr
+
 
 class GuardResOp(ResOpWithDescr):
 
@@ -215,7 +229,6 @@ class GuardResOp(ResOpWithDescr):
         newop.setfailargs(self.getfailargs())
         return newop
 
-
 # ============
 # arity mixins
 # ============
@@ -234,7 +247,7 @@ class NullaryOp(object):
 
     def getarg(self, i):
         raise IndexError
-    
+
     def setarg(self, i, box):
         raise IndexError
 
@@ -258,7 +271,7 @@ class UnaryOp(object):
             return self._arg0
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -275,9 +288,6 @@ class BinaryOp(object):
         assert len(args) == 2
         self._arg0, self._arg1 = args
 
-    def getarglist(self):
-        return [self._arg0, self._arg1, self._arg2]
-
     def numargs(self):
         return 2
 
@@ -288,7 +298,7 @@ class BinaryOp(object):
             return self._arg1
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -326,7 +336,7 @@ class TernaryOp(object):
             return self._arg2
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -352,7 +362,7 @@ class N_aryOp(object):
 
     def getarg(self, i):
         return self._args[i]
-    
+
     def setarg(self, i, box):
         self._args[i] = box
 
@@ -365,6 +375,8 @@ _oplist = [
     'FINISH/*d',
     '_FINAL_LAST',
 
+    'LABEL/*d',
+
     '_GUARD_FIRST',
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d',
@@ -375,11 +387,12 @@ _oplist = [
     'GUARD_ISNULL/1d',
     'GUARD_NONNULL_CLASS/2d',
     '_GUARD_FOLDABLE_LAST',
-    'GUARD_NO_EXCEPTION/0d',
-    'GUARD_EXCEPTION/1d',
+    'GUARD_NO_EXCEPTION/0d',    # may be called with an exception currently set
+    'GUARD_EXCEPTION/1d',       # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
-    'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
+    'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -402,8 +415,10 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'CAST_FLOAT_TO_INT/1',
-    'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_INT/1',          # don't use for unsigned ints; we would
+    'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
+    'CAST_FLOAT_TO_SINGLEFLOAT/1',
+    'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -428,9 +443,13 @@ _oplist = [
     'INT_INVERT/1',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
+    'CAST_PTR_TO_INT/1',
+    'CAST_INT_TO_PTR/1',
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
+    'INSTANCE_PTR_EQ/2b',
+    'INSTANCE_PTR_NE/2b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -449,6 +468,8 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
+    'GETINTERIORFIELD_GC/2d',
+    'GETINTERIORFIELD_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -460,21 +481,29 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
+    'READ_TIMESTAMP/0',
+    'MARK_OPAQUE_PTR/1b',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
+    'SETINTERIORFIELD_GC/3d',
+    'SETINTERIORFIELD_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    #'RUNTIMENEW/1',     # ootype operation    
-    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
-    'DEBUG_MERGE_POINT/2',      # debugging only
+    #'RUNTIMENEW/1',     # ootype operation
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue] (for the write barrier)
+    'COND_CALL_GC_WB_ARRAY/3d', # [objptr, arrayindex, newvalue] (write barr.)
+    'DEBUG_MERGE_POINT/*',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
+    'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
+    'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
+    'KEEPALIVE/1',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -482,9 +511,12 @@ _oplist = [
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
+    'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
+    'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
+    'CALL_MALLOC_NURSERY/1',  # nursery malloc, const number of bytes, zeroed
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 
@@ -554,7 +586,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
         2: BinaryOp,
         3: TernaryOp
         }
-    
+
     is_guard = name.startswith('GUARD')
     if is_guard:
         assert withdescr
@@ -565,12 +597,9 @@ def create_class_for_op(name, opnum, arity, withdescr):
         baseclass = PlainResOp
     mixin = arity2mixin.get(arity, N_aryOp)
 
-    def getopnum(self):
-        return opnum
-
     cls_name = '%s_OP' % name
     bases = (get_base_class(mixin, baseclass),)
-    dic = {'getopnum': getopnum}
+    dic = {'opnum': opnum}
     return type(cls_name, bases, dic)
 
 setup(__name__ == '__main__')   # print out the table when run directly
@@ -623,3 +652,25 @@ opboolreflex = {
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
     }
+
+
+def get_deep_immutable_oplist(operations):
+    """
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
+    monkey-patch its items to make sure they are not mutated.
+
+    When we_are_translated(), do nothing and just return the old list.
+    """
+    from pypy.tool.frozenlist import frozenlist
+    if we_are_translated():
+        return operations
+    #
+    def setarg(*args):
+        assert False, "operations cannot change at this point"
+    def setdescr(*args):
+        assert False, "operations cannot change at this point"
+    newops = frozenlist(operations)
+    for op in newops:
+        op.setarg = setarg
+        op.setdescr = setdescr
+    return newops

@@ -15,6 +15,8 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
 import os, sys
 
@@ -24,6 +26,10 @@ class CConstant(Symbolic):
     def __init__(self, c_name, TP):
         self.c_name = c_name
         self.TP = TP
+
+    def __repr__(self):
+        return '%s(%r, %s)' % (self.__class__.__name__,
+                               self.c_name, self.TP)
 
     def annotation(self):
         return lltype_to_annotation(self.TP)
@@ -54,7 +60,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False):
+               oo_primitive=None, elidable_function=False,
+               macro=None, random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -78,9 +85,15 @@ def llexternal(name, args, result, _callable=None,
         assert callable(_callable)
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
-        _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
-    if pure_function:
-        _callable._pure_function_ = True
+        if macro is not None:
+            if macro is True:
+                macro = name
+            _callable = generate_macro_wrapper(
+                name, macro, ext_type, compilation_info)
+        else:
+            _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
+    if elidable_function:
+        _callable._elidable_function_ = True
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive
@@ -94,19 +107,6 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    funcptr = lltype.functionptr(ext_type, name, external='C',
-                                 compilation_info=compilation_info,
-                                 _callable=_callable,
-                                 _safe_not_sandboxed=sandboxsafe,
-                                 _debugexc=True, # on top of llinterp
-                                 canraise=False,
-                                 **kwds)
-    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
-        _callable.funcptr = funcptr
-
-    if _nowrapper:
-        return funcptr
-
     if threadsafe in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
@@ -116,6 +116,28 @@ def llexternal(name, args, result, _callable=None,
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
+
+    if random_effects_on_gcobjs not in (False, True):
+        random_effects_on_gcobjs = (
+            invoke_around_handlers or   # because it can release the GIL
+            has_callback)               # because the callback can do it
+
+    funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 compilation_info=compilation_info,
+                                 _callable=_callable,
+                                 _safe_not_sandboxed=sandboxsafe,
+                                 _debugexc=True, # on top of llinterp
+                                 canraise=False,
+                                 random_effects_on_gcobjs=
+                                     random_effects_on_gcobjs,
+                                 calling_conv=calling_conv,
+                                 **kwds)
+    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        _callable.funcptr = funcptr
+
+    if _nowrapper:
+        return funcptr
+
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -131,10 +153,10 @@ def llexternal(name, args, result, _callable=None,
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
-                after = aroundstate.after
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
+                after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
@@ -229,14 +251,19 @@ def llexternal(name, args, result, _callable=None,
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
+    wrapper = func_with_new_name(wrapper, name)
 
-    return func_with_new_name(wrapper, name)
+    if calling_conv != "c":
+        wrapper = jit.dont_look_inside(wrapper)
+
+    return wrapper
+
 
 class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -245,21 +272,18 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
-    callbackholder.callbacks[callable] = True
+    if callbackholder is not None:
+        callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
-                before = aroundstate.before
                 after = aroundstate.after
-            else:
-                before = None
-                after = None
-            if after:
-                after()
+                if after:
+                    after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -273,8 +297,10 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if before:
-                before()
+            if aroundstate is not None:
+                before = aroundstate.before
+                if before:
+                    before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
@@ -313,6 +339,41 @@ def llexternal_use_eci(compilation_info):
     return llexternal('PYPY_NO_OP', [], lltype.Void,
                       compilation_info=eci, sandboxsafe=True, _nowrapper=True,
                       _callable=lambda: None)
+
+def generate_macro_wrapper(name, macro, functype, eci):
+    """Wraps a function-like macro inside a real function, and expose
+    it with llexternal."""
+
+    # Generate the function call
+    from pypy.translator.c.database import LowLevelDatabase
+    from pypy.translator.c.support import cdecl
+    wrapper_name = 'pypy_macro_wrapper_%s' % (name,)
+    argnames = ['arg%d' % (i,) for i in range(len(functype.ARGS))]
+    db = LowLevelDatabase()
+    implementationtypename = db.gettype(functype, argnames=argnames)
+    if functype.RESULT is lltype.Void:
+        pattern = '%s { %s(%s); }'
+    else:
+        pattern = '%s { return %s(%s); }'
+    source = pattern % (
+        cdecl(implementationtypename, wrapper_name),
+        macro, ', '.join(argnames))
+
+    # Now stuff this source into a "companion" eci that will be used
+    # by ll2ctypes.  We replace eci._with_ctypes, so that only one
+    # shared library is actually compiled (when ll2ctypes calls the
+    # first function)
+    ctypes_eci = eci.merge(ExternalCompilationInfo(
+            separate_module_sources=[source],
+            export_symbols=[wrapper_name],
+            ))
+    if hasattr(eci, '_with_ctypes'):
+        ctypes_eci = eci._with_ctypes.merge(ctypes_eci)
+    eci._with_ctypes = ctypes_eci
+    func = llexternal(wrapper_name, functype.ARGS, functype.RESULT,
+                      compilation_info=eci, _nowrapper=True)
+    # _nowrapper=True returns a pointer which is not hashable
+    return lambda *args: func(*args)
 
 # ____________________________________________________________
 # Few helpers for keeping callback arguments alive
@@ -496,7 +557,7 @@ def COpaque(name=None, ptr_typedef=None, hints=None, compilation_info=None):
             val = rffi_platform.sizeof(name, compilation_info)
             cache[name] = val
             return val
-    
+
     hints['getsize'] = lazy_getsize
     return lltype.OpaqueType(name, hints)
 
@@ -594,24 +655,24 @@ FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
-    
+
     if strtype is str:
         from pypy.rpython.lltypesystem.rstr import STR as STRTYPE
         from pypy.rpython.annlowlevel import llstr as llstrtype
         from pypy.rpython.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        emptystr = ''
         lastchar = '\x00'
+        builder_class = StringBuilder
     else:
         from pypy.rpython.lltypesystem.rstr import UNICODE as STRTYPE
         from pypy.rpython.annlowlevel import llunicode as llstrtype
         from pypy.rpython.annlowlevel import hlunicode as hlstrtype
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
-        emptystr = u''
         lastchar = u'\x00'
-        
+        builder_class = UnicodeBuilder
+
     # str -> char*
     def str2charp(s):
         """ str -> char*
@@ -632,14 +693,16 @@ def make_string_mappings(strtype):
     # char* -> str
     # doesn't free char*
     def charp2str(cp):
-        l = []
+        b = builder_class()
         i = 0
         while cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return assert_str0(b.build())
 
     # str -> char*
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def get_nonmovingbuffer(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
@@ -660,6 +723,8 @@ def make_string_mappings(strtype):
     get_nonmovingbuffer._annenforceargs_ = [strtype]
 
     # (str, char*) -> None
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def free_nonmovingbuffer(data, buf):
         """
         Either free a non-moving buffer or keep the original storage alive.
@@ -694,6 +759,7 @@ def make_string_mappings(strtype):
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
+    @jit.dont_look_inside
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -705,23 +771,21 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        try:
-            str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                                itemoffsetof(STRTYPE.chars, 0))
-            if gc_buf:
-                src = cast_ptr_to_adr(gc_buf) + str_chars_offset
-            else:
-                src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-            dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-            ## FIXME: This is bad, because dest could potentially move
-            ## if there are threads involved.
-            raw_memcopy(src, dest,
-                        llmemory.sizeof(ll_char_type) * needed_size)
-            return hlstrtype(new_buf)
-        finally:
-            keepalive_until_here(new_buf)
+        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
+                            itemoffsetof(STRTYPE.chars, 0))
+        if gc_buf:
+            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        else:
+            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
+        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+        raw_memcopy(src, dest,
+                    llmemory.sizeof(ll_char_type) * needed_size)
+        keepalive_until_here(gc_buf)
+        keepalive_until_here(new_buf)
+        return hlstrtype(new_buf)
 
     # (char*, str) -> None
+    @jit.dont_look_inside
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
@@ -735,17 +799,18 @@ def make_string_mappings(strtype):
 
     # char* -> str, with an upper bound on the length in case there is no \x00
     def charp2strn(cp, maxlen):
-        l = []
+        b = builder_class(maxlen)
         i = 0
         while i < maxlen and cp[i] != lastchar:
-            l.append(cp[i])
+            b.append(cp[i])
             i += 1
-        return emptystr.join(l)
+        return assert_str0(b.build())
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
-        l = [cp[i] for i in range(size)]
-        return emptystr.join(l)
+        b = builder_class(size)
+        b.append_charpsize(cp, size)
+        return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
     return (str2charp, free_charp, charp2str,
@@ -777,6 +842,7 @@ def liststr2charpp(l):
         array[i] = str2charp(l[i])
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
+liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
 
 def free_charpp(ref):
     """ frees list of char**, NULL terminated
@@ -807,17 +873,22 @@ def size_and_sign(tp):
     try:
         unsigned = not tp._type.SIGNED
     except AttributeError:
-        if tp in [lltype.Char, lltype.Float, lltype.Signed] or\
-               isinstance(tp, lltype.Ptr):
+        if not isinstance(tp, lltype.Primitive):
             unsigned = False
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
+            unsigned = False
+        elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
+            unsigned = True
         else:
-            unsigned = False
+            raise AssertionError("size_and_sign(%r)" % (tp,))
     return size, unsigned
 
 def sizeof(tp):
     """Similar to llmemory.sizeof() but tries hard to return a integer
     instead of a symbolic value.
     """
+    if isinstance(tp, lltype.Typedef):
+        tp = tp.OF
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
     if isinstance(tp, lltype.Struct):
@@ -826,7 +897,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if isinstance(tp, lltype.Ptr):
+    if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
         tp = ULONG     # XXX!
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
@@ -1014,3 +1085,11 @@ class scoped_alloc_unicodebuffer:
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+# You would have to have a *huge* amount of data for this to block long enough
+# to be worth it to release the GIL.
+c_memcpy = llexternal("memcpy",
+    [VOIDP, VOIDP, SIZE_T],
+    lltype.Void,
+    threadsafe=False
+)

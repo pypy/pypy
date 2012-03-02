@@ -659,7 +659,7 @@ def crc32(s, crc=0):
         crc = crc_32_tab[(crc ^ long(ord(c))) & 0xffL] ^ (crc >> 8)
         #/* Note:  (crc >> 8) MUST zero fill on left
 
-        result = crc ^ 0xffffffffL
+    result = crc ^ 0xffffffffL
     
     if result > 2**31:
         result = ((result + 2**31) % 2**32) - 2**31

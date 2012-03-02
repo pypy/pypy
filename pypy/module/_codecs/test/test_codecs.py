@@ -102,7 +102,6 @@ class AppTestCodecs:
     
     def test_indexerror(self):
         test =   "\\"     # trailing backslash
-             
         raises (ValueError, test.decode,'string-escape')
 
     def test_charmap_decode(self):
@@ -291,6 +290,10 @@ class AppTestPartialEvaluation:
         assert '\\01'.decode('string_escape') == chr(01)
         assert '\\0f'.decode('string_escape') == chr(0) + 'f'
         assert '\\08'.decode('string_escape') == chr(0) + '8'
+
+    def test_escape_encode(self):
+        assert '"'.encode('string_escape') == '"'
+        assert "'".encode('string_escape') == "\\'"
 
     def test_decode_utf8_different_case(self):
         constant = u"a"
@@ -540,6 +543,17 @@ class AppTestPartialEvaluation:
         else:
             assert res == u"\x00\x00\x01\x00\x00" # UCS2 build
 
+    def test_encode_error_bad_handler(self):
+        import codecs
+        codecs.register_error("test.bad_handler", lambda e: (repl, 1))
+        assert u"xyz".encode("latin-1", "test.bad_handler") == "xyz"
+        repl = u"\u1234"
+        raises(UnicodeEncodeError, u"\u5678".encode, "latin-1",
+               "test.bad_handler")
+        repl = u"\u00E9"
+        s = u"\u5678".encode("latin-1", "test.bad_handler")
+        assert s == '\xe9'
+
     def test_charmap_encode(self):
         assert 'xxx'.encode('charmap') == 'xxx'
 
@@ -574,10 +588,18 @@ class AppTestPartialEvaluation:
         raises(UnicodeDecodeError, '+3ADYAA-'.decode, 'utf-7')
 
     def test_utf_16_encode_decode(self):
-        import codecs
+        import codecs, sys
         x = u'123abc'
-        assert codecs.getencoder('utf-16')(x) == ('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
-        assert codecs.getdecoder('utf-16')('\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
+        if sys.byteorder == 'big':
+            assert codecs.getencoder('utf-16')(x) == (
+                    '\xfe\xff\x001\x002\x003\x00a\x00b\x00c', 6)
+            assert codecs.getdecoder('utf-16')(
+                    '\xfe\xff\x001\x002\x003\x00a\x00b\x00c') == (x, 14)
+        else:
+            assert codecs.getencoder('utf-16')(x) == (
+                    '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00', 6)
+            assert codecs.getdecoder('utf-16')(
+                    '\xff\xfe1\x002\x003\x00a\x00b\x00c\x00') == (x, 14)
 
     def test_unicode_escape(self):        
         assert u'\\'.encode('unicode-escape') == '\\\\'
@@ -593,3 +615,11 @@ class AppTestPartialEvaluation:
         assert u'caf\xe9'.encode('mbcs') == 'caf\xe9'
         assert u'\u040a'.encode('mbcs') == '?' # some cyrillic letter
         assert 'cafx\e9'.decode('mbcs') == u'cafx\e9'
+
+    def test_bad_handler_string_result(self):
+        import _codecs
+        def f(exc):
+            return ('foo', exc.end)
+        _codecs.register_error("test.test_codecs_not_a_string", f)
+        raises(TypeError, u'\u1234'.encode, 'ascii',
+               'test.test_codecs_not_a_string')

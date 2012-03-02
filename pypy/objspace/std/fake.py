@@ -142,9 +142,9 @@ class CPythonFakeCode(eval.Code):
 
     def funcrun(self, func, args):
         frame = func.space.createframe(self, func.w_func_globals,
-                                        func.closure)
+                                       func)
         sig = self.signature()
-        scope_w = args.parse_obj(None, func.name, sig, func.defs.getitems())
+        scope_w = args.parse_obj(None, func.name, sig, func.defs_w)
         frame.setfastscope(scope_w)
         return frame.run()
 

@@ -9,7 +9,12 @@ Try:
 """
 
 import autopath
-import operator, sys, os, re, py, new
+import new
+import operator
+import py
+import re
+import sys
+import subprocess
 from bisect import bisect_left
 
 # don't use pypy.tool.udir here to avoid removing old usessions which
@@ -31,26 +36,55 @@ pypy.tool.udir = mod
 if sys.platform == "win32":
     XXX   # lots more in Psyco
 
-def machine_code_dump(data, originaddr, backend_name):
+def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
+        'x86_32': 'i386',
         'x86_64': 'x86-64',
         'i386': 'i386',
     }
     objdump = ('objdump -M %(backend)s -b binary -m i386 '
+               '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
     f = open(tmpfile, 'wb')
     f.write(data)
     f.close()
-    g = os.popen(objdump % {
+    p = subprocess.Popen(objdump % {
         'file': tmpfile,
         'origin': originaddr,
         'backend': objdump_backend_option[backend_name],
-    }, 'r')
-    result = g.readlines()
-    g.close()
-    return result[6:]   # drop some objdump cruft
+    }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    assert not p.returncode, ('Encountered an error running objdump: %s' %
+                              stderr)
+    # drop some objdump cruft
+    lines = stdout.splitlines(True)[6:]     # drop some objdump cruft
+    return format_code_dump_with_labels(originaddr, lines, label_list)
+
+def format_code_dump_with_labels(originaddr, lines, label_list):
+    from pypy.rlib.rarithmetic import r_uint
+    if not label_list:
+        label_list = []
+    originaddr = r_uint(originaddr)
+    itlines = iter(lines)
+    yield itlines.next() # don't process the first line
+    for lbl_start, lbl_name in label_list:
+        for line in itlines:
+            addr, _ = line.split(':', 1)
+            addr = int(addr, 16)
+            if addr >= originaddr+lbl_start:
+                yield '\n'
+                if lbl_name is None:
+                    yield '--end of the loop--\n'
+                else:
+                    yield str(lbl_name) + '\n'
+                yield line
+                break
+            yield line
+    # yield all the remaining lines
+    for line in itlines:
+        yield line
 
 def load_symbols(filename):
     # the program that lists symbols, and the output it gives
@@ -59,8 +93,12 @@ def load_symbols(filename):
     #
     print 'loading symbols from %s...' % (filename,)
     symbols = {}
-    g = os.popen(symbollister % filename, "r")
-    for line in g:
+    p = subprocess.Popen(symbollister % filename, shell=True,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    assert not p.returncode, ('Encountered an error running nm: %s' %
+                              stderr)
+    for line in stdout.splitlines(True):
         match = re_symbolentry.match(line)
         if match:
             addr = long(match.group(1), 16)
@@ -68,7 +106,6 @@ def load_symbols(filename):
             if name.startswith('pypy_g_'):
                 name = '\xb7' + name[7:]
             symbols[addr] = name
-    g.close()
     print '%d symbols found' % (len(symbols),)
     return symbols
 
@@ -134,6 +171,7 @@ class CodeRange(object):
     def disassemble(self):
         if not hasattr(self, 'text'):
             lines = machine_code_dump(self.data, self.addr, self.world.backend_name)
+            lines = list(lines)
             # instead of adding symbol names in the dumps we could
             # also make the 0xNNNNNNNN addresses be red and show the
             # symbol name when the mouse is over them

@@ -15,7 +15,8 @@ if sys.platform == 'win32':
     raise ImportError("No pwd module on Windows")
 
 from ctypes_support import standard_c_lib as libc
-from ctypes import Structure, POINTER, c_int, c_char_p
+from ctypes import Structure, POINTER, c_int, c_char_p, c_long
+from _structseq import structseqtype, structseqfield
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -23,27 +24,52 @@ except ImportError: builtinify = lambda f: f
 
 uid_t = c_int
 gid_t = c_int
+time_t = c_long
 
-class passwd(Structure):
-    _fields_ = (
-        ("pw_name", c_char_p),
-        ("pw_passwd", c_char_p),
-        ("pw_uid", uid_t),
-        ("pw_gid", gid_t),
-        ("pw_gecos", c_char_p),
-        ("pw_dir", c_char_p),
-        ("pw_shell", c_char_p),
-    )
-    def __iter__(self):
-        yield self.pw_name
-        yield self.pw_passwd
-        yield self.pw_uid
-        yield self.pw_gid
-        yield self.pw_gecos
-        yield self.pw_dir
-        yield self.pw_shell
+if sys.platform == 'darwin':
+    class passwd(Structure):
+        _fields_ = (
+            ("pw_name", c_char_p),
+            ("pw_passwd", c_char_p),
+            ("pw_uid", uid_t),
+            ("pw_gid", gid_t),
+            ("pw_change", time_t),
+            ("pw_class", c_char_p),
+            ("pw_gecos", c_char_p),
+            ("pw_dir", c_char_p),
+            ("pw_shell", c_char_p),
+            ("pw_expire", time_t),
+            ("pw_fields", c_int),
+        )
+        def __iter__(self):
+            yield self.pw_name
+            yield self.pw_passwd
+            yield self.pw_uid
+            yield self.pw_gid
+            yield self.pw_gecos
+            yield self.pw_dir
+            yield self.pw_shell
+else:
+    class passwd(Structure):
+        _fields_ = (
+            ("pw_name", c_char_p),
+            ("pw_passwd", c_char_p),
+            ("pw_uid", uid_t),
+            ("pw_gid", gid_t),
+            ("pw_gecos", c_char_p),
+            ("pw_dir", c_char_p),
+            ("pw_shell", c_char_p),
+        )
+        def __iter__(self):
+            yield self.pw_name
+            yield self.pw_passwd
+            yield self.pw_uid
+            yield self.pw_gid
+            yield self.pw_gecos
+            yield self.pw_dir
+            yield self.pw_shell
 
-class struct_passwd(tuple):
+class struct_passwd:
     """
     pwd.struct_passwd: Results from getpw*() routines.
 
@@ -51,15 +77,15 @@ class struct_passwd(tuple):
       (pw_name,pw_passwd,pw_uid,pw_gid,pw_gecos,pw_dir,pw_shell)
     or via the object attributes as named in the above tuple.
     """
-    def __init__(self, passwd):
-        self.pw_name = passwd.pw_name
-        self.pw_passwd = passwd.pw_passwd
-        self.pw_uid = passwd.pw_uid
-        self.pw_gid = passwd.pw_gid
-        self.pw_gecos = passwd.pw_gecos
-        self.pw_dir = passwd.pw_dir
-        self.pw_shell = passwd.pw_shell
-        tuple.__init__(self, passwd)
+    __metaclass__ = structseqtype
+    name = "pwd.struct_passwd"
+    pw_name = structseqfield(0)
+    pw_passwd = structseqfield(1)
+    pw_uid = structseqfield(2)
+    pw_gid = structseqfield(3)
+    pw_gecos = structseqfield(4)
+    pw_dir = structseqfield(5)
+    pw_shell = structseqfield(6)
 
 passwd_p = POINTER(passwd)
 

@@ -6,9 +6,16 @@ class Node(object):
         content = ["digraph G{"]
         content.extend(self.dot())
         content.append("}")
-        p = py.test.ensuretemp("automaton").join("temp.dot")
+        try:
+            p = py.test.ensuretemp("automaton").join("temp.dot")
+            remove = False
+        except AttributeError: # pytest lacks ensuretemp, make a normal one
+            p = py.path.local.mkdtemp().join('automaton.dot')
+            remove = True
         p.write("\n".join(content))
         graphclient.display_dot_file(str(p))
+        if remove:
+            p.dirpath().remove()
 
 class Symbol(Node):
 

@@ -16,7 +16,7 @@ from pypy.config.translationoption import get_platform
 import py
 log = py.log.Producer("flowgraph")
 py.log.setconsumer("flowgraph", ansi_log)
- 
+
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
@@ -105,7 +105,7 @@ class TranslationContext(object):
             raise ValueError("we already have an rtyper")
         from pypy.rpython.rtyper import RPythonTyper
         self.rtyper = RPythonTyper(self.annotator,
-                                   type_system = type_system)
+                                   type_system=type_system)
         return self.rtyper
 
     def getexceptiontransformer(self):
@@ -150,11 +150,11 @@ class TranslationContext(object):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(self).display()
 
-    def viewcg(self, center_graph=None):
+    def viewcg(self, center_graph=None, huge=100):
         """Shows the whole call graph and the class hierarchy, based on
         the computed annotations."""
         from pypy.translator.tool.graphpage import TranslatorPage
-        TranslatorPage(self, center_graph=center_graph).display()
+        TranslatorPage(self, center_graph=center_graph, huge=huge).display()
 
 
 

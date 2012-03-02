@@ -1,8 +1,8 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CONST_STRING, FILEP, build_type_checkers)
-from pypy.module.cpyext.pyobject import (
-    PyObject)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers)
+from pypy.module.cpyext.pyobject import PyObject, borrow_from
+from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.interpreter.error import OperationError
 from pypy.module._file.interp_file import W_File
 
@@ -62,7 +62,49 @@ def PyFile_SetBufSize(space, w_file, n):
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
-    w_s = space.wrap(rffi.charp2str(s))
-    space.call_method(w_p, "write", w_s)
+    w_str = space.wrap(rffi.charp2str(s))
+    space.call_method(w_p, "write", w_str)
     return 0
+
+@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+def PyFile_WriteObject(space, w_obj, w_p, flags):
+    """
+    Write object obj to file object p.  The only supported flag for flags is
+    Py_PRINT_RAW; if given, the str() of the object is written
+    instead of the repr().  Return 0 on success or -1 on failure; the
+    appropriate exception will be set."""
+    if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
+        w_str = space.str(w_obj)
+    else:
+        w_str = space.repr(w_obj)
+    space.call_method(w_p, "write", w_str)
+    return 0
+
+@cpython_api([PyObject], PyObject)
+def PyFile_Name(space, w_p):
+    """Return the name of the file specified by p as a string object."""
+    return borrow_from(w_p, space.getattr(w_p, space.wrap("name")))
+
+@cpython_api([PyObject, rffi.INT_real], rffi.INT_real, error=CANNOT_FAIL)
+def PyFile_SoftSpace(space, w_p, newflag):
+    """
+    This function exists for internal use by the interpreter.  Set the
+    softspace attribute of p to newflag and return the previous value.
+    p does not have to be a file object for this function to work
+    properly; any object is supported (thought its only interesting if
+    the softspace attribute can be set).  This function clears any
+    errors, and will return 0 as the previous value if the attribute
+    either does not exist or if there were errors in retrieving it.
+    There is no way to detect errors from this function, but doing so
+    should not be needed."""
+    try:
+        if rffi.cast(lltype.Signed, newflag):
+            w_newflag = space.w_True
+        else:
+            w_newflag = space.w_False
+        oldflag = space.int_w(space.getattr(w_p, space.wrap("softspace")))
+        space.setattr(w_p, space.wrap("softspace"), w_newflag)
+        return oldflag
+    except OperationError, e:
+        return 0
 

@@ -1,13 +1,29 @@
+
 import py
 import random
+try:
+    from itertools import product
+except ImportError:
+    # Python 2.5, this is taken from the CPython docs, but simplified.
+    def product(*args):
+        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+        pools = map(tuple, args)
+        result = [[]]
+        for pool in pools:
+            result = [x+[y] for x in result for y in pool]
+        for prod in result:
+            yield tuple(prod)
+
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.jit.codewriter.jtransform import Transformer
-from pypy.jit.metainterp.history import getkind
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rlist
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
+from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
 from pypy.jit.codewriter.flatten import ListOfKind
+from pypy.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
+from pypy.jit.metainterp.history import getkind
 
 def const(x):
     return Constant(x, lltype.typeOf(x))
@@ -22,6 +38,8 @@ class FakeCPU:
         return ('calldescr', FUNC, ARGS, RESULT)
     def fielddescrof(self, STRUCT, name):
         return ('fielddescr', STRUCT, name)
+    def interiorfielddescrof(self, ARRAY, name):
+        return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
     def sizeof(self, STRUCT):
@@ -84,6 +102,12 @@ class FakeCallInfoCollection:
             if i == oopspecindex:
                 return True
         return False
+    def callinfo_for_oopspec(self, oopspecindex):
+        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        class c:
+            class adr:
+                ptr = 1
+        return ('calldescr', c)
 
 class FakeBuiltinCallControl:
     def __init__(self):
@@ -98,10 +122,13 @@ class FakeBuiltinCallControl:
             PUNICODE = lltype.Ptr(rstr.UNICODE)
             INT = lltype.Signed
             UNICHAR = lltype.UniChar
+            FLOAT = lltype.Float
             argtypes = {
+             EI.OS_MATH_SQRT:  ([FLOAT], FLOAT),
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
+             EI.OS_STREQ_NONNULL:  ([PSTR, PSTR], INT),
              EI.OS_UNI_CONCAT: ([PUNICODE, PUNICODE], PUNICODE),
              EI.OS_UNI_SLICE:  ([PUNICODE, INT, INT], PUNICODE),
              EI.OS_UNI_EQUAL:  ([PUNICODE, PUNICODE], lltype.Bool),
@@ -117,9 +144,9 @@ class FakeBuiltinCallControl:
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
-                assert extraeffect == None    # not pure, can raise!
+                assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             else:
-                assert extraeffect == EI.EF_PURE
+                assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -251,26 +278,35 @@ def test_symmetric_int_add_ovf():
             assert op1.result is None
 
 def test_calls():
-    for RESTYPE in [lltype.Signed, rclass.OBJECTPTR,
-                    lltype.Float, lltype.Void]:
-      for with_void in [False, True]:
-        for with_i in [False, True]:
-          for with_r in [False, True]:
-            for with_f in [False, True]:
-              ARGS = []
-              if with_void: ARGS += [lltype.Void, lltype.Void]
-              if with_i: ARGS += [lltype.Signed, lltype.Char]
-              if with_r: ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
-              if with_f: ARGS += [lltype.Float, lltype.Float]
-              random.shuffle(ARGS)
-              if RESTYPE == lltype.Float: with_f = True
-              if with_f: expectedkind = 'irf'   # all kinds
-              elif with_i: expectedkind = 'ir'  # integers and references
-              else: expectedkind = 'r'          # only references
-              yield residual_call_test, ARGS, RESTYPE, expectedkind
-              yield direct_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
+    for RESTYPE, with_void, with_i, with_r, with_f in product(
+        [lltype.Signed, rclass.OBJECTPTR, lltype.Float, lltype.Void],
+        [False, True],
+        [False, True],
+        [False, True],
+        [False, True],
+    ):
+        ARGS = []
+        if with_void:
+            ARGS += [lltype.Void, lltype.Void]
+        if with_i:
+            ARGS += [lltype.Signed, lltype.Char]
+        if with_r:
+            ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
+        if with_f:
+            ARGS += [lltype.Float, lltype.Float]
+        random.shuffle(ARGS)
+        if RESTYPE == lltype.Float:
+            with_f = True
+        if with_f:
+            expectedkind = 'irf'   # all kinds
+        elif with_i:
+            expectedkind = 'ir'  # integers and references
+        else:
+            expectedkind = 'r'          # only references
+        yield residual_call_test, ARGS, RESTYPE, expectedkind
+        yield direct_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
 
 def get_direct_call_op(argtypes, restype):
     FUNC = lltype.FuncType(argtypes, restype)
@@ -504,9 +540,76 @@ def test_malloc_new_with_destructor():
     assert op1.opname == '-live-'
     assert op1.args == []
 
+def test_raw_malloc():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw'}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'raw_malloc_varsize' # pseudo-function as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_malloc_zero():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'raw_malloc_varsize_zero'  # pseudo-fn as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_malloc_unsupported_flag():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'unsupported_flag': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    py.test.raises(UnsupportedMallocFlags, tr.rewrite_operation, op)
+
+def test_raw_malloc_fixedsize():
+    S = lltype.Struct('dummy', ('x', lltype.Signed))
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc', [Constant(S, lltype.Void), flags], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_r_i'
+    assert op0.args[0].value == 'raw_malloc_fixedsize_zero' #pseudo-fn as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
+def test_raw_free():
+    S = lltype.Struct('dummy', ('x', lltype.Signed))
+    for flag in [True, False]:
+        flags = Constant({'flavor': 'raw', 'track_allocation': flag},
+                         lltype.Void)
+        op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
+                            varoftype(lltype.Void))
+        tr = Transformer(FakeCPU(), FakeResidualCallControl())
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == 'residual_call_ir_v'
+        if flag:
+            pseudo_op_name = 'raw_free'
+        else:
+            pseudo_op_name = 'raw_free_no_track_allocation'
+        assert op0.args[0].value == pseudo_op_name   # pseudo-function as a str
+        assert op1.opname == '-live-'
+
 def test_rename_on_links():
     v1 = Variable()
-    v2 = Variable()
+    v2 = Variable(); v2.concretetype = llmemory.Address
     v3 = Variable()
     block = Block([v1])
     block.operations = [SpaceOperation('cast_pointer', [v1], v2)]
@@ -542,10 +645,10 @@ def test_int_eq():
         assert op1.args == [v2]
 
 def test_ptr_eq():
-    v1 = varoftype(rclass.OBJECTPTR)
-    v2 = varoftype(rclass.OBJECTPTR)
+    v1 = varoftype(lltype.Ptr(rstr.STR))
+    v2 = varoftype(lltype.Ptr(rstr.STR))
     v3 = varoftype(lltype.Bool)
-    c0 = const(lltype.nullptr(rclass.OBJECT))
+    c0 = const(lltype.nullptr(rstr.STR))
     #
     for opname, reducedname in [('ptr_eq', 'ptr_iszero'),
                                 ('ptr_ne', 'ptr_nonzero')]:
@@ -563,6 +666,31 @@ def test_ptr_eq():
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
         assert op1.args == [v2]
+
+def test_instance_ptr_eq():
+    v1 = varoftype(rclass.OBJECTPTR)
+    v2 = varoftype(rclass.OBJECTPTR)
+    v3 = varoftype(lltype.Bool)
+    c0 = const(lltype.nullptr(rclass.OBJECT))
+
+    for opname, newopname, reducedname in [
+        ('ptr_eq', 'instance_ptr_eq', 'instance_ptr_iszero'),
+        ('ptr_ne', 'instance_ptr_ne', 'instance_ptr_nonzero')
+    ]:
+        op = SpaceOperation(opname, [v1, v2], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == newopname
+        assert op1.args == [v1, v2]
+
+        op = SpaceOperation(opname, [v1, c0], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == reducedname
+        assert op1.args == [v1]
+
+        op = SpaceOperation(opname, [c0, v1], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == reducedname
+        assert op1.args == [v1]
 
 def test_nongc_ptr_eq():
     v1 = varoftype(rclass.NONGCOBJECTPTR)
@@ -643,6 +771,22 @@ def test_unicode_getinteriorfield():
     assert op1.args == [v, v_index]
     assert op1.result == v_result
 
+def test_dict_getinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(lltype.Ptr(DICT))
+    i = varoftype(lltype.Signed)
+    v_result = varoftype(lltype.Signed)
+    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+                        v_result)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'getinteriorfield_gc_i'
+    assert op1.args == [v, i, ('interiorfielddescr', DICT, 'v')]
+    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+                        Constant(None, lltype.Void))
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1 is None
+
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
     v_index = varoftype(lltype.Signed)
@@ -668,6 +812,23 @@ def test_unicode_setinteriorfield():
     assert op1.opname == 'unicodesetitem'
     assert op1.args == [v, v_index, v_newchr]
     assert op1.result == v_void
+
+def test_dict_setinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(lltype.Ptr(DICT))
+    i = varoftype(lltype.Signed)
+    v_void = varoftype(lltype.Void)
+    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+                                             i],
+                        v_void)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'setinteriorfield_gc_i'
+    assert op1.args == [v, i, i, ('interiorfielddescr', DICT, 'v')]
+    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+                                             v_void], v_void)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert not op1
 
 def test_promote_1():
     v1 = varoftype(lltype.Signed)
@@ -766,7 +927,7 @@ def test_getfield_gc_greenfield():
         def get_vinfo(self, v):
             return None
         def could_be_green_field(self, S1, name1):
-            assert S1 is S
+            assert S1 == S
             assert name1 == 'x'
             return True
     S = lltype.GcStruct('S', ('x', lltype.Char),
@@ -817,6 +978,21 @@ def test_str_concat():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_CONCAT
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.result == v3
+
+def test_str_promote():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    op = SpaceOperation('hint',
+                        [v1, Constant({'promote_string': True}, lltype.Void)],
+                        v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op1.opname == 'str_guard_value'
+    assert op1.args[0] == v1
+    assert op1.args[2] == 'calldescr'
+    assert op1.result == v2
+    assert op0.opname == '-live-'
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed
@@ -947,3 +1123,98 @@ def test_list_ll_arraycopy():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_ARRAYCOPY
     assert op1.args[2] == ListOfKind('int', [v3, v4, v5])
     assert op1.args[3] == ListOfKind('ref', [v1, v2])
+
+def test_math_sqrt():
+    # test that the oopspec is present and correctly transformed
+    FLOAT = lltype.Float
+    FUNC = lltype.FuncType([FLOAT], FLOAT)
+    func = lltype.functionptr(FUNC, 'll_math',
+                              _callable=ll_math.sqrt_nonneg)
+    v1 = varoftype(FLOAT)
+    v2 = varoftype(FLOAT)
+    op = SpaceOperation('direct_call', [const(func), v1], v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_irf_f'
+    assert op1.args[0].value == func
+    assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MATH_SQRT
+    assert op1.args[2] == ListOfKind("int", [])
+    assert op1.args[3] == ListOfKind("ref", [])
+    assert op1.args[4] == ListOfKind('float', [v1])
+    assert op1.result == v2
+
+def test_quasi_immutable():
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+    accessor = FieldListAccessor()
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
+    v2 = varoftype(lltype.Signed)
+    STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
+                             ('mutate_x', rclass.OBJECTPTR),
+                             hints={'immutable_fields': accessor})
+    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+        op = SpaceOperation('getfield', [v_x, Constant('inst_x', lltype.Void)],
+                            v2)
+        tr = Transformer(FakeCPU())
+        [_, op1, op2] = tr.rewrite_operation(op)
+        assert op1.opname == 'record_quasiimmut_field'
+        assert len(op1.args) == 3
+        assert op1.args[0] == v_x
+        assert op1.args[1] == ('fielddescr', STRUCT, 'inst_x')
+        assert op1.args[2] == ('fielddescr', STRUCT, 'mutate_x')
+        assert op1.result is None
+        assert op2.opname == 'getfield_gc_i'
+        assert len(op2.args) == 2
+        assert op2.args[0] == v_x
+        assert op2.args[1] == ('fielddescr', STRUCT, 'inst_x')
+        assert op2.result is op.result
+
+def test_quasi_immutable_setfield():
+    from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
+    accessor = FieldListAccessor()
+    accessor.initialize(None, {'inst_x': IR_QUASIIMMUTABLE})
+    v1 = varoftype(lltype.Signed)
+    STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
+                             ('mutate_x', rclass.OBJECTPTR),
+                             hints={'immutable_fields': accessor})
+    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+        op = SpaceOperation('jit_force_quasi_immutable',
+                            [v_x, Constant('mutate_x', lltype.Void)],
+                            varoftype(lltype.Void))
+        tr = Transformer(FakeCPU(), FakeRegularCallControl())
+        tr.graph = 'currentgraph'
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == '-live-'
+        assert op1.opname == 'jit_force_quasi_immutable'
+        assert op1.args[0] == v_x
+        assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')
+
+def test_no_gcstruct_nesting_outside_of_OBJECT():
+    PARENT = lltype.GcStruct('parent')
+    STRUCT = lltype.GcStruct('struct', ('parent', PARENT),
+                                       ('x', lltype.Signed))
+    v_x = varoftype(lltype.Ptr(STRUCT))
+    op = SpaceOperation('getfield', [v_x, Constant('x', lltype.Void)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    raises(NotImplementedError, tr.rewrite_operation, op)
+
+def test_cast_opaque_ptr():
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Ptr(rclass.OBJECT))
+
+    op = SpaceOperation('cast_opaque_ptr', [v1], v2)
+    tr = Transformer()
+    [op1, op2] = tr.rewrite_operation(op)
+    assert op1.opname == 'mark_opaque_ptr'
+    assert op1.args == [v1]
+    assert op1.result is None
+    assert op2 is None
+
+def test_unknown_operation():
+    op = SpaceOperation('foobar', [], varoftype(lltype.Void))
+    tr = Transformer()
+    try:
+        tr.rewrite_operation(op)
+    except Exception, e:
+        assert 'foobar' in str(e)

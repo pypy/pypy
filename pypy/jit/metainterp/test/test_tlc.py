@@ -3,7 +3,7 @@ from pypy.rpython.module.support import LLSupport
 
 from pypy.jit.tl import tlc
 
-from pypy.jit.metainterp.test.test_basic import OOJitMixin, LLJitMixin
+from pypy.jit.metainterp.test.support import OOJitMixin, LLJitMixin
 
 
 class TLCTests:

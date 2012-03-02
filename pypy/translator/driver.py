@@ -184,6 +184,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.standalone = standalone
 
         if standalone:
+            # the 'argv' parameter
             inputtypes = [s_list_of_strings]
         self.inputtypes = inputtypes
 
@@ -330,6 +331,7 @@ class TranslationDriver(SimpleTaskEngine):
             raise Exception("stand-alone program entry point must return an "
                             "int (and not, e.g., None or always raise an "
                             "exception).")
+        annotator.complete()
         annotator.simplify()
         return s
 
@@ -500,7 +502,6 @@ class TranslationDriver(SimpleTaskEngine):
             cbuilder = CBuilder(self.translator, self.entry_point,
                                 config=self.config,
                                 secondary_entrypoints=self.secondary_entrypoints)
-            cbuilder.stackless = self.config.translation.stackless
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()
@@ -558,7 +559,11 @@ class TranslationDriver(SimpleTaskEngine):
                 newsoname = newexename.new(basename=soname.basename)
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
+                if sys.platform == 'win32':
+                    shutil.copyfile(str(soname.new(ext='lib')),
+                                    str(newsoname.new(ext='lib')))
             self.c_entryp = newexename
+        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     def task_compile_c(self):

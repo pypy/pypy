@@ -9,11 +9,16 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
     X86_CodeBuilder = rx86.X86_64_CodeBuilder
     REGNAMES = ['%rax', '%rcx', '%rdx', '%rbx', '%rsp', '%rbp', '%rsi', '%rdi',
                 '%r8', '%r9', '%r10', '%r11', '%r12', '%r13', '%r14', '%r15']
+    REGNAMES8 = ['%al', '%cl', '%dl', '%bl', '%spl', '%bpl', '%sil', '%dil',
+                '%r8b', '%r9b', '%r10b', '%r11b',
+                 '%r12b', '%r13b', '%r14b', '%r15b']
     REGS = range(16)
+    REGS8 = [i|rx86.BYTE_REG_FLAG for i in range(16)]
     NONSPECREGS = [rx86.R.eax, rx86.R.ecx, rx86.R.edx, rx86.R.ebx,
                    rx86.R.esi, rx86.R.edi,
                    rx86.R.r8,  rx86.R.r9,  rx86.R.r10, rx86.R.r11,
                    rx86.R.r12, rx86.R.r13, rx86.R.r14, rx86.R.r15]
+    accept_unnecessary_prefix = '\x40'
 
     def should_skip_instruction(self, instrname, argmodes):
         return (

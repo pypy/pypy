@@ -32,7 +32,8 @@ class AddressOffset(Symbolic):
             self.known_nonneg()):
             return True
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __lt__(self, other):
         return not self.__ge__(other)
@@ -498,6 +499,8 @@ class fakeaddress(object):
 
     def _cast_to_int(self, symbolic=False):
         if self:
+            if isinstance(self.ptr._obj0, int):    # tagged integer
+                return self.ptr._obj0
             if symbolic:
                 return AddressAsInt(self)
             else:

@@ -3,6 +3,7 @@ import py
 import os, time, sys
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_longlong
+from pypy.annotation import model as annmodel
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.test.test_standalone import StandaloneTests
 posix = __import__(os.name)
@@ -145,7 +146,7 @@ def test_os_access():
     filename = str(py.path.local(__file__))
     def call_access(path, mode):
         return os.access(path, mode)
-    f = compile(call_access, [str, int])
+    f = compile(call_access, [annmodel.s_Str0, int])
     for mode in os.R_OK, os.W_OK, os.X_OK, (os.R_OK | os.W_OK | os.X_OK):
         assert f(filename, mode) == os.access(filename, mode)
 
@@ -225,7 +226,7 @@ def test_getcwd():
 def test_system():
     def does_stuff(cmd):
         return os.system(cmd)
-    f1 = compile(does_stuff, [str])
+    f1 = compile(does_stuff, [annmodel.s_Str0])
     res = f1("echo hello")
     assert res == 0
 
@@ -311,7 +312,7 @@ def test_os_unlink():
 def test_chdir():
     def does_stuff(path):
         os.chdir(path)
-    f1 = compile(does_stuff, [str])
+    f1 = compile(does_stuff, [annmodel.s_Str0])
     curdir = os.getcwd()
     try:
         os.chdir('..')
@@ -325,7 +326,7 @@ def test_mkdir_rmdir():
             os.rmdir(path)
         else:
             os.mkdir(path, 0777)
-    f1 = compile(does_stuff, [str, bool])
+    f1 = compile(does_stuff, [annmodel.s_Str0, bool])
     dirname = str(udir.join('test_mkdir_rmdir'))
     f1(dirname, False)
     assert os.path.exists(dirname) and os.path.isdir(dirname)
@@ -595,6 +596,18 @@ if hasattr(os, 'chown') and hasattr(os, 'lchown'):
         f1 = compile(does_stuff, [])
         f1()
 
+if hasattr(os, 'getlogin'):
+    def test_os_getlogin():
+        def does_stuff():
+            return os.getlogin()
+
+        try:
+            expected = os.getlogin()
+        except OSError, e:
+            py.test.skip("the underlying os.getlogin() failed: %s" % e)
+        f1 = compile(does_stuff, [])
+        assert f1() == expected
+
 # ____________________________________________________________
 
 def _real_getenv(var):
@@ -616,7 +629,7 @@ def test_dictlike_environ_getitem():
             return os.environ[s]
         except KeyError:
             return '--missing--'
-    func = compile(fn, [str])
+    func = compile(fn, [annmodel.s_Str0])
     os.environ.setdefault('USER', 'UNNAMED_USER')
     result = func('USER')
     assert result == os.environ['USER']
@@ -628,7 +641,7 @@ def test_dictlike_environ_get():
         res = os.environ.get(s)
         if res is None: res = '--missing--'
         return res
-    func = compile(fn, [str])
+    func = compile(fn, [annmodel.s_Str0])
     os.environ.setdefault('USER', 'UNNAMED_USER')
     result = func('USER')
     assert result == os.environ['USER']
@@ -642,7 +655,7 @@ def test_dictlike_environ_setitem():
         os.environ[s] = t3
         os.environ[s] = t4
         os.environ[s] = t5
-    func = compile(fn, [str, str, str, str, str, str])
+    func = compile(fn, [annmodel.s_Str0] * 6)
     func('PYPY_TEST_DICTLIKE_ENVIRON', 'a', 'b', 'c', 'FOOBAR', '42',
          expected_extra_mallocs = (2, 3, 4))   # at least two, less than 5
     assert _real_getenv('PYPY_TEST_DICTLIKE_ENVIRON') == '42'
@@ -666,7 +679,7 @@ def test_dictlike_environ_delitem():
             else:
                 raise Exception("should have raised!")
             # os.environ[s5] stays
-    func = compile(fn, [str, str, str, str, str])
+    func = compile(fn, [annmodel.s_Str0] * 5)
     if hasattr(__import__(os.name), 'unsetenv'):
         expected_extra_mallocs = range(2, 10)
         # at least 2, less than 10: memory for s1, s2, s3, s4 should be freed
@@ -731,7 +744,7 @@ def test_listdir():
             raise AssertionError("should have failed!")
         result = os.listdir(s)
         return '/'.join(result)
-    func = compile(mylistdir, [str])
+    func = compile(mylistdir, [annmodel.s_Str0])
     for testdir in [str(udir), os.curdir]:
         result = func(testdir)
         result = result.split('/')
@@ -805,6 +818,24 @@ if hasattr(posix, 'spawnv'):
         func = compile(does_stuff, [])
         func()
         assert open(filename).read() == "2"
+
+if hasattr(posix, 'spawnve'):
+    def test_spawnve():
+        filename = str(udir.join('test_spawnve.txt'))
+        progname = str(sys.executable)
+        scriptpath = udir.join('test_spawnve.py')
+        scriptpath.write('import os\n' +
+                         'f=open(%r,"w")\n' % filename +
+                         'f.write(os.environ["FOOBAR"])\n' +
+                         'f.close\n')
+        scriptname = str(scriptpath)
+        def does_stuff():
+            l = [progname, scriptname]
+            pid = os.spawnve(os.P_NOWAIT, progname, l, {'FOOBAR': '42'})
+            os.waitpid(pid, 0)
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "42"
 
 def test_utime():
     path = str(udir.ensure("test_utime.txt"))

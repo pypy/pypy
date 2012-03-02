@@ -37,7 +37,7 @@ def test_numeric_formatting():
     assert isinstance(grouping, str)
 
 def test_libintl():
-    if sys.platform not in ("linux2", "darwin"):
+    if sys.platform != "darwin" or not sys.platform.startswith("linux"):
         py.test.skip("there is (maybe) no libintl here")
     _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
     res = _gettext("1234")

@@ -300,6 +300,11 @@ class AppTestLong:
 
         assert type(L(7).conjugate()) is long
 
+        class L(long):
+            def __pos__(self):
+                return 43
+        assert L(7).conjugate() == 7L
+
     def test_bit_length(self):
         assert 8L.bit_length() == 4
         assert (-1<<40).bit_length() == 41
@@ -323,3 +328,7 @@ class AppTestLong:
         assert type(as_long) is long
         assert as_long == 64
 
+    def test_long_real(self):
+        class A(long): pass
+        b = A(5).real
+        assert type(b) is long

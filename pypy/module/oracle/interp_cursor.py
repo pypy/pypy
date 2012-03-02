@@ -459,7 +459,7 @@ class W_Cursor(Wrappable):
                 self.environment.checkForError(
                     status,
                     "Cursor_ItemDescription(): name")
-                name = rffi.charpsize2str(nameptr[0], lenptr[0])
+                name = rffi.charpsize2str(nameptr[0], rffi.cast(lltype.Signed, lenptr[0]))
             finally:
                 lltype.free(nameptr, flavor='raw')
                 lltype.free(lenptr, flavor='raw')

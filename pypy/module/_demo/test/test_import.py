@@ -26,3 +26,5 @@ class TestImport:
         w_demo = space.call(w_import,
                             space.newlist([space.wrap('_demo')]))
         assert _demo.Module.demo_events == ['setup', 'startup']
+
+        assert space.getattr(w_demo, space.wrap('measuretime'))

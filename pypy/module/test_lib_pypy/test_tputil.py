@@ -28,9 +28,9 @@ class AppTest_make_proxy:
         from tputil import make_proxy 
         l = []
         tp = make_proxy(l.append, type=list)
-        x = len(tp)
+        x = tp[0:1]
         assert len(l) == 1
-        assert l[0].opname == '__len__'
+        assert l[0].opname == '__getslice__'
        
     def test_simple(self):
         from tputil import make_proxy 

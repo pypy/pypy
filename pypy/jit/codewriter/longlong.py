@@ -7,7 +7,8 @@ converting them back and forth.
 """
 
 import sys
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib import rarithmetic, longlong2float
 
 
 if sys.maxint > 2147483647:
@@ -16,6 +17,7 @@ if sys.maxint > 2147483647:
 
     from pypy.rlib.objectmodel import compute_hash
 
+    is_64_bit = True
     supports_longlong = False
     r_float_storage = float
     FLOATSTORAGE = lltype.Float
@@ -30,8 +32,7 @@ else:
     # ---------- 32-bit platform ----------
     # the type FloatStorage is r_longlong, and conversion is needed
 
-    from pypy.rlib import rarithmetic, longlong2float
-
+    is_64_bit = False
     supports_longlong = True
     r_float_storage = rarithmetic.r_longlong
     FLOATSTORAGE = lltype.SignedLongLong
@@ -39,9 +40,19 @@ else:
     getfloatstorage = longlong2float.float2longlong
     getrealfloat    = longlong2float.longlong2float
     gethash         = lambda xll: rarithmetic.intmask(xll - (xll >> 32))
-    is_longlong     = lambda TYPE: (TYPE == lltype.SignedLongLong or
-                                    TYPE == lltype.UnsignedLongLong)
+    is_longlong     = lambda TYPE: (TYPE is lltype.SignedLongLong or
+                                    TYPE is lltype.UnsignedLongLong)
 
     # -------------------------------------
 
 ZEROF = getfloatstorage(0.0)
+
+# ____________________________________________________________
+
+def int2singlefloat(x):
+    x = rffi.r_uint(x)
+    return longlong2float.uint2singlefloat(x)
+
+def singlefloat2int(x):
+    x = longlong2float.singlefloat2uint(x)
+    return rffi.cast(lltype.Signed, x)

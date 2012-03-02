@@ -84,7 +84,8 @@ def ansi_print(text, esc, file=None, newline=True, flush=False):
         while len(text) > 32768:
             file.write(text[:32768])
             text = text[32768:]
-        file.write(text)
+        if text:
+            file.write(text)
         SetConsoleTextAttribute(handle, oldcolors)
     else:
         file.write(text)
@@ -270,16 +271,24 @@ if win32_and_ctypes:
                     ('srWindow', SMALL_RECT),
                     ('dwMaximumWindowSize', COORD)]
 
+    _GetStdHandle = ctypes.windll.kernel32.GetStdHandle
+    _GetStdHandle.argtypes = [wintypes.DWORD]
+    _GetStdHandle.restype = wintypes.HANDLE
     def GetStdHandle(kind):
-        return ctypes.windll.kernel32.GetStdHandle(kind)
+        return _GetStdHandle(kind)
 
-    SetConsoleTextAttribute = \
-        ctypes.windll.kernel32.SetConsoleTextAttribute
-
+    SetConsoleTextAttribute = ctypes.windll.kernel32.SetConsoleTextAttribute
+    SetConsoleTextAttribute.argtypes = [wintypes.HANDLE, wintypes.WORD]
+    SetConsoleTextAttribute.restype = wintypes.BOOL
+        
+    _GetConsoleScreenBufferInfo = \
+        ctypes.windll.kernel32.GetConsoleScreenBufferInfo
+    _GetConsoleScreenBufferInfo.argtypes = [wintypes.HANDLE, 
+                                ctypes.POINTER(CONSOLE_SCREEN_BUFFER_INFO)]
+    _GetConsoleScreenBufferInfo.restype = wintypes.BOOL
     def GetConsoleInfo(handle):
         info = CONSOLE_SCREEN_BUFFER_INFO()
-        ctypes.windll.kernel32.GetConsoleScreenBufferInfo(\
-            handle, ctypes.byref(info))
+        _GetConsoleScreenBufferInfo(handle, ctypes.byref(info))
         return info
 
     def _getdimensions():

@@ -63,14 +63,34 @@ class TestObjSpace:
     def test_unpackiterable(self):
         space = self.space
         w = space.wrap
-        l = [w(1), w(2), w(3), w(4)]
+        l = [space.newlist([]) for l in range(4)]
         w_l = space.newlist(l)
-        assert space.unpackiterable(w_l) == l
-        assert space.unpackiterable(w_l, 4) == l
+        l1 = space.unpackiterable(w_l)
+        l2 = space.unpackiterable(w_l, 4)
+        for i in range(4):
+            assert space.is_w(l1[i], l[i])
+            assert space.is_w(l2[i], l[i])
         err = raises(OperationError, space.unpackiterable, w_l, 3)
         assert err.value.match(space, space.w_ValueError)
         err = raises(OperationError, space.unpackiterable, w_l, 5)
         assert err.value.match(space, space.w_ValueError)
+        w_a = space.appexec((), """():
+        class A(object):
+            def __iter__(self):
+                return self
+            def next(self):
+                raise StopIteration
+            def __len__(self):
+                1/0
+        return A()
+        """)
+        try:
+            space.unpackiterable(w_a)
+        except OperationError, o:
+            if not o.match(space, space.w_ZeroDivisionError):
+                raise Exception("DID NOT RAISE")
+        else:
+            raise Exception("DID NOT RAISE")
 
     def test_fixedview(self):
         space = self.space
@@ -157,6 +177,14 @@ class TestObjSpace:
         self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(None))
         res = self.space.interp_w(Function, w(None), can_be_None=True)
         assert res is None
+
+    def test_str0_w(self):
+        space = self.space
+        w = space.wrap
+        assert space.str0_w(w("123")) == "123"
+        exc = space.raises_w(space.w_TypeError, space.str0_w, w("123\x004"))
+        assert space.unicode0_w(w(u"123")) == u"123"
+        exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
 
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():
@@ -294,3 +322,14 @@ class TestModuleMinimal:
             space.ALL_BUILTIN_MODULES.pop()
             del space._builtinmodule_list
             mods = space.get_builtinmodule_to_install()
+
+    def test_dont_reload_builtin_mods_on_startup(self):
+        from pypy.tool.option import make_config, make_objspace
+        config = make_config(None)
+        space = make_objspace(config)
+        w_executable = space.wrap('executable')
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        space.setattr(space.sys, w_executable, space.wrap('foobar'))
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        space.startup()
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'

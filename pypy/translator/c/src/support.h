@@ -11,6 +11,7 @@
 #endif /* MIN */
 
 #define RUNNING_ON_LLINTERP	0
+#define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_EXCEPTION(exc, msg) \
 	{ \
@@ -103,7 +104,7 @@ void RPyAbort(void) {
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 
 /* prototypes */
 

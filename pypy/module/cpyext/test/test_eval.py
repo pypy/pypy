@@ -2,9 +2,10 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.eval import (
-    Py_single_input, Py_file_input, Py_eval_input)
+    Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags)
 from pypy.module.cpyext.api import fopen, fclose, fileno, Py_ssize_tP
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.astcompiler import consts
 from pypy.tool.udir import udir
 import sys, os
 
@@ -63,6 +64,22 @@ class TestEval(BaseApiTest):
 
         assert space.int_w(w_res) == 10
 
+    def test_evalcode(self, space, api):
+        w_f = space.appexec([], """():
+            def f(*args):
+                assert isinstance(args, tuple)
+                return len(args) + 8
+            return f
+            """)
+
+        w_t = space.newtuple([space.wrap(1), space.wrap(2)])
+        w_globals = space.newdict()
+        w_locals = space.newdict()
+        space.setitem(w_locals, space.wrap("args"), w_t)
+        w_res = api.PyEval_EvalCode(w_f.code, w_globals, w_locals)
+
+        assert space.int_w(w_res) == 10
+
     def test_run_simple_string(self, space, api):
         def run(code):
             buf = rffi.str2charp(code)
@@ -95,6 +112,20 @@ class TestEval(BaseApiTest):
                    w_globals, w_globals) == space.w_None
         assert 42 * 43 == space.unwrap(
             api.PyObject_GetItem(w_globals, space.wrap("a")))
+
+    def test_run_string_flags(self, space, api):
+        flags = lltype.malloc(PyCompilerFlags, flavor='raw')
+        flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
+        w_globals = space.newdict()
+        buf = rffi.str2charp("a = u'caf\xc3\xa9'")
+        try:
+            api.PyRun_StringFlags(buf, Py_single_input,
+                                  w_globals, w_globals, flags)
+        finally:
+            rffi.free_charp(buf)
+        w_a = space.getitem(w_globals, space.wrap("a"))
+        assert space.unwrap(w_a) == u'caf\xe9'
+        lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space, api):
         filepath = udir / "cpyext_test_runfile.py"
@@ -166,6 +197,15 @@ class TestEval(BaseApiTest):
 
         lltype.free(pi, flavor='raw')
 
+    def test_atexit(self, space, api):
+        lst = []
+        def func():
+            lst.append(42)
+        api.Py_AtExit(func)
+        cpyext = space.getbuiltinmodule('cpyext')
+        cpyext.shutdown(space) # simulate shutdown
+        assert lst == [42]
+
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_CallFunction(self):
         module = self.import_extension('foo', [
@@ -184,3 +224,84 @@ class AppTestCall(AppTestCpythonExtensionBase):
             return args
         assert module.call_func(f) == ("text", 42, None)
         assert module.call_method("text") == 2
+
+    def test_CallFunctionObjArgs(self):
+        module = self.import_extension('foo', [
+            ("call_func", "METH_VARARGS",
+             """
+                PyObject *t = PyString_FromString("t");
+                PyObject *res = PyObject_CallFunctionObjArgs(
+                   PyTuple_GetItem(args, 0),
+                   Py_None, NULL);
+                Py_DECREF(t);
+                return res;
+             """),
+            ("call_method", "METH_VARARGS",
+             """
+                PyObject *t = PyString_FromString("t");
+                PyObject *count = PyString_FromString("count");
+                PyObject *res = PyObject_CallMethodObjArgs(
+                   PyTuple_GetItem(args, 0),
+                   count, t, NULL);
+                Py_DECREF(t);
+                Py_DECREF(count);
+                return res;
+             """),
+            ])
+        def f(*args):
+            return args
+        assert module.call_func(f) == (None,)
+        assert module.call_method("text") == 2
+
+    def test_CompileString_and_Exec(self):
+        module = self.import_extension('foo', [
+            ("compile_string", "METH_NOARGS",
+             """
+                return Py_CompileString(
+                   "f = lambda x: x+5", "someFile", Py_file_input);
+             """),
+            ("exec_code", "METH_O",
+             """
+                return PyImport_ExecCodeModule("cpyext_test_modname", args);
+             """),
+            ("exec_code_ex", "METH_O",
+             """
+                return PyImport_ExecCodeModuleEx("cpyext_test_modname",
+                                                 args, "otherFile");
+             """),
+            ])
+        code = module.compile_string()
+        assert code.co_filename == "someFile"
+        assert code.co_name == "<module>"
+
+        mod = module.exec_code(code)
+        assert mod.__name__ == "cpyext_test_modname"
+        assert mod.__file__ == "someFile"
+        print dir(mod)
+        print mod.__dict__
+        assert mod.f(42) == 47
+
+        mod = module.exec_code_ex(code)
+        assert mod.__name__ == "cpyext_test_modname"
+        assert mod.__file__ == "otherFile"
+        print dir(mod)
+        print mod.__dict__
+        assert mod.f(42) == 47
+
+    def test_merge_compiler_flags(self):
+        module = self.import_extension('foo', [
+            ("get_flags", "METH_NOARGS",
+             """
+                PyCompilerFlags flags;
+                flags.cf_flags = 0;
+                int result = PyEval_MergeCompilerFlags(&flags);
+                return Py_BuildValue("ii", result, flags.cf_flags);
+             """),
+            ])
+        assert module.get_flags() == (0, 0)
+
+        ns = {'module':module}
+        exec """from __future__ import division    \nif 1:
+                def nested_flags():
+                    return module.get_flags()""" in ns
+        assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION

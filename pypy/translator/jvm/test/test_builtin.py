@@ -37,6 +37,15 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
     def test_cast_primitive(self):
         py.test.skip('fixme!')
 
+    def test_os_fstat(self):
+        import os, stat
+        def fn():
+            fd = os.open(__file__, os.O_RDONLY, 0)
+            st = os.fstat(fd)
+            os.close(fd)
+            return st.st_mode
+        res = self.interpret(fn, [])
+        assert stat.S_ISREG(res)
 
 class TestJvmTime(JvmTest, BaseTestTime):
 

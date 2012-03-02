@@ -46,13 +46,13 @@
  *     of return type *Bigint all return NULL to indicate a malloc failure.
  *     Similarly, rv_alloc and nrv_alloc (return type char *) return NULL on
  *     failure.  bigcomp now has return type int (it used to be void) and
- *     returns -1 on failure and 0 otherwise.  _Py_dg_dtoa returns NULL
- *     on failure.  _Py_dg_strtod indicates failure due to malloc failure
+ *     returns -1 on failure and 0 otherwise.  __Py_dg_dtoa returns NULL
+ *     on failure.  __Py_dg_strtod indicates failure due to malloc failure
  *     by returning -1.0, setting errno=ENOMEM and *se to s00.
  *
  *  4. The static variable dtoa_result has been removed.  Callers of
- *     _Py_dg_dtoa are expected to call _Py_dg_freedtoa to free
- *     the memory allocated by _Py_dg_dtoa.
+ *     __Py_dg_dtoa are expected to call __Py_dg_freedtoa to free
+ *     the memory allocated by __Py_dg_dtoa.
  *
  *  5. The code has been reformatted to better fit with Python's
  *     C style guide (PEP 7).
@@ -61,7 +61,7 @@
  *     that hasn't been MALLOC'ed, private_mem should only be used when k <=
  *     Kmax.
  *
- *  7. _Py_dg_strtod has been modified so that it doesn't accept strings with
+ *  7. __Py_dg_strtod has been modified so that it doesn't accept strings with
  *     leading whitespace.
  *
  ***************************************************************/
@@ -283,7 +283,7 @@ typedef union { double d; ULong L[2]; } U;
 #define Big0 (Frac_mask1 | Exp_msk1*(DBL_MAX_EXP+Bias-1))
 #define Big1 0xffffffff
 
-/* struct BCinfo is used to pass information from _Py_dg_strtod to bigcomp */
+/* struct BCinfo is used to pass information from __Py_dg_strtod to bigcomp */
 
 typedef struct BCinfo BCinfo;
 struct
@@ -494,7 +494,7 @@ multadd(Bigint *b, int m, int a)       /* multiply by m and add a */
 
 /* convert a string s containing nd decimal digits (possibly containing a
    decimal separator at position nd0, which is ignored) to a Bigint.  This
-   function carries on where the parsing code in _Py_dg_strtod leaves off: on
+   function carries on where the parsing code in __Py_dg_strtod leaves off: on
    entry, y9 contains the result of converting the first 9 digits.  Returns
    NULL on failure. */
 
@@ -1050,7 +1050,7 @@ b2d(Bigint *a, int *e)
 }
 
 /* Convert a scaled double to a Bigint plus an exponent.  Similar to d2b,
-   except that it accepts the scale parameter used in _Py_dg_strtod (which
+   except that it accepts the scale parameter used in __Py_dg_strtod (which
    should be either 0 or 2*P), and the normalization for the return value is
    different (see below).  On input, d should be finite and nonnegative, and d
    / 2**scale should be exactly representable as an IEEE 754 double.
@@ -1351,9 +1351,9 @@ sulp(U *x, BCinfo *bc)
 /* The bigcomp function handles some hard cases for strtod, for inputs
    with more than STRTOD_DIGLIM digits.  It's called once an initial
    estimate for the double corresponding to the input string has
-   already been obtained by the code in _Py_dg_strtod.
+   already been obtained by the code in __Py_dg_strtod.
 
-   The bigcomp function is only called after _Py_dg_strtod has found a
+   The bigcomp function is only called after __Py_dg_strtod has found a
    double value rv such that either rv or rv + 1ulp represents the
    correctly rounded value corresponding to the original string.  It
    determines which of these two values is the correct one by
@@ -1368,12 +1368,12 @@ sulp(U *x, BCinfo *bc)
      s0 points to the first significant digit of the input string.
 
      rv is a (possibly scaled) estimate for the closest double value to the
-        value represented by the original input to _Py_dg_strtod.  If
+        value represented by the original input to __Py_dg_strtod.  If
         bc->scale is nonzero, then rv/2^(bc->scale) is the approximation to
         the input value.
 
      bc is a struct containing information gathered during the parsing and
-        estimation steps of _Py_dg_strtod.  Description of fields follows:
+        estimation steps of __Py_dg_strtod.  Description of fields follows:
 
         bc->e0 gives the exponent of the input value, such that dv = (integer
            given by the bd->nd digits of s0) * 10**e0
@@ -1505,7 +1505,7 @@ bigcomp(U *rv, const char *s0, BCinfo *bc)
 }
 
 static double
-_Py_dg_strtod(const char *s00, char **se)
+__Py_dg_strtod(const char *s00, char **se)
 {
     int bb2, bb5, bbe, bd2, bd5, bs2, c, dsign, e, e1, error;
     int esign, i, j, k, lz, nd, nd0, odd, sign;
@@ -1849,7 +1849,7 @@ _Py_dg_strtod(const char *s00, char **se)
 
     for(;;) {
 
-        /* This is the main correction loop for _Py_dg_strtod.
+        /* This is the main correction loop for __Py_dg_strtod.
 
            We've got a decimal value tdv, and a floating-point approximation
            srv=rv/2^bc.scale to tdv.  The aim is to determine whether srv is
@@ -2283,7 +2283,7 @@ nrv_alloc(char *s, char **rve, int n)
  */
 
 static void
-_Py_dg_freedtoa(char *s)
+__Py_dg_freedtoa(char *s)
 {
     Bigint *b = (Bigint *)((int *)s - 1);
     b->maxwds = 1 << (b->k = *(int*)b);
@@ -2325,11 +2325,11 @@ _Py_dg_freedtoa(char *s)
  */
 
 /* Additional notes (METD): (1) returns NULL on failure.  (2) to avoid memory
-   leakage, a successful call to _Py_dg_dtoa should always be matched by a
-   call to _Py_dg_freedtoa. */
+   leakage, a successful call to __Py_dg_dtoa should always be matched by a
+   call to __Py_dg_freedtoa. */
 
 static char *
-_Py_dg_dtoa(double dd, int mode, int ndigits,
+__Py_dg_dtoa(double dd, int mode, int ndigits,
             int *decpt, int *sign, char **rve)
 {
     /*  Arguments ndigits, decpt, sign are similar to those
@@ -2926,7 +2926,7 @@ _Py_dg_dtoa(double dd, int mode, int ndigits,
     if (b)
         Bfree(b);
     if (s0)
-        _Py_dg_freedtoa(s0);
+        __Py_dg_freedtoa(s0);
     return NULL;
 }
 
@@ -2947,7 +2947,7 @@ double _PyPy_dg_strtod(const char *s00, char **se)
     _PyPy_SET_53BIT_PRECISION_HEADER;
 
     _PyPy_SET_53BIT_PRECISION_START;
-    result = _Py_dg_strtod(s00, se);
+    result = __Py_dg_strtod(s00, se);
     _PyPy_SET_53BIT_PRECISION_END;
     return result;
 }
@@ -2959,14 +2959,14 @@ char * _PyPy_dg_dtoa(double dd, int mode, int ndigits,
     _PyPy_SET_53BIT_PRECISION_HEADER;
 
     _PyPy_SET_53BIT_PRECISION_START;
-    result = _Py_dg_dtoa(dd, mode, ndigits, decpt, sign, rve);
+    result = __Py_dg_dtoa(dd, mode, ndigits, decpt, sign, rve);
     _PyPy_SET_53BIT_PRECISION_END;
     return result;
 }
 
 void _PyPy_dg_freedtoa(char *s)
 {
-    _Py_dg_freedtoa(s);
+    __Py_dg_freedtoa(s);
 }
 /* End PYPY hacks */
 

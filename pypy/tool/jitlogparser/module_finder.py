@@ -6,7 +6,7 @@ def _all_codes_from(code):
     more = [code]
     while more:
         next = more.pop()
-        res[next.co_firstlineno] = next
+        res[(next.co_firstlineno, next.co_name)] = next
         more += [co for co in next.co_consts
                  if isinstance(co, types.CodeType)]
     return res

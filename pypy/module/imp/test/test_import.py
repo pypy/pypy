@@ -37,6 +37,9 @@ def setup_directory_structure(space):
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
+                    del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
+                    itertools = "hello_world = 42\n",
+                    gc = "should_never_be_seen = 42\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
@@ -53,10 +56,13 @@ def setup_directory_structure(space):
              relative_f = "from .imp import get_magic",
              relative_g = "import imp; from .imp import get_magic",
              )
-    setuppkg("pkg.pkg1", 
+    setuppkg("pkg.pkg1",
+             __init__   = 'from . import a',
              a          = '',
              relative_d = "from __future__ import absolute_import\nfrom ..string import inpackage",
              relative_e = "from __future__ import absolute_import\nfrom .. import string",
+             relative_g = "from .. import pkg1\nfrom ..pkg1 import b",
+             b          = "insubpackage = 1",
              )
     setuppkg("pkg.pkg2", a='', b='')
     setuppkg("pkg_r", inpkg = "import x.y")
@@ -143,6 +149,8 @@ def _teardown(space, w_saved_modules):
 class AppTestImport:
 
     def setup_class(cls): # interpreter-level
+        cls.space = gettestobjspace(usemodules=['itertools'])
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
@@ -349,7 +357,7 @@ class AppTestImport:
 
     def test_cannot_write_pyc(self):
         import sys, os
-        p = os.path.join(sys.path[-1], 'readonly')
+        p = os.path.join(sys.path[0], 'readonly')
         try:
             os.chmod(p, 0555)
         except:
@@ -402,6 +410,12 @@ class AppTestImport:
         from pkg.pkg1 import relative_e
         assert relative_e.string.inpackage == 1
 
+    def test_future_relative_import_level_3(self):
+        from pkg.pkg1 import relative_g
+        assert relative_g.b.insubpackage == 1
+        import pkg.pkg1
+        assert pkg.pkg1.__package__ == 'pkg.pkg1'
+
     def test_future_relative_import_error_when_in_non_package(self):
         exec """def imp():
                     from .string import inpackage
@@ -437,6 +451,38 @@ class AppTestImport:
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
+
+    def test__package__(self):
+        # Regression test for http://bugs.python.org/issue3221.
+        def check_absolute():
+            exec "from os import path" in ns
+        def check_relative():
+            exec "from . import a" in ns
+
+        # Check both OK with __package__ and __name__ correct
+        ns = dict(__package__='pkg', __name__='pkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check both OK with only __name__ wrong
+        ns = dict(__package__='pkg', __name__='notarealpkg.notarealmodule')
+        check_absolute()
+        check_relative()
+
+        # Check relative fails with only __package__ wrong
+        ns = dict(__package__='foo', __name__='pkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check relative fails with __package__ and __name__ wrong
+        ns = dict(__package__='foo', __name__='notarealpkg.notarealmodule')
+        check_absolute() # XXX check warnings
+        raises(SystemError, check_relative)
+
+        # Check both fail with package set to a non-string
+        ns = dict(__package__=object())
+        raises(ValueError, check_absolute)
+        raises(ValueError, check_relative)
 
     def test_universal_newlines(self):
         import pkg_univnewlines
@@ -520,6 +566,58 @@ class AppTestImport:
                 foobarbazmod,)
         except ImportError:
             pass
+
+    def test_del_from_sys_modules(self):
+        try:
+            import del_sys_module
+        except ImportError:
+            pass    # ok
+        else:
+            assert False, 'should not work'
+
+    def test_shadow_builtin(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import gc' is supposed to always find the built-in module;
+        # like CPython, it is a built-in module, so it shadows everything,
+        # even though there is a gc.py.
+        import sys
+        assert 'gc' not in sys.modules
+        import gc
+        assert not hasattr(gc, 'should_never_be_seen')
+        assert '(built-in)' in repr(gc)
+        del sys.modules['gc']
+
+    def test_shadow_extension_1(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import itertools' is supposed to find itertools.py if there is
+        # one in sys.path.
+        import sys
+        assert 'itertools' not in sys.modules
+        import itertools
+        assert hasattr(itertools, 'hello_world')
+        assert not hasattr(itertools, 'count')
+        assert '(built-in)' not in repr(itertools)
+        del sys.modules['itertools']
+
+    def test_shadow_extension_2(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
+        # 'import itertools' is supposed to find the built-in module even
+        # if there is also one in sys.path as long as it is *after* the
+        # special entry '.../lib_pypy/__extensions__'.  (Note that for now
+        # there is one in lib_pypy/itertools.py, which should not be seen
+        # either; hence the (built-in) test below.)
+        import sys
+        assert 'itertools' not in sys.modules
+        sys.path.append(sys.path.pop(0))
+        try:
+            import itertools
+            assert not hasattr(itertools, 'hello_world')
+            assert hasattr(itertools, 'izip')
+            assert '(built-in)' in repr(itertools)
+        finally:
+            sys.path.insert(0, sys.path.pop())
+        del sys.modules['itertools']
+
 
 class TestAbi:
     def test_abi_tag(self):
@@ -715,6 +813,27 @@ class TestPycStuff:
                                                  stream.readall(),
                                                  write_pyc=False)
         finally:
+            stream.close()
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+
+    def test_load_source_module_dont_write_bytecode(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_True)
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        finally:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_False)
             stream.close()
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()

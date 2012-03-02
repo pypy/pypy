@@ -52,7 +52,8 @@ LoadWAV_RW          = external('Mix_LoadWAV_RW',
                                ChunkPtr)
 
 def LoadWAV(filename_ccharp):
-    return LoadWAV_RW(RSDL.RWFromFile(filename_ccharp, rffi.str2charp('rb')), 1)
+    with rffi.scoped_str2charp('rb') as mode:
+        return LoadWAV_RW(RSDL.RWFromFile(filename_ccharp, mode), 1)
 
 
 PlayChannelTimed    = external('Mix_PlayChannelTimed',
@@ -64,4 +65,4 @@ def PlayChannel(channel,chunk,loops):
 
 """Returns zero if the channel is not playing. 
 Otherwise if you passed in -1, the number of channels playing is returned"""
-ChannelPlaying  = external('Mix_Playing', [ rffi.INT])
+ChannelPlaying  = external('Mix_Playing', [rffi.INT], rffi.INT)

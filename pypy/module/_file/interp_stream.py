@@ -2,28 +2,12 @@ import py
 from pypy.rlib import streamio
 from pypy.rlib.streamio import StreamErrors
 
-from pypy.interpreter.error import OperationError, wrap_oserror2
-from pypy.interpreter.gateway import ObjSpace
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
-import os
-
-def wrap_streamerror(space, e, w_filename=None):
-    if isinstance(e, streamio.StreamError):
-        return OperationError(space.w_ValueError,
-                              space.wrap(e.message))
-    elif isinstance(e, OSError):
-        return wrap_oserror_as_ioerror(space, e, w_filename)
-    else:
-        # should not happen: wrap_streamerror() is only called when
-        # StreamErrors = (OSError, StreamError) are raised
-        return OperationError(space.w_IOError, space.w_None)
-
-def wrap_oserror_as_ioerror(space, e, w_filename=None):
-    return wrap_oserror2(space, e, w_filename,
-                         w_exception_class=space.w_IOError)
 
 class W_AbstractStream(Wrappable):
     """Base class for interp-level objects that expose streams to app-level"""

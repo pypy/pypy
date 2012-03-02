@@ -1,14 +1,14 @@
 import py
 from pypy.jit.backend.cli.runner import CliCPU
-from pypy.jit.metainterp.test import test_basic
+from pypy.jit.metainterp.test import support, test_ajit
 
-class CliJitMixin(test_basic.OOJitMixin):
+class CliJitMixin(suport.OOJitMixin):
     CPUClass = CliCPU
     def setup_class(cls):
         from pypy.translator.cli.support import PythonNet
         PythonNet.System     # possibly raises Skip
 
-class TestBasic(CliJitMixin, test_basic.TestOOtype):
+class TestBasic(CliJitMixin, test_ajit.TestOOtype):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
 

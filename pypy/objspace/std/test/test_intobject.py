@@ -285,6 +285,19 @@ class TestW_IntObject:
 
 class AppTestInt:
 
+    def test_conjugate(self):
+        assert (1).conjugate() == 1
+        assert (-1).conjugate() == -1
+
+        class I(int):
+            pass
+        assert I(1).conjugate() == 1
+
+        class I(int):
+            def __pos__(self):
+                return 42
+        assert I(1).conjugate() == 1
+
     def test_trunc(self):
         import math
         assert math.trunc(1) == 1
@@ -479,6 +492,11 @@ class AppTestInt:
             (-150, 8),
         ]:
             assert val.bit_length() == bits
+
+    def test_int_real(self):
+        class A(int): pass
+        b = A(5).real
+        assert type(b) is int
 
 
 class AppTestIntOptimizedAdd(AppTestInt):

@@ -22,12 +22,13 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
                  Py_RETURN_NONE;
              """)])
         import sys, StringIO
+        prev = sys.stdout
         sys.stdout = StringIO.StringIO()
         try:
             module.writestdout()
             assert sys.stdout.getvalue() == "format: 42\n"
         finally:
-            sys.stdout = sys.__stdout__
+            sys.stdout = prev
 
 class TestSysModule(BaseApiTest):
     def test_sysmodule(self, space, api):

@@ -34,6 +34,7 @@ def test_set_major_threshold():
                     growth_rate_max=1.5)
     gc.min_heap_size = 100.0
     gc.max_heap_size = 300.0
+    gc.next_major_collection_initial = 0.0
     gc.next_major_collection_threshold = 0.0
     # first, we don't grow past min_heap_size
     for i in range(5):

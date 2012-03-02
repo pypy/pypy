@@ -81,6 +81,12 @@ class Config(object):
                                  (self.__class__, name))
         return self._cfgimpl_values[name]
 
+    def __dir__(self):
+        from_type = dir(type(self))
+        from_dict = list(self.__dict__)
+        extras = list(self._cfgimpl_values)
+        return sorted(set(extras + from_type + from_dict))
+
     def __delattr__(self, name):
         # XXX if you use delattr you are responsible for all bad things
         # happening

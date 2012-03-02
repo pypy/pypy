@@ -189,6 +189,30 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert btag is atag
         assert btag is not None
 
+    def test_version_tag_when_changing_a_lot(self):
+        space = self.space
+        w_x = space.wrap("x")
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(1))
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 1
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(2))
+        assert w_A.version_tag() is not atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 2
+
+        atag = w_A.version_tag()
+        space.setattr(w_A, w_x, space.newint(3))
+        assert w_A.version_tag() is atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 3
+
+        space.setattr(w_A, w_x, space.newint(4))
+        assert w_A.version_tag() is atag
+        assert space.int_w(space.getattr(w_A, w_x)) == 4
+
+
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})

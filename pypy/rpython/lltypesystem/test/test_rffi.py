@@ -18,6 +18,7 @@ from pypy.translator.translator import graphof
 from pypy.conftest import option
 from pypy.objspace.flow.model import summary
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.rarithmetic import r_singlefloat
 
 class BaseTestRffi:
     def test_basic(self):
@@ -699,8 +700,19 @@ class TestRffiInternals:
     def test_cast(self):
         res = cast(SIZE_T, -1)
         assert type(res) is r_size_t
-        assert res == r_size_t(-1)    
+        assert res == r_size_t(-1)
+        #
+        res = cast(lltype.Signed, 42.5)
+        assert res == 42
     
+        res = cast(lltype.SingleFloat, 12.3)
+        assert res == r_singlefloat(12.3)
+        res = cast(lltype.SingleFloat, res)
+        assert res == r_singlefloat(12.3)
+
+        res = cast(lltype.Float, r_singlefloat(12.))
+        assert res == 12.
+
     def test_rffi_sizeof(self):
         try:
             import ctypes
@@ -728,10 +740,12 @@ class TestRffiInternals:
     
         for ll, ctp in cache.items():
             assert sizeof(ll) == ctypes.sizeof(ctp)
+            assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]
-        assert not size_and_sign(lltype.Char)[1]
-        assert not size_and_sign(lltype.UniChar)[1]
+        assert size_and_sign(lltype.Char) == (1, True)
+        assert size_and_sign(lltype.UniChar)[1]
         assert size_and_sign(UINT)[1]
+        assert not size_and_sign(INT)[1]
     
     def test_rffi_offsetof(self):
         import struct

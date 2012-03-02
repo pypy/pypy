@@ -27,7 +27,7 @@ The '}' pops an integer value off the stack and loops if it is not zero:
     { #1 #1 1 SUB ->#1 #1 }    => when called with 5, gives '5 4 3 2 1'
 
 """
-from pypy.rlib.jit import hint
+from pypy.rlib.jit import hint, promote
 
 #
 # See pypy/doc/jit.txt for a higher-level overview of the JIT techniques
@@ -75,9 +75,9 @@ def op2(stack, func_int, func_str):
     # ones.  The JIT compiler cannot look into indirect calls, but it
     # can analyze and inline the code in directly-called functions.
     y = stack.pop()
-    hint(y.__class__, promote=True)
+    promote(y.__class__)
     x = stack.pop()
-    hint(x.__class__, promote=True)
+    promote(x.__class__)
     try:
         z = IntBox(func_int(x.as_int(), y.as_int()))
     except ValueError:
@@ -108,7 +108,7 @@ def interpret(bytecode, args):
     # doesn't have to worry about the 'args' list being unpredictably
     # modified.
     oldargs = args
-    argcount = hint(len(oldargs), promote=True)
+    argcount = promote(len(oldargs))
     args = []
     n = 0
     while n < argcount:
@@ -160,8 +160,7 @@ def interpret(bytecode, args):
                 # read out of the 'loops' list will be a compile-time constant
                 # because it was pushed as a compile-time constant by the '{'
                 # case above into 'loops', which is a virtual list, so the
-                # promotion below is just a way to make the colors match.
-                pos = hint(pos, promote=True)
+                promote(pos)
         else:
             stack.append(StrBox(opcode))
     return stack

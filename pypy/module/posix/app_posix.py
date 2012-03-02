@@ -107,6 +107,9 @@ def tmpfile():
 def tmpnam():
     """Return an absolute pathname of a file that did not exist at the
     time the call is made."""
+    from warnings import warn
+    warn(RuntimeWarning("tmpnam is a potential security risk to your program"))
+
     import tempfile
     return tempfile.mktemp()
 
@@ -114,6 +117,9 @@ def tempnam(dir=None, prefix=None):
     """Return an absolute pathname of a file that did not exist at the
     time the call is made.  The directory and a prefix may be specified
     as strings; they may be omitted or None if not needed."""
+    from warnings import warn
+    warn(RuntimeWarning("tempnam is a potential security risk to your program"))
+
     import tempfile
     return tempfile.mktemp('', prefix or 'tmp', dir)
 
@@ -309,7 +315,7 @@ else:
             self._proc = proc
         def close(self):
             self._stream.close()
-            return self._proc.wait()
+            return self._proc.wait() or None    # 0 => None
         __del__ = close
         def __getattr__(self, name):
             return getattr(self._stream, name)

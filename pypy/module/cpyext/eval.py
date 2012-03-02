@@ -1,10 +1,23 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.astcompiler import consts
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
+    cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
+from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.__builtin__ import compiling
+
+PyCompilerFlags = cpython_struct(
+    "PyCompilerFlags", (("cf_flags", rffi.INT),))
+PyCompilerFlagsPtr = lltype.Ptr(PyCompilerFlags)
+
+PyCF_MASK = (consts.CO_FUTURE_DIVISION | 
+             consts.CO_FUTURE_ABSOLUTE_IMPORT |
+             consts.CO_FUTURE_WITH_STATEMENT |
+             consts.CO_FUTURE_PRINT_FUNCTION |
+             consts.CO_FUTURE_UNICODE_LITERALS)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
@@ -43,6 +56,17 @@ def PyEval_GetGlobals(space):
         return None
     return borrow_from(None, caller.w_globals)
 
+@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
+def PyEval_EvalCode(space, w_code, w_globals, w_locals):
+    """This is a simplified interface to PyEval_EvalCodeEx(), with just
+    the code object, and the dictionaries of global and local variables.
+    The other arguments are set to NULL."""
+    if w_globals is None:
+        w_globals = space.w_None
+    if w_locals is None:
+        w_locals = space.w_None
+    return compiling.eval(space, w_code, w_globals, w_locals)
+
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_CallObject(space, w_obj, w_arg):
     """
@@ -69,7 +93,7 @@ Py_single_input = 256
 Py_file_input = 257
 Py_eval_input = 258
 
-def run_string(space, source, filename, start, w_globals, w_locals):
+def compile_string(space, source, filename, start, flags=0):
     w_source = space.wrap(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
@@ -80,8 +104,11 @@ def run_string(space, source, filename, start, w_globals, w_locals):
         mode = 'single'
     else:
         raise OperationError(space.w_ValueError, space.wrap(
-            "invalid mode parameter for PyRun_String"))
-    w_code = compiling.compile(space, w_source, filename, mode)
+            "invalid mode parameter for compilation"))
+    return compiling.compile(space, w_source, filename, mode, flags)
+
+def run_string(space, source, filename, start, w_globals, w_locals):
+    w_code = compile_string(space, source, filename, start)
     return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([CONST_STRING], rffi.INT_real, error=-1)
@@ -100,6 +127,24 @@ def PyRun_String(space, source, start, w_globals, w_locals):
     source = rffi.charp2str(source)
     filename = "<string>"
     return run_string(space, source, filename, start, w_globals, w_locals)
+
+@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject,
+              PyCompilerFlagsPtr], PyObject)
+def PyRun_StringFlags(space, source, start, w_globals, w_locals, flagsptr):
+    """Execute Python source code from str in the context specified by the
+    dictionaries globals and locals with the compiler flags specified by
+    flags.  The parameter start specifies the start token that should be used to
+    parse the source code.
+
+    Returns the result of executing the code as a Python object, or NULL if an
+    exception was raised."""
+    source = rffi.charp2str(source)
+    if flagsptr:
+        flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
+    else:
+        flags = 0
+    w_code = compile_string(space, source, "<string>", start, flags)
+    return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([FILEP, CONST_STRING, rffi.INT_real, PyObject, PyObject], PyObject)
 def PyRun_File(space, fp, filename, start, w_globals, w_locals):
@@ -140,3 +185,42 @@ def _PyEval_SliceIndex(space, w_obj, pi):
         pi[0] = space.getindex_w(w_obj, None)
     return 1
 
+@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlagsPtr],
+             PyObject)
+def Py_CompileStringFlags(space, source, filename, start, flagsptr):
+    """Parse and compile the Python source code in str, returning the
+    resulting code object.  The start token is given by start; this
+    can be used to constrain the code which can be compiled and should
+    be Py_eval_input, Py_file_input, or Py_single_input.  The filename
+    specified by filename is used to construct the code object and may
+    appear in tracebacks or SyntaxError exception messages.  This
+    returns NULL if the code cannot be parsed or compiled."""
+    source = rffi.charp2str(source)
+    filename = rffi.charp2str(filename)
+    if flagsptr:
+        flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
+    else:
+        flags = 0
+    return compile_string(space, source, filename, start, flags)
+
+@cpython_api([PyCompilerFlagsPtr], rffi.INT_real, error=CANNOT_FAIL)
+def PyEval_MergeCompilerFlags(space, cf):
+    """This function changes the flags of the current evaluation
+    frame, and returns true on success, false on failure."""
+    flags = rffi.cast(lltype.Signed, cf.c_cf_flags)
+    result = flags != 0
+    current_frame = space.getexecutioncontext().gettopframe_nohidden()
+    if current_frame:
+        codeflags = current_frame.pycode.co_flags
+        compilerflags = codeflags & PyCF_MASK
+        if compilerflags:
+            result = 1
+            flags |= compilerflags
+        # No future keyword at the moment
+        # if codeflags & CO_GENERATOR_ALLOWED:
+        #     result = 1
+        #     flags |= CO_GENERATOR_ALLOWED
+    cf.c_cf_flags = rffi.cast(rffi.INT, flags)
+    return result
+
+        

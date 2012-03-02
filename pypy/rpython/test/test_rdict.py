@@ -25,37 +25,37 @@ def not_really_random():
 class BaseTestRdict(BaseRtypingTest):
 
     def test_dict_creation(self):
-        def createdict(i): 
+        def createdict(i):
             d = {'hello' : i}
             return d['hello']
 
         res = self.interpret(createdict, [42])
         assert res == 42
 
-    def test_dict_getitem_setitem(self): 
-        def func(i): 
+    def test_dict_getitem_setitem(self):
+        def func(i):
             d = {'hello' : i}
             d['world'] = i + 1
-            return d['hello'] * d['world'] 
+            return d['hello'] * d['world']
         res = self.interpret(func, [6])
         assert res == 42
 
-    def test_dict_getitem_keyerror(self): 
-        def func(i): 
+    def test_dict_getitem_keyerror(self):
+        def func(i):
             d = {'hello' : i}
             try:
                 return d['world']
             except KeyError:
-                return 0 
+                return 0
         res = self.interpret(func, [6])
         assert res == 0
 
     def test_dict_del_simple(self):
-        def func(i): 
+        def func(i):
             d = {'hello' : i}
             d['world'] = i + 1
             del d['hello']
-            return len(d) 
+            return len(d)
         res = self.interpret(func, [6])
         assert res == 1
 
@@ -71,7 +71,7 @@ class BaseTestRdict(BaseRtypingTest):
         assert res == True
 
     def test_empty_strings(self):
-        def func(i): 
+        def func(i):
             d = {'' : i}
             del d['']
             try:
@@ -83,7 +83,7 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, [6])
         assert res == 1
 
-        def func(i): 
+        def func(i):
             d = {'' : i}
             del d['']
             d[''] = i + 1
@@ -146,8 +146,8 @@ class BaseTestRdict(BaseRtypingTest):
             d1 = {}
             d1['hello'] = i + 1
             d2 = {}
-            d2['world'] = d1 
-            return d2['world']['hello'] 
+            d2['world'] = d1
+            return d2['world']['hello']
         res = self.interpret(func, [5])
         assert res == 6
 
@@ -297,7 +297,7 @@ class BaseTestRdict(BaseRtypingTest):
             a = 0
             for k, v in items:
                 b += isinstance(k, B)
-                a += isinstance(v, A) 
+                a += isinstance(v, A)
             return 3*b+a
         res = self.interpret(func, [])
         assert res == 8
@@ -316,7 +316,7 @@ class BaseTestRdict(BaseRtypingTest):
             a = 0
             for k, v in dic.iteritems():
                 b += isinstance(k, B)
-                a += isinstance(v, A) 
+                a += isinstance(v, A)
             return 3*b+a
         res = self.interpret(func, [])
         assert res == 8
@@ -342,11 +342,11 @@ class BaseTestRdict(BaseRtypingTest):
     def test_dict_contains_with_constant_dict(self):
         dic = {'4':1000, ' 8':200}
         def func(i):
-            return chr(i) in dic 
-        res = self.interpret(func, [ord('4')]) 
+            return chr(i) in dic
+        res = self.interpret(func, [ord('4')])
         assert res is True
-        res = self.interpret(func, [1]) 
-        assert res is False 
+        res = self.interpret(func, [1])
+        assert res is False
 
     def test_dict_or_none(self):
         class A:
@@ -413,7 +413,7 @@ class BaseTestRdict(BaseRtypingTest):
             return g(get)
 
         res = self.interpret(f, [])
-        assert res == 2    
+        assert res == 2
 
     def test_specific_obscure_bug(self):
         class A: pass
@@ -598,6 +598,65 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res in [5263, 6352]
 
+    def test_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = r_dict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
+    def test_dict_pop(self):
+        def f(n, default):
+            d = {}
+            d[2] = 3
+            d[4] = 5
+            if default == -1:
+                try:
+                    x = d.pop(n)
+                except KeyError:
+                    x = -1
+            else:
+                x = d.pop(n, default)
+            return x * 10 + len(d)
+        res = self.interpret(f, [2, -1])
+        assert res == 31
+        res = self.interpret(f, [3, -1])
+        assert res == -8
+        res = self.interpret(f, [2, 5])
+        assert res == 31
+
+    def test_dict_pop_instance(self):
+        class A(object):
+            pass
+        def f(n):
+            d = {}
+            d[2] = A()
+            x = d.pop(n, None)
+            if x is None:
+                return 12
+            else:
+                return 15
+        res = self.interpret(f, [2])
+        assert res == 15
+        res = self.interpret(f, [700])
+        assert res == 12
 
 class TestLLtype(BaseTestRdict, LLRtypeMixin):
     def test_dict_but_not_with_char_keys(self):
@@ -610,19 +669,19 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         res = self.interpret(func, [6])
         assert res == 0
 
-    def test_deleted_entry_reusage_with_colliding_hashes(self): 
-        def lowlevelhash(value): 
+    def test_deleted_entry_reusage_with_colliding_hashes(self):
+        def lowlevelhash(value):
             p = rstr.mallocstr(len(value))
             for i in range(len(value)):
                 p.chars[i] = value[i]
-            return rstr.LLHelpers.ll_strhash(p) 
+            return rstr.LLHelpers.ll_strhash(p)
 
-        def func(c1, c2): 
-            c1 = chr(c1) 
-            c2 = chr(c2) 
+        def func(c1, c2):
+            c1 = chr(c1)
+            c2 = chr(c2)
             d = {}
             d[c1] = 1
-            d[c2] = 2 
+            d[c2] = 2
             del d[c1]
             return d[c2]
 
@@ -630,7 +689,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         base = rdict.DICT_INITSIZE
         for y in range(0, 256):
             y = chr(y)
-            y_hash = lowlevelhash(y) % base 
+            y_hash = lowlevelhash(y) % base
             char_by_hash.setdefault(y_hash, []).append(y)
 
         x, y = char_by_hash[0][:2]   # find a collision
@@ -638,18 +697,18 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         res = self.interpret(func, [ord(x), ord(y)])
         assert res == 2
 
-        def func2(c1, c2): 
-            c1 = chr(c1) 
-            c2 = chr(c2) 
+        def func2(c1, c2):
+            c1 = chr(c1)
+            c2 = chr(c2)
             d = {}
             d[c1] = 1
-            d[c2] = 2 
+            d[c2] = 2
             del d[c1]
             d[c1] = 3
-            return d 
+            return d
 
         res = self.interpret(func2, [ord(x), ord(y)])
-        for i in range(len(res.entries)): 
+        for i in range(len(res.entries)):
             assert not (res.entries.everused(i) and not res.entries.valid(i))
 
         def func3(c0, c1, c2, c3, c4, c5, c6, c7):
@@ -664,9 +723,9 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
             c7 = chr(c7) ; d[c7] = 1; del d[c7]
             return d
 
-        if rdict.DICT_INITSIZE != 8: 
+        if rdict.DICT_INITSIZE != 8:
             py.test.skip("make dict tests more indepdent from initsize")
-        res = self.interpret(func3, [ord(char_by_hash[i][0]) 
+        res = self.interpret(func3, [ord(char_by_hash[i][0])
                                    for i in range(rdict.DICT_INITSIZE)])
         count_frees = 0
         for i in range(len(res.entries)):
@@ -684,9 +743,9 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
                     del d[chr(ord('a') + i)]
             return d
         res = self.interpret(func, [0])
-        assert len(res.entries) > rdict.DICT_INITSIZE 
+        assert len(res.entries) > rdict.DICT_INITSIZE
         res = self.interpret(func, [1])
-        assert len(res.entries) == rdict.DICT_INITSIZE 
+        assert len(res.entries) == rdict.DICT_INITSIZE
 
     def test_dict_valid_resize(self):
         # see if we find our keys after resize
@@ -821,7 +880,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
 
     def test_prebuilt_list_of_addresses(self):
         from pypy.rpython.lltypesystem import llmemory
-        
+
         TP = lltype.Struct('x', ('y', lltype.Signed))
         a = lltype.malloc(TP, flavor='raw', immortal=True)
         b = lltype.malloc(TP, flavor='raw', immortal=True)
@@ -835,7 +894,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
 
         d = {a_a: 3, a_b: 4, a_c: 5}
         d[a0] = 8
-        
+
         def func(i):
             if i == 0:
                 ptr = a
@@ -859,6 +918,25 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         f = compile(func, [])
         res = f()
         assert res == 1
+
+    def test_nonnull_hint(self):
+        def eq(a, b):
+            return a == b
+        def rhash(a):
+            return 3
+
+        def func(i):
+            d = r_dict(eq, rhash, force_non_null=True)
+            if not i:
+                d[None] = i
+            else:
+                d[str(i)] = i
+            return "12" in d, d
+
+        llres = self.interpret(func, [12])
+        assert llres.item0 == 1
+        DICT = lltype.typeOf(llres.item1)
+        assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
     # ____________________________________________________________
 

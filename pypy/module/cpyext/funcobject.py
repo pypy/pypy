@@ -1,12 +1,24 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    PyObjectFields, generic_cpy_call, CONST_STRING,
+    PyObjectFields, generic_cpy_call, CONST_STRING, CANNOT_FAIL,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, Py_DecRef, make_typedescr, borrow_from)
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter import pycode
+
+CODE_FLAGS = dict(
+    CO_OPTIMIZED   = 0x0001,
+    CO_NEWLOCALS   = 0x0002,
+    CO_VARARGS     = 0x0004,
+    CO_VARKEYWORDS = 0x0008,
+    CO_NESTED      = 0x0010,
+    CO_GENERATOR   = 0x0020,
+)
+ALL_CODE_FLAGS = unrolling_iterable(CODE_FLAGS.items())
 
 PyFunctionObjectStruct = lltype.ForwardReference()
 PyFunctionObject = lltype.Ptr(PyFunctionObjectStruct)
@@ -16,7 +28,12 @@ cpython_struct("PyFunctionObject", PyFunctionObjectFields, PyFunctionObjectStruc
 
 PyCodeObjectStruct = lltype.ForwardReference()
 PyCodeObject = lltype.Ptr(PyCodeObjectStruct)
-cpython_struct("PyCodeObject", PyObjectFields, PyCodeObjectStruct)
+PyCodeObjectFields = PyObjectFields + \
+    (("co_name", PyObject),
+     ("co_flags", rffi.INT),
+     ("co_argcount", rffi.INT),
+    )
+cpython_struct("PyCodeObject", PyCodeObjectFields, PyCodeObjectStruct)
 
 @bootstrap_function
 def init_functionobject(space):
@@ -24,9 +41,14 @@ def init_functionobject(space):
                    basestruct=PyFunctionObject.TO,
                    attach=function_attach,
                    dealloc=function_dealloc)
+    make_typedescr(PyCode.typedef,
+                   basestruct=PyCodeObject.TO,
+                   attach=code_attach,
+                   dealloc=code_dealloc)
 
 PyFunction_Check, PyFunction_CheckExact = build_type_checkers("Function", Function)
 PyMethod_Check, PyMethod_CheckExact = build_type_checkers("Method", Method)
+PyCode_Check, PyCode_CheckExact = build_type_checkers("Code", PyCode)
 
 def function_attach(space, py_obj, w_obj):
     py_func = rffi.cast(PyFunctionObject, py_obj)
@@ -39,6 +61,31 @@ def function_dealloc(space, py_obj):
     Py_DecRef(space, py_func.c_func_name)
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
+
+def code_attach(space, py_obj, w_obj):
+    py_code = rffi.cast(PyCodeObject, py_obj)
+    assert isinstance(w_obj, PyCode)
+    py_code.c_co_name = make_ref(space, space.wrap(w_obj.co_name))
+    co_flags = 0
+    for name, value in ALL_CODE_FLAGS:
+        if w_obj.co_flags & getattr(pycode, name):
+            co_flags |= value
+    rffi.setintfield(py_code, 'c_co_flags', co_flags)
+    rffi.setintfield(py_code, 'c_co_argcount', w_obj.co_argcount)
+
+@cpython_api([PyObject], lltype.Void, external=False)
+def code_dealloc(space, py_obj):
+    py_code = rffi.cast(PyCodeObject, py_obj)
+    Py_DecRef(space, py_code.c_co_name)
+    from pypy.module.cpyext.object import PyObject_dealloc
+    PyObject_dealloc(space, py_obj)
+
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetCode(space, w_func):
+    """Return the code object associated with the function object op."""
+    func = space.interp_w(Function, w_func)
+    w_code = space.wrap(func.code)
+    return borrow_from(w_func, w_code)
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self, w_cls):
@@ -68,6 +115,10 @@ def PyMethod_Class(space, w_method):
     created from an instance, it will be the class of the instance."""
     assert isinstance(w_method, Method)
     return borrow_from(w_method, w_method.w_class)
+
+@cpython_api([PyObject], PyObject)
+def PyClassMethod_New(space, w_function):
+    return space.call_method(space.builtin, "classmethod", w_function)
 
 def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
@@ -116,4 +167,10 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                              lnotab="",
                              freevars=[],
                              cellvars=[]))
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyCode_GetNumFree(space, w_co):
+    """Return the number of free variables in co."""
+    co = space.interp_w(PyCode, w_co)
+    return len(co.co_freevars)
 

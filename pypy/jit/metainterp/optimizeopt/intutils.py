@@ -1,4 +1,10 @@
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.history import BoxInt, ConstInt
+import sys
+MAXINT = sys.maxint
+MININT = -sys.maxint - 1
 
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -8,6 +14,10 @@ class IntBound(object):
         self.has_lower = True
         self.upper = upper
         self.lower = lower
+        # check for unexpected overflows:
+        if not we_are_translated():
+            assert type(upper) is not long
+            assert type(lower) is not long
 
     # Returns True if the bound was updated
     def make_le(self, other):
@@ -20,7 +30,7 @@ class IntBound(object):
 
     def make_lt(self, other):
         return self.make_le(other.add(-1))
-
+ 
     def make_ge(self, other):
         if other.has_lower:
             if not self.has_lower or other.lower > self.lower:
@@ -161,14 +171,15 @@ class IntBound(object):
     def lshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             try:
-                vals = (ovfcheck(self.upper * pow2(other.upper)),
-                        ovfcheck(self.upper * pow2(other.lower)),
-                        ovfcheck(self.lower * pow2(other.upper)),
-                        ovfcheck(self.lower * pow2(other.lower)))
+                vals = (ovfcheck(self.upper << other.upper),
+                        ovfcheck(self.upper << other.lower),
+                        ovfcheck(self.lower << other.upper),
+                        ovfcheck(self.lower << other.lower))
                 return IntBound(min4(vals), max4(vals))
-            except OverflowError:
+            except (OverflowError, ValueError):
                 return IntUnbounded()
         else:
             return IntUnbounded()
@@ -176,15 +187,13 @@ class IntBound(object):
     def rshift_bound(self, other):
         if self.has_upper and self.has_lower and \
            other.has_upper and other.has_lower and \
-           other.known_ge(IntBound(0, 0)):
-            try:
-                vals = (ovfcheck(self.upper / pow2(other.upper)),
-                        ovfcheck(self.upper / pow2(other.lower)),
-                        ovfcheck(self.lower / pow2(other.upper)),
-                        ovfcheck(self.lower / pow2(other.lower)))
-                return IntBound(min4(vals), max4(vals))
-            except OverflowError:
-                return IntUnbounded()
+           other.known_ge(IntBound(0, 0)) and \
+           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+            vals = (self.upper >> other.upper,
+                    self.upper >> other.lower,
+                    self.lower >> other.upper,
+                    self.lower >> other.lower)
+            return IntBound(min4(vals), max4(vals))
         else:
             return IntUnbounded()
 
@@ -211,11 +220,11 @@ class IntBound(object):
         
     def __repr__(self):
         if self.has_lower:
-            l = '%4d' % self.lower
+            l = '%d' % self.lower
         else:
             l = '-Inf'
         if self.has_upper:
-            u = '%3d' % self.upper
+            u = '%d' % self.upper
         else:
             u = 'Inf'
         return '%s <= x <= %s' % (l, u)
@@ -225,7 +234,24 @@ class IntBound(object):
         res.has_lower = self.has_lower
         res.has_upper = self.has_upper
         return res
+
+    def make_guards(self, box, guards):
+        if self.has_lower and self.lower > MININT:
+            bound = self.lower
+            res = BoxInt()
+            op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+            guards.append(op)
+            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            guards.append(op)
+        if self.has_upper and self.upper < MAXINT:
+            bound = self.upper
+            res = BoxInt()
+            op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+            guards.append(op)
+            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            guards.append(op)
     
+
 class IntUpperBound(IntBound):
     def __init__(self, upper):
         self.has_upper = True
@@ -245,18 +271,26 @@ class IntUnbounded(IntBound):
         self.has_upper = False
         self.has_lower = False
         self.upper = 0
-        self.lower = 0        
+        self.lower = 0
+
+class ImmutableIntUnbounded(IntUnbounded):
+    def _raise(self):
+        raise TypeError('ImmutableIntUnbounded is immutable')
+    def make_le(self, other):
+        self._raise()
+    def make_lt(self, other):
+        self._raise()
+    def make_ge(self, other):
+        self._raise()
+    def make_gt(self, other):
+        self._raise()
+    def make_constant(self, value):
+        self._raise()
+    def intersect(self, other):        
+        self._raise()
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))
 
 def max4(t):
     return max(max(t[0], t[1]), max(t[2], t[3]))
-
-def pow2(x):
-    y = 1 << x
-    if y < 1:
-        raise OverflowError, "pow2 did overflow"
-    return y
-
-        
