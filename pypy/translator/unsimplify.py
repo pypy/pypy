@@ -129,6 +129,22 @@ def split_block_at_start(annotator, block):
     # in the second block!
     return split_block(annotator, block, 0, _forcelink=block.inputargs)
 
+def remove_double_links(annotator, graph):
+    """This can be useful for code generators: it ensures that no block has
+    more than one incoming links from one and the same other block. It allows
+    argument passing along links to be implemented with phi nodes since the
+    value of an argument can be determined by looking from which block the
+    control passed. """
+    for block in graph.iterblocks():
+        double_links = []
+        seen = {}
+        for link in block.exits:
+            if link.target in seen:
+                double_links.append(link)
+            seen[link.target] = True
+        for link in double_links:
+            insert_empty_block(annotator, link)
+
 def call_initial_function(translator, initial_func, annhelper=None):
     """Before the program starts, call 'initial_func()'."""
     from pypy.annotation import model as annmodel

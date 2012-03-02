@@ -140,10 +140,10 @@ class Translation(object):
         self.ensure_backend('c')
         self.driver.source_c()
 
-    def source_cl(self, argtypes=None, **kwds):
+    def source_llvm(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
-        self.ensure_backend('cl')
-        self.driver.source_cl()
+        self.ensure_backend('llvm')
+        self.driver.source_llvm()
 
     def compile(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
@@ -155,6 +155,12 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         self.ensure_backend('c')
         self.driver.compile_c()
+        return self.driver.c_entryp
+
+    def compile_llvm(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('llvm')
+        self.driver.compile_llvm()
         return self.driver.c_entryp
   
     def compile_cli(self, argtypes=None, **kwds):

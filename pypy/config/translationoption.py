@@ -41,9 +41,10 @@ translation_optiondescription = OptionDescription(
                                 ]
                      }),
     ChoiceOption("backend", "Backend to use for code generation",
-                 ["c", "cli", "jvm"], default="c",
+                 ["c", "llvm", "cli", "jvm"], default="c",
                  requires={
                      "c":      [("translation.type_system", "lltype")],
+                     "llvm":   [("translation.type_system", "lltype")],
                      "cli":    [("translation.type_system", "ootype")],
                      "jvm":    [("translation.type_system", "ootype")],
                      },
