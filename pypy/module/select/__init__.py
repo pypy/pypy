@@ -22,7 +22,7 @@ class Module(MixedModule):
             if value is not None:
                 interpleveldefs[symbol] = "space.wrap(%r)" % value
 
-    if hasattr(select, "kqueue"):
+    if sys.platform.startswith('freebsd') or sys.platform.startswith('darwin'):
         interpleveldefs["kqueue"] = "interp_kqueue.W_Kqueue"
         interpleveldefs["kevent"] = "interp_kqueue.W_Kevent"
 

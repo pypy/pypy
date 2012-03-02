@@ -1,15 +1,15 @@
+import py
+import sys
+
 from pypy.conftest import gettestobjspace
 
 
 class AppTestKqueue(object):
     def setup_class(cls):
-        import errno
-        import select
-
-        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
-
-        if not hasattr(select, "kqueue"):
+        if not sys.platform.startswith('freebsd') and \
+           not sys.platform.startswith('darwin'):
             py.test.skip("test requires BSD")
+        cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
 
     def test_create(self):
         import select
