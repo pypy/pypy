@@ -19,9 +19,9 @@ class FakeStats(object):
 
 class TestPPC(LLtypeBackendTest):
    
-    def setup_class(cls):
-        cls.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
-        cls.cpu.setup_once()
+    def setup_method(self, meth):
+        self.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
+        self.cpu.setup_once()
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 16):
