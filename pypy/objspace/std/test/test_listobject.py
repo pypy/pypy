@@ -404,7 +404,7 @@ class AppTestW_ListObject(object):
         # this raised TypeError on ListStrategies
         l1 = ["a", "2", True, "a"]
         l2 = [1, "2", "a", "a"]
-        assert sorted(l1) == sorted(l2)
+        assert set(l1) == set(l2)
 
     def test_notequals(self):
         assert [1,2,3,4] != [1,2,5,4]
