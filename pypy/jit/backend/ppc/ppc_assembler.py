@@ -660,10 +660,6 @@ class AssemblerPPC(OpAssembler):
                 self.cpu.total_compiled_bridges)
 
         self._patch_sp_offset(sp_patch_location, rawstart)
-        #if not we_are_translated():
-        #    print 'Loop', inputargs, operations
-        #    self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
-        #    print 'Done assembling bridge with token %r' % looptoken
 
         ops_offset = self.mc.ops_offset
         self._teardown()
