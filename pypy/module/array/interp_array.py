@@ -11,6 +11,7 @@ from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
@@ -583,6 +584,7 @@ def make_array(mytype):
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
     # Compare methods
+    @specialize.arg(3)
     def _cmp_impl(space, self, other, space_fn):
         if isinstance(other, W_ArrayBase):
             w_lst1 = array_tolist__Array(space, self)
