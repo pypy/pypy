@@ -845,8 +845,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
+    OPTIONS = {}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'))
+        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'),
+                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -868,3 +871,7 @@ class AppTestArray(BaseArrayTests):
         a = self.array('b', range(4))
         a[::-1] = a
         assert a == self.array('b', [3, 2, 1, 0])
+
+
+class AppTestArrayBuiltinShortcut(AppTestArray):
+    OPTIONS = {'objspace.std.builtinshortcut': True}
