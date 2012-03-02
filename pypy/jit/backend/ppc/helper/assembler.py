@@ -52,45 +52,6 @@ def gen_emit_unary_cmp_op(condition):
         self.mc.rlwinm(res.value, res.value, 1, 31, 31)
     return f
 
-def encode32(mem, i, n):
-    mem[i+3] = chr(n & 0xFF)
-    mem[i+2] = chr((n >> 8) & 0xFF)
-    mem[i+1] = chr((n >> 16) & 0xFF)
-    mem[i] = chr((n >> 24) & 0xFF)
-
-# XXX this sign extension looks a bit strange ...
-# It is important for PPC64.
-def decode32(mem, index):
-    value = ( ord(mem[index+3])
-            | ord(mem[index+2]) << 8
-            | ord(mem[index+1]) << 16
-            | ord(mem[index]) << 24)
-
-    rffi_value = rffi.cast(rffi.INT, value)
-    # do sign extension
-    return rffi.cast(lltype.Signed, rffi_value)
-
-def encode64(mem, i, n):
-    mem[i+7] = chr(n & 0xFF)
-    mem[i+6] = chr((n >> 8) & 0xFF)
-    mem[i+5] = chr((n >> 16) & 0xFF)
-    mem[i+4] = chr((n >> 24) & 0xFF)
-    mem[i+3] = chr((n >> 32) & 0xFF)
-    mem[i+2] = chr((n >> 40) & 0xFF)
-    mem[i+1] = chr((n >> 48) & 0xFF)
-    mem[i]   = chr((n >> 56) & 0xFF)
-
-def decode64(mem, index):
-    value = ( ord(mem[index+7])
-            | ord(mem[index+6]) << 8
-            | ord(mem[index+5]) << 16
-            | ord(mem[index+4]) << 24
-            | ord(mem[index+3]) << 32
-            | ord(mem[index+2]) << 40
-            | ord(mem[index+1]) << 48
-            | ord(mem[index]) << 56)
-    return intmask(value)
-
 def count_reg_args(args):
     reg_args = 0
     words = 0
