@@ -1364,20 +1364,6 @@ class UnicodeSort(UnicodeBaseTimSort):
     def lt(self, a, b):
         return a < b
 
-class CustomCompareSort(SimpleSort):
-    def lt(self, a, b):
-        space = self.space
-        w_cmp = self.w_cmp
-        w_result = space.call_function(w_cmp, a, b)
-        try:
-            result = space.int_w(w_result)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise OperationError(space.w_TypeError,
-                    space.wrap("comparison function must return int"))
-            raise
-        return result < 0
-
 class CustomKeySort(SimpleSort):
     def lt(self, a, b):
         assert isinstance(a, KeyContainer)
@@ -1385,24 +1371,16 @@ class CustomKeySort(SimpleSort):
         space = self.space
         return space.is_true(space.lt(a.w_key, b.w_key))
 
-class CustomKeyCompareSort(CustomCompareSort):
-    def lt(self, a, b):
-        assert isinstance(a, KeyContainer)
-        assert isinstance(b, KeyContainer)
-        return CustomCompareSort.lt(self, a.w_key, b.w_key)
+def list_sort__List_ANY_ANY(space, w_list, w_keyfunc, w_reverse):
 
-def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
-
-    has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
     has_reverse = space.is_true(w_reverse)
 
     # create and setup a TimSort instance
-    if has_cmp:
-        if has_key:
-            sorterclass = CustomKeyCompareSort
-        else:
-            sorterclass = CustomCompareSort
+    if 0:
+        # this was the old "if has_cmp" path. We didn't remove the if not to
+        # diverge too much from default, to avoid spurious conflicts
+        pass
     else:
         if has_key:
             sorterclass = CustomKeySort
@@ -1415,7 +1393,6 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
     sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
-    sorter.w_cmp = w_cmp
 
     try:
         # The list is temporarily made empty, so that mutations performed

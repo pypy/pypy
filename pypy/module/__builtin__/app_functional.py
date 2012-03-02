@@ -11,10 +11,10 @@ def apply(function, args=(), kwds={}):
 
 # ____________________________________________________________
 
-def sorted(lst, cmp=None, key=None, reverse=None):
-    "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
+def sorted(lst, key=None, reverse=None):
+    "sorted(iterable, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
-    sorted_lst.sort(cmp, key, reverse)
+    sorted_lst.sort(key=key, reverse=reverse)
     return sorted_lst
 
 def any(seq):

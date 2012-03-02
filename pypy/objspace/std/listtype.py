@@ -24,10 +24,10 @@ list_count    = SMM('count',  2,
                         ' occurrences of value')
 list_reverse  = SMM('reverse',1,
                     doc='L.reverse() -- reverse *IN PLACE*')
-list_sort     = SMM('sort',   4, defaults=(None, None, False),
-                    argnames=['cmp', 'key', 'reverse'],
-                    doc='L.sort(cmp=None, key=None, reverse=False) -- stable'
-                        ' sort *IN PLACE*;\ncmp(x, y) -> -1, 0, 1')
+list_sort     = SMM('sort',   3, defaults=(None, None, False),
+                    argnames=['key', 'reverse'],
+                    doc='L.sort(key=None, reverse=False) -- stable'
+                        ' sort *IN PLACE*')
 list_reversed = SMM('__reversed__', 1,
                     doc='L.__reversed__() -- return a reverse iterator over'
                         ' the list')

@@ -543,18 +543,6 @@ class AppTestW_ListObject(object):
         l.sort()
         assert l == [1.1, 2.2, 3.1, 3.3, 4.4, 5.5]
 
-    def test_sort_cmp(self):
-        def lencmp(a,b): return cmp(len(a), len(b))
-        l = [ 'a', 'fiver', 'tre', '' ]
-        l.sort(lencmp)
-        assert l == ['', 'a', 'tre', 'fiver']
-        l = []
-        l.sort(lencmp)
-        assert l == []
-        l = [ 'a' ]
-        l.sort(lencmp)
-        assert l == [ 'a' ]
-
     def test_sort_key(self):
         def lower(x): return x.lower()
         l = ['a', 'C', 'b']
