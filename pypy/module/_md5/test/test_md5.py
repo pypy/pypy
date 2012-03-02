@@ -28,7 +28,7 @@ class AppTestMD5(object):
         assert self.md5.digest_size == 16
         #assert self.md5.digestsize == 16        -- not on CPython
         assert self.md5.md5().digest_size == 16
-        if sys.version >= (2, 5):
+        if sys.version_info >= (2, 5):
             assert self.md5.blocksize == 1
             assert self.md5.md5().digestsize == 16
 
