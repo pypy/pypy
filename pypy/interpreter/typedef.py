@@ -6,7 +6,7 @@ import py
 from pypy.interpreter.gateway import interp2app, BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError, operationerrfmt, W_OperationError
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
 from pypy.rlib.jit import promote
@@ -940,3 +940,5 @@ NotImplemented.typedef.acceptable_as_base_class = False
 
 SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
 SuspendedUnroller.typedef.acceptable_as_base_class = False
+
+W_OperationError.typedef = TypeDef("OperationError")

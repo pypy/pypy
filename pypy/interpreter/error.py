@@ -469,3 +469,14 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
 def typed_unwrap_error_msg(space, expected, w_obj):
     type_name = space.type(w_obj).getname(space)
     return space.wrap("expected %s, got %s object" % (expected, type_name))
+
+
+from pypy.interpreter.baseobjspace import Wrappable
+
+class W_OperationError(Wrappable):
+    """
+    Tiny applevel wrapper around an OperationError.
+    """
+
+    def __init__(self, operr):
+        self.operr = operr
