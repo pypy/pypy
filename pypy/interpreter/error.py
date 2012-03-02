@@ -283,6 +283,8 @@ class OperationError(Exception):
         only if the exception really propagates out of this frame, by
         executioncontext.leave() being called with got_exception=True.
         """
+        from pypy.interpreter.pytraceback import PyTraceback
+        assert isinstance(traceback, PyTraceback)
         self._application_traceback = traceback
 
 # ____________________________________________________________
