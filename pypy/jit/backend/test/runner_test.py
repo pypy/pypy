@@ -714,6 +714,27 @@ class BaseBackendTest(Runner):
                                      descr=calldescr)
         assert res.getfloat() == 4.0
 
+    def test_call_box_func(self):
+        def a(a1, a2):
+            return a1 + a2
+        def b(b1, b2):
+            return b1 * b2
+
+        arg1 = 40
+        arg2 = 2
+        for f in [a, b]:
+            TP = lltype.Signed
+            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+            func_ptr = llhelper(FPTR, f)
+            FUNC = deref(FPTR)
+            funcconst = self.get_funcbox(self.cpu, func_ptr)
+            funcbox = funcconst.clonebox()
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox, BoxInt(arg1), BoxInt(arg2)],
+                                         'int', descr=calldescr)
+            assert res.getint() == f(arg1, arg2)
 
     def test_field_basic(self):
         t_box, T_box = self.alloc_instance(self.T)
