@@ -66,16 +66,6 @@ def high(w):
 
 class AssemblerPPC(OpAssembler):
 
-    FLOAT_TYPE = '\xED'
-    REF_TYPE   = '\xEE'
-    INT_TYPE   = '\xEF'
-
-    STACK_LOC = '\xFC'
-    IMM_LOC = '\xFD'
-    # REG_LOC is empty
-    EMPTY_LOC = '\xFE'
-    END_OF_LOCS = '\xFF'
-
     FORCE_INDEX_AREA            = len(r.MANAGED_REGS) * WORD
     ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
