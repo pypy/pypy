@@ -34,7 +34,7 @@ def taskdef(taskfunc, deps, title, new_state=None, expected_states=[],
 
 _BACKEND_TO_TYPESYSTEM = {
     'c': 'lltype',
-    'llvm': 'ootype'
+    'llvm': 'lltype'
 }
 
 def backend_to_typesystem(backend):
