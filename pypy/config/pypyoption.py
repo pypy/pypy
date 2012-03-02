@@ -30,7 +30,7 @@ working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
-     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
+     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
