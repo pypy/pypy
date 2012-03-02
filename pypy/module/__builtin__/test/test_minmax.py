@@ -17,9 +17,6 @@ class AppTestMin:
    def test_min_strings(self):
       assert min('aaa', 'bbb', 'c') == 'aaa'
 
-   def test_min_mixed(self):
-      assert min('1', 2, 3, 'aa') == 2
-
    def test_min_noargs(self):
       raises(TypeError, min)
 
@@ -43,9 +40,6 @@ class AppTestMax:
    def test_max_strings(self):
       assert max('aaa', 'bbb', 'c') == 'c'
 
-   def test_max_mixed(self):
-      assert max('1', 2, 3, 'aa') == 'aa'
-
    def test_max_noargs(self):
       raises(TypeError, max)
 
@@ -66,9 +60,6 @@ class AppTestMaxTuple:
    def test_max_strings(self):
       assert max(('aaa', 'bbb', 'c')) == 'c'
 
-   def test_max_mixed(self):
-      assert max(('1', 2, 3, 'aa')) == 'aa'
-
 class AppTestMinList:
 
    def test_min_usual(self):
@@ -82,6 +73,3 @@ class AppTestMinList:
 
    def test_min_strings(self):
       assert min(['aaa', 'bbb', 'c']) == 'aaa'
-
-   def test_min_mixed(self):
-      assert min(['1', 2, 3, 'aa']) == 2
