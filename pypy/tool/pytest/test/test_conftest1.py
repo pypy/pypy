@@ -17,7 +17,7 @@ class TestPyPyTests:
     def test_selection_by_keyword_app(self, testdir): 
         sorter = testdir.inline_run("-k", "applevel -docstring", innertest)
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 2
+        assert len(passed) == 3
         assert failed == []
         assert skipped == []
         assert "app_test_something" in passed[0].nodeid
@@ -27,7 +27,7 @@ class TestPyPyTests:
         sorter = testdir.inline_run(innertest, '-k', 'applevel -docstring',
                                     '--runappdirect')
         passed, skipped, failed = sorter.listoutcomes()
-        assert len(passed) == 2
+        assert len(passed) == 3
         print passed
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
