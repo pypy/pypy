@@ -14,20 +14,22 @@ from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import AbstractFailDescr
+from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import (INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.ppc.locations import StackLocation, get_spp_offset
 from pypy.rlib.jit import AsmInfo
+from pypy.rlib.objectmodel import compute_unique_id
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -475,6 +477,55 @@ class AssemblerPPC(OpAssembler):
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
+    # XXX: merge with x86
+    def _register_counter(self, tp, number, token):
+        # YYY very minor leak -- we need the counters to stay alive
+        # forever, just because we want to report them at the end
+        # of the process
+        struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
+                               track_allocation=False)
+        struct.i = 0
+        struct.type = tp
+        if tp == 'b' or tp == 'e':
+            struct.number = number
+        else:
+            assert token
+            struct.number = compute_unique_id(token)
+        self.loop_run_counters.append(struct)
+        return struct
+
+    def _append_debugging_code(self, operations, tp, number, token):
+        counter = self._register_counter(tp, number, token)
+        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
+        box = BoxInt()
+        box2 = BoxInt()
+        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
+                            box, descr=self.debug_counter_descr),
+               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
+               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
+                            None, descr=self.debug_counter_descr)]
+        operations.extend(ops)
+
+    @specialize.argtype(1)
+    def _inject_debugging_code(self, looptoken, operations, tp, number):
+        if self._debug:
+            # before doing anything, let's increase a counter
+            s = 0
+            for op in operations:
+                s += op.getopnum()
+            looptoken._arm_debug_checksum = s
+
+            newoperations = []
+            self._append_debugging_code(newoperations, tp, number,
+                                        None)
+            for op in operations:
+                newoperations.append(op)
+                if op.getopnum() == rop.LABEL:
+                    self._append_debugging_code(newoperations, 'l', number,
+                                                op.getdescr())
+            operations = newoperations
+        return operations
+
     @staticmethod
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
@@ -508,6 +559,10 @@ class AssemblerPPC(OpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         operations = self.setup(looptoken, operations)
+
+        if log:
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
         self.startpos = self.mc.currpos()
         regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
 
@@ -541,10 +596,11 @@ class AssemblerPPC(OpAssembler):
             looptoken._ppc_func_addr = fdescr
 
         self.process_pending_guards(loop_start)
-        if not we_are_translated():
-            print 'Loop', inputargs, operations
-            self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
-            print 'Done assembling loop with token %r' % looptoken
+
+        if log and not we_are_translated():
+            self.mc._dump_trace(real_start,
+                    'loop_%s.asm' % self.cpu.total_compiled_loops)
+
         ops_offset = self.mc.ops_offset
         self._teardown()
 
@@ -567,6 +623,10 @@ class AssemblerPPC(OpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
         operations = self.setup(looptoken, operations)
+        descr_number = self.cpu.get_fail_descr_number(faildescr)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
         assert isinstance(faildescr, AbstractFailDescr)
         code = self._find_failure_recovery_bytecode(faildescr)
         arglocs = self.decode_inputargs(code)
@@ -595,12 +655,15 @@ class AssemblerPPC(OpAssembler):
             # for the benefit of tests
             faildescr._ppc_bridge_frame_depth = self.current_clt.frame_depth
             faildescr._ppc_bridge_param_depth = self.current_clt.param_depth
+            if log:
+                self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
+                self.cpu.total_compiled_bridges)
 
         self._patch_sp_offset(sp_patch_location, rawstart)
-        if not we_are_translated():
-            print 'Loop', inputargs, operations
-            self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
-            print 'Done assembling bridge with token %r' % looptoken
+        #if not we_are_translated():
+        #    print 'Loop', inputargs, operations
+        #    self.mc._dump_trace(rawstart, 'bridge_%s.asm' % self.cpu.total_compiled_loops)
+        #    print 'Done assembling bridge with token %r' % looptoken
 
         ops_offset = self.mc.ops_offset
         self._teardown()
