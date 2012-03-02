@@ -108,7 +108,6 @@ class AppTestBasic:
                 assert (x <= y) == (list(x) <= list(y))
                 assert (x >  y) == (list(x) >  list(y))
                 assert (x >= y) == (list(x) >= list(y))
-                assert cmp(x,y) == cmp(list(x),list(y))
 
     def test_extend(self):
         from _collections import deque
