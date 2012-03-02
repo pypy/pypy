@@ -920,11 +920,15 @@ def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
 
 def notimplemented(self, op):
-    raise NotImplementedError, op
+    print "[PPC/regalloc] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)
 
 def notimplemented_with_guard(self, op, guard_op):
+    print "[PPC/regalloc] %s with guard %s not implemented" % \
+            (op.getopname(), guard_op.getopname())
+    raise NotImplementedError(op)
 
-    raise NotImplementedError, op
+
 
 operations = [notimplemented] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)

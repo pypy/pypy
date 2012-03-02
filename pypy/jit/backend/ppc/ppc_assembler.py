@@ -1070,10 +1070,13 @@ class AssemblerPPC(OpAssembler):
             assert 0, "not implemented yet"
 
 def notimplemented_op(self, op, arglocs, regalloc):
-    raise NotImplementedError, op
+    print "[PPC/asm] %s not implemented" % op.getopname()
+    raise NotImplementedError(op)
 
 def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc):
-    raise NotImplementedError, op
+    print "[PPC/asm] %s with guard %s not implemented" % \
+            (op.getopname(), guard_op.getopname())
+    raise NotImplementedError(op)
 
 operations = [notimplemented_op] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
