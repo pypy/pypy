@@ -912,28 +912,6 @@ class Regalloc(object):
             arglocs.append(t)
         return arglocs
 
-    # from ../x86/regalloc.py:791
-    def _unpack_fielddescr(self, fielddescr):
-        assert isinstance(fielddescr, BaseFieldDescr)
-        ofs = fielddescr.offset
-        size = fielddescr.get_field_size(self.cpu.translate_support_code)
-        ptr = fielddescr.is_pointer_field()
-        return ofs, size, ptr
-
-    # from ../x86/regalloc.py:779
-    def _unpack_arraydescr(self, arraydescr):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        cpu = self.cpu
-        ofs_length = arraydescr.get_ofs_length(cpu.translate_support_code)
-        ofs = arraydescr.get_base_size(cpu.translate_support_code)
-        size = arraydescr.get_item_size(cpu.translate_support_code)
-        ptr = arraydescr.is_array_of_pointers()
-        scale = 0
-        while (1 << scale) < size:
-            scale += 1
-        assert (1 << scale) == size
-        return size, scale, ofs, ofs_length, ptr
-
     def prepare_force_spill(self, op):
         self.force_spill_var(op.getarg(0))
         return []

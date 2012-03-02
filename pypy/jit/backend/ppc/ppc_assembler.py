@@ -9,14 +9,12 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               FPR_SAVE_AREA,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
                                               SIZE_LOAD_IMM_PATCH_SP)
-from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op, 
-                                                   decode64, Saved_Volatiles)
+from pypy.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
 import pypy.jit.backend.ppc.condition as c
 from pypy.jit.metainterp.history import AbstractFailDescr
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.metainterp.resoperation import rop
@@ -185,7 +183,6 @@ class AssemblerPPC(OpAssembler):
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         num = 0
         value = 0
-        fvalue = 0
         code_inputarg = False
         while True:
             code = rffi.cast(lltype.Signed, bytecode[0])
@@ -522,11 +519,9 @@ class AssemblerPPC(OpAssembler):
 
         operations = self.setup(looptoken, operations)
         self.startpos = self.mc.currpos()
-        longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
 
         regalloc.prepare_loop(inputargs, operations)
-        regalloc_head = self.mc.currpos()
 
         start_pos = self.mc.currpos()
         looptoken._ppc_loop_code = start_pos
@@ -584,7 +579,6 @@ class AssemblerPPC(OpAssembler):
         operations = self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
         code = self._find_failure_recovery_bytecode(faildescr)
-        frame_depth = faildescr._ppc_frame_depth
         arglocs = self.decode_inputargs(code)
         if not we_are_translated():
             assert len(inputargs) == len(arglocs)

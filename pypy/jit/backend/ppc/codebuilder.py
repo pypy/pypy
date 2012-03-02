@@ -5,7 +5,6 @@ from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64)
 import pypy.jit.backend.ppc.register as r
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
-from pypy.jit.backend.llsupport.regalloc import RegisterManager
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.resoperation import rop
 from pypy.tool.udir import udir
