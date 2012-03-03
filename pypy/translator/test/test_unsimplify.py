@@ -1,7 +1,7 @@
 import os
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.unsimplify import split_block, call_final_function
-from pypy.translator.unsimplify import call_initial_function
+from pypy.translator.unsimplify import (split_block, call_final_function,
+     remove_double_links, call_initial_function)
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
 from pypy.rlib.objectmodel import we_are_translated
@@ -70,6 +70,27 @@ def test_split_block_exceptions():
         assert result == 1
         result = interp.eval_graph(graph, [2])
         assert result == 2
+
+def test_remove_double_links():
+    def f(b):
+        return not b
+    graph, t = translate(f, [bool])
+
+    blocks = list(graph.iterblocks())
+    assert len(blocks) == 2
+    assert len(blocks[0].exits) == 2
+    assert blocks[0].exits[0].target == blocks[1]
+    assert blocks[0].exits[1].target == blocks[1]
+
+    remove_double_links(t.annotator, graph)
+
+    blocks = list(graph.iterblocks())
+    assert len(blocks) == 3
+    assert len(blocks[0].exits) == 2
+    assert blocks[0].exits[0].target == blocks[1]
+    assert blocks[0].exits[1].target == blocks[2]
+    assert len(blocks[2].exits) == 1
+    assert blocks[2].exits[0].target == blocks[1]
 
 def test_call_initial_function():
     tmpfile = str(udir.join('test_call_initial_function'))
