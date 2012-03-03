@@ -162,7 +162,7 @@ class AppTestKqueue(object):
         event2 = select.kevent(b, select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
         r = kq.control([event1, event2], 1, 1)
         assert r
-        assert r[0].flags & select.KQ_EV_ERROR
+        assert r[0].flags & select.KQ_EV_ERROR == 0
         data = b.recv(r[0].data)
         assert data == 'foo'
 
