@@ -1421,9 +1421,10 @@ class time(object):
     def __setstate(self, string, tzinfo):
         if len(string) != 6 or ord(string[0]) >= 24:
             raise TypeError("an integer is required")
-        self._hour, self._minute, self._second, us1, us2, us3 = \
-                                                            map(ord, string)
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        self._hour, self._minute, self._second = ord(string[0]), \
+                                                 ord(string[1]), ord(string[2])
+        self._microsecond = (((ord(string[3]) << 8) | \
+                            ord(string[4])) << 8) | ord(string[5])
         self._tzinfo = tzinfo
 
     def __reduce__(self):
