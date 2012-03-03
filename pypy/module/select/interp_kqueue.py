@@ -154,8 +154,6 @@ class W_Kqueue(Wrappable):
     @unwrap_spec(max_events=int)
     def descr_control(self, space, w_changelist, max_events, w_timeout=None):
 
-        print "YYY"
-
         self.check_closed(space)
 
         if max_events < 0:
@@ -176,9 +174,15 @@ class W_Kqueue(Wrappable):
                 timeout.c_tv_sec = 0
                 timeout.c_tv_nsec = 0
             else:
-                ## FIXME: w_timeout can be a W_IntObject or float ..
-                timeout.c_tv_sec = 0
-                timeout.c_tv_nsec = 0
+                _timeout = space.float_w(w_timeout)
+                if _timeout < 0:
+                    raise operationerrfmt(space.w_ValueError,
+                        "Timeout must be None or >= 0, got %f", _timeout
+                    )
+                sec = int(_timeout)
+                nsec = int(1e9 * (_timeout - sec) + 0.5)
+                rffi.setintfield(timeout, 'c_tv_sec', sec)
+                rffi.setintfield(timeout, 'c_tv_nsec', nsec)
 
             for i in xrange(changelist_len):
                 changelist[i].c_ident = w_changelist.getitem(i).event.c_ident
