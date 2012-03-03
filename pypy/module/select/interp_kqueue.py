@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError, exception_from_errno
+from pypy.interpreter.error import OperationError, operationerrfmt, exception_from_errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from pypy.rlib._rsocket_rffi import socketclose
@@ -164,7 +164,7 @@ class W_Kqueue(Wrappable):
         if space.is_w(w_changelist, space.w_None):
             changelist_len = 0
         else:
-            changelist_len = w_changelist.length()
+            changelist_len = space.len_w(w_changelist)
 
         with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist, \
              lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist, \
@@ -185,11 +185,12 @@ class W_Kqueue(Wrappable):
                 rffi.setintfield(timeout, 'c_tv_nsec', nsec)
 
             for i in xrange(changelist_len):
-                changelist[i].c_ident = w_changelist.getitem(i).event.c_ident
-                changelist[i].c_filter = w_changelist.getitem(i).event.c_filter
-                changelist[i].c_flags = w_changelist.getitem(i).event.c_flags
-                changelist[i].c_fflags = w_changelist.getitem(i).event.c_fflags
-                changelist[i].c_data = w_changelist.getitem(i).event.c_data
+                ev = space.getitem(w_changelist, space.wrap(i))
+                changelist[i].c_ident = ev.event.c_ident
+                changelist[i].c_filter = ev.event.c_filter
+                changelist[i].c_flags = ev.event.c_flags
+                changelist[i].c_fflags = ev.event.c_fflags
+                changelist[i].c_data = ev.event.c_data
 
             nfds = syscall_kevent(self.kqfd,
                                   changelist,
@@ -252,7 +253,10 @@ class W_Kevent(Wrappable):
         self.event.c_udata = rffi.cast(rffi.VOIDP, udata)
 
     def _compare_all_fields(self, other, op):
-        for field in ["ident", "filter", "flags", "fflags", "data", "udata"]:
+        ## FIXME: handle udata ()
+        ## assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
+        #for field in ["ident", "filter", "flags", "fflags", "data", "udata"]:
+        for field in ["ident", "filter", "flags", "fflags", "data"]:
             lhs = getattr(self.event, "c_%s" % field)
             rhs = getattr(other.event, "c_%s" % field)
             if op == "eq":
