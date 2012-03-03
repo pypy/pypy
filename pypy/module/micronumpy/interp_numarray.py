@@ -821,8 +821,8 @@ class ResultArray(Call2):
 class ToStringArray(Call1):
     def __init__(self, child):
         dtype = child.find_dtype()
-        self.itemsize = dtype.itemtype.get_element_size()
-        self.s = StringBuilder(child.size * self.itemsize)
+        self.item_size = dtype.itemtype.get_element_size()
+        self.s = StringBuilder(child.size * self.item_size)
         Call1.__init__(self, None, 'tostring', child.shape, dtype, dtype,
                        child)
         self.res = W_NDimArray([1], dtype, 'C')

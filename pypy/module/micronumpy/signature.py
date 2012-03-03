@@ -4,6 +4,7 @@ from pypy.module.micronumpy.interp_iter import ConstantIterator, AxisIterator,\
      ViewTransform, BroadcastTransform
 from pypy.tool.pairtype import extendabletype
 from pypy.module.micronumpy.loop import ComputationDone
+from pypy.rlib import jit
 
 """ Signature specifies both the numpy expression that has been constructed
 and the assembler to be compiled. This is a very important observation -
@@ -321,13 +322,14 @@ class ToStringSignature(Call1):
     def __init__(self, dtype, child):
         Call1.__init__(self, None, 'tostring', dtype, child)
 
+    @jit.unroll_safe
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import ToStringArray
 
         assert isinstance(arr, ToStringArray)
         arr.res.setitem(0, self.child.eval(frame, arr.values).convert_to(
             self.dtype))
-        for i in range(arr.itemsize):
+        for i in range(arr.item_size):
             arr.s.append(arr.res_casted[i])
 
 class BroadcastLeft(Call2):
