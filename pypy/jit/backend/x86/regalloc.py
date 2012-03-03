@@ -1393,7 +1393,7 @@ class RegAlloc(object):
         self.force_spill_var(op.getarg(0))
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape(IS_X86_64)
+        shape = gcrootmap.get_basic_shape()
         for v, val in self.fm.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)

@@ -11,6 +11,7 @@ from pypy.objspace.std.stdtypedef import SMM, StdTypeDef
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
@@ -162,13 +163,15 @@ class ArrayBuffer(RWBuffer):
 
 
 def make_array(mytype):
+    W_ArrayBase = globals()['W_ArrayBase']
+
     class W_Array(W_ArrayBase):
         itemsize = mytype.bytes
         typecode = mytype.typecode
 
         @staticmethod
         def register(typeorder):
-            typeorder[W_Array] = []
+            typeorder[W_Array] = [(W_ArrayBase, None)]
 
         def __init__(self, space):
             self.space = space
@@ -586,13 +589,29 @@ def make_array(mytype):
             raise OperationError(space.w_ValueError, space.wrap(msg))
 
     # Compare methods
-    def cmp__Array_ANY(space, self, other):
-        if isinstance(other, W_ArrayBase):
-            w_lst1 = array_tolist__Array(space, self)
-            w_lst2 = space.call_method(other, 'tolist')
-            return space.cmp(w_lst1, w_lst2)
-        else:
-            return space.w_NotImplemented
+    @specialize.arg(3)
+    def _cmp_impl(space, self, other, space_fn):
+        w_lst1 = array_tolist__Array(space, self)
+        w_lst2 = space.call_method(other, 'tolist')
+        return space_fn(w_lst1, w_lst2)
+
+    def eq__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.eq)
+
+    def ne__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.ne)
+
+    def lt__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.lt)
+
+    def le__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.le)
+
+    def gt__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.gt)
+
+    def ge__Array_ArrayBase(space, self, other):
+        return _cmp_impl(space, self, other, space.ge)
 
     # Misc methods
 
