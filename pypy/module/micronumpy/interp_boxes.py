@@ -232,7 +232,7 @@ class W_CharacterBox(W_FlexibleBox):
     pass
 
 class W_StringBox(W_CharacterBox):
-    def descr__new__(space, w_subtype, w_arg):
+    def descr__new__string_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_string_dtype
 
@@ -244,7 +244,7 @@ class W_StringBox(W_CharacterBox):
 
 
 class W_UnicodeBox(W_CharacterBox):
-    def descr__new__(space, w_subtype, w_arg):
+    def descr__new__unicode_box(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
@@ -425,11 +425,11 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
 
 W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
-    __new__ = interp2app(W_StringBox.descr__new__.im_func),
+    __new__ = interp2app(W_StringBox.descr__new__string_box.im_func),
 )
 
 W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
-    __new__ = interp2app(W_UnicodeBox.descr__new__.im_func),
+    __new__ = interp2app(W_UnicodeBox.descr__new__unicode_box.im_func),
 )
                                           
