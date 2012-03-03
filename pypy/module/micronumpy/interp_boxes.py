@@ -42,10 +42,10 @@ class W_GenericBox(Wrappable):
         return self._get_dtype(space)
 
     def descr_str(self, space):
-        return self.descr_repr(space)
-
-    def descr_repr(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
+
+    def descr_format(self, space, w_spec):
+        return space.format(self.item(space), w_spec)
 
     def descr_int(self, space):
         box = self.convert_to(W_LongBox._get_dtype(space))
@@ -204,6 +204,10 @@ class W_FlexibleBox(W_GenericBox):
     def get_dtype(self, space):
         return self.arr.dtype
 
+@unwrap_spec(self=W_GenericBox)
+def descr_index(space, self):
+    return space.index(self.item(space))
+
 class W_VoidBox(W_FlexibleBox):
     @unwrap_spec(item=str)
     def descr_getitem(self, space, item):
@@ -255,7 +259,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
     __str__ = interp2app(W_GenericBox.descr_str),
-    __repr__ = interp2app(W_GenericBox.descr_repr),
+    __repr__ = interp2app(W_GenericBox.descr_str),
+    __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
     __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
@@ -306,6 +311,8 @@ W_GenericBox.typedef = TypeDef("generic",
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_BoolBox.descr__new__.im_func),
+
+    __index__ = interp2app(descr_index),
 )
 
 W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
@@ -327,36 +334,43 @@ W_UnsignedIntegerBox.typedef = TypeDef("unsignedinteger", W_IntegerBox.typedef,
 W_Int8Box.typedef = TypeDef("int8", W_SignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int8Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_UInt8Box.typedef = TypeDef("uint8", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_UInt8Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_Int16Box.typedef = TypeDef("int16", W_SignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int16Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_UInt16Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_Int32Box.typedef = TypeDef("int32", (W_SignedIntegerBox.typedef,) + MIXIN_32,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int32Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_UInt32Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
     __module__ = "numpypy",
     __new__ = interp2app(W_Int64Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 if LONG_BIT == 32:
@@ -369,6 +383,7 @@ elif LONG_BIT == 64:
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntegerBox.typedef,
     __module__ = "numpypy",
     __new__ = interp2app(W_UInt64Box.descr__new__.im_func),
+    __index__ = interp2app(descr_index),
 )
 
 W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,

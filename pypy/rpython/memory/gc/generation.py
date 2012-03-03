@@ -41,8 +41,8 @@ class GenerationGC(SemiSpaceGC):
 
     # the following values override the default arguments of __init__ when
     # translating to a real backend.
-    TRANSLATION_PARAMS = {'space_size': 8*1024*1024, # XXX adjust
-                          'nursery_size': 896*1024,
+    TRANSLATION_PARAMS = {'space_size': 8*1024*1024,     # 8 MB
+                          'nursery_size': 3*1024*1024,   # 3 MB
                           'min_nursery_size': 48*1024,
                           'auto_nursery_size': True}
 
@@ -92,8 +92,9 @@ class GenerationGC(SemiSpaceGC):
         # the GC is fully setup now.  The rest can make use of it.
         if self.auto_nursery_size:
             newsize = nursery_size_from_env()
-            if newsize <= 0:
-                newsize = env.estimate_best_nursery_size()
+            #if newsize <= 0:
+            #    ---disabled--- just use the default value.
+            #    newsize = env.estimate_best_nursery_size()
             if newsize > 0:
                 self.set_nursery_size(newsize)
 

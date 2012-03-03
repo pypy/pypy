@@ -2064,11 +2064,12 @@ class MetaInterp(object):
             pass # XXX we want to do something special in resume descr,
                  # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.execute_raised(OverflowError(), constant=True)
-            try:
-                self.finishframe_exception()
-            except ChangeFrame:
-                pass
+            if not dont_change_position:
+                self.execute_raised(OverflowError(), constant=True)
+                try:
+                    self.finishframe_exception()
+                except ChangeFrame:
+                    pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:
@@ -2349,7 +2350,7 @@ class MetaInterp(object):
             # warmstate.py.
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
-            assert not vinfo.gettoken(virtualizable)
+            assert not vinfo.is_token_nonnull_gcref(virtualizable)
             # fill the virtualizable with the local boxes
             self.synchronize_virtualizable()
         #

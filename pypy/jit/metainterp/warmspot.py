@@ -100,7 +100,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
     if not kwds.get('translate_support_code', False):
         warmrunnerdesc.metainterp_sd.profiler.finish()
         warmrunnerdesc.metainterp_sd.cpu.finish_once()
-    print '~~~ return value:', res
+    print '~~~ return value:', repr(res)
     while repeat > 1:
         print '~' * 79
         res1 = interp.eval_graph(graph, args)
@@ -453,7 +453,7 @@ class WarmRunnerDesc(object):
                     if sys.stdout == sys.__stdout__:
                         import pdb; pdb.post_mortem(tb)
                     raise e.__class__, e, tb
-                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+                fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':

@@ -776,8 +776,6 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.ufunc = ufunc
@@ -867,8 +865,6 @@ class ReduceArray(Call2):
                                          self.right.create_sig(), done_func)
 
 class AxisReduce(Call2):
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, identity, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
