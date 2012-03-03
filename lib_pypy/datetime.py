@@ -1904,10 +1904,11 @@ class datetime(date):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
-        (yhi, ylo, self._month, self._day, self._hour,
-         self._minute, self._second, us1, us2, us3) = map(ord, string)
-        self._year = yhi * 256 + ylo
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        (self._month, self._day, self._hour, self._minute,
+            self._second) = (ord(string[2]), ord(string[3]), ord(string[4]),
+                             ord(string[5]), ord(string[6]))
+        self._year = ord(string[0]) * 256 + ord(string[1])
+        self._microsecond = (((ord(string[7]) << 8) | ord(string[8])) << 8) | ord(string[9])
         self._tzinfo = tzinfo
 
     def __reduce__(self):
