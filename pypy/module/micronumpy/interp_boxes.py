@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.stringtype import str_typedef
-from pypy.objspace.std.unicodetype import unicode_typedef
+from pypy.objspace.std.unicodetype import unicode_typedef, unicode_from_object
 from pypy.objspace.std.inttype import int_typedef
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -242,15 +242,17 @@ class W_StringBox(W_CharacterBox):
             arr.storage[i] = arg[i]
         return W_StringBox(arr, 0)
 
+
 class W_UnicodeBox(W_CharacterBox):
     def descr__new__(space, w_subtype, w_arg):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
         from pypy.module.micronumpy.interp_dtype import new_unicode_dtype
 
-        arg = space.unicode_w(space.unicode(w_arg))
+        arg = space.unicode_w(unicode_from_object(space, w_arg))
         arr = W_NDimArray([1], new_unicode_dtype(space, len(arg)))
-        for i in range(len(arg)):
-            arr.setitem(i, arg[i])
+        # XXX not this way, we need store
+        #for i in range(len(arg)):
+        #    arr.storage[i] = arg[i]
         return W_UnicodeBox(arr, 0)
 
 W_GenericBox.typedef = TypeDef("generic",
@@ -424,6 +426,8 @@ W_CharacterBox.typedef = TypeDef("character", W_FlexibleBox.typedef,
 W_StringBox.typedef = TypeDef("string_", (str_typedef, W_CharacterBox.typedef),
     __module__ = "numpypy",
     __new__ = interp2app(W_StringBox.descr__new__.im_func),
+    __eq__ = interp2app(W_StringBox.descr_eq),
+    __ne__ = interp2app(W_StringBox.descr_ne),
 )
 
 W_UnicodeBox.typedef = TypeDef("unicode_", (unicode_typedef, W_CharacterBox.typedef),

@@ -525,11 +525,11 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
     def test_string_boxes(self):
         from _numpypy import str_
-        assert str_(3) == '3'
+        assert isinstance(str_(3), str_)
 
     def test_unicode_boxes(self):
-        from _numpypy import str_
-        assert str_(3) == '3'
+        from _numpypy import unicode_
+        assert isinstance(unicode_(3), unicode)
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     def test_create(self):
