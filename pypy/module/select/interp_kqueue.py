@@ -177,20 +177,23 @@ class W_Kqueue(Wrappable):
                 _timeout = space.float_w(w_timeout)
                 if _timeout < 0:
                     raise operationerrfmt(space.w_ValueError,
-                        "Timeout must be None or >= 0, got %f", _timeout
+                        "Timeout must be None or >= 0, got %s", str(_timeout)
                     )
                 sec = int(_timeout)
                 nsec = int(1e9 * (_timeout - sec) + 0.5)
                 rffi.setintfield(timeout, 'c_tv_sec', sec)
                 rffi.setintfield(timeout, 'c_tv_nsec', nsec)
 
-            for i in xrange(changelist_len):
-                ev = space.getitem(w_changelist, space.wrap(i))
+            i = 0
+            for w_ev in space.listview(w_changelist):
+                ev = space.interp_w(W_Kevent, w_ev)
                 changelist[i].c_ident = ev.event.c_ident
                 changelist[i].c_filter = ev.event.c_filter
                 changelist[i].c_flags = ev.event.c_flags
                 changelist[i].c_fflags = ev.event.c_fflags
                 changelist[i].c_data = ev.event.c_data
+                changelist[i].c_udata = ev.event.c_udata
+                i += 1
 
             nfds = syscall_kevent(self.kqfd,
                                   changelist,
@@ -201,21 +204,23 @@ class W_Kqueue(Wrappable):
             if nfds < 0:
                 raise exception_from_errno(space, space.w_IOError)
             else:
-                elist_w = [None] * nfds
+                w_elist = [None] * nfds
                 for i in xrange(nfds):
 
                     evt = eventlist[i]
 
-                    event_w = W_Kevent(space)
-                    event_w.event = lltype.malloc(kevent, flavor="raw")
-                    event_w.event.c_ident = evt.c_ident
-                    event_w.event.c_filter = evt.c_filter
-                    event_w.event.c_flags = evt.c_flags
-                    event_w.event.c_fflags = evt.c_fflags
-                    event_w.event.c_data = evt.c_data
+                    w_event = W_Kevent(space)
+                    w_event.event = lltype.malloc(kevent, flavor="raw")
+                    w_event.event.c_ident = evt.c_ident
+                    w_event.event.c_filter = evt.c_filter
+                    w_event.event.c_flags = evt.c_flags
+                    w_event.event.c_fflags = evt.c_fflags
+                    w_event.event.c_data = evt.c_data
+                    w_event.event.c_udata = evt.c_udata
 
-                    elist_w[i] = event_w
-                return space.newlist(elist_w)
+                    w_elist[i] = w_event
+
+                return space.newlist(w_elist)
 
 
 
@@ -253,35 +258,46 @@ class W_Kevent(Wrappable):
         self.event.c_udata = rffi.cast(rffi.VOIDP, udata)
 
     def _compare_all_fields(self, other, op):
-        ## FIXME: handle udata ()
-        ## assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
-        #for field in ["ident", "filter", "flags", "fflags", "data", "udata"]:
-        for field in ["ident", "filter", "flags", "fflags", "data"]:
-            lhs = getattr(self.event, "c_%s" % field)
-            rhs = getattr(other.event, "c_%s" % field)
-            if op == "eq":
-                if lhs != rhs:
-                    return False
-            elif op == "lt":
-                if lhs < rhs:
-                    return True
-            elif op == "ge":
-                if lhs >= rhs:
-                    return True
-            else:
-                assert False
+        l_ident = self.event.c_ident
+        r_ident = other.event.c_ident
+        l_filter = rffi.cast(lltype.Signed, self.event.c_filter)
+        r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
+        l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
+        r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
+        l_fflags = self.event.c_fflags
+        r_fflags = other.event.c_fflags
+        l_data = self.event.c_data
+        r_data = other.event.c_data
+
+        # FIXME: here and below
+        #l_udata = ?
+        #r_udata = ?
 
         if op == "eq":
-            return True
+            return l_ident == r_ident and \
+                   l_filter == r_filter and \
+                   l_flags == r_flags and \
+                   l_fflags == r_fflags and \
+                   l_data == r_data
         elif op == "lt":
-            return False
+            return (l_ident < r_ident) or \
+                   (l_ident == r_ident and l_filter < r_filter) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags < r_flags) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags < r_fflags) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data < r_data)
         elif op == "ge":
-            return False
+            return (l_ident > r_ident) or \
+                   (l_ident == r_ident and l_filter > r_filter) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags > r_flags) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags > r_fflags) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data > r_data)
+        else:
+            assert False
 
     def compare_all_fields(self, space, other, op):
         if not space.interp_w(W_Kevent, other):
             return space.w_NotImplemented
-        return space.wrap(self._compare_all_fields(other, op))
+        return space.wrap(self._compare_all_fields(space.interp_w(W_Kevent, other), op))
 
     def descr__eq__(self, space, w_other):
         return self.compare_all_fields(space, w_other, "eq")
