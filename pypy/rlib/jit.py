@@ -392,6 +392,9 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
+ENABLE_ALL_OPTS = (
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:ffi:unroll')
+
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
     'function_threshold': 'number of times a function must run for it to become traced from start',
@@ -402,7 +405,8 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
+    'enable_opts': 'INTERNAL USE ONLY: optimizations to enable, or all = %s' %
+                       ENABLE_ALL_OPTS,
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime

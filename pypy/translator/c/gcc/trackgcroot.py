@@ -78,9 +78,9 @@ class FunctionGcRootTracker(object):
             if self.is_stack_bottom:
                 retaddr = LOC_NOWHERE     # end marker for asmgcroot.py
             elif self.uses_frame_pointer:
-                retaddr = frameloc_ebp(self.WORD)
+                retaddr = frameloc_ebp(self.WORD, self.WORD)
             else:
-                retaddr = frameloc_esp(insn.framesize)
+                retaddr = frameloc_esp(insn.framesize, self.WORD)
             shape = [retaddr]
             # the first gcroots are always the ones corresponding to
             # the callee-saved registers
@@ -894,6 +894,8 @@ class FunctionGcRootTracker(object):
             return '%' + cls.CALLEE_SAVE_REGISTERS[reg].replace("%", "")
         else:
             offset = loc & ~ LOC_MASK
+            if cls.WORD == 8:
+                offset <<= 1
             if kind == LOC_EBP_PLUS:
                 result = '(%' + cls.EBP.replace("%", "") + ')'
             elif kind == LOC_EBP_MINUS:
