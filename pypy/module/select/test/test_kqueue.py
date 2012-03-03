@@ -1,3 +1,5 @@
+# adapted from CPython: Lib/test/test_kqueue.py
+
 import py
 import sys
 
@@ -84,8 +86,16 @@ class AppTestKqueue(object):
         server_socket.listen(1)
         client = socket.socket()
         client.setblocking(False)
-        exc = raises(socket.error, client.connect, ("127.0.0.1", server_socket.getsockname()[1]))
-        assert exc.value.args[0] == errno.EINPROGRESS
+        try:
+            client.connect(("127.0.0.1", server_socket.getsockname()[1]))
+        except socket.error as e:
+            assert e.args[0] == errno.EINPROGRESS
+        else:
+            if sys.platform.startswith('freebsd'):
+                # FreeBSD doesn't raise an exception here
+                pass
+            else:
+                assert False, "EINPROGRESS not raised"
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):
@@ -119,7 +129,7 @@ class AppTestKqueue(object):
             events = kq1.control(None, 4, 1)
             if len(events) == 4:
                 break
-            time.sleep(.1)
+            time.sleep(1.0)
         else:
             assert False, "timeout waiting for event notification"
 

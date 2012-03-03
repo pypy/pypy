@@ -184,16 +184,17 @@ class W_Kqueue(Wrappable):
                 rffi.setintfield(timeout, 'c_tv_sec', sec)
                 rffi.setintfield(timeout, 'c_tv_nsec', nsec)
 
-            i = 0
-            for w_ev in space.listview(w_changelist):
-                ev = space.interp_w(W_Kevent, w_ev)
-                changelist[i].c_ident = ev.event.c_ident
-                changelist[i].c_filter = ev.event.c_filter
-                changelist[i].c_flags = ev.event.c_flags
-                changelist[i].c_fflags = ev.event.c_fflags
-                changelist[i].c_data = ev.event.c_data
-                changelist[i].c_udata = ev.event.c_udata
-                i += 1
+            if not space.is_w(w_changelist, space.w_None):
+                i = 0
+                for w_ev in space.listview(w_changelist):
+                    ev = space.interp_w(W_Kevent, w_ev)
+                    changelist[i].c_ident = ev.event.c_ident
+                    changelist[i].c_filter = ev.event.c_filter
+                    changelist[i].c_flags = ev.event.c_flags
+                    changelist[i].c_fflags = ev.event.c_fflags
+                    changelist[i].c_data = ev.event.c_data
+                    changelist[i].c_udata = ev.event.c_udata
+                    i += 1
 
             nfds = syscall_kevent(self.kqfd,
                                   changelist,
