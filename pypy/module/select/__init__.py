@@ -25,8 +25,8 @@ class Module(MixedModule):
     if sys.platform.startswith('freebsd') or sys.platform.startswith('darwin'):
         interpleveldefs["kqueue"] = "interp_kqueue.W_Kqueue"
         interpleveldefs["kevent"] = "interp_kqueue.W_Kevent"
-
-        for symbol in ["KQ_FILTER_READ", "KQ_FILTER_WRITE", "KQ_EV_ADD", "KQ_EV_ONESHOT", "KQ_EV_ENABLE"]:
+        from pypy.module.select.interp_kqueue import symbol_map
+        for symbol in symbol_map.keys():
             interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
 
     def buildloaders(cls):

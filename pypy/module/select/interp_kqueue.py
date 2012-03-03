@@ -8,8 +8,11 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
+# http://www.freebsd.org/cgi/man.cgi?query=kqueue&sektion=2
+# /usr/include/sys/event.h
+#
 eci = ExternalCompilationInfo(
-    includes = ["sys/event.h"],
+    includes = ["sys/types.h", "sys/event.h"],
 )
 
 
@@ -25,24 +28,48 @@ CConfig.kevent = rffi_platform.Struct("struct kevent", [
     ("udata", rffi.VOIDP),
 ])
 
-for symbol in ["EVFILT_READ", "EVFILT_WRITE", "EV_ADD", "EV_ONESHOT", "EV_ENABLE"]:
+symbol_map = {
+    "KQ_FILTER_READ": "EVFILT_READ",
+    "KQ_FILTER_WRITE": "EVFILT_WRITE",
+    "KQ_FILTER_AIO": "EVFILT_AIO",
+    "KQ_FILTER_VNODE": "EVFILT_VNODE",
+    "KQ_FILTER_PROC": "EVFILT_PROC",
+#    "KQ_FILTER_NETDEV": None, # deprecated on FreeBSD .. no longer defined .. what to do?
+    "KQ_FILTER_SIGNAL": "EVFILT_SIGNAL",
+    "KQ_FILTER_TIMER": "EVFILT_TIMER",
+
+    "KQ_EV_ADD": "EV_ADD",
+    "KQ_EV_DELETE": "EV_DELETE",
+    "KQ_EV_ENABLE": "EV_ENABLE",
+    "KQ_EV_DISABLE": "EV_DISABLE",
+    "KQ_EV_ONESHOT": "EV_ONESHOT",
+    "KQ_EV_CLEAR": "EV_CLEAR",
+
+    # for the next 2 Python docs: "internal event" .. not defined on FreeBSD .. what to do?
+#    "KQ_EV_SYSFLAGS": None,
+#    "KQ_EV_FLAG1": None,
+
+    "KQ_EV_EOF": "EV_EOF",
+    "KQ_EV_ERROR": "EV_ERROR"
+}
+
+for symbol in symbol_map.values():
     setattr(CConfig, symbol, rffi_platform.DefinedConstantInteger(symbol))
 
 cconfig = rffi_platform.configure(CConfig)
 
 kevent = cconfig["kevent"]
-KQ_FILTER_READ = cconfig["EVFILT_READ"]
-KQ_FILTER_WRITE = cconfig["EVFILT_WRITE"]
-KQ_EV_ADD = cconfig["EV_ADD"]
-KQ_EV_ONESHOT = cconfig["EV_ONESHOT"]
-KQ_EV_ENABLE = cconfig["EV_ENABLE"]
+
+for symbol in symbol_map:
+    globals()[symbol] = cconfig[symbol_map[symbol]]
+
 
 kqueue = rffi.llexternal("kqueue",
     [],
     rffi.INT,
     compilation_info=eci
 )
-    
+
 
 
 class W_Kqueue(Wrappable):
@@ -93,9 +120,9 @@ class W_Kqueue(Wrappable):
                 "Length of eventlist must be 0 or positive, got %d", max_events
             )
 
-        if space.is_w(w_timeout, space.w_None):
-            timeoutspec = 
-        
+        #if space.is_w(w_timeout, space.w_None):
+        #    timeoutspec =
+
 
 
 W_Kqueue.typedef = TypeDef("select.kqueue",
@@ -122,7 +149,7 @@ class W_Kevent(Wrappable):
     @unwrap_spec(filter=int, flags=int, fflags=int, data=int, udata=int)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
         ident = space.c_filedescriptor_w(w_ident)
-        
+
         self.event = lltype.malloc(kevent, flavor="raw")
         rffi.setintfield(self.event, "c_ident", ident)
         rffi.setintfield(self.event, "c_filter", filter)
