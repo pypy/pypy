@@ -92,10 +92,21 @@ def make_data_member(cppdm):
 
 
 def make_cppnamespace(namespace_name, cppns, build_in_full=True):
-    nsdct = {"_cpp_proxy" : cppns }
+    # build up a representation of a C++ namespace (namespaces are classes)
 
     # create a meta class to allow properties (for static data write access)
     metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
+
+    if cppns:
+        nsdct = {"_cpp_proxy" : cppns }
+    else:
+        nsdct = dict()
+        def cpp_proxy_loader(cls):
+            cpp_proxy = cppyy._type_byname(cls.__name__ != '::' and cls.__name__ or '')
+            del cls.__class__._cpp_proxy
+            cls._cpp_proxy = cpp_proxy
+            return cpp_proxy
+        metans._cpp_proxy = property(cpp_proxy_loader)
 
     if build_in_full:   # if False, rely on lazy build-up
         # insert static methods into the "namespace" dictionary
@@ -207,8 +218,6 @@ def get_cppitem(name, scope=None):
     if isinstance(scope, CppyyNamespaceMeta):
         global _loaded_dictionaries_isdirty
         if _loaded_dictionaries_isdirty:  # TODO: this should be per namespace
-            if not scope._cpp_proxy:
-                scope._cpp_proxy = cppyy._type_byname(scope.__name__)
             scope._cpp_proxy.update()     # TODO: this is currently quadratic
             _loaded_dictionaries_isdirty = False
 
@@ -295,7 +304,7 @@ def _pythonize(pyclass):
 
 
 _loaded_dictionaries = {}
-_loaded_dictionaries_isdirty = False    # should be per namespace
+_loaded_dictionaries_isdirty = True     # should be per namespace
 def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
@@ -307,10 +316,10 @@ def load_reflection_info(name):
         return dct
     
 
-# user interface objects (note the two-step: creation of global functions may
-# cause the creation of classes in the global namespace, so gbl must exist at
-# that point to cache them)
-gbl = make_cppnamespace("::", cppyy._type_byname(""), False)     # global C++ namespace
+# user interface objects (note the two-step of not calling type_byname here:
+# creation of global functions may cause the creation of classes in the global
+# namespace, so gbl must exist at that point to cache them)
+gbl = make_cppnamespace("::", None, False)   # global C++ namespace
 
-# mostly for the benefit of CINT, which treats std as special
-gbl.std = make_cppnamespace("std", cppyy._type_byname("std"), False)
+# mostly for the benefit of the CINT backend, which treats std as special
+gbl.std = make_cppnamespace("std", None, False)

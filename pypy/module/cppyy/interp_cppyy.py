@@ -51,12 +51,6 @@ def type_byname(space, name):
             r_cppscope = W_CPPType(space, final_name, cppscope)
         state.r_cppscope_cache[name] = r_cppscope
 
-        # prevent getting reflection info that may be linked in through the
-        # back-end libs or that may be available through an auto-loader, during
-        # translation time (else it will get translated, too)
-        if space.config.translating and not objectmodel.we_are_translated():
-            return r_cppscope
-
         r_cppscope._find_methods()
         r_cppscope._find_data_members()
         return r_cppscope
@@ -432,8 +426,6 @@ class W_CPPNamespace(W_CPPScope):
                 self.data_members[data_member_name] = data_member
 
     def update(self):
-        if self.space.config.translating and not objectmodel.we_are_translated():
-             return cpptype
         self._find_methods()
         self._find_data_members()
 
