@@ -1032,8 +1032,8 @@ class date(object):
     def __setstate(self, string):
         if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
             raise TypeError("not enough arguments")
-        yhi, ylo, self._month, self._day = map(ord, string)
-        self._year = yhi * 256 + ylo
+        self._month, self._day = ord(string[2]), ord(string[3])
+        self._year = ord(string[0]) * 256 + ord(string[1])
 
     def __reduce__(self):
         return (self.__class__, self._getstate())
