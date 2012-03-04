@@ -111,8 +111,9 @@ class W_Kqueue(Wrappable):
 
     def close(self):
         if not self.get_closed():
-            socketclose(self.kqfd)
+            kqfd = self.kqfd
             self.kqfd = -1
+            socketclose(kqfd)
 
     def check_closed(self, space):
         if self.get_closed():
@@ -147,19 +148,19 @@ class W_Kqueue(Wrappable):
              lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist, \
              lltype.scoped_alloc(timespec) as timeout:
 
-            if space.is_w(w_timeout, space.w_None):
-                timeout.c_tv_sec = 0
-                timeout.c_tv_nsec = 0
-            else:
+            if not space.is_w(w_timeout, space.w_None):
                 _timeout = space.float_w(w_timeout)
                 if _timeout < 0:
                     raise operationerrfmt(space.w_ValueError,
                         "Timeout must be None or >= 0, got %s", str(_timeout)
                     )
                 sec = int(_timeout)
-                nsec = int(1e9 * (_timeout - sec) + 0.5)
+                nsec = int(1e9 * (_timeout - sec))
                 rffi.setintfield(timeout, 'c_tv_sec', sec)
                 rffi.setintfield(timeout, 'c_tv_nsec', nsec)
+                ptimeout = timeout
+            else:
+                ptimeout = lltype.nullptr(timespec)
 
             if not space.is_w(w_changelist, space.w_None):
                 i = 0
@@ -172,13 +173,16 @@ class W_Kqueue(Wrappable):
                     changelist[i].c_data = ev.event.c_data
                     changelist[i].c_udata = ev.event.c_udata
                     i += 1
+                pchangelist = changelist
+            else:
+                pchangelist = lltype.nullptr(rffi.CArray(kevent))
 
             nfds = syscall_kevent(self.kqfd,
-                                  changelist,
+                                  pchangelist,
                                   changelist_len,
                                   eventlist,
                                   max_events,
-                                  timeout)
+                                  ptimeout)
             if nfds < 0:
                 raise exception_from_errno(space, space.w_IOError)
             else:
