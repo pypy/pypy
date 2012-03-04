@@ -3,15 +3,13 @@ Native type codes.
 The table 'native_fmttable' is also used by pypy.module.array.interp_array.
 """
 import struct
-
-from pypy.rlib import jit
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib.rstruct import standardfmttable as std
 from pypy.rlib.rstruct.error import StructError
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rlib.objectmodel import specialize
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 
@@ -27,7 +25,6 @@ native_fmttable = {
 double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
 float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
-@jit.unroll_safe
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     double_buf[0] = doubleval
