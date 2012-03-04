@@ -28,7 +28,7 @@ CPU = getcpuclass()
 
 class MockGcRootMap(object):
     is_shadow_stack = False
-    def get_basic_shape(self, is_64_bit):
+    def get_basic_shape(self):
         return ['shape']
     def add_frame_offset(self, shape, offset):
         shape.append(offset)
