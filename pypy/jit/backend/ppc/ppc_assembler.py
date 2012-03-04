@@ -340,7 +340,6 @@ class AssemblerPPC(OpAssembler):
         mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.b_abs(self.propagate_exception_path)
 
-
         mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         if IS_PPC_64:
