@@ -241,7 +241,7 @@ class W_StringBox(W_CharacterBox):
         arr = W_NDimArray([1], new_string_dtype(space, len(arg)))
         for i in range(len(arg)):
             arr.storage[i] = arg[i]
-        return W_StringBox(arr, 0)
+        return W_StringBox(arr, 0, arr.dtype)
 
 
 class W_UnicodeBox(W_CharacterBox):
@@ -254,7 +254,7 @@ class W_UnicodeBox(W_CharacterBox):
         # XXX not this way, we need store
         #for i in range(len(arg)):
         #    arr.storage[i] = arg[i]
-        return W_UnicodeBox(arr, 0)
+        return W_UnicodeBox(arr, 0, arr.dtype)
 
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpypy",
