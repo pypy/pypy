@@ -604,7 +604,7 @@ class BaseBackendTest(Runner):
                                          [funcbox, BoxInt(arg1), BoxInt(arg2)],
                                          'int', descr=calldescr)
             assert res.getint() == f(arg1, arg2)
-        
+
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
         # also test the ordering of the arguments.
@@ -1490,7 +1490,8 @@ class BaseBackendTest(Runner):
     def test_noops(self):
         c_box = self.alloc_string("hi there").constbox()
         c_nest = ConstInt(0)
-        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest], 'void')
+        c_id = ConstInt(0)
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id], 'void')
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 
@@ -3061,7 +3062,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ResOperation(rop.JUMP, [i2], None, descr=targettoken2),
             ]
         self.cpu.compile_bridge(faildescr, inputargs, operations, looptoken)
-        
+
         fail = self.cpu.execute_token(looptoken, 2)
         assert fail.identifier == 3
         res = self.cpu.get_latest_value_int(0)
@@ -3106,7 +3107,7 @@ class LLtypeBackendTest(BaseBackendTest):
             assert len(mc) == len(ops)
             for i in range(len(mc)):
                 assert mc[i].split("\t")[-1].startswith(ops[i])
-            
+
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         mc = list(machine_code_dump(data, info.asmaddr, cpuname))
         lines = [line for line in mc if line.count('\t') == 2]
