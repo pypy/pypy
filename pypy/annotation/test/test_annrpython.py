@@ -2431,6 +2431,28 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[1], annmodel.SomeChar)
         assert isinstance(s.items[2], annmodel.SomeChar)
 
+    def test_multiple_mixins_mro(self):
+        # an obscure situation, but it occurred in module/micronumpy/types.py
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class D(B, C):
+            _mixin_ = True
+        class Concrete(D):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass
