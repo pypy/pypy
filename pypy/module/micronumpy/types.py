@@ -678,7 +678,7 @@ class RecordType(CompositeType):
     def read(self, arr, width, i, offset, dtype=None):
         if dtype is None:
             dtype = arr.dtype
-        return interp_boxes.W_VoidBox(arr, i, dtype)
+        return interp_boxes.W_VoidBox(arr, i + offset, dtype)
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item): 
