@@ -75,6 +75,18 @@ class AppTestKqueue(object):
         assert ev == ev
         assert ev != other
 
+        bignum = sys.maxsize * 2 + 1
+        fd = sys.maxsize
+        ev = select.kevent(fd, 1, 2, bignum, sys.maxsize, bignum)
+        assert ev.ident == fd
+        assert ev.filter == 1
+        assert ev.flags == 2
+        assert ev.fflags == bignum
+        assert ev.data == sys.maxsize
+        assert ev.udata == bignum
+        assert ev == ev
+        assert ev != other
+
     def test_queue_event(self):
         import errno
         import select
@@ -89,13 +101,10 @@ class AppTestKqueue(object):
         try:
             client.connect(("127.0.0.1", server_socket.getsockname()[1]))
         except socket.error as e:
-            assert e.args[0] == errno.EINPROGRESS
-        else:
-            if sys.platform.startswith('freebsd'):
-                # FreeBSD doesn't raise an exception here
-                pass
+            if 'bsd' in sys.platform:
+                assert e.args[0] == errno.ENOENT
             else:
-                assert False, "EINPROGRESS not raised"
+                assert e.args[0] == errno.EINPROGRESS
         server, addr = server_socket.accept()
 
         if sys.platform.startswith("darwin"):

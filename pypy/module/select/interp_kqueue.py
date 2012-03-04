@@ -20,11 +20,11 @@ class CConfig:
 
 
 CConfig.kevent = rffi_platform.Struct("struct kevent", [
-    ("ident", rffi.UINT),
+    ("ident", rffi.SIZE_T), # uintptr_t
     ("filter", rffi.SHORT),
     ("flags", rffi.USHORT),
     ("fflags", rffi.UINT),
-    ("data", rffi.INT),
+    ("data", rffi.SSIZE_T), # intptr_t
     ("udata", rffi.VOIDP),
 ])
 
@@ -78,9 +78,12 @@ syscall_kqueue = rffi.llexternal(
 syscall_kevent = rffi.llexternal(
     "kevent",
     [rffi.INT,
-     lltype.Ptr(rffi.CArray(kevent)), rffi.INT,
-     lltype.Ptr(rffi.CArray(kevent)), rffi.INT,
-     lltype.Ptr(timespec)],
+     lltype.Ptr(rffi.CArray(kevent)),
+     rffi.INT,
+     lltype.Ptr(rffi.CArray(kevent)),
+     rffi.INT,
+     lltype.Ptr(timespec)
+    ],
     rffi.INT,
     compilation_info=eci
 )
@@ -220,7 +223,7 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags=int, fflags=int, data=int, udata=int)
+    @unwrap_spec(filter=int, flags=int, fflags=rffi.r_uint, data=int, udata=rffi.r_uint)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
         ident = space.c_filedescriptor_w(w_ident)
 
@@ -299,7 +302,7 @@ class W_Kevent(Wrappable):
         return space.wrap(self.event.c_data)
 
     def descr_get_udata(self, space):
-        return space.wrap(rffi.cast(rffi.INT, self.event.c_udata))
+        return space.wrap(rffi.cast(rffi.SIZE_T, self.event.c_udata))
 
 
 W_Kevent.typedef = TypeDef("select.kevent",
