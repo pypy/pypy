@@ -1,3 +1,5 @@
+import py
+from pypy.conftest import option
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix
 from pypy.interpreter.gateway import interp2app
@@ -474,13 +476,6 @@ class AppTestTypes(BaseNumpyAppTest):
         assert dtype('i8') == dtype('<i8')# XXX should be equal == dtype(long)
         assert dtype(self.non_native_prefix + 'i8') != dtype('i8')
 
-    def test_non_native(self):
-        from _numpypy import array
-        a = array([1, 2, 3], dtype=self.non_native_prefix + 'i2')
-        assert a[0] == 1
-        assert (a + a)[1] == 4
-        self.check_non_native(a, array([1, 2, 3], 'i2'))
-
     def test_alignment(self):
         from _numpypy import dtype
         assert dtype('i4').alignment == 4
@@ -556,3 +551,16 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         d = dtype({'names': ['a', 'b', 'c'],
                    })
         
+class AppTestNotDirect(BaseNumpyAppTest):
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            py.test.skip("not a direct test")
+
+    def test_non_native(self):
+        from _numpypy import array
+        a = array([1, 2, 3], dtype=self.non_native_prefix + 'i2')
+        assert a[0] == 1
+        assert (a + a)[1] == 4
+        self.check_non_native(a, array([1, 2, 3], 'i2'))
+
