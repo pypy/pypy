@@ -8,7 +8,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestKqueue(object):
     def setup_class(cls):
-        if not sys.platform.startswith('freebsd') and \
+        if not 'bsd' in sys.platform and \
            not sys.platform.startswith('darwin'):
             py.test.skip("test requires BSD")
         cls.space = gettestobjspace(usemodules=["select", "_socket", "posix"])
