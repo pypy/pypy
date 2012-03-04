@@ -246,45 +246,60 @@ class W_Kevent(Wrappable):
         r_fflags = other.event.c_fflags
         l_data = self.event.c_data
         r_data = other.event.c_data
-
-        # FIXME: here and below
-        #l_udata = ?
-        #r_udata = ?
+        l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)
+        r_udata = rffi.cast(lltype.Unsigned, other.event.c_udata)
 
         if op == "eq":
             return l_ident == r_ident and \
                    l_filter == r_filter and \
                    l_flags == r_flags and \
                    l_fflags == r_fflags and \
-                   l_data == r_data
+                   l_data == r_data and \
+                   l_udata == r_udata
         elif op == "lt":
             return (l_ident < r_ident) or \
                    (l_ident == r_ident and l_filter < r_filter) or \
                    (l_ident == r_ident and l_filter == r_filter and l_flags < r_flags) or \
                    (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags < r_fflags) or \
-                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data < r_data)
-        elif op == "ge":
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data < r_data) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data == r_data and l_udata < r_udata)
+        elif op == "gt":
             return (l_ident > r_ident) or \
                    (l_ident == r_ident and l_filter > r_filter) or \
                    (l_ident == r_ident and l_filter == r_filter and l_flags > r_flags) or \
                    (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags > r_fflags) or \
-                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data > r_data)
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data > r_data) or \
+                   (l_ident == r_ident and l_filter == r_filter and l_flags == r_flags and l_fflags == r_fflags and l_data == r_data and l_udata > r_udata)
         else:
             assert False
 
     def compare_all_fields(self, space, other, op):
         if not space.interp_w(W_Kevent, other):
-            return space.w_NotImplemented
-        return space.wrap(self._compare_all_fields(space.interp_w(W_Kevent, other), op))
+            if op == "eq":
+                return False
+            elif op == "ne":
+                return True
+            else:
+                raise OperationError(space.w_TypeError, space.wrap('cannot compare kevent to incompatible type'))
+        return self._compare_all_fields(space.interp_w(W_Kevent, other), op)
 
     def descr__eq__(self, space, w_other):
-        return self.compare_all_fields(space, w_other, "eq")
+        return space.wrap(self.compare_all_fields(space, w_other, "eq"))
+
+    def descr__ne__(self, space, w_other):
+        return space.wrap(not self.compare_all_fields(space, w_other, "eq"))
+
+    def descr__le__(self, space, w_other):
+        return space.wrap(not self.compare_all_fields(space, w_other, "gt"))
 
     def descr__lt__(self, space, w_other):
-        return self.compare_all_fields(space, w_other, "lt")
+        return space.wrap(self.compare_all_fields(space, w_other, "lt"))
 
     def descr__ge__(self, space, w_other):
-        return self.compare_all_fields(space, w_other, "ge")
+        return space.wrap(not self.compare_all_fields(space, w_other, "lt"))
+
+    def descr__gt__(self, space, w_other):
+        return space.wrap(self.compare_all_fields(space, w_other, "gt"))
 
     def descr_get_ident(self, space):
         return space.wrap(self.event.c_ident)
@@ -309,8 +324,11 @@ W_Kevent.typedef = TypeDef("select.kevent",
     __new__ = generic_new_descr(W_Kevent),
     __init__ = interp2app(W_Kevent.descr__init__),
     __eq__ = interp2app(W_Kevent.descr__eq__),
+    __ne__ = interp2app(W_Kevent.descr__ne__),
+    __le__ = interp2app(W_Kevent.descr__le__),
     __lt__ = interp2app(W_Kevent.descr__lt__),
     __ge__ = interp2app(W_Kevent.descr__ge__),
+    __gt__ = interp2app(W_Kevent.descr__gt__),
 
     ident = GetSetProperty(W_Kevent.descr_get_ident),
     filter = GetSetProperty(W_Kevent.descr_get_filter),
