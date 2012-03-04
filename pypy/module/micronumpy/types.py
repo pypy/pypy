@@ -704,7 +704,7 @@ class RecordType(CompositeType):
             w_item = items_w[i]
             w_box = itemtype.coerce(space, subdtype, w_item)
             itemtype.store(arr, 1, 0, ofs, w_box)
-        return interp_boxes.W_VoidBox(arr, 0)
+        return interp_boxes.W_VoidBox(arr, 0, arr.dtype)
 
     @jit.unroll_safe
     def store(self, arr, _, i, ofs, box):
