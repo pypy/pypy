@@ -20,7 +20,6 @@ class Database(object):
         self.f = f
         self.names_counter = {}
         self.types = {}
-        self.globals_counter = count()
         self.globals_ = {None: 'null'}
         self.delayed_ptrs = []
 
@@ -59,8 +58,13 @@ class Database(object):
             self.types[type_] = '[%s x %s]' % (type_.length, _T(type_.OF))
         elif isinstance(type_, lltype.Struct):
             self.types[type_] = name = self._unique('%struct.' + type_._name)
-            self.f.write('%s = type { %s }\n' % (
-                    name, _Tm(type_._flds[fld] for fld in type_._names)))
+            tmp = ('    %s%s%s ; %s' % (
+                           ';' if type_._flds[fld] is lltype.Void else '',
+                           _T(type_._flds[fld]),
+                           ',' if fld != type_._names[-1] else '',
+                           fld)
+                   for fld in type_._names)
+            self.f.write('%s = type {\n%s\n}\n' % (name, '\n'.join(tmp)))
         elif isinstance(type_, lltype.Array):
             of = _T(type_.OF)
             name = '%array_of_' + of.strip('%').replace('*', '_ptr')
@@ -93,7 +97,11 @@ class Database(object):
                 self.f.writelines(writer.lines)
             return
 
-        name = '@global_%s' % next(self.globals_counter)
+        if isinstance(type_, lltype.FixedSizeArray):
+            tmp = 'array'
+        else:
+            tmp = _T(type_).strip('%').replace('*', '_ptr')
+        name = self._unique('@global_' + tmp)
         if isinstance(type_, lltype.Array):
             typedef = '{ i64, [%s x %s] }' % (len(obj.items), _T(type_.OF))
             self.globals_[obj] = 'bitcast(%s* %s to %s*)' % (
@@ -105,24 +113,53 @@ class Database(object):
         self.f.write('%s = global %s %s\n' % (
                 name, typedef, self.repr_obj(type_, obj)))
 
-    def _repr_array(self, flds):
-        if all(_V(t, i) == 'null' for t, i in flds):
-            return 'zeroinitializer'
-        return '[ %s ]' % _TVm(flds)
+    def _zeroinitialized(self, type_, obj):
+        if isinstance(type_, lltype.Primitive):
+            return obj == type_._defl()
+        elif isinstance(type_, lltype.Ptr):
+            return not obj
+        elif isinstance(type_, lltype.Struct):
+            return all(self._zeroinitialized(type_._flds[na], getattr(obj, na))
+                                             for na in type_._names)
+        elif isinstance(type_, lltype.Array):
+            return len(obj.items) == 0
+        elif isinstance(type_, lltype.OpaqueType):
+            return True
+        elif isinstance(type_, llgroup.GroupType):
+            return True
+        else:
+            raise TypeError('type_ is %r' % type_)
+
+    def _repr_array(self, of, items):
+        if of is lltype.Char:
+            return 'c"%s"' % ''.join(items).replace('\00', r'\00')
+        tmp = (_TVm(of, items[i:i+16]) for i in xrange(0, len(items), 16))
+        cmms = [','] * (len(items) // 16) + ['']
+        return '[\n%s]' % (''.join('    %s%s\n' % i for i in zip(tmp, cmms)))
 
     def repr_obj(self, type_, obj):
-        if isinstance(type_, lltype.FixedSizeArray):
-            flds = [(type_.OF, getattr(obj, na)) for na in type_._names]
-            return self._repr_array(flds)
+        if self._zeroinitialized(type_, obj):
+            return 'zeroinitializer'
+        elif isinstance(type_, lltype.FixedSizeArray):
+            return self._repr_array(type_.OF, map(obj._getattr, type_._names))
         elif isinstance(type_, lltype.Struct):
-            flds = [(type_._flds[na], getattr(obj, na)) for na in type_._names]
-            if all(_V(t, i) == 'null' for t, i in flds):
-                return 'zeroinitializer'
-            return '{ %s }' % _TVm(flds)
+            tmp = ('    %s%s %s%s ; %s' % (
+                           ';' if type_._flds[fld] is lltype.Void else '',
+                           _T(type_._flds[fld]),
+                           _V(type_._flds[fld], getattr(obj, fld))
+                                   .replace('\n', '\n    '),
+                           ',' if fld != type_._names[-1] else '',
+                           fld)
+                   for fld in type_._names)
+            return '{\n%s\n}' % ('\n'.join(tmp))
+
         elif isinstance(type_, lltype.Array):
-            return '{ i64 %s, [%s x %s ] %s }' % (
-                    len(obj.items), len(obj.items), _T(type_.OF),
-                    self._repr_array([(type_.OF, i) for i in obj.items]))
+            if all(self._zeroinitialized(type_.OF, i) for i in obj.items):
+                data = 'zeroinitializer'
+            else:
+                data = self._repr_array(type_.OF, obj.items)
+            return '{ i64 %s, [%s x %s] %s }' % (
+                    len(obj.items), len(obj.items), _T(type_.OF), data)
         elif isinstance(type_, lltype.OpaqueType):
             return 'null'
         elif isinstance(type_, llgroup.GroupType):
@@ -141,7 +178,7 @@ def repr_number(value):
         return str(value)
 
     if isinstance(value, ComputedIntSymbolic):
-        return value.compute_fn()
+        return str(value.compute_fn())
     elif isinstance(value, llmemory.AddressOffset):
         return '0' # XXX
         raise NotImplementedError
@@ -216,13 +253,10 @@ def Vm(vals):
     """Represent multiple values. `vals` is an iterable of LLValues."""
     return ', '.join(V(val) for val in vals)
 
-def _TVm(vocs):
-    """
-    Represent multiple types and values. `vocs` is an iterable of
-    (LLType, LLValue) pairs.
-    """
-    return ', '.join('%s %s' % (_T(type_), _V(type_, val))
-                     for type_, val in vocs if type_ is not lltype.Void)
+def _TVm(type_, values):
+    """Represent multiple `values` of type `type_`."""
+    tstr = _T(type_)
+    return ', '.join('%s %s' % (tstr, _V(type_, value)) for value in values)
 
 def TVm(vocs):
     """
