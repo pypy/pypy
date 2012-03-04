@@ -60,6 +60,9 @@ class BaseTestPyPyC(object):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        if getattr(pipe, 'returncode', 0) < 0:
+            raise IOError("subprocess was killed by signal %d" % (
+                pipe.returncode,))
         if stderr.startswith('SKIP:'):
             py.test.skip(stderr)
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
