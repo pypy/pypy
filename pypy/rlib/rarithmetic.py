@@ -521,9 +521,8 @@ def byteswap(arg):
     from pypy.rpython.lltypesystem import lltype, rffi
     
     T = lltype.typeOf(arg)
-    if T != rffi.LONGLONG and T != rffi.ULONGLONG and T != rffi.UINT:
-        arg = rffi.cast(lltype.Signed, arg)
-        # XXX we cannot do arithmetics on small ints
+    # XXX we cannot do arithmetics on small ints
+    arg = widen(arg)
     if rffi.sizeof(T) == 1:
         res = arg
     elif rffi.sizeof(T) == 2:
