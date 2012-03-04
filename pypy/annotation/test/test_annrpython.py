@@ -2463,6 +2463,20 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 5
 
+    def test_mixin_concrete(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Concrete(Mixin):
+            def foo(self): return 5
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
     def test_multiple_mixins_mro(self):
         # an obscure situation, but it occurred in module/micronumpy/types.py
         class A(object):

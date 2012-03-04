@@ -425,8 +425,8 @@ class ClassDesc(Desc):
                 raise Exception("unsupported: class %r has mixin bases both"
                                 " before and after the regular base" % (self,))
             self.add_mixins(mixins_after, check_not_in=base)
-            self.add_sources_for_class(cls)
             self.add_mixins(mixins_before)
+            self.add_sources_for_class(cls)
 
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
