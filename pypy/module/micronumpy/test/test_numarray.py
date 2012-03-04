@@ -1919,3 +1919,16 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         from _numpypy import array
         a = array([(1, 2), (3, 4)], dtype=[('x', int), ('y', float)])
         assert repr(a[0]) == '(1, 2.0)'
+
+    def test_nested_dtype(self):
+        from _numpypy import zeros
+        a = [('x', int), ('y', float)]
+        b = [('x', int), ('y', a)]
+        arr = zeros(3, dtype=b)
+        arr[1]['x'] = 15
+        assert arr[1]['x'] == 15
+        arr[1]['y']['y'] = 3.5
+        assert arr[1]['y']['y'] == 3.5
+        assert arr[1]['y']['x'] == 0.0
+        assert arr[1]['x'] == 15
+        

@@ -116,7 +116,7 @@ class Primitive(object):
         else:
             return libffi.array_getitem_T(self.T, width, storage, i, offset)
 
-    def read(self, arr, width, i, offset):
+    def read(self, arr, width, i, offset, dtype=None):
         return self.box(self._read(arr.storage, width, i, offset))
 
     def read_bool(self, arr, width, i, offset):
@@ -675,8 +675,10 @@ NonNativeUnicodeType = UnicodeType
 class RecordType(CompositeType):
     T = lltype.Char
     
-    def read(self, arr, width, i, offset):
-        return interp_boxes.W_VoidBox(arr, i)
+    def read(self, arr, width, i, offset, dtype=None):
+        if dtype is None:
+            dtype = arr.dtype
+        return interp_boxes.W_VoidBox(arr, i, dtype)
 
     @jit.unroll_safe
     def coerce(self, space, dtype, w_item): 
