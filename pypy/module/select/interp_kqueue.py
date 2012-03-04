@@ -20,11 +20,11 @@ class CConfig:
 
 
 CConfig.kevent = rffi_platform.Struct("struct kevent", [
-    ("ident", rffi.SIZE_T), # uintptr_t
+    ("ident", rffi.UINTPTR_T),
     ("filter", rffi.SHORT),
     ("flags", rffi.USHORT),
     ("fflags", rffi.UINT),
-    ("data", rffi.SSIZE_T), # intptr_t
+    ("data", rffi.INTPTR_T),
     ("udata", rffi.VOIDP),
 ])
 
@@ -227,7 +227,7 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags=int, fflags=rffi.r_uint, data=int, udata=rffi.r_uint)
+    @unwrap_spec(filter=int, flags=rffi.r_uint, fflags=rffi.r_uint, data=int, udata=rffi.r_uint)
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
         ident = space.c_filedescriptor_w(w_ident)
 
