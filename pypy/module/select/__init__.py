@@ -26,7 +26,7 @@ class Module(MixedModule):
         interpleveldefs["kqueue"] = "interp_kqueue.W_Kqueue"
         interpleveldefs["kevent"] = "interp_kqueue.W_Kevent"
         from pypy.module.select.interp_kqueue import symbol_map
-        for symbol in symbol_map.keys():
+        for symbol in symbol_map:
             interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
 
     def buildloaders(cls):

@@ -8,9 +8,6 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
-# http://www.freebsd.org/cgi/man.cgi?query=kqueue&sektion=2
-# /usr/include/sys/event.h
-#
 eci = ExternalCompilationInfo(
     includes = ["sys/types.h",
                 "sys/event.h",
@@ -22,15 +19,6 @@ class CConfig:
     _compilation_info_ = eci
 
 
-# struct kevent {
-# 	uintptr_t	ident;		/* identifier for this event */
-# 	short		filter;		/* filter for event */
-# 	u_short		flags;
-# 	u_int		fflags;
-# 	intptr_t	data;
-# 	void		*udata;		/* opaque user data identifier */
-# };
-#
 CConfig.kevent = rffi_platform.Struct("struct kevent", [
     ("ident", rffi.UINT),
     ("filter", rffi.SHORT),
@@ -40,10 +28,7 @@ CConfig.kevent = rffi_platform.Struct("struct kevent", [
     ("udata", rffi.VOIDP),
 ])
 
-# struct timespec {
-#	time_t	tv_sec;		/* seconds */
-#	long	tv_nsec;	/* and nanoseconds */
-# };
+
 CConfig.timespec = rffi_platform.Struct("struct timespec", [
     ("tv_sec", rffi.TIME_T),
     ("tv_nsec", rffi.LONG),
@@ -56,21 +41,17 @@ symbol_map = {
     "KQ_FILTER_AIO": "EVFILT_AIO",
     "KQ_FILTER_VNODE": "EVFILT_VNODE",
     "KQ_FILTER_PROC": "EVFILT_PROC",
-#    "KQ_FILTER_NETDEV": None, # deprecated on FreeBSD .. no longer defined .. what to do?
+#    "KQ_FILTER_NETDEV": None, # deprecated on FreeBSD .. no longer defined
     "KQ_FILTER_SIGNAL": "EVFILT_SIGNAL",
     "KQ_FILTER_TIMER": "EVFILT_TIMER",
-
     "KQ_EV_ADD": "EV_ADD",
     "KQ_EV_DELETE": "EV_DELETE",
     "KQ_EV_ENABLE": "EV_ENABLE",
     "KQ_EV_DISABLE": "EV_DISABLE",
     "KQ_EV_ONESHOT": "EV_ONESHOT",
     "KQ_EV_CLEAR": "EV_CLEAR",
-
-    # for the next 2 Python docs: "internal event" .. not defined on FreeBSD .. what to do?
-#    "KQ_EV_SYSFLAGS": None,
-#    "KQ_EV_FLAG1": None,
-
+#    "KQ_EV_SYSFLAGS": None, # Python docs says "internal event" .. not defined on FreeBSD
+#    "KQ_EV_FLAG1": None, # Python docs says "internal event" .. not defined on FreeBSD
     "KQ_EV_EOF": "EV_EOF",
     "KQ_EV_ERROR": "EV_ERROR"
 }
@@ -87,8 +68,6 @@ for symbol in symbol_map:
     globals()[symbol] = cconfig[symbol_map[symbol]]
 
 
-# int kqueue(void);
-#
 syscall_kqueue = rffi.llexternal(
     "kqueue",
     [],
@@ -96,11 +75,6 @@ syscall_kqueue = rffi.llexternal(
     compilation_info=eci
 )
 
-# int kevent(int kq,
-#            const struct kevent *changelist, int nchanges,
-# 	               struct kevent *eventlist, int nevents,
-# 	         const struct timespec *timeout);
-#
 syscall_kevent = rffi.llexternal(
     "kevent",
     [rffi.INT,
@@ -205,7 +179,7 @@ class W_Kqueue(Wrappable):
             if nfds < 0:
                 raise exception_from_errno(space, space.w_IOError)
             else:
-                w_elist = [None] * nfds
+                elist_w = [None] * nfds
                 for i in xrange(nfds):
 
                     evt = eventlist[i]
@@ -219,9 +193,9 @@ class W_Kqueue(Wrappable):
                     w_event.event.c_data = evt.c_data
                     w_event.event.c_udata = evt.c_udata
 
-                    w_elist[i] = w_event
+                    elist_w[i] = w_event
 
-                return space.newlist(w_elist)
+                return space.newlist(elist_w)
 
 
 
