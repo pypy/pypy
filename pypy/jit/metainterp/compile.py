@@ -289,8 +289,21 @@ def propagate_original_jitcell_token(trace):
             assert isinstance(token, TargetToken)
             assert token.original_jitcell_token is None
             token.original_jitcell_token = trace.original_jitcell_token
-            
-    
+
+
+def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
+                    log=True, name=''):
+    metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
+                                      'compiling', name=name)
+    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+                                          log=log, name=name)
+
+def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
+                      original_loop_token, log=True):
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, -2)
+    return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
+                                            original_loop_token, log=log)
+
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     vinfo = jitdriver_sd.virtualizable_info
     if vinfo is not None:
@@ -319,9 +332,9 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                  original_jitcell_token,
-                                                  name=loopname)
+        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+                                  operations, original_jitcell_token,
+                                  name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -333,7 +346,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
-    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     if asminfo is not None:
         ops_offset = asminfo.ops_offset
     else:
@@ -365,9 +377,9 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = metainterp_sd.cpu.compile_bridge(faildescr, inputargs,
-                                                   operations,
-                                                   original_loop_token)
+        asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
+                                    operations,
+                                    original_loop_token)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()

@@ -171,7 +171,7 @@ TYPES = {
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ref'),
-    'debug_merge_point': (('ref', 'int'), None),
+    'debug_merge_point': (('ref', 'int', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),

@@ -208,6 +208,7 @@ class GcRootMap_asmgcc(object):
     This is the class supporting --gcrootfinder=asmgcc.
     """
     is_shadow_stack = False
+    is_64_bit = (WORD == 8)
 
     LOC_REG       = 0
     LOC_ESP_PLUS  = 1
@@ -336,17 +337,17 @@ class GcRootMap_asmgcc(object):
             self._gcmap_deadentries += 1
             item += asmgcroot.arrayitemsize
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         # XXX: Should this code even really know about stack frame layout of
         # the JIT?
-        if is_64_bit:
-            return [chr(self.LOC_EBP_PLUS  | 8),
-                    chr(self.LOC_EBP_MINUS | 8),
-                    chr(self.LOC_EBP_MINUS | 16),
-                    chr(self.LOC_EBP_MINUS | 24),
-                    chr(self.LOC_EBP_MINUS | 32),
-                    chr(self.LOC_EBP_MINUS | 40),
-                    chr(self.LOC_EBP_PLUS  | 0),
+        if self.is_64_bit:
+            return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 4),    # saved %rbx:  at  -8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 8),    # saved %r12:  at -16(%rbp)
+                    chr(self.LOC_EBP_MINUS | 12),   # saved %r13:  at -24(%rbp)
+                    chr(self.LOC_EBP_MINUS | 16),   # saved %r14:  at -32(%rbp)
+                    chr(self.LOC_EBP_MINUS | 20),   # saved %r15:  at -40(%rbp)
+                    chr(self.LOC_EBP_PLUS  | 0),    # saved %rbp:  at    (%rbp)
                     chr(0)]
         else:
             return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
@@ -366,7 +367,11 @@ class GcRootMap_asmgcc(object):
         shape.append(chr(number | flag))
 
     def add_frame_offset(self, shape, offset):
-        assert (offset & 3) == 0
+        if self.is_64_bit:
+            assert (offset & 7) == 0
+            offset >>= 1
+        else:
+            assert (offset & 3) == 0
         if offset >= 0:
             num = self.LOC_EBP_PLUS | offset
         else:
@@ -518,7 +523,7 @@ class GcRootMap_shadowstack(object):
     def initialize(self):
         pass
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         return []
 
     def add_frame_offset(self, shape, offset):
@@ -769,11 +774,19 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
 
-        # Rarely called: allocate a fixed-size amount of bytes, but
-        # not in the nursery, because it is too big.  Implemented like
-        # malloc_nursery_slowpath() above.
-        self.generate_function('malloc_fixedsize', malloc_nursery_slowpath,
-                               [lltype.Signed])
+        # Never called as far as I can tell, but there for completeness:
+        # allocate a fixed-size object, but not in the nursery, because
+        # it is too big.
+        def malloc_big_fixedsize(size, tid):
+            if self.DEBUG:
+                self._random_usage_of_xmm_registers()
+            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
+            check_typeid(type_id)
+            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                   type_id, size,
+                                                   False, False, False)
+        self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
+                               [lltype.Signed] * 2)
 
     def _bh_malloc(self, sizedescr):
         from pypy.rpython.memory.gctypelayout import check_typeid

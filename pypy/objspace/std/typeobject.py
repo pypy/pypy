@@ -103,6 +103,7 @@ class W_TypeObject(W_Object):
                           'terminator',
                           '_version_tag?',
                           'name?',
+                          'mro_w?[*]',
                           ]
 
     # for config.objspace.std.getattributeshortcut
