@@ -2453,6 +2453,25 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert s.const == 2
 
+    def test_multiple_mixins_mro_2(self):
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class Concrete(C, B):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass
