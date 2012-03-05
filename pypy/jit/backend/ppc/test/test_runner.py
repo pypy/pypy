@@ -1,5 +1,5 @@
 from pypy.jit.backend.test.runner_test import LLtypeBackendTest
-from pypy.jit.backend.ppc.runner import PPC_64_CPU
+from pypy.jit.backend.ppc.runner import PPC_CPU
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
@@ -20,7 +20,7 @@ class FakeStats(object):
 class TestPPC(LLtypeBackendTest):
    
     def setup_method(self, meth):
-        self.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
+        self.cpu = PPC_CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
 
     def test_compile_loop_many_int_args(self):

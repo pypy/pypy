@@ -12,7 +12,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer('jitbackend')
 py.log.setconsumer('jitbackend', ansi_log)
 
-class PPC_64_CPU(AbstractLLCPU):
+class PPC_CPU(AbstractLLCPU):
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
 
@@ -80,7 +80,7 @@ class PPC_64_CPU(AbstractLLCPU):
     @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
-        return PPC_64_CPU.cast_adr_to_int(adr)
+        return PPC_CPU.cast_adr_to_int(adr)
 
     # XXX find out how big FP registers are on PPC32
     all_null_registers = lltype.malloc(rffi.LONGP.TO,

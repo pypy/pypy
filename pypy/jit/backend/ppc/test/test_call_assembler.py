@@ -13,7 +13,7 @@ from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcPtrFieldDescr
 
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.backend.ppc.runner import PPC_64_CPU
+from pypy.jit.backend.ppc.runner import PPC_CPU
 from pypy.jit.backend.ppc.test.test_runner import FakeStats
 
 class TestAssembler(object):
@@ -21,7 +21,7 @@ class TestAssembler(object):
     type_system = 'lltype'
 
     def setup_class(cls):
-        cls.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
+        cls.cpu = PPC_CPU(rtyper=None, stats=FakeStats())
         cls.cpu.setup_once()
 
     def interpret_direct_entry_point(self, ops, args, namespace):
