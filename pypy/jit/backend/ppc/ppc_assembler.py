@@ -306,7 +306,7 @@ class AssemblerPPC(OpAssembler):
         if self.cpu.supports_floats:
             assert 0, "make sure to save floats here"
         # Values to compute size stored in r3 and r4
-        mc.subf(r.r3.value, r.r3.value, r.r4.value)
+        mc.subf(r.RES.value, r.RES.value, r.r4.value)
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.store(reg.value, r.SPP.value, ofs)
@@ -314,7 +314,7 @@ class AssemblerPPC(OpAssembler):
         for reg, ofs in PPCRegisterManager.REGLOC_TO_COPY_AREA_OFS.items():
             mc.load(reg.value, r.SPP.value, ofs)
 
-        mc.cmp_op(0, r.r3.value, 0, imm=True)
+        mc.cmp_op(0, r.RES.value, 0, imm=True)
         jmp_pos = mc.currpos()
         mc.nop()
 
@@ -395,7 +395,7 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
 
         # load parameters into parameter registers
-        mc.load(r.r3.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
+        mc.load(r.RES.value, r.SPP.value, self.FORCE_INDEX_AREA)    # address of state encoding 
         mc.mr(r.r4.value, r.SPP.value)                             # load spilling pointer
         #
         # call decoding function
