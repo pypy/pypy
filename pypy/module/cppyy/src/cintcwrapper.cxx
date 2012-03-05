@@ -338,6 +338,11 @@ int cppyy_is_namespace(cppyy_scope_t handle) {
     return false;
 }
 
+int cppyy_is_enum(const char* type_name) {
+    G__TypeInfo ti(type_name);
+    return (ti.Property() & G__BIT_ISENUM);
+}
+
 
 /* type/class reflection information -------------------------------------- */
 char* cppyy_final_name(cppyy_type_t handle) {
