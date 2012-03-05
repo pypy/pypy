@@ -39,7 +39,8 @@ class PPC_64_CPU(AbstractLLCPU):
         self.asm.finish_once()
 
     def compile_loop(self, inputargs, operations, looptoken, log=True, name=""):
-        return self.asm.assemble_loop(inputargs, operations, looptoken, log)
+        return self.asm.assemble_loop(name, inputargs, 
+                                      operations, looptoken, log)
 
     def compile_bridge(self, faildescr, inputargs, operations, 
                       original_loop_token, log=False):

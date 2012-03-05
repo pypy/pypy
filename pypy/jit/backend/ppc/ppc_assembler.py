@@ -548,7 +548,7 @@ class AssemblerPPC(OpAssembler):
         self.releasegil_addr = rffi.cast(lltype.Signed, releasegil_func)
         self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
 
-    def assemble_loop(self, inputargs, operations, looptoken, log):
+    def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
@@ -602,6 +602,14 @@ class AssemblerPPC(OpAssembler):
 
         ops_offset = self.mc.ops_offset
         self._teardown()
+
+        debug_start("jit-backend-addr")
+        debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
+            looptoken.number, loopname,
+            real_start,
+            real_start + size_excluding_failure_stuff,
+            loop_start))
+        debug_stop("jit-backend-addr")
 
         # XXX 3rd arg may not be correct yet
         return AsmInfo(ops_offset, real_start, size_excluding_failure_stuff)
@@ -662,6 +670,11 @@ class AssemblerPPC(OpAssembler):
 
         ops_offset = self.mc.ops_offset
         self._teardown()
+
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard %d has address %x to %x" %
+                    (descr_number, rawstart, rawstart + codeendpos))
+        debug_stop("jit-backend-addr")
 
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
