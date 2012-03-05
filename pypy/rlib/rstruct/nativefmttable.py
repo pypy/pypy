@@ -3,6 +3,7 @@ Native type codes.
 The table 'native_fmttable' is also used by pypy.module.array.interp_array.
 """
 import struct
+from pypy.rlib import jit
 from pypy.rlib.rstruct import standardfmttable as std
 from pypy.rlib.rstruct.error import StructError
 from pypy.rpython.tool import rffi_platform
@@ -25,6 +26,7 @@ native_fmttable = {
 double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
 float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
+@jit.dont_look_inside
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     double_buf[0] = doubleval
@@ -40,6 +42,7 @@ def unpack_double(fmtiter):
     doubleval = double_buf[0]
     fmtiter.appendobj(doubleval)
 
+@jit.dont_look_inside
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
