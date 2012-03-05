@@ -14,6 +14,9 @@ public:
     cppyy_test_data();
     ~cppyy_test_data();
 
+// special cases
+   enum what { kNothing=6, kSomething=111, kLots=42 };
+
 // helper
     void destroy_arrays();
 
@@ -29,6 +32,7 @@ public:
     unsigned long  get_ulong();
     float          get_float();
     double         get_double();
+    what           get_enum();
 
     short*          get_short_array();
     short*          get_short_array2();
@@ -60,6 +64,7 @@ public:
     void set_ulong(unsigned long ul);
     void set_float(float f);
     void set_double(double d);
+    void set_enum(what w);
 
 public:
 // basic types
@@ -74,6 +79,7 @@ public:
     unsigned long  m_ulong;
     float          m_float;
     double         m_double;
+    what           m_enum;
 
 // array types
     short           m_short_array[N];
@@ -108,6 +114,7 @@ public:
     static unsigned long  s_ulong;
     static float          s_float;
     static double         s_double;
+    static what           s_enum;
 
 private:
     bool m_owns_arrays;

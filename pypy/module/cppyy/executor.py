@@ -327,6 +327,8 @@ def get_executor(space, name):
             return InstancePtrExecutor(space, clean_name, cpptype)
         elif compound == "":
             return InstanceExecutor(space, clean_name, cpptype)
+    elif capi.c_is_enum(clean_name):
+        return UnsignedIntExecutor(space, "", None)
 
     # 4) additional special cases
     # ... none for now

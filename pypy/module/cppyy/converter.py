@@ -633,6 +633,8 @@ def get_converter(space, name, default):
             return InstancePtrConverter(space, cpptype, clean_name)
         elif compound == "":
             return InstanceConverter(space, cpptype, clean_name)
+    elif capi.c_is_enum(clean_name):
+        return UnsignedIntConverter(space, default)
     
     #   6) void converter, which fails on use
     #

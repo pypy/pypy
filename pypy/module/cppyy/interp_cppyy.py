@@ -432,7 +432,6 @@ class W_CPPNamespace(W_CPPScope):
     def is_namespace(self):
         return self.space.w_True
 
-
 W_CPPNamespace.typedef = TypeDef(
     'CPPNamespace',
     update = interp2app(W_CPPNamespace.update, unwrap_spec=['self']),

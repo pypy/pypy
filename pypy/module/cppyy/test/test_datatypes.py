@@ -379,3 +379,40 @@ class AppTestDATATYPES:
         assert gbl.is_global_pod(e)
         assert gbl.g_pod.m_int == 43
         assert gbl.g_pod.m_double == 2.14
+
+    def test11_enum(self):
+        """Test access to enums"""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        # TODO: test that the enum is accessible as a type
+
+        assert cppyy_test_data.kNothing   ==   6
+        assert cppyy_test_data.kSomething == 111
+        assert cppyy_test_data.kLots      ==  42
+
+        assert c.get_enum() == cppyy_test_data.kNothing
+        assert c.m_enum == cppyy_test_data.kNothing
+
+        c.m_enum = cppyy_test_data.kSomething
+        assert c.get_enum() == cppyy_test_data.kSomething
+        assert c.m_enum == cppyy_test_data.kSomething
+
+        c.set_enum(cppyy_test_data.kLots)
+        assert c.get_enum() == cppyy_test_data.kLots
+        assert c.m_enum == cppyy_test_data.kLots
+
+        assert c.s_enum == cppyy_test_data.s_enum
+        assert c.s_enum == cppyy_test_data.kNothing
+        assert cppyy_test_data.s_enum == cppyy_test_data.kNothing
+
+        c.s_enum = cppyy_test_data.kSomething
+        assert c.s_enum == cppyy_test_data.s_enum
+        assert c.s_enum == cppyy_test_data.kSomething
+        assert cppyy_test_data.s_enum == cppyy_test_data.kSomething

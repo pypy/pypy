@@ -47,6 +47,7 @@ extern "C" {
 
     /* scope reflection information ------------------------------------------- */
     int cppyy_is_namespace(cppyy_scope_t scope);
+    int cppyy_is_enum(const char* type_name);
 
     /* class reflection information ------------------------------------------- */
     char* cppyy_final_name(cppyy_type_t type);

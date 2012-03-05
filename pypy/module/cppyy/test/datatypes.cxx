@@ -15,6 +15,7 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
     m_ulong  =  33ul;
     m_float  = -44.f;
     m_double = -55.;
+    m_enum   = kNothing;
 
     m_short_array2  = new short[N];
     m_ushort_array2 = new unsigned short[N];
@@ -85,6 +86,7 @@ long           cppyy_test_data::get_long()   { return m_long; }
 unsigned long  cppyy_test_data::get_ulong()  { return m_ulong; }
 float          cppyy_test_data::get_float()  { return m_float; }
 double         cppyy_test_data::get_double() { return m_double; }
+cppyy_test_data::what cppyy_test_data::get_enum() { return m_enum; }
 
 short*          cppyy_test_data::get_short_array()   { return m_short_array; }
 short*          cppyy_test_data::get_short_array2()  { return m_short_array2; }
@@ -116,6 +118,7 @@ void cppyy_test_data::set_long(long l)              { m_long   = l; }
 void cppyy_test_data::set_ulong(unsigned long ul)   { m_ulong  = ul; }
 void cppyy_test_data::set_float(float f)            { m_float  = f; }
 void cppyy_test_data::set_double(double d)          { m_double = d; }
+void cppyy_test_data::set_enum(what w)              { m_enum   = w; }
 
 char           cppyy_test_data::s_char   = 's';
 unsigned char  cppyy_test_data::s_uchar  = 'u';
@@ -127,6 +130,7 @@ long           cppyy_test_data::s_long   = -303l;
 unsigned long  cppyy_test_data::s_ulong  =  303ul;
 float          cppyy_test_data::s_float  = -404.f;
 double         cppyy_test_data::s_double = -505.;
+cppyy_test_data::what  cppyy_test_data::s_enum = cppyy_test_data::kNothing;
 
 
 //= global functions ========================================================

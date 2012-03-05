@@ -135,6 +135,10 @@ c_is_namespace = rffi.llexternal(
     "cppyy_is_namespace",
     [C_SCOPE], rffi.INT,
     compilation_info=backend.eci)
+c_is_enum = rffi.llexternal(
+    "cppyy_is_enum",
+    [rffi.CCHARP], rffi.INT,
+    compilation_info=backend.eci)
 
 # type/class reflection information ------------------------------------------
 c_final_name = rffi.llexternal(

@@ -36,7 +36,7 @@ static inline Reflex::Type type_from_handle(cppyy_type_t handle) {
 static inline std::vector<void*> build_args(int nargs, void* args) {
     std::vector<void*> arguments;
     arguments.reserve(nargs);
-    for (int i=0; i < nargs; ++i) {
+    for (int i = 0; i < nargs; ++i) {
 	char tc = ((CPPYY_G__value*)args)[i].type;
         if (tc != 'a' && tc != 'o')
             arguments.push_back(&((CPPYY_G__value*)args)[i]);
@@ -50,6 +50,8 @@ static inline std::vector<void*> build_args(int nargs, void* args) {
 /* name to opaque C++ scope representation -------------------------------- */
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     Reflex::Scope s = Reflex::Scope::ByName(scope_name);
+    if (s.IsEnum())     // pretend to be builtin by returning 0
+        return (cppyy_type_t)0;
     return (cppyy_type_t)s.Id();
 }
 
@@ -184,10 +186,17 @@ int cppyy_is_namespace(cppyy_scope_t handle) {
     return s.IsNamespace();
 }
 
+int cppyy_is_enum(const char* type_name) {
+    Reflex::Type t = Reflex::Type::ByName(type_name);
+    return t.IsEnum();
+}
+
 
 /* class reflection information ------------------------------------------- */
 char* cppyy_final_name(cppyy_type_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
+    if (s.IsEnum())
+        return cppstring_to_cstring("unsigned int");
     std::string name = s.Name(Reflex::FINAL);
     return cppstring_to_cstring(name);
 }
@@ -338,6 +347,20 @@ int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
 /* data member reflection information ------------------------------------- */
 int cppyy_num_data_members(cppyy_scope_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
+    // fix enum representation by adding them to the containing scope as per C++
+    // TODO: this (relatively harmlessly) dupes data members when updating in the
+    //       case s is a namespace
+    for (int isub = 0; isub < (int)s.ScopeSize(); ++isub) {
+        Reflex::Scope sub = s.SubScopeAt(isub);
+        if (sub.IsEnum()) {
+            for (int idata = 0;  idata < (int)sub.DataMemberSize(); ++idata) {
+                Reflex::Member m = sub.DataMemberAt(idata);
+                s.AddDataMember(m.Name().c_str(), sub, 0,
+                                Reflex::PUBLIC|Reflex::STATIC|Reflex::ARTIFICIAL,
+                                (char*)m.Offset());
+            }
+        }
+    }
     return s.DataMemberSize();
 }
 
@@ -358,6 +381,8 @@ char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
 size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.DataMemberAt(data_member_index);
+    if (m.IsArtificial() && m.TypeOf().IsEnum())
+        return (size_t)&m.InterpreterOffset();
     return m.Offset();
 }
 
