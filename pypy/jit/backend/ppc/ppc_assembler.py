@@ -146,6 +146,31 @@ class AssemblerPPC(OpAssembler):
                       WORD * (len(NONVOLATILES)-1))
         self.mc.load(r.r30.value, r.SP.value, WORD)
         self.mc.store(r.r30.value, r.SPP.value, ofs_to_r31)
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_shadowstack_header(gcrootmap)
+
+    def gen_shadowstack_header(self, gcrootmap):
+        # we need to put two words into the shadowstack: the MARKER_FRAME
+        # and the address of the frame (fp, actually)
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.load_imm(r.r14, rst)
+        self.mc.load(r.r15.value, r.r14.value, 0) # LD r15 [rootstacktop]
+        #
+        MARKER = gcrootmap.MARKER_FRAME
+        self.mc.addi(r.r16.value, r.r15.value, 2 * WORD) # ADD r16, r15, 2*WORD
+        self.mc.load_imm(r.r17, MARKER)
+        self.mc.store(r.r17.value, r.r15.value, WORD)  # STR MARKER, r15+WORD
+        self.mc.store(r.r31.value, r.r15.value, 0)  # STR fp, r15
+        #
+        self.mc.store(r.r16.value, r.r14.value, 0)  # STR r16, [rootstacktop]
+
+    def gen_footer_shadowstack(self, gcrootmap, mc):
+        rst = gcrootmap.get_root_stack_top_addr()
+        mc.load_imm(r.r14, rst)
+        mc.load(r.r15.value, r.r14.value, 0)  # LD r15, [rootstacktop]
+        mc.addi(r.r15.value, r.r15.value, -2 * WORD)  # SUB r15, r15, 2*WORD
+        mc.store(r.r15.value, r.r14.value, 0) # STR r15, [rootstacktop]
 
     def setup_failure_recovery(self):
 
@@ -409,6 +434,9 @@ class AssemblerPPC(OpAssembler):
                                    self.cpu.gc_ll_descr.gcrootmap)
 
     def _gen_epilogue(self, mc):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_footer_shadowstack(gcrootmap, mc)
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)
