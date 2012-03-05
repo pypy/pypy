@@ -517,7 +517,7 @@ class AssemblerPPC(OpAssembler):
             s = 0
             for op in operations:
                 s += op.getopnum()
-            looptoken._arm_debug_checksum = s
+            looptoken._ppc_debug_checksum = s
 
             newoperations = []
             self._append_debugging_code(newoperations, tp, number,
