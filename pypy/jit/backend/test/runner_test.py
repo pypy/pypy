@@ -17,6 +17,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
+from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -3425,21 +3426,30 @@ class LLtypeBackendTest(BaseBackendTest):
         """
         bridge = parse(bridge_ops, self.cpu, namespace=locals())
         looptoken = JitCellToken()
-        self.cpu.assembler.set_debug(False)
+        self.cpu.asm.set_debug(False)
         info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         bridge_info = self.cpu.compile_bridge(faildescr, bridge.inputargs,
                                               bridge.operations,
                                               looptoken)
-        self.cpu.assembler.set_debug(True) # always on untranslated
+        self.cpu.asm.set_debug(True) # always on untranslated
         assert info.asmlen != 0
         cpuname = autodetect_main_model_and_size()
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 
-        def checkops(mc, ops):
-            assert len(mc) == len(ops)
-            for i in range(len(mc)):
-                assert mc[i].split("\t")[2].startswith(ops[i])
+        def checkops(mc, ops, ops2=None):
+            if ops2 is None:
+                assert len(mc) == len(ops)
+                for i in range(len(mc)):
+                    assert mc[i].split("\t")[2].startswith(ops[i])
+            else:
+                if len(mc) != len(ops):
+                    oplist = ops2
+                else:
+                    oplist = ops
+                assert len(mc) == len(oplist)
+                for i in range(len(mc)):
+                    assert mc[i].split("\t")[2].startswith(oplist[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         mc = list(machine_code_dump(data, info.asmaddr, cpuname))
@@ -3448,7 +3458,13 @@ class LLtypeBackendTest(BaseBackendTest):
         data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
         mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
         lines = [line for line in mc if line.count('\t') >= 2]
-        checkops(lines, self.bridge_loop_instructions)
+
+        # We have to check two alternatives here, since we emit different
+        # sequences of operations depending on the architecture and the
+        # size of the constant we want to load.
+        # Here: The constant is our jump target (an address).
+        checkops(lines, self.bridge_loop_instructions_short,
+                        self.bridge_loop_instructions_long)
 
     def test_compile_bridge_with_target(self):
         # This test creates a loopy piece of code in a bridge, and builds another

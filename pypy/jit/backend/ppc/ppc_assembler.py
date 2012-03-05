@@ -571,7 +571,7 @@ class AssemblerPPC(OpAssembler):
         looptoken._ppc_loop_code = start_pos
         clt.frame_depth = clt.param_depth = -1
         spilling_area, param_depth = self._assemble(operations, regalloc)
-        size_excluding_failure_stuff = self.mc.get_relative_pos()
+        size_excluding_failure_stuff = self.mc.currpos()
         clt.frame_depth = spilling_area
         clt.param_depth = param_depth
      
@@ -611,8 +611,8 @@ class AssemblerPPC(OpAssembler):
             loop_start))
         debug_stop("jit-backend-addr")
 
-        # XXX 3rd arg may not be correct yet
-        return AsmInfo(ops_offset, real_start, size_excluding_failure_stuff)
+        return AsmInfo(ops_offset, loop_start, 
+                size_excluding_failure_stuff - start_pos)
 
     def _assemble(self, operations, regalloc):
         regalloc.compute_hint_frame_locations(operations)
@@ -644,9 +644,9 @@ class AssemblerPPC(OpAssembler):
 
         sp_patch_location = self._prepare_sp_patch_position()
 
-        startpos = self.mc.get_relative_pos()
+        startpos = self.mc.currpos()
         spilling_area, param_depth = self._assemble(operations, regalloc)
-        codeendpos = self.mc.get_relative_pos()
+        codeendpos = self.mc.currpos()
 
         self.write_pending_failure_recoveries()
 

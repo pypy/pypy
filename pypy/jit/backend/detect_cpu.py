@@ -31,8 +31,8 @@ def autodetect_main_model():
                 'i86pc': 'x86',    # Solaris/Intel
                 'x86':   'x86',    # Apple
                 'Power Macintosh': 'ppc',
-                'ppc64': 'ppc64',
-                'ppc64_64': 'ppc64',
+                'ppc64': 'ppc',
+                'ppc64_64': 'ppc',
                 'x86_64': 'x86',
                 'amd64': 'x86',    # freebsd
                 'AMD64': 'x86',    # win64

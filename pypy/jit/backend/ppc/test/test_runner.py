@@ -18,6 +18,11 @@ class FakeStats(object):
     pass
 
 class TestPPC(LLtypeBackendTest):
+
+    add_loop_instructions = ["mr", "add", "cmpdi", "beq", "b"]
+    bridge_loop_instructions_short = ["lis", "ori", "mtctr", "bctr"]
+    bridge_loop_instructions_long = ["lis", "ori", "rldicr", "oris", "ori",
+                                     "mtctr", "bctr"]
    
     def setup_method(self, meth):
         self.cpu = PPC_CPU(rtyper=None, stats=FakeStats())
