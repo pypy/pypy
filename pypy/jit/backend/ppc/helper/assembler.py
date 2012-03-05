@@ -68,42 +68,6 @@ def count_reg_args(args):
             break
     return reg_args
 
-class saved_registers(object):
-    def __init__(self, assembler, regs_to_save, regalloc=None):
-        self.mc = assembler
-        self.regalloc = regalloc
-        if self.regalloc:
-            assert 0, "not implemented yet"
-        else:
-            self.regs = regs_to_save
-
-    def __enter__(self):
-        if len(self.regs) > 0:
-            if IS_PPC_32:
-                space = BACKCHAIN_SIZE + WORD * len(self.regs)
-                self.mc.stwu(r.SP.value, r.SP.value, -space)
-            else:
-                space = (6 + MAX_REG_PARAMS + len(self.regs)) * WORD
-                self.mc.stdu(r.SP.value, r.SP.value, -space)
-            for i, reg in enumerate(self.regs):
-                if IS_PPC_32:
-                    self.mc.stw(reg.value, r.SP.value, BACKCHAIN_SIZE + i * WORD)
-                else:
-                    self.mc.std(reg.value, r.SP.value, (14 + i) * WORD)
-
-    def __exit__(self, *args):
-        if len(self.regs) > 0:
-            for i, reg in enumerate(self.regs):
-                if IS_PPC_32:
-                    self.mc.lwz(reg.value, r.SP.value, BACKCHAIN_SIZE + i * WORD)
-                else:
-                    self.mc.ld(reg.value, r.SP.value, (14 + i) * WORD)
-            if IS_PPC_32:
-                space = BACKCHAIN_SIZE + WORD * len(self.regs)
-            else:
-                space = (6 + MAX_REG_PARAMS + len(self.regs)) * WORD
-            self.mc.addi(r.SP.value, r.SP.value, space)
-
 class Saved_Volatiles(object):
     """ used in _gen_leave_jitted_hook_code to save volatile registers
         in ENCODING AREA around calls
