@@ -11,6 +11,7 @@ import sys
 import py
 
 def getllimpl(fn):
+    from pypy.rpython.module import ll_os
     return extregistry.lookup(fn).lltypeimpl
 
 def test_access():
