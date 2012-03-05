@@ -80,16 +80,10 @@ class Saved_Volatiles(object):
         """ before a call, volatile registers are saved in ENCODING AREA
         """
         for i, reg in enumerate(r.VOLATILES):
-            if IS_PPC_32:
-                self.mc.stw(reg.value, r.SPP.value, i * WORD)
-            else:
-                self.mc.std(reg.value, r.SPP.value, i * WORD)
+            self.mc.store(reg.value, r.SPP.value, i * WORD)
 
     def __exit__(self, *args):
         """ after call, volatile registers have to be restored
         """
         for i, reg in enumerate(r.VOLATILES):
-            if IS_PPC_32:
-                self.mc.lwz(reg.value, r.SPP.value, i * WORD)
-            else:
-                self.mc.ld(reg.value, r.SPP.value, i * WORD)
+            self.mc.load(reg.value, r.SPP.value, i * WORD)
