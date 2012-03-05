@@ -9,7 +9,7 @@ import os, sys, py
 import subprocess
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
-    assert backend_name in ["ppc", "ppc_64"]
+    assert backend_name in ["ppc", "ppc_32", "ppc_64"]
     tmpfile = get_tmp_file()
     objdump  = "objdump -EB -D --target=binary --adjust-vma=%(origin)d "
     objdump += "--architecture=powerpc %(file)s"

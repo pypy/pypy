@@ -12,6 +12,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.backend.ppc.arch import IS_PPC_32
 import py
 
 class FakeStats(object):
@@ -19,7 +20,10 @@ class FakeStats(object):
 
 class TestPPC(LLtypeBackendTest):
 
-    add_loop_instructions = ["mr", "add", "cmpdi", "beq", "b"]
+    if IS_PPC_32:
+        add_loop_instructions = ["mr", "add", "cmpwi", "beq", "b"]
+    else:
+        add_loop_instructions = ["mr", "add", "cmpdi", "beq", "b"]
     bridge_loop_instructions_short = ["lis", "ori", "mtctr", "bctr"]
     bridge_loop_instructions_long = ["lis", "ori", "rldicr", "oris", "ori",
                                      "mtctr", "bctr"]
