@@ -136,13 +136,13 @@ def float_pack(x, size):
 
 
 def pack_float(result, x, size, be):
-    l = [] if be else result
+    l = []
     unsigned = float_pack(x, size)
     for i in range(size):
         l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
-        result.extend(l)
+    result.append("".join(l))
 
 
 def unpack_float(s, be):

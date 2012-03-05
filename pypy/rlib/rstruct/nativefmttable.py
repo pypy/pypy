@@ -29,8 +29,7 @@ def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     double_buf[0] = doubleval
     p = rffi.cast(rffi.CCHARP, double_buf)
-    for i in range(sizeof_double):
-        fmtiter.result.append(p[i])
+    fmtiter.result.append_charpsize(p, rffi.sizeof(rffi.DOUBLE))
 
 @specialize.argtype(0)
 def unpack_double(fmtiter):
@@ -46,8 +45,7 @@ def pack_float(fmtiter):
     floatval = r_singlefloat(doubleval)
     float_buf[0] = floatval
     p = rffi.cast(rffi.CCHARP, float_buf)
-    for i in range(sizeof_float):
-        fmtiter.result.append(p[i])
+    fmtiter.result.append_charpsize(p, rffi.sizeof(rffi.FLOAT))
 
 @specialize.argtype(0)
 def unpack_float(fmtiter):
