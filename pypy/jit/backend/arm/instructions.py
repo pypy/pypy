@@ -127,7 +127,7 @@ float_load_store = {
 }
 
 
-# based on encoding from A7.5	VFP data-processing instructions
+# based on encoding from A7.5 VFP data-processing instructions
 # opc2 is one of the parameters and therefore ignored here
 float64_data_proc_instructions = {
     'VADD'  : {'opc1':0x3, 'opc3':0x0},

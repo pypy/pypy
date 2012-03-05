@@ -199,9 +199,9 @@ def test_random_effects_on_stacklet_switch():
     try:
         from pypy.rlib._rffi_stacklet import switch, thread_handle, handle
     except CompilationError as e:
-	if "Unsupported platform!" in e.out:
-	    py.test.skip("Unsupported platform!")
-	else:
+        if "Unsupported platform!" in e.out:
+            py.test.skip("Unsupported platform!")
+        else:
             raise e
     @jit.dont_look_inside
     def f():

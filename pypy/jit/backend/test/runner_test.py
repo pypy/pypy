@@ -1405,9 +1405,9 @@ class BaseBackendTest(Runner):
                                 if test2 == 42 or combinaison[1] == 'b':
                                     args = []
                                     if combinaison[0] == 'b':
-										args.append(test1)
+                                        args.append(test1)
                                     if combinaison[1] == 'b':
-										args.append(test2)
+                                        args.append(test2)
                                     fail = cpu.execute_token(looptoken, *args)
                                     #
                                     expected = compare(test1, test2)

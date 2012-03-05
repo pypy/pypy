@@ -202,7 +202,7 @@ class RegisterOs(BaseLazyRegistering):
 
     def __init__(self):
         self.configure(CConfig)
-	assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
+        assert self.OFF_T_SIZE == rffi.sizeof(rffi.LONGLONG)
 
         if hasattr(os, 'getpgrp'):
             self.GETPGRP_HAVE_ARG = platform.checkcompiles(
