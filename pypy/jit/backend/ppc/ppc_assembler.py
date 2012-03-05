@@ -292,14 +292,16 @@ class AssemblerPPC(OpAssembler):
                 mc.write32(0)
         frame_size = (# add space for floats later
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
-        if IS_PPC_32:
-            mc.stwu(r.SP.value, r.SP.value, -frame_size)
-            mc.mflr(r.SCRATCH.value)
-            mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
-        else:
-            mc.stdu(r.SP.value, r.SP.value, -frame_size)
-            mc.mflr(r.SCRATCH.value)
-            mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+
+        with scratch_reg(mc):
+            if IS_PPC_32:
+                mc.stwu(r.SP.value, r.SP.value, -frame_size)
+                mc.mflr(r.SCRATCH.value)
+                mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
+            else:
+                mc.stdu(r.SP.value, r.SP.value, -frame_size)
+                mc.mflr(r.SCRATCH.value)
+                mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
         # managed volatiles are saved below
         if self.cpu.supports_floats:
             assert 0, "make sure to save floats here"
@@ -324,8 +326,10 @@ class AssemblerPPC(OpAssembler):
             ofs = WORD
         else:
             ofs = WORD * 2
-        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
-        mc.mtlr(r.SCRATCH.value)
+
+        with scratch_reg(mc):
+            mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+            mc.mtlr(r.SCRATCH.value)
         mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.blr()
 
@@ -335,8 +339,9 @@ class AssemblerPPC(OpAssembler):
         pmc.bc(12, 2, offset) 
         pmc.overwrite()
         # restore the frame before leaving
-        mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
-        mc.mtlr(r.SCRATCH.value)
+        with scratch_reg(mc):
+            mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
+            mc.mtlr(r.SCRATCH.value)
         mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.b_abs(self.propagate_exception_path)
 
