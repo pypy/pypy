@@ -9,7 +9,6 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.inliner import Inliner
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.resume import Snapshot
-from pypy.rlib.debug import debug_print
 import sys, os
 
 # FIXME: Introduce some VirtualOptimizer super class instead
@@ -121,9 +120,9 @@ class UnrollOptimizer(Optimization):
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if cell_token.retraced_count < limit:
                     cell_token.retraced_count += 1
-                    debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
+                    #debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
                 else:
-                    debug_print("Retrace count reached, jumping to preamble")
+                    #debug_print("Retrace count reached, jumping to preamble")
                     assert cell_token.target_tokens[0].virtual_state is None
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
@@ -260,7 +259,7 @@ class UnrollOptimizer(Optimization):
             if op and op.result:
                 preamble_value = exported_state.exported_values[op.result]
                 value = self.optimizer.getvalue(op.result)
-                if not value.is_virtual():
+                if not value.is_virtual() and not value.is_constant():
                     imp = ValueImporter(self, preamble_value, op)
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
@@ -268,12 +267,14 @@ class UnrollOptimizer(Optimization):
                 # note that emitting here SAME_AS should not happen, but
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
-                if newresult is not op.result and not newvalue.is_constant():
+                if newresult is not op.result and \
+                   not self.short_boxes.has_producer(newresult) and \
+                   not newvalue.is_constant():
                     op = ResOperation(rop.SAME_AS, [op.result], newresult)
                     self.optimizer._newoperations.append(op)
-                    if self.optimizer.loop.logops:
-                        debug_print('  Falling back to add extra: ' +
-                                    self.optimizer.loop.logops.repr_of_resop(op))
+                    #if self.optimizer.loop.logops:
+                    #    debug_print('  Falling back to add extra: ' +
+                    #                self.optimizer.loop.logops.repr_of_resop(op))
                     
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
@@ -339,8 +340,8 @@ class UnrollOptimizer(Optimization):
             if i == len(newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
-                    if self.optimizer.loop.logops:
-                        debug_print('J:  ' + self.optimizer.loop.logops.repr_of_arg(a))
+                    #if self.optimizer.loop.logops:
+                    #    debug_print('J:  ' + self.optimizer.loop.logops.repr_of_arg(a))
                     self.import_box(a, inputargs, short_jumpargs, jumpargs)
                     j += 1
             else:
@@ -351,11 +352,11 @@ class UnrollOptimizer(Optimization):
                 if op.is_guard():
                     args = args + op.getfailargs()
 
-                if self.optimizer.loop.logops:
-                    debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
+                #if self.optimizer.loop.logops:
+                #    debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
                 for a in args:
-                    if self.optimizer.loop.logops:
-                        debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
+                    #if self.optimizer.loop.logops:
+                    #    debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
                     self.import_box(a, inputargs, short_jumpargs, jumpargs)
                 i += 1
             newoperations = self.optimizer.get_newoperations()
@@ -368,18 +369,18 @@ class UnrollOptimizer(Optimization):
         # that is compatible with the virtual state at the start of the loop
         modifier = VirtualStateAdder(self.optimizer)
         final_virtual_state = modifier.get_virtual_state(original_jumpargs)
-        debug_start('jit-log-virtualstate')
-        virtual_state.debug_print('Closed loop with ')
+        #debug_start('jit-log-virtualstate')
+        #virtual_state.debug_print('Closed loop with ')
         bad = {}
         if not virtual_state.generalization_of(final_virtual_state, bad):
             # We ended up with a virtual state that is not compatible
             # and we are thus unable to jump to the start of the loop
-            final_virtual_state.debug_print("Bad virtual state at end of loop, ",
-                                            bad)
-            debug_stop('jit-log-virtualstate')
+            #final_virtual_state.debug_print("Bad virtual state at end of loop, ",
+            #                                bad)
+            #debug_stop('jit-log-virtualstate')
             raise InvalidLoop
             
-        debug_stop('jit-log-virtualstate')
+        #debug_stop('jit-log-virtualstate')
 
         maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
         if self.optimizer.emitted_guards > maxguards:
@@ -442,9 +443,9 @@ class UnrollOptimizer(Optimization):
                 self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer,
                                              seen)
 
-        if self.optimizer.loop.logops:
-            debug_print('  Emitting short op: ' +
-                        self.optimizer.loop.logops.repr_of_resop(op))
+        #if self.optimizer.loop.logops:
+        #    debug_print('  Emitting short op: ' +
+        #                self.optimizer.loop.logops.repr_of_resop(op))
 
         optimizer.send_extra_operation(op)
         seen[op.result] = True
@@ -525,8 +526,8 @@ class UnrollOptimizer(Optimization):
         args = jumpop.getarglist()
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(args)
-        debug_start('jit-log-virtualstate')
-        virtual_state.debug_print("Looking for ")
+        #debug_start('jit-log-virtualstate')
+        #virtual_state.debug_print("Looking for ")
 
         for target in cell_token.target_tokens:
             if not target.virtual_state:
@@ -535,10 +536,10 @@ class UnrollOptimizer(Optimization):
             extra_guards = []
 
             bad = {}
-            debugmsg = 'Did not match '
+            #debugmsg = 'Did not match '
             if target.virtual_state.generalization_of(virtual_state, bad):
                 ok = True
-                debugmsg = 'Matched '
+                #debugmsg = 'Matched '
             else:
                 try:
                     cpu = self.optimizer.cpu
@@ -547,13 +548,13 @@ class UnrollOptimizer(Optimization):
                                                          extra_guards)
 
                     ok = True
-                    debugmsg = 'Guarded to match '
+                    #debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
-            target.virtual_state.debug_print(debugmsg, bad)
+            #target.virtual_state.debug_print(debugmsg, bad)
 
             if ok:
-                debug_stop('jit-log-virtualstate')
+                #debug_stop('jit-log-virtualstate')
 
                 values = [self.getvalue(arg)
                           for arg in jumpop.getarglist()]
@@ -574,13 +575,13 @@ class UnrollOptimizer(Optimization):
                         newop = inliner.inline_op(shop)
                         self.optimizer.send_extra_operation(newop)
                 except InvalidLoop:
-                    debug_print("Inlining failed unexpectedly",
-                                "jumping to preamble instead")
+                    #debug_print("Inlining failed unexpectedly",
+                    #            "jumping to preamble instead")
                     assert cell_token.target_tokens[0].virtual_state is None
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
                 return True
-        debug_stop('jit-log-virtualstate')
+        #debug_stop('jit-log-virtualstate')
         return False
 
 class ValueImporter(object):

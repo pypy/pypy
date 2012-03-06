@@ -119,12 +119,19 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
-                                %(adescr.basesize + 10 * adescr.itemsize)d, \
-                                descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 10, descr=alendescr)
+            p0 = call_malloc_gc(ConstClass(malloc_array),   \
+                                %(adescr.basesize)d,        \
+                                10,                         \
+                                %(adescr.itemsize)d,        \
+                                %(adescr.lendescr.offset)d, \
+                                descr=malloc_array_descr)
             jump()
         """)
+##      should ideally be:
+##            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
+##                                %(adescr.basesize + 10 * adescr.itemsize)d, \
+##                                descr=malloc_fixedsize_descr)
+##            setfield_gc(p0, 10, descr=alendescr)
 
     def test_new_array_variable(self):
         self.check_rewrite("""
@@ -178,13 +185,20 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize),   \
-                                %(unicodedescr.basesize +       \
-                                  10 * unicodedescr.itemsize)d, \
-                                descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 10, descr=unicodelendescr)
+            p0 = call_malloc_gc(ConstClass(malloc_array),   \
+                                %(unicodedescr.basesize)d,  \
+                                10,                         \
+                                %(unicodedescr.itemsize)d,  \
+                                %(unicodelendescr.offset)d, \
+                                descr=malloc_array_descr)
             jump()
         """)
+##      should ideally be:
+##            p0 = call_malloc_gc(ConstClass(malloc_fixedsize),   \
+##                                %(unicodedescr.basesize +       \
+##                                  10 * unicodedescr.itemsize)d, \
+##                                descr=malloc_fixedsize_descr)
+##            setfield_gc(p0, 10, descr=unicodelendescr)
 
 
 class TestFramework(RewriteTests):
@@ -203,7 +217,7 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(object):
             def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(102)
+                descr = SizeDescrWithVTable(104)
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()
@@ -368,11 +382,9 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
-                                %(bdescr.basesize + 104)d,    \
-                                descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 8765, descr=tiddescr)
-            setfield_gc(p0, 103, descr=blendescr)
+            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
+                                %(bdescr.tid)d, 103,          \
+                                descr=malloc_array_descr)
             jump()
         """)
 
@@ -435,9 +447,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 104, \
-                                descr=malloc_fixedsize_descr)
-            setfield_gc(p0, 9315, descr=tiddescr)
+            p0 = call_malloc_gc(ConstClass(malloc_big_fixedsize), 104, 9315, \
+                                descr=malloc_big_fixedsize_descr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
         """)
