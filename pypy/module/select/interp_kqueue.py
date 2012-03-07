@@ -227,7 +227,7 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags=rffi.r_uint, fflags=rffi.r_uint, data=int, udata=rffi.r_uint)
+    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata='c_uint')
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
         ident = space.c_filedescriptor_w(w_ident)
 
@@ -246,8 +246,8 @@ class W_Kevent(Wrappable):
         r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
         l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
         r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
-        l_fflags = self.event.c_fflags
-        r_fflags = other.event.c_fflags
+        l_fflags = rffi.cast(lltype.Unsigned, self.event.c_fflags)
+        r_fflags = rffi.cast(lltype.Unsigned, other.event.c_fflags)
         l_data = self.event.c_data
         r_data = other.event.c_data
         l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)
