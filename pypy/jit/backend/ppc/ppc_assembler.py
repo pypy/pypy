@@ -161,7 +161,7 @@ class AssemblerPPC(OpAssembler):
         self.mc.addi(r.r16.value, r.r15.value, 2 * WORD) # ADD r16, r15, 2*WORD
         self.mc.load_imm(r.r17, MARKER)
         self.mc.store(r.r17.value, r.r15.value, WORD)  # STR MARKER, r15+WORD
-        self.mc.store(r.r31.value, r.r15.value, 0)  # STR fp, r15
+        self.mc.store(r.SPP.value, r.r15.value, 0)  # STR fp, r15
         #
         self.mc.store(r.r16.value, r.r14.value, 0)  # STR r16, [rootstacktop]
 
