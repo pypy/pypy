@@ -3,6 +3,7 @@ Native type codes.
 The table 'native_fmttable' is also used by pypy.module.array.interp_array.
 """
 import struct
+from pypy.rlib import jit
 from pypy.rlib.rstruct import standardfmttable as std
 from pypy.rlib.rstruct.error import StructError
 from pypy.rpython.tool import rffi_platform
@@ -25,12 +26,15 @@ native_fmttable = {
 double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
 float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
+@jit.dont_look_inside
+def double_to_ccharp(doubleval):
+    double_buf[0] = doubleval
+    return rffi.cast(rffi.CCHARP, double_buf)
+
 def pack_double(fmtiter):
     doubleval = fmtiter.accept_float_arg()
-    double_buf[0] = doubleval
-    p = rffi.cast(rffi.CCHARP, double_buf)
-    for i in range(sizeof_double):
-        fmtiter.result.append(p[i])
+    p = double_to_ccharp(doubleval)
+    fmtiter.result.append_charpsize(p, rffi.sizeof(rffi.DOUBLE))
 
 @specialize.argtype(0)
 def unpack_double(fmtiter):
@@ -41,13 +45,16 @@ def unpack_double(fmtiter):
     doubleval = double_buf[0]
     fmtiter.appendobj(doubleval)
 
+@jit.dont_look_inside
+def float_to_ccharp(floatval):
+    float_buf[0] = floatval
+    return rffi.cast(rffi.CCHARP, float_buf)
+
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
     floatval = r_singlefloat(doubleval)
-    float_buf[0] = floatval
-    p = rffi.cast(rffi.CCHARP, float_buf)
-    for i in range(sizeof_float):
-        fmtiter.result.append(p[i])
+    p = float_to_ccharp(floatval)
+    fmtiter.result.append_charpsize(p, rffi.sizeof(rffi.FLOAT))
 
 @specialize.argtype(0)
 def unpack_float(fmtiter):

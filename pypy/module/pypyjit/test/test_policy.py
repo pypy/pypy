@@ -38,6 +38,10 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
     assert pypypolicy.look_inside_function(get_ident)
 
+def test_time():
+    from pypy.module.rctime.interp_time import time
+    assert pypypolicy.look_inside_function(time)
+
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random
