@@ -144,9 +144,9 @@ class W_Kqueue(Wrappable):
         else:
             changelist_len = space.len_w(w_changelist)
 
-            with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist:
-                with lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist:
-                 with lltype.scoped_alloc(timespec) as timeout:
+        with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist:
+            with lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist:
+                with lltype.scoped_alloc(timespec) as timeout:
 
                     if not space.is_w(w_timeout, space.w_None):
                         _timeout = space.float_w(w_timeout)
@@ -203,7 +203,6 @@ class W_Kqueue(Wrappable):
                             elist_w[i] = w_event
 
                     return space.newlist(elist_w)
-
 
 
 W_Kqueue.typedef = TypeDef("select.kqueue",
