@@ -299,8 +299,8 @@ def _pythonize(pyclass):
             raise StopIteration
         pyclass.__iter__ = __iter__
 
-    # string comparisons
-    if pyclass.__name__ == 'std::basic_string<char>':
+    # string comparisons (note: CINT backend requires the simple name 'string')
+    if pyclass.__name__ == 'std::basic_string<char>' or pyclass.__name__ == 'string':
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()

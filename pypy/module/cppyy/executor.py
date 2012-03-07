@@ -372,5 +372,6 @@ _executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
 _executors["double*"]             = DoublePtrExecutor
 
-# special cases
+# special cases (note: CINT backend requires the simple name 'string')
 _executors["std::basic_string<char>"]        = StdStringExecutor
+_executors["string"]                         = _executors["std::basic_string<char>"]

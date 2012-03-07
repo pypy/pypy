@@ -665,13 +665,13 @@ _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
-# special cases
+# special cases (note: CINT backend requires the simple name 'string')
 _converters["std::basic_string<char>"]           = StdStringConverter
-_converters["basic_string<char>"]                = _converters["std::basic_string<char>"]
+_converters["string"]                            = _converters["std::basic_string<char>"]
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
-_converters["const basic_string<char>&"]         = _converters["const std::basic_string<char>&"]
+_converters["const string&"]                     = _converters["const std::basic_string<char>&"]
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
-_converters["basic_string<char>&"]               = _converters["std::basic_string<char>&"]
+_converters["string&"]                           = _converters["std::basic_string<char>&"]
 
 # it should be possible to generate these:
 _a_converters["short int*"]               = ShortPtrConverter
