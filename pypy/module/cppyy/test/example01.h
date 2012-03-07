@@ -91,6 +91,10 @@ public:                  // implemented for global functions
 };
 
 
+// typedefs
+typedef example01 example01_t;
+
+
 // special case naming
 class z_ {
 public:

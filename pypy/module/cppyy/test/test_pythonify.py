@@ -290,7 +290,14 @@ class AppTestPYTHONIFY:
         assert e.overloadedAddDataToInt(4, 5)    == 10
         assert e.overloadedAddDataToInt(6, 7, 8) == 22
 
-    def test12_underscore_in_class_name(self):
+    def test12_typedefs(self):
+        """Test access and use of typedefs"""
+
+        import cppyy
+
+        assert cppyy.gbl.example01 == cppyy.gbl.example01_t
+
+    def test13_underscore_in_class_name(self):
         """Test recognition of '_' as part of a valid class name"""
 
         import cppyy

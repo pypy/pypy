@@ -33,6 +33,10 @@ def direct_ptradd(ptr, offset):
 c_load_dictionary = backend.c_load_dictionary
 
 # name to opaque C++ scope representation ------------------------------------
+c_resolve_name = rffi.llexternal(
+    "cppyy_resolve_name",
+    [rffi.CCHARP], rffi.CCHARP,
+    compilation_info=backend.eci)
 c_get_scope = rffi.llexternal(
     "cppyy_get_scope",
     [rffi.CCHARP], C_SCOPE,

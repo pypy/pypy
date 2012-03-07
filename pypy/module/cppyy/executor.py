@@ -292,7 +292,7 @@ def get_executor(space, name):
     #
     # If all fails, a default is used, which can be ignored at least until use.
 
-    from pypy.module.cppyy import interp_cppyy
+    name = capi.charp2str_free(capi.c_resolve_name(name))
 
     #   1) full, qualified match
     try:
@@ -318,6 +318,7 @@ def get_executor(space, name):
             pass
 
     #   3) types/classes, either by ref/ptr or by value
+    from pypy.module.cppyy import interp_cppyy
     cpptype = interp_cppyy.type_byname(space, clean_name)
     if cpptype:
         # type check for the benefit of the annotator

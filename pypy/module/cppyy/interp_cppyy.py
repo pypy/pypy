@@ -32,14 +32,20 @@ class State(object):
         self.r_cpptemplate_cache = {}
 
 @unwrap_spec(name=str)
+def resolve_name(space, name=str):
+    return space.wrap(capi.charp2str_free(capi.c_resolve_name(name)))
+
+@unwrap_spec(name=str)
 def type_byname(space, name):
+    true_name = capi.charp2str_free(capi.c_resolve_name(name))
+
     state = space.fromcache(State)
     try:
-        return state.r_cppscope_cache[name]
+        return state.r_cppscope_cache[true_name]
     except KeyError:
         pass
 
-    cppscope = capi.c_get_scope(name)
+    cppscope = capi.c_get_scope(true_name)
     assert lltype.typeOf(cppscope) == capi.C_SCOPE
     if cppscope:
         final_name = capi.charp2str_free(capi.c_final_name(cppscope))

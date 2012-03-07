@@ -48,6 +48,16 @@ static inline std::vector<void*> build_args(int nargs, void* args) {
 
 
 /* name to opaque C++ scope representation -------------------------------- */
+char* cppyy_resolve_name(const char* cppitem_name) {
+    Reflex::Scope s = Reflex::Scope::ByName(cppitem_name);
+    if (s.IsEnum())
+        return cppstring_to_cstring("unsigned int");
+    const std::string& name = s.Name(Reflex::SCOPED|Reflex::QUALIFIED|Reflex::FINAL);
+    if (name.empty())
+        return cppstring_to_cstring(cppitem_name);
+    return cppstring_to_cstring(name);
+}
+
 cppyy_scope_t cppyy_get_scope(const char* scope_name) {
     Reflex::Scope s = Reflex::Scope::ByName(scope_name);
     if (s.IsEnum())     // pretend to be builtin by returning 0

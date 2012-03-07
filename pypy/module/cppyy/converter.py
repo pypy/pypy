@@ -592,7 +592,7 @@ def get_converter(space, name, default):
     #   5) generalized cases (covers basically all user classes)
     #   6) void converter, which fails on use
 
-    from pypy.module.cppyy import interp_cppyy
+    name = capi.charp2str_free(capi.c_resolve_name(name))
 
     #   1) full, exact match
     try:
@@ -624,6 +624,7 @@ def get_converter(space, name, default):
             pass
 
     #   5) generalized cases (covers basically all user classes)
+    from pypy.module.cppyy import interp_cppyy
     cpptype = interp_cppyy.type_byname(space, clean_name)
     if cpptype:
         # type check for the benefit of the annotator
@@ -665,16 +666,10 @@ _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
 # special cases
-_converters["std::string"]                       = StdStringConverter
-_converters["string"]                            = _converters["std::string"]
 _converters["std::basic_string<char>"]           = StdStringConverter
 _converters["basic_string<char>"]                = _converters["std::basic_string<char>"]
-_converters["const std::string&"]                = StdStringConverter     # TODO: shouldn't copy
-_converters["const string&"]                     = _converters["const std::string&"]
-_converters["const std::basic_string<char>&"]    = StdStringConverter
+_converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["const basic_string<char>&"]         = _converters["const std::basic_string<char>&"]
-_converters["std::string&"]                      = StdStringRefConverter
-_converters["string&"]                           = _converters["std::string&"]
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
 _converters["basic_string<char>&"]               = _converters["std::basic_string<char>&"]
 

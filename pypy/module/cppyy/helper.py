@@ -99,14 +99,12 @@ def map_operator_name(cppname, nargs, result_type):
         # is put at the end only as it is unlikely and may trigger unwanted
         # errors in class loaders in the backend, because a typical operator
         # name is illegal as a class name)
-        handle = capi.c_get_scope(op)
-        if handle:
-            op = capi.charp2str_free(capi.c_final_name(handle))
+        true_op = capi.charp2str_free(capi.c_resolve_name(op))
 
-            try:
-                return _operator_mappings[op]
-            except KeyError:
-                pass
+        try:
+            return _operator_mappings[true_op]
+        except KeyError:
+            pass
 
     # might get here, as not all operator methods handled (although some with
     # no python equivalent, such as new, delete, etc., are simply retained)

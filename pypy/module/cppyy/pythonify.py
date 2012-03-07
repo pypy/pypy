@@ -7,12 +7,11 @@ import cppyy
 # classes for inheritance. Both are python classes, though, and refactoring
 # may be in order at some point.
 class CppyyScopeMeta(type):
-    def __getattr__(self, attr):
+    def __getattr__(self, name):
         try:
-            cppitem = get_cppitem(attr, self)
-            return cppitem
+            return get_cppitem(self, name)  # will cache on self
         except TypeError:
-            raise AttributeError("%s object has no attribute '%s'" % (self, attr))
+            raise AttributeError("%s object has no attribute '%s'" % (self, name))
 
 class CppyyNamespaceMeta(CppyyScopeMeta):
     pass
@@ -98,7 +97,7 @@ def make_cppnamespace(namespace_name, cppns, build_in_full=True):
     metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
 
     if cppns:
-        nsdct = {"_cpp_proxy" : cppns }
+        nsdct = {"_cpp_proxy" : cppns}
     else:
         nsdct = dict()
         def cpp_proxy_loader(cls):
@@ -123,13 +122,7 @@ def make_cppnamespace(namespace_name, cppns, build_in_full=True):
             setattr(metans, dm, pydm)
 
     # create the python-side C++ namespace representation
-    pycppns = metans(namespace_name, (object,), nsdct)
-
-    # cache result and return
-    _existing_cppitems[namespace_name] = pycppns
-
-    return pycppns
-
+    return metans(namespace_name, (object,), nsdct)
 
 def _drop_cycles(bases):
     # TODO: figure this out, as it seems to be a PyPy bug?!
@@ -152,12 +145,19 @@ def make_new(class_name, cpptype):
             return constructor_overload.call(None, cls, *args)
     return __new__
 
-def make_cppclass(class_name, cpptype):
+def make_cppclass(scope, class_name, final_class_name, cpptype):
 
     # get a list of base classes for class creation
     bases = [get_cppclass(base) for base in cpptype.get_base_names()]
     if not bases:
         bases = [CPPObject,]
+    else:
+        # it's technically possible that the required class now has been built
+        # if one of the base classes uses it in e.g. a function interface
+        try:
+            return scope.__dict__[final_class_name]
+        except KeyError:
+            pass
 
     # create a meta class to allow properties (for static data write access)
     metabases = [type(base) for base in bases]
@@ -170,7 +170,7 @@ def make_cppclass(class_name, cpptype):
     pycpptype = metacpp(class_name, _drop_cycles(bases), d)
  
     # cache result early so that the class methods can find the class itself
-    _existing_cppitems[class_name] = pycpptype
+    setattr(scope, final_class_name, pycpptype)
 
     # insert (static) methods into the class dictionary
     for meth_name in cpptype.get_method_names():
@@ -193,25 +193,17 @@ def make_cppclass(class_name, cpptype):
     _pythonize(pycpptype)
     return pycpptype
 
-def make_cpptemplatetype(template_name, scope):
+def make_cpptemplatetype(scope, template_name):
     return CppyyTemplateType(scope, template_name)
 
 
-_existing_cppitems = {}               # TODO: to merge with gbl.__dict__ (?)
-def get_cppitem(name, scope=None):
-    if scope and not scope is gbl:
-        fullname = scope.__name__+"::"+name
-    else:
-        scope = gbl
-        fullname = name
+def get_cppitem(scope, name):
+    # resolve typedefs/aliases
+    full_name = (scope == gbl) and name or (scope.__name__+'::'+name)
+    true_name = cppyy._resolve_name(full_name)
+    if true_name != full_name:
+        return get_cppclass(true_name)
 
-    # lookup if already created (e.g. as a function return type)
-    try:
-        return _existing_cppitems[fullname]
-    except KeyError:
-        pass
-
-    # ... if lookup failed, create as appropriate
     pycppitem = None
 
     # namespaces are "open"; TODO: classes are too (template methods, inner classes ...)
@@ -222,22 +214,20 @@ def get_cppitem(name, scope=None):
             _loaded_dictionaries_isdirty = False
 
     # classes
-    cppitem = cppyy._type_byname(fullname)
+    cppitem = cppyy._type_byname(true_name)
     if cppitem:
         if cppitem.is_namespace():
-            pycppitem = make_cppnamespace(fullname, cppitem)
+            pycppitem = make_cppnamespace(true_name, cppitem)
+            setattr(scope, name, pycppitem)
         else:
-            pycppitem = make_cppclass(fullname, cppitem)
-        _existing_cppitems[fullname] = pycppitem
-        scope.__dict__[name] = pycppitem
+            pycppitem = make_cppclass(scope, true_name, name, cppitem)
 
     # templates
     if not cppitem:
-        cppitem = cppyy._template_byname(fullname)
+        cppitem = cppyy._template_byname(true_name)
         if cppitem:
-            pycppitem = make_cpptemplatetype(name, scope)
-            _existing_cppitems[fullname] = pycppitem
-            scope.__dict__[name] = pycppitem
+            pycppitem = make_cpptemplatetype(scope, name)
+            setattr(scope, name, pycppitem)
 
     # functions
     if not cppitem:
@@ -266,7 +256,28 @@ def get_cppitem(name, scope=None):
 
     raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
 
-get_cppclass = get_cppitem         # TODO: restrict to classes only (?)
+
+def scope_splitter(name):
+    is_open_template, scope = 0, ""
+    for c in name:
+        if c == ':' and not is_open_template:
+            if scope:
+                yield scope
+                scope = ""
+            continue
+        elif c == '<':
+            is_open_template += 1
+        elif c == '>':
+            is_open_template -= 1
+        scope += c
+    yield scope
+
+def get_cppclass(name):
+    # break up the name, to walk the scopes and get the class recursively
+    scope = gbl
+    for part in scope_splitter(name):
+        scope = getattr(scope, part)
+    return scope
 
 
 def _pythonize(pyclass):
@@ -289,7 +300,7 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
     # string comparisons
-    if pyclass.__name__ == 'std::string' or pyclass.__name__ == 'string':
+    if pyclass.__name__ == 'std::basic_string<char>':
         def eq(self, other):
             if type(other) == pyclass:
                 return self.c_str() == other.c_str()
