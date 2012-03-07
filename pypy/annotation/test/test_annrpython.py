@@ -1,15 +1,12 @@
 from __future__ import with_statement
-import autopath
 import py.test
 import sys
 from pypy import conftest
-from pypy.tool.udir import udir
 
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
-from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef, ListChangeUnallowed
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
