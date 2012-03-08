@@ -24,7 +24,7 @@ def PyEval_SaveThread(space):
     when thread support is disabled at compile time.)"""
     if rffi.aroundstate.before:
         rffi.aroundstate.before()
-    return lltype.nullptr(PyThreadState.TO)
+    return rffi.cast(PyThreadState, 1)
 
 @cpython_api([PyThreadState], lltype.Void)
 def PyEval_RestoreThread(space, tstate):
