@@ -32,7 +32,7 @@ class State(object):
         self.r_cpptemplate_cache = {}
 
 @unwrap_spec(name=str)
-def resolve_name(space, name=str):
+def resolve_name(space, name):
     return space.wrap(capi.charp2str_free(capi.c_resolve_name(name)))
 
 @unwrap_spec(name=str)
