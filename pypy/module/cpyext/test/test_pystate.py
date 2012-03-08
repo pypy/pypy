@@ -57,3 +57,13 @@ class TestThreadState(BaseApiTest):
         assert ref == api.PyThreadState_GetDict()
         w_obj = from_ref(space, ref)
         assert space.isinstance_w(w_obj, space.w_dict)
+
+    def test_savethread(self, space, api):
+        thread = api.PyImport_Import(space.wrap("thread"))
+        space.threadlocals.setup_threads(space)
+
+        ts = api.PyEval_SaveThread()
+        assert ts
+        assert api.PyThreadState_Get() == nullptr(PyThreadState.TO)
+        api.PyEval_RestoreThread(ts)
+        assert api.PyThreadState_Get() != nullptr(PyThreadState.TO)
