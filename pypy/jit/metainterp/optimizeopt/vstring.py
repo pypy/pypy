@@ -505,14 +505,23 @@ class OptString(optimizer.Optimization):
 
         if length.is_constant() and length.box.getint() == 0:
             return
-        copy_str_content(self,
-            src.force_box(self),
-            dst.force_box(self),
-            srcstart.force_box(self),
-            dststart.force_box(self),
-            length.force_box(self),
-            mode, need_next_offset=False
-        )
+        elif (src.is_virtual() and dst.is_virtual() and srcstart.is_constant() and
+            dststart.is_constant() and length.is_constant()):
+
+            src_start = srcstart.force_box(self).getint()
+            dst_start = dststart.force_box(self).getint()
+            for index in range(length.force_box(self).getint()):
+                vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
+                dst.setitem(index + dst_start, vresult)
+        else:
+            copy_str_content(self,
+                src.force_box(self),
+                dst.force_box(self),
+                srcstart.force_box(self),
+                dststart.force_box(self),
+                length.force_box(self),
+                mode, need_next_offset=False
+            )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles

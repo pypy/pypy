@@ -2431,6 +2431,93 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[1], annmodel.SomeChar)
         assert isinstance(s.items[2], annmodel.SomeChar)
 
+    def test_mixin_first(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Mixin, Base):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 4
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 4
+
+    def test_mixin_last(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Base, Mixin):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_mixin_concrete(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Concrete(Mixin):
+            def foo(self): return 5
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_multiple_mixins_mro(self):
+        # an obscure situation, but it occurred in module/micronumpy/types.py
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class D(B, C):
+            _mixin_ = True
+        class Concrete(D):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
+    def test_multiple_mixins_mro_2(self):
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class Concrete(C, B):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass

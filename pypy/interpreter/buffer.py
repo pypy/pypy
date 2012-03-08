@@ -20,6 +20,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import compute_hash
+from pypy.rlib.rstring import StringBuilder
 
 
 class Buffer(Wrappable):
@@ -155,12 +156,13 @@ def descr_buffer__new__(space, w_subtype, w_object, offset=0, size=-1):
     if space.isinstance_w(w_object, space.w_unicode):
         # unicode objects support the old buffer interface
         # but not the new buffer interface (change in python  2.7)
-        from pypy.rlib.rstruct.unichar import pack_unichar
-        charlist = []
-        for unich in space.unicode_w(w_object):
-            pack_unichar(unich, charlist)
+        from pypy.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
+        unistr = space.unicode_w(w_object)
+        builder = StringBuilder(len(unistr) * UNICODE_SIZE)
+        for unich in unistr:
+            pack_unichar(unich, builder)
         from pypy.interpreter.buffer import StringBuffer
-        w_buffer = space.wrap(StringBuffer(''.join(charlist)))
+        w_buffer = space.wrap(StringBuffer(builder.build()))
     else:
         w_buffer = space.buffer(w_object)
 
