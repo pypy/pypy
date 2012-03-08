@@ -145,3 +145,14 @@ class AppTestFRAGILE:
         assert cppyy.gbl.fragile is fragile
 
         h = fragile.H()
+
+    def test09_operator_bool(self):
+        """Access to global vars with an operator bool() returning False"""
+
+        import cppyy
+
+        i = cppyy.gbl.fragile.I()
+        assert not i
+
+        g = cppyy.gbl.fragile.gI
+        assert not g

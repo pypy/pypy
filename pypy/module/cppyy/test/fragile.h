@@ -63,4 +63,11 @@ public:
     HH* m_h;
 };
 
+class I {
+public:
+    operator bool() { return 0; }
+};
+
+extern I gI;
+
 } // namespace fragile

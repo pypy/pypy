@@ -90,16 +90,16 @@ def make_data_member(cppdm):
     return property(binder, setter)
 
 
-def make_cppnamespace(namespace_name, cppns, build_in_full=True):
+def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
     # build up a representation of a C++ namespace (namespaces are classes)
 
     # create a meta class to allow properties (for static data write access)
     metans = type(CppyyNamespaceMeta)(namespace_name+'_meta', (CppyyNamespaceMeta,), {})
 
     if cppns:
-        nsdct = {"_cpp_proxy" : cppns}
+        d = {"_cpp_proxy" : cppns}
     else:
-        nsdct = dict()
+        d = dict()
         def cpp_proxy_loader(cls):
             cpp_proxy = cppyy._type_byname(cls.__name__ != '::' and cls.__name__ or '')
             del cls.__class__._cpp_proxy
@@ -107,22 +107,27 @@ def make_cppnamespace(namespace_name, cppns, build_in_full=True):
             return cpp_proxy
         metans._cpp_proxy = property(cpp_proxy_loader)
 
+    # create the python-side C++ namespace representation, cache in scope if given
+    pycppns = metans(namespace_name, (object,), d)
+    if scope:
+        setattr(scope, namespace_name, pycppns)
+
     if build_in_full:   # if False, rely on lazy build-up
         # insert static methods into the "namespace" dictionary
         for func_name in cppns.get_method_names():
             cppol = cppns.get_overload(func_name)
-            nsdct[func_name] = make_static_function(cppns, func_name, cppol)
+            pyfunc = make_static_function(cppns, func_name, cppol)
+            setattr(pycppns, func_name, pyfunc)
 
         # add all data members to the dictionary of the class to be created, and
         # static ones also to the meta class (needed for property setters)
         for dm in cppns.get_data_member_names():
             cppdm = cppns.get_data_member(dm)
             pydm = make_data_member(cppdm)
-            nsdct[dm] = pydm
+            setattr(pycppns, dm, pydm)
             setattr(metans, dm, pydm)
 
-    # create the python-side C++ namespace representation
-    return metans(namespace_name, (object,), nsdct)
+    return pycppns
 
 def _drop_cycles(bases):
     # TODO: figure this out, as it seems to be a PyPy bug?!
@@ -217,7 +222,7 @@ def get_cppitem(scope, name):
     cppitem = cppyy._type_byname(true_name)
     if cppitem:
         if cppitem.is_namespace():
-            pycppitem = make_cppnamespace(true_name, cppitem)
+            pycppitem = make_cppnamespace(scope, true_name, cppitem)
             setattr(scope, name, pycppitem)
         else:
             pycppitem = make_cppclass(scope, true_name, name, cppitem)
@@ -313,7 +318,6 @@ def _pythonize(pyclass):
     if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem___'):
         pyclass.__getitem__ = pyclass.__setitem__
 
-
 _loaded_dictionaries = {}
 _loaded_dictionaries_isdirty = True     # should be per namespace
 def load_reflection_info(name):
@@ -330,7 +334,7 @@ def load_reflection_info(name):
 # user interface objects (note the two-step of not calling type_byname here:
 # creation of global functions may cause the creation of classes in the global
 # namespace, so gbl must exist at that point to cache them)
-gbl = make_cppnamespace("::", None, False)   # global C++ namespace
+gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
 
 # mostly for the benefit of the CINT backend, which treats std as special
-gbl.std = make_cppnamespace("std", None, False)
+gbl.std = make_cppnamespace(None, "std", None, False)

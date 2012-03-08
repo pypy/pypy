@@ -4,4 +4,6 @@
 
   <class pattern="fragile::[A-Z]" />
 
+  <variable name="fragile::gI" />
+
 </lcgdict>
