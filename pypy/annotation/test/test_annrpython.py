@@ -2556,6 +2556,26 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype == int
 
+    def test_slots_reads(self):
+        class A(object):
+            __slots__ = ()
+        class B(A):
+            def __init__(self, x):
+                self.x = x
+        def f(x):
+            if x:
+                a = A()
+            else:
+                a = B(x)
+            return a.x   # should explode here
+
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [int])
+        # this should explode on reading the attribute 'a.x', but it can
+        # sometimes explode on 'self.x = x', which does not make much sense.
+        # But it looks hard to fix in general: we don't know yet during 'a.x'
+        # if the attribute x will be read-only or read-write.
+
     def test_unboxed_value(self):
         class A(object):
             __slots__ = ()
