@@ -46,22 +46,22 @@ class CppyyTemplateType(object):
 def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
-        cppclass = None
+        def function(*args):
+            return cppol.call(None, None, *args)
     else:                                        # return instance
-        cppclass = get_cppclass(rettype)
-    def function(*args):
-        return cppol.call(None, cppclass, *args)
+        def function(*args):
+            return cppol.call(None, get_cppclass(rettype), *args)
     function.__name__ = func_name
     return staticmethod(function)
 
 def make_method(meth_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
-        cppclass = None
+        def method(self, *args):
+            return cppol.call(self, None, *args)
     else:                                        # return instance
-        cppclass = get_cppclass(rettype)
-    def method(self, *args):
-        return cppol.call(self, cppclass, *args)
+        def method(self, *args):
+            return cppol.call(self, get_cppclass(rettype), *args)
     method.__name__ = meth_name
     return method
 
