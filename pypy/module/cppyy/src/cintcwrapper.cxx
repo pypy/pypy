@@ -161,8 +161,11 @@ char* cppyy_resolve_name(const char* cppitem_name) {
     if (strcmp(cppitem_name, "") == 0)
         return cppstring_to_cstring(cppitem_name);
     G__TypeInfo ti(cppitem_name);
-    if (ti.IsValid())
+    if (ti.IsValid()) {
+        if (ti.Property() & G__BIT_ISENUM)
+            return cppstring_to_cstring("unsigned int");
         return cppstring_to_cstring(ti.TrueName());
+    }
     return cppstring_to_cstring(cppitem_name);
 }
 

@@ -123,3 +123,25 @@ class AppTestFRAGILE:
 
         assert isinstance(a.gime_null(), fragile.A)
         raises(ReferenceError, fragile.A.check, a.gime_null())
+
+    def test07_unnamed_enum(self):
+        """Test that an unnamed enum does not cause infinite recursion"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile is cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+        assert cppyy.gbl.fragile is fragile
+
+        g = fragile.G()
+
+    def test08_unhandled_scoped_data_member(self):
+        """Test that an unhandled scoped data member does not cause infinite recursion"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile is cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+        assert cppyy.gbl.fragile is fragile
+
+        h = fragile.H()

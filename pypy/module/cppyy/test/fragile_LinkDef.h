@@ -12,5 +12,7 @@
 #pragma link C++ class fragile::D;
 #pragma link C++ class fragile::E;
 #pragma link C++ class fragile::F;
+#pragma link C++ class fragile::G;
+#pragma link C++ class fragile::H;
 
 #endif

@@ -47,4 +47,20 @@ public:
     int m_int;
 };
 
+class G {
+public:
+    enum { unnamed1=24, unnamed2=96 };
+
+    class GG {};
+};
+
+class H {
+public:
+    class HH {
+    public:
+       HH* copy();
+    };
+    HH* m_h;
+};
+
 } // namespace fragile
