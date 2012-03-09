@@ -416,3 +416,30 @@ class AppTestDATATYPES:
         assert c.s_enum == cppyy_test_data.s_enum
         assert c.s_enum == cppyy_test_data.kSomething
         assert cppyy_test_data.s_enum == cppyy_test_data.kSomething
+
+    def test12_object_returns(self):
+        """Test access to and return of PODs"""
+
+        import cppyy
+
+        c = cppyy.gbl.cppyy_test_data()
+
+        assert c.m_pod.m_int == 888
+        assert c.m_pod.m_double == 3.14
+
+        pod = c.get_pod_val()
+        assert pod.m_int == 888
+        assert pod.m_double == 3.14
+
+        assert c.get_pod_ptr().m_int == 888
+        assert c.get_pod_ptr().m_double == 3.14
+        c.get_pod_ptr().m_int = 777
+        assert c.get_pod_ptr().m_int == 777
+
+        assert c.get_pod_ref().m_int == 777
+        assert c.get_pod_ref().m_double == 3.14
+        c.get_pod_ref().m_int = 666
+        assert c.get_pod_ref().m_int == 666
+
+        assert c.get_pod_ptrref().m_int == 666
+        assert c.get_pod_ptrref().m_double == 3.14

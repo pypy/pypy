@@ -51,6 +51,8 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
 
     m_pod.m_int    = 888;
     m_pod.m_double = 3.14;
+
+    m_ppod = &m_pod;
 };
 
 cppyy_test_data::~cppyy_test_data()
@@ -105,6 +107,11 @@ float*  cppyy_test_data::get_float_array()   { return m_float_array; }
 float*  cppyy_test_data::get_float_array2()  { return m_float_array2; }
 double* cppyy_test_data::get_double_array()  { return m_double_array; }
 double* cppyy_test_data::get_double_array2() { return m_double_array2; }
+
+cppyy_test_pod cppyy_test_data::get_pod_val() { return m_pod; }
+cppyy_test_pod* cppyy_test_data::get_pod_ptr() { return &m_pod; }
+cppyy_test_pod& cppyy_test_data::get_pod_ref() { return m_pod; }
+cppyy_test_pod*& cppyy_test_data::get_pod_ptrref() { return m_ppod; }
 
 //- setters -----------------------------------------------------------------
 void cppyy_test_data::set_bool(bool b)              { m_bool   = b; }

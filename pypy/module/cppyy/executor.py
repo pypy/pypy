@@ -255,6 +255,19 @@ class InstancePtrExecutor(FunctionExecutor):
         ptr_result = rffi.cast(capi.C_OBJECT, libffifunc.call(argchain, rffi.VOIDP))
         return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, False)
 
+class InstancePtrPtrExecutor(InstancePtrExecutor):
+    _immutable_ = True
+
+    def execute(self, space, w_returntype, cppmethod, cppthis, num_args, args):
+        from pypy.module.cppyy import interp_cppyy
+        voidp_result = capi.c_call_r(cppmethod, cppthis, num_args, args)
+        ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
+        ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
+        return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, False)
+
+    def execute_libffi(self, space, w_returntype, libffifunc, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
 
 class InstanceExecutor(InstancePtrExecutor):
     _immutable_ = True
@@ -324,10 +337,12 @@ def get_executor(space, name):
         # type check for the benefit of the annotator
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
-        if compound == "*" or compound == "&":
-            return InstancePtrExecutor(space, clean_name, cpptype)
-        elif compound == "":
+        if compound == "":
             return InstanceExecutor(space, clean_name, cpptype)
+        elif compound == "*" or compound == "&":
+            return InstancePtrExecutor(space, clean_name, cpptype)
+        elif compound == "**" or compound == "*&":
+            return InstancePtrPtrExecutor(space, clean_name, cpptype)
     elif capi.c_is_enum(clean_name):
         return UnsignedIntExecutor(space, "", None)
 

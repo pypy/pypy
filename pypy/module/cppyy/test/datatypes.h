@@ -52,6 +52,11 @@ public:
     double* get_double_array();
     double* get_double_array2();
 
+    cppyy_test_pod get_pod_val();
+    cppyy_test_pod* get_pod_ptr();
+    cppyy_test_pod& get_pod_ref();
+    cppyy_test_pod*& get_pod_ptrref();
+
 // setters
     void set_bool(bool b);
     void set_char(char c);
@@ -102,6 +107,7 @@ public:
 
 // object types
     cppyy_test_pod m_pod;
+    cppyy_test_pod* m_ppod;
 
 public:
     static char           s_char;
