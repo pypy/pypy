@@ -931,7 +931,7 @@ class Frame(object):
 
     def op_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
-        if effectinfo is not None:
+        if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return do_math_sqrt(args[0])
