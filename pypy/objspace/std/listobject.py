@@ -7,7 +7,7 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.objectmodel import instantiate, specialize, newlist
+from pypy.rlib.objectmodel import instantiate, specialize, newlist_hint
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
@@ -676,7 +676,7 @@ class AbstractUnwrappedStrategy(object):
     def get_empty_storage(self, sizehint):
         if sizehint == -1:
             return self.erase([])
-        return self.erase(newlist(sizehint))
+        return self.erase(newlist_hint(sizehint))
 
     def clone(self, w_list):
         l = self.unerase(w_list.lstorage)

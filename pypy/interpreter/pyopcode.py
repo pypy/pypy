@@ -10,14 +10,13 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import gateway, function, eval, pyframe, pytraceback
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated, newlist
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
-from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
-                                     unrolling_all_opcode_descs, opmap,
-                                     host_opmap)
+from pypy.tool.stdlib_opcode import (bytecode_spec,
+                                     unrolling_all_opcode_descs)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
