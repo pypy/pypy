@@ -84,11 +84,18 @@ ExecutionContext.cpyext_threadstate = ThreadStateCapsule(None)
 # initialization).
 ExecutionContext.cpyext_initialized_threadstate = False
 
+def cleanup_cpyext_state(self):
+    try:
+        del self.cpyext_threadstate
+    except AttributeError:
+        pass
+    self.cpyext_initialized_threadstate = False
+ExecutionContext.cleanup_cpyext_state = cleanup_cpyext_state
+
 class InterpreterState(object):
     def __init__(self, space):
         self.interpreter_state = lltype.malloc(
             PyInterpreterState.TO, flavor='raw', zero=True, immortal=True)
-
 
     def new_thread_state(self, space):
         """
