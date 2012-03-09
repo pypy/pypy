@@ -130,8 +130,42 @@ class Entry(ExtRegistryEntry):
 
 # ____________________________________________________________
 #
-# The following functions are fished from the globals() by
-# setup_extra_builtin().
+# Manually map oopspec'ed operations back to their ll implementation
+# coming from modules like pypy.rpython.rlist.  The following
+# functions are fished from the globals() by setup_extra_builtin().
+
+def _ll_0_newlist(LIST):
+    return LIST.ll_newlist(0)
+def _ll_1_newlist(LIST, count):
+    return LIST.ll_newlist(count)
+def _ll_2_newlist(LIST, count, item):
+    return rlist.ll_alloc_and_set(LIST, count, item)
+_ll_0_newlist.need_result_type = True
+_ll_1_newlist.need_result_type = True
+_ll_2_newlist.need_result_type = True
+
+def _ll_1_list_len(l):
+    return l.ll_length()
+def _ll_2_list_getitem(l, index):
+    return rlist.ll_getitem(rlist.dum_checkidx, l, index)
+def _ll_3_list_setitem(l, index, newitem):
+    rlist.ll_setitem(rlist.dum_checkidx, l, index, newitem)
+def _ll_2_list_delitem(l, index):
+    rlist.ll_delitem(rlist.dum_checkidx, l, index)
+def _ll_1_list_pop(l):
+    return rlist.ll_pop_default(rlist.dum_checkidx, l)
+def _ll_2_list_pop(l, index):
+    return rlist.ll_pop(rlist.dum_checkidx, l, index)
+_ll_2_list_append = rlist.ll_append
+_ll_2_list_extend = rlist.ll_extend
+_ll_3_list_insert = rlist.ll_insert_nonneg
+_ll_4_list_setslice = rlist.ll_listsetslice
+_ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
+_ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
+_ll_2_list_inplace_mul = rlist.ll_inplace_mul
+
+_ll_2_list_getitem_foldable = _ll_2_list_getitem
+_ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
