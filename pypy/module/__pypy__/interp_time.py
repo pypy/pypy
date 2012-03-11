@@ -1,3 +1,5 @@
+import sys
+
 from pypy.interpreter.error import exception_from_errno
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -5,11 +7,15 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
+if sys.platform.startswith("linux"):
+    LIBRARIES = ["rt"]
+else:
+    LIBRARIES = []
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=["time.h"],
-        libraries=["rt"],
+        libraries=LIBRARIES,
     )
 
     HAS_CLOCK_GETTIME = rffi_platform.Has('clock_gettime')
