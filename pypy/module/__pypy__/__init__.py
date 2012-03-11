@@ -1,5 +1,5 @@
+import sys
 
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
 from pypy.module.__pypy__ import interp_time
@@ -16,7 +16,7 @@ class BuildersModule(MixedModule):
 class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
-    if interp_time.HAS_CLOCK_GETTIME:
+    if sys.platform.startswith("linux"):
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
         for name in [

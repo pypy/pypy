@@ -7,15 +7,10 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 
-if sys.platform.startswith("linux"):
-    LIBRARIES = ["rt"]
-else:
-    LIBRARIES = []
-
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=["time.h"],
-        libraries=LIBRARIES,
+        libraries=["rt"],
     )
 
     HAS_CLOCK_GETTIME = rffi_platform.Has('clock_gettime')
