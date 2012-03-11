@@ -559,7 +559,7 @@ def ll_list_is_true(l):
 
 def ll_len_foldable(l):
     return l.ll_length()
-ll_len_foldable._always_inline_ = True
+ll_len_foldable.oopspec = 'list.len_foldable(l)'
 
 def ll_list_is_true_foldable(l):
     return bool(l) and ll_len_foldable(l) != 0
