@@ -144,66 +144,65 @@ class W_Kqueue(Wrappable):
         else:
             changelist_len = space.len_w(w_changelist)
 
-        with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist, \
-             lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist, \
-             lltype.scoped_alloc(timespec) as timeout:
+        with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist:
+            with lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist:
+                with lltype.scoped_alloc(timespec) as timeout:
 
-            if not space.is_w(w_timeout, space.w_None):
-                _timeout = space.float_w(w_timeout)
-                if _timeout < 0:
-                    raise operationerrfmt(space.w_ValueError,
-                        "Timeout must be None or >= 0, got %s", str(_timeout)
-                    )
-                sec = int(_timeout)
-                nsec = int(1e9 * (_timeout - sec))
-                rffi.setintfield(timeout, 'c_tv_sec', sec)
-                rffi.setintfield(timeout, 'c_tv_nsec', nsec)
-                ptimeout = timeout
-            else:
-                ptimeout = lltype.nullptr(timespec)
+                    if not space.is_w(w_timeout, space.w_None):
+                        _timeout = space.float_w(w_timeout)
+                        if _timeout < 0:
+                            raise operationerrfmt(space.w_ValueError,
+                                "Timeout must be None or >= 0, got %s", str(_timeout)
+                            )
+                        sec = int(_timeout)
+                        nsec = int(1e9 * (_timeout - sec))
+                        rffi.setintfield(timeout, 'c_tv_sec', sec)
+                        rffi.setintfield(timeout, 'c_tv_nsec', nsec)
+                        ptimeout = timeout
+                    else:
+                        ptimeout = lltype.nullptr(timespec)
 
-            if not space.is_w(w_changelist, space.w_None):
-                i = 0
-                for w_ev in space.listview(w_changelist):
-                    ev = space.interp_w(W_Kevent, w_ev)
-                    changelist[i].c_ident = ev.event.c_ident
-                    changelist[i].c_filter = ev.event.c_filter
-                    changelist[i].c_flags = ev.event.c_flags
-                    changelist[i].c_fflags = ev.event.c_fflags
-                    changelist[i].c_data = ev.event.c_data
-                    changelist[i].c_udata = ev.event.c_udata
-                    i += 1
-                pchangelist = changelist
-            else:
-                pchangelist = lltype.nullptr(rffi.CArray(kevent))
+                    if not space.is_w(w_changelist, space.w_None):
+                        i = 0
+                        for w_ev in space.listview(w_changelist):
+                            ev = space.interp_w(W_Kevent, w_ev)
+                            changelist[i].c_ident = ev.event.c_ident
+                            changelist[i].c_filter = ev.event.c_filter
+                            changelist[i].c_flags = ev.event.c_flags
+                            changelist[i].c_fflags = ev.event.c_fflags
+                            changelist[i].c_data = ev.event.c_data
+                            changelist[i].c_udata = ev.event.c_udata
+                            i += 1
+                        pchangelist = changelist
+                    else:
+                        pchangelist = lltype.nullptr(rffi.CArray(kevent))
 
-            nfds = syscall_kevent(self.kqfd,
-                                  pchangelist,
-                                  changelist_len,
-                                  eventlist,
-                                  max_events,
-                                  ptimeout)
-            if nfds < 0:
-                raise exception_from_errno(space, space.w_IOError)
-            else:
-                elist_w = [None] * nfds
-                for i in xrange(nfds):
+                    nfds = syscall_kevent(self.kqfd,
+                                          pchangelist,
+                                          changelist_len,
+                                          eventlist,
+                                          max_events,
+                                          ptimeout)
+                    if nfds < 0:
+                        raise exception_from_errno(space, space.w_IOError)
+                    else:
+                        elist_w = [None] * nfds
+                        for i in xrange(nfds):
 
-                    evt = eventlist[i]
+                            evt = eventlist[i]
 
-                    w_event = W_Kevent(space)
-                    w_event.event = lltype.malloc(kevent, flavor="raw")
-                    w_event.event.c_ident = evt.c_ident
-                    w_event.event.c_filter = evt.c_filter
-                    w_event.event.c_flags = evt.c_flags
-                    w_event.event.c_fflags = evt.c_fflags
-                    w_event.event.c_data = evt.c_data
-                    w_event.event.c_udata = evt.c_udata
+                            w_event = W_Kevent(space)
+                            w_event.event = lltype.malloc(kevent, flavor="raw")
+                            w_event.event.c_ident = evt.c_ident
+                            w_event.event.c_filter = evt.c_filter
+                            w_event.event.c_flags = evt.c_flags
+                            w_event.event.c_fflags = evt.c_fflags
+                            w_event.event.c_data = evt.c_data
+                            w_event.event.c_udata = evt.c_udata
 
-                    elist_w[i] = w_event
+                            elist_w[i] = w_event
 
-                return space.newlist(elist_w)
-
+                    return space.newlist(elist_w)
 
 
 W_Kqueue.typedef = TypeDef("select.kqueue",
@@ -227,7 +226,7 @@ class W_Kevent(Wrappable):
         if self.event:
             lltype.free(self.event, flavor="raw")
 
-    @unwrap_spec(filter=int, flags=rffi.r_uint, fflags=rffi.r_uint, data=int, udata=rffi.r_uint)
+    @unwrap_spec(filter=int, flags='c_uint', fflags='c_uint', data=int, udata='c_uint')
     def descr__init__(self, space, w_ident, filter=KQ_FILTER_READ, flags=KQ_EV_ADD, fflags=0, data=0, udata=0):
         ident = space.c_filedescriptor_w(w_ident)
 
@@ -246,8 +245,8 @@ class W_Kevent(Wrappable):
         r_filter = rffi.cast(lltype.Signed, other.event.c_filter)
         l_flags = rffi.cast(lltype.Unsigned, self.event.c_flags)
         r_flags = rffi.cast(lltype.Unsigned, other.event.c_flags)
-        l_fflags = self.event.c_fflags
-        r_fflags = other.event.c_fflags
+        l_fflags = rffi.cast(lltype.Unsigned, self.event.c_fflags)
+        r_fflags = rffi.cast(lltype.Unsigned, other.event.c_fflags)
         l_data = self.event.c_data
         r_data = other.event.c_data
         l_udata = rffi.cast(lltype.Unsigned, self.event.c_udata)

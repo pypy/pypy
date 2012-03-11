@@ -37,7 +37,11 @@ def constpropagate(func, args_s, s_result):
     try:
         realresult = func(*args)
     except (ValueError, OverflowError):
-        return s_ImpossibleValue   # no possible answer for this precise input
+        # no possible answer for this precise input.  Be conservative
+        # and keep the computation non-constant.  Example:
+        # unichr(constant-that-doesn't-fit-16-bits) on platforms where
+        # the underlying Python has sys.maxunicode == 0xffff.
+        return s_result
     s_realresult = immutablevalue(realresult)
     if not s_result.contains(s_realresult):
         raise Exception("%s%r returned %r, which is not contained in %s" % (
