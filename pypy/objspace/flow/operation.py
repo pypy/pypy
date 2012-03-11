@@ -30,10 +30,7 @@ Arity          = {}   # dict {"operation name": number of arguments}
 
 def new_style_type(x):
     """Simulate a situation where every class is new-style"""
-    t = getattr(x, '__class__', type(x))
-    if t is types.ClassType:   # guess who's here?  exception classes...
-        t = type
-    return t
+    return getattr(x, '__class__', type(x))
 
 def do_int(x):
     return x.__int__()
