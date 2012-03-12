@@ -119,7 +119,9 @@ def compile(f, gc, enable_opts='', **kwds):
 def run(cbuilder, args=''):
     #
     pypylog = udir.join('test_zrpy_gc.log')
-    data = cbuilder.cmdexec(args, env={'PYPYLOG': ':%s' % pypylog})
+    env = os.environ.copy()
+    env.update({'PYPYLOG': ':%s' % pypylog})
+    data = cbuilder.cmdexec(args, env=env)
     return data.strip()
 
 def compile_and_run(f, gc, **kwds):
