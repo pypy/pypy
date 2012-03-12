@@ -15,7 +15,6 @@ class Module(MixedModule):
         'input'         : 'app_io.input',
         'print'         : 'app_io.print_',
 
-        'apply'         : 'app_functional.apply',
         'sorted'        : 'app_functional.sorted',
         'any'           : 'app_functional.any',
         'all'           : 'app_functional.all',
