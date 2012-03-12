@@ -28,6 +28,7 @@ def fatalerror(msg):
     llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
+fatalerror._jit_look_inside_ = False
 fatalerror._annenforceargs_ = [str]
 
 def fatalerror_notb(msg):
@@ -36,6 +37,7 @@ def fatalerror_notb(msg):
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror_notb._dont_inline_ = True
+fatalerror_notb._jit_look_inside_ = False
 fatalerror_notb._annenforceargs_ = [str]
 
 
