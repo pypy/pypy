@@ -636,8 +636,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(1, 6), dtype=bool)
         b = a // a
         assert b.dtype is dtype("int8")
-        for i in range(5):
-            assert b[i] == 1
+        assert (b == [1, 1, 1, 1, 1]).all()
 
         a = array([-1, 0, 1])
         b = array([0, 0, 0])
@@ -662,22 +661,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         b = array([2, 2, 2, 2, 2], float)
         c = a // b
-        for i in range(5):
-            assert c[i] == i // 2
+        assert (c == [0, 0, 1, 1, 2]).all()
 
     def test_rfloordiv(self):
         from _numpypy import array
         a = array(range(1, 6))
         b = 3 // a
-        for i in range(5):
-            assert b[i] == 3 // a[i]
+        assert (b == [3, 1, 1, 0, 0]).all()
 
     def test_floordiv_constant(self):
         from _numpypy import array
         a = array(range(5))
         b = a // 5
-        for i in range(5):
-            assert b[i] == i // 5
+        assert (b == [0, 0, 0, 0, 0]).all()
 
     def test_truediv(self):
         from operator import truediv
