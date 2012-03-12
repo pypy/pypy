@@ -443,6 +443,9 @@ class UfuncState(object):
             ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
 
+            ("radians", "radians", 1, {"promote_to_float": True}),
+            ("degrees", "degrees", 1, {"promote_to_float": True}),
+
             ("log", "log", 1, {"promote_to_float": True}),
             ("log2", "log2", 1, {"promote_to_float": True}),
             ("log10", "log10", 1, {"promote_to_float": True}),

@@ -376,6 +376,45 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(sqrt(-1))
         assert math.isnan(sqrt(nan))
 
+    def test_radians(self):
+        import math
+        from _numpypy import radians, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = radians(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_deg2rad(self):
+        import math
+        from _numpypy import deg2rad, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = deg2rad(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_degrees(self):
+        import math
+        from _numpypy import degrees, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = degrees(a)
+        for i in range(len(a)):
+            assert b[i] == math.degrees(a[i])
+
     def test_reduce_errors(self):
         from _numpypy import sin, add
 
