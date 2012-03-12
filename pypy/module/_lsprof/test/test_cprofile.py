@@ -12,7 +12,7 @@ class AppTestCProfile(object):
 
     def test_repr(self):
         import _lsprof
-        assert repr(_lsprof.Profiler) == "<type '_lsprof.Profiler'>"
+        assert repr(_lsprof.Profiler) == "<class '_lsprof.Profiler'>"
 
     def test_direct(self):
         import _lsprof
