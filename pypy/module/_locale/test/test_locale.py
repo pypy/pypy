@@ -35,7 +35,6 @@ class AppTestLocaleTrivia:
                 _locale.setlocale(_locale.LC_ALL,
                                   space.str_w(cls.w_language_pl))
             except _locale.Error:
-                raise
                 py.test.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
