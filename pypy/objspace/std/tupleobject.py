@@ -6,8 +6,8 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.rlib.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
-from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib import jit
 
 class W_AbstractTupleObject(W_Object):
     __slots__ = ()
@@ -114,6 +114,9 @@ def mul__Tuple_ANY(space, w_tuple, w_times):
 def mul__ANY_Tuple(space, w_times, w_tuple):
     return mul_tuple_times(space, w_tuple, w_times)
 
+@jit.look_inside_iff(lambda space, w_tuple1, w_tuple2:
+                     jit.is_constant(len(w_tuple1.wrappeditems)) and
+                     jit.is_constant(len(w_tuple2.wrappeditems)))
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
@@ -126,6 +129,9 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
+@jit.look_inside_iff(lambda space, w_tuple1, w_tuple2:
+                     jit.is_constant(len(w_tuple1.wrappeditems)) and
+                     jit.is_constant(len(w_tuple2.wrappeditems)))
 def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
@@ -137,6 +143,9 @@ def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     # No more items to compare -- compare sizes
     return space.newbool(len(items1) < len(items2))
 
+@jit.look_inside_iff(lambda space, w_tuple1, w_tuple2:
+                     jit.is_constant(len(w_tuple1.wrappeditems)) and
+                     jit.is_constant(len(w_tuple2.wrappeditems)))
 def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
@@ -161,6 +170,8 @@ def repr__Tuple(space, w_tuple):
 def hash__Tuple(space, w_tuple):
     return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
 
+@jit.look_inside_iff(lambda space, wrappeditems:
+                     jit.is_constant(len(wrappeditems)))
 def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
     mult = 1000003
