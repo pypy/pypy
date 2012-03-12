@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import unicodehelper
+from pypy.rlib.rstring import StringBuilder
 
 def parsestr(space, encoding, s, unicode_literals=False):
     # compiler.transformer.Transformer.decode_literal depends on what 
@@ -115,21 +116,23 @@ def PyString_DecodeEscape(space, s, recode_encoding):
     the string is UTF-8 encoded and should be re-encoded in the
     specified encoding.
     """
-    lis = []
+    builder = StringBuilder(len(s))
     ps = 0
     end = len(s)
-    while ps < end:
-        if s[ps] != '\\':
-            # note that the C code has a label here.
-            # the logic is the same.
+    while 1:
+        ps2 = ps
+        while ps < end and s[ps] != '\\':
             if recode_encoding and ord(s[ps]) & 0x80:
                 w, ps = decode_utf8(space, s, ps, end, recode_encoding)
-                # Append bytes to output buffer.
-                lis.append(w)
+                builder.append(w)
+                ps2 = ps
             else:
-                lis.append(s[ps])
                 ps += 1
-            continue
+        if ps > ps2:
+            builder.append_slice(s, ps2, ps)
+        if ps == end:
+            break
+
         ps += 1
         if ps == end:
             raise_app_valueerror(space, 'Trailing \\ in string')
@@ -140,25 +143,25 @@ def PyString_DecodeEscape(space, s, recode_encoding):
         if ch == '\n':
             pass
         elif ch == '\\':
-            lis.append('\\')
+            builder.append('\\')
         elif ch == "'":
-            lis.append("'")
+            builder.append("'")
         elif ch == '"':
-            lis.append('"')
+            builder.append('"')
         elif ch == 'b':
-            lis.append("\010")
+            builder.append("\010")
         elif ch == 'f':
-            lis.append('\014') # FF
+            builder.append('\014') # FF
         elif ch == 't':
-            lis.append('\t')
+            builder.append('\t')
         elif ch == 'n':
-            lis.append('\n')
+            builder.append('\n')
         elif ch == 'r':
-            lis.append('\r')
+            builder.append('\r')
         elif ch == 'v':
-            lis.append('\013') # VT
+            builder.append('\013') # VT
         elif ch == 'a':
-            lis.append('\007') # BEL, not classic C
+            builder.append('\007') # BEL, not classic C
         elif ch in '01234567':
             # Look for up to two more octal digits
             span = ps
@@ -168,13 +171,13 @@ def PyString_DecodeEscape(space, s, recode_encoding):
             # emulate a strange wrap-around behavior of CPython:
             # \400 is the same as \000 because 0400 == 256
             num = int(octal, 8) & 0xFF
-            lis.append(chr(num))
+            builder.append(chr(num))
             ps = span
         elif ch == 'x':
             if ps+2 <= end and isxdigit(s[ps]) and isxdigit(s[ps + 1]):
                 hexa = s[ps : ps + 2]
                 num = int(hexa, 16)
-                lis.append(chr(num))
+                builder.append(chr(num))
                 ps += 2
             else:
                 raise_app_valueerror(space, 'invalid \\x escape')
@@ -184,13 +187,13 @@ def PyString_DecodeEscape(space, s, recode_encoding):
             # this was not an escape, so the backslash
             # has to be added, and we start over in
             # non-escape mode.
-            lis.append('\\')
+            builder.append('\\')
             ps -= 1
             assert ps >= 0
             continue
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
-    buf = ''.join(lis)
+    buf = builder.build()
     return buf
 
 
