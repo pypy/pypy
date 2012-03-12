@@ -13,17 +13,17 @@ class AppTestBasic:
             d.append(i)
         for i in reversed(range(-200, 0)):
             d.appendleft(i)
-        assert list(d) == range(-200, 400)
+        assert list(d) == list(range(-200, 400))
         assert len(d) == 600
 
         left = [d.popleft() for i in range(250)]
-        assert left == range(-200, 50)
-        assert list(d) == range(50, 400)
+        assert left == list(range(-200, 50))
+        assert list(d) == list(range(50, 400))
 
         right = [d.pop() for i in range(250)]
         right.reverse()
-        assert right == range(150, 400)
-        assert list(d) == range(50, 150)
+        assert right == list(range(150, 400))
+        assert list(d) == list(range(50, 150))
 
     def test_maxlen(self):
         from _collections import deque
@@ -33,7 +33,7 @@ class AppTestBasic:
         d = deque(it, maxlen=3)
         assert list(it) == []
         assert repr(d) == 'deque([7, 8, 9], maxlen=3)'
-        assert list(d) == range(7, 10)
+        assert list(d) == list(range(7, 10))
         d.appendleft(3)
         assert list(d) == [3, 7, 8]
         d.extend([20, 21])
