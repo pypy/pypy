@@ -30,7 +30,7 @@ working_modules.update(dict.fromkeys(
     ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
-     "struct", "_hashlib", "_md5", "_sha", "_minimal_curses",
+     "struct", "_hashlib", "_md5", "_minimal_curses",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
      "_collections", "_multibytecodec", "micronumpy", "_ffi",
@@ -39,7 +39,7 @@ working_modules.update(dict.fromkeys(
 
 # Here is the list of modules known to not work yet
 for name in ["_rawffi", "_ffi", "cpyext",
-             "_hashlib", "_md5", "_sha",
+             "_hashlib", "_md5",
              ]:
     del working_modules[name]
 
@@ -54,7 +54,7 @@ translation_modules.update(dict.fromkeys(
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
-    ["_md5", "_sha", "itertools"]
+    ["_md5", "itertools"]
 ))
 
 # XXX this should move somewhere else, maybe to platform ("is this posixish"

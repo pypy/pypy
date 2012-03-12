@@ -478,43 +478,40 @@ class TestAstBuilder:
         assert args.defaults is None
         assert args.kwarg is None
         assert args.vararg is None
+        assert func.returns is None
         args = self.get_first_stmt("def f(a, b): pass").args
         assert len(args.args) == 2
         a1, a2 = args.args
-        assert isinstance(a1, ast.Name)
-        assert a1.id == "a"
-        assert a1.ctx == ast.Param
-        assert isinstance(a2, ast.Name)
-        assert a2.id == "b"
-        assert a2.ctx == ast.Param
+        assert isinstance(a1, ast.arg)
+        assert a1.arg == "a"
+        assert isinstance(a2, ast.arg)
+        assert a2.arg == "b"
         assert args.vararg is None
         assert args.kwarg is None
         args = self.get_first_stmt("def f(a=b): pass").args
         assert len(args.args) == 1
         arg = args.args[0]
-        assert isinstance(arg, ast.Name)
-        assert arg.id == "a"
-        assert arg.ctx == ast.Param
+        assert isinstance(arg, ast.arg)
+        assert arg.arg == "a"
         assert len(args.defaults) == 1
         default = args.defaults[0]
         assert isinstance(default, ast.Name)
         assert default.id == "b"
         assert default.ctx == ast.Load
         args = self.get_first_stmt("def f(*a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.kwarg is None
         assert args.vararg == "a"
         args = self.get_first_stmt("def f(**a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.vararg is None
         assert args.kwarg == "a"
         args = self.get_first_stmt("def f(a, b, c=d, *e, **f): pass").args
         assert len(args.args) == 3
         for arg in args.args:
-            assert isinstance(arg, ast.Name)
-            assert arg.ctx == ast.Param
+            assert isinstance(arg, ast.arg)
         assert len(args.defaults) == 1
         assert isinstance(args.defaults[0], ast.Name)
         assert args.defaults[0].ctx == ast.Load
