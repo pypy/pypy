@@ -31,6 +31,7 @@ from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 # types
 from pypy.objspace.std.inttype import wrapint
@@ -48,10 +49,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         self.FrameClass = frame.build_frame(self)
 
-        if self.config.objspace.std.withrope:
-            self.StringObjectCls = W_RopeObject
-        else:
-            self.StringObjectCls = W_StringObject
+        self.StringObjectCls = W_UnicodeObject
 
         self._install_multimethods()
 
