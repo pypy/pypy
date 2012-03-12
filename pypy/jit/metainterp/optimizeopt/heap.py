@@ -246,15 +246,16 @@ class OptHeap(Optimization):
                 self.force_lazy_setfields_and_arrayitems_for_guard())
             return
         opnum = op.getopnum()
-        if (opnum == rop.SETFIELD_GC or        # handled specially
-            opnum == rop.SETFIELD_RAW or       # no effect on GC struct/array
-            opnum == rop.SETARRAYITEM_GC or    # handled specially
-            opnum == rop.SETARRAYITEM_RAW or   # no effect on GC struct
-            opnum == rop.STRSETITEM or         # no effect on GC struct/array
-            opnum == rop.UNICODESETITEM or     # no effect on GC struct/array
-            opnum == rop.DEBUG_MERGE_POINT or  # no effect whatsoever
-            opnum == rop.COPYSTRCONTENT or     # no effect on GC struct/array
-            opnum == rop.COPYUNICODECONTENT):  # no effect on GC struct/array
+        if (opnum == rop.SETFIELD_GC or          # handled specially
+            opnum == rop.SETFIELD_RAW or         # no effect on GC struct/array
+            opnum == rop.SETARRAYITEM_GC or      # handled specially
+            opnum == rop.SETARRAYITEM_RAW or     # no effect on GC struct
+            opnum == rop.SETINTERIORFIELD_RAW or # no effect on GC struct
+            opnum == rop.STRSETITEM or           # no effect on GC struct/array
+            opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
+            opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
+            opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
+            opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
         assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or

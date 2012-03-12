@@ -17,17 +17,8 @@ class TestGenerators(BaseTestPyPyC):
             g()
 
         log = self.run(main, [500])
-        # XXX XXX this test fails so far because of a detail that
-        # changed with jit-simplify-backendintf.  We should try to
-        # think of a way to be more resistent against such details.
-        # The issue is that we now get one Tracing, then go back
-        # to the interpreter hoping to immediately run the JITted
-        # code; but instead, we Trace again, just because another
-        # counter was also about to reach its limit...
-        loop, = log.loops_by_filename(self.filepath, is_entry_bridge='*')
+        loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("generator", """
-            ...
-            label(..., descr=...)
             i16 = force_token()
             p45 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p45, i29, descr=<SignedFieldDescr .*>)
@@ -36,7 +27,7 @@ class TestGenerators(BaseTestPyPyC):
             jump(..., descr=...)
             """)
         assert loop.match_by_id("subtract", """
-            setfield_gc(p7, 35, descr=<.*last_instr .*>)      # XXX bad, kill me
+            setfield_gc(p7, 35, descr=<.*last_instr .*>)     # XXX bad, kill me
             i2 = int_sub_ovf(i1, 42)
             guard_no_overflow(descr=...)
             """)
