@@ -137,6 +137,7 @@ class BaseArray(Wrappable):
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
     descr_rtruediv = _binop_right_impl("true_divide")
+    descr_rfloordiv = _binop_right_impl("floor_divide")
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
@@ -1266,6 +1267,7 @@ BaseArray.typedef = TypeDef(
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rtruediv__ = interp2app(BaseArray.descr_rtruediv),
+    __rfloordiv__ = interp2app(BaseArray.descr_rfloordiv),
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),
