@@ -2,30 +2,9 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, support
-from pypy.module.micronumpy.signature import (ReduceSignature, find_sig,
-    new_printable_location, AxisReduceSignature, ScalarSignature)
-from pypy.rlib import jit
+from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
-
-
-reduce_driver = jit.JitDriver(
-    greens=['shapelen', "sig"],
-    virtualizables=["frame"],
-    reds=["frame", "self", "dtype", "value", "obj"],
-    get_printable_location=new_printable_location('reduce'),
-    name='numpy_reduce',
-)
-
-axisreduce_driver = jit.JitDriver(
-    greens=['shapelen', 'sig'],
-    virtualizables=['frame'],
-    reds=['self','arr', 'identity', 'frame'],
-    name='numpy_axisreduce',
-    get_printable_location=new_printable_location('axisreduce'),
-)
-
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -140,7 +119,7 @@ class W_Ufunc(Wrappable):
     def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
                keepdims=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
-                                                           Scalar
+                                                           Scalar, ReduceArray
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -151,96 +130,37 @@ class W_Ufunc(Wrappable):
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
-
         size = obj.size
-        dtype = find_unaryop_result_dtype(
-            space, obj.find_dtype(),
-            promote_to_float=self.promote_to_float,
-            promote_to_largest=promote_to_largest,
-            promote_bools=True
-        )
+        if self.comparison_func:
+            dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+        else:
+            dtype = find_unaryop_result_dtype(
+                space, obj.find_dtype(),
+                promote_to_float=self.promote_to_float,
+                promote_to_largest=promote_to_largest,
+                promote_bools=True
+            )
         shapelen = len(obj.shape)
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
         if shapelen > 1 and dim >= 0:
-            res = self.do_axis_reduce(obj, dtype, dim, keepdims)
-            return space.wrap(res)
-        scalarsig = ScalarSignature(dtype)
-        sig = find_sig(ReduceSignature(self.func, self.name, dtype,
-                                       scalarsig,
-                                       obj.create_sig()), obj)
-        frame = sig.create_frame(obj)
-        if self.identity is None:
-            value = sig.eval(frame, obj).convert_to(dtype)
-            frame.next(shapelen)
-        else:
-            value = self.identity.convert_to(dtype)
-        return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
+            return self.do_axis_reduce(obj, dtype, dim, keepdims)
+        arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
+        return loop.compute(arr)
 
     def do_axis_reduce(self, obj, dtype, dim, keepdims):
         from pypy.module.micronumpy.interp_numarray import AxisReduce,\
              W_NDimArray
-
         if keepdims:
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
             shape = obj.shape[:dim] + obj.shape[dim + 1:]
         result = W_NDimArray(support.product(shape), shape, dtype)
-        rightsig = obj.create_sig()
-        # note - this is just a wrapper so signature can fetch
-        #        both left and right, nothing more, especially
-        #        this is not a true virtual array, because shapes
-        #        don't quite match
-        arr = AxisReduce(self.func, self.name, obj.shape, dtype,
+        arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
                          result, obj, dim)
-        scalarsig = ScalarSignature(dtype)
-        sig = find_sig(AxisReduceSignature(self.func, self.name, dtype,
-                                           scalarsig, rightsig), arr)
-        assert isinstance(sig, AxisReduceSignature)
-        frame = sig.create_frame(arr)
-        shapelen = len(obj.shape)
-        if self.identity is not None:
-            identity = self.identity.convert_to(dtype)
-        else:
-            identity = None
-        self.reduce_axis_loop(frame, sig, shapelen, arr, identity)
-        return result
-
-    def reduce_axis_loop(self, frame, sig, shapelen, arr, identity):
-        # note - we can be advanterous here, depending on the exact field
-        # layout. For now let's say we iterate the original way and
-        # simply follow the original iteration order
-        while not frame.done():
-            axisreduce_driver.jit_merge_point(frame=frame, self=self,
-                                              sig=sig,
-                                              identity=identity,
-                                              shapelen=shapelen, arr=arr)
-            iter = frame.get_final_iter()
-            v = sig.eval(frame, arr).convert_to(sig.calc_dtype)
-            if iter.first_line:
-                if identity is not None:
-                    value = self.func(sig.calc_dtype, identity, v)
-                else:
-                    value = v
-            else:
-                cur = arr.left.getitem(iter.offset)
-                value = self.func(sig.calc_dtype, cur, v)
-            arr.left.setitem(iter.offset, value)
-            frame.next(shapelen)
-
-    def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
-        while not frame.done():
-            reduce_driver.jit_merge_point(sig=sig,
-                                          shapelen=shapelen, self=self,
-                                          value=value, obj=obj, frame=frame,
-                                          dtype=dtype)
-            assert isinstance(sig, ReduceSignature)
-            value = sig.binfunc(dtype, value,
-                                sig.eval(frame, obj).convert_to(dtype))
-            frame.next(shapelen)
-        return value
-
+        loop.compute(arr)
+        return arr.left
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1
@@ -312,7 +232,6 @@ class W_Ufunc2(W_Ufunc):
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
             ))
-
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
@@ -481,6 +400,13 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
+
+            ('logical_and', 'logical_and', 2, {'comparison_func': True,
+                                               'identity': 1}),
+            ('logical_or', 'logical_or', 2, {'comparison_func': True,
+                                             'identity': 0}),
+            ('logical_xor', 'logical_xor', 2, {'comparison_func': True}),
+            ('logical_not', 'logical_not', 1, {'bool_result': True}),
 
             ("maximum", "max", 2),
             ("minimum", "min", 2),

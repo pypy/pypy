@@ -179,6 +179,17 @@ class TestMessageAPI(TestEmailBase):
         self.assertRaises(Errors.HeaderParseError,
                           msg.set_boundary, 'BOUNDARY')
 
+    def test_make_boundary(self):
+        msg = MIMEMultipart('form-data')
+        # Note that when the boundary gets created is an implementation
+        # detail and might change.
+        self.assertEqual(msg.items()[0][1], 'multipart/form-data')
+        # Trigger creation of boundary
+        msg.as_string()
+        self.assertEqual(msg.items()[0][1][:33],
+                        'multipart/form-data; boundary="==')
+        # XXX: there ought to be tests of the uniqueness of the boundary, too.
+
     def test_message_rfc822_only(self):
         # Issue 7970: message/rfc822 not in multipart parsed by
         # HeaderParser caused an exception when flattened.
@@ -542,6 +553,17 @@ class TestMessageAPI(TestEmailBase):
         msg.set_charset(u'us-ascii')
         self.assertEqual('us-ascii', msg.get_content_charset())
 
+    # Issue 5871: reject an attempt to embed a header inside a header value
+    # (header injection attack).
+    def test_embeded_header_via_Header_rejected(self):
+        msg = Message()
+        msg['Dummy'] = Header('dummy\nX-Injected-Header: test')
+        self.assertRaises(Errors.HeaderParseError, msg.as_string)
+
+    def test_embeded_header_via_string_rejected(self):
+        msg = Message()
+        msg['Dummy'] = 'dummy\nX-Injected-Header: test'
+        self.assertRaises(Errors.HeaderParseError, msg.as_string)
 
 
 # Test the email.Encoders module
@@ -3113,6 +3135,28 @@ A very long line that must get split to something other than at the
         s = 'Subject: =?EUC-KR?B?CSixpLDtKSC/7Liuvsax4iC6uLmwMcijIKHaILzSwd/H0SC8+LCjwLsgv7W/+Mj3I ?='
         raises(Errors.HeaderParseError, decode_header, s)
 
+    # Issue 1078919
+    def test_ascii_add_header(self):
+        msg = Message()
+        msg.add_header('Content-Disposition', 'attachment',
+                       filename='bud.gif')
+        self.assertEqual('attachment; filename="bud.gif"',
+            msg['Content-Disposition'])
+
+    def test_nonascii_add_header_via_triple(self):
+        msg = Message()
+        msg.add_header('Content-Disposition', 'attachment',
+            filename=('iso-8859-1', '', 'Fu\xdfballer.ppt'))
+        self.assertEqual(
+            'attachment; filename*="iso-8859-1\'\'Fu%DFballer.ppt"',
+            msg['Content-Disposition'])
+
+    def test_encode_unaliased_charset(self):
+        # Issue 1379416: when the charset has no output conversion,
+        # output was accidentally getting coerced to unicode.
+        res = Header('abc','iso-8859-2').encode()
+        self.assertEqual(res, '=?iso-8859-2?q?abc?=')
+        self.assertIsInstance(res, str)
 
 
 # Test RFC 2231 header parameters (en/de)coding

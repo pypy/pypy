@@ -1,11 +1,13 @@
 
 import py
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
-from pypy.module.micronumpy.interp_iter import Chunk
-from pypy.module.micronumpy import signature
+
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.module.micronumpy import signature
+from pypy.module.micronumpy.appbridge import get_appbridge_cache
+from pypy.module.micronumpy.interp_iter import Chunk
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
+from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class MockDtype(object):
@@ -173,7 +175,7 @@ class TestNumArrayDirect(object):
         def _to_coords(index, order):
             return to_coords(self.space, [2, 3, 4], 24, order,
                              self.space.wrap(index))[0]
-        
+
         assert _to_coords(0, 'C') == [0, 0, 0]
         assert _to_coords(1, 'C') == [0, 0, 1]
         assert _to_coords(-1, 'C') == [1, 2, 3]
@@ -306,7 +308,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpypy import arange
         a = arange(15).reshape(3, 5)
         assert a[1, 3] == 8
-        assert a.T[1, 2] == 11 
+        assert a.T[1, 2] == 11
 
     def test_setitem(self):
         from _numpypy import array
@@ -559,6 +561,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+        assert b.dtype is a.dtype
 
         a = _numpypy.array(range(5), dtype=bool)
         b = a * a
@@ -784,8 +787,8 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_sum(self):
         from _numpypy import array
         a = array(range(5))
-        assert a.sum() == 10.0
-        assert a[:4].sum() == 6.0
+        assert a.sum() == 10
+        assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
@@ -910,21 +913,45 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.any() == False
 
     def test_dot(self):
-        from _numpypy import array, dot
+        from _numpypy import array, dot, arange
         a = array(range(5))
-        assert a.dot(a) == 30.0
+        assert dot(a, a) == 30.0
 
         a = array(range(5))
         assert a.dot(range(5)) == 30
         assert dot(range(5), range(5)) == 30
         assert (dot(5, [1, 2, 3]) == [5, 10, 15]).all()
 
+        a = arange(12).reshape(3, 4)
+        b = arange(12).reshape(4, 3)
+        c = a.dot(b)
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+
+        a = arange(24).reshape(2, 3, 4)
+        raises(ValueError, "a.dot(a)")
+        b = a[0, :, :].T
+        #Superfluous shape test makes the intention of the test clearer
+        assert a.shape == (2, 3, 4)
+        assert b.shape == (4, 3)
+        c = dot(a, b)
+        assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
+                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
+        c = dot(a, b[:, 2])
+        assert (c == [[62, 214, 366], [518, 670, 822]]).all()
+        a = arange(3*2*6).reshape((3,2,6))
+        b = arange(3*2*6)[::-1].reshape((2,6,3))
+        assert dot(a, b)[2,0,1,2] == 1140
+
     def test_dot_constant(self):
-        from _numpypy import array
+        from _numpypy import array, dot
         a = array(range(5))
         b = a.dot(2.5)
         for i in xrange(5):
             assert b[i] == 2.5 * a[i]
+        c = dot(4, 3.0)
+        assert c == 12.0
+        c = array(3.0).dot(array(4))
+        assert c == 12.0
 
     def test_dtype_guessing(self):
         from _numpypy import array, dtype, float64, int8, bool_
@@ -1095,14 +1122,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         f1 = array([0,1])
         f = concatenate((f1, [2], f1, [7]))
         assert (f == [0,1,2,0,1,7]).all()
-        
+
         bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
         assert str(bad_axis.value) == "bad axis argument"
-        
+
         concat_zero = raises(ValueError, concatenate, ())
         assert str(concat_zero.value) == \
             "concatenation of zero-length sequences is impossible"
-        
+
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
             "array dimensions must agree except for axis being concatenated"
@@ -1136,6 +1163,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a.flatten() == [2]).all()
         a = array([[1, 2], [3, 4]])
         assert (a.T.flatten() == [1, 3, 2, 4]).all()
+
+    def test_itemsize(self):
+        from _numpypy import ones, dtype, array
+
+        for obj in [float, bool, int]:
+            assert ones(1, dtype=obj).itemsize == dtype(obj).itemsize
+        assert (ones(1) + ones(1)).itemsize == 8
+        assert array(1.0).itemsize == 8
+        assert ones(1)[:].itemsize == 8
+
+    def test_nbytes(self):
+        from _numpypy import array, ones
+
+        assert ones(1).nbytes == 8
+        assert ones((2, 2)).nbytes == 32
+        assert ones((2, 2))[1:,].nbytes == 16
+        assert (ones(1) + ones(1)).nbytes == 8
+        assert array(3.0).nbytes == 8
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
@@ -1432,35 +1478,37 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a.T.flat
         assert (b == [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).all()
         assert not (b != [0,  4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11]).any()
-        assert ((b >= range(12)) == [True, True, True,False, True, True, 
+        assert ((b >= range(12)) == [True, True, True,False, True, True,
                              False, False, True, False, False, True]).all()
-        assert ((b < range(12)) != [True, True, True,False, True, True, 
+        assert ((b < range(12)) != [True, True, True,False, True, True,
                              False, False, True, False, False, True]).all()
-        assert ((b <= range(12)) != [False, True, True,False, True, True, 
+        assert ((b <= range(12)) != [False, True, True,False, True, True,
                             False, False, True, False, False, False]).all()
-        assert ((b > range(12)) == [False, True, True,False, True, True, 
+        assert ((b > range(12)) == [False, True, True,False, True, True,
                             False, False, True, False, False, False]).all()
     def test_flatiter_view(self):
         from _numpypy import arange
         a = arange(10).reshape(5, 2)
-        #no == yet.
-        # a[::2].flat == [0, 1, 4, 5, 8, 9]
-        isequal = True
-        for y,z in zip(a[::2].flat, [0, 1, 4, 5, 8, 9]):
-            if y != z:
-                isequal = False
-        assert isequal == True
+        assert (a[::2].flat == [0, 1, 4, 5, 8, 9]).all()
 
     def test_flatiter_transpose(self):
         from _numpypy import arange
-        a = arange(10).reshape(2,5).T
+        a = arange(10).reshape(2, 5).T
         b = a.flat
         assert (b[:5] == [0, 5, 1, 6, 2]).all()
         b.next()
         b.next()
         b.next()
         assert b.index == 3
-        assert b.coords == (1,1)
+        assert b.coords == (1, 1)
+
+    def test_flatiter_len(self):
+        from _numpypy import arange
+
+        assert len(arange(10).flat) == 10
+        assert len(arange(10).reshape(2, 5).flat) == 10
+        assert len(arange(10)[:2].flat) == 2
+        assert len((arange(2) + arange(2)).flat) == 2
 
     def test_slice_copy(self):
         from _numpypy import zeros
@@ -1714,10 +1762,11 @@ class AppTestRanges(BaseNumpyAppTest):
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
 
-from pypy.module.micronumpy.appbridge import get_appbridge_cache
 
 class AppTestRepr(BaseNumpyAppTest):
     def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("Can't be run directly.")
         BaseNumpyAppTest.setup_class.im_func(cls)
         cache = get_appbridge_cache(cls.space)
         cls.old_array_repr = cache.w_array_repr
@@ -1731,6 +1780,8 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(array([1, 2, 3])) == 'array([1, 2, 3])'
 
     def teardown_class(cls):
+        if option.runappdirect:
+            return
         cache = get_appbridge_cache(cls.space)
         cache.w_array_repr = cls.old_array_repr
         cache.w_array_str = cls.old_array_str

@@ -187,11 +187,15 @@ def urlsplit(url, scheme='', allow_fragments=True):
             v = SplitResult(scheme, netloc, url, query, fragment)
             _parse_cache[key] = v
             return v
-        if url.endswith(':') or not url[i+1].isdigit():
-            for c in url[:i]:
-                if c not in scheme_chars:
-                    break
-            else:
+        for c in url[:i]:
+            if c not in scheme_chars:
+                break
+        else:
+            try:
+                # make sure "url" is not actually a port number (in which case
+                # "scheme" is really part of the path
+                _testportnum = int(url[i+1:])
+            except ValueError:
                 scheme, url = url[:i].lower(), url[i+1:]
 
     if url[:2] == '//':
@@ -256,14 +260,9 @@ def urljoin(base, url, allow_fragments=True):
     if path[:1] == '/':
         return urlunparse((scheme, netloc, path,
                            params, query, fragment))
-    if not path:
+    if not path and not params:
         path = bpath
-        if not params:
-            params = bparams
-        else:
-            path = path[:-1]
-            return urlunparse((scheme, netloc, path,
-                                params, query, fragment))
+        params = bparams
         if not query:
             query = bquery
         return urlunparse((scheme, netloc, path,

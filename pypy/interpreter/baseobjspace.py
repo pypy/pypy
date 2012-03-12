@@ -1312,6 +1312,15 @@ class ObjSpace(object):
     def str_w(self, w_obj):
         return w_obj.str_w(self)
 
+    def str0_w(self, w_obj):
+        "Like str_w, but rejects strings with NUL bytes."
+        from pypy.rlib import rstring
+        result = w_obj.str_w(self)
+        if '\x00' in result:
+            raise OperationError(self.w_TypeError, self.wrap(
+                    'argument must be a string without NUL characters'))
+        return rstring.assert_str0(result)
+
     def int_w(self, w_obj):
         return w_obj.int_w(self)
 

@@ -2,7 +2,7 @@
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
 from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
-     calculate_slice_strides
+     calculate_slice_strides, calculate_dot_strides
 
 """ This is a mini-tutorial on iterators, strides, and
 memory layout. It assumes you are familiar with the terms, see
@@ -76,6 +76,7 @@ class BroadcastTransform(BaseTransform):
     def __init__(self, res_shape):
         self.res_shape = res_shape
 
+
 class BaseIterator(object):
     def next(self, shapelen):
         raise NotImplementedError
@@ -85,8 +86,9 @@ class BaseIterator(object):
 
     def apply_transformations(self, arr, transformations):
         v = self
-        for transform in transformations:
-            v = v.transform(arr, transform)
+        if transformations is not None:
+            for transform in transformations:
+                v = v.transform(arr, transform)
         return v
 
     def transform(self, arr, t):
@@ -226,6 +228,7 @@ class ConstantIterator(BaseIterator):
 
     def transform(self, arr, t):
         pass
+
 
 class AxisIterator(BaseIterator):
     def __init__(self, start, dim, shape, strides, backstrides):

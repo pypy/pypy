@@ -497,7 +497,8 @@ class Method(Wrappable):
             # only allow binding to a more specific class than before
             if (w_cls is not None and
                 not space.is_w(w_cls, space.w_None) and
-                not space.abstract_issubclass_w(w_cls, self.w_class)):
+                not space.abstract_issubclass_w(w_cls, self.w_class,
+                                                allow_override=True)):
                 return space.wrap(self)    # subclass test failed
             else:
                 return descr_function_get(space, self.w_function, w_obj, w_cls)
