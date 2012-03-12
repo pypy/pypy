@@ -5,12 +5,6 @@ functional programming.
 
 # ____________________________________________________________
 
-def apply(function, args=(), kwds={}):
-    """call a function (or other callable object) and return its result"""
-    return function(*args, **kwds)
-
-# ____________________________________________________________
-
 def sorted(lst, key=None, reverse=None):
     "sorted(iterable, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
