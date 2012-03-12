@@ -300,8 +300,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
 
-    def newlist(self, list_w):
-        return W_ListObject(self, list_w)
+    def newlist(self, list_w, sizehint=-1):
+        assert not list_w or sizehint == -1
+        return W_ListObject(self, list_w, sizehint)
 
     def newlist_str(self, list_s):
         return W_ListObject.newlist_str(self, list_s)
