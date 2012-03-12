@@ -34,13 +34,13 @@ Highlights
   strategies for unicode and string lists.
 
 * As usual, numerous performance improvements. There are too many examples
-  which python constructs now should behave faster to list them.
+  of python constructs that now should behave faster to list them.
 
 * Bugfixes and compatibility fixes with CPython.
 
 * Windows fixes.
 
-* NumPy effort progress, for the exact list of things that have been done,
+* NumPy effort progress; for the exact list of things that have been done,
   consult the `numpy status page`_. A tentative list of things that has
   been done:
 
