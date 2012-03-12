@@ -104,8 +104,8 @@ class AppTestRCTime:
         raises(ValueError, rctime.mktime, tuple(ltime))
 
         t = rctime.time()
-        assert long(rctime.mktime(rctime.localtime(t))) == long(t)
-        assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
+        assert int(rctime.mktime(rctime.localtime(t))) == int(t)
+        assert int(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == int(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
 
