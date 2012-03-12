@@ -53,8 +53,6 @@ class FakeMetaInterp:
     call_pure_results = {}
     class jitdriver_sd:
         warmstate = FakeState()
-        on_compile = staticmethod(lambda *args: None)
-        on_compile_bridge = staticmethod(lambda *args: None)
         virtualizable_info = None
 
 def test_compile_loop():

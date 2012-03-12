@@ -1,8 +1,10 @@
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
+from pypy.config.pypyoption import get_pypy_config
 
 
 def checkmodule(modname):
-    space = FakeObjSpace()
+    config = get_pypy_config(translating=True)
+    space = FakeObjSpace(config)
     mod = __import__('pypy.module.%s' % modname, None, None, ['__doc__'])
     # force computation and record what we wrap
     module = mod.Module(space, W_Root())

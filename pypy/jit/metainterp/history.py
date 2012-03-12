@@ -1004,16 +1004,16 @@ class Stats(object):
         return insns
 
     def check_simple_loop(self, expected=None, **check):
-        # Usefull in the simplest case when we have only one trace ending with
-        # a jump back to itself and possibly a few bridges ending with finnish.
-        # Only the operations within the loop formed by that single jump will
-        # be counted.
+        """ Usefull in the simplest case when we have only one trace ending with
+        a jump back to itself and possibly a few bridges.
+        Only the operations within the loop formed by that single jump will
+        be counted.
+        """
         loops = self.get_all_loops()
         assert len(loops) == 1
         loop = loops[0]
         jumpop = loop.operations[-1]
         assert jumpop.getopnum() == rop.JUMP
-        assert self.check_resops(jump=1)
         labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
         targets = [op._descr_wref() for op in labels]
         assert None not in targets # TargetToken was freed, give up

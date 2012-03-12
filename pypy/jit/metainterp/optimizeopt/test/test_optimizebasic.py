@@ -117,7 +117,7 @@ class BaseTestBasic(BaseTest):
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
         loop = self.parse(ops)
-        token = JitCellToken() 
+        token = JitCellToken()
         loop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
                           loop.operations
         if loop.operations[-1].getopnum() == rop.JUMP:

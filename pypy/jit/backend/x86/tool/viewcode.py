@@ -39,6 +39,7 @@ if sys.platform == "win32":
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
         'x86': 'i386',
+        'x86_32': 'i386',
         'x86_64': 'x86-64',
         'i386': 'i386',
     }

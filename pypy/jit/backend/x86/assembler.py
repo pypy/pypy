@@ -7,6 +7,7 @@ from pypy.jit.metainterp.history import JitCellToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.jit import AsmInfo
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
     gpr_reg_mgr_cls, _valid_addressing_size)
@@ -411,6 +412,7 @@ class Assembler386(object):
         '''adds the following attributes to looptoken:
                _x86_function_addr   (address of the generated func, as an int)
                _x86_loop_code       (debug: addr of the start of the ResOps)
+               _x86_fullsize        (debug: full size including failure)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -476,7 +478,8 @@ class Assembler386(object):
             name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, full_size)
-        return ops_offset
+        return AsmInfo(ops_offset, rawstart + looppos,
+                       size_excluding_failure_stuff - looppos)
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                         original_loop_token, log):
@@ -485,12 +488,7 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         descr_number = self.cpu.get_fail_descr_number(faildescr)
-        try:
-            failure_recovery = self._find_failure_recovery_bytecode(faildescr)
-        except ValueError:
-            debug_print("Bridge out of guard", descr_number,
-                        "was already compiled!")
-            return
+        failure_recovery = self._find_failure_recovery_bytecode(faildescr)
 
         self.setup(original_loop_token)
         if log:
@@ -503,6 +501,7 @@ class Assembler386(object):
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
         fail_depths = faildescr._x86_current_depths
+        startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
@@ -537,7 +536,7 @@ class Assembler386(object):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        return ops_offset
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
@@ -621,7 +620,10 @@ class Assembler386(object):
     def _find_failure_recovery_bytecode(self, faildescr):
         adr_jump_offset = faildescr._x86_adr_jump_offset
         if adr_jump_offset == 0:
-            raise ValueError
+            # This case should be prevented by the logic in compile.py:
+            # look for CNT_BUSY_FLAG, which disables tracing from a guard
+            # when another tracing from the same guard is already in progress.
+            raise BridgeAlreadyCompiled
         # follow the JMP/Jcond
         p = rffi.cast(rffi.INTP, adr_jump_offset)
         adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
@@ -810,7 +812,10 @@ class Assembler386(object):
         target = newlooptoken._x86_function_addr
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
-        assert mc.get_relative_pos() <= 13  # keep in sync with prepare_loop()
+        if WORD == 4:         # keep in sync with prepare_loop()
+            assert mc.get_relative_pos() == 5
+        else:
+            assert mc.get_relative_pos() <= 13
         mc.copy_to_raw_memory(oldadr)
 
     def dump(self, text):
@@ -2550,3 +2555,6 @@ def heap(addr):
 def not_implemented(msg):
     os.write(2, '[x86/asm] %s\n' % msg)
     raise NotImplementedError(msg)
+
+class BridgeAlreadyCompiled(Exception):
+    pass

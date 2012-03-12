@@ -93,9 +93,9 @@ class Entry(ExtRegistryEntry):
 
 class FakeObjSpace(ObjSpace):
 
-    def __init__(self):
+    def __init__(self, config=None):
         self._seen_extras = []
-        ObjSpace.__init__(self)
+        ObjSpace.__init__(self, config=config)
 
     def float_w(self, w_obj):
         is_root(w_obj)
@@ -133,6 +133,9 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newfloat(self, x):
+        return w_some_obj()
+
+    def newcomplex(self, x, y):
         return w_some_obj()
 
     def marshal_w(self, w_obj):
@@ -215,6 +218,10 @@ class FakeObjSpace(ObjSpace):
             expected_length = 3
         return [w_some_obj()] * expected_length
 
+    def unpackcomplex(self, w_complex):
+        is_root(w_complex)
+        return 1.1, 2.2
+
     def allocate_instance(self, cls, w_subtype):
         is_root(w_subtype)
         return instantiate(cls)
@@ -231,6 +238,11 @@ class FakeObjSpace(ObjSpace):
 
     def exec_(self, *args, **kwds):
         pass
+
+    def createexecutioncontext(self):
+        ec = ObjSpace.createexecutioncontext(self)
+        ec._py_repr = None
+        return ec
 
     # ----------
 
@@ -267,18 +279,21 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'type', 'basestring']):
+                  'type', 'basestring', 'object']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
         args = ['w_%d' % i for i in range(arity)]
+        params = args[:]
         d = {'is_root': is_root,
              'w_some_obj': w_some_obj}
+        if name in ('get',):
+            params[-1] += '=None'
         exec compile2("""\
             def meth(self, %s):
                 %s
                 return w_some_obj()
-        """ % (', '.join(args),
+        """ % (', '.join(params),
                '; '.join(['is_root(%s)' % arg for arg in args]))) in d
         meth = func_with_new_name(d['meth'], name)
         setattr(FakeObjSpace, name, meth)
@@ -301,9 +316,12 @@ class FakeCompiler(object):
     pass
 FakeObjSpace.default_compiler = FakeCompiler()
 
-class FakeModule(object):
+class FakeModule(Wrappable):
+    def __init__(self):
+        self.w_dict = w_some_obj()
     def get(self, name):
         name + "xx"   # check that it's a string
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
+FakeObjSpace.builtin = FakeModule()
