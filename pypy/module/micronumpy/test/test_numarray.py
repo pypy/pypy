@@ -665,6 +665,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert c[i] == i // 2
 
+    def test_rfloordiv(self):
+        from _numpypy import array
+        a = array(range(1, 6))
+        b = 3 // a
+        for i in range(5):
+            assert b[i] == 3 // a[i]
+
     def test_floordiv_constant(self):
         from _numpypy import array
         a = array(range(5))
