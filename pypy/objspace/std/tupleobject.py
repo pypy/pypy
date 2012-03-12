@@ -120,8 +120,8 @@ def mul__ANY_Tuple(space, w_times, w_tuple):
 def tuple_unroll_condition(space, w_tuple1, w_tuple2):
     lgt1 = len(w_tuple1.wrappeditems)
     lgt2 = len(w_tuple2.wrappeditems)
-    return ((jit.is_constant(lgt1) and lgt1 <= UNROLL_TUPLE_LIMIT) or
-            (jit.is_constant(lgt2) and lgt2 <= UNROLL_TUPLE_LIMIT))
+    return ((jit.isconstant(lgt1) and lgt1 <= UNROLL_TUPLE_LIMIT) or
+            (jit.isconstant(lgt2) and lgt2 <= UNROLL_TUPLE_LIMIT))
 
 @jit.look_inside_iff(tuple_unroll_condition)
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
@@ -176,7 +176,7 @@ def hash__Tuple(space, w_tuple):
     return space.wrap(hash_tuple(space, w_tuple.wrappeditems))
 
 @jit.look_inside_iff(lambda space, wrappeditems:
-                     jit.is_constant(len(wrappeditems)) and
+                     jit.isconstant(len(wrappeditems)) and
                      len(wrappeditems) < UNROLL_TUPLE_LIMIT)
 def hash_tuple(space, wrappeditems):
     # this is the CPython 2.4 algorithm (changed from 2.3)
