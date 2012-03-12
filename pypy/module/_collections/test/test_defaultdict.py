@@ -32,12 +32,12 @@ class AppTestBasic:
         from _collections import defaultdict
         raises(TypeError, defaultdict, [('a', 5)])
         d = defaultdict(None, [('a', 5)])
-        assert d.items() == [('a', 5)]
+        assert list(d.items()) == [('a', 5)]
 
     def test_kwds(self):
         from _collections import defaultdict
         d = defaultdict(default_factory=5)
-        assert d.keys() == ['default_factory']
+        assert list(d.keys()) == ['default_factory']
 
     def test_copy(self):
         import _collections
