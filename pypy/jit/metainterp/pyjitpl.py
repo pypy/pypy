@@ -974,9 +974,11 @@ class MIFrame(object):
         any_operation = len(self.metainterp.history.operations) > 0
         jitdriver_sd = self.metainterp.staticdata.jitdrivers_sd[jdindex]
         self.verify_green_args(jitdriver_sd, greenboxes)
-        self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.portal_call_depth,
+        self.debug_merge_point(jitdriver_sd, jdindex,
+                               self.metainterp.portal_call_depth,
+                               self.metainterp.call_ids[-1],
                                greenboxes)
-        
+
         if self.metainterp.seen_loop_header_for_jdindex < 0:
             if not any_operation:
                 return
@@ -1028,11 +1030,11 @@ class MIFrame(object):
                                     assembler_call=True)
             raise ChangeFrame
 
-    def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, greenkey):
+    def debug_merge_point(self, jitdriver_sd, jd_index, portal_call_depth, current_call_id, greenkey):
         # debugging: produce a DEBUG_MERGE_POINT operation
         loc = jitdriver_sd.warmstate.get_location_str(greenkey)
         debug_print(loc)
-        args = [ConstInt(jd_index), ConstInt(portal_call_depth)] + greenkey
+        args = [ConstInt(jd_index), ConstInt(portal_call_depth), ConstInt(current_call_id)] + greenkey
         self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
 
     @arguments("box", "label")
@@ -1574,11 +1576,14 @@ class MetaInterp(object):
         self.call_pure_results = args_dict_box()
         self.heapcache = HeapCache()
 
+        self.call_ids = []
+        self.current_call_id = 0
+
     def retrace_needed(self, trace):
         self.partial_trace = trace
         self.retracing_from = len(self.history.operations) - 1
         self.heapcache.reset()
-        
+
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1592,6 +1597,8 @@ class MetaInterp(object):
     def newframe(self, jitcode, greenkey=None):
         if jitcode.is_portal:
             self.portal_call_depth += 1
+            self.call_ids.append(self.current_call_id)
+            self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (greenkey, len(self.history.operations)))
@@ -1608,6 +1615,7 @@ class MetaInterp(object):
         jitcode = frame.jitcode
         if jitcode.is_portal:
             self.portal_call_depth -= 1
+            self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
                     (None, len(self.history.operations)))
@@ -1976,7 +1984,7 @@ class MetaInterp(object):
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
                 if self.partial_trace:
-                    if  start != self.retracing_from: 
+                    if  start != self.retracing_from:
                         raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
@@ -2085,7 +2093,7 @@ class MetaInterp(object):
             if not token.target_tokens:
                 return None
         return token
-        
+
     def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]

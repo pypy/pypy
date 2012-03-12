@@ -284,7 +284,7 @@ testmap = [
     RegrTest('test_metaclass.py', core=True),
     RegrTest('test_mimetypes.py'),
     RegrTest('test_minidom.py'),
-    RegrTest('test_mmap.py'),
+    RegrTest('test_mmap.py', usemodules="mmap"),
     RegrTest('test_module.py', core=True),
     RegrTest('test_modulefinder.py'),
     RegrTest('test_msilib.py', skip=only_win32),

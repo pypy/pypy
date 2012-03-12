@@ -5031,6 +5031,42 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_str_copy_virtual(self):
+        ops = """
+        [i0]
+        p0 = newstr(8)
+        strsetitem(p0, 0, i0)
+        strsetitem(p0, 1, i0)
+        strsetitem(p0, 2, i0)
+        strsetitem(p0, 3, i0)
+        strsetitem(p0, 4, i0)
+        strsetitem(p0, 5, i0)
+        strsetitem(p0, 6, i0)
+        strsetitem(p0, 7, i0)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 8)
+        strsetitem(p1, 8, 3)
+        strsetitem(p1, 9, 0)
+        strsetitem(p1, 10, 0)
+        strsetitem(p1, 11, 0)
+        finish(p1)
+        """
+        expected = """
+        [i0]
+        p1 = newstr(12)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i0)
+        strsetitem(p1, 2, i0)
+        strsetitem(p1, 3, i0)
+        strsetitem(p1, 4, i0)
+        strsetitem(p1, 5, i0)
+        strsetitem(p1, 6, i0)
+        strsetitem(p1, 7, i0)
+        strsetitem(p1, 8, 3)
+        finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

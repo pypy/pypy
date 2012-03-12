@@ -91,9 +91,18 @@ def make_template_formatting_class():
                         if s[i] == "{":
                             i += 1
                             markup_follows = False
-                    # Attach literal data
+                    # Attach literal data, ending with { or }
                     out.append_slice(s, last_literal, i - 1)
                     if not markup_follows:
+                        if self.parser_list_w is not None:
+                            end_literal = i - 1
+                            assert end_literal > last_literal
+                            literal = self.template[last_literal:end_literal]
+                            w_entry = space.newtuple([
+                                space.wrap(literal),
+                                space.w_None, space.w_None, space.w_None])
+                            self.parser_list_w.append(w_entry)
+                            self.last_end = i
                         last_literal = i
                         continue
                     nested = 1
