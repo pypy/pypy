@@ -983,9 +983,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[::]").slice
         assert slc.upper is None
         assert slc.lower is None
-        assert isinstance(slc.step, ast.Name)
-        assert slc.step.id == "None"
-        assert slc.step.ctx == ast.Load
+        assert slc.step is None
         slc = self.get_first_expr("x[1:]").slice
         assert isinstance(slc.lower, ast.Num)
         assert slc.upper is None
@@ -993,7 +991,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[1::]").slice
         assert isinstance(slc.lower, ast.Num)
         assert slc.upper is None
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[:2]").slice
         assert slc.lower is None
         assert isinstance(slc.upper, ast.Num)
@@ -1001,7 +999,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[:2:]").slice
         assert slc.lower is None
         assert isinstance(slc.upper, ast.Num)
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[2:2]").slice
         assert isinstance(slc.lower, ast.Num)
         assert isinstance(slc.upper, ast.Num)
@@ -1009,7 +1007,7 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[2:2:]").slice
         assert isinstance(slc.lower, ast.Num)
         assert isinstance(slc.upper, ast.Num)
-        assert isinstance(slc.step, ast.Name)
+        assert slc.step is None
         slc = self.get_first_expr("x[::2]").slice
         assert slc.lower is None
         assert slc.upper is None

@@ -906,10 +906,7 @@ class ASTBuilder(object):
                 upper = self.handle_expr(third_child)
         last_child = slice_node.children[-1]
         if last_child.type == syms.sliceop:
-            if len(last_child.children) == 1:
-                step = ast.Name("None", ast.Load, last_child.lineno,
-                                last_child.column)
-            else:
+            if len(last_child.children) != 1:
                 step_child = last_child.children[1]
                 if step_child.type == syms.test:
                     step = self.handle_expr(step_child)
