@@ -33,10 +33,6 @@ def delitem(space, w_obj, w_key):
     'delitem(a,b) -- Same as del a[b]'
     space.delitem(w_obj, w_key)
 
-def div(space, w_a, w_b):
-    'div(a, b) -- Same as a / b when __future__.division is no in effect'
-    return space.div(w_a, w_b)
-
 def eq(space, w_a, w_b):
     'eq(a, b) -- Same as a==b'
     return space.eq(w_a, w_b)
@@ -66,16 +62,6 @@ def inv(space, w_obj,):
 def invert(space, w_obj,):
     'invert(a) -- Same as ~a.'
     return space.invert(w_obj) 
-
-def isCallable(space, w_obj):
-    'isCallable(a) -- Same as callable(a).'
-    return space.callable(w_obj)
-
-# isMappingType
-
-# isNumberType
-
-# isSequenceType
 
 def is_(space, w_a, w_b):
     'is_(a,b) -- Same as a is b'
@@ -129,13 +115,9 @@ def pow(space, w_a, w_b):
     'pow(a, b) -- Same as a**b.'
     return space.pow(w_a, w_b, space.w_None)
 
-# repeat
-
 def rshift(space, w_a, w_b):
     'rshift(a, b) -- Same as a >> b.'
     return space.rshift(w_a, w_b) 
-
-# sequenceIncludes
 
 def setitem(space, w_obj, w_key, w_value):
     'setitem(a, b, c) -- Same as a[b] = c.'
@@ -166,10 +148,6 @@ def iadd(space, w_obj1, w_obj2):
 def iand(space, w_obj1, w_obj2):
     'iand(a, b) -- Same as a =& b'
     return space.inplace_and(w_obj1, w_obj2)
-
-def idiv(space, w_a, w_b):
-    'idiv(a, b) -- Same as a /= b when __future__.division is no in effect'
-    return space.inplace_div(w_a, w_b)
 
 def ifloordiv(space, w_a, w_b):
     'ifloordiv(a, b) -- Same as a //= b.'
@@ -218,18 +196,3 @@ def iconcat(space, w_obj1, w_obj2):
         raise OperationError(space.w_TypeError, space.w_None)
 
     return space.inplace_add(w_obj1, w_obj2)
-
-def irepeat(space, w_obj1, w_obj2):
-    'irepeat(a, b) -- Same as a *= b, for a and b sequences.'
-    if space.lookup(w_obj1, '__getitem__') is None:
-        # first arg has to be a sequence
-        raise OperationError(space.w_TypeError,
-                           space.wrap("non-sequence object can't be repeated"))
-
-    if not space.is_true(space.isinstance(w_obj2, space.w_int)):
-        # second arg has to be int/long
-        raise OperationError(space.w_TypeError,
-                             space.wrap('an integer is required'))
-
-    return space.inplace_mul(w_obj1, w_obj2)
-

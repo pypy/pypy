@@ -84,7 +84,7 @@ class AppTestOperator:
         assert operator.concat(Seq2([5, 6]), Seq2([7])) == [5, 6, 7]
         raises(TypeError, operator.concat, 13, 29)
 
-    def test_repeat(self):
+    def test_mul(self):
         class Seq1:
             def __init__(self, lst):
                 self.lst = lst
@@ -116,53 +116,36 @@ class AppTestOperator:
         import operator
 
         a = list(range(3))
-        raises(TypeError, operator.repeat)
-        raises(TypeError, operator.repeat, a, None)
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == []
+        raises(TypeError, operator.mul)
+        raises(TypeError, operator.mul, a, None)
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == []
         a = (1, 2, 3)
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == ()
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == ()
         a = '123'
-        assert operator.repeat(a, 2) == a+a
-        assert operator.repeat(a, 1) == a
-        assert operator.repeat(a, 0) == ''
+        assert operator.mul(a, 2) == a+a
+        assert operator.mul(a, 1) == a
+        assert operator.mul(a, 0) == ''
         a = Seq1([4, 5, 6])
-        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
-        assert operator.repeat(a, 1) == [4, 5, 6]
-        assert operator.repeat(a, 0) == []
+        assert operator.mul(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.mul(a, 1) == [4, 5, 6]
+        assert operator.mul(a, 0) == []
         a = Seq2([4, 5, 6])
-        assert operator.repeat(a, 2) == [4, 5, 6, 4, 5, 6]
-        assert operator.repeat(a, 1) == [4, 5, 6]
-        assert operator.repeat(a, 0) == []
-        raises(TypeError, operator.repeat, 6, 7)
+        assert operator.mul(a, 2) == [4, 5, 6, 4, 5, 6]
+        assert operator.mul(a, 1) == [4, 5, 6]
+        assert operator.mul(a, 0) == []
 
-    def test_isSequenceType(self):
-        import operator
-
-        raises(TypeError, operator.isSequenceType)
-        assert operator.isSequenceType(dir())
-        assert operator.isSequenceType(())
-        assert operator.isSequenceType(range(10))
-        assert operator.isSequenceType('yeahbuddy')
-        assert not operator.isSequenceType(3)
-        class Dict(dict): pass
-        assert not operator.isSequenceType(Dict())
-
-    def test_inplace(self):
+    def test_iadd(self):
         import operator
 
         list = []
         assert operator.iadd(list, [1, 2]) is list
         assert list == [1, 2]
 
-        list = [1, 2]
-        assert operator.imul(list, 2) is list
-        assert list == [1, 2, 1, 2]
-
-    def test_irepeat(self):
+    def test_imul(self):
         import operator
 
         class X(object):
@@ -170,14 +153,12 @@ class AppTestOperator:
                 return 5
 
         a = list(range(3))
-        raises(TypeError, operator.irepeat)
-        raises(TypeError, operator.irepeat, a, None)
-        raises(TypeError, operator.irepeat, a, [])
-        raises(TypeError, operator.irepeat, a, X())
-        raises(TypeError, operator.irepeat, 6, 7)
-        assert operator.irepeat(a, 2) is a
+        raises(TypeError, operator.imul)
+        raises(TypeError, operator.imul, a, None)
+        raises(TypeError, operator.imul, a, [])
+        assert operator.imul(a, 2) is a
         assert a == [0, 1, 2, 0, 1, 2]
-        assert operator.irepeat(a, 1) is a
+        assert operator.imul(a, 1) is a
         assert a == [0, 1, 2, 0, 1, 2]
 
     def test_methodcaller(self):

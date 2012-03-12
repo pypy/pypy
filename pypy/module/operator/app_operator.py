@@ -23,31 +23,6 @@ def indexOf(a, b):
         index += 1
     raise ValueError('sequence.index(x): x not in sequence')
 
-# XXX the following is approximative
-def isMappingType(obj,):
-    'isMappingType(a) -- Return True if a has a mapping type, False otherwise.'
-    # XXX this is fragile and approximative anyway
-    return hasattr(obj, '__getitem__') and hasattr(obj, 'keys')
-
-def isNumberType(obj,):
-    'isNumberType(a) -- Return True if a has a numeric type, False otherwise.'
-    return hasattr(obj, '__int__') or hasattr(obj, '__float__')
-
-def isSequenceType(obj,):
-    'isSequenceType(a) -- Return True if a has a sequence type, False otherwise.'
-    return hasattr(obj, '__getitem__') and not hasattr(obj, 'keys')
-
-def repeat(obj, num):
-    'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
-    if not isinstance(num, int):
-        raise TypeError('an integer is required')
-    if not isSequenceType(obj):
-        raise TypeError("non-sequence object can't be repeated")
-
-    return obj * num
-
-__repeat__ = repeat
-
 
 def attrgetter(attr, *attrs):
     if attrs:

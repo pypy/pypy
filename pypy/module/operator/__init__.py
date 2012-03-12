@@ -17,24 +17,23 @@ class Module(MixedModule):
 
     appleveldefs = {} 
     
-    app_names = ['__repeat__', 'countOf', 'indexOf',
-                 'isMappingType', 'isNumberType', 'isSequenceType',
-                 'repeat', 'attrgetter', 'itemgetter', 'methodcaller',
+    app_names = ['countOf', 'indexOf',
+                 'attrgetter', 'itemgetter', 'methodcaller',
              ]
 
     for name in app_names:
         appleveldefs[name] = 'app_operator.%s' % name
 
     interp_names = ['index', 'abs', 'add', 'and_',
-                    'concat', 'contains', 'delitem', 'div', 'eq', 'floordiv',
+                    'concat', 'contains', 'delitem', 'eq', 'floordiv',
                     'ge', 'getitem', 'gt', 'inv',
-                    'invert', 'is_', 'is_not', 'isCallable',
+                    'invert', 'is_', 'is_not',
                     'le', 'lshift', 'lt', 'mod', 'mul',
                     'ne', 'neg', 'not_', 'or_',
-                    'pos', 'pow', 'rshift', 'setitem', 'sequenceIncludes',
+                    'pos', 'pow', 'rshift', 'setitem',
                     'sub', 'truediv', 'truth', 'xor',
-                    'iadd', 'iand', 'iconcat', 'idiv', 'ifloordiv',
-                    'ilshift', 'imod', 'imul', 'ior', 'ipow', 'irepeat',
+                    'iadd', 'iand', 'iconcat', 'ifloordiv',
+                    'ilshift', 'imod', 'imul', 'ior', 'ipow',
                     'irshift', 'isub', 'itruediv', 'ixor']
 
     interpleveldefs = {}
@@ -48,9 +47,7 @@ class Module(MixedModule):
     '__and__' : 'and_',
     '__concat__' : 'concat',
     '__contains__' : 'contains',
-    'sequenceIncludes' : 'contains',
     '__delitem__' : 'delitem',
-    '__div__' : 'div',
     '__eq__' : 'eq',
     '__floordiv__' : 'floordiv',
     '__ge__' : 'ge',
@@ -78,14 +75,12 @@ class Module(MixedModule):
     '__iadd__' : 'iadd',
     '__iand__' : 'iand',
     '__iconcat__' : 'iconcat',
-    '__idiv__' : 'idiv',
     '__ifloordiv__' : 'ifloordiv',
     '__ilshift__' : 'ilshift',
     '__imod__' : 'imod',
     '__imul__' : 'imul',
     '__ior__' : 'ior',
     '__ipow__' : 'ipow',
-    '__irepeat__' : 'irepeat',
     '__irshift__' : 'irshift',
     '__isub__' : 'isub',
     '__itruediv__' : 'itruediv',
