@@ -10,6 +10,10 @@ from pypy.tool import sourcetools
 
 
 @specialize.argtype(1)
+@jit.look_inside_iff(lambda space, s, start, end:
+       jit.isconstant(s) and
+       jit.isconstant(start) and
+       jit.isconstant(end))
 def _parse_int(space, s, start, end):
     """Parse a number and check for overflows"""
     result = 0
