@@ -441,6 +441,11 @@ class UfuncState(object):
             ("arcsinh", "arcsinh", 1, {"promote_to_float": True}),
             ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
+
+            ("log", "log", 1, {"promote_to_float": True}),
+            ("log2", "log2", 1, {"promote_to_float": True}),
+            ("log10", "log10", 1, {"promote_to_float": True}),
+            ("log1p", "log1p", 1, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

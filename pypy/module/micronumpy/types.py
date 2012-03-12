@@ -533,6 +533,48 @@ class Float(Primitive):
     def isinf(self, v):
         return rfloat.isinf(v)
 
+    @simple_unary_op
+    def log(self, v):
+        try:
+            return math.log(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log2(self, v):
+        try:
+            return math.log(v, 2)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log10(self, v):
+        try:
+            return math.log10(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log1p(self, v):
+        try:
+            return rfloat.log1p(v)
+        except OverflowError:
+            return -rfloat.INFINITY
+        except ValueError:
+            return rfloat.NAN
+
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT
