@@ -259,6 +259,8 @@ registerimplementation(W_ListObject)
 
 
 class ListStrategy(object):
+    sizehint = -1
+
     def __init__(self, space):
         self.space = space
 
