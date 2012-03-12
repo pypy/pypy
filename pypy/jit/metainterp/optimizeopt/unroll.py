@@ -260,7 +260,7 @@ class UnrollOptimizer(Optimization):
             if op and op.result:
                 preamble_value = exported_state.exported_values[op.result]
                 value = self.optimizer.getvalue(op.result)
-                if not value.is_virtual():
+                if not value.is_virtual() and not value.is_constant():
                     imp = ValueImporter(self, preamble_value, op)
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
@@ -268,7 +268,9 @@ class UnrollOptimizer(Optimization):
                 # note that emitting here SAME_AS should not happen, but
                 # in case it does, we would prefer to be suboptimal in asm
                 # to a fatal RPython exception.
-                if newresult is not op.result and not newvalue.is_constant():
+                if newresult is not op.result and \
+                   not self.short_boxes.has_producer(newresult) and \
+                   not newvalue.is_constant():
                     op = ResOperation(rop.SAME_AS, [op.result], newresult)
                     self.optimizer._newoperations.append(op)
                     if self.optimizer.loop.logops:
