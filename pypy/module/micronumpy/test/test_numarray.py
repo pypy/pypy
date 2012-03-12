@@ -672,8 +672,8 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_floordiv_constant(self):
         from _numpypy import array
         a = array(range(5))
-        b = a // 5
-        assert (b == [0, 0, 0, 0, 0]).all()
+        b = a // 2
+        assert (b == [0, 0, 1, 1, 2]).all()
 
     def test_truediv(self):
         from operator import truediv
