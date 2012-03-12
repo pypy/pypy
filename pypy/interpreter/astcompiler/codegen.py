@@ -769,6 +769,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(string.lineno)
         self.load_const(string.s)
 
+    def visit_Bytes(self, b):
+        self.update_position(b.lineno)
+        self.load_const(b.s)
+
     def visit_Const(self, const):
         self.update_position(const.lineno)
         space = self.space

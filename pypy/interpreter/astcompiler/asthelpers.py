@@ -124,7 +124,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Set, ast.Str, ast.Num, ast.Const):
+class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Const):
 
     _description = "literal"
 

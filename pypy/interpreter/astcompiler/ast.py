@@ -1611,6 +1611,26 @@ class Str(expr):
             pass
 
 
+class Bytes(expr):
+
+    def __init__(self, s, lineno, col_offset):
+        self.s = s
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 7
+
+    def walkabout(self, visitor):
+        visitor.visit_Bytes(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_Bytes(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 7:
+            self.missing_field(space, ['lineno', 'col_offset', 's'], 'Bytes')
+        else:
+            pass
+
+
 class Attribute(expr):
 
     def __init__(self, value, attr, ctx, lineno, col_offset):
@@ -2481,6 +2501,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Str(self, node):
         return self.default_visitor(node)
+    def visit_Bytes(self, node):
+        return self.default_visitor(node)
     def visit_Attribute(self, node):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
@@ -2688,6 +2710,9 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_Str(self, node):
+        pass
+
+    def visit_Bytes(self, node):
         pass
 
     def visit_Attribute(self, node):
@@ -5662,6 +5687,51 @@ Str.typedef = typedef.TypeDef("Str",
     s=typedef.GetSetProperty(Str_get_s, Str_set_s, cls=Str),
     __new__=interp2app(get_AST_new(Str)),
     __init__=interp2app(Str_init),
+)
+
+def Bytes_get_s(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 's')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 4:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 's')
+    return w_self.s
+
+def Bytes_set_s(space, w_self, w_new_value):
+    try:
+        w_self.s = w_new_value
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 's', w_new_value)
+        return
+    w_self.deldictvalue(space, 's')
+    w_self.initialization_state |= 4
+
+_Bytes_field_unroller = unrolling_iterable(['s'])
+def Bytes_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(Bytes, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        if len(args_w) != 1:
+            w_err = space.wrap("Bytes constructor takes either 0 or 1 positional argument")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _Bytes_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+Bytes.typedef = typedef.TypeDef("Bytes",
+    expr.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper(['s']),
+    s=typedef.GetSetProperty(Bytes_get_s, Bytes_set_s, cls=Bytes),
+    __new__=interp2app(get_AST_new(Bytes)),
+    __init__=interp2app(Bytes_init),
 )
 
 def Attribute_get_value(space, w_self):

@@ -1097,7 +1097,9 @@ class ASTBuilder(object):
                     self.error("cannot mix bytes and nonbytes literals",
                               atom_node)
                 # UnicodeError in literal: turn into SyntaxError
-            return ast.Str(w_string, atom_node.lineno, atom_node.column)
+            strdata = space.isinstance_w(w_string, space.w_unicode)
+            node = ast.Str if strdata else ast.Bytes
+            return node(w_string, atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.value)
             return ast.Num(num_value, atom_node.lineno, atom_node.column)
