@@ -107,6 +107,10 @@ class Module(MixedModule):
         ('logical_xor', 'logical_xor'),
         ('logical_not', 'logical_not'),
         ('logical_or', 'logical_or'),
+        ('log', 'log'),
+        ('log2', 'log2'),
+        ('log10', 'log10'),
+        ('log1p', 'log1p'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
