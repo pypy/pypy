@@ -644,11 +644,11 @@ class RawCDLL(object):
         return dlsym(self.lib, name)
 
 class CDLL(RawCDLL):
-    def __init__(self, libname):
+    def __init__(self, libname, mode=-1):
         """Load the library, or raises DLOpenError."""
         RawCDLL.__init__(self, rffi.cast(DLLHANDLE, -1))
         with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname)
+            self.lib = dlopen(ll_libname, mode)
 
     def __del__(self):
         if self.lib != rffi.cast(DLLHANDLE, -1):

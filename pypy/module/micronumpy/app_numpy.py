@@ -5,6 +5,7 @@ import numpypy
 
 inf = float("inf")
 e = math.e
+pi = math.pi
 
 
 def average(a):
@@ -12,12 +13,31 @@ def average(a):
     # weighting, just the average part!
     return mean(a)
 
+def identity(n, dtype=None):
+    a = numpypy.zeros((n,n), dtype=dtype)
+    for i in range(n):
+        a[i][i] = 1
+    return a
 
 def mean(a):
     if not hasattr(a, "mean"):
         a = numpypy.array(a)
     return a.mean()
 
+def sum(a):
+    if not hasattr(a, "sum"):
+        a = numpypy.array(a)
+    return a.sum()
+
+def min(a):
+    if not hasattr(a, "min"):
+        a = numpypy.array(a)
+    return a.min()
+
+def max(a):
+    if not hasattr(a, "max"):
+        a = numpypy.array(a)
+    return a.max()
 
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)

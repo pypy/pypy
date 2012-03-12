@@ -581,6 +581,7 @@ class BaseArray(Wrappable):
     def descr_get_dtype(self, space):
         return space.wrap(self.find_dtype())
 
+    @jit.unroll_safe
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
@@ -791,7 +792,8 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
-            concrete.setitem_w(space, item, w_value)
+            dtype = concrete.find_dtype()
+            concrete.setitem(item, dtype.coerce(space, w_value))
             return
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
@@ -876,6 +878,17 @@ class BaseArray(Wrappable):
             arr.setshape(space, new_shape)
         return arr
 
+    def descr_tolist(self, space):
+        if len(self.shape) == 0:
+            assert isinstance(self, Scalar)
+            return self.value.descr_tolist(space)
+        w_result = space.newlist([])
+        for i in range(self.shape[0]):
+            space.call_method(w_result, "append",
+                space.call_method(self.descr_getitem(space, space.wrap(i)), "tolist")
+            )
+        return w_result
+
     def descr_mean(self, space):
         return space.div(self.descr_sum(space), space.wrap(self.find_size()))
 
@@ -912,9 +925,6 @@ class BaseArray(Wrappable):
 
     def start_iter(self, res_shape=None):
         raise NotImplementedError
-
-    def descr_debug_repr(self, space):
-        return space.wrap(self.debug_repr())
 
     def descr_array_iface(self, space):
         concrete = self.get_concrete()
@@ -1167,10 +1177,6 @@ class ViewArray(BaseArray):
     def eval(self, iter):
         return self.parent.getitem(iter.get_offset())
 
-    @unwrap_spec(item=int)
-    def setitem_w(self, space, item, w_value):
-        return self.parent.setitem_w(space, item, w_value)
-
     def setitem(self, item, value):
         # This is currently not possible to be called from anywhere.
         raise NotImplementedError
@@ -1319,9 +1325,6 @@ class W_NDimArray(BaseArray):
         raise OperationError(space.w_TypeError, space.wrap(
             "len() of unsized object"))
 
-    def setitem_w(self, space, item, w_value):
-        return self.setitem(item, self.dtype.coerce(space, w_value))
-
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
@@ -1461,7 +1464,6 @@ BaseArray.typedef = TypeDef(
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
-    __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
     __array_interface__ = GetSetProperty(BaseArray.descr_array_iface),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
@@ -1485,6 +1487,7 @@ BaseArray.typedef = TypeDef(
 
     copy = interp2app(BaseArray.descr_copy),
     reshape = interp2app(BaseArray.descr_reshape),
+    tolist = interp2app(BaseArray.descr_tolist),
 )
 
 

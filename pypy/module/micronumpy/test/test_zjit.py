@@ -185,9 +185,10 @@ class TestNumpyJIt(LLJitMixin):
         # sure it was optimized correctly.
         # XXX the comment above is wrong now.  We need preferrably a way to
         # count the two loops separately
-        self.check_resops({'setinteriorfield_raw': 4, 'guard_nonnull': 1, 'getfield_gc': 41,
+        self.check_resops({'setinteriorfield_raw': 4, 'guard_nonnull': 1,
+                           'getfield_gc': 35, 'getfield_gc_pure': 6,
                            'guard_class': 22, 'int_add': 8, 'float_mul': 2,
-                           'guard_isnull': 2, 'jump': 4, 'int_ge': 4,
+                           'guard_isnull': 2, 'jump': 2, 'int_ge': 4,
                            'getinteriorfield_raw': 4, 'float_add': 2, 'guard_false': 4,
                            'guard_value': 2})
 
@@ -229,7 +230,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_specialization(self):
         self.run("specialization")
         # This is 3, not 2 because there is a bridge for the exit.
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
     def define_slice():
         return """
@@ -248,22 +249,6 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_add': 3,
                                 'int_ge': 1, 'guard_false': 1,
                                 'jump': 1})
-
-    def define_slice2():
-        return """
-        a = |30|
-        s1 = a -> :20:2
-        s2 = a -> :30:3
-        b = s1 + s2
-        b -> 3
-        """
-
-    def test_slice2(self):
-        result = self.run("slice2")
-        assert result == 15
-        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_ge': 1, 'guard_false': 1, 'jump': 1})
 
     def define_multidim():
         return """
@@ -324,7 +309,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_setslice(self):
         result = self.run("setslice")
         assert result == 11.0
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
                                 'int_eq': 1, 'guard_false': 1, 'jump': 1})

@@ -658,7 +658,11 @@ class AppTestPosix:
                 os.fsync(f)     # <- should also work with a file, or anything
             finally:            #    with a fileno() method
                 f.close()
-            raises(OSError, os.fsync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fsync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fsync, -1)
 
     if hasattr(os, 'fdatasync'):
@@ -670,7 +674,11 @@ class AppTestPosix:
                 os.fdatasync(fd)
             finally:
                 f.close()
-            raises(OSError, os.fdatasync, fd)
+            try:
+                # May not raise anything with a buggy libc (or eatmydata)
+                os.fdatasync(fd)
+            except OSError:
+                pass
             raises(ValueError, os.fdatasync, -1)
 
     if hasattr(os, 'fchdir'):

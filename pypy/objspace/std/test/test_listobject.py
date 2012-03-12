@@ -49,6 +49,46 @@ class TestW_ListObject(object):
         for i in range(7):
             assert self.space.eq_w(l[i], l2[i])
 
+    def test_getitems_fixedsize(self):
+        w = self.space.wrap
+        from pypy.objspace.std.listobject import make_range_list
+        rangelist = make_range_list(self.space, 1,1,7)
+        emptylist = W_ListObject(self.space, [])
+        intlist = W_ListObject(self.space, [w(1),w(2),w(3),w(4),w(5),w(6),w(7)])
+        strlist = W_ListObject(self.space, [w('1'),w('2'),w('3'),w('4'),w('5'),w('6'),w('7')])
+        floatlist = W_ListObject(self.space, [w(1.0),w(2.0),w(3.0),w(4.0),w(5.0),w(6.0),w(7.0)])
+        objlist = W_ListObject(self.space, [w(1),w('2'),w(3.0),w(4),w(5),w(6),w(7)])
+
+        emptylist_copy = emptylist.getitems_fixedsize()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_fixedsize()
+        intlist_copy = intlist.getitems_fixedsize()
+        strlist_copy = strlist.getitems_fixedsize()
+        floatlist_copy = floatlist.getitems_fixedsize()
+        objlist_copy = objlist.getitems_fixedsize()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
+
+        emptylist_copy = emptylist.getitems_unroll()
+        assert emptylist_copy == []
+
+        rangelist_copy = rangelist.getitems_unroll()
+        intlist_copy = intlist.getitems_unroll()
+        strlist_copy = strlist.getitems_unroll()
+        floatlist_copy = floatlist.getitems_unroll()
+        objlist_copy = objlist.getitems_unroll()
+        for i in range(7):
+            assert self.space.eq_w(rangelist_copy[i], rangelist.getitem(i))
+            assert self.space.eq_w(intlist_copy[i], intlist.getitem(i))
+            assert self.space.eq_w(strlist_copy[i], strlist.getitem(i))
+            assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
+            assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
+
     def test_random_getitem(self):
         w = self.space.wrap
         s = list('qedx387tn3uixhvt 7fh387fymh3dh238 dwd-wq.dwq9')

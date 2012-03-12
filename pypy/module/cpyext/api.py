@@ -866,6 +866,7 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
+        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 

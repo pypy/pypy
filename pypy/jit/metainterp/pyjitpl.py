@@ -8,7 +8,7 @@ from pypy.rlib import nonconst, rstack
 
 from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
-from pypy.jit.metainterp.history import Box
+from pypy.jit.metainterp.history import Box, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
@@ -22,7 +22,6 @@ from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.optimizeopt.util import args_dict_box
-from pypy.jit.metainterp.optimize import RetraceLoop
 
 # ____________________________________________________________
 
@@ -1567,9 +1566,16 @@ class MetaInterp(object):
         self.portal_trace_positions = []
         self.free_frames_list = []
         self.last_exc_value_box = None
-        self.retracing_loop_from = None
+        self.partial_trace = None
+        self.retracing_from = -1
         self.call_pure_results = args_dict_box()
         self.heapcache = HeapCache()
+
+    def retrace_needed(self, trace):
+        self.partial_trace = trace
+        self.retracing_from = len(self.history.operations) - 1
+        self.heapcache.reset()
+        
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1804,7 +1810,7 @@ class MetaInterp(object):
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
-        # a ExitFrameWithException, or a GenerateMergePoint exception.
+        # a ExitFrameWithException, or a ContinueRunningNormally exception.
         self.staticdata.stats.entered()
         while True:
             self.framestack[-1].run_one_step()
@@ -1852,8 +1858,6 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
-        except GenerateMergePoint, gmp:
-            return self.designate_target_loop(gmp)
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
@@ -1888,8 +1892,6 @@ class MetaInterp(object):
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
-        except GenerateMergePoint, gmp:
-            return self.designate_target_loop(gmp)
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
@@ -1937,14 +1939,9 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
-        if not self.retracing_loop_from:
-            try:
-                self.compile_bridge(live_arg_boxes)
-            except RetraceLoop:
-                start = len(self.history.operations)
-                self.current_merge_points.append((live_arg_boxes, start))
-                self.retracing_loop_from = RetraceState(self, live_arg_boxes)
-                return
+        if not self.partial_trace:
+            # FIXME: Support a retrace to be a bridge as well as a loop
+            self.compile_trace(live_arg_boxes, resumedescr)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -1966,14 +1963,10 @@ class MetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                if self.retracing_loop_from and \
-                   self.retracing_loop_from.merge_point == j:
-                    bridge_arg_boxes = self.retracing_loop_from.live_arg_boxes
-                    self.compile_bridge_and_loop(original_boxes, \
-                                                 live_arg_boxes, start,
-                                                 bridge_arg_boxes, resumedescr)
-                else:
-                    self.compile(original_boxes, live_arg_boxes, start, resumedescr)
+                if self.partial_trace:
+                    if  start != self.retracing_from: 
+                        raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
+                self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')
                 #self.staticdata.log('cancelled, stopping tracing')
@@ -1983,12 +1976,48 @@ class MetaInterp(object):
         start = len(self.history.operations)
         self.current_merge_points.append((live_arg_boxes, start))
 
-    def designate_target_loop(self, gmp):
-        loop_token = gmp.target_loop_token
+    def _unpack_boxes(self, boxes, start, stop):
+        ints = []; refs = []; floats = []
+        for i in range(start, stop):
+            box = boxes[i]
+            if   box.type == history.INT: ints.append(box.getint())
+            elif box.type == history.REF: refs.append(box.getref_base())
+            elif box.type == history.FLOAT:floats.append(box.getfloatstorage())
+            else: assert 0
+        return ints[:], refs[:], floats[:]
+
+    def raise_continue_running_normally(self, live_arg_boxes, loop_token):
+        self.history.inputargs = None
+        self.history.operations = None
+        # For simplicity, we just raise ContinueRunningNormally here and
+        # ignore the loop_token passed in.  It means that we go back to
+        # interpreted mode, but it should come back very quickly to the
+        # JIT, find probably the same 'loop_token', and execute it.
+        if we_are_translated():
+            num_green_args = self.jitdriver_sd.num_green_args
+            gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
+            ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
+                                            len(live_arg_boxes))
+            CRN = self.staticdata.ContinueRunningNormally
+            raise CRN(gi, gr, gf, ri, rr, rf)
+        else:
+            # However, in order to keep the existing tests working
+            # (which are based on the assumption that 'loop_token' is
+            # directly used here), a bit of custom non-translatable code...
+            self._nontranslated_run_directly(live_arg_boxes, loop_token)
+            assert 0, "unreachable"
+
+    def _nontranslated_run_directly(self, live_arg_boxes, loop_token):
+        "NOT_RPYTHON"
+        args = []
         num_green_args = self.jitdriver_sd.num_green_args
-        residual_args = gmp.argboxes[num_green_args:]
-        history.set_future_values(self.cpu, residual_args)
-        return loop_token
+        num_red_args = self.jitdriver_sd.num_red_args
+        for box in live_arg_boxes[num_green_args:num_green_args+num_red_args]:
+            if   box.type == history.INT: args.append(box.getint())
+            elif box.type == history.REF: args.append(box.getref_base())
+            elif box.type == history.FLOAT: args.append(box.getfloatstorage())
+            else: assert 0
+        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
     def prepare_resume_from_failure(self, opnum, dont_change_position=False):
         frame = self.framestack[-1]
@@ -2029,54 +2058,57 @@ class MetaInterp(object):
             from pypy.jit.metainterp.resoperation import opname
             raise NotImplementedError(opname[opnum])
 
-    def get_compiled_merge_points(self, greenkey):
-        """Get the list of looptokens corresponding to the greenkey.
-        Turns the (internal) list of weakrefs into regular refs.
-        """
+    def get_procedure_token(self, greenkey):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        return cell.get_compiled_merge_points()
-
-    def set_compiled_merge_points(self, greenkey, looptokens):
-        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        cell.set_compiled_merge_points(looptokens)
-
-    def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
+        return cell.get_procedure_token()
+        
+    def compile_loop(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
-        original_inputargs = self.history.inputargs
-        self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
-        old_loop_tokens = self.get_compiled_merge_points(greenkey)
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start, start_resumedescr)
-        if loop_token is not None: # raise if it *worked* correctly
-            self.set_compiled_merge_points(greenkey, old_loop_tokens)
-            self.history.inputargs = None
-            self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, loop_token)
+        if not self.partial_trace:
+            assert self.get_procedure_token(greenkey) is None or \
+                   self.get_procedure_token(greenkey).target_tokens is None
+        if self.partial_trace:
+            target_token = compile.compile_retrace(self, greenkey, start,
+                                                   original_boxes[num_green_args:],
+                                                   live_arg_boxes[num_green_args:],
+                                                   start_resumedescr, self.partial_trace,
+                                                   self.resumekey)
+        else:
+            target_token = compile.compile_loop(self, greenkey, start,
+                                                original_boxes[num_green_args:],
+                                                live_arg_boxes[num_green_args:],
+                                                start_resumedescr)
+            if target_token is not None:
+                assert isinstance(target_token, TargetToken)
+                self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
+                self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
 
-        self.history.inputargs = original_inputargs
-        self.history.operations.pop()     # remove the JUMP
 
-    def compile_bridge(self, live_arg_boxes):
+        if target_token is not None: # raise if it *worked* correctly
+            assert isinstance(target_token, TargetToken)
+            jitcell_token = target_token.targeting_jitcell_token
+            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
+
+    def compile_trace(self, live_arg_boxes, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        old_loop_tokens = self.get_compiled_merge_points(greenkey)
-        if len(old_loop_tokens) == 0:
+        target_jitcell_token = self.get_procedure_token(greenkey)
+        if not target_jitcell_token:
             return
-        #if self.resumekey.guard_opnum == rop.GUARD_CLASS:
-        #    return # Kepp tracing for another iteration
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+        if not target_jitcell_token.target_tokens:
+            return
+
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
+                            descr=target_jitcell_token)
         try:
-            target_loop_token = compile.compile_new_bridge(self,
-                                                           old_loop_tokens,
-                                                           self.resumekey)
+            target_token = compile.compile_trace(self, self.resumekey, start_resumedescr)
         finally:
             self.history.operations.pop()     # remove the JUMP
-        if target_loop_token is not None: # raise if it *worked* correctly
-            self.history.inputargs = None
-            self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+        if target_token is not None: # raise if it *worked* correctly
+            assert isinstance(target_token, TargetToken)
+            jitcell_token = target_token.targeting_jitcell_token
+            self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -2112,10 +2144,8 @@ class MetaInterp(object):
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
-
-        self.history.inputargs = None
-        self.history.operations = None
-        raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
+        self.raise_continue_running_normally(live_arg_boxes,
+                                             old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
@@ -2137,21 +2167,21 @@ class MetaInterp(object):
             loop_tokens = sd.loop_tokens_done_with_this_frame_float
         else:
             assert False
-        self.history.record(rop.JUMP, exits, None)
-        target_loop_token = compile.compile_new_bridge(self, loop_tokens,
-                                                       self.resumekey)
-        if target_loop_token is not loop_tokens[0]:
+        # FIXME: kill TerminatingLoopToken?
+        # FIXME: can we call compile_trace?
+        token = loop_tokens[0].finishdescr
+        self.history.record(rop.FINISH, exits, None, descr=token)
+        target_token = compile.compile_trace(self, self.resumekey)
+        if target_token is not token:
             compile.giveup()
 
     def compile_exit_frame_with_exception(self, valuebox):
         self.gen_store_back_in_virtualizable()
-        # temporarily put a JUMP to a pseudo-loop
-        self.history.record(rop.JUMP, [valuebox], None)
         sd = self.staticdata
-        loop_tokens = sd.loop_tokens_exit_frame_with_exception_ref
-        target_loop_token = compile.compile_new_bridge(self, loop_tokens,
-                                                       self.resumekey)
-        if target_loop_token is not loop_tokens[0]:
+        token = sd.loop_tokens_exit_frame_with_exception_ref[0].finishdescr
+        self.history.record(rop.FINISH, [valuebox], None, descr=token)
+        target_token = compile.compile_trace(self, self.resumekey)
+        if target_token is not token:
             compile.giveup()
 
     @specialize.arg(1)
@@ -2393,22 +2423,6 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
 
-    def gen_load_from_other_virtualizable(self, vinfo, vbox):
-        boxes = []
-        assert vinfo is not None
-        for i in range(vinfo.num_static_extra_boxes):
-            descr = vinfo.static_field_descrs[i]
-            boxes.append(self.execute_and_record(rop.GETFIELD_GC, descr, vbox))
-        virtualizable = vinfo.unwrap_virtualizable_box(vbox)
-        for k in range(vinfo.num_arrays):
-            descr = vinfo.array_field_descrs[k]
-            abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
-            descr = vinfo.array_descrs[k]
-            for j in range(vinfo.get_array_length(virtualizable, k)):
-                boxes.append(self.execute_and_record(rop.GETARRAYITEM_GC, descr,
-                                                     abox, ConstInt(j)))
-        return boxes
-
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)
         for frame in self.framestack:
@@ -2480,24 +2494,12 @@ class MetaInterp(object):
         greenargs = arglist[1:num_green_args+1]
         args = arglist[num_green_args+1:]
         assert len(args) == targetjitdriver_sd.num_red_args
-        vinfo = targetjitdriver_sd.virtualizable_info
-        if vinfo is not None:
-            index = targetjitdriver_sd.index_of_virtualizable
-            vbox = args[index]
-            args = args + self.gen_load_from_other_virtualizable(vinfo, vbox)
-            # ^^^ and not "+=", which makes 'args' a resizable list
         warmrunnerstate = targetjitdriver_sd.warmstate
-        token = warmrunnerstate.get_assembler_token(greenargs, args)
+        token = warmrunnerstate.get_assembler_token(greenargs)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
         self.history.operations.append(op)
 
 # ____________________________________________________________
-
-class GenerateMergePoint(JitException):
-    def __init__(self, args, target_loop_token):
-        assert target_loop_token is not None
-        self.argboxes = args
-        self.target_loop_token = target_loop_token
 
 class ChangeFrame(JitException):
     """Raised after we mutated metainterp.framestack, in order to force

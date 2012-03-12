@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 
 from pypy.jit.metainterp.test.support import LLJitMixin
@@ -76,14 +77,14 @@ class FfiCallTests(_TestLibffiCall):
                 int_add=2,
                 int_lt=2,
                 guard_true=2,
-                jump=2)
+                jump=1)
         else:
             self.check_resops(
                 call_release_gil=0,   # no CALL_RELEASE_GIL
                 int_add=2,
                 int_lt=2,
                 guard_true=2,
-                jump=2)
+                jump=1)
         return res
 
     def test_byval_result(self):
@@ -144,8 +145,31 @@ class FfiLookupTests(object):
                     return result_point[0].x * result_point[0].y
 
         assert self.meta_interp(main, [10]) == main(10) == 9000
-        self.check_resops({'jump': 2, 'int_lt': 2, 'setinteriorfield_raw': 4,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'setinteriorfield_raw': 4,
                            'getinteriorfield_raw': 8, 'int_add': 6, 'guard_true': 2})
+
+    def test_array_getitem_uint8(self):
+        myjitdriver = JitDriver(
+            greens = [],
+            reds = ["n", "i", "s", "data"],
+        )
+        def f(data, n):
+            i = s = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, s=s, data=data)
+                s += rffi.cast(lltype.Signed, array_getitem(types.uchar, 1, data, 0, 0))
+                i += 1
+            return s
+
+        def main(n):
+            with lltype.scoped_alloc(rffi.CArray(rffi.UCHAR), 1) as data:
+                data[0] = rffi.cast(rffi.UCHAR, 200)
+                return f(data, n)
+
+        assert self.meta_interp(main, [10]) == 2000
+        self.check_resops({'jump': 1, 'int_lt': 2, 'getinteriorfield_raw': 2,
+                           'guard_true': 2, 'int_add': 4})
+
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     supports_all = False

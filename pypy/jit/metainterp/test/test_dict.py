@@ -154,7 +154,7 @@ class DictTests:
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
         self.check_resops({'new_array': 2, 'getfield_gc': 2,
-                           'guard_true': 2, 'jump': 2,
+                           'guard_true': 2, 'jump': 1,
                            'new_with_vtable': 2, 'getinteriorfield_gc': 2,
                            'setfield_gc': 6, 'int_gt': 2, 'int_sub': 2,
                            'call': 10, 'int_and': 2,

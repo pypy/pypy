@@ -234,6 +234,9 @@ class OptFfiCall(Optimization):
             # longlongs are treated as floats, see
             # e.g. llsupport/descr.py:getDescrClass
             is_float = True
+        elif kind == 'u':
+            # they're all False
+            pass
         else:
             assert False, "unsupported ffitype or kind"
         #

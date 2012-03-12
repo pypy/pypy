@@ -9,7 +9,6 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
@@ -66,7 +65,7 @@ class BasicTests:
         res = self.interp_operations(f, [8, 98])
         assert res == 110
 
-    def test_loop(self):
+    def test_loop_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -78,19 +77,20 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 42
-        self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2, 'guard_true': 2, 'int_sub': 2})
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+                           'guard_true': 2, 'int_sub': 2})
 
         if self.basic:
             found = 0
-            for op in get_stats().loops[0]._all_operations():
+            for op in get_stats().get_all_loops()[0]._all_operations():
                 if op.getopname() == 'guard_true':
                     liveboxes = op.getfailargs()
                     assert len(liveboxes) == 3
                     for box in liveboxes:
                         assert isinstance(box, history.BoxInt)
                     found += 1
-            assert found == 1
+            assert found == 2
 
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -106,7 +106,7 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_simple_loop(int_mul=1)
 
     def test_loop_variant_mul_ovf(self):
@@ -123,7 +123,7 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_simple_loop(int_mul_ovf=1)
 
     def test_loop_invariant_mul1(self):
@@ -138,9 +138,9 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 252
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_simple_loop(int_mul=0)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'int_mul': 1, 'guard_true': 2, 'int_sub': 2})
 
 
@@ -157,67 +157,63 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 308
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_simple_loop(int_mul_ovf=0)
-        self.check_resops({'jump': 2, 'int_lshift': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'int_lshift': 2, 'int_gt': 2,
                            'int_mul_ovf': 1, 'int_add': 4,
                            'guard_true': 2, 'guard_no_overflow': 1,
                            'int_sub': 2})
 
     def test_loop_invariant_mul_bridge1(self):
-        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
-        def f(x, y):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'n'])
+        def f(x, y, n):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, n=n, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, n=n, res=res)
                 res += x * x
-                if y<16:
+                if y<n:
                     x += 1
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 32])
+        res = self.meta_interp(f, [6, 32, 16])
         assert res == 3427
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
     def test_loop_invariant_mul_bridge_maintaining1(self):
-        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
-        def f(x, y):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'n'])
+        def f(x, y, n):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, n=n)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, n=n)
                 res += x * x
-                if y<16:
+                if y<n:
                     res += 1
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 32])
+        res = self.meta_interp(f, [6, 32, 16])
         assert res == 1167
-        self.check_loop_count(3)
-        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
-                           'int_mul': 2, 'guard_false': 2})
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
-        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
-        def f(x, y):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'n'])
+        def f(x, y, n):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, n=n)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, n=n)
                 z = x * x
                 res += z
-                if y<16:
+                if y<n:
                     res += z
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 32])
+        res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
-        self.check_loop_count(3)
-        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
-                           'int_mul': 2, 'guard_false': 2})
+        self.check_trace_count(3)
+        self.check_resops(int_mul=3)
 
     def test_loop_invariant_mul_bridge_maintaining3(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'm'])
@@ -234,9 +230,9 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
-        self.check_loop_count(3)
+        self.check_trace_count(3)
         self.check_resops({'int_lt': 2, 'int_gt': 4, 'guard_false': 2,
-                           'guard_true': 4, 'int_sub': 4, 'jump': 4,
+                           'guard_true': 4, 'int_sub': 4, 'jump': 3,
                            'int_mul': 3, 'int_add': 4})
 
     def test_loop_invariant_intbox(self):
@@ -257,8 +253,8 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 252
-        self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'getfield_gc_pure': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
@@ -289,9 +285,7 @@ class BasicTests:
         assert res == f(6, 15)
         gc.collect()
 
-        #assert not [wr for wr in wr_loops if wr()]
-        for loop in [wr for wr in wr_loops if wr()]:
-            assert loop().name == 'short preamble'
+        assert not [wr for wr in wr_loops if wr()]
 
     def test_string(self):
         def f(n):
@@ -562,11 +556,11 @@ class BasicTests:
         #
         res = self.meta_interp(f, [10, 84])
         assert res == -6
-        self.check_loop_count(0)
+        self.check_trace_count(0)
         #
         res = self.meta_interp(f, [3, 19])
         assert res == -2
-        self.check_loop_count(1)
+        self.check_trace_count(1)
 
     def test_can_never_inline(self):
         def can_never_inline(x):
@@ -861,8 +855,8 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 42.0
-        self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'float_gt': 2, 'float_add': 2,
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'float_gt': 2, 'float_add': 2,
                            'float_sub': 2, 'guard_true': 2})
 
     def test_print(self):
@@ -877,7 +871,7 @@ class BasicTests:
         res = self.meta_interp(f, [7])
         assert res == 0
 
-    def test_bridge_from_interpreter(self):
+    def test_bridge_from_interpreter_1(self):
         mydriver = JitDriver(reds = ['n'], greens = [])
 
         def f(n):
@@ -887,7 +881,9 @@ class BasicTests:
                 n -= 1
 
         self.meta_interp(f, [20], repeat=7)
-        self.check_tree_loop_count(2)      # the loop and the entry path
+        # the loop and the entry path as a single trace
+        self.check_jitcell_token_count(1)
+        
         # we get:
         #    ENTER             - compile the new loop and the entry bridge
         #    ENTER             - compile the leaving path
@@ -1261,11 +1257,11 @@ class BasicTests:
 
         res = self.meta_interp(f, [10, 3, 1])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
 
         res = self.meta_interp(f, [10, 13, 0])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
-        self.check_tree_loop_count(0)
+        self.check_jitcell_token_count(0)
 
     def test_dont_look_inside(self):
         @dont_look_inside
@@ -1346,7 +1342,7 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 42
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(call=2)
 
     def test_merge_guardclass_guardvalue(self):
@@ -1641,7 +1637,7 @@ class BasicTests:
                 promote(a)
                 x -= 1
         self.meta_interp(f, [50])
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         # this checks that the logic triggered by make_a_counter_per_value()
         # works and prevents generating tons of bridges
 
@@ -1736,10 +1732,10 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 7])
         assert res == 6*8 + 6**8
-        self.check_loop_count(5)
+        self.check_trace_count(4)
         self.check_resops({'guard_class': 2, 'int_gt': 4,
                            'getfield_gc': 4, 'guard_true': 4,
-                           'int_sub': 4, 'jump': 4, 'int_mul': 2,
+                           'int_sub': 4, 'jump': 2, 'int_mul': 2,
                            'int_add': 2})
 
     def test_multiple_specialied_versions_array(self):
@@ -1766,7 +1762,7 @@ class BasicTests:
                                             array=array)
                 res = res.binop(x)
                 res.val += array[idx] + array[1]
-                if y < 7:
+                if y < 10:
                     idx = 2
                 y -= 1
             return res
@@ -1778,10 +1774,10 @@ class BasicTests:
             assert a1.val == a2.val
             assert b1.val == b2.val
             return a1.val + b1.val
-        res = self.meta_interp(g, [6, 14])
-        assert res == g(6, 14)
-        self.check_loop_count(9)
-        self.check_resops(getarrayitem_gc=8)
+        res = self.meta_interp(g, [6, 20])
+        assert res == g(6, 20)
+        self.check_trace_count(8)
+        self.check_resops(getarrayitem_gc=10)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
@@ -1968,7 +1964,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
-        self.check_loop_count(7)
+        self.check_trace_count(6)
         self.check_resops(guard_true=6, guard_class=2, int_mul=3,
                           int_add=3, guard_false=3)
 
@@ -2054,7 +2050,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [sys.maxint-10])
         assert res == 11
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_wrap_around_mul(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
@@ -2070,7 +2066,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [sys.maxint>>10])
         assert res == 11
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_wrap_around_sub(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
@@ -2086,7 +2082,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [10-sys.maxint])
         assert res == 12
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_caching_setfield(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
@@ -2606,10 +2602,12 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
-        self.check_tree_loop_count(4)
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(4)
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
-        self.check_tree_loop_count(5)
-
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(5)
+        
     def test_max_retrace_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
@@ -2625,10 +2623,11 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 1]) == f(20, 1)
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(2)
         assert self.meta_interp(f, [20, 10]) == f(20, 10)
-        self.check_tree_loop_count(5)
-
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(5)
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
@@ -2648,11 +2647,13 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
-        self.check_tree_loop_count(4)
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(4)
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
-        self.check_tree_loop_count(5)
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(5)
 
-    def test_retrace_ending_up_retrazing_another_loop(self):
+    def test_retrace_ending_up_retracing_another_loop(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
@@ -2694,11 +2695,9 @@ class BasicTests:
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
         # bridge back to the preamble of the first loop is produced. A guard in
-        # this bridge is later traced resulting in a retrace of the second loop.
-        # Thus we end up with:
-        #   1 preamble and 1 specialized version of first loop
-        #   1 preamble and 2 specialized version of second loop
-        self.check_tree_loop_count(2 + 3)
+        # this bridge is later traced resulting in a failed attempt of retracing
+        # the second loop.
+        self.check_trace_count(8)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
 
@@ -2709,9 +2708,12 @@ class BasicTests:
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        # 1 preamble and 6 speciealized versions of each loop
-        self.check_tree_loop_count(2*(1 + 6))
 
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().get_all_jitcell_tokens():
+            # Initialal trace with two labels and 5 retraces
+            assert len(cell.target_tokens) <= 7
+            
     def test_nested_retrace(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
@@ -2748,22 +2750,33 @@ class BasicTests:
 
         res = self.meta_interp(f, [10, 7])
         assert res == f(10, 7)
-        self.check_tree_loop_count(4)
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().get_all_jitcell_tokens():
+            assert len(cell.target_tokens) == 2
 
         def g(n):
             return f(n, 2) + f(n, 3)
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        self.check_tree_loop_count(6)
-
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().get_all_jitcell_tokens():
+            assert len(cell.target_tokens) <= 3
 
         def g(n):
             return f(n, 2) + f(n, 3) + f(n, 4) + f(n, 5) + f(n, 6) + f(n, 7)
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        self.check_tree_loop_count(8)
+        # 2 loops and one function
+        self.check_jitcell_token_count(3)
+        cnt = 0
+        for cell in get_stats().get_all_jitcell_tokens():
+            if cell.target_tokens is None:
+                cnt += 1
+            else:
+                assert len(cell.target_tokens) <= 4
+        assert cnt == 1
 
     def test_frame_finished_during_retrace(self):
         class Base(object):
@@ -2845,66 +2858,6 @@ class BasicTests:
         res = self.meta_interp(f, [100])
         assert res == -2
         self.check_resops(setarrayitem_gc=2, getarrayitem_gc=1)
-
-    def test_retrace_ending_up_retracing_another_loop(self):
-
-        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
-        bytecode = "0+sI0+SI"
-        def f(n):
-            set_param(None, 'threshold', 3)
-            set_param(None, 'trace_eagerness', 1)
-            set_param(None, 'retrace_limit', 5)
-            set_param(None, 'function_threshold', -1)
-            pc = sa = i = 0
-            while pc < len(bytecode):
-                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
-                n = hint(n, promote=True)
-                op = bytecode[pc]
-                if op == '0':
-                    i = 0
-                elif op == '+':
-                    i += 1
-                elif op == 's':
-                    sa += i
-                elif op == 'S':
-                    sa += 2
-                elif op == 'I':
-                    if i < n:
-                        pc -= 2
-                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i)
-                        continue
-                pc += 1
-            return sa
-
-        def g(n1, n2):
-            for i in range(10):
-                f(n1)
-            for i in range(10):
-                f(n2)
-
-        nn = [10, 3]
-        assert self.meta_interp(g, nn) == g(*nn)
-
-        # The attempts of retracing first loop will end up retracing the
-        # second and thus fail 5 times, saturating the retrace_count. Instead a
-        # bridge back to the preamble of the first loop is produced. A guard in
-        # this bridge is later traced resulting in a retrace of the second loop.
-        # Thus we end up with:
-        #   1 preamble and 1 specialized version of first loop
-        #   1 preamble and 2 specialized version of second loop
-        self.check_tree_loop_count(2 + 3)
-
-        # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
-
-        def g(n):
-            for i in range(n):
-                for j in range(10):
-                    f(n-i)
-
-        res = self.meta_interp(g, [10])
-        assert res == g(10)
-        # 1 preamble and 6 speciealized versions of each loop
-        self.check_tree_loop_count(2*(1 + 6))
 
     def test_continue_tracing_with_boxes_in_start_snapshot_replaced_by_optimizer(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'a', 'b'])
@@ -3153,7 +3106,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_tree_loop_count(3)
+        self.check_trace_count(2)
 
     def test_two_loopinvariant_arrays2(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -3176,7 +3129,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_tree_loop_count(3)
+        self.check_trace_count(2)
 
     def test_two_loopinvariant_arrays3(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -3200,7 +3153,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_tree_loop_count(2)
+        self.check_trace_count(3)
 
     def test_two_loopinvariant_arrays_boxed(self):
         class A(object):
@@ -3371,7 +3324,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [10])
         assert res == main(10)
         self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
-                           'int_sub': 2, 'jump': 2, 'call': 2,
+                           'int_sub': 2, 'jump': 1, 'call': 2,
                            'guard_no_exception': 2, 'int_add': 4})
 
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
@@ -3508,7 +3461,7 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
     def test_virtual_opaque_ptr(self):
@@ -3528,7 +3481,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
 
@@ -3551,7 +3504,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops({'int_gt': 2, 'getfield_gc': 1, 'int_eq': 1,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 2,
+                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
 
 
@@ -3798,6 +3751,31 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert x == -42
         x = self.interp_operations(f, [1000, 1], translationoptions=topt)
         assert x == 999
+
+    def test_retracing_bridge_from_interpreter_to_finnish(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
+        def f(n):
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa)
+                n = hint(n, promote=True)
+                sa += 2*n
+                i += 1
+            return sa
+        def g(n):
+            return f(n) + f(n) + f(n) + f(n) + f(10*n) + f(11*n)
+        res = self.meta_interp(g, [1], repeat=3)
+        assert res == g(1)
+        #self.check_jitcell_token_count(1)
+        self.check_jitcell_token_count(2)
+        # XXX A bridge from the interpreter to a finish is first
+        # constructed for n=1. It is later replaced with a trace for
+        # the case n=10 which is extended with a retrace for n=11 and
+        # finnaly a new bridge to finnish is again traced and created
+        # for the case n=1. We were not able to reuse the orignial n=1
+        # bridge as a preamble since it does not start with a
+        # label. The alternative would be to have all such bridges
+        # start with labels. I dont know which is better...
 
     def test_ll_arraycopy(self):
         from pypy.rlib import rgc

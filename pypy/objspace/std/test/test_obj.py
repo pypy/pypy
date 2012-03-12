@@ -226,6 +226,12 @@ class AppTestObject:
                 if a is b:
                     assert a == b
 
+    def test_object_hash_immutable(self):
+        x = 42
+        y = 40
+        y += 2
+        assert object.__hash__(x) == object.__hash__(y)
+
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()

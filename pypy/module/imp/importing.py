@@ -483,10 +483,20 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     # XXX Check for frozen modules?
     #     when w_path is a string
 
+    delayed_builtin = None
+    w_lib_extensions = None
+
     if w_path is None:
         # check the builtin modules
         if modulename in space.builtin_modules:
-            return FindInfo(C_BUILTIN, modulename, None)
+            delayed_builtin = FindInfo(C_BUILTIN, modulename, None)
+            # a "real builtin module xx" shadows every file "xx.py" there
+            # could possibly be; a "pseudo-extension module" does not, and
+            # is only loaded at the point in sys.path where we find
+            # '.../lib_pypy/__extensions__'.
+            if modulename in space.MODULES_THAT_ALWAYS_SHADOW:
+                return delayed_builtin
+            w_lib_extensions = space.sys.get_state(space).w_lib_extensions
         w_path = space.sys.get('path')
 
     # XXX check frozen modules?
@@ -495,6 +505,9 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     if w_path is not None:
         for w_pathitem in space.unpackiterable(w_path):
             # sys.path_hooks import hook
+            if (w_lib_extensions is not None and
+                    space.eq_w(w_pathitem, w_lib_extensions)):
+                return delayed_builtin
             if use_loader:
                 w_loader = find_in_path_hooks(space, w_modulename, w_pathitem)
                 if w_loader:
@@ -527,7 +540,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                        # Out of file descriptors.
 
     # not found
-    return None
+    return delayed_builtin
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     w = space.wrap

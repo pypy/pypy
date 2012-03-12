@@ -29,7 +29,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
@@ -395,8 +395,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems[:]
+        if isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject):
             t = w_obj.getitems_copy()
         else:
@@ -409,11 +409,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def fixedview(self, w_obj, expected_length=-1, unroll=False):
         """ Fast paths
         """
-        if isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems
+        if isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.tolist()
         elif isinstance(w_obj, W_ListObject):
-            # XXX this can copy twice
-            t = w_obj.getitems()[:]
+            if unroll:
+                t = w_obj.getitems_unroll()
+            else:
+                t = w_obj.getitems_fixedsize()
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
@@ -432,8 +434,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def listview(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_ListObject):
             t = w_obj.getitems()
-        elif isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems[:]
+        elif isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
