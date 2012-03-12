@@ -104,17 +104,15 @@ class AppTestAppFloatTest:
         # testing special overflow values
         inf = 1e200 * 1e200
         assert hash(inf) == 314159
-        assert hash(-inf) == -314159
+        assert hash(-inf) == -271828
         assert hash(inf/inf) == 0
 
     def test_int_float(self):
         assert int(42.1234) == 42
-        assert int(4e10) == 40000000000L
+        assert int(4e10) == 40000000000
 
         raises(OverflowError, int, float('inf'))
-        raises(OverflowError, long, float('inf'))
         raises(ValueError, int, float('nan'))
-        raises(ValueError, long, float('nan'))
 
     def test_float_string(self):
         assert 42 == float("42")
@@ -138,15 +136,15 @@ class AppTestAppFloatTest:
 
     def test_float_unicode(self):
         # u00A0 and u2000 are some kind of spaces
-        assert 42.75 == float(unichr(0x00A0)+unicode("42.75")+unichr(0x2000))
-        class FloatUnicode(unicode):
+        assert 42.75 == float(chr(0x00A0)+str("42.75")+chr(0x2000))
+        class FloatStr(str):
             def __float__(self):
-                return float(unicode(self)) + 1
-        assert float(FloatUnicode("8")) == 9.0
+                return float(str(self)) + 1
+        assert float(FloatStr("8")) == 9.0
 
     def test_float_long(self):
-        assert 42.0 == float(42L)
-        assert 10000000000.0 == float(10000000000L)
+        assert 42.0 == float(42)
+        assert 10000000000.0 == float(10000000000)
         raises(OverflowError, float, 10**400)
 
     def test_as_integer_ratio(self):
@@ -258,19 +256,19 @@ class AppTestAppFloatTest:
         assert 4.3 > 2.3
         assert 0.01 >= -0.01
         # float+long
-        verylonglong = 10L**400
+        verylonglong = 10**400
         infinite = 1e200*1e200
-        assert 12.0 == 12L
-        assert 1e300 == long(1e300)
-        assert 12.1 != 12L
-        assert infinite != 123456789L
-        assert 12.9 < 13L
-        assert -infinite < -13L
-        assert 12.9 <= 13L
-        assert 13.0 <= 13L
-        assert 13.01 > 13L
-        assert 13.0 >= 13L
-        assert 13.01 >= 13L
+        assert 12.0 == 12
+        assert 1e300 == (1e300)
+        assert 12.1 != 12
+        assert infinite != 123456789
+        assert 12.9 < 13
+        assert -infinite < -13
+        assert 12.9 <= 13
+        assert 13.0 <= 13
+        assert 13.01 > 13
+        assert 13.0 >= 13
+        assert 13.01 >= 13
         assert 12.0 == 12
         assert 12.1 != 12
         assert infinite != 123456789
@@ -286,17 +284,17 @@ class AppTestAppFloatTest:
         assert 1234.56 < verylonglong
         assert 1234.56 <= verylonglong
         # long+float
-        assert 12L == 12.0
-        assert long(1e300) == 1e300
-        assert 12L != 12.1
-        assert 123456789L != infinite
-        assert 13L > 12.9
-        assert -13L > -infinite
-        assert 13L >= 12.9
-        assert 13L >= 13.0
-        assert 13L < 13.01
-        assert 13L <= 13.0
-        assert 13L <= 13.01
+        assert 12 == 12.0
+        assert int(1e300) == 1e300
+        assert 12 != 12.1
+        assert 123456789 != infinite
+        assert 13 > 12.9
+        assert -13 > -infinite
+        assert 13 >= 12.9
+        assert 13 >= 13.0
+        assert 13 < 13.01
+        assert 13 <= 13.0
+        assert 13 <= 13.01
         assert verylonglong < infinite
         assert verylonglong <= infinite
         assert verylonglong > 1234.56
@@ -425,9 +423,9 @@ class AppTestAppFloatTest:
         #if hasattr(int, '__eq__'):  # for py.test -A: CPython is inconsistent
         #    assert 5 .__eq__(3.14) is NotImplemented
         #    assert 3.14 .__eq__(5) is False
-        #if hasattr(long, '__eq__'):  # for py.test -A: CPython is inconsistent
-        #    assert 5L .__eq__(3.14) is NotImplemented
-        #    assert 3.14 .__eq__(5L) is False
+        #if hasattr(int, '__eq__'):  # for py.test -A: CPython is inconsistent
+        #    assert 5 .__eq__(3.14) is NotImplemented
+        #    assert 3.14 .__eq__(5) is False
 
     def test_from_string(self):
         raises(ValueError, float, "\0")
@@ -505,7 +503,7 @@ class AppTestFloatHex:
         self.identical(fromHex('+0x1p0'), 1.0)
         self.identical(fromHex('0x01p0'), 1.0)
         self.identical(fromHex('0x1p00'), 1.0)
-        self.identical(fromHex(u'0x1p0'), 1.0)
+        self.identical(fromHex('0x1p0'), 1.0)
         self.identical(fromHex(' 0x1p0 '), 1.0)
         self.identical(fromHex('\n 0x1p0'), 1.0)
         self.identical(fromHex('0x1p0 \t'), 1.0)
@@ -760,7 +758,7 @@ class AppTestFloatHex:
 
         # fromHex(toHex(x)) should exactly recover x, for any non-NaN float x.
         import random
-        for i in xrange(500):
+        for i in range(500):
             e = random.randrange(-1200, 1200)
             m = random.random()
             s = random.choice([1.0, -1.0])
@@ -773,8 +771,6 @@ class AppTestFloatHex:
 
     def test_invalid(self):
         raises(ValueError, float.fromhex, "0P")
-        # A fullwidth Unicode digit
-        raises(ValueError, float.fromhex, "0x1p\uff10")
 
     def test_division_edgecases(self):
         import math
