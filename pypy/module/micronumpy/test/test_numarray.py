@@ -631,8 +631,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array(range(1, 6))
         b = a // a
-        for i in range(5):
-            assert b[i] == 1
+        assert (b == [1, 1, 1, 1, 1]).all()
 
         a = array(range(1, 6), dtype=bool)
         b = a // a
