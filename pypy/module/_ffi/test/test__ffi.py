@@ -185,7 +185,7 @@ class AppTestFfi:
                                         types.void)
         assert get_dummy() == 0
         ptr = get_dummy_ptr()
-        assert type(ptr) in (int, long)
+        assert type(ptr) is int
         ptr2 = MyPointerWrapper(ptr)
         set_val_to_ptr(ptr2, 123)
         assert get_dummy() == 123
@@ -235,11 +235,11 @@ class AppTestFfi:
         #
         # first, try automatic conversion from strings and unicode
         assert mystrlen('foobar') == 6
-        assert mystrlen(u'foobar') == 6
-        assert mystrlen(u'ab\u2070') == 3
+        assert mystrlen('foobar') == 6
+        assert mystrlen('ab\u2070') == 3
         # then, try to pass an explicit pointer
         UniCharArray = _rawffi.Array('u')
-        mystr = UniCharArray(7, u'foobar')
+        mystr = UniCharArray(7, 'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -401,8 +401,8 @@ class AppTestFfi:
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_wc', [types.unichar, types.unichar],
                                 types.unichar)
-        res = sum_xy(unichr(1000), unichr(2000))
-        assert type(res) is unicode
+        res = sum_xy(chr(1000), chr(2000))
+        assert type(res) is str
         assert ord(res) == 3000
 
     def test_single_float_args(self):
