@@ -60,7 +60,7 @@ def attrgetter(attr, *attrs):
 
 def single_attr_getter(attr):
     if not isinstance(attr, str):
-        if not isinstance(attr, unicode):
+        if not isinstance(attr, str):
             def _raise_typeerror(obj):
                 raise TypeError("argument must be a string, not %r" %
                                 (type(attr).__name__,))
