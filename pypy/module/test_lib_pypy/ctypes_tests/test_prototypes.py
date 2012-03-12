@@ -246,6 +246,14 @@ class TestArray(BaseCTypesTestChecker):
         def func(): pass
         CFUNCTYPE(None, c_int * 3)(func)
 
+    def test_array_to_ptr_wrongtype(self):
+        ARRAY = c_byte * 8
+        func = testdll._testfunc_ai8
+        func.restype = POINTER(c_int)
+        func.argtypes = [c_int * 8]
+        array = ARRAY(1, 2, 3, 4, 5, 6, 7, 8)
+        py.test.raises(ArgumentError, "func(array)")
+
 ################################################################
 
 if __name__ == '__main__':

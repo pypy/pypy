@@ -420,3 +420,20 @@ class TestUnicode(BaseApiTest):
         w_seq = space.wrap([u'a', u'b'])
         w_joined = api.PyUnicode_Join(w_sep, w_seq)
         assert space.unwrap(w_joined) == u'a<sep>b'
+
+    def test_fromordinal(self, space, api):
+        w_char = api.PyUnicode_FromOrdinal(65)
+        assert space.unwrap(w_char) == u'A'
+        w_char = api.PyUnicode_FromOrdinal(0)
+        assert space.unwrap(w_char) == u'\0'
+        w_char = api.PyUnicode_FromOrdinal(0xFFFF)
+        assert space.unwrap(w_char) == u'\uFFFF'
+
+    def test_replace(self, space, api):
+        w_str = space.wrap(u"abababab")
+        w_substr = space.wrap(u"a")
+        w_replstr = space.wrap(u"z")
+        assert u"zbzbabab" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, 2))
+        assert u"zbzbzbzb" == space.unwrap(
+            api.PyUnicode_Replace(w_str, w_substr, w_replstr, -1))

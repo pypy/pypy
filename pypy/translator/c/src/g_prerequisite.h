@@ -4,8 +4,6 @@
 
 #ifdef PYPY_STANDALONE
 #  include "src/commondefs.h"
-#else
-#  include "Python.h"
 #endif
 
 #ifdef _WIN32

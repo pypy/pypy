@@ -250,6 +250,26 @@ def PyString_InternFromString(space, string):
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
 
+@cpython_api([PyObjectP], lltype.Void)
+def PyString_InternInPlace(space, string):
+    """Intern the argument *string in place.  The argument must be the
+    address of a pointer variable pointing to a Python string object.
+    If there is an existing interned string that is the same as
+    *string, it sets *string to it (decrementing the reference count
+    of the old string object and incrementing the reference count of
+    the interned string object), otherwise it leaves *string alone and
+    interns it (incrementing its reference count).  (Clarification:
+    even though there is a lot of talk about reference counts, think
+    of this function as reference-count-neutral; you own the object
+    after the call if and only if you owned it before the call.)
+
+    This function is not available in 3.x and does not have a PyBytes
+    alias."""
+    w_str = from_ref(space, string[0])
+    w_str = space.new_interned_w_str(w_str)
+    Py_DecRef(space, string[0])
+    string[0] = make_ref(space, w_str)
+
 @cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
 def PyString_AsEncodedObject(space, w_str, encoding, errors):
     """Encode a string object using the codec registered for encoding and return

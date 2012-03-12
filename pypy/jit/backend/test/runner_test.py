@@ -2221,6 +2221,35 @@ class LLtypeBackendTest(BaseBackendTest):
         print 'step 4 ok'
         print '-'*79
 
+    def test_guard_not_invalidated_and_label(self):
+        # test that the guard_not_invalidated reserves enough room before
+        # the label.  If it doesn't, then in this example after we invalidate
+        # the guard, jumping to the label will hit the invalidation code too
+        cpu = self.cpu
+        i0 = BoxInt()
+        faildescr = BasicFailDescr(1)
+        labeldescr = TargetToken()
+        ops = [
+            ResOperation(rop.GUARD_NOT_INVALIDATED, [], None, descr=faildescr),
+            ResOperation(rop.LABEL, [i0], None, descr=labeldescr),
+            ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(3)),
+        ]
+        ops[0].setfailargs([])
+        looptoken = JitCellToken()
+        self.cpu.compile_loop([i0], ops, looptoken)
+        # mark as failing
+        self.cpu.invalidate_loop(looptoken)
+        # attach a bridge
+        i2 = BoxInt()
+        ops = [
+            ResOperation(rop.JUMP, [ConstInt(333)], None, descr=labeldescr),
+        ]
+        self.cpu.compile_bridge(faildescr, [], ops, looptoken)
+        # run: must not be caught in an infinite loop
+        fail = self.cpu.execute_token(looptoken, 16)
+        assert fail.identifier == 3
+        assert self.cpu.get_latest_value_int(0) == 333
+
     # pure do_ / descr features
 
     def test_do_operations(self):

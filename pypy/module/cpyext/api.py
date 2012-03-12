@@ -386,6 +386,7 @@ def build_exported_objects():
         "Dict": "space.w_dict",
         "Tuple": "space.w_tuple",
         "List": "space.w_list",
+        "Set": "space.w_set",
         "Int": "space.w_int",
         "Bool": "space.w_bool",
         "Float": "space.w_float",
@@ -436,16 +437,16 @@ Py_buffer = cpython_struct(
         ('buf', rffi.VOIDP),
         ('obj', PyObject),
         ('len', Py_ssize_t),
-        # ('itemsize', Py_ssize_t),
+        ('itemsize', Py_ssize_t),
 
-        # ('readonly', lltype.Signed),
-        # ('ndim', lltype.Signed),
-        # ('format', rffi.CCHARP),
-        # ('shape', Py_ssize_tP),
-        # ('strides', Py_ssize_tP),
-        # ('suboffets', Py_ssize_tP),
-        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        # ('internal', rffi.VOIDP)
+        ('readonly', lltype.Signed),
+        ('ndim', lltype.Signed),
+        ('format', rffi.CCHARP),
+        ('shape', Py_ssize_tP),
+        ('strides', Py_ssize_tP),
+        ('suboffsets', Py_ssize_tP),
+        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        ('internal', rffi.VOIDP)
         ))
 
 @specialize.memo()

@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
     def test_call_METH(self):
-        mod = self.import_extension('foo', [
+        mod = self.import_extension('MyModule', [
             ('getarg_O', 'METH_O',
              '''
              Py_INCREF(args);
@@ -51,11 +51,23 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              }
              '''
              ),
+            ('getModule', 'METH_O',
+             '''
+             if(PyCFunction_Check(args)) {
+                 PyCFunctionObject* func = (PyCFunctionObject*)args;
+                 Py_INCREF(func->m_module);
+                 return func->m_module;
+             }
+             else {
+                 Py_RETURN_FALSE;
+             }
+             '''
+             ),
             ('isSameFunction', 'METH_O',
              '''
              PyCFunction ptr = PyCFunction_GetFunction(args);
              if (!ptr) return NULL;
-             if (ptr == foo_getarg_O)
+             if (ptr == MyModule_getarg_O)
                  Py_RETURN_TRUE;
              else
                  Py_RETURN_FALSE;
@@ -76,6 +88,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_OLD(1, 2) == (1, 2)
 
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
+        assert mod.getModule(mod.getarg_O) == 'MyModule'
         assert mod.isSameFunction(mod.getarg_O)
         raises(TypeError, mod.isSameFunction, 1)
 

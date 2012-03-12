@@ -381,6 +381,15 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
+@cpython_api([PyObject], PyObject)
+def PyObject_Dir(space, w_o):
+    """This is equivalent to the Python expression dir(o), returning a (possibly
+    empty) list of strings appropriate for the object argument, or NULL if there
+    was an error.  If the argument is NULL, this is like the Python dir(),
+    returning the names of the current locals; in this case, if no execution frame
+    is active then NULL is returned but PyErr_Occurred() will return false."""
+    return space.call_function(space.builtin.get('dir'), w_o)
+
 @cpython_api([PyObject, rffi.CCHARPP, Py_ssize_tP], rffi.INT_real, error=-1)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
@@ -430,6 +439,8 @@ def PyObject_Print(space, w_obj, fp, flags):
     return 0
 
 
+PyBUF_WRITABLE = 0x0001  # Copied from object.h
+
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
               lltype.Signed, lltype.Signed], rffi.INT, error=CANNOT_FAIL)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
@@ -445,6 +456,18 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     view.c_len = length
     view.c_obj = obj
     Py_IncRef(space, obj)
+    view.c_itemsize = 1
+    if flags & PyBUF_WRITABLE:
+        rffi.setintfield(view, 'c_readonly', 0)
+    else:
+        rffi.setintfield(view, 'c_readonly', 1)
+    rffi.setintfield(view, 'c_ndim', 0)
+    view.c_format = lltype.nullptr(rffi.CCHARP.TO)
+    view.c_shape = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_suboffsets = lltype.nullptr(Py_ssize_tP.TO)
+    view.c_internal = lltype.nullptr(rffi.VOIDP.TO)
+
     return 0
 
 
