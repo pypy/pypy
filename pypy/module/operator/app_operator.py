@@ -39,7 +39,7 @@ def isSequenceType(obj,):
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
-    if not isinstance(num, (int, long)):
+    if not isinstance(num, int):
         raise TypeError('an integer is required')
     if not isSequenceType(obj):
         raise TypeError("non-sequence object can't be repeated")

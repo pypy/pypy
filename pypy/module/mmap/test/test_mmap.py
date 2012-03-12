@@ -596,7 +596,7 @@ class AppTestMMap:
         import sys
         size = 0x14FFFFFFF
         if sys.platform.startswith('win') or sys.platform == 'darwin':
-            self.skip('test requires %s bytes and a long time to run' % size)
+            skip('test requires %s bytes and a long time to run' % size)
 
         with open(self.tmpname, "w+b") as f:
             f.seek(size)
@@ -618,7 +618,7 @@ class AppTestMMap:
         import sys
         size = 0x17FFFFFFF
         if sys.platform.startswith('win') or sys.platform == 'darwin':
-            self.skip('test requires %s bytes and a long time to run' % size)
+            skip('test requires %s bytes and a long time to run' % size)
 
         with open(self.tmpname, "w+b") as f:
             f.seek(size)
