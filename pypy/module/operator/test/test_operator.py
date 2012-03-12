@@ -145,7 +145,7 @@ class AppTestOperator:
         raises(TypeError, operator.isSequenceType)
         assert operator.isSequenceType(dir())
         assert operator.isSequenceType(())
-        assert operator.isSequenceType(xrange(10))
+        assert operator.isSequenceType(range(10))
         assert operator.isSequenceType('yeahbuddy')
         assert not operator.isSequenceType(3)
         class Dict(dict): pass
