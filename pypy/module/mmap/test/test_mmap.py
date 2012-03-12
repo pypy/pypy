@@ -71,29 +71,29 @@ class AppTestMMap:
             skip("Only Unix checks file size")
 
         from mmap import mmap
-        f = open(self.tmpname + "a", "w+")
+        f = open(self.tmpname + "a", "wb+")
 
-        f.write("c")
+        f.write(b"c")
         f.flush()
         raises(ValueError, mmap, f.fileno(), 123)
         f.close()
 
     def test_create(self):
         from mmap import mmap
-        f = open(self.tmpname + "b", "w+")
+        f = open(self.tmpname + "b", "wb+")
 
-        f.write("c")
+        f.write(b"c")
         f.flush()
         m = mmap(f.fileno(), 1)
-        assert m.read(99) == "c"
+        assert m.read(99) == b"c"
 
         f.close()
 
     def test_close(self):
         from mmap import mmap
-        f = open(self.tmpname + "c", "w+")
+        f = open(self.tmpname + "c", "wb+")
 
-        f.write("c")
+        f.write(b"c")
         f.flush()
         m = mmap(f.fileno(), 1)
         m.close()
@@ -101,12 +101,12 @@ class AppTestMMap:
 
     def test_read_byte(self):
         from mmap import mmap
-        f = open(self.tmpname + "d", "w+")
+        f = open(self.tmpname + "d", "wb+")
 
-        f.write("c")
+        f.write(b"c")
         f.flush()
         m = mmap(f.fileno(), 1)
-        assert m.read_byte() == "c"
+        assert m.read_byte() == b"c"
         raises(ValueError, m.read_byte)
         m.close()
         f.close()
@@ -114,127 +114,127 @@ class AppTestMMap:
     def test_readline(self):
         from mmap import mmap
         import os
-        f = open(self.tmpname + "e", "w+")
+        f = open(self.tmpname + "e", "wb+")
 
-        f.write("foo\n")
+        f.write(b"foo\n")
         f.flush()
         m = mmap(f.fileno(), 4)
         if os.name == "nt":
             # windows replaces \n with \r. it's time to change to \n only MS!
-            assert m.readline() == "foo\r"
+            assert m.readline() == b"foo\r"
         elif os.name == "posix":
-            assert m.readline() == "foo\n"
-        assert m.readline() == ""
+            assert m.readline() == b"foo\n"
+        assert m.readline() == b""
         m.close()
         f.close()
 
     def test_read(self):
         from mmap import mmap
-        f = open(self.tmpname + "f", "w+")
+        f = open(self.tmpname + "f", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
-        raises(TypeError, m.read, "foo")
-        assert m.read(1) == "f"
-        assert m.read(6) == "oobar"
-        assert m.read(1) == ""
+        raises(TypeError, m.read, b"foo")
+        assert m.read(1) == b"f"
+        assert m.read(6) == b"oobar"
+        assert m.read(1) == b""
         m.close()
         f.close()
 
     def test_find(self):
         from mmap import mmap
-        f = open(self.tmpname + "g", "w+")
+        f = open(self.tmpname + "g", "wb+")
 
-        f.write("foobar\0")
+        f.write(b"foobar\0")
         f.flush()
         m = mmap(f.fileno(), 7)
         raises(TypeError, m.find, 123)
-        raises(TypeError, m.find, "foo", "baz")
-        assert m.find("b") == 3
-        assert m.find("z") == -1
-        assert m.find("o", 5) == -1
-        assert m.find("ob") == 2
-        assert m.find("\0") == 6
-        assert m.find("ob", 1) == 2
-        assert m.find("ob", 2) == 2
-        assert m.find("ob", 3) == -1
-        assert m.find("ob", -4) == -1
-        assert m.find("ob", -5) == 2
-        assert m.find("ob", -999999999) == 2
-        assert m.find("ob", 1, 3) == -1
-        assert m.find("ob", 1, 4) == 2
-        assert m.find("ob", 1, 999999999) == 2
-        assert m.find("ob", 1, 0) == -1
-        assert m.find("ob", 1, -1) == 2
-        assert m.find("ob", 1, -3) == 2
-        assert m.find("ob", 1, -4) == -1
+        raises(TypeError, m.find, b"foo", b"baz")
+        assert m.find(b"b") == 3
+        assert m.find(b"z") == -1
+        assert m.find(b"o", 5) == -1
+        assert m.find(b"ob") == 2
+        assert m.find(b"\0") == 6
+        assert m.find(b"ob", 1) == 2
+        assert m.find(b"ob", 2) == 2
+        assert m.find(b"ob", 3) == -1
+        assert m.find(b"ob", -4) == -1
+        assert m.find(b"ob", -5) == 2
+        assert m.find(b"ob", -999999999) == 2
+        assert m.find(b"ob", 1, 3) == -1
+        assert m.find(b"ob", 1, 4) == 2
+        assert m.find(b"ob", 1, 999999999) == 2
+        assert m.find(b"ob", 1, 0) == -1
+        assert m.find(b"ob", 1, -1) == 2
+        assert m.find(b"ob", 1, -3) == 2
+        assert m.find(b"ob", 1, -4) == -1
         #
         data = m.read(2)
-        assert data == "fo"
-        assert m.find("o") == 2
-        assert m.find("oo") == -1
-        assert m.find("o", 0) == 1
+        assert data == b"fo"
+        assert m.find(b"o") == 2
+        assert m.find(b"oo") == -1
+        assert m.find(b"o", 0) == 1
         m.close()
         f.close()
 
     def test_rfind(self):
         from mmap import mmap
-        f = open(self.tmpname + "g", "w+")
+        f = open(self.tmpname + "g", "wb+")
 
-        f.write("foobarfoobar\0")
+        f.write(b"foobarfoobar\0")
         f.flush()
         m = mmap(f.fileno(), 13)
         raises(TypeError, m.rfind, 123)
-        raises(TypeError, m.rfind, "foo", "baz")
-        assert m.rfind("b") == 9
-        assert m.rfind("z") == -1
-        assert m.rfind("o", 11) == -1
-        assert m.rfind("ob") == 8
-        assert m.rfind("\0") == 12
-        assert m.rfind("ob", 7) == 8
-        assert m.rfind("ob", 8) == 8
-        assert m.rfind("ob", 9) == -1
-        assert m.rfind("ob", -4) == -1
-        assert m.rfind("ob", -5) == 8
-        assert m.rfind("ob", -999999999) == 8
-        assert m.rfind("ob", 1, 3) == -1
-        assert m.rfind("ob", 1, 4) == 2
-        assert m.rfind("ob", 1, 999999999) == 8
-        assert m.rfind("ob", 1, 0) == -1
-        assert m.rfind("ob", 1, -1) == 8
-        assert m.rfind("ob", 1, -3) == 8
-        assert m.rfind("ob", 1, -4) == 2
+        raises(TypeError, m.rfind, b"foo", b"baz")
+        assert m.rfind(b"b") == 9
+        assert m.rfind(b"z") == -1
+        assert m.rfind(b"o", 11) == -1
+        assert m.rfind(b"ob") == 8
+        assert m.rfind(b"\0") == 12
+        assert m.rfind(b"ob", 7) == 8
+        assert m.rfind(b"ob", 8) == 8
+        assert m.rfind(b"ob", 9) == -1
+        assert m.rfind(b"ob", -4) == -1
+        assert m.rfind(b"ob", -5) == 8
+        assert m.rfind(b"ob", -999999999) == 8
+        assert m.rfind(b"ob", 1, 3) == -1
+        assert m.rfind(b"ob", 1, 4) == 2
+        assert m.rfind(b"ob", 1, 999999999) == 8
+        assert m.rfind(b"ob", 1, 0) == -1
+        assert m.rfind(b"ob", 1, -1) == 8
+        assert m.rfind(b"ob", 1, -3) == 8
+        assert m.rfind(b"ob", 1, -4) == 2
         #
         data = m.read(8)
-        assert data == "foobarfo"
-        assert m.rfind("o") == 8
-        assert m.rfind("oo") == -1
-        assert m.rfind("o", 0) == 8
+        assert data == b"foobarfo"
+        assert m.rfind(b"o") == 8
+        assert m.rfind(b"oo") == -1
+        assert m.rfind(b"o", 0) == 8
         m.close()
         f.close()
 
     def test_is_modifiable(self):
         import mmap
-        f = open(self.tmpname + "h", "w+")
+        f = open(self.tmpname + "h", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        raises(TypeError, m.write, 'x')
+        raises(TypeError, m.write, b'x')
         raises(TypeError, m.resize, 7)
         m.close()
         f.close()
 
     def test_seek(self):
         from mmap import mmap
-        f = open(self.tmpname + "i", "w+")
+        f = open(self.tmpname + "i", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
-        raises(TypeError, m.seek, "foo")
-        raises(TypeError, m.seek, 0, "foo")
+        raises(TypeError, m.seek, b"foo")
+        raises(TypeError, m.seek, 0, b"foo")
         raises(ValueError, m.seek, -1, 0)
         raises(ValueError, m.seek, -1, 1)
         raises(ValueError, m.seek, -7, 2)
@@ -253,41 +253,41 @@ class AppTestMMap:
 
     def test_write(self):
         import mmap
-        f = open(self.tmpname + "j", "w+")
+        f = open(self.tmpname + "j", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        raises(TypeError, m.write, "foo")
+        raises(TypeError, m.write, b"foo")
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         raises(TypeError, m.write, 123)
-        raises(ValueError, m.write, "c"*10)
-        m.write("ciao\n")
+        raises(ValueError, m.write, b"c"*10)
+        m.write(b"ciao\n")
         m.seek(0)
-        assert m.read(6) == "ciao\nr"
+        assert m.read(6) == b"ciao\nr"
         m.close()
 
     def test_write_byte(self):
         import mmap
-        f = open(self.tmpname + "k", "w+")
+        f = open(self.tmpname + "k", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        raises(TypeError, m.write_byte, "f")
+        raises(TypeError, m.write_byte, b"f")
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         raises(TypeError, m.write_byte, 123)
-        raises(TypeError, m.write_byte, "ab")
-        m.write_byte("x")
+        raises(TypeError, m.write_byte, b"ab")
+        m.write_byte(b"x")
         m.seek(0)
-        assert m.read(6) == "xoobar"
+        assert m.read(6) == b"xoobar"
         m.close()
 
     def test_size(self):
         from mmap import mmap
-        f = open(self.tmpname + "l", "w+")
+        f = open(self.tmpname + "l", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 5)
         assert m.size() == 6 # size of the underline file, not the mmap
@@ -296,9 +296,9 @@ class AppTestMMap:
 
     def test_tell(self):
         from mmap import mmap
-        f = open(self.tmpname + "m", "w+")
+        f = open(self.tmpname + "m", "wb+")
 
-        f.write("c")
+        f.write(b"c")
         f.flush()
         m = mmap(f.fileno(), 1)
         assert m.tell() >= 0
@@ -307,13 +307,13 @@ class AppTestMMap:
 
     def test_flush(self):
         from mmap import mmap
-        f = open(self.tmpname + "n", "w+")
+        f = open(self.tmpname + "n", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
         raises(TypeError, m.flush, 1, 2, 3)
-        raises(TypeError, m.flush, 1, "a")
+        raises(TypeError, m.flush, 1, b"a")
         raises(ValueError, m.flush, 0, 99)
         m.flush()    # return value is a bit meaningless, platform-dependent
         m.close()
@@ -323,28 +323,28 @@ class AppTestMMap:
         import mmap
 
         with open(self.tmpname, "wb") as f:
-            f.write(115699 * 'm')
+            f.write(115699 * b'm')
         with open(self.tmpname, "w+b") as f:
             raises(ValueError, mmap.mmap, f.fileno(), 0, offset=2147418112)
 
     def test_move(self):
         import mmap
-        f = open(self.tmpname + "o", "w+")
+        f = open(self.tmpname + "o", "wb+")
 
-        f.write("foobar")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
         raises(TypeError, m.move, 1)
-        raises(TypeError, m.move, 1, "foo", 2)
+        raises(TypeError, m.move, 1, b"foo", 2)
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         raises(ValueError, m.move, 7, 1, 2)
         raises(ValueError, m.move, 1, 7, 2)
         m.move(1, 3, 3)
-        assert m.read(6) == "fbarar"
+        assert m.read(6) == b"fbarar"
         m.seek(0)
         m.move(1, 3, 2)
         a = m.read(6)
-        assert a == "frarar"
+        assert a == b"frarar"
         m.close()
         f.close()
 
@@ -356,8 +356,8 @@ class AppTestMMap:
         import mmap
         import os
 
-        f = open(self.tmpname + "p", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "p", "wb+")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
         raises(TypeError, m.resize, 1)
@@ -380,8 +380,8 @@ class AppTestMMap:
         import mmap
         import os
 
-        f = open(self.tmpname + "p", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "p", "wb+")
+        f.write(b"foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
         raises(TypeError, m.resize, 1)
@@ -397,8 +397,8 @@ class AppTestMMap:
     def test_len(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "q", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "q", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap(f.fileno(), 6)
@@ -409,70 +409,70 @@ class AppTestMMap:
     def test_get_item(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "r", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "r", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap(f.fileno(), 6)
-        fn = lambda: m["foo"]
+        fn = lambda: m[b"foo"]
         raises(TypeError, fn)
         fn = lambda: m[-7]
         raises(IndexError, fn)
-        assert m[0] == 'f'
-        assert m[-1] == 'r'
-        assert m[1::2] == 'obr'
-        assert m[4:1:-2] == 'ao'
+        assert m[0] == b'f'
+        assert m[-1] == b'r'
+        assert m[1::2] == b'obr'
+        assert m[4:1:-2] == b'ao'
         m.close()
         f.close()
 
     def test_set_item(self):
         import mmap
 
-        f = open(self.tmpname + "s", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "s", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        def fn(): m[1] = 'a'
+        def fn(): m[1] = b'a'
         raises(TypeError, fn)
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
-        def fn(): m["foo"] = 'a'
+        def fn(): m[b"foo"] = b'a'
         raises(TypeError, fn)
-        def fn(): m[-7] = 'a'
+        def fn(): m[-7] = b'a'
         raises(IndexError, fn)
-        def fn(): m[0] = 'ab'
+        def fn(): m[0] = b'ab'
         raises((IndexError, ValueError), fn)     # IndexError is in CPython,
                                                  # but doesn't make much sense
-        def fn(): m[1:3] = u'xx'
+        def fn(): m[1:3] = 'xx'
         raises((IndexError, TypeError), fn)      # IndexError is in CPython,
                                                  # but doesn't make much sense
-        def fn(): m[1:4] = "zz"
+        def fn(): m[1:4] = b"zz"
         raises((IndexError, ValueError), fn)
-        def fn(): m[1:6] = "z" * 6
+        def fn(): m[1:6] = b"z" * 6
         raises((IndexError, ValueError), fn)
-        def fn(): m[:2] = "z" * 5
+        def fn(): m[:2] = b"z" * 5
         raises((IndexError, ValueError), fn)
-        m[1:3] = 'xx'
-        assert m.read(6) == "fxxbar"
-        m[0] = 'x'
-        assert m[0] == 'x'
-        m[-6] = 'y'
-        m[3:6:2] = 'BR'
+        m[1:3] = b'xx'
+        assert m.read(6) == b"fxxbar"
+        m[0] = b'x'
+        assert m[0] == b'x'
+        m[-6] = b'y'
+        m[3:6:2] = b'BR'
         m.seek(0)
         data = m.read(6)
-        assert data == "yxxBaR"
+        assert data == b"yxxBaR"
         m.close()
         f.close()
 
     def test_del_item(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "t", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "t", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap(f.fileno(), 6)
-        def fn(): del m["foo"]
+        def fn(): del m[b"foo"]
         raises(TypeError, fn)
         def fn(): del m[1:3]
         raises(TypeError, fn)
@@ -484,8 +484,8 @@ class AppTestMMap:
     def test_concatenation(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "u", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "u", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap(f.fileno(), 6)
@@ -501,8 +501,8 @@ class AppTestMMap:
     def test_repeatition(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "v", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "v", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         m = mmap(f.fileno(), 6)
@@ -518,20 +518,20 @@ class AppTestMMap:
     def test_slicing(self):
         from mmap import mmap
 
-        f = open(self.tmpname + "v", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "v", "wb+")
+        f.write(b"foobar")
         f.flush()
 
         f.seek(0)
         m = mmap(f.fileno(), 6)
-        assert m[-3:7] == "bar"
+        assert m[-3:7] == b"bar"
 
         f.close()
 
     def test_sequence_type(self):
         from mmap import mmap
-        f = open(self.tmpname + "x", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "x", "wb+")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
         import operator
@@ -540,24 +540,24 @@ class AppTestMMap:
 
     def test_buffer(self):
         from mmap import mmap
-        f = open(self.tmpname + "y", "w+")
-        f.write("foobar")
+        f = open(self.tmpname + "y", "bw+")
+        f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
         b = buffer(m)
         assert len(b) == 6
-        assert b[3] == "b"
-        assert b[:] == "foobar"
+        assert b[3] == b"b"
+        assert b[:] == b"foobar"
 
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY
-        f = open(self.tmpname + "y", "w+")
-        f.write("foobar" * ALLOCATIONGRANULARITY)
+        f = open(self.tmpname + "y", "wb+")
+        f.write(b"foobar" * ALLOCATIONGRANULARITY)
         f.flush()
         size = ALLOCATIONGRANULARITY
         offset = 2 * ALLOCATIONGRANULARITY
         m = mmap(f.fileno(), size, offset=offset)
-        assert m[:] == ("foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
+        assert m[:] == (b"foobar" * ALLOCATIONGRANULARITY)[offset:offset+size]
         assert len(m) == size
         m.close()
         f.close()
@@ -567,15 +567,15 @@ class AppTestMMap:
 
         with open(self.tmpname, "w+b") as f:
             halfsize = ALLOCATIONGRANULARITY
-            f.write("\0" * halfsize)
-            f.write("foo")
-            f.write("\0" * (halfsize - 3))
+            f.write(b"\0" * halfsize)
+            f.write(b"foo")
+            f.write(b"\0" * (halfsize - 3))
             m = mmap(f.fileno(), 0)
             m.close()
 
         with open(self.tmpname, "r+b") as f:
             m = mmap(f.fileno(), halfsize, offset=halfsize)
-            assert m[0:3] == "foo"
+            assert m[0:3] == b"foo"
 
         try:
             m.resize(512)
@@ -584,7 +584,7 @@ class AppTestMMap:
         else:
             assert len(m) == 512
             raises(ValueError, m.seek, 513, 0)
-            assert m[0:3] == "foo"
+            assert m[0:3] == b"foo"
             with open(self.tmpname) as f:
                 f.seek(0, 2)
                 assert f.tell() == halfsize + 512
@@ -600,7 +600,7 @@ class AppTestMMap:
 
         with open(self.tmpname, "w+b") as f:
             f.seek(size)
-            f.write("A")
+            f.write(b"A")
             f.flush()
         with open(self.tmpname, 'rb') as f2:
             f2.seek(size)
@@ -622,7 +622,7 @@ class AppTestMMap:
 
         with open(self.tmpname, "w+b") as f:
             f.seek(size)
-            f.write(" ")
+            f.write(b" ")
             f.flush()
             m = mmap.mmap(f.fileno(), 0x10000, access=mmap.ACCESS_READ)
             try:
@@ -639,30 +639,30 @@ class AppTestMMap:
 
         filename = self.tmpname + "w"
 
-        f = open(filename, "w+")
+        f = open(filename, "wb+")
 
         # write 2 pages worth of data to the file
-        f.write('\0' * PAGESIZE)
-        f.write('foo')
-        f.write('\0' * (PAGESIZE - 3))
+        f.write(b'\0' * PAGESIZE)
+        f.write(b'foo')
+        f.write(b'\0' * (PAGESIZE - 3))
         f.flush()
         m = mmap.mmap(f.fileno(), 2 * PAGESIZE)
         f.close()
 
         # sanity checks
-        assert m.find("foo") == PAGESIZE
+        assert m.find(b"foo") == PAGESIZE
         assert len(m) == 2 * PAGESIZE
-        assert m[0] == '\0'
-        assert m[0:3] == '\0\0\0'
+        assert m[0] == b'\0'
+        assert m[0:3] == b'\0\0\0'
 
         # modify the file's content
-        m[0] = '3'
-        m[PAGESIZE+3:PAGESIZE+3+3] = 'bar'
+        m[0] = b'3'
+        m[PAGESIZE+3:PAGESIZE+3+3] = b'bar'
 
         # check that the modification worked
-        assert m[0] == '3'
-        assert m[0:3] == '3\0\0'
-        assert m[PAGESIZE-1:PAGESIZE+7] == '\0foobar\0'
+        assert m[0] == b'3'
+        assert m[0:3] == b'3\0\0'
+        assert m[PAGESIZE-1:PAGESIZE+7] == b'\0foobar\0'
 
         m.flush()
 
@@ -698,22 +698,22 @@ class AppTestMMap:
         # test access=ACCESS_READ
         mapsize = 10
         f = open(filename, "wb")
-        f.write("a" * mapsize)
+        f.write(b"a" * mapsize)
         f.close()
-        f = open(filename, "rb")
+        f = open(filename, b"rb")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_READ)
-        assert m[:] == 'a' * mapsize
-        def f(m): m[:] = 'b' * mapsize
+        assert m[:] == b'a' * mapsize
+        def f(m): m[:] = b'b' * mapsize
         raises(TypeError, f, m)
-        def fn(): m[0] = 'b'
+        def fn(): m[0] = b'b'
         raises(TypeError, fn)
-        def fn(m): m.seek(0, 0); m.write("abc")
+        def fn(m): m.seek(0, 0); m.write(b"abc")
         raises(TypeError, fn, m)
-        def fn(m): m.seek(0, 0); m.write_byte("d")
+        def fn(m): m.seek(0, 0); m.write_byte(b"d")
         raises(TypeError, fn, m)
         if not (("darwin" in sys.platform) or ("freebsd" in sys.platform)):
             raises(TypeError, m.resize, 2 * mapsize)
-            assert open(filename, "rb").read() == 'a' * mapsize
+            assert open(filename, "rb").read() == b'a' * mapsize
 
         # opening with size too big
         f = open(filename, "r+b")
@@ -732,27 +732,27 @@ class AppTestMMap:
         # test access=ACCESS_WRITE"
         f = open(filename, "r+b")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_WRITE)
-        m.write('c' * mapsize)
+        m.write(b'c' * mapsize)
         m.seek(0)
         data = m.read(mapsize)
-        assert data == 'c' * mapsize
+        assert data == b'c' * mapsize
         m.flush()
         m.close()
         f.close()
         f = open(filename, 'rb')
         stuff = f.read()
         f.close()
-        assert stuff == 'c' * mapsize
+        assert stuff == b'c' * mapsize
 
         # test access=ACCESS_COPY
         f = open(filename, "r+b")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_COPY)
-        m.write('d' * mapsize)
+        m.write(b'd' * mapsize)
         m.seek(0)
         data = m.read(mapsize)
-        assert data == 'd' * mapsize
+        assert data == b'd' * mapsize
         m.flush()
-        assert open(filename, "rb").read() == 'c' * mapsize
+        assert open(filename, "rb").read() == b'c' * mapsize
         if not (("darwin" in sys.platform) or ("freebsd" in sys.platform)):
             raises(TypeError, m.resize, 2 * mapsize)
         m.close()
@@ -776,8 +776,8 @@ class AppTestMMap:
 
         # do a tougher .find() test.  SF bug 515943 pointed out that, in 2.2,
         # searching for data with embedded \0 bytes didn't work.
-        f = open(filename, 'w+')
-        data = 'aabaac\x00deef\x00\x00aa\x00'
+        f = open(filename, 'wb+')
+        data = b'aabaac\x00deef\x00\x00aa\x00'
         n = len(data)
         f.write(data)
         f.flush()
@@ -788,26 +788,26 @@ class AppTestMMap:
             for finish in range(start, n + 1):
                 sl = data[start:finish]
                 assert m.find(sl) == data.find(sl)
-                assert m.find(sl + 'x') ==  -1
+                assert m.find(sl + b'x') ==  -1
         m.close()
 
         # test mapping of entire file by passing 0 for map length
-        f = open(filename, "w+")
-        f.write(2**16 * 'm')
+        f = open(filename, "wb+")
+        f.write(2**16 * b'm')
         f.close()
         f = open(filename, "rb+")
         m = mmap.mmap(f.fileno(), 0)
         assert len(m) == 2**16
-        assert m.read(2**16) == 2**16 * "m"
+        assert m.read(2**16) == 2**16 * b"m"
         m.close()
         f.close()
 
         # make move works everywhere (64-bit format problem earlier)
-        f = open(filename, 'w+')
-        f.write("ABCDEabcde")
+        f = open(filename, 'wb+')
+        f.write(b"ABCDEabcde")
         f.flush()
         m = mmap.mmap(f.fileno(), 10)
         m.move(5, 0, 5)
-        assert m.read(10) == "ABCDEABCDE"
+        assert m.read(10) == b"ABCDEABCDE"
         m.close()
         f.close()

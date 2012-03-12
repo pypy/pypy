@@ -21,18 +21,18 @@ class W_MMap(Wrappable):
 
     def read_byte(self):
         try:
-            return self.space.wrap(self.mmap.read_byte())
+            return self.space.wrapbytes(self.mmap.read_byte())
         except RValueError, v:
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
 
     def readline(self):
-        return self.space.wrap(self.mmap.readline())
+        return self.space.wrapbytes(self.mmap.readline())
 
     @unwrap_spec(num=int)
     def read(self, num=-1):
         self.check_valid()
-        return self.space.wrap(self.mmap.read(num))
+        return self.space.wrapbytes(self.mmap.read(num))
 
     @unwrap_spec(tofind='bufferstr')
     def find(self, tofind, w_start=NoneNotWrapped, w_end=NoneNotWrapped):
@@ -86,7 +86,7 @@ class W_MMap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                                  self.space.wrap(v.message))
 
-    @unwrap_spec(byte=str)
+    @unwrap_spec(byte='bufferstr')
     def write_byte(self, byte):
         try:
             self.mmap.write_byte(byte)
@@ -165,11 +165,11 @@ class W_MMap(Wrappable):
         space = self.space
         start, stop, step = space.decode_index(w_index, self.mmap.size)
         if step == 0:  # index only
-            return space.wrap(self.mmap.getitem(start))
+            return space.wrapbytes(self.mmap.getitem(start))
         else:
             res = "".join([self.mmap.getitem(i)
                            for i in range(start, stop, step)])
-            return space.wrap(res)
+            return space.wrapbytes(res)
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
