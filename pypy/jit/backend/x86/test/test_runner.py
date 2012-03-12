@@ -69,6 +69,7 @@ class TestX86(LLtypeBackendTest):
         return ctypes.cast(res.value._obj.intval, ctypes.POINTER(item_tp))
 
     def test_allocations(self):
+        py.test.skip("rewrite or kill")
         from pypy.rpython.lltypesystem import rstr
 
         allocs = [None]

@@ -737,13 +737,6 @@ class AppTestStringObject:
         iterable = "hello"
         raises(TypeError, len, iter(iterable))
 
-    def test_overflow_replace(self):
-        import sys
-        if sys.maxint > 2**31-1:
-            skip("Wrong platform")
-        x = "A" * (2**16)
-        raises(OverflowError, x.replace, '', x)
-
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})

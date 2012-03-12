@@ -69,16 +69,17 @@ def get_entry(g):
 def get_functions_to_patch():
     from pypy.jit.backend.llsupport import gc
     #
-    can_inline_malloc1 = gc.GcLLDescr_framework.can_inline_malloc
-    def can_inline_malloc2(*args):
+    can_use_nursery_malloc1 = gc.GcLLDescr_framework.can_use_nursery_malloc
+    def can_use_nursery_malloc2(*args):
         try:
             if os.environ['PYPY_NO_INLINE_MALLOC']:
                 return False
         except KeyError:
             pass
-        return can_inline_malloc1(*args)
+        return can_use_nursery_malloc1(*args)
     #
-    return {(gc.GcLLDescr_framework, 'can_inline_malloc'): can_inline_malloc2}
+    return {(gc.GcLLDescr_framework, 'can_use_nursery_malloc'):
+                can_use_nursery_malloc2}
 
 def compile(f, gc, enable_opts='', **kwds):
     from pypy.annotation.listdef import s_list_of_strings

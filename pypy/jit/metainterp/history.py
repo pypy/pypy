@@ -143,59 +143,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def get_arg_types(self):
-        """ Implement in call descr.
-        Must return a string of INT, REF and FLOAT ('i', 'r', 'f').
-        """
-        raise NotImplementedError
-
-    def get_return_type(self):
-        """ Implement in call descr.
-        Must return INT, REF, FLOAT, or 'v' for void.
-        On 32-bit (hack) it can also be 'L' for longlongs.
-        Additionally it can be 'S' for singlefloats.
-        """
-        raise NotImplementedError
-
-    def get_extra_info(self):
-        """ Implement in call descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_pointers(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_floats(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_array_of_structs(self):
-        """ Implement for array descr
-        """
-        raise NotImplementedError
-
-    def is_pointer_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def is_float_field(self):
-        """ Implement for field descr
-        """
-        raise NotImplementedError
-
-    def as_vtable_size_descr(self):
-        """ Implement for size descr representing objects with vtables.
-        Returns self.  (it's an annotation hack)
-        """
-        raise NotImplementedError
-
-    def count_fields_if_immutable(self):
-        return -1
-
     def _clone_if_mutable(self):
         return self
     def clone_if_mutable(self):

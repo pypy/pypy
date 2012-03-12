@@ -524,11 +524,16 @@ def _string_replace(space, input, sub, by, maxsplit):
             upper = maxsplit - 1
             assert upper >= 0
         first = False
-        for i in range(upper):
+        try:
+            for i in range(upper):
+                builder.append(by)
+                builder.append(input[i])
             builder.append(by)
-            builder.append(input[i])
-        builder.append(by)
-        builder.append_slice(input, upper, len(input))
+            builder.append_slice(input, upper, len(input))
+        except MemoryError:
+            raise OperationError(space.w_OverflowError,
+                space.wrap("replace string too long")
+            )
     else:
         start = 0
         sublen = len(sub)

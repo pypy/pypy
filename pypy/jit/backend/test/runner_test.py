@@ -2930,6 +2930,8 @@ class LLtypeBackendTest(BaseBackendTest):
         # overflowing value:
         fail = self.cpu.execute_token(looptoken, sys.maxint // 4 + 1)
         assert fail.identifier == excdescr.identifier
+        exc = self.cpu.grab_exc_value()
+        assert exc == "memoryerror!"
 
     def test_compile_loop_with_target(self):
         i0 = BoxInt()
