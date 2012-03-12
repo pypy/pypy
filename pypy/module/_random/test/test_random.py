@@ -82,13 +82,6 @@ class AppTestRandom:
         state2 = rnd.getstate()          # seed() to improve the resolution)
         assert state1 != state2
 
-    def test_jumpahead(self):
-        import sys
-        import _random
-        rnd = _random.Random()
-        rnd.jumpahead(100)
-        rnd.jumpahead(sys.maxint + 2)
-
     def test_randbits(self):
         import _random
         rnd = _random.Random()
