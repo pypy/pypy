@@ -49,7 +49,6 @@ W_MD5.typedef = TypeDef(
     hexdigest = interp2app(W_MD5.hexdigest_w),
     copy      = interp2app(W_MD5.copy_w),
     digest_size = 16,
-    digestsize = 16,
     block_size = 64,
     __doc__   = """md5(arg) -> return new md5 object.
 

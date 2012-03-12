@@ -26,7 +26,6 @@ class AppTestHashlib:
                                     }.items():
             h = hashlib.new(name)
             assert h.digest_size == expected_size
-            assert h.digestsize == expected_size
             #
             h.update(b'abc')
             h2 = h.copy()
@@ -46,7 +45,6 @@ class AppTestHashlib:
             py_new = getattr(hashlib, '__get_builtin_constructor')
             h = py_new(name)('')
             assert h.digest_size == expected_size
-            assert h.digestsize == expected_size
             #
             h.update('abc')
             h2 = h.copy()
