@@ -388,6 +388,7 @@ class UfuncState(object):
                                              "int_only": True}),
             ("bitwise_xor", "bitwise_xor", 2, {"int_only": True}),
             ("invert", "invert", 1, {"int_only": True}),
+            ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),

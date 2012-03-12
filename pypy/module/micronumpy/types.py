@@ -280,6 +280,12 @@ class Integer(Primitive):
         return v1 / v2
 
     @simple_binary_op
+    def floordiv(self, v1, v2):
+        if v2 == 0:
+            return 0
+        return v1 // v2
+
+    @simple_binary_op
     def mod(self, v1, v2):
         return v1 % v2
 
@@ -412,6 +418,15 @@ class Float(Primitive):
     def div(self, v1, v2):
         try:
             return v1 / v2
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
+    @simple_binary_op
+    def floordiv(self, v1, v2):
+        try:
+            return v1 // v2
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
