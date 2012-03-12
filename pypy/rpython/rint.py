@@ -127,10 +127,7 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     rtype_inplace_rshift = rtype_rshift
 
     def rtype_pow(_, hop):
-        raise MissingRTypeOperation("pow(int, int)"
-                                    " (use float**float instead; it is too"
-                                    " easy to overlook the overflow"
-                                    " issues of int**int)")
+        raise MissingRTypeOperation("'**' not supported in RPython")
 
     rtype_pow_ovf = rtype_pow
     rtype_inplace_pow = rtype_pow
