@@ -514,29 +514,34 @@ def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
 
-    # An ok guess at the default size
-    builder = StringBuilder(len(input))
-    first = True
-
     if not sub:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        first = False
+        
         try:
-            for i in range(upper):
-                builder.append(by)
-                builder.append(input[i])
-            builder.append(by)
-            builder.append_slice(input, upper, len(input))
-        except MemoryError:
+            result_size = ovfcheck(upper * len(by))
+            result_size = ovfcheck(result_size + upper)
+            result_size = ovfcheck(result_size + len(by))
+            remaining_size = len(input) - upper
+            result_size = ovfcheck(result_size + remaining_size)
+        except OverflowError:
             raise OperationError(space.w_OverflowError,
-                space.wrap("replace string too long")
+                space.wrap("replace string is too long")
             )
+        builder = StringBuilder(result_size)
+        for i in range(upper):
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
     else:
+        # An ok guess for the result size
+        builder = StringBuilder(len(input))
         start = 0
         sublen = len(sub)
+        first = True
 
         while maxsplit != 0:
             next = input.find(sub, start)

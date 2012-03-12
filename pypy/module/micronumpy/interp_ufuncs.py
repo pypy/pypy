@@ -2,20 +2,21 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, signature, types
+from pypy.module.micronumpy import interp_boxes, interp_dtype, types
+from pypy.module.micronumpy.signature import ReduceSignature, ScalarSignature, find_sig
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
-
 reduce_driver = jit.JitDriver(
-    greens = ['shapelen', "signature"],
-    reds = ["i", "self", "dtype", "value", "obj"]
+    greens = ['shapelen', "sig"],
+    virtualizables = ["frame"],
+    reds = ["frame", "self", "dtype", "value", "obj"]
 )
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
-    _immutable_fields_ = ["promote_to_float", "promote_bools"]
+    _immutable_fields_ = ["promote_to_float", "promote_bools", "name"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity):
         self.name = name
@@ -50,6 +51,7 @@ class W_Ufunc(Wrappable):
 
     def reduce(self, space, w_obj, multidim):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+        
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -60,13 +62,16 @@ class W_Ufunc(Wrappable):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
 
-        size = obj.find_size()
+        size = obj.size
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = obj.start_iter(obj.shape)
         shapelen = len(obj.shape)
+        sig = find_sig(ReduceSignature(self.func, self.name, dtype,
+                                       ScalarSignature(dtype),
+                                       obj.create_sig(obj.shape)), obj)
+        frame = sig.create_frame(obj)
         if shapelen > 1 and not multidim:
             raise OperationError(space.w_NotImplementedError,
                 space.wrap("not implemented yet"))
@@ -74,34 +79,33 @@ class W_Ufunc(Wrappable):
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-            value = obj.eval(start).convert_to(dtype)
-            start = start.next(shapelen)
+            value = sig.eval(frame, obj).convert_to(dtype)
+            frame.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
-        new_sig = signature.Signature.find_sig([
-            self.reduce_signature, obj.signature
-        ])
-        return self.reduce_loop(new_sig, shapelen, start, value, obj, dtype)
+        return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
 
-    def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
-        while not i.done():
-            reduce_driver.jit_merge_point(signature=signature,
+    def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
+        while not frame.done():
+            reduce_driver.jit_merge_point(sig=sig,
                                           shapelen=shapelen, self=self,
-                                          value=value, obj=obj, i=i,
+                                          value=value, obj=obj, frame=frame,
                                           dtype=dtype)
-            value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i = i.next(shapelen)
+            assert isinstance(sig, ReduceSignature)
+            value = sig.binfunc(dtype, value, sig.eval(frame, obj).convert_to(dtype))
+            frame.next(shapelen)
         return value
 
 class W_Ufunc1(W_Ufunc):
     argcount = 1
+
+    _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
-        self.signature = signature.Call1(func)
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call1,
@@ -117,14 +121,13 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
-        new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
-        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
+        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
 
 class W_Ufunc2(W_Ufunc):
-    _immutable_fields_ = ["comparison_func", "func"]
+    _immutable_fields_ = ["comparison_func", "func", "name"]
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
@@ -133,8 +136,6 @@ class W_Ufunc2(W_Ufunc):
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
         self.comparison_func = comparison_func
-        self.signature = signature.Call2(func)
-        self.reduce_signature = signature.BaseSignature()
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
@@ -158,11 +159,9 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
 
-        new_sig = signature.Signature.find_sig([
-            self.signature, w_lhs.signature, w_rhs.signature
-        ])
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
-        w_res = Call2(new_sig, new_shape, calc_dtype,
+        w_res = Call2(self.func, self.name,
+                      new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)

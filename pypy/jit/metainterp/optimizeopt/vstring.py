@@ -46,7 +46,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 class __extend__(optimizer.OptValue):
     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, string_optimizer, mode):
+    def getstrlen(self, string_optimizer, mode, lengthbox):
         if mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -59,7 +59,8 @@ class __extend__(optimizer.OptValue):
             return None
         self.ensure_nonnull()
         box = self.force_box(string_optimizer)
-        lengthbox = BoxInt()
+        if lengthbox is None:
+            lengthbox = BoxInt()
         string_optimizer.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
@@ -75,7 +76,7 @@ class __extend__(optimizer.OptValue):
         # Copies the pointer-to-string 'self' into the target string
         # given by 'targetbox', at the specified offset.  Returns the offset
         # at the end of the copy.
-        lengthbox = self.getstrlen(string_optimizer, mode)
+        lengthbox = self.getstrlen(string_optimizer, mode, None)
         srcbox = self.force_box(string_optimizer)
         return copy_str_content(string_optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
@@ -104,7 +105,7 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
                 return
         assert self.source_op is not None
         self.box = box = self.source_op.result
-        lengthbox = self.getstrlen(optforce, self.mode)
+        lengthbox = self.getstrlen(optforce, self.mode, None)
         op = ResOperation(self.mode.NEWSTR, [lengthbox], box)
         if not we_are_translated():
             op.name = 'FORCE'
@@ -137,7 +138,7 @@ class VStringPlainValue(VAbstractStringValue):
         self._chars = longerlist[start:stop]
         # slice the 'longerlist', which may also contain Nones
 
-    def getstrlen(self, _, mode):
+    def getstrlen(self, _, mode, lengthbox):
         if self._lengthbox is None:
             self._lengthbox = ConstInt(len(self._chars))
         return self._lengthbox
@@ -218,12 +219,12 @@ class VStringConcatValue(VAbstractStringValue):
         self.left = left
         self.right = right
 
-    def getstrlen(self, string_optimizer, mode):
+    def getstrlen(self, string_optimizer, mode, lengthbox):
         if self.lengthbox is None:
-            len1box = self.left.getstrlen(string_optimizer, mode)
+            len1box = self.left.getstrlen(string_optimizer, mode, None)
             if len1box is None:
                 return None
-            len2box = self.right.getstrlen(string_optimizer, mode)
+            len2box = self.right.getstrlen(string_optimizer, mode, None)
             if len2box is None:
                 return None
             self.lengthbox = _int_add(string_optimizer, len1box, len2box)
@@ -270,7 +271,7 @@ class VStringSliceValue(VAbstractStringValue):
         self.vstart = vstart
         self.vlength = vlength
 
-    def getstrlen(self, optforce, mode):
+    def getstrlen(self, optforce, mode, lengthbox):
         return self.vlength.force_box(optforce)
 
     @specialize.arg(1)
@@ -287,7 +288,7 @@ class VStringSliceValue(VAbstractStringValue):
         return None
 
     def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        lengthbox = self.getstrlen(string_optimizer, mode)
+        lengthbox = self.getstrlen(string_optimizer, mode, None)
         return copy_str_content(string_optimizer,
                                 self.vstr.force_box(string_optimizer), targetbox,
                                 self.vstart.force_box(string_optimizer), offsetbox,
@@ -362,7 +363,7 @@ def _int_sub(string_optimizer, box1, box2):
     string_optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
-def _strgetitem(string_optimizer, strbox, indexbox, mode):
+def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
@@ -370,7 +371,8 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode):
         else:
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
-    resbox = BoxInt()
+    if resbox is None:
+        resbox = BoxInt()
     string_optimizer.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
                                                  resbox))
     return resbox
@@ -436,10 +438,13 @@ class OptString(optimizer.Optimization):
     def _optimize_STRGETITEM(self, op, mode):
         value = self.getvalue(op.getarg(0))
         vindex = self.getvalue(op.getarg(1))
-        vresult = self.strgetitem(value, vindex, mode)
-        self.make_equal_to(op.result, vresult)
+        vresult = self.strgetitem(value, vindex, mode, op.result)
+        if op.result in self.optimizer.values:
+            assert self.getvalue(op.result) is vresult
+        else:
+            self.make_equal_to(op.result, vresult)
 
-    def strgetitem(self, value, vindex, mode):
+    def strgetitem(self, value, vindex, mode, resbox=None):
         value.ensure_nonnull()
         #
         if value.is_virtual() and isinstance(value, VStringSliceValue):
@@ -456,7 +461,7 @@ class OptString(optimizer.Optimization):
                     return result
         #
         if isinstance(value, VStringConcatValue) and vindex.is_constant():
-            len1box = value.left.getstrlen(self, mode)
+            len1box = value.left.getstrlen(self, mode, None)
             if isinstance(len1box, ConstInt):
                 index = vindex.box.getint()
                 len1 = len1box.getint()
@@ -466,7 +471,7 @@ class OptString(optimizer.Optimization):
                     vindex = optimizer.ConstantValue(ConstInt(index - len1))
                     return self.strgetitem(value.right, vindex, mode)
         #
-        resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode)
+        resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode, resbox)
         return self.getvalue(resbox)
 
     def optimize_STRLEN(self, op):
@@ -476,8 +481,11 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self, mode)
-        self.make_equal_to(op.result, self.getvalue(lengthbox))
+        lengthbox = value.getstrlen(self, mode, op.result)
+        if op.result in self.optimizer.values:
+            assert self.getvalue(op.result) is self.getvalue(lengthbox)
+        elif op.result is not lengthbox:
+            self.make_equal_to(op.result, self.getvalue(lengthbox))
 
     def optimize_COPYSTRCONTENT(self, op):
         self._optimize_COPYSTRCONTENT(op, mode_string)
@@ -596,8 +604,8 @@ class OptString(optimizer.Optimization):
         v1 = self.getvalue(op.getarg(1))
         v2 = self.getvalue(op.getarg(2))
         #
-        l1box = v1.getstrlen(None, mode)
-        l2box = v2.getstrlen(None, mode)
+        l1box = v1.getstrlen(None, mode, None)
+        l2box = v2.getstrlen(None, mode, None)
         if (l1box is not None and l2box is not None and
             isinstance(l1box, ConstInt) and
             isinstance(l2box, ConstInt) and
@@ -626,15 +634,15 @@ class OptString(optimizer.Optimization):
         return False
 
     def handle_str_equal_level1(self, v1, v2, resultbox, mode):
-        l2box = v2.getstrlen(None, mode)
+        l2box = v2.getstrlen(None, mode, None)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                lengthbox = v1.getstrlen(self, mode)
+                lengthbox = v1.getstrlen(self, mode, None)
                 seo = self.optimizer.send_extra_operation
                 seo(ResOperation(rop.INT_EQ, [lengthbox, CONST_0], resultbox))
                 return True
             if l2box.value == 1:
-                l1box = v1.getstrlen(None, mode)
+                l1box = v1.getstrlen(None, mode, None)
                 if isinstance(l1box, ConstInt) and l1box.value == 1:
                     # comparing two single chars
                     vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
@@ -670,7 +678,7 @@ class OptString(optimizer.Optimization):
         return False
 
     def handle_str_equal_level2(self, v1, v2, resultbox, mode):
-        l2box = v2.getstrlen(None, mode)
+        l2box = v2.getstrlen(None, mode, None)
         if isinstance(l2box, ConstInt):
             if l2box.value == 1:
                 vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)

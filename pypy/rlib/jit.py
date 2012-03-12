@@ -395,7 +395,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'retrace_limit': 5,
               'max_retrace_guards': 15,
               'enable_opts': 'all',
-              'decay_halflife': 40,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 DEFAULT = object()

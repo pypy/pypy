@@ -3,7 +3,7 @@ from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, Shor
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.inliner import Inliner
@@ -51,10 +51,10 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     inline_short_preamble = True
-    did_import = False
     
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
+        self.boxes_created_this_iteration = None
 
     def fix_snapshot(self, jump_args, snapshot):
         if snapshot is None:
@@ -71,7 +71,6 @@ class UnrollOptimizer(Optimization):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
-
         start_label = loop.operations[0]
         if start_label.getopnum() == rop.LABEL:
             loop.operations = loop.operations[1:]
@@ -82,7 +81,7 @@ class UnrollOptimizer(Optimization):
             start_label = None            
 
         jumpop = loop.operations[-1]
-        if jumpop.getopnum() == rop.JUMP:
+        if jumpop.getopnum() == rop.JUMP or jumpop.getopnum() == rop.LABEL:
             loop.operations = loop.operations[:-1]
         else:
             jumpop = None
@@ -91,48 +90,87 @@ class UnrollOptimizer(Optimization):
         self.optimizer.propagate_all_forward(clear=False)
 
         if not jumpop:
-            return 
-        if self.jump_to_already_compiled_trace(jumpop):
-            # Found a compiled trace to jump to
-            if self.did_import:
-
-                self.close_bridge(start_label)
-                self.finilize_short_preamble(start_label)
             return
 
         cell_token = jumpop.getdescr()
         assert isinstance(cell_token, JitCellToken)
         stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
 
-        if not self.did_import: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
-            self.optimizer.flush()
-            KillHugeIntBounds(self.optimizer).apply()
+        
+        if jumpop.getopnum() == rop.JUMP:
+            if self.jump_to_already_compiled_trace(jumpop):
+                # Found a compiled trace to jump to
+                if self.short:
+                    # Construct our short preamble
+                    assert start_label
+                    self.close_bridge(start_label)
+                return
 
-            loop.operations = self.optimizer.get_newoperations()
-            self.export_state(stop_label)
-            loop.operations.append(stop_label)            
-        else:
-            assert stop_label
+            if start_label and self.jump_to_start_label(start_label, stop_label):
+                # Initial label matches, jump to it
+                jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
+                                      descr=start_label.getdescr())
+                if self.short:
+                    # Construct our short preamble
+                    self.close_loop(start_label, jumpop)
+                else:
+                    self.optimizer.send_extra_operation(jumpop)
+                return
+
+            if cell_token.target_tokens:
+                limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
+                if cell_token.retraced_count < limit:
+                    cell_token.retraced_count += 1
+                    debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
+                else:
+                    debug_print("Retrace count reached, jumping to preamble")
+                    assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop.setdescr(cell_token.target_tokens[0])
+                    self.optimizer.send_extra_operation(jumpop)
+                    return
+
+        # Found nothing to jump to, emit a label instead
+        
+        if self.short:
+            # Construct our short preamble
             assert start_label
-            stop_target = stop_label.getdescr()
-            start_target = start_label.getdescr()
-            assert isinstance(stop_target, TargetToken)
-            assert isinstance(start_target, TargetToken)
-            assert stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
-            jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=start_label.getdescr())
+            self.close_bridge(start_label)
 
-            self.close_loop(jumpop)
-            self.finilize_short_preamble(start_label)
+        self.optimizer.flush()
+        KillHugeIntBounds(self.optimizer).apply()
+
+        loop.operations = self.optimizer.get_newoperations()
+        self.export_state(stop_label)
+        loop.operations.append(stop_label)
+
+    def jump_to_start_label(self, start_label, stop_label):
+        if not start_label or not stop_label:
+            return False
+        
+        stop_target = stop_label.getdescr()
+        start_target = start_label.getdescr()
+        assert isinstance(stop_target, TargetToken)
+        assert isinstance(start_target, TargetToken)
+        if stop_target.targeting_jitcell_token is not start_target.targeting_jitcell_token:
+            return False
+
+        return True
+
+        #args = stop_label.getarglist()
+        #modifier = VirtualStateAdder(self.optimizer)
+        #virtual_state = modifier.get_virtual_state(args)
+        #if self.initial_virtual_state.generalization_of(virtual_state):
+        #    return True
+        
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
         jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
-        assert self.optimizer.loop.start_resumedescr
-        start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
-        assert isinstance(start_resumedescr, ResumeGuardDescr)
-        start_resumedescr.rd_snapshot = self.fix_snapshot(jump_args, start_resumedescr.rd_snapshot)
-        # FIXME: I dont thnik we need fix_snapshot anymore
+        assert self.optimizer.loop.resume_at_jump_descr
+        resume_at_jump_descr = self.optimizer.loop.resume_at_jump_descr.clone_if_mutable()
+        assert isinstance(resume_at_jump_descr, ResumeGuardDescr)
+        resume_at_jump_descr.rd_snapshot = self.fix_snapshot(jump_args, resume_at_jump_descr.rd_snapshot)
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
@@ -141,26 +179,21 @@ class UnrollOptimizer(Optimization):
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
 
-        constant_inputargs = {}
-        for box in jump_args: 
-            const = self.get_constant_box(box)
-            if const:
-                constant_inputargs[box] = const
 
-        short_boxes = ShortBoxes(self.optimizer, inputargs + constant_inputargs.keys())
-        aliased_vrituals = {}
-        for i in range(len(original_jump_args)):
-            if original_jump_args[i] is not jump_args[i]:
-                if values[i].is_virtual():
-                    aliased_vrituals[original_jump_args[i]] = jump_args[i] 
-                else:
-                    short_boxes.alias(original_jump_args[i], jump_args[i])
+        if self.boxes_created_this_iteration is not None:
+            for box in self.inputargs:
+                self.boxes_created_this_iteration[box] = True
+
+        short_boxes = ShortBoxes(self.optimizer, inputargs,
+                                 self.boxes_created_this_iteration)
 
         self.optimizer.clear_newoperations()
-        for box in short_inputargs:
-            value = self.getvalue(box)
-            if value.is_virtual():
-                value.force_box(self.optimizer)
+        for i in range(len(original_jump_args)):
+            if values[i].is_virtual():
+                values[i].force_box(self.optimizer)
+            if original_jump_args[i] is not jump_args[i]:
+                op = ResOperation(rop.SAME_AS, [jump_args[i]], original_jump_args[i])
+                self.optimizer.emit_operation(op)
         inputarg_setup_ops = self.optimizer.get_newoperations()
 
         target_token = targetop.getdescr()
@@ -168,78 +201,76 @@ class UnrollOptimizer(Optimization):
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
-        target_token.start_resumedescr = start_resumedescr
-        target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
-                                                    inputarg_setup_ops, self.optimizer,
-                                                    aliased_vrituals, jump_args)
+        target_token.resume_at_jump_descr = resume_at_jump_descr
+
+        exported_values = {}
+        for box in inputargs:
+            exported_values[box] = self.optimizer.getvalue(box)
+        for op in short_boxes.operations():
+            if op and op.result:
+                box = op.result
+                exported_values[box] = self.optimizer.getvalue(box)
+            
+        target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
+                                                    exported_values)
 
     def import_state(self, targetop):
-        self.did_import = False
-        if not targetop:
-            # FIXME: Set up some sort of empty state with no virtuals?
+        if not targetop: # Trace did not start with a label
+            self.inputargs = self.optimizer.loop.inputargs
+            self.short = None
+            self.initial_virtual_state = None
             return
+
+        self.inputargs = targetop.getarglist()
         target_token = targetop.getdescr()
-        if not target_token:
-            return
         assert isinstance(target_token, TargetToken)
         exported_state = target_token.exported_state
         if not exported_state:
-            # FIXME: Set up some sort of empty state with no virtuals
+            # No state exported, construct one without virtuals
+            self.short = None
+            modifier = VirtualStateAdder(self.optimizer)
+            virtual_state = modifier.get_virtual_state(self.inputargs)
+            self.initial_virtual_state = virtual_state
             return
-        self.did_import = True
         
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
-        self.short_boxes = exported_state.short_boxes.clone()
-        for box, const in exported_state.constant_inputargs.items():
-            self.short_seen[box] = True
-        self.imported_state = exported_state
-        self.inputargs = targetop.getarglist()
+        self.short_boxes = exported_state.short_boxes
+        self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
         self.initial_virtual_state = target_token.virtual_state
-        self.start_resumedescr = target_token.start_resumedescr
 
         seen = {}
         for box in self.inputargs:
             if box in seen:
                 continue
             seen[box] = True
-            preamble_value = exported_state.optimizer.getvalue(box)
+            preamble_value = exported_state.exported_values[box]
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
 
-        for newbox, oldbox in self.short_boxes.aliases.items():
-            self.optimizer.make_equal_to(newbox, self.optimizer.getvalue(oldbox))
-        
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
         self.optimizer.emitting_dissabled = True
         for op in exported_state.inputarg_setup_ops:
             self.optimizer.send_extra_operation(op)
+
         seen = {}
-        
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.result:
-                preamble_value = exported_state.optimizer.getvalue(op.result)
+                preamble_value = exported_state.exported_values[op.result]
                 value = self.optimizer.getvalue(op.result)
                 if not value.is_virtual():
                     imp = ValueImporter(self, preamble_value, op)
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
                 newresult = newvalue.get_key_box()
-                if newresult is not op.result and not newvalue.is_constant():
-                    self.short_boxes.alias(newresult, op.result)
-                    op = ResOperation(rop.SAME_AS, [op.result], newresult)
-                    self.optimizer._newoperations = [op] + self.optimizer._newoperations # XXX
-                    #self.optimizer.getvalue(op.result).box = op.result # FIXME: HACK!!!
+                assert newresult is op.result or newvalue.is_constant()
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
-        for box, key_box in exported_state.aliased_vrituals.items():
-            self.optimizer.make_equal_to(box, self.getvalue(key_box))
-
     def close_bridge(self, start_label):
-        inputargs = self.inputargs        
+        inputargs = self.inputargs
         short_jumpargs = inputargs[:]
 
         # We dont need to inline the short preamble we are creating as we are conneting
@@ -249,8 +280,6 @@ class UnrollOptimizer(Optimization):
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = 0
-        while newoperations[i].getopnum() != rop.LABEL:
-            i += 1
         while i < len(newoperations):
             op = newoperations[i]
             self.boxes_created_this_iteration[op.result] = True
@@ -262,11 +291,11 @@ class UnrollOptimizer(Optimization):
             i += 1
             newoperations = self.optimizer.get_newoperations()
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
-        
-    def close_loop(self, jumpop):
+        self.finilize_short_preamble(start_label)
+
+    def close_loop(self, start_label, jumpop):
         virtual_state = self.initial_virtual_state
         short_inputargs = self.short[0].getarglist()
-        constant_inputargs = self.imported_state.constant_inputargs
         inputargs = self.inputargs
         short_jumpargs = inputargs[:]
 
@@ -289,8 +318,6 @@ class UnrollOptimizer(Optimization):
                     raise InvalidLoop
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        for box, const in constant_inputargs.items():
-            self.short_inliner.argmap[box] = const
         for op in self.short[1:]:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
@@ -299,8 +326,6 @@ class UnrollOptimizer(Optimization):
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = j = 0
-        while newoperations[i].getopnum() != rop.LABEL:
-            i += 1
         while i < len(newoperations) or j < len(jumpargs):
             if i == len(newoperations):
                 while j < len(jumpargs):
@@ -353,6 +378,8 @@ class UnrollOptimizer(Optimization):
             assert isinstance(target_token, TargetToken)
             target_token.targeting_jitcell_token.retraced_count = sys.maxint
             
+        self.finilize_short_preamble(start_label)
+            
     def finilize_short_preamble(self, start_label):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
@@ -365,7 +392,7 @@ class UnrollOptimizer(Optimization):
             if op.is_guard():
                 op = op.clone()
                 op.setfailargs(None)
-                descr = target_token.start_resumedescr.clone_if_mutable()
+                descr = target_token.resume_at_jump_descr.clone_if_mutable()
                 op.setdescr(descr)
                 short[i] = op
 
@@ -381,13 +408,11 @@ class UnrollOptimizer(Optimization):
                 newargs[i] = a.clonebox()
                 boxmap[a] = newargs[i]
         inliner = Inliner(short_inputargs, newargs)
-        for box, const in self.imported_state.constant_inputargs.items():
-            inliner.argmap[box] = const
         for i in range(len(short)):
             short[i] = inliner.inline_op(short[i])
 
-        target_token.start_resumedescr = self.start_resumedescr.clone_if_mutable()            
-        inliner.inline_descr_inplace(target_token.start_resumedescr)
+        target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
+        inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
         # Forget the values to allow them to be freed
         for box in short[0].getarglist():
@@ -397,31 +422,6 @@ class UnrollOptimizer(Optimization):
                 op.result.forget_value()
         target_token.short_preamble = self.short
         target_token.exported_state = None
-
-        
-    def FIXME_old_stuff():
-            preamble_optimizer = self.optimizer
-            loop.preamble.quasi_immutable_deps = (
-                self.optimizer.quasi_immutable_deps)
-            self.optimizer = self.optimizer.new()
-            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
-
-            
-            loop.inputargs = inputargs
-            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box(preamble_optimizer)\
-                    for a in inputargs]
-            jmp = ResOperation(rop.JUMP, args, None)
-            jmp.setdescr(loop.token)
-            loop.preamble.operations.append(jmp)
-
-            loop.operations = self.optimizer.get_newoperations()
-            maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
-            
-            if self.optimizer.emitted_guards > maxguards:
-                loop.preamble.token.retraced_count = sys.maxint
-
-            if short:
-                pass
 
     def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
@@ -450,7 +450,7 @@ class UnrollOptimizer(Optimization):
             if not isinstance(a, Const) and a not in self.short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), emit, guards_needed)
         if op.is_guard():
-            descr = self.start_resumedescr.clone_if_mutable()
+            descr = self.short_resume_at_jump_descr.clone_if_mutable()
             op.setdescr(descr)
 
         if guards_needed and self.short_boxes.has_producer(op.result):
@@ -549,7 +549,7 @@ class UnrollOptimizer(Optimization):
 
                 for guard in extra_guards:
                     if guard.is_guard():
-                        descr = target.start_resumedescr.clone_if_mutable()
+                        descr = target.resume_at_jump_descr.clone_if_mutable()
                         inliner.inline_descr_inplace(descr)
                         guard.setdescr(descr)
                     self.optimizer.send_extra_operation(guard)
@@ -566,20 +566,7 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.send_extra_operation(jumpop)
                 return True
         debug_stop('jit-log-virtualstate')
-
-        if self.did_import:
-            return False
-        limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-        if cell_token.retraced_count<limit:
-            cell_token.retraced_count += 1
-            debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
-            return False
-        else:
-            debug_print("Retrace count reached, jumping to preamble")
-            assert cell_token.target_tokens[0].virtual_state is None
-            jumpop.setdescr(cell_token.target_tokens[0])
-            self.optimizer.send_extra_operation(jumpop)
-            return True
+        return False
 
 class ValueImporter(object):
     def __init__(self, unroll, value, op):
@@ -592,12 +579,7 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer, aliased_vrituals,
-                 jump_args):
-        self.constant_inputargs = constant_inputargs
+    def __init__(self, short_boxes, inputarg_setup_ops, exported_values):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
-        self.optimizer = optimizer
-        self.aliased_vrituals = aliased_vrituals
-        self.jump_args = jump_args
+        self.exported_values = exported_values
