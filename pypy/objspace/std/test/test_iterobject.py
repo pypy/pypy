@@ -39,7 +39,7 @@ class TestW_IterObject:
 class AppTestW_IterObjectApp:
     def test_user_iter(self):
         class C(object):
-            def next(self):
+            def __next__(self):
                 raise StopIteration
             def __iter__(self):
                 return self
@@ -49,7 +49,7 @@ class AppTestW_IterObjectApp:
         class C(object):
             def __getitem__(self, i):
                 return range(2)[i]
-        assert list(C()) == range(2)
+        assert list(C()) == list(range(2))
 
     def test_iter_fail_noseq(self):
         class C(object):
@@ -82,13 +82,16 @@ class AppTest_IterObject(object):
         raises(TypeError, len, it)
 
     def test_no_len_on_UserList_iter(self):
-        from UserList import UserList
+        class UserList(object):
+            def __init__(self, i):
+                self.i = i
+            def __getitem__(self, i):
+                return range(self.i)[i]
         iterable = UserList([1,2,3,4])
         raises(TypeError, len, iter(iterable))
 
     def test_no_len_on_UserList_reversed(self):
-        from UserList import UserList
-        iterable = UserList([1,2,3,4])
+        iterable = [1,2,3,4]
         raises(TypeError, len, reversed(iterable))
 
     def test_no_len_on_set_iter(self):
@@ -96,5 +99,5 @@ class AppTest_IterObject(object):
         raises(TypeError, len, iter(iterable))
 
     def test_no_len_on_xrange(self):
-        iterable = xrange(10)
+        iterable = range(10)
         raises(TypeError, len, iter(iterable))
