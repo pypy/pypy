@@ -167,14 +167,11 @@ class AppTestDtypes(BaseNumpyAppTest):
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
 
-    def test_new(self):
-        import _numpypy as np
-        assert np.int_(4) == 4
-        assert np.float_(3.4) == 3.4
+    def test_aliases(self):
+        from _numpypy import dtype
 
-    def test_pow(self):
-        from _numpypy import int_
-        assert int_(4) ** 2 == 16
+        assert dtype("float") is dtype(float)
+
 
 class AppTestTypes(BaseNumpyAppTest):
     def test_abstract_types(self):
@@ -189,6 +186,15 @@ class AppTestTypes(BaseNumpyAppTest):
 
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
+
+    def test_new(self):
+        import _numpypy as np
+        assert np.int_(4) == 4
+        assert np.float_(3.4) == 3.4
+
+    def test_pow(self):
+        from _numpypy import int_
+        assert int_(4) ** 2 == 16
 
     def test_bool(self):
         import _numpypy as numpy
@@ -319,7 +325,7 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             raises(OverflowError, numpy.int64, 9223372036854775807)
             raises(OverflowError, numpy.int64, '9223372036854775807')
-        
+
         raises(OverflowError, numpy.int64, 9223372036854775808)
         raises(OverflowError, numpy.int64, '9223372036854775808')
 

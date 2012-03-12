@@ -216,21 +216,21 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
 
 def _unicode_join_many_items(space, w_self, list_w, size):
     self = w_self._value
-    prealloc_size = 0
+    prealloc_size = len(self) * (size - 1)
     for i in range(size):
-        prealloc_size += len(space.unicode_w(list_w[i]))
-    sb = UnicodeBuilder(prealloc_size)
-    for i in range(size):
-        if self and i != 0:
-            sb.append(self)
-        w_s = list_w[i]
         try:
-            sb.append(space.unicode_w(w_s))
+            prealloc_size += len(space.unicode_w(list_w[i]))
         except OperationError, e:
             if not e.match(space, space.w_TypeError):
                 raise
             raise operationerrfmt(space.w_TypeError,
                         "sequence item %d: expected string or Unicode", i)
+    sb = UnicodeBuilder(prealloc_size)
+    for i in range(size):
+        if self and i != 0:
+            sb.append(self)
+        w_s = list_w[i]
+        sb.append(space.unicode_w(w_s))
     return space.wrap(sb.build())
 
 def hash__Unicode(space, w_uni):

@@ -283,3 +283,13 @@ def test_parse_log_counts():
     assert loops[-1].count == 1234
     assert loops[1].count == 123
     assert loops[2].count == 12
+
+def test_parse_nonpython():
+    loop = parse("""
+    []
+    debug_merge_point(0, 'random')
+    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
+    """)
+    f = Function.from_operations(loop.operations, LoopStorage())
+    assert f.chunks[-1].filename == 'x.py'
+    assert f.filename is None

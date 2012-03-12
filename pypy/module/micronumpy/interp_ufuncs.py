@@ -249,15 +249,16 @@ class W_Ufunc1(W_Ufunc):
 
 
 class W_Ufunc2(W_Ufunc):
-    _immutable_fields_ = ["comparison_func", "func", "name"]
+    _immutable_fields_ = ["comparison_func", "func", "name", "int_only"]
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None, comparison_func=False):
+        identity=None, comparison_func=False, int_only=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
         self.comparison_func = comparison_func
+        self.int_only = int_only
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
@@ -268,6 +269,7 @@ class W_Ufunc2(W_Ufunc):
         w_rhs = convert_to_array(space, w_rhs)
         calc_dtype = find_binop_result_dtype(space,
             w_lhs.find_dtype(), w_rhs.find_dtype(),
+            int_only=self.int_only,
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools,
         )
@@ -304,10 +306,12 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
-    promote_bools=False):
+    promote_bools=False, int_only=False):
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
+    if int_only and (not dt1.is_int_type() or not dt2.is_int_type()):
+        raise OperationError(space.w_TypeError, space.wrap("Unsupported types"))
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
         return interp_dtype.get_dtype_cache(space).w_int8dtype
@@ -425,6 +429,10 @@ class UfuncState(object):
             ("add", "add", 2, {"identity": 0}),
             ("subtract", "sub", 2),
             ("multiply", "mul", 2, {"identity": 1}),
+            ("bitwise_and", "bitwise_and", 2, {"identity": 1,
+                                               'int_only': True}),
+            ("bitwise_or", "bitwise_or", 2, {"identity": 0,
+                                             'int_only': True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),
@@ -449,6 +457,7 @@ class UfuncState(object):
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
+            ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
@@ -475,7 +484,7 @@ class UfuncState(object):
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
-            comparison_func=extra_kwargs.get("comparison_func", False)
+            comparison_func=extra_kwargs.get("comparison_func", False),
         )
         if argcount == 1:
             ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)

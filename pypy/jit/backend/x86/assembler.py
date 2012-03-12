@@ -2042,10 +2042,7 @@ class Assembler386(object):
         size = sizeloc.value
         signloc = arglocs[1]
 
-        if isinstance(op.getarg(0), Const):
-            x = imm(op.getarg(0).getint())
-        else:
-            x = arglocs[2]
+        x = arglocs[2]     # the function address
         if x is eax:
             tmp = ecx
         else:
