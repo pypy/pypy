@@ -2697,7 +2697,7 @@ class BasicTests:
         # bridge back to the preamble of the first loop is produced. A guard in
         # this bridge is later traced resulting in a failed attempt of retracing
         # the second loop.
-        self.check_trace_count(8)
+        self.check_trace_count(9)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
 

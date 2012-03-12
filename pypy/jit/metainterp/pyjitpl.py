@@ -976,10 +976,13 @@ class MIFrame(object):
         self.verify_green_args(jitdriver_sd, greenboxes)
         self.debug_merge_point(jitdriver_sd, jdindex, self.metainterp.in_recursion,
                                greenboxes)
-
+        
         if self.metainterp.seen_loop_header_for_jdindex < 0:
-            if not jitdriver_sd.no_loop_header or not any_operation:
+            if not any_operation:
                 return
+            if self.metainterp.in_recursion or not self.metainterp.get_procedure_token(greenboxes, True):
+                if not jitdriver_sd.no_loop_header:
+                    return
             # automatically add a loop_header if there is none
             self.metainterp.seen_loop_header_for_jdindex = jdindex
         #
@@ -2053,9 +2056,15 @@ class MetaInterp(object):
             from pypy.jit.metainterp.resoperation import opname
             raise NotImplementedError(opname[opnum])
 
-    def get_procedure_token(self, greenkey):
+    def get_procedure_token(self, greenkey, with_compiled_targets=False):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        return cell.get_procedure_token()
+        token = cell.get_procedure_token()
+        if with_compiled_targets:
+            if not token:
+                return None
+            if not token.target_tokens:
+                return None
+        return token
         
     def compile_loop(self, original_boxes, live_arg_boxes, start, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -2088,10 +2097,8 @@ class MetaInterp(object):
     def compile_trace(self, live_arg_boxes, resume_at_jump_descr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        target_jitcell_token = self.get_procedure_token(greenkey)
+        target_jitcell_token = self.get_procedure_token(greenkey, True)
         if not target_jitcell_token:
-            return
-        if not target_jitcell_token.target_tokens:
             return
 
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,

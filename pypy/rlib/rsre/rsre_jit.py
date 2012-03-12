@@ -22,7 +22,7 @@ class RSreJitDriver(JitDriver):
                     info = '%s/%d' % (info, args[debugprint[2]])
             else:
                 info = ''
-            return '%s%s %s' % (name, info, s)
+            return 're %s%s %s' % (name, info, s)
         #
         self.get_printable_location = get_printable_location
 

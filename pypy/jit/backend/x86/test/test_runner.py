@@ -420,8 +420,8 @@ class TestX86(LLtypeBackendTest):
         debug._log = None
         #
         assert ops_offset is looptoken._x86_ops_offset
-        # getfield_raw/int_add/setfield_raw + ops + None
-        assert len(ops_offset) == 3 + len(operations) + 1
+        # 2*(getfield_raw/int_add/setfield_raw) + ops + None
+        assert len(ops_offset) == 2*3 + len(operations) + 1
         assert (ops_offset[operations[0]] <=
                 ops_offset[operations[1]] <=
                 ops_offset[operations[2]] <=
@@ -519,16 +519,23 @@ class TestDebuggingAssembler(object):
         from pypy.tool.logparser import parse_log_file, extract_category
         from pypy.rlib import debug
 
+        targettoken, preambletoken = TargetToken(), TargetToken()
         loop = """
         [i0]
-        label(i0, descr=targettoken)
+        label(i0, descr=preambletoken)
         debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
-        jump(i1, descr=targettoken)
+        label(i1, descr=targettoken)
+        debug_merge_point('xyz', 0)
+        i11 = int_add(i1, 1)
+        i12 = int_ge(i11, 10)
+        guard_false(i12) []
+        jump(i11, descr=targettoken)
         """
-        ops = parse(loop, namespace={'targettoken': TargetToken()})
+        ops = parse(loop, namespace={'targettoken': targettoken,
+                                     'preambletoken': preambletoken})
         debug._log = dlog = debug.DebugLog()
         try:
             self.cpu.assembler.set_debug(True)
@@ -537,11 +544,18 @@ class TestDebuggingAssembler(object):
             self.cpu.execute_token(looptoken, 0)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
-            assert struct.i == 10
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[1]
+            assert struct.i == 1
+            struct = self.cpu.assembler.loop_run_counters[2]
+            assert struct.i == 9
             self.cpu.finish_once()
         finally:
             debug._log = None
-        assert ('jit-backend-counts', [('debug_print', 'loop -1:10')]) in dlog
+        l0 = ('debug_print', 'entry -1:1')
+        l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
+        l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
+        assert ('jit-backend-counts', [l0, l1, l2]) in dlog
 
     def test_debugger_checksum(self):
         loop = """

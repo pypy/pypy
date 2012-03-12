@@ -4,6 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class PyPyModule(MixedModule):
     interpleveldefs = {
         'debug_repr': 'interp_extras.debug_repr',
+        'remove_invalidates': 'interp_extras.remove_invalidates',
     }
     appleveldefs = {}
 

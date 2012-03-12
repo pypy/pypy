@@ -265,7 +265,16 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
                 newresult = newvalue.get_key_box()
-                assert newresult is op.result or newvalue.is_constant()
+                # note that emitting here SAME_AS should not happen, but
+                # in case it does, we would prefer to be suboptimal in asm
+                # to a fatal RPython exception.
+                if newresult is not op.result and not newvalue.is_constant():
+                    op = ResOperation(rop.SAME_AS, [op.result], newresult)
+                    self.optimizer._newoperations.append(op)
+                    if self.optimizer.loop.logops:
+                        debug_print('  Falling back to add extra: ' +
+                                    self.optimizer.loop.logops.repr_of_resop(op))
+                    
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
@@ -430,7 +439,13 @@ class UnrollOptimizer(Optimization):
             return
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in seen:
-                self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer, seen)
+                self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer,
+                                             seen)
+
+        if self.optimizer.loop.logops:
+            debug_print('  Emitting short op: ' +
+                        self.optimizer.loop.logops.repr_of_resop(op))
+
         optimizer.send_extra_operation(op)
         seen[op.result] = True
         if op.is_ovf():

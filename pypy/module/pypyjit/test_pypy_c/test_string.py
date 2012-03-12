@@ -15,7 +15,7 @@ class TestString(BaseTestPyPyC):
                 i += letters[i % len(letters)] == uletters[i % len(letters)]
             return i
 
-        log = self.run(main, [300])
+        log = self.run(main, [300], import_site=True)
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
@@ -55,7 +55,7 @@ class TestString(BaseTestPyPyC):
                 i += int(long(string.digits[i % len(string.digits)], 16))
             return i
 
-        log = self.run(main, [1100])
+        log = self.run(main, [1100], import_site=True)
         assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""

@@ -102,3 +102,27 @@ class ViewIterator(BaseIterator):
 class ConstantIterator(BaseIterator):
     def next(self, shapelen):
         return self
+
+# ------ other iterators that are not part of the computation frame ----------
+
+class AxisIterator(object):
+    """ This object will return offsets of each start of the last stride
+    """
+    def __init__(self, arr):
+        self.arr = arr
+        self.indices = [0] * (len(arr.shape) - 1)
+        self.done = False
+        self.offset = arr.start
+
+    def next(self):
+        for i in range(len(self.arr.shape) - 2, -1, -1):
+            if self.indices[i] < self.arr.shape[i] - 1:
+                self.indices[i] += 1
+                self.offset += self.arr.strides[i]
+                break
+            else:
+                self.indices[i] = 0
+                self.offset -= self.arr.backstrides[i]
+        else:
+            self.done = True
+        

@@ -13,14 +13,14 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         if type is None:
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         else:
             debug_start("jit-log-opt-loop")
-            debug_print("# Loop", number, ":", type,
+            debug_print("# Loop", number, '(%s)' % name , ":", type,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
