@@ -509,26 +509,30 @@ class AppTestStringObject:
         # is removed after startup.
         import sys
         old_encoding = sys.getdefaultencoding()
-
         # Duplicate unittest.test_support.CleanImport logic because it won't
         # import.
         self.original_modules = sys.modules.copy()
-        for module_name in ['sys']:
-            if module_name in sys.modules:
-                module = sys.modules[module_name]
-                # It is possible that module_name is just an alias for
-                # another module (e.g. stub for modules renamed in 3.x).
-                # In that case, we also need delete the real module to clear
-                # the import cache.
-                if module.__name__ != module_name:
-                    del sys.modules[module.__name__]
-                del sys.modules[module_name]
-
-        import sys as temp_sys
-        temp_sys.setdefaultencoding('utf-8')
-        assert u''.join(['\xc3\xa1']) == u'\xe1'
-        temp_sys.setdefaultencoding(old_encoding)
-        sys.modules.update(self.original_modules)
+        try:
+            for module_name in ['sys']:
+                if module_name in sys.modules:
+                    module = sys.modules[module_name]
+                    # It is possible that module_name is just an alias for
+                    # another module (e.g. stub for modules renamed in 3.x).
+                    # In that case, we also need delete the real module to
+                    # clear the import cache.
+                    if module.__name__ != module_name:
+                        del sys.modules[module.__name__]
+                    del sys.modules[module_name]
+            import sys as temp_sys
+            temp_sys.setdefaultencoding('utf-8')
+            assert u''.join(['\xc3\xa1']) == u'\xe1'
+        finally:
+            try:
+                temp_sys.setdefaultencoding(old_encoding)
+            except NameError:
+                # It failed before we declared temp_sys
+                pass
+            sys.modules.update(self.original_modules)
 
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
