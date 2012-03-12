@@ -909,3 +909,17 @@ class TestOptimizations:
             return d['f'](5)
         """)
         assert 'generator' in space.str_w(space.repr(w_generator))
+        
+    def test_list_comprehension(self):
+        source = "def f(): [i for i in l]"
+        source2 = "def f(): [i for i in l for j in l]"
+        source3 = "def f(): [i for i in l if i]"
+        counts = self.count_instructions(source)
+        assert ops.BUILD_LIST not in counts
+        assert counts[ops.BUILD_LIST_FROM_ARG] == 1
+        counts = self.count_instructions(source2)
+        assert counts[ops.BUILD_LIST] == 1
+        assert ops.BUILD_LIST_FROM_ARG not in counts
+        counts = self.count_instructions(source3)
+        assert counts[ops.BUILD_LIST] == 1
+        assert ops.BUILD_LIST_FROM_ARG not in counts

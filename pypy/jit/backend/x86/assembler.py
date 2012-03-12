@@ -88,7 +88,6 @@ class Assembler386(object):
         self._debug = False
         self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
         self.fail_boxes_count = 0
-        self._current_depths_cache = (0, 0)
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
@@ -442,10 +441,8 @@ class Assembler386(object):
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         clt.frame_depth = -1     # temporarily
-        clt.param_depth = -1     # temporarily
-        frame_depth, param_depth = self._assemble(regalloc, operations)
+        frame_depth = self._assemble(regalloc, operations)
         clt.frame_depth = frame_depth
-        clt.param_depth = param_depth
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
@@ -459,8 +456,7 @@ class Assembler386(object):
             rawstart + size_excluding_failure_stuff,
             rawstart))
         debug_stop("jit-backend-addr")
-        self._patch_stackadjust(rawstart + stackadjustpos,
-                                frame_depth + param_depth)
+        self._patch_stackadjust(rawstart + stackadjustpos, frame_depth)
         self.patch_pending_failure_recoveries(rawstart)
         #
         ops_offset = self.mc.ops_offset
@@ -500,14 +496,13 @@ class Assembler386(object):
             assert ([loc.assembler() for loc in arglocs] ==
                     [loc.assembler() for loc in faildescr._x86_debug_faillocs])
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        fail_depths = faildescr._x86_current_depths
         startpos = self.mc.get_relative_pos()
-        operations = regalloc.prepare_bridge(fail_depths, inputargs, arglocs,
+        operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs)
 
         stackadjustpos = self._patchable_stackadjust()
-        frame_depth, param_depth = self._assemble(regalloc, operations)
+        frame_depth = self._assemble(regalloc, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
@@ -517,19 +512,16 @@ class Assembler386(object):
         debug_print("bridge out of Guard %d has address %x to %x" %
                     (descr_number, rawstart, rawstart + codeendpos))
         debug_stop("jit-backend-addr")
-        self._patch_stackadjust(rawstart + stackadjustpos,
-                                frame_depth + param_depth)
+        self._patch_stackadjust(rawstart + stackadjustpos, frame_depth)
         self.patch_pending_failure_recoveries(rawstart)
         if not we_are_translated():
             # for the benefit of tests
             faildescr._x86_bridge_frame_depth = frame_depth
-            faildescr._x86_bridge_param_depth = param_depth
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
         self.fixup_target_tokens(rawstart)
         self.current_clt.frame_depth = max(self.current_clt.frame_depth, frame_depth)
-        self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -700,15 +692,12 @@ class Assembler386(object):
         regalloc.walk_operations(operations)
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
-        frame_depth = regalloc.fm.get_frame_depth()
-        param_depth = regalloc.param_depth
+        frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
             target_frame_depth = jump_target_descr._x86_clt.frame_depth
-            target_param_depth = jump_target_descr._x86_clt.param_depth
             frame_depth = max(frame_depth, target_frame_depth)
-            param_depth = max(param_depth, target_param_depth)
-        return frame_depth, param_depth
+        return frame_depth
 
     def _patchable_stackadjust(self):
         # stack adjustment LEA
@@ -892,10 +881,9 @@ class Assembler386(object):
         genop_math_list[oopspecindex](self, op, arglocs, resloc)
 
     def regalloc_perform_with_guard(self, op, guard_op, faillocs,
-                                    arglocs, resloc, current_depths):
+                                    arglocs, resloc):
         faildescr = guard_op.getdescr()
         assert isinstance(faildescr, AbstractFailDescr)
-        faildescr._x86_current_depths = current_depths
         failargs = guard_op.getfailargs()
         guard_opnum = guard_op.getopnum()
         guard_token = self.implement_guard_recovery(guard_opnum,
@@ -911,10 +899,9 @@ class Assembler386(object):
             # must be added by the genop_guard_list[]()
             assert guard_token is self.pending_guard_tokens[-1]
 
-    def regalloc_perform_guard(self, guard_op, faillocs, arglocs, resloc,
-                               current_depths):
+    def regalloc_perform_guard(self, guard_op, faillocs, arglocs, resloc):
         self.regalloc_perform_with_guard(None, guard_op, faillocs, arglocs,
-                                         resloc, current_depths)
+                                         resloc)
 
     def load_effective_addr(self, sizereg, baseofs, scale, result, frm=imm0):
         self.mc.LEA(result, addr_add(frm, sizereg, baseofs, scale))
@@ -1038,13 +1025,14 @@ class Assembler386(object):
                     self.mc.MOV(tmp, loc)
                     self.mc.MOV_sr(p, tmp.value)
             p += loc.get_width()
-        self._regalloc.reserve_param(p//WORD)
         # x is a location
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
         #
         if callconv != FFI_DEFAULT_ABI:
             self._fix_stdcall(callconv, p)
+        #
+        self._regalloc.needed_extra_stack_locations(p//WORD)
 
     def _fix_stdcall(self, callconv, p):
         from pypy.rlib.clibffi import FFI_STDCALL
@@ -1127,9 +1115,9 @@ class Assembler386(object):
             x = r10
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
 
-        self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
+        self._regalloc.needed_extra_stack_locations(len(pass_on_stack))
 
     def call(self, addr, args, res):
         force_index = self.write_new_force_index()
@@ -2136,7 +2124,6 @@ class Assembler386(object):
             if reg in save_registers:
                 self.mc.MOV_sr(p, reg.value)
                 p += WORD
-        self._regalloc.reserve_param(p//WORD)
         #
         if gcrootmap.is_shadow_stack:
             args = []
@@ -2192,6 +2179,7 @@ class Assembler386(object):
             if reg in save_registers:
                 self.mc.MOV_rs(reg.value, p)
                 p += WORD
+        self._regalloc.needed_extra_stack_locations(p//WORD)
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result (eax/xmm0) into the stack temporarily.
@@ -2199,7 +2187,6 @@ class Assembler386(object):
         # to save xmm0 in this case.
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_sr(WORD, save_loc.value)
-            self._regalloc.reserve_param(2)
         # call the reopenstack() function (also reacquiring the GIL)
         if gcrootmap.is_shadow_stack:
             args = []
@@ -2219,6 +2206,7 @@ class Assembler386(object):
         # restore the result from the stack
         if isinstance(save_loc, RegLoc) and not save_loc.is_xmm:
             self.mc.MOV_rs(save_loc.value, WORD)
+            self._regalloc.needed_extra_stack_locations(2)
 
     def genop_guard_call_assembler(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
@@ -2495,11 +2483,6 @@ class Assembler386(object):
         # copy of heap(nursery_free_adr), so that the final MOV below is
         # a no-op.
 
-        # reserve room for the argument to the real malloc and the
-        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
-        # word)
-        self._regalloc.reserve_param(1+16)
-
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
         if not shadow_stack:
@@ -2509,6 +2492,11 @@ class Assembler386(object):
         self.mark_gc_roots(self.write_new_force_index(), use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
+
+        # reserve room for the argument to the real malloc and the
+        # saved XMM regs (on 32 bit: 8 * 2 words; on 64 bit: 16 * 1
+        # word)
+        self._regalloc.needed_extra_stack_locations(1+16)
 
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127

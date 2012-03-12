@@ -130,30 +130,46 @@ def print_help(*args):
         sys.executable,)
     print __doc__.rstrip()
     if 'pypyjit' in sys.builtin_module_names:
-        _print_jit_help()
+        print "  --jit OPTIONS  advanced JIT options: try 'off' or 'help'"
     print
     raise SystemExit
 
 def _print_jit_help():
-    import pypyjit
+    try:
+        import pypyjit
+    except ImportError:
+        print >> sys.stderr, "No jit support in %s" % (sys.executable,)
+        return
     items = pypyjit.defaults.items()
     items.sort()
+    print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
     for key, value in items:
-        prefix = '  --jit %s=N %s' % (key, ' '*(18-len(key)))
+        print
+        print ' %s=N' % (key,)
         doc = '%s (default %s)' % (pypyjit.PARAMETER_DOCS[key], value)
-        while len(doc) > 51:
-            i = doc[:51].rfind(' ')
-            print prefix + doc[:i]
+        while len(doc) > 72:
+            i = doc[:74].rfind(' ')
+            if i < 0:
+                i = doc.find(' ')
+                if i < 0:
+                    i = len(doc)
+            print '    ' + doc[:i]
             doc = doc[i+1:]
-            prefix = ' '*len(prefix)
-        print prefix + doc
-    print '  --jit off                  turn off the JIT'
+        print '    ' + doc
+    print
+    print ' off'
+    print '    turn off the JIT'
+    print ' help'
+    print '    print this page'
 
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
     raise SystemExit
 
 def set_jit_option(options, jitparam, *args):
+    if jitparam == 'help':
+        _print_jit_help()
+        raise SystemExit
     if 'pypyjit' not in sys.builtin_module_names:
         print >> sys.stderr, ("Warning: No jit support in %s" %
                               (sys.executable,))

@@ -449,6 +449,21 @@ class BaseTestRdict(BaseRtypingTest):
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+    def test_identity_hash_is_fast(self):
+        class A(object):
+            pass
+
+        def f():
+            return {A(): 1}
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        r_dict = rtyper.getrepr(s)
+        assert not hasattr(r_dict.lowleveltype.TO.entries.TO.OF, "f_hash")
+
     def test_tuple_dict(self):
         def f(i):
             d = {}

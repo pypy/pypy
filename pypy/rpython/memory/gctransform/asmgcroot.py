@@ -442,6 +442,8 @@ class AsmStackRootWalker(BaseRootWalker):
         ll_assert(location >= 0, "negative location")
         kind = location & LOC_MASK
         offset = location & ~ LOC_MASK
+        if IS_64_BITS:
+            offset <<= 1
         if kind == LOC_REG:   # register
             if location == LOC_NOWHERE:
                 return llmemory.NULL

@@ -434,7 +434,8 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t', 'wchar_t']
+          'size_t', 'time_t', 'wchar_t',
+          'uintptr_t', 'intptr_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -617,8 +618,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
-
-INTPTR_T = SSIZE_T
 
 # double
 DOUBLE = lltype.Float

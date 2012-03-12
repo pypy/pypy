@@ -233,20 +233,22 @@ def free_non_gc_object(obj):
 
 # ____________________________________________________________
 
-def newlist(sizehint=0):
+def newlist_hint(sizehint=0):
     """ Create a new list, but pass a hint how big the size should be
     preallocated
     """
     return []
 
 class Entry(ExtRegistryEntry):
-    _about_ = newlist
+    _about_ = newlist_hint
 
     def compute_result_annotation(self, s_sizehint):
         from pypy.annotation.model import SomeInteger
 
         assert isinstance(s_sizehint, SomeInteger)
-        return self.bookkeeper.newlist()
+        s_l = self.bookkeeper.newlist()
+        s_l.listdef.listitem.resize()
+        return s_l
 
     def specialize_call(self, orig_hop, i_sizehint=None):
         from pypy.rpython.rlist import rtype_newlist

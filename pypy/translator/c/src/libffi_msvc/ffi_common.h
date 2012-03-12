@@ -56,16 +56,18 @@ typedef struct
 } extended_cif;
 
 /* Terse sized type definitions.  */
-typedef unsigned int UINT8  __attribute__((__mode__(__QI__)));
-typedef signed int   SINT8  __attribute__((__mode__(__QI__)));
-typedef unsigned int UINT16 __attribute__((__mode__(__HI__)));
-typedef signed int   SINT16 __attribute__((__mode__(__HI__)));
-typedef unsigned int UINT32 __attribute__((__mode__(__SI__)));
-typedef signed int   SINT32 __attribute__((__mode__(__SI__)));
-typedef unsigned int UINT64 __attribute__((__mode__(__DI__)));
-typedef signed int   SINT64 __attribute__((__mode__(__DI__)));
+/* Fix for PyPy: these names are fine, but are bound to conflict with
+ * some other name from somewhere else :-(  Added a 'ffi_' prefix. */
+typedef unsigned int ffi_UINT8  __attribute__((__mode__(__QI__)));
+typedef signed int   ffi_SINT8  __attribute__((__mode__(__QI__)));
+typedef unsigned int ffi_UINT16 __attribute__((__mode__(__HI__)));
+typedef signed int   ffi_SINT16 __attribute__((__mode__(__HI__)));
+typedef unsigned int ffi_UINT32 __attribute__((__mode__(__SI__)));
+typedef signed int   ffi_SINT32 __attribute__((__mode__(__SI__)));
+typedef unsigned int ffi_UINT64 __attribute__((__mode__(__DI__)));
+typedef signed int   ffi_SINT64 __attribute__((__mode__(__DI__)));
 
-typedef float FLOAT32;
+typedef float ffi_FLOAT32;
 
 
 #ifdef __cplusplus

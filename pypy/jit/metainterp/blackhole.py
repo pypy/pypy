@@ -982,6 +982,15 @@ class BlackholeInterpreter(object):
         cpu.bh_setfield_gc_r(result, itemsdescr, items)
         return result
 
+    @arguments("cpu", "d", "d", "d", "d", "i", returns="r")
+    def bhimpl_newlist_hint(cpu, structdescr, lengthdescr, itemsdescr,
+                            arraydescr, lengthhint):
+        result = cpu.bh_new(structdescr)
+        cpu.bh_setfield_gc_i(result, lengthdescr, 0)
+        items = cpu.bh_new_array(arraydescr, lengthhint)
+        cpu.bh_setfield_gc_r(result, itemsdescr, items)
+        return result
+
     @arguments("cpu", "r", "d", "d", "i", returns="i")
     def bhimpl_getlistitem_gc_i(cpu, lst, itemsdescr, arraydescr, index):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
@@ -1379,7 +1388,8 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it did not used to overflow, but now it does.
-            return get_llexception(self.cpu, OverflowError())
+            if not dont_change_position:
+                return get_llexception(self.cpu, OverflowError())
         #
         elif opnum == rop.GUARD_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.

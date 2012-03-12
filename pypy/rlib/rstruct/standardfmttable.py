@@ -21,8 +21,7 @@ PACK_ACCEPTS_BROKEN_INPUT = True
 # ____________________________________________________________
 
 def pack_pad(fmtiter, count):
-    for i in range(count):
-        fmtiter.result.append('\x00')
+    fmtiter.result.append_multiple_char('\x00', count)
 
 def pack_char(fmtiter):
     string = fmtiter.accept_str_arg()
@@ -38,11 +37,10 @@ def pack_bool(fmtiter):
 def pack_string(fmtiter, count):
     string = fmtiter.accept_str_arg()
     if len(string) < count:
-        fmtiter.result += string
-        for i in range(len(string), count):
-            fmtiter.result.append('\x00')
+        fmtiter.result.append(string)
+        fmtiter.result.append_multiple_char('\x00', count - len(string))
     else:
-        fmtiter.result += string[:count]
+        fmtiter.result.append_slice(string, 0, count)
 
 def pack_pascal(fmtiter, count):
     string = fmtiter.accept_str_arg()
@@ -56,9 +54,8 @@ def pack_pascal(fmtiter, count):
     else:
         prefixchar = chr(prefix)
     fmtiter.result.append(prefixchar)
-    fmtiter.result += string[:prefix]
-    for i in range(1 + prefix, count):
-        fmtiter.result.append('\x00')
+    fmtiter.result.append_slice(string, 0, prefix)
+    fmtiter.result.append_multiple_char('\x00', count - (1 + prefix))
 
 def make_float_packer(size):
     def packer(fmtiter):

@@ -58,6 +58,7 @@ class TestGcRootMapAsmGcc:
         def frame_pos(n):
             return -4*(4+n)
         gcrootmap = GcRootMap_asmgcc()
+        gcrootmap.is_64_bit = False
         num1 = frame_pos(-5)
         num1a = num1|2
         num2 = frame_pos(55)
