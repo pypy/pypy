@@ -501,6 +501,35 @@ class AppTestStringObject:
         raises(TypeError, ''.join, [1])
         raises(TypeError, ''.join, [[1]])
 
+    def test_unicode_join_str_arg_ascii(self):
+        raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
+
+    def test_unicode_join_str_arg_utf8(self):
+        # Need default encoding utf-8, but sys.setdefaultencoding
+        # is removed after startup.
+        import sys
+        old_encoding = sys.getdefaultencoding()
+
+        # Duplicate unittest.test_support.CleanImport logic because it won't
+        # import.
+        self.original_modules = sys.modules.copy()
+        for module_name in ['sys']:
+            if module_name in sys.modules:
+                module = sys.modules[module_name]
+                # It is possible that module_name is just an alias for
+                # another module (e.g. stub for modules renamed in 3.x).
+                # In that case, we also need delete the real module to clear
+                # the import cache.
+                if module.__name__ != module_name:
+                    del sys.modules[module.__name__]
+                del sys.modules[module_name]
+
+        import sys as temp_sys
+        temp_sys.setdefaultencoding('utf-8')
+        assert u''.join(['\xc3\xa1']) == u'\xe1'
+        temp_sys.setdefaultencoding(old_encoding)
+        sys.modules.update(self.original_modules)
+
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural
         # iteration, in the 3rd position.
