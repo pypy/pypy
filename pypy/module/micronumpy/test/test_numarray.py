@@ -154,13 +154,18 @@ class TestNumArrayDirect(object):
 
     def test_calc_new_strides(self):
         from pypy.module.micronumpy.interp_numarray import calc_new_strides
-        assert calc_new_strides([2, 4], [4, 2], [4, 2]) == [8, 2]
-        assert calc_new_strides([2, 4, 3], [8, 3], [1, 16]) == [1, 2, 16]
-        assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
-        assert calc_new_strides([24], [2, 4, 3], [48, 6, 1]) is None
-        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2]) == [2]
-        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1]) == [1, 1]
-        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1]) == [105, 1]
+        assert calc_new_strides([2, 4], [4, 2], [4, 2], "C") == [8, 2]
+        assert calc_new_strides([2, 4, 3], [8, 3], [1, 16], 'F') == [1, 2, 16]
+        assert calc_new_strides([2, 3, 4], [8, 3], [1, 16], 'F') is None
+        assert calc_new_strides([24], [2, 4, 3], [48, 6, 1], 'C') is None
+        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2], 'C') == [2]
+        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1],'C') == [1, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],'C') == [105, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],'F') is None
+        assert calc_new_strides([1, 1, 1, 105, 1], [15, 7], [7, 1],'C') == \
+                                    [105, 105, 105, 1, 1]
+        assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
+                                    [1, 1, 1, 105, 105]
 
 
 class AppTestNumArray(BaseNumpyAppTest):
@@ -385,6 +390,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.shape = ()
         #numpy allows this
         a.shape = (1,)
+        a = array(range(6)).reshape(2,3).T
+        raises(AttributeError, 'a.shape = 6')
 
     def test_reshape(self):
         from _numpypy import array, zeros
@@ -728,7 +735,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from _numpypy import array
+        from _numpypy import array, arange
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
@@ -738,6 +745,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.mean(axis=0)[0, 0] == 35
         assert (b == array(range(35, 70), dtype=float).reshape(5, 7)).all()
         assert (a.mean(2) == array(range(0, 15), dtype=float).reshape(3, 5) * 7 + 3).all()
+        assert (arange(10).reshape(5, 2).mean(axis=1) == [0.5, 2.5, 4.5, 6.5, 8.5]).all()
 
     def test_sum(self):
         from _numpypy import array
@@ -1021,11 +1029,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[0].tolist() == [17.1, 27.2]
 
     def test_var(self):
-        from _numpypy import array
+        from _numpypy import array, arange
         a = array(range(10))
         assert a.var() == 8.25
         a = array([5.0])
         assert a.var() == 0.0
+        a = arange(10).reshape(5, 2)
+        assert a.var() == 8.25
+        #assert (a.var(0) == [8, 8]).all()
+        #assert (a.var(1) == [.25] * 5).all()
 
     def test_std(self):
         from _numpypy import array
@@ -1033,6 +1045,22 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.std() == 2.8722813232690143
         a = array([5.0])
         assert a.std() == 0.0
+
+    def test_flatten(self):
+        from _numpypy import array
+
+        a = array([[1, 2, 3], [4, 5, 6]])
+        assert (a.flatten() == [1, 2, 3, 4, 5, 6]).all()
+        a = array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+        assert (a.flatten() == [1, 2, 3, 4, 5, 6, 7, 8]).all()
+        a = array([1, 2, 3, 4, 5, 6, 7, 8])
+        assert (a[::2].flatten() == [1, 3, 5, 7]).all()
+        a = array([1, 2, 3])
+        assert ((a + a).flatten() == [2, 4, 6]).all()
+        a = array(2)
+        assert (a.flatten() == [2]).all()
+        a = array([[1, 2], [3, 4]])
+        assert (a.T.flatten() == [1, 3, 2, 4]).all()
 
 
 class AppTestMultiDim(BaseNumpyAppTest):

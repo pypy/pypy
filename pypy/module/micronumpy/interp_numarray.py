@@ -174,15 +174,17 @@ def get_shape_from_iterable(space, old_size, w_iterable):
 # fits the new shape, using those steps. If there is a shape/step mismatch
 # (meaning that the realignment of elements crosses from one step into another)
 # return None so that the caller can raise an exception.
-def calc_new_strides(new_shape, old_shape, old_strides):
+def calc_new_strides(new_shape, old_shape, old_strides, order):
+    # Return the proper strides for new_shape, or None if the mapping crosses
+    # stepping boundaries
+
     # Assumes that prod(old_shape) == prod(new_shape), len(old_shape) > 1, and
     # len(new_shape) > 0
     steps = []
     last_step = 1
     oldI = 0
     new_strides = []
-    if old_strides[0] < old_strides[-1]:
-        #Start at old_shape[0], old_stides[0]
+    if order == 'F':
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -199,12 +201,10 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI += 1
-                if oldI >= len(old_shape):
-                    continue
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
-    else:
-        #Start at old_shape[-1], old_strides[-1]
+                if oldI < len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
+    elif order == 'C':
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -223,10 +223,10 @@ def calc_new_strides(new_shape, old_shape, old_strides):
                 n_old_elems_to_use *= old_shape[oldI]
             if n_new_elems_used == n_old_elems_to_use:
                 oldI -= 1
-                if oldI < -len(old_shape):
-                    continue
-                cur_step = steps[oldI]
-                n_old_elems_to_use *= old_shape[oldI]
+                if oldI >= -len(old_shape):
+                    cur_step = steps[oldI]
+                    n_old_elems_to_use *= old_shape[oldI]
+    assert len(new_strides) == len(new_shape)
     return new_strides
 
 class BaseArray(Wrappable):
@@ -430,8 +430,14 @@ class BaseArray(Wrappable):
     def descr_copy(self, space):
         return self.copy(space)
 
+    def descr_flatten(self, space):
+        return self.flatten(space)
+
     def copy(self, space):
         return self.get_concrete().copy(space)
+
+    def flatten(self, space):
+        return self.get_concrete().flatten(space)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -625,8 +631,8 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space, concrete.size, w_shape)
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape,
-                                       concrete.shape, concrete.strides)
+        new_strides = calc_new_strides(new_shape, concrete.shape,
+                                     concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
             ndims = len(new_shape)
@@ -768,6 +774,11 @@ class Scalar(BaseArray):
 
     def copy(self, space):
         return Scalar(self.dtype, self.value)
+
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype)
+        array.setitem(0, self.value)
+        return array
 
     def fill(self, space, w_value):
         self.value = self.dtype.coerce(space, w_value)
@@ -914,14 +925,15 @@ class Call2(VirtualArray):
                                self.left.create_sig(), self.right.create_sig())
 
 class SliceArray(Call2):
-    def __init__(self, shape, dtype, left, right):
+    def __init__(self, shape, dtype, left, right, no_broadcast=False):
+        self.no_broadcast = no_broadcast
         Call2.__init__(self, None, 'sliceloop', shape, dtype, dtype, left,
                        right)
 
     def create_sig(self):
         lsig = self.left.create_sig()
         rsig = self.right.create_sig()
-        if self.shape != self.right.shape:
+        if not self.no_broadcast and self.shape != self.right.shape:
             return signature.SliceloopBroadcastSignature(self.ufunc,
                                                          self.name,
                                                          self.calc_dtype,
@@ -1150,6 +1162,15 @@ class ConcreteArray(BaseArray):
         array.setslice(space, self)
         return array
 
+    def flatten(self, space):
+        array = W_NDimArray(self.size, [self.size], self.dtype, self.order)
+        if self.supports_fast_slicing():
+            array._fast_setslice(space, self)
+        else:
+            arr = SliceArray(array.shape, array.dtype, array, self, no_broadcast=True)
+            array._sliceloop(arr)
+        return array
+
     def fill(self, space, w_value):
         self.setslice(space, scalar_w(space, self.dtype, w_value))
 
@@ -1200,7 +1221,8 @@ class W_NDimSlice(ViewArray):
             self.backstrides = backstrides
             self.shape = new_shape
             return
-        new_strides = calc_new_strides(new_shape, self.shape, self.strides)
+        new_strides = calc_new_strides(new_shape, self.shape, self.strides,
+                                                   self.order)
         if new_strides is None:
             raise OperationError(space.w_AttributeError, space.wrap(
                           "incompatible shape for a non-contiguous array"))
@@ -1379,6 +1401,7 @@ BaseArray.typedef = TypeDef(
     fill = interp2app(BaseArray.descr_fill),
 
     copy = interp2app(BaseArray.descr_copy),
+    flatten = interp2app(BaseArray.descr_flatten),
     reshape = interp2app(BaseArray.descr_reshape),
     tolist = interp2app(BaseArray.descr_tolist),
 )

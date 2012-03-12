@@ -373,6 +373,8 @@ class AppTestPosix:
     if hasattr(__import__(os.name), "forkpty"):
         def test_forkpty(self):
             import sys
+            if 'freebsd' in sys.platform:
+                skip("hangs indifinitly on FreeBSD (also on CPython).")
             os = self.posix
             childpid, master_fd = os.forkpty()
             assert isinstance(childpid, int)

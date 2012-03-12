@@ -14,7 +14,7 @@ _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
-_FREEBSD = platform.name == "freebsd"
+_FREEBSD = sys.platform.startswith("freebsd")
 
 if _WIN32:
     from pypy.rlib import rwin32

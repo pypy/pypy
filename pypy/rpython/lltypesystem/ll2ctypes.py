@@ -1430,7 +1430,8 @@ else:
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
+        elif any(plat in sys.platform
+                 for plat in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9')):
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()
