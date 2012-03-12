@@ -1,7 +1,6 @@
 import os
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem import llgroup
