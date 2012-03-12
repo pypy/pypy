@@ -285,7 +285,13 @@ def get_cppclass(name):
     return scope
 
 
+_pythonizations = {}
 def _pythonize(pyclass):
+
+    try:
+        _pythonizations[pyclass.__name__](pyclass)
+    except KeyError:
+        pass
 
     # map size -> __len__ (generally true for STL)
     if hasattr(pyclass, 'size') and \
@@ -338,3 +344,10 @@ gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace
 
 # mostly for the benefit of the CINT backend, which treats std as special
 gbl.std = make_cppnamespace(None, "std", None, False)
+
+# user-defined pythonizations interface
+_pythonizations = {}
+def add_pythonization(class_name, callback):
+    if not callable(callback):
+        raise TypeError("given '%s' object is not callable" % str(callback))
+    _pythonizations[class_name] = callback

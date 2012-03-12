@@ -16,4 +16,5 @@ class Module(MixedModule):
     appleveldefs = {
         'gbl'                    : 'pythonify.gbl',
         'load_reflection_info'   : 'pythonify.load_reflection_info',
+        'add_pythonization'      : 'pythonify.add_pythonization',
     }

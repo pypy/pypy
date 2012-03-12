@@ -308,3 +308,40 @@ class AppTestPYTHONIFY:
 
         assert hasattr(z, 'myint')
         assert z.gime_z_(z)
+
+
+class AppTestPYTHONIFY_UI:
+    def setup_class(cls):
+        cls.space = space
+        env = os.environ
+        cls.w_test_dct  = space.wrap(test_dct)
+        cls.w_example01 = cls.space.appexec([], """():
+            import cppyy
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
+
+    def test01_pythonizations(self):
+        """Test addition of user-defined pythonizations"""
+
+        import cppyy
+
+        def example01_pythonize(pyclass):
+            assert pyclass.__name__ == 'example01'
+            def getitem(self, idx):
+                return self.addDataToInt(idx)
+            pyclass.__getitem__ = getitem
+
+        cppyy.add_pythonization('example01', example01_pythonize)
+
+        e = cppyy.gbl.example01(1)
+
+        assert e[0] == 1
+        assert e[1] == 2
+        assert e[5] == 6
+
+    def test02_fragile_pythonizations(self):
+        """Test pythonizations error reporting"""
+
+        import cppyy
+
+        example01_pythonize = 1
+        raises(TypeError, cppyy.add_pythonization, 'example01', example01_pythonize)
