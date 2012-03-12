@@ -1,6 +1,7 @@
 
-from _numpypy import array, ndarray, int_, float_ #, complex_# , longlong
+from _numpypy import array, ndarray, int_, float_, bool_ #, complex_# , longlong
 from _numpypy import concatenate
+import math
 import sys
 import _numpypy as multiarray # ARGH
 from numpypy.core.arrayprint import array2string
@@ -309,3 +310,13 @@ set_string_function(array_str, 0)
 set_string_function(array_repr, 1)
 
 little_endian = (sys.byteorder == 'little')
+
+Inf = inf = infty = Infinity = PINF = float('inf')
+NINF = float('-inf')
+PZERO = 0.0
+NZERO = -0.0
+nan = NaN = NAN = float('nan')
+False_ = bool_(False)
+True_ = bool_(True)
+e = math.e
+pi = math.pi

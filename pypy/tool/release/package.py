@@ -60,7 +60,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if sys.platform == 'win32':
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
+                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll',
+                      'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -125,7 +126,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)

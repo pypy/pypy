@@ -80,7 +80,15 @@ class W_GenericBox(Wrappable):
     descr_sub = _binop_impl("subtract")
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
+    descr_truediv = _binop_impl("true_divide")
+    descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
+    descr_lshift = _binop_impl("left_shift")
+    descr_rshift = _binop_impl("right_shift")
+    descr_and = _binop_impl("bitwise_and")
+    descr_or = _binop_impl("bitwise_or")
+    descr_xor = _binop_impl("bitwise_xor")
+
     descr_eq = _binop_impl("equal")
     descr_ne = _binop_impl("not_equal")
     descr_lt = _binop_impl("less")
@@ -91,9 +99,30 @@ class W_GenericBox(Wrappable):
     descr_radd = _binop_right_impl("add")
     descr_rsub = _binop_right_impl("subtract")
     descr_rmul = _binop_right_impl("multiply")
+    descr_rdiv = _binop_right_impl("divide")
+    descr_rtruediv = _binop_right_impl("true_divide")
+    descr_rmod = _binop_right_impl("mod")
+    descr_rpow = _binop_right_impl("power")
+    descr_rlshift = _binop_right_impl("left_shift")
+    descr_rrshift = _binop_right_impl("right_shift")
+    descr_rand = _binop_right_impl("bitwise_and")
+    descr_ror = _binop_right_impl("bitwise_or")
+    descr_rxor = _binop_right_impl("bitwise_xor")
 
+    descr_pos = _unaryop_impl("positive")
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
+    descr_invert = _unaryop_impl("invert")
+
+    def descr_divmod(self, space, w_other):
+        w_quotient = self.descr_div(space, w_other)
+        w_remainder = self.descr_mod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
+
+    def descr_rdivmod(self, space, w_other):
+        w_quotient = self.descr_rdiv(space, w_other)
+        w_remainder = self.descr_rmod(space, w_other)
+        return space.newtuple([w_quotient, w_remainder])
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
@@ -174,11 +203,29 @@ W_GenericBox.typedef = TypeDef("generic",
     __sub__ = interp2app(W_GenericBox.descr_sub),
     __mul__ = interp2app(W_GenericBox.descr_mul),
     __div__ = interp2app(W_GenericBox.descr_div),
+    __truediv__ = interp2app(W_GenericBox.descr_truediv),
+    __mod__ = interp2app(W_GenericBox.descr_mod),
+    __divmod__ = interp2app(W_GenericBox.descr_divmod),
     __pow__ = interp2app(W_GenericBox.descr_pow),
+    __lshift__ = interp2app(W_GenericBox.descr_lshift),
+    __rshift__ = interp2app(W_GenericBox.descr_rshift),
+    __and__ = interp2app(W_GenericBox.descr_and),
+    __or__ = interp2app(W_GenericBox.descr_or),
+    __xor__ = interp2app(W_GenericBox.descr_xor),
 
     __radd__ = interp2app(W_GenericBox.descr_radd),
     __rsub__ = interp2app(W_GenericBox.descr_rsub),
     __rmul__ = interp2app(W_GenericBox.descr_rmul),
+    __rdiv__ = interp2app(W_GenericBox.descr_rdiv),
+    __rtruediv__ = interp2app(W_GenericBox.descr_rtruediv),
+    __rmod__ = interp2app(W_GenericBox.descr_rmod),
+    __rdivmod__ = interp2app(W_GenericBox.descr_rdivmod),
+    __rpow__ = interp2app(W_GenericBox.descr_rpow),
+    __rlshift__ = interp2app(W_GenericBox.descr_rlshift),
+    __rrshift__ = interp2app(W_GenericBox.descr_rrshift),
+    __rand__ = interp2app(W_GenericBox.descr_rand),
+    __ror__ = interp2app(W_GenericBox.descr_ror),
+    __rxor__ = interp2app(W_GenericBox.descr_rxor),
 
     __eq__ = interp2app(W_GenericBox.descr_eq),
     __ne__ = interp2app(W_GenericBox.descr_ne),
@@ -187,8 +234,10 @@ W_GenericBox.typedef = TypeDef("generic",
     __gt__ = interp2app(W_GenericBox.descr_gt),
     __ge__ = interp2app(W_GenericBox.descr_ge),
 
+    __pos__ = interp2app(W_GenericBox.descr_pos),
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
+    __invert__ = interp2app(W_GenericBox.descr_invert),
 
     tolist = interp2app(W_GenericBox.item),
 )

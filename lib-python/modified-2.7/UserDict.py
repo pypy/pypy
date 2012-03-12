@@ -85,8 +85,12 @@ class IterableUserDict(UserDict):
     def __iter__(self):
         return iter(self.data)
 
-import _abcoll
-_abcoll.MutableMapping.register(IterableUserDict)
+try:
+    import _abcoll
+except ImportError:
+    pass    # e.g. no '_weakref' module on this pypy
+else:
+    _abcoll.MutableMapping.register(IterableUserDict)
 
 
 class DictMixin:

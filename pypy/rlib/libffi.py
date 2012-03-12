@@ -243,7 +243,7 @@ class Func(AbstractFuncPtr):
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
-                (argchain.numargs, len(self.argtypes))
+                (len(self.argtypes), argchain.numargs)
         ll_args = self._prepare()
         i = 0
         arg = argchain.first
