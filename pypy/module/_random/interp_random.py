@@ -73,16 +73,6 @@ class W_Random(Wrappable):
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
 
-    def jumpahead(self, space, w_n):
-        try:
-            n = space.int_w(w_n)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            num = space.bigint_w(w_n)
-            n = intmask(num.uintmask())
-        self._rnd.jumpahead(n)
-
     assert rbigint.SHIFT <= 32
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
@@ -107,6 +97,5 @@ W_Random.typedef = TypeDef("Random",
     seed = interp2app(W_Random.seed),
     getstate = interp2app(W_Random.getstate),
     setstate = interp2app(W_Random.setstate),
-    jumpahead = interp2app(W_Random.jumpahead),
     getrandbits = interp2app(W_Random.getrandbits),
 )
