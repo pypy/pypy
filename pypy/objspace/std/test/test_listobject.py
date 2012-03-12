@@ -1252,6 +1252,20 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l.reverse()
         assert l == [2,1,0]
 
+class AppTestWithoutStrategies(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withliststrategies" :
+                                       False})
+
+    def test_no_shared_empty_list(self):
+        l = []
+        copy = l[:]
+        copy.append({})
+        assert copy == [{}]
+
+        notshared = l[:]
+        assert notshared == []
 
 class AppTestListFastSubscr:
 

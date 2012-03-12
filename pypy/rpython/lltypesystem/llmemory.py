@@ -34,7 +34,8 @@ class AddressOffset(Symbolic):
             self.known_nonneg()):
             return True
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __lt__(self, other):
         return not self.__ge__(other)
