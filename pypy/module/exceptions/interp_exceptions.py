@@ -348,10 +348,10 @@ class W_UnicodeTranslateError(W_UnicodeError):
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
-                    return "can't translate character u'\\x%02x' in position %d: %s" % (badchar, self.start, self.reason)
+                    return "can't translate character '\\x%02x' in position %d: %s" % (badchar, self.start, self.reason)
                 if badchar <= 0xffff:
-                    return "can't translate character u'\\u%04x' in position %d: %s"%(badchar, self.start, self.reason)
-                return "can't translate character u'\\U%08x' in position %d: %s"%(badchar, self.start, self.reason)
+                    return "can't translate character '\\u%04x' in position %d: %s"%(badchar, self.start, self.reason)
+                return "can't translate character '\\U%08x' in position %d: %s"%(badchar, self.start, self.reason)
             return "can't translate characters in position %d-%d: %s" % (self.start, self.end - 1, self.reason)
         """)
 
@@ -785,12 +785,12 @@ class W_UnicodeEncodeError(W_UnicodeError):
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
-                    return "'%s' codec can't encode character u'\\x%02x' in position %d: %s"%(
+                    return "'%s' codec can't encode character '\\x%02x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
                 if badchar <= 0xffff:
-                    return "'%s' codec can't encode character u'\\u%04x' in position %d: %s"%(
+                    return "'%s' codec can't encode character '\\u%04x' in position %d: %s"%(
                         self.encoding, badchar, self.start, self.reason)
-                return "'%s' codec can't encode character u'\\U%08x' in position %d: %s"%(
+                return "'%s' codec can't encode character '\\U%08x' in position %d: %s"%(
                     self.encoding, badchar, self.start, self.reason)
             return "'%s' codec can't encode characters in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
