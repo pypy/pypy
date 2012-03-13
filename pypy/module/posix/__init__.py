@@ -73,7 +73,6 @@ corresponding Unix manual entries for more information on calls."""
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
     'getcwd'    : 'interp_posix.getcwd',
-    'getcwdu'   : 'interp_posix.getcwdu',
     'chdir'     : 'interp_posix.chdir',
     'mkdir'     : 'interp_posix.mkdir',
     'rmdir'     : 'interp_posix.rmdir',
