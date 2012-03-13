@@ -35,9 +35,6 @@ corresponding Unix manual entries for more information on calls."""
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
-    'tmpfile'    : 'app_posix.tmpfile',
-    'tmpnam'     : 'app_posix.tmpnam',
-    'tempnam'    : 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
