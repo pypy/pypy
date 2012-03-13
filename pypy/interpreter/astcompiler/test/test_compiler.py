@@ -58,7 +58,8 @@ class TestCompiler:
         w_res = pyco_expr.exec_host_bytecode(w_dict, w_dict)
         res = space.str_w(space.repr(w_res))
         if not isinstance(expected, float):
-            assert res == repr(expected)
+            noL = lambda expr: expr.replace('L', '')
+            assert noL(res) == noL(repr(expected))
         else:
             # Float representation can vary a bit between interpreter
             # versions, compare the numbers instead.

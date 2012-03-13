@@ -376,6 +376,45 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(sqrt(-1))
         assert math.isnan(sqrt(nan))
 
+    def test_radians(self):
+        import math
+        from _numpypy import radians, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = radians(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_deg2rad(self):
+        import math
+        from _numpypy import deg2rad, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = deg2rad(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_degrees(self):
+        import math
+        from _numpypy import degrees, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = degrees(a)
+        for i in range(len(a)):
+            assert b[i] == math.degrees(a[i])
+
     def test_reduce_errors(self):
         from _numpypy import sin, add
 
@@ -504,3 +543,24 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert log1p(v) == float("-inf")
         assert log1p(float('inf')) == float('inf')
         assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()
+
+    def test_power(self):
+        import math
+        from _numpypy import power, array
+        a = array([1., 2., 3.])
+        b = power(a, 3)
+        for i in range(len(a)):
+            assert b[i] == a[i] ** 3
+
+        a = array([1., 2., 3.])
+        b = array([1., 2., 3.])
+        c = power(a, b)
+        for i in range(len(a)):
+            assert c[i] == a[i] ** b[i]
+
+    def test_floordiv(self):
+        from _numpypy import floor_divide, array
+        a = array([1., 2., 3., 4., 5., 6., 6.01])
+        b = floor_divide(a, 2.5)
+        for i in range(len(a)):
+            assert b[i] == a[i] // 2.5
