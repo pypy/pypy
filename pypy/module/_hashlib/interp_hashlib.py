@@ -31,9 +31,9 @@ def hash_name_mapper_callback(obj_name, userdata):
     if obj_name[0].c_alias:
         return
     try:
-        w_name = state.space.wrap(rffi.charp2str(obj_name[0].c_name))
+        w_name = state.space.wrapbytes(rffi.charp2str(obj_name[0].c_name))
         state.space.call_method(state.w_meth_names, "add", w_name)
-    except OperationError, e:
+    except OperationError as e:
         state.w_error = e
 
 # XXX make it threadlocal?

@@ -76,12 +76,11 @@ class AppTestHashlib:
         for hash_name, expected in sorted(expected_results.items()):
             try:
                 m = _hashlib.new(hash_name)
-            except ValueError, e:
-                print 'skipped %s: %s' % (hash_name, e)
+            except ValueError as e:
+                print('skipped %s: %s' % (hash_name, e))
                 continue
             m.update(test_string)
             got = m.hexdigest()
             assert got and type(got) is str and len(got) % 2 == 0
-            got.decode('hex')
             if expected is not None:
                 assert got == expected
