@@ -501,8 +501,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def _handle_params(self, params, is_toplevel):
         for i in range(len(params)):
-            arg = params[i].arg
-            self.note_symbol(arg, SYM_PARAM)
+            arg = params[i]
+            if isinstance(arg, ast.Name):
+                self.note_symbol(arg.id, SYM_PARAM)
+            else:
+                raise AssertionError("unknown parameter type")
 
     def visit_Name(self, name):
         if name.ctx == ast.Load:

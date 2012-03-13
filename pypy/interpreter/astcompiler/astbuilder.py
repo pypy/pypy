@@ -462,13 +462,8 @@ class ASTBuilder(object):
         name = name_node.value
         self.check_forbidden_name(name, name_node)
         args = self.handle_arguments(funcdef_node.children[2])
-        suite = 4
-        returns = None
-        if funcdef_node.children[3].type == tokens.RARROW:
-            returns = self.handle_expr(funcdef_node.children[4])
-            suite += 2
-        body = self.handle_suite(funcdef_node.children[suite])
-        return ast.FunctionDef(name, args, body, decorators, returns,
+        body = self.handle_suite(funcdef_node.children[4])
+        return ast.FunctionDef(name, args, body, decorators,
                                funcdef_node.lineno, funcdef_node.column)
 
     def handle_decorated(self, decorated_node):
@@ -513,132 +508,99 @@ class ASTBuilder(object):
         # and varargslist (lambda definition).
         if arguments_node.type == syms.parameters:
             if len(arguments_node.children) == 2:
-                return ast.arguments(None, None, None, None, None, None, None,
-                                     None)
+                return ast.arguments(None, None, None, None, None)
             arguments_node = arguments_node.children[1]
         i = 0
         child_count = len(arguments_node.children)
-        n_pos = 0
-        n_pos_def = 0
-        n_kwdonly = 0
-        # scan args
-        while i < child_count:
-            arg_type = arguments_node.children[i].type
-            if arg_type == tokens.STAR:
-                i += 1
-                next_arg_type = arguments_node.children[i].type
-                if (i < child_count and
-                    (next_arg_type == syms.tfpdef or
-                     next_arg_type == syms.vfpsdef)):
-                    i += 1
-                break
-            if arg_type == tokens.DOUBLESTAR:
-                break
-            if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
-                n_pos += 1
-            if arg_type == tokens.EQUAL:
-                n_pos_def += 1
-            i += 1
-        while i < child_count:
-            arg_type = arguments_node.children[i].type
-            if arg_type == tokens.DOUBLESTAR:
-                break
-            if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
-                n_kwdonly += 1
-            i += 1
-        pos = []
-        posdefaults = []
-        kwonly = []
-        kwdefaults = []
-        kwarg = None
-        kwargann = None
-        vararg = None
-        varargann = None
-        if n_pos + n_kwdonly > 255:
-            self.error("more than 255 arguments", arguments_node)
-        # process args
-        i = 0
+        defaults = []
+        args = []
+        variable_arg = None
+        keywordonly_args = None
+        keywords_arg = None
         have_default = False
         while i < child_count:
-            arg = arguments_node.children[i]
-            arg_type = arg.type
+            argument = arguments_node.children[i]
+            arg_type = argument.type
             if arg_type == syms.tfpdef or arg_type == syms.vfpdef:
-                if i + 1 < child_count and \
-                        arguments_node.children[i + 1].type == tokens.EQUAL:
-                    default_node = arguments_node.children[i + 2]
-                    posdefaults.append(self.handle_expr(default_node))
+                parenthesized = False
+                complex_args = False
+                while True:
+                    if i + 1 < child_count and \
+                            arguments_node.children[i + 1].type == tokens.EQUAL:
+                        default_node = arguments_node.children[i + 2]
+                        defaults.append(self.handle_expr(default_node))
+                        i += 2
+                        have_default = True
+                    elif have_default:
+                        if parenthesized and not complex_args:
+                            msg = "parenthesized arg with default"
+                        else:
+                            msg = ("non-default argument follows default "
+                                   "argument")
+                        self.error(msg, arguments_node)
+                    if len(argument.children) == 3:
+                        sub_arg = argument.children[1]
+                        if len(sub_arg.children) != 1:
+                            complex_args = True
+                            args.append(self.handle_arg_unpacking(sub_arg))
+                        else:
+                            parenthesized = True
+                            argument = sub_arg.children[0]
+                            continue
+                    if argument.children[0].type == tokens.NAME:
+                        name_node = argument.children[0]
+                        arg_name = name_node.value
+                        self.check_forbidden_name(arg_name, name_node)
+                        name = ast.Name(arg_name, ast.Param, name_node.lineno,
+                                        name_node.column)
+                        if keywordonly_args is None:
+                            args.append(name)
+                        else:
+                            keywordonly_args.append(name)
                     i += 2
-                    have_default = True
-                elif have_default:
-                    msg = "non-default argument follows default argument"
-                    self.error(msg, arguments_node)
-                pos.append(self.handle_arg(arg))
-                i += 2
+                    break
             elif arg_type == tokens.STAR:
-                if i + 1 > child_count:
-                    self.error("named arguments must follow bare *")
                 name_node = arguments_node.children[i + 1]
                 keywordonly_args = []
                 if name_node.type == tokens.COMMA:
                     i += 2
-                    i = self.handle_keywordonly_args(arguments_node, i, kwonly,
-                                                     kwdefaults)
                 else:
-                    vararg = name_node.children[0].value
-                    self.check_forbidden_name(vararg, name_node)
-                    if len(name_node.children) > 1:
-                        varargann = self.handle_expr(name_node.children[2])
+                    variable_arg = name_node.children[0].value
+                    self.check_forbidden_name(variable_arg, name_node)
                     i += 3
-                    if i < child_count:
-                        next_arg_type = arguments_node.children[i].type
-                        if (next_arg_type == syms.tfpdef or
-                            next_arg_type == syms.vfpdef):
-                            i = self.handle_keywordonly_args(arguments_node, i,
-                                                             kwonly, kwdefaults)
             elif arg_type == tokens.DOUBLESTAR:
                 name_node = arguments_node.children[i + 1]
-                kwarg = name_node.children[0].value
-                self.check_forbidden_name(kwarg, name_node)
-                if len(name_node.children) > 1:
-                    kwargann = self.handle_expr(name_node.children[1])
+                keywords_arg = name_node.children[0].value
+                self.check_forbidden_name(keywords_arg, name_node)
                 i += 3
             else:
                 raise AssertionError("unknown node in argument list")
-        return ast.arguments(pos, vararg, varargann, kwonly, kwarg,
-                             kwargann, posdefaults, kwdefaults)
+        if not defaults:
+            defaults = None
+        if not args:
+            args = None
+        return ast.arguments(args, variable_arg, keywordonly_args, keywords_arg, defaults)
 
-    def handle_keywordonly_args(self, arguments_node, i, kwonly, kwdefaults):
-        child_count = len(arguments_node.children)
-        while i < child_count:
-            arg = arguments_node.children[i]
-            arg_type = arg.type
-            if arg_type == syms.vfpdef and arg_type == syms.tfpdef:
-                if (i + 1 < child_count and
-                    arguments_node.children[i + 1] == tokens.EQUAL):
-                    expr = self.handle_expr(arguments_node.children[i + 2])
-                    kwdefaults.append(expr)
-                    i += 2
+    def handle_arg_unpacking(self, fplist_node):
+        args = []
+        for i in range((len(fplist_node.children) + 1) / 2):
+            fpdef_node = fplist_node.children[i * 2]
+            while True:
+                child = fpdef_node.children[0]
+                if child.type == tokens.NAME:
+                    arg = ast.Name(child.value, ast.Store, child.lineno,
+                                   child.column)
+                    args.append(arg)
                 else:
-                    kwdefaults.append(None)
-                ann = None
-                if len(arg.children) == 3:
-                    ann = self.handle_expr(arg.children[2])
-                name_node = arg.children[0]
-                argname = name_node.value
-                self.check_forbidden_name(argname, name_node)
-                kwonly.append(ast.arg(argname, ann))
-                i += 2
-            elif arg_type == tokens.DOUBLESTAR:
-                return i
-        return i
-
-    def handle_arg(self, arg_node):
-        name_node = arg_node.children[0]
-        self.check_forbidden_name(name_node.value, arg_node)
-        ann = None
-        if len(arg_node.children) == 3:
-            ann = self.handle_expr(arg_node.children[2])
-        return ast.arg(name_node.value, ann)
+                    child = fpdef_node.children[1]
+                    if len(child.children) == 1:
+                        fpdef_node = child.children[0]
+                        continue
+                    args.append(self.handle_arg_unpacking(child))
+                break
+        tup = ast.Tuple(args, ast.Store, fplist_node.lineno, fplist_node.column)
+        self.set_context(tup, ast.Store)
+        return tup
 
     def handle_stmt(self, stmt):
         stmt_type = stmt.type

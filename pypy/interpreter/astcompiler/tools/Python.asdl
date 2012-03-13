@@ -9,8 +9,8 @@ module Python version "$Revision: 43614 $"
 	    -- not really an actual node but useful in Jython's typesystem.
 	    | Suite(stmt* body)
 
-	stmt = FunctionDef(identifier name, arguments args,
-                            stmt* body, expr* decorator_list, expr? returns)
+	stmt = FunctionDef(identifier name, arguments args, 
+                            stmt* body, expr* decorator_list)
 	      | ClassDef(identifier name, 
 			 expr* bases,
 			 keyword* keywords,
@@ -106,11 +106,8 @@ module Python version "$Revision: 43614 $"
 	excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
 	                attributes (int lineno, int col_offset)
 
-        arguments = (arg* args, identifier? vararg, expr? varargannotation,
-                     arg* kwonlyargs, identifier? kwarg,
-                     expr? kwargannotation, expr* defaults,
-                     expr* kw_defaults)
-        arg = (identifier arg, expr? annotation)
+	arguments = (expr* args, identifier? vararg, expr* kwonlyargs, 
+		     identifier? kwarg, expr* defaults)
 
         -- keyword arguments supplied to call
         keyword = (identifier arg, expr value)
