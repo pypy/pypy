@@ -89,6 +89,9 @@ class Module(MixedModule):
         ("multiply", "multiply"),
         ("negative", "negative"),
         ("not_equal", "not_equal"),
+        ("radians", "radians"),
+        ("degrees", "degrees"),
+        ("deg2rad", "radians"),
         ("reciprocal", "reciprocal"),
         ("sign", "sign"),
         ("sin", "sin"),
@@ -107,6 +110,12 @@ class Module(MixedModule):
         ('logical_xor', 'logical_xor'),
         ('logical_not', 'logical_not'),
         ('logical_or', 'logical_or'),
+        ('log', 'log'),
+        ('log2', 'log2'),
+        ('log10', 'log10'),
+        ('log1p', 'log1p'),
+        ('power', 'power'),
+        ('floor_divide', 'floor_divide'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 

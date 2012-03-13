@@ -56,9 +56,18 @@ class W_StringObject(W_AbstractStringObject):
         return w_self._value
 
     def unicode_w(w_self, space):
-        # XXX should this use the default encoding?
-        from pypy.objspace.std.unicodetype import plain_str2unicode
-        return plain_str2unicode(space, w_self._value)
+        # Use the default encoding.
+        from pypy.objspace.std.unicodetype import unicode_from_string, \
+                decode_object
+        w_defaultencoding = space.call_function(space.sys.get(
+                                                'getdefaultencoding'))
+        from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+            unicode_from_string, decode_object
+        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
+                                                    space.w_None)
+        if encoding is None and errors is None:
+            return space.unicode_w(unicode_from_string(space, w_self))
+        return space.unicode_w(decode_object(space, w_self, encoding, errors))
 
 registerimplementation(W_StringObject)
 
