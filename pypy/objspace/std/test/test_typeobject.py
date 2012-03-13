@@ -116,9 +116,8 @@ class AppTestTypeObject:
     def test_call_type(self):
         assert type(42) is int
         C = type('C', (object,), {'x': lambda: 42})
-        unbound_meth = C.x
-        raises(TypeError, unbound_meth)
-        assert unbound_meth.__func__() == 42
+        func = C.x
+        assert func() == 42
         raises(TypeError, type)
         raises(TypeError, type, 'test', (object,))
         raises(TypeError, type, 'test', (object,), {}, 42)
@@ -127,6 +126,7 @@ class AppTestTypeObject:
         raises(TypeError, type, 'test', (object,), 42)
 
     def test_call_type_subclass(self):
+        """
         class A(type):
             pass
 
@@ -137,18 +137,20 @@ class AppTestTypeObject:
             counter = 0
             def __init__(self, *args):
                 T.counter += 1
-        class C:
-            __metaclass__ = T
+        class C(metaclass=T):
+            pass
         assert T.counter == 1
         a = C()
         assert T.counter == 1
         assert type(a) is C
         assert T.counter == 1
+        """
 
     def test_bases(self):
+        """
         assert int.__bases__ == (object,)
-        class X:
-            __metaclass__ = type
+        class X(metaclass=type):
+            pass
         assert X.__bases__ ==  (object,)
         class Y(X): pass
         assert Y.__bases__ ==  (X,)
@@ -158,6 +160,7 @@ class AppTestTypeObject:
         Z.__bases__ = (X,)
         #print Z.__bases__
         assert Z.__bases__ == (X,)
+        """
 
     def test_mutable_bases(self):
         # from CPython's test_descr
@@ -248,30 +251,8 @@ class AppTestTypeObject:
         else:
             assert 0, "shouldn't be able to create inheritance cycles"
 
-        # let's throw a classic class into the mix:
-        class Classic:
-            def meth2(self):
-                return 3
-
-        D.__bases__ = (C, Classic)
-
-        assert d.meth2() == 3
-        assert e.meth2() == 3
-        try:
-            d.a
-        except AttributeError:
-            pass
-        else:
-            assert 0, "attribute should have vanished"
-
-        try:
-            D.__bases__ = (Classic,)
-        except TypeError:
-            pass
-        else:
-            assert 0, "new-style class must have a new-style base"
-
     def test_mutable_bases_with_failing_mro(self):
+        """
         class WorkOnce(type):
             def __new__(self, name, bases, ns):
                 self.flag = 0
@@ -303,11 +284,11 @@ class AppTestTypeObject:
         class E(D):
             pass
 
-        class F(D):
-            __metaclass__ = WorkOnce
+        class F(D, metaclass=WorkOnce):
+            pass
 
-        class G(D):
-            __metaclass__ = WorkAlways
+        class G(D, metaclass=WorkAlways):
+            pass
 
         # Immediate subclasses have their mro's adjusted in alphabetical
         # order, so E's will get adjusted before adjusting F's fails.  We
@@ -323,6 +304,7 @@ class AppTestTypeObject:
             assert E.__mro__ == E_mro_before
         else:
             assert 0, "exception not propagated"
+            """
 
     def test_mutable_bases_catch_mro_conflict(self):
         class A(object):
@@ -482,31 +464,15 @@ class AppTestTypeObject:
             raise AssertionError("this multiple inheritance should fail")
 
     def test_outer_metaclass(self):
+        """
         class OuterMetaClass(type):
             pass
 
-        class HasOuterMetaclass(object):
-            __metaclass__ = OuterMetaClass
-
-        assert type(HasOuterMetaclass) == OuterMetaClass
-        assert type(HasOuterMetaclass) == HasOuterMetaclass.__metaclass__
-
-    def test_inner_metaclass(self):
-        class HasInnerMetaclass(object):
-            class __metaclass__(type):
-                pass
-
-        assert type(HasInnerMetaclass) == HasInnerMetaclass.__metaclass__
-
-    def test_implicit_metaclass(self):
-        class __metaclass__(type):
+        class HasOuterMetaclass(metaclass=OuterMetaClass):
             pass
 
-        g = {'__metaclass__': __metaclass__}
-        exec("class HasImplicitMetaclass: pass\n", g)
-
-        HasImplicitMetaclass = g['HasImplicitMetaclass']
-        assert type(HasImplicitMetaclass) == __metaclass__
+        assert type(HasOuterMetaclass) == OuterMetaClass
+        """
 
     def test_mro(self):
         class A_mro(object):
@@ -529,6 +495,7 @@ class AppTestTypeObject:
         assert type.mro(B_mro) == [B_mro, A_mro, object]
 
     def test_abstract_mro(self):
+        """
         class A1:    # old-style class
             pass
         class B1(A1):
@@ -537,10 +504,11 @@ class AppTestTypeObject:
             pass
         class D1(B1, C1):
             pass
-        class E1(D1, object):
-            __metaclass__ = type
+        class E1(D1, object, metaclass=type):
+            pass
         # old-style MRO in the classical part of the parent hierarchy
         assert E1.__mro__ == (E1, D1, B1, A1, C1, object)
+        """
 
     def test_nodoc(self):
         class NoDoc(object):
@@ -581,21 +549,23 @@ class AppTestTypeObject:
         assert ImmutableDoc.__doc__ == 'foo'
 
     def test_metaclass_conflict(self):
-
+        """
         class T1(type):
             pass
         class T2(type):
             pass
-        class D1:
-            __metaclass__ = T1
-        class D2:
-            __metaclass__ = T2
+        class D1(metaclass=T1):
+            pass
+        class D2(metaclass=T2):
+            pass
         def conflict():
             class C(D1,D2):
                 pass
         raises(TypeError, conflict)
+        """
 
     def test_metaclass_choice(self):
+        """
         events = []
         
         class T1(type):
@@ -603,8 +573,8 @@ class AppTestTypeObject:
                 events.append(args)
                 return type.__new__(*args)
 
-        class D1:
-            __metaclass__ = T1
+        class D1(metaclass=T1):
+            pass
 
         class C(D1):
             pass
@@ -619,6 +589,7 @@ class AppTestTypeObject:
         assert type(D1) is T1
         assert type(C) is T1
         assert type(G) is T1
+        """
     
     def test_descr_typecheck(self):
         raises(TypeError,type.__dict__['__name__'].__get__,1)
@@ -753,6 +724,7 @@ class AppTestTypeObject:
         raises(TypeError, "class D(A, C): pass")
 
     def test_data_descriptor_without_get(self):
+        """
         class Descr(object):
             def __init__(self, name):
                 self.name = name
@@ -760,22 +732,24 @@ class AppTestTypeObject:
                 pass
         class Meta(type):
             pass
-        class X(object):
-            __metaclass__ = Meta
+        class X(object, metaclass=Meta):
+            pass
         X.a = 42
         Meta.a = Descr("a")
         assert X.a == 42
+        """
 
     def test_user_defined_mro_cls_access(self):
+        """
         d = []
         class T(type):
             def mro(cls):
                 d.append(cls.__dict__)
                 return type.mro(cls)
-        class C:
-            __metaclass__ = T
+        class C(metaclass=T):
+            pass
         assert d
-        assert sorted(d[0].keys()) == ['__dict__','__doc__','__metaclass__','__module__', '__weakref__']
+        assert sorted(d[0].keys()) == ['__dict__', '__doc__', '__module__', '__weakref__']
         d = []
         class T(type):
             def mro(cls):
@@ -784,18 +758,13 @@ class AppTestTypeObject:
                 except AttributeError:
                     d.append('miss')
                 return type.mro(cls)
-        class C:
+        class C(metaclass=T):
             def x(cls):
                 return 1
             x = classmethod(x)
-            __metaclass__ = T
         assert d == ['miss']
         assert C.x() == 1
-
-    def test_only_classic_bases_fails(self):
-        class C:
-            pass
-        raises(TypeError, type, 'D', (C,), {})
+        """
 
     def test_set___class__(self):
         raises(TypeError, "1 .__class__ = int")
@@ -1098,6 +1067,7 @@ class AppTestGetattributeShortcut:
                         **{"objspace.std.getattributeshortcut": True})
 
     def test_reset_logic(self):
+        """
         class X(object):
             pass
 
@@ -1118,8 +1088,8 @@ class AppTestGetattributeShortcut:
         class M(type):
             pass
 
-        class X(object):
-            __metaclass__ = M
+        class X(metaclass=M):
+            pass
 
         class Y(X):
             pass
@@ -1134,6 +1104,7 @@ class AppTestGetattributeShortcut:
         X.__getattribute__ = ga2
 
         assert y.x == 'GA2'
+        """
 
 class TestNewShortcut:
 
