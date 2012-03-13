@@ -57,7 +57,7 @@ class AppTestNestedScope:
         assert keys == ['h', 'x']
 
     def test_lambda_in_genexpr(self):
-        assert eval('map(apply, (lambda: t for t in range(10)))') == list(range(10))
+        assert [x() for x in (lambda: x for x in range(10))] == list(range(10))
 
     def test_cell_contents(self):
         def f(x):

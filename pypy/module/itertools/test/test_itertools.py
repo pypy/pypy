@@ -223,9 +223,9 @@ class AppTestItertools:
         assert list(itertools.islice(range(100), 10, 3)) == []
 
         # new in 2.5: start=None or step=None
-        assert list(itertools.islice(range(10), None)) == range(10)
-        assert list(itertools.islice(range(10), None,None)) == range(10)
-        assert list(itertools.islice(range(10), None,None,None)) == range(10)
+        assert list(itertools.islice(range(10), None)) == list(range(10))
+        assert list(itertools.islice(range(10), None,None)) == list(range(10))
+        assert list(itertools.islice(range(10), None,None,None)) == list(range(10))
 
     def test_islice_dropitems_exact(self):
         import itertools
@@ -758,7 +758,7 @@ class AppTestItertools26:
                 self.e = e
             def __iter__(self): # its iterator is itself
                 return self
-            def next(self):
+            def __next__(self):
                 if self.t > 0:
                     self.t -= 1
                     return self.o
@@ -949,7 +949,7 @@ class AppTestItertools27:
                 self.e = e
             def __iter__(self): # its iterator is itself
                 return self
-            def next(self):
+            def __next__(self):
                 if self.t > 0:
                     self.t -= 1
                     return self.o
