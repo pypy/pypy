@@ -593,6 +593,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert not isneginf(0)
         assert not isneginf(0.0)
 
+    def test_isfinite(self):
+        from _numpypy import isfinite
+        assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
+            [True, True, True, True]).all()
+        assert (isfinite([float('-inf'), float('inf'), float('-nan'), float('nan')]) ==
+            [False, False, False, False]).all()
+
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
 

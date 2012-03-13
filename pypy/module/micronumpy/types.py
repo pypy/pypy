@@ -598,6 +598,10 @@ class Float(Primitive):
     def isposinf(self, v):
         return rfloat.isinf(v) and v > 0
 
+    @raw_unary_op
+    def isfinite(self, v):
+        return not (rfloat.isinf(v) or rfloat.isnan(v))
+
     @simple_unary_op
     def radians(self, v):
         return v * degToRad

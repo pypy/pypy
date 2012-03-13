@@ -113,6 +113,7 @@ class Module(MixedModule):
         ('isinf', 'isinf'),
         ('isneginf', 'isneginf'),
         ('isposinf', 'isposinf'),
+        ('isfinite', 'isfinite'),
         ('logical_and', 'logical_and'),
         ('logical_xor', 'logical_xor'),
         ('logical_not', 'logical_not'),

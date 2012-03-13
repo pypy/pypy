@@ -406,6 +406,7 @@ class UfuncState(object):
             ("isinf", "isinf", 1, {"bool_result": True}),
             ("isneginf", "isneginf", 1, {"bool_result": True}),
             ("isposinf", "isposinf", 1, {"bool_result": True}),
+            ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
                                                'identity': 1}),
