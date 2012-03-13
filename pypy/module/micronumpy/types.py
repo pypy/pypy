@@ -10,6 +10,8 @@ from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rstruct.runpack import runpack
 
+degToRad = math.pi / 180.0
+log2 = math.log(2)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -426,7 +428,7 @@ class Float(Primitive):
     @simple_binary_op
     def floordiv(self, v1, v2):
         try:
-            return v1 // v2
+            return math.floor(v1 / v2)
         except ZeroDivisionError:
             if v1 == v2 == 0.0:
                 return rfloat.NAN
@@ -549,6 +551,15 @@ class Float(Primitive):
         return rfloat.isinf(v)
 
     @simple_unary_op
+    def radians(self, v):
+        return v * degToRad
+    deg2rad = radians
+
+    @simple_unary_op
+    def degrees(self, v):
+        return v / degToRad
+
+    @simple_unary_op
     def log(self, v):
         try:
             return math.log(v)
@@ -562,7 +573,7 @@ class Float(Primitive):
     @simple_unary_op
     def log2(self, v):
         try:
-            return math.log(v, 2)
+            return math.log(v) / log2
         except ValueError:
             if v == 0.0:
                 # CPython raises ValueError here, so we have to check

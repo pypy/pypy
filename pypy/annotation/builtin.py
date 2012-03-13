@@ -301,7 +301,7 @@ def rarith_intmask(s_obj):
 def robjmodel_instantiate(s_clspbc):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
-    more_than_one = len(s_clspbc.descriptions)
+    more_than_one = len(s_clspbc.descriptions) > 1
     for desc in s_clspbc.descriptions:
         cdef = desc.getuniqueclassdef()
         if more_than_one:
