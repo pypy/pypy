@@ -60,6 +60,7 @@ def _init_posix():
     g['EXE'] = ""
     g['SO'] = _get_so_extension() or ".so"
     g['SOABI'] = g['SO'].rsplit('.')[0]
+    g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
 
     global _config_vars
     _config_vars = g
@@ -71,6 +72,7 @@ def _init_nt():
     g['EXE'] = ".exe"
     g['SO'] = _get_so_extension() or ".pyd"
     g['SOABI'] = g['SO'].rsplit('.')[0]
+    g['LIBDIR'] = os.path.join(sys.prefix, 'lib')
 
     global _config_vars
     _config_vars = g
