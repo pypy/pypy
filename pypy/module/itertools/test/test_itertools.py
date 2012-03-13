@@ -758,7 +758,7 @@ class AppTestItertools26:
                 self.e = e
             def __iter__(self): # its iterator is itself
                 return self
-            def next(self):
+            def __next__(self):
                 if self.t > 0:
                     self.t -= 1
                     return self.o
@@ -949,7 +949,7 @@ class AppTestItertools27:
                 self.e = e
             def __iter__(self): # its iterator is itself
                 return self
-            def next(self):
+            def __next__(self):
                 if self.t > 0:
                     self.t -= 1
                     return self.o
