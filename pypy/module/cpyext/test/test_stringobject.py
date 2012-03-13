@@ -105,6 +105,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             )])
         assert module.string_as_string("huheduwe") == "huhe"
 
+    def test_py_string_as_string_None(self):
+        module = self.import_extension('foo', [
+            ("string_None", "METH_VARARGS",
+             '''
+             return PyString_AsString(Py_None);
+             '''
+            )])
+        raises(TypeError, module.string_None)
+
     def test_AsStringAndSize(self):
         module = self.import_extension('foo', [
             ("getstring", "METH_NOARGS",
