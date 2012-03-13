@@ -157,7 +157,6 @@ W_Hash.typedef = TypeDef(
     hexdigest=interp2app(W_Hash.hexdigest),
     #
     digest_size=GetSetProperty(W_Hash.get_digest_size),
-    digestsize=GetSetProperty(W_Hash.get_digest_size),
     block_size=GetSetProperty(W_Hash.get_block_size),
     )
 W_Hash.acceptable_as_base_class = False
