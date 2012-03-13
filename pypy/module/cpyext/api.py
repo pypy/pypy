@@ -47,10 +47,8 @@ ADDR = lltype.Signed
 pypydir = py.path.local(autopath.pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
-signed_dir = pypydir / 'translator' / 'c' / 'src'
 include_dirs = [
     include_dir,
-    signed_dir,
     udir,
     ]
 
