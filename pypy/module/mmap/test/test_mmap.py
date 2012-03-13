@@ -528,16 +528,6 @@ class AppTestMMap:
 
         f.close()
 
-    def test_sequence_type(self):
-        from mmap import mmap
-        f = open(self.tmpname + "x", "wb+")
-        f.write(b"foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
-        import operator
-        assert operator.isSequenceType(m)
-        assert not operator.isMappingType(m)
-
     def test_buffer(self):
         from mmap import mmap
         f = open(self.tmpname + "y", "bw+")
