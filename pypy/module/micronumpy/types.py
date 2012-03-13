@@ -478,6 +478,20 @@ class Float(Primitive):
             return rfloat.INFINITY
 
     @simple_unary_op
+    def exp2(self, v):
+        try:
+            return math.pow(2, v)
+        except OverflowError:
+            return rfloat.INFINITY
+
+    @simple_unary_op
+    def expm1(self, v):
+        try:
+            return rfloat.expm1(v)
+        except OverflowError:
+            return rfloat.INFINITY
+
+    @simple_unary_op
     def sin(self, v):
         return math.sin(v)
 

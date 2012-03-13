@@ -231,12 +231,45 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
         b = exp(a)
-        for i in range(4):
+        for i in range(len(a)):
             try:
                 res = math.exp(a[i])
             except OverflowError:
                 res = float('inf')
             assert b[i] == res
+
+    def test_exp2(self):
+        import math
+        from _numpypy import array, exp2
+
+        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, float("inf"),
+                   -float('inf'), -12343424.0])
+        b = exp2(a)
+        for i in range(len(a)):
+            try:
+                res = 2 ** a[i]
+            except OverflowError:
+                res = float('inf')
+            assert b[i] == res
+
+        assert exp2(3) == 8
+        assert math.isnan(exp2(float("nan")))
+
+    def test_expm1(self):
+        import math
+        from _numpypy import array, expm1
+
+        a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
+                   -float('inf'), -12343424.0])
+        b = expm1(a)
+        for i in range(4):
+            try:
+                res = math.exp(a[i]) - 1
+            except OverflowError:
+                res = float('inf')
+            assert b[i] == res
+
+        assert expm1(1e-50) == 1e-50
 
     def test_sin(self):
         import math

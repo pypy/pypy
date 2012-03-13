@@ -77,6 +77,8 @@ class Module(MixedModule):
         ("true_divide", "true_divide"),
         ("equal", "equal"),
         ("exp", "exp"),
+        ("exp2", "exp2"),
+        ("expm1", "expm1"),
         ("fabs", "fabs"),
         ("floor", "floor"),
         ("ceil", "ceil"),
