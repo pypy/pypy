@@ -275,10 +275,9 @@ class W_ZipImporter(Wrappable):
     @unwrap_spec(filename=str)
     def get_data(self, space, filename):
         filename = self._find_relative_path(filename)
-        w = space.wrap
         try:
             data = self.zip_file.read(filename)
-            return w(data)
+            return space.wrapbytes(data)
         except (KeyError, OSError, BadZipfile):
             raise OperationError(space.w_IOError, space.wrap("Error reading file"))
 
@@ -346,7 +345,6 @@ class W_ZipImporter(Wrappable):
 
 @unwrap_spec(name='str0')
 def descr_new_zipimporter(space, w_type, name):
-    w = space.wrap
     ok = False
     parts_ends = [i for i in range(0, len(name))
                     if name[i] == os.path.sep or name[i] == ZIPSEP]

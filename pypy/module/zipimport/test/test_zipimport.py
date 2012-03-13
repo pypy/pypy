@@ -39,6 +39,7 @@ class AppTestZipimport:
         # using the host python compiler, but then in the tests we load it
         # with py.py. It works (mostly by chance) because the two functions
         # are very simple and the bytecodes are compatible enough.
+        # XXX with py3k this does not work anymore.
         co = py.code.Source("""
         def get_name():
             return __name__
@@ -46,17 +47,17 @@ class AppTestZipimport:
             return __file__
         """).compile()
 
+        usemodules = ['zipimport', 'rctime', 'struct']
         if cls.compression == ZIP_DEFLATED:
-            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
-        else:
-            space = gettestobjspace(usemodules=['zipimport', 'rctime'])
+            usemodules.append('zlib')
+        space = gettestobjspace(usemodules=usemodules)
             
         cls.space = space
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
         now = time.time()
         cls.w_now = space.wrap(now)
         test_pyc = cls.make_pyc(space, co, now)
-        cls.w_test_pyc = space.wrap(test_pyc)
+        cls.w_test_pyc = space.wrapbytes(test_pyc)
         cls.w_compression = space.wrap(cls.compression)
         cls.w_pathsep = space.wrap(cls.pathsep)
         #ziptestmodule = tmpdir.ensure('ziptestmodule.zip').write(
@@ -155,7 +156,7 @@ class AppTestZipimport:
         import sys, os
         self.writefile("uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
-        print mod
+        print(mod)
         assert mod.f(3) == 3
         expected = {
             '__doc__' : None,
@@ -185,32 +186,32 @@ class AppTestZipimport:
         import zipimport
         z = zipimport.zipimporter(self.zipfile)
         code = z.get_code('uuu')
-        assert isinstance(code, type((lambda:0).func_code))
+        assert isinstance(code, type((lambda:0).__code__))
 
     def test_bad_pyc(self):
         import zipimport
         import sys
-        m0 = ord(self.test_pyc[0])
+        m0 = self.test_pyc[0]
         m0 ^= 0x04
-        test_pyc = chr(m0) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.test_pyc[1:]
         self.writefile("uu.pyc", test_pyc)
         raises(ImportError, "__import__('uu', globals(), locals(), [])")
         assert 'uu' not in sys.modules
 
     def test_force_py(self):
         import sys
-        m0 = ord(self.test_pyc[0])
+        m0 = self.test_pyc[0]
         m0 ^= 0x04
-        test_pyc = chr(m0) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.test_pyc[1:]
         self.writefile("uu.pyc", test_pyc)
         self.writefile("uu.py", "def f(x): return x")
         mod = __import__("uu", globals(), locals(), [])
         assert mod.f(3) == 3
 
     def test_sys_modules(self):
-        m0 = ord(self.test_pyc[0])
+        m0 = self.test_pyc[0]
         m0 ^= 0x04
-        test_pyc = chr(m0) + self.test_pyc[1:]
+        test_pyc = bytes([m0]) + self.test_pyc[1:]
         self.writefile("uuu.pyc", test_pyc)
         import sys
         import zipimport
@@ -232,8 +233,8 @@ class AppTestZipimport:
 
     def test_package_bug(self):
         import os, sys
-        import new
-        mod = new.module('xxuuv')
+        import types
+        mod = types.ModuleType('xxuuv')
         mod.__path__ = [self.zipfile + '/xxuuv']
         sys.modules['xxuuv'] = mod
         #
@@ -247,8 +248,8 @@ class AppTestZipimport:
 
     def test_pyc_in_package(self):
         import os, sys
-        import new
-        mod = new.module('xxuuw')
+        import types
+        mod = types.ModuleType('xxuuw')
         mod.__path__ = [self.zipfile + '/xxuuw']
         sys.modules['xxuuw'] = mod
         #
@@ -264,7 +265,7 @@ class AppTestZipimport:
     def test_functions(self):
         import os
         import zipimport
-        data = "saddsadsa"
+        data = b"saddsadsa"
         self.writefile("xxx", data)
         self.writefile("xx/__init__.py", "5")
         self.writefile("yy.py", "3")
@@ -273,13 +274,13 @@ class AppTestZipimport:
         assert z.get_data(self.zipfile + os.sep + "xxx") == data
         assert z.is_package("xx")
         assert not z.is_package("yy")
-        assert z.get_source("yy") == '3'
+        assert z.get_source("yy") == b'3'
         assert z.get_source('uu') is None
         raises(ImportError, "z.get_source('zz')")
         #assert z.get_code('yy') == py.code.Source('3').compile()
         #assert z.get_code('uu') == self.co
         assert z.get_code('xx')
-        assert z.get_source('xx') == "5"
+        assert z.get_source('xx') == b"5"
         assert z.archive == self.zipfile
         mod = z.load_module('xx')
         assert z.get_filename('xx') == mod.__file__
@@ -319,7 +320,7 @@ class AppTestZipimport:
         self.writefile("package/subpackage/__init__.py", "")
         self.writefile("package/subpackage/foo.py", "")
         import sys
-        print sys.path
+        print(sys.path)
         mod = __import__('package.subpackage.foo', None, None, [])
         assert mod
 
@@ -341,7 +342,7 @@ class AppTestZipimport:
     def test_co_filename(self):
         self.writefile('mymodule.py', """
 def get_co_filename():
-    return get_co_filename.func_code.co_filename
+    return get_co_filename.__code__.co_filename
 """)
         import os
         expected = self.zipfile + os.sep + 'mymodule.py'
