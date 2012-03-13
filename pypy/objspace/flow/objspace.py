@@ -14,6 +14,7 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext, operation, specialcase
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 # method-wrappers have not enough introspection in CPython
@@ -141,7 +142,7 @@ class FlowObjSpace(ObjSpace):
     def int_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
-            if type(val) not in (int,long):
+            if not is_valid_int(val):
                 raise TypeError("expected integer: " + repr(w_obj))
             return val
         return self.unwrap(w_obj)
