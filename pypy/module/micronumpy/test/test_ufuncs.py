@@ -543,3 +543,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert log1p(v) == float("-inf")
         assert log1p(float('inf')) == float('inf')
         assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()
+
+    def test_power(self):
+        import math
+        from _numpypy import power, array
+        a = array([1., 2., 3.])
+        b = power(a, 3)
+        for i in range(len(a)):
+            assert b[i] == a[i] ** 3
+
+        a = array([1., 2., 3.])
+        b = array([1., 2., 3.])
+        c = power(a, b)
+        for i in range(len(a)):
+            assert c[i] == a[i] ** b[i]
