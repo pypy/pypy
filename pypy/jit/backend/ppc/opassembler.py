@@ -2,8 +2,10 @@ from pypy.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op,
                                                           gen_emit_unary_cmp_op)
 import pypy.jit.backend.ppc.condition as c
 import pypy.jit.backend.ppc.register as r
+from pypy.jit.backend.ppc.locations import imm
+from pypy.jit.backend.ppc.locations import imm as make_imm_loc
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
-                                       MAX_REG_PARAMS)
+                                       MAX_REG_PARAMS, FORCE_INDEX_OFS)
 
 from pypy.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                          AbstractFailDescr, FLOAT, INT, REF)
@@ -373,24 +375,25 @@ class MiscOpAssembler(object):
             self.mc.store(r.SCRATCH.value, loc.value, 0)
             self.mc.store(r.SCRATCH.value, loc1.value, 0)
 
-    def emit_call(self, op, args, regalloc, force_index=-1):
-        adr = args[0].value
-        arglist = op.getarglist()[1:]
-        if force_index == -1:
+    def emit_call(self, op, arglocs, regalloc, force_index=NO_FORCE_INDEX):
+        if force_index == NO_FORCE_INDEX:
             force_index = self.write_new_force_index()
-        self._emit_call(force_index, adr, arglist, regalloc, op.result)
+        resloc = arglocs[0]
+        adr = arglocs[1]
+        arglist = arglocs[2:]
+        self._emit_call(force_index, adr, arglist, resloc)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
-        if op.result and not we_are_translated():
+        if (op.result and not we_are_translated()):
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
             size = descr.get_result_size()
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
 
-    def _emit_call(self, force_index, adr, args, regalloc, result=None):
-        n_args = len(args)
-        reg_args = count_reg_args(args)
+    def _emit_call(self, force_index, adr, arglocs, result=None):
+        n_args = len(arglocs)
+        reg_args = count_reg_args(arglocs)
 
         n = 0   # used to count the number of words pushed on the stack, so we
                 # can later modify the SP back to its original value
@@ -399,7 +402,7 @@ class MiscOpAssembler(object):
             # first we need to prepare the list so it stays aligned
             count = 0
             for i in range(reg_args, n_args):
-                arg = args[i]
+                arg = arglocs[i]
                 if arg.type == FLOAT:
                     assert 0, "not implemented yet"
                 else:
@@ -424,7 +427,7 @@ class MiscOpAssembler(object):
             for i, arg in enumerate(stack_args):
                 offset = param_offset + i * WORD
                 if arg is not None:
-                    self.regalloc_mov(regalloc.loc(arg), r.SCRATCH)
+                    self.regalloc_mov(arg, r.SCRATCH)
                 self.mc.store(r.SCRATCH.value, r.SP.value, offset)
 
         # collect variables that need to go in registers
@@ -434,7 +437,7 @@ class MiscOpAssembler(object):
         non_float_locs = []
         non_float_regs = []
         for i in range(reg_args):
-            arg = args[i]
+            arg = arglocs[i]
             if arg.type == FLOAT and count % 2 != 0:
                 assert 0, "not implemented yet"
             reg = r.PARAM_REGS[num]
@@ -442,7 +445,7 @@ class MiscOpAssembler(object):
             if arg.type == FLOAT:
                 assert 0, "not implemented yet"
             else:
-                non_float_locs.append(regalloc.loc(arg))
+                non_float_locs.append(arg)
                 non_float_regs.append(reg)
 
             if arg.type == FLOAT:
@@ -451,21 +454,25 @@ class MiscOpAssembler(object):
                 num += 1
                 count += 1
 
-        # spill variables that need to be saved around calls
-        regalloc.before_call(save_all_regs=2)
+        if adr in non_float_regs:
+            non_float_locs.append(adr)
+            non_float_regs.append(r.r11)
+            adr = r.r11
 
         # remap values stored in core registers
         remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
-        self.mc.call(adr)
+        if adr.is_imm():
+            self.mc.call(adr.value)
+        elif adr.is_stack():
+            assert 0, "not implemented yet"
+        elif adr.is_reg():
+            self.mc.call_register(adr)
+        else:
+            assert 0, "should not reach here"
 
         self.mark_gc_roots(force_index)
-
-        # restore the arguments stored on the stack
-        if result is not None:
-            regalloc.after_call(result)
-
 
 class FieldOpAssembler(object):
 
@@ -754,8 +761,10 @@ class StrOpAssembler(object):
             length_box = bytes_box
             length_loc = bytes_loc
         # call memcpy()
-        self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, 
-                [dstaddr_box, srcaddr_box, length_box], regalloc)
+        regalloc.before_call()
+        imm_addr = make_imm_loc(self.memcpy_addr)
+        self._emit_call(NO_FORCE_INDEX, imm_addr,
+                            [dstaddr_loc, srcaddr_loc, length_loc])
 
         regalloc.possibly_free_var(length_box)
         regalloc.possibly_free_var(dstaddr_box)
@@ -1031,22 +1040,27 @@ class ForceOpAssembler(object):
     
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
+        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         self.mc.mr(res_loc.value, r.SPP.value)
+        self.mc.addi(res_loc.value, res_loc.value, ENCODING_AREA)
 
+    #    self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
     # from: ../x86/assembler.py:1668
     # XXX Split into some helper methods
     def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc):
+        tmploc = arglocs[1]
+        resloc = arglocs[2]
+        callargs = arglocs[3:]
+
         faildescr = guard_op.getdescr()
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self._write_fail_index(fail_index)
-
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        # XXX check this
-        #assert op.numargs() == len(descr._ppc_arglocs[0])
-        resbox = TempInt()
-        self._emit_call(fail_index, descr._ppc_func_addr, op.getarglist(),
-                                regalloc, result=resbox)
+        # check value
+        assert tmploc is r.RES
+        self._emit_call(fail_index, imm(descr._ppc_func_addr),
+                                callargs, result=tmploc)
         if op.result is None:
             value = self.cpu.done_with_this_frame_void_v
         else:
@@ -1056,61 +1070,40 @@ class ForceOpAssembler(object):
             elif kind == REF:
                 value = self.cpu.done_with_this_frame_ref_v
             elif kind == FLOAT:
-                assert 0, "not implemented yet"
+                value = self.cpu.done_with_this_frame_float_v
             else:
                 raise AssertionError(kind)
-        # check value
-        resloc = regalloc.try_allocate_reg(resbox)
-        assert resloc is r.RES
+
+        # take fast path on equality
+        # => jump on inequality
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, value)
-            self.mc.cmp_op(0, resloc.value, r.SCRATCH.value)
-        regalloc.possibly_free_var(resbox)
+            self.mc.cmp_op(0, tmploc.value, r.SCRATCH.value)
 
-        fast_jmp_pos = self.mc.currpos()
-        self.mc.nop()
-
-        # Path A: use assembler helper
-        # if values are equal we take the fast path
+        #if values are equal we take the fast path
         # Slow path, calling helper
         # jump to merge point
+
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
-        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
 
-        # do call to helper function
-        self.mov_loc_loc(arglocs[1], r.r4)
-        self.mc.call(asm_helper_adr)
-
-        if op.result:
-            resloc = regalloc.after_call(op.result)
-            if resloc.is_vfp_reg():
-                assert 0, "not implemented yet"
-
-        # jump to merge point
-        jmp_pos = self.mc.currpos()
-        self.mc.nop()
-
-        # Path B: load return value and reset token
+        # Path A: load return value and reset token
         # Fast Path using result boxes
-        # patch the jump to the fast path
-        offset = self.mc.currpos() - fast_jmp_pos
-        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
-        # 12 and 2 mean: jump if the 3rd bit in CR is set
-        pmc.bc(12, 2, offset)
-        pmc.overwrite()
+
+        fast_jump_pos = self.mc.currpos()
+        self.mc.nop()
 
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
             from pypy.jit.backend.llsupport.descr import FieldDescr
             fielddescr = jd.vable_token_descr
             assert isinstance(fielddescr, FieldDescr)
-            resloc = regalloc.force_allocate_reg(resbox)
+            ofs = fielddescr.offset
+            tmploc = regalloc.get_scratch_reg(INT)
             with scratch_reg(self.mc):
-                self.mov_loc_loc(arglocs[1], r.SCRATCH)
-                self.mc.li(resloc.value, 0)
-                self.mc.storex(resloc.value, 0, r.SCRATCH.value)
-            regalloc.possibly_free_var(resbox)
+                self.mov_loc_loc(arglocs[0], r.SCRATCH)
+                self.mc.li(tmploc.value, 0)
+                self.mc.storex(tmploc.value, 0, r.SCRATCH.value)
 
         if op.result is not None:
             # load the return value from fail_boxes_xxx[0]
@@ -1120,11 +1113,9 @@ class ForceOpAssembler(object):
             elif kind == REF:
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             elif kind == FLOAT:
-                assert 0, "not implemented yet"
+                assert 0, "not implemented"
             else:
                 raise AssertionError(kind)
-            resloc = regalloc.force_allocate_reg(op.result)
-            regalloc.possibly_free_var(resbox)
             with scratch_reg(self.mc):
                 self.mc.load_imm(r.SCRATCH, adr)
                 if op.result.type == FLOAT:
@@ -1132,18 +1123,40 @@ class ForceOpAssembler(object):
                 else:
                     self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
 
-        # merge point
-        offset = self.mc.currpos() - jmp_pos
-        if offset >= 0:
-            pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
-            pmc.b(offset)
-            pmc.overwrite()
+        # jump to merge point, patched later
+        fast_path_to_end_jump_pos = self.mc.currpos()
+        self.mc.nop()
 
+        jmp_pos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, fast_jump_pos, 1)
+        pmc.bc(4, 2, jmp_pos - fast_jump_pos)
+        pmc.overwrite()
+
+        # Path B: use assembler helper
+        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        if self.cpu.supports_floats:
+            assert 0, "not implemented yet"
+
+        with Saved_Volatiles(self.mc, save_RES=False):
+            # result of previous call is in r3
+            self.mov_loc_loc(arglocs[0], r.r4)
+            self.mc.call(asm_helper_adr)
+            if op.result and resloc.is_vfp_reg():
+                assert 0, "not implemented yet"
+
+        # merge point
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, fast_path_to_end_jump_pos, 1)
+        pmc.b(currpos - fast_path_to_end_jump_pos)
+        pmc.overwrite()
+
+        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
         with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
+            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
             self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
 
-        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
+                                                    c.LT, save_exc=True)
 
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
@@ -1169,21 +1182,56 @@ class ForceOpAssembler(object):
             odata[0] = tdata[0]
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
-        ENCODING_AREA = len(r.MANAGED_REGS) * WORD
-        with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, ENCODING_AREA)
-            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self._emit_guard(guard_op, arglocs, c.LT, save_exc=True)
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+        numargs = op.numargs()
+        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
+        adr = arglocs[1]
+        resloc = arglocs[0]
+        self._emit_call(fail_index, adr, callargs, resloc)
 
-    emit_guard_call_release_gil = emit_guard_call_may_force
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+
+        self._emit_guard(guard_op, arglocs[1 + numargs:], c.LT, save_exc=True)
+
+    def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc):
+
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        numargs = op.numargs()
+        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
+        adr = arglocs[1]
+        resloc = arglocs[0]
+
+        if gcrootmap:
+            self.call_release_gil(gcrootmap, arglocs)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+
+        self._emit_call(fail_index, adr, callargs, resloc)
+        # then reopen the stack
+        if gcrootmap:
+            self.call_reacquire_gil(gcrootmap, resloc)
+
+        with scratch_reg(self.mc):
+            self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
+            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+
+        self._emit_guard(guard_op, arglocs[1 + numargs:], c.LT, save_exc=True)
 
     def call_release_gil(self, gcrootmap, save_registers):
         # XXX don't know whether this is correct
         # XXX use save_registers here
         assert gcrootmap.is_shadow_stack
         with Saved_Volatiles(self.mc):
-            self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
-                            [], self._regalloc)
+            #self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
+            #                [], self._regalloc)
+            self._emit_call(NO_FORCE_INDEX, imm(self.releasegil_addr), [])
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result into the stack temporarily.
@@ -1191,8 +1239,7 @@ class ForceOpAssembler(object):
         # to save vfp regs in this case. Besides the result location
         assert gcrootmap.is_shadow_stack
         with Saved_Volatiles(self.mc):
-            self._emit_call(NO_FORCE_INDEX, self.reacqgil_addr,
-                            [], self._regalloc)
+            self._emit_call(NO_FORCE_INDEX, imm(self.reacqgil_addr), [])
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,

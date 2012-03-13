@@ -87,10 +87,10 @@ class PPC_CPU(AbstractLLCPU):
                         len(r.MANAGED_REGS),
                         flavor='raw', zero=True, immortal=True)
 
-    def force(self, spilling_pointer):
+    def force(self, addr_of_force_index):
         TP = rffi.CArrayPtr(lltype.Signed)
 
-        addr_of_force_index = spilling_pointer + len(r.MANAGED_REGS) * WORD
+        spilling_pointer = addr_of_force_index - FORCE_INDEX_OFS
 
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
         assert fail_index >= 0, "already forced!"

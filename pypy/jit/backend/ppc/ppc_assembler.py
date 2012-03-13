@@ -8,7 +8,8 @@ from pypy.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               FPR_SAVE_AREA,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX,
-                                              SIZE_LOAD_IMM_PATCH_SP)
+                                              SIZE_LOAD_IMM_PATCH_SP,
+                                              FORCE_INDEX_OFS)
 from pypy.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from pypy.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import pypy.jit.backend.ppc.register as r
@@ -196,7 +197,7 @@ class AssemblerPPC(OpAssembler):
         to the failboxes.  Values for spilled vars and registers are stored on
         stack at frame_loc """
         assert spp & 1 == 0
-        self.fail_force_index = spp
+        self.fail_force_index = spp + FORCE_INDEX_OFS
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         num = 0
         value = 0
@@ -808,11 +809,15 @@ class AssemblerPPC(OpAssembler):
             elif self.can_merge_with_next_guard(op, pos, operations)\
                     and opnum in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER,\
                     rop.CALL_MAY_FORCE):  # XXX fix  
-                regalloc.next_instruction()
+                guard = operations[pos + 1]
+                assert guard.is_guard()
                 arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
-                                        operations[pos+1])
+                                                                guard)
                 operations_with_guard[opnum](self, op,
-                                        operations[pos+1], arglocs, regalloc)
+                                             guard, arglocs, regalloc)
+                regalloc.next_instruction()
+                regalloc.possibly_free_vars_for_op(guard)
+                regalloc.possibly_free_vars(guard.getfailargs())
             elif not we_are_translated() and op.getopnum() == -124:
                 regalloc.prepare_force_spill(op)
             else:
