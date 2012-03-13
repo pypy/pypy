@@ -30,6 +30,11 @@ option_to_typename = {
                     "proxyobject.W_TransparentDict"],
 }
 
+IDTAG_INT     = 1
+IDTAG_LONG    = 3
+IDTAG_FLOAT   = 5
+IDTAG_COMPLEX = 7
+
 class StdTypeModel:
 
     def __init__(self, config):
