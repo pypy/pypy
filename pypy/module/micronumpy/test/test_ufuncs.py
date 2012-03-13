@@ -113,6 +113,16 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert (divide(array([-10]), array([2])) == array([-5])).all()
 
+    def test_true_divide(self):
+        from _numpypy import array, true_divide
+
+        a = array([0, 1, 2, 3, 4, 1, -1])
+        b = array([4, 4, 4, 4, 4, 0,  0])
+        c = true_divide(a, b)
+        assert (c == [0.0, 0.25, 0.5, 0.75, 1.0, float('inf'), float('-inf')]).all()
+
+        assert math.isnan(true_divide(0, 0))
+
     def test_fabs(self):
         from _numpypy import array, fabs
         from math import fabs as math_fabs
