@@ -102,6 +102,7 @@ class BaseArray(Wrappable):
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_truediv = _binop_impl("true_divide")
+    descr_floordiv = _binop_impl("floor_divide")
     descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
@@ -136,6 +137,7 @@ class BaseArray(Wrappable):
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
     descr_rtruediv = _binop_right_impl("true_divide")
+    descr_rfloordiv = _binop_right_impl("floor_divide")
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
@@ -779,8 +781,6 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.ufunc = ufunc
@@ -856,8 +856,6 @@ class ReduceArray(Call2):
                                          self.right.create_sig(), done_func)
 
 class AxisReduce(Call2):
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, identity, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
@@ -1254,6 +1252,7 @@ BaseArray.typedef = TypeDef(
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
     __truediv__ = interp2app(BaseArray.descr_truediv),
+    __floordiv__ = interp2app(BaseArray.descr_floordiv),
     __mod__ = interp2app(BaseArray.descr_mod),
     __divmod__ = interp2app(BaseArray.descr_divmod),
     __pow__ = interp2app(BaseArray.descr_pow),
@@ -1268,6 +1267,7 @@ BaseArray.typedef = TypeDef(
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rtruediv__ = interp2app(BaseArray.descr_rtruediv),
+    __rfloordiv__ = interp2app(BaseArray.descr_rfloordiv),
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),

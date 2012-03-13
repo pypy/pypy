@@ -2,6 +2,7 @@ import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -488,7 +489,7 @@ class _WrappedIteratorMixin(object):
 
 class _UnwrappedIteratorMixin:
     _mixin_ = True
-    
+
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
@@ -837,10 +838,12 @@ def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
         return all_contained_in(space, w_dictview, w_otherview)
     return space.w_False
 eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
+eq__DictViewKeys_frozensettypedef = eq__DictViewKeys_DictViewKeys
 
 eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
+eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
 
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)

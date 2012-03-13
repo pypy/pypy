@@ -1,4 +1,5 @@
 import py
+from pypy.rlib.objectmodel import newlist_hint
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -227,6 +228,27 @@ class ListTests:
         assert res == f(15)
         self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'guard_true': 2, 'int_sub': 2})
+
+    def test_newlist_hint(self):
+        def f(i):
+            l = newlist_hint(i)
+            return len(l)
+
+        r = self.interp_operations(f, [3])
+        assert r == 0
+
+    def test_newlist_hint_optimized(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+
+        def f(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                l = newlist_hint(5)
+                l.append(1)
+                i -= l[0]
+
+        self.meta_interp(f, [10], listops=True)
+        self.check_resops(new_array=0, call=0)
 
 class TestOOtype(ListTests, OOJitMixin):
     pass

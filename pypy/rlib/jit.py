@@ -392,6 +392,9 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
+ENABLE_ALL_OPTS = (
+    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:ffi:unroll')
+
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
     'function_threshold': 'number of times a function must run for it to become traced from start',
@@ -402,7 +405,8 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
-    'enable_opts': 'optimizations to enable or all, INTERNAL USE ONLY'
+    'enable_opts': 'INTERNAL USE ONLY: optimizations to enable, or all = %s' %
+                       ENABLE_ALL_OPTS,
     }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -469,14 +473,16 @@ class JitDriver(object):
         # FLOATs.
         if len(self._heuristic_order) < len(livevars):
             from pypy.rlib.rarithmetic import (r_singlefloat, r_longlong,
-                                               r_ulonglong)
+                                               r_ulonglong, r_uint)
             added = False
             for var, value in livevars.items():
                 if var not in self._heuristic_order:
-                    if isinstance(value, (r_longlong, r_ulonglong)):
+                    if (r_ulonglong is not r_uint and
+                            isinstance(value, (r_longlong, r_ulonglong))):
                         assert 0, ("should not pass a r_longlong argument for "
-                                   "now, because on 32-bit machines it would "
-                                   "need to be ordered as a FLOAT")
+                                   "now, because on 32-bit machines it needs "
+                                   "to be ordered as a FLOAT but on 64-bit "
+                                   "machines as an INT")
                     elif isinstance(value, (int, long, r_singlefloat)):
                         kind = '1:INT'
                     elif isinstance(value, float):

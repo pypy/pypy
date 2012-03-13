@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import r_int64
+from pypy.rlib.rarithmetic import r_int64, is_valid_int
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -213,7 +213,7 @@ class ConstInt(Const):
 
     def __init__(self, value):
         if not we_are_translated():
-            if isinstance(value, int):
+            if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
                 assert isinstance(value, Symbolic)
