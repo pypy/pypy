@@ -89,6 +89,12 @@ def name_signedlonglong(value, db):
     else:
         return '%dLL' % value
 
+def is_positive_nan(value):
+    # bah.  we don't have math.copysign() if we're running Python 2.5
+    import struct
+    c = struct.pack("!d", value)[0]
+    return {'\x7f': True, '\xff': False}[c]
+
 def name_float(value, db):
     if isinf(value):
         if value > 0:
@@ -96,7 +102,10 @@ def name_float(value, db):
         else:
             return '(-Py_HUGE_VAL)'
     elif isnan(value):
-        return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        if is_positive_nan(value):
+            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        else:
+            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -112,7 +121,10 @@ def name_singlefloat(value, db):
             return '((float)-Py_HUGE_VAL)'
     elif isnan(value):
         # XXX are these expressions ok?
-        return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        if is_positive_nan(value):
+            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        else:
+            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         return repr(value) + 'f'
 
