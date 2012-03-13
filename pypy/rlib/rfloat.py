@@ -375,8 +375,7 @@ except ImportError:
 
     def log1p(x):
         "NOT_RPYTHON"
-        from pypy.rlib import rfloat
-        if abs(x) < rfloat.DBL_EPSILON // 2.:
+        if abs(x) < DBL_EPSILON // 2.:
             return x
         elif -.5 <= x <= 1.:
             y = 1. + x
