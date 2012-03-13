@@ -78,39 +78,6 @@ else:
         # XXX for the moment
         return
 
-def tmpfile():
-    """Create a temporary file.
-
-    The data in the file is freed when you
-    close the file, or automatically by the OS when the program ends."""
-    import tempfile
-    f = tempfile.TemporaryFile()
-    if osname == 'nt':
-        f = f.file     # on NT, with the 2.4 stdlib of CPython,
-                       # we get a _TemporaryFileWrapper for no good reason
-    return f
-
-
-def tmpnam():
-    """Return an absolute pathname of a file that did not exist at the
-    time the call is made."""
-    from warnings import warn
-    warn(RuntimeWarning("tmpnam is a potential security risk to your program"))
-
-    import tempfile
-    return tempfile.mktemp()
-
-def tempnam(dir=None, prefix=None):
-    """Return an absolute pathname of a file that did not exist at the
-    time the call is made.  The directory and a prefix may be specified
-    as strings; they may be omitted or None if not needed."""
-    from warnings import warn
-    warn(RuntimeWarning("tempnam is a potential security risk to your program"))
-
-    import tempfile
-    return tempfile.mktemp('', prefix or 'tmp', dir)
-
-
 if osname == 'posix':
     def wait():
         """ wait() -> (pid, status)
