@@ -183,14 +183,10 @@ class TestInterpreter:
                 r = [
                     f(n, *[]),
                     f(n),
-                    apply(f, (n,)),
-                    apply(f, [n]),
                     f(*(n,)),
                     f(*[n]),
                     f(n=n),
                     f(**{'n': n}),
-                    apply(f, (n,), {}),
-                    apply(f, [n], {}),
                     f(*(n,), **{}),
                     f(*[n], **{}),
                     f(n, **{}),
@@ -203,7 +199,7 @@ class TestInterpreter:
                     ]
                 return r
             '''
-        assert self.codetest(code, 'f38', [117]) == [234]*19
+        assert self.codetest(code, 'f38', [117]) == [234]*15
 
     def test_star_arg(self):
         code = ''' 
