@@ -428,6 +428,7 @@ class UfuncState(object):
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),

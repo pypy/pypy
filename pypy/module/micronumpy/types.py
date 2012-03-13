@@ -478,6 +478,13 @@ class Float(Primitive):
     def fabs(self, v):
         return math.fabs(v)
 
+    @simple_binary_op
+    def fmod(self, v1, v2):
+        try:
+            return math.fmod(v1, v2)
+        except ValueError:
+            return rfloat.NAN
+
     @simple_unary_op
     def reciprocal(self, v):
         if v == 0.0:

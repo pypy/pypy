@@ -125,12 +125,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_fabs(self):
         from _numpypy import array, fabs
-        from math import fabs as math_fabs
+        from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = fabs(a)
         for i in range(3):
             assert b[i] == math_fabs(a[i])
+        assert fabs(float('inf')) == float('inf')
+        assert fabs(float('-inf')) == float('inf')
+        assert isnan(fabs(float('nan')))
+
+    def test_fmod(self):
+        from _numpypy import fmod
+        import math
+
+        assert fmod(-1e-100, 1e100) == -1e-100
+        assert fmod(3, float('inf')) == 3
+        assert (fmod([-3, -2, -1, 1, 2, 3], 2) == [-1,  0, -1,  1,  0,  1]).all()
+        for v in [float('inf'), float('-inf'), float('nan'), float('-nan')]:
+            assert math.isnan(fmod(v, 2))
 
     def test_minimum(self):
         from _numpypy import array, minimum
