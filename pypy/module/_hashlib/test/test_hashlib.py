@@ -41,24 +41,6 @@ class AppTestHashlib:
             c_digest    = digest
             c_hexdigest = hexdigest
 
-            # also test the pure Python implementation
-            py_new = getattr(hashlib, '__get_builtin_constructor')
-            h = py_new(name)('')
-            assert h.digest_size == expected_size
-            #
-            h.update('abc')
-            h2 = h.copy()
-            h.update('def')
-            digest = h.digest()
-            hexdigest = h.hexdigest()
-            h2.update('d')
-            h2.update('ef')
-            assert digest    == h2.digest()
-            assert hexdigest == h2.hexdigest()
-
-            # compare both implementations
-            assert c_digest    == digest
-            assert c_hexdigest == hexdigest
 
     def test_shortcut(self):
         import hashlib
