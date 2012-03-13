@@ -404,6 +404,8 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
+            ("isneginf", "isneginf", 1, {"bool_result": True}),
+            ("isposinf", "isposinf", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
                                                'identity': 1}),

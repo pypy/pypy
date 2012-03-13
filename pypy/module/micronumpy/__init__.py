@@ -109,6 +109,8 @@ class Module(MixedModule):
         ('bitwise_not', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
+        ('isneginf', 'isneginf'),
+        ('isposinf', 'isposinf'),
         ('logical_and', 'logical_and'),
         ('logical_xor', 'logical_xor'),
         ('logical_not', 'logical_not'),

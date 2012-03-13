@@ -155,6 +155,14 @@ class Primitive(object):
     def isinf(self, v):
         return False
 
+    @raw_unary_op
+    def isneginf(self, v):
+        return False
+
+    @raw_unary_op
+    def isposinf(self, v):
+        return False
+
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -573,6 +581,14 @@ class Float(Primitive):
     @raw_unary_op
     def isinf(self, v):
         return rfloat.isinf(v)
+
+    @raw_unary_op
+    def isneginf(self, v):
+        return rfloat.isinf(v) and v < 0
+
+    @raw_unary_op
+    def isposinf(self, v):
+        return rfloat.isinf(v) and v > 0
 
     @simple_unary_op
     def radians(self, v):

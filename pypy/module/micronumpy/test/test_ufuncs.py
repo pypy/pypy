@@ -556,6 +556,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
 
+    def test_isposinf_isneginf(self):
+        from _numpypy import isneginf, isposinf
+        assert isposinf(float('inf'))
+        assert not isposinf(float('-inf'))
+        assert not isposinf(float('nan'))
+        assert not isposinf(0)
+        assert not isposinf(0.0)
+        assert isneginf(float('-inf'))
+        assert not isneginf(float('inf'))
+        assert not isneginf(float('nan'))
+        assert not isneginf(0)
+        assert not isneginf(0.0)
+
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
 
