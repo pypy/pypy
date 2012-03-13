@@ -601,6 +601,48 @@ class Float(Primitive):
         except ValueError:
             return rfloat.NAN
 
+    @simple_binary_op
+    def logaddexp(self, v1, v2):
+        try:
+            v1e = math.exp(v1)
+        except OverflowError:
+            v1e = rfloat.INFINITY
+        try:
+            v2e = math.exp(v2)
+        except OverflowError:
+            v2e = rfloat.INFINITY
+
+        v12e = v1e + v2e
+        try:
+            return math.log(v12e)
+        except ValueError:
+            if v12e == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_binary_op
+    def logaddexp2(self, v1, v2):
+        try:
+            v1e = math.pow(2, v1)
+        except OverflowError:
+            v1e = rfloat.INFINITY
+        try:
+            v2e = math.pow(2, v2)
+        except OverflowError:
+            v2e = rfloat.INFINITY
+
+        v12e = v1e + v2e
+        try:
+            return math.log(v12e) / log2
+        except ValueError:
+            if v12e == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
 
 class Float32(BaseType, Float):
     T = rffi.FLOAT

@@ -564,3 +564,50 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = floor_divide(a, 2.5)
         for i in range(len(a)):
             assert b[i] == a[i] // 2.5
+
+    def test_logaddexp(self):
+        import math
+        from _numpypy import logaddexp
+
+        # From the numpy documentation
+        prob1 = math.log(1e-50)
+        prob2 = math.log(2.5e-50)
+        prob12 = logaddexp(prob1, prob2)
+        assert math.fabs(-113.87649168120691 - prob12) < 0.000000000001
+
+        assert logaddexp(0, 0) == math.log(2)
+        assert logaddexp(float('-inf'), 0) == 0
+        assert logaddexp(12345678, 12345678) == float('inf')
+
+        assert math.isnan(logaddexp(float('nan'), 1))
+        assert math.isnan(logaddexp(1, float('nan')))
+        assert math.isnan(logaddexp(float('nan'), float('inf')))
+        assert math.isnan(logaddexp(float('inf'), float('nan')))
+        assert logaddexp(float('-inf'), float('-inf')) == float('-inf')
+        assert logaddexp(float('-inf'), float('inf')) == float('inf')
+        assert logaddexp(float('inf'), float('-inf')) == float('inf')
+        assert logaddexp(float('inf'), float('inf')) == float('inf')
+
+    def test_logaddexp2(self):
+        import math
+        from _numpypy import logaddexp2
+        log2 = math.log(2)
+
+        # From the numpy documentation
+        prob1 = math.log(1e-50) / log2
+        prob2 = math.log(2.5e-50) / log2
+        prob12 = logaddexp2(prob1, prob2)
+        assert math.fabs(-164.28904982231052 - prob12) < 0.000000000001
+
+        assert logaddexp2(0, 0) == 1
+        assert logaddexp2(float('-inf'), 0) == 0
+        assert logaddexp2(12345678, 12345678) == float('inf')
+
+        assert math.isnan(logaddexp2(float('nan'), 1))
+        assert math.isnan(logaddexp2(1, float('nan')))
+        assert math.isnan(logaddexp2(float('nan'), float('inf')))
+        assert math.isnan(logaddexp2(float('inf'), float('nan')))
+        assert logaddexp2(float('-inf'), float('-inf')) == float('-inf')
+        assert logaddexp2(float('-inf'), float('inf')) == float('inf')
+        assert logaddexp2(float('inf'), float('-inf')) == float('inf')
+        assert logaddexp2(float('inf'), float('inf')) == float('inf')
