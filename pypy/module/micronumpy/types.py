@@ -293,6 +293,8 @@ class Integer(Primitive):
 
     @simple_binary_op
     def pow(self, v1, v2):
+        if v2 < 0:
+            return 0
         res = 1
         while v2 > 0:
             if v2 & 1:
@@ -440,7 +442,15 @@ class Float(Primitive):
 
     @simple_binary_op
     def pow(self, v1, v2):
-        return math.pow(v1, v2)
+        try:
+            return math.pow(v1, v2)
+        except ValueError:
+            return rfloat.NAN
+        except OverflowError:
+            if math.modf(v2)[0] == 0 and math.modf(v2 / 2)[0] != 0:
+                # Odd integer powers result in the same sign as the base
+                return rfloat.copysign(rfloat.INFINITY, v1)
+            return rfloat.INFINITY
 
     @simple_binary_op
     def copysign(self, v1, v2):

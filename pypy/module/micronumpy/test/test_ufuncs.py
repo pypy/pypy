@@ -577,7 +577,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert log1p(float('inf')) == float('inf')
         assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()
 
-    def test_power(self):
+    def test_power_float(self):
         import math
         from _numpypy import power, array
         a = array([1., 2., 3.])
@@ -590,6 +590,44 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = power(a, b)
         for i in range(len(a)):
             assert c[i] == a[i] ** b[i]
+
+        assert power(2, float('inf')) == float('inf')
+        assert power(float('inf'), float('inf')) == float('inf')
+        assert power(12345.0, 12345.0) == float('inf')
+        assert power(-12345.0, 12345.0) == float('-inf')
+        assert power(-12345.0, 12346.0) == float('inf')
+        assert math.isnan(power(-1, 1.1))
+        assert math.isnan(power(-1, -1.1))
+        assert power(-2.0, -1) == -0.5
+        assert power(-2.0, -2) == 0.25
+        assert power(12345.0, -12345.0) == 0
+        assert power(float('-inf'), 2) == float('inf')
+        assert power(float('-inf'), 2.5) == float('inf')
+        assert power(float('-inf'), 3) == float('-inf')
+
+    def test_power_int(self):
+        import math
+        from _numpypy import power, array
+        a = array([1, 2, 3])
+        b = power(a, 3)
+        for i in range(len(a)):
+            assert b[i] == a[i] ** 3
+
+        a = array([1, 2, 3])
+        b = array([1, 2, 3])
+        c = power(a, b)
+        for i in range(len(a)):
+            assert c[i] == a[i] ** b[i]
+
+        # assert power(12345, 12345) == -9223372036854775808
+        # assert power(-12345, 12345) == -9223372036854775808
+        # assert power(-12345, 12346) == -9223372036854775808
+        assert power(2, 0) == 1
+        assert power(2, -1) == 0
+        assert power(2, -2) == 0
+        assert power(-2, -1) == 0
+        assert power(-2, -2) == 0
+        assert power(12345, -12345) == 0
 
     def test_floordiv(self):
         from _numpypy import floor_divide, array
