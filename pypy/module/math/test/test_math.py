@@ -18,7 +18,7 @@ class AppTestMath:
         import math
         for fnname, args, expected in self.cases:
             fn = getattr(math, fnname)
-            print fn, args
+            print(fn, args)
             try:
                 got = fn(*args)
             except ValueError:
