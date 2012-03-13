@@ -72,7 +72,7 @@ class AppTestHashlib:
                           "4effe5d7a31879b8b7a10fd2f544c4ca268ecc6793923583"),
             }
         import _hashlib
-        test_string = "Nobody inspects the spammish repetition"
+        test_string = b"Nobody inspects the spammish repetition"
         for hash_name, expected in sorted(expected_results.items()):
             try:
                 m = _hashlib.new(hash_name)
