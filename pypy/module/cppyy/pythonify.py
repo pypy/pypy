@@ -321,7 +321,7 @@ def _pythonize(pyclass):
 
     # TODO: clean this up
     # fixup lack of __getitem__ if no const return
-    if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem___'):
+    if hasattr(pyclass, '__setitem__') and not hasattr(pyclass, '__getitem__'):
         pyclass.__getitem__ = pyclass.__setitem__
 
 _loaded_dictionaries = {}
