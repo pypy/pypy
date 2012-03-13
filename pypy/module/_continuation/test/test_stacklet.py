@@ -464,12 +464,12 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         def f1(c1):
-            print 'in f1'
+            print('in f1')
             return 'm'
         #
         def f2(c2):
             res = c2.switch('z')
-            print 'got there!'
+            print('got there!')
             assert res == 'a'
             return None
         #
@@ -479,9 +479,9 @@ class AppTestStacklet(BaseAppTest):
         assert res == 'z'
         assert c1.is_pending()
         assert c2.is_pending()
-        print 'calling!'
+        print('calling!')
         res = c1.switch('a', to=c2)
-        print 'back'
+        print('back')
         assert res == 'm'
 
     def test_switch2_immediately_away_corner_case(self):
