@@ -557,3 +557,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         c = power(a, b)
         for i in range(len(a)):
             assert c[i] == a[i] ** b[i]
+
+    def test_floordiv(self):
+        from _numpypy import floor_divide, array
+        a = array([1., 2., 3., 4., 5., 6., 6.01])
+        b = floor_divide(a, 2.5)
+        for i in range(len(a)):
+            assert b[i] == a[i] // 2.5
