@@ -16,13 +16,13 @@ class AppTestGenerator(BaseAppTest):
             gen.switch(m*2)
         #
         g = f(10)
-        res = g.next()
+        res = g.__next__()
         assert res == 11
-        res = g.next()
+        res = g.__next__()
         assert res == 24
-        res = g.next()
+        res = g.__next__()
         assert res == 13
-        raises(StopIteration, g.next)
+        raises(StopIteration, g.__next__)
 
     def test_iterator(self):
         from _continuation import generator
@@ -65,6 +65,6 @@ class AppTestGenerator(BaseAppTest):
             return "foo"
         #
         g = f(10)
-        res = g.next()
+        res = g.__next__()
         assert res == 11
-        raises(TypeError, g.next)
+        raises(TypeError, g.__next__)
