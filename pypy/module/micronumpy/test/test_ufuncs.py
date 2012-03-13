@@ -172,6 +172,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a[0] == 1
         assert a[1] == 0
 
+    def test_signbit(self):
+        from _numpypy import signbit, copysign
+        import struct
+
+        assert (signbit([0, 0.0, 1, 1.0, float('inf'), float('nan')]) ==
+            [False, False, False, False, False, False]).all()
+        assert (signbit([-0, -0.0, -1, -1.0, float('-inf'), -float('nan'), float('-nan')]) ==
+            [False,  True,  True,  True,  True,  True, True]).all()
+
     def test_reciporocal(self):
         from _numpypy import array, reciprocal
 

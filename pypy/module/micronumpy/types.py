@@ -470,6 +470,10 @@ class Float(Primitive):
             return 0.0
         return rfloat.copysign(1.0, v)
 
+    @raw_unary_op
+    def signbit(self, v):
+        return rfloat.copysign(1.0, v) < 0.0
+
     @simple_unary_op
     def fabs(self, v):
         return math.fabs(v)

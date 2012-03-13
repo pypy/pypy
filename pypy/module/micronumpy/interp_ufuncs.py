@@ -423,6 +423,7 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
+            ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),

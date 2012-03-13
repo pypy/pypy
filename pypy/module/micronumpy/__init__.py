@@ -98,6 +98,7 @@ class Module(MixedModule):
         ("rad2deg", "degrees"),
         ("reciprocal", "reciprocal"),
         ("sign", "sign"),
+        ("signbit", "signbit"),
         ("sin", "sin"),
         ("sinh", "sinh"),
         ("subtract", "subtract"),
