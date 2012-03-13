@@ -9,8 +9,9 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.nestedscope import Cell
 
-@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
-def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
+@unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int, optimize=int)
+def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
+            optimize=0):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
 The filename will be used for run-time error messages.
@@ -51,6 +52,7 @@ in addition to any features explicitly specified.
         raise OperationError(space.w_ValueError,
                              space.wrap("compile() arg 3 must be 'exec' "
                                         "or 'eval' or 'single'"))
+    # XXX optimize is not used
 
     if ast_node is None:
         if flags & consts.PyCF_ONLY_AST:
