@@ -174,6 +174,11 @@ class AppTestMarshal:
                 pass
             raises(ValueError, marshal.dumps, subtype)
 
+    def test_bad_typecode(self):
+        import marshal
+        exc = raises(ValueError, marshal.loads, chr(1))
+        assert r"'\x01'" in exc.value.message
+
 
 class AppTestRope(AppTestMarshal):
     def setup_class(cls):

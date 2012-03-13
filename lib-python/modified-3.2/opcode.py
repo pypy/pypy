@@ -181,5 +181,6 @@ EXTENDED_ARG = 144
 def_op('LOOKUP_METHOD', 201)          # Index in name list
 hasname.append(201)
 def_op('CALL_METHOD', 202)            # #args not including 'self'
+def_op('BUILD_LIST_FROM_ARG', 203)
 
 del def_op, name_op, jrel_op, jabs_op

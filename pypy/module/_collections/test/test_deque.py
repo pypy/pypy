@@ -65,17 +65,17 @@ class AppTestBasic:
         d = deque('abcdefg')
         it = iter(d)
         d.pop()
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
         #
         d = deque('abcdefg')
         it = iter(d)
         d.append(d.pop())
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
         #
         d = deque()
         it = iter(d)
         d.append(10)
-        raises(RuntimeError, it.__next__)
+        raises(RuntimeError, next, it)
 
     def test_count(self):
         from _collections import deque

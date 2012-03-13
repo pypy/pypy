@@ -2,6 +2,7 @@ import math
 import sys
 
 from pypy.rlib import rfloat, unroll
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
@@ -380,7 +381,13 @@ def fsum(space, w_iterable):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rfloat.log1p, w_x)
+    try:
+        return math1(space, rfloat.log1p, w_x)
+    except OperationError as e:
+        # Python 2.x raises a OverflowError improperly.
+        if we_are_translated() or not e.match(space, space.w_OverflowError):
+            raise
+        raise OperationError(space.w_ValueError, space.wrap("math domain error"))
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""

@@ -163,6 +163,13 @@ class AppTestImport:
     def w_exec_(self, cmd, ns):
         exec(cmd, ns)
 
+    def test_file_and_cached(self):
+        import compiled.x
+        assert "__pycache__" not in compiled.x.__file__
+        assert compiled.x.__file__.endswith(".py")
+        assert "__pycache__" in compiled.x.__cached__
+        assert compiled.x.__cached__.endswith(".pyc")
+
     def test_set_sys_modules_during_import(self):
         from evil_pkg import evil
         assert evil.a == 42
@@ -373,6 +380,7 @@ class AppTestImport:
             import readonly.x    # cannot write x.pyc, but should not crash
         finally:
             os.chmod(p, 0o775)
+        assert "__pycache__" in readonly.x.__cached__
 
     def test__import__empty_string(self):
         raises(ValueError, __import__, "")
@@ -1217,17 +1225,14 @@ class AppTestNoPycFile(object):
 
     def test_import_possibly_from_pyc(self):
         from compiled import x
-        if self.usepycfiles:
-            assert x.__file__.endswith('.pyc')
-        else:
-            assert x.__file__.endswith('.py')
+        assert x.__file__.endswith('.py')
         try:
             from compiled import lone
         except ImportError:
             assert not self.lonepycfiles, "should have found 'lone.pyc'"
         else:
             assert self.lonepycfiles, "should not have found 'lone.pyc'"
-            assert lone.__file__.endswith('.pyc')
+            assert lone.__cached__.endswith('.pyc')
 
 class AppTestNoLonePycFile(AppTestNoPycFile):
     spaceconfig = {

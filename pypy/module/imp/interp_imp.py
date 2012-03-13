@@ -222,9 +222,8 @@ def source_from_cache(space, pathname):
     The .pyc/.pyo file does not need to exist; this simply returns the path to
     the .py file calculated to correspond to the .pyc/.pyo file.  If path
     does not conform to PEP 3147 format, ValueError will be raised."""
-    try:
-        sourcename = importing.make_source_pathname(pathname)
-    except ValueError:
+    sourcename = importing.make_source_pathname(pathname)
+    if sourcename is None:
         raise operationerrfmt(space.w_ValueError,
                               "Not a PEP 3147 pyc path: %s", pathname)
     return space.wrap(sourcename)

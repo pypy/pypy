@@ -852,11 +852,17 @@ def parse_source_module(space, pathname, source):
     pycode = ec.compiler.compile(source, pathname, 'exec', 0)
     return pycode
 
-def exec_code_module(space, w_mod, code_w):
+def exec_code_module(space, w_mod, code_w, pathname, cpathname):
     w_dict = space.getattr(w_mod, space.wrap('__dict__'))
     space.call_method(w_dict, 'setdefault',
                       space.wrap('__builtins__'),
                       space.wrap(space.builtin))
+    if pathname is not None:
+        w_pathname = get_sourcefile(space, pathname)
+    if w_pathname is None:
+        w_pathname = code_w.w_filename
+    space.setitem(w_dict, space.wrap("__file__"), w_pathname)
+    space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
     code_w.exec_code(space, w_dict, w_dict)
 
 def rightmost_sep(filename):
@@ -895,27 +901,43 @@ def make_source_pathname(pathname):
 
     right = rightmost_sep(pathname)
     if right < 0:
-        raise ValueError()
+        return None
     left = rightmost_sep(pathname[:right]) + 1
     assert left >= 0
     if pathname[left:right] != '__pycache__':
-        raise ValueError()
+        return None
 
     # Now verify that the path component to the right of the last
     # slash has two dots in it.
     rightpart = pathname[right + 1:]
     dot0 = rightpart.find('.') + 1
     if dot0 <= 0:
-        raise ValueError
+        return None
     dot1 = rightpart[dot0:].find('.') + 1
     if dot1 <= 0:
-        raise ValueError
+        return None
     # Too many dots?
     if rightpart[dot0 + dot1:].find('.') >= 0:
-        raise ValueError
+        return None
 
     result = pathname[:left] + rightpart[:dot0] + 'py'
     return result
+
+def get_sourcefile(space, filename):
+    l = len(filename)
+    if l < 5 or filename[-4:-1].lower() != ".py":
+        return space.wrap(filename)
+    py = make_source_pathname(filename)
+    if py is None:
+        py = filename[:-1]
+    try:
+        st = os.stat(py)
+    except OSError:
+        pass
+    else:
+        if stat.S_ISREG(st.st_mode):
+            return space.wrap(py)
+    return space.wrap(filename)
 
 @jit.dont_look_inside
 def load_source_module(space, w_modulename, w_mod, pathname, source,
@@ -944,7 +966,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
             code_w = read_compiled_module(space, cpathname, stream.readall())
         finally:
             stream.close()
-        space.setattr(w_mod, w('__file__'), w(cpathname))
+        pathname = cpathname
     else:
         code_w = parse_source_module(space, pathname, source)
 
@@ -953,7 +975,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
                 write_compiled_module(space, code_w, cpathname, mode, mtime)
 
     update_code_filenames(space, code_w, pathname)
-    exec_code_module(space, w_mod, code_w)
+    exec_code_module(space, w_mod, code_w, pathname, cpathname)
 
     return w_mod
 
@@ -1048,7 +1070,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
                               "Bad magic number in %s", cpathname)
     #print "loading pyc file:", cpathname
     code_w = read_compiled_module(space, cpathname, source)
-    exec_code_module(space, w_mod, code_w)
+    exec_code_module(space, w_mod, code_w, cpathname, cpathname)
 
     return w_mod
 
