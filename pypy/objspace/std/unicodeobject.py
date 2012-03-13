@@ -17,25 +17,15 @@ from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
 
+from pypy.objspace.std.abstractstring import W_AbstractBaseStringObject
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
-class W_AbstractUnicodeObject(W_Object):
+class W_AbstractUnicodeObject(W_AbstractBaseStringObject):
     __slots__ = ()
 
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractUnicodeObject):
-            return False
-        if self is w_other:
-            return True
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        return space.wrap(compute_unique_id(space.unicode_w(self)))
+    def unwrap(w_self, space):
+        return w_self.unicode_w(space)
 
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
@@ -46,24 +36,19 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         assert isinstance(unistr, unicode)
         w_self._value = unistr
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
-
-    def unwrap(w_self, space):
-        # for testing
+    def raw_value(w_self):
         return w_self._value
-
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_UnicodeObject:
-            return w_self
-        return W_UnicodeObject(w_self._value)
 
     def str_w(self, space):
         return space.str_w(space.str(self))
 
     def unicode_w(self, space):
         return self._value
+
+    def create_if_subclassed(w_self):
+        if type(w_self) is W_UnicodeObject:
+            return w_self
+        return W_UnicodeObject(w_self._value)
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
@@ -305,23 +290,23 @@ def mul__ANY_Unicode(space, w_times, w_uni):
 def _isspace(uchar):
     return unicodedb.isspace(ord(uchar))
 
-def make_generic(funcname):
-    def func(space, w_self):
-        v = w_self._value
-        if len(v) == 0:
-            return space.w_False
-        for idx in range(len(v)):
-            if not getattr(unicodedb, funcname)(ord(v[idx])):
-                return space.w_False
-        return space.w_True
-    return func_with_new_name(func, "unicode_%s__Unicode" % (funcname, ))
+def unicode_isspace__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isspace)
 
-unicode_isspace__Unicode = make_generic("isspace")
-unicode_isalpha__Unicode = make_generic("isalpha")
-unicode_isalnum__Unicode = make_generic("isalnum")
-unicode_isdecimal__Unicode = make_generic("isdecimal")
-unicode_isdigit__Unicode = make_generic("isdigit")
-unicode_isnumeric__Unicode = make_generic("isnumeric")
+def unicode_isalpha__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isalpha)
+
+def unicode_isalnum__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isalnum)
+
+def unicode_isdecimal__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isdecimal)
+
+def unicode_isdigit__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isdigit)
+
+def unicode_isnumeric__Unicode(space, w_self):
+    return is_generic(space, w_self, unicodedb.isnumeric)
 
 def unicode_islower__Unicode(space, w_unicode):
     cased = False

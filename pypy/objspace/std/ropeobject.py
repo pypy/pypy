@@ -28,23 +28,21 @@ class W_RopeObject(stringobject.W_AbstractStringObject):
             assert node.is_bytestring()
         w_self._node = node
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._node)
+    def raw_value(w_self):
+        return w_self._node
 
-    def unwrap(w_self, space):
+    def str_w(w_self, space):
         return w_self._node.flatten_string()
-    str_w = unwrap
-
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_RopeObject:
-            return w_self
-        return W_RopeObject(w_self._node)
 
     def unicode_w(w_self, space):
         # XXX should this use the default encoding?
         from pypy.objspace.std.unicodetype import plain_str2unicode
         return plain_str2unicode(space, w_self._node.flatten_string())
+
+    def create_if_subclassed(w_self):
+        if type(w_self) is W_RopeObject:
+            return w_self
+        return W_RopeObject(w_self._node)
 
 W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
 W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])

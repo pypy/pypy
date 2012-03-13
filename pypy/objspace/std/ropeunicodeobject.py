@@ -84,24 +84,19 @@ class W_RopeUnicodeObject(unicodeobject.W_AbstractUnicodeObject):
     def __init__(w_self, node):
         w_self._node = node
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._node)
-
-    def unwrap(w_self, space):
-        # for testing
-        return w_self._node.flatten_unicode()
+    def raw_value(w_self):
+        return w_self._node
 
     def str_w(w_self, space):
         return space.str_w(space.str(w_self))
+
+    def unicode_w(self, space):
+        return self._node.flatten_unicode()
 
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeUnicodeObject:
             return w_self
         return W_RopeUnicodeObject(w_self._node)
-
-    def unicode_w(self, space):
-        return self._node.flatten_unicode()
 
 W_RopeUnicodeObject.EMPTY = W_RopeUnicodeObject(rope.LiteralStringNode.EMPTY)
 

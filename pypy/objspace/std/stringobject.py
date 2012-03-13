@@ -15,27 +15,17 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
 
+from pypy.objspace.std.abstractstring import W_AbstractBaseStringObject, \
+        is_generic
+from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
 
-from pypy.objspace.std.formatting import mod_format
-
-class W_AbstractStringObject(W_Object):
+class W_AbstractStringObject(W_AbstractBaseStringObject):
     __slots__ = ()
 
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractStringObject):
-            return False
-        if self is w_other:
-            return True
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return False
-        return space.str_w(self) is space.str_w(w_other)
-
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        return space.wrap(compute_unique_id(space.str_w(self)))
+    def unwrap(w_self, space):
+        return w_self.str_w(space)
 
 
 class W_StringObject(W_AbstractStringObject):
@@ -45,11 +35,7 @@ class W_StringObject(W_AbstractStringObject):
     def __init__(w_self, str):
         w_self._value = str
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
-
-    def unwrap(w_self, space):
+    def raw_value(w_self):
         return w_self._value
 
     def str_w(w_self, space):
@@ -66,24 +52,6 @@ W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
 
-@specialize.arg(2)
-def _is_generic(space, w_self, fun):
-    v = w_self._value
-    if len(v) == 0:
-        return space.w_False
-    if len(v) == 1:
-        c = v[0]
-        return space.newbool(fun(c))
-    else:
-        return _is_generic_loop(space, v, fun)
-
-@specialize.arg(2)
-def _is_generic_loop(space, v, fun):
-    for idx in range(len(v)):
-        if not fun(v[idx]):
-            return space.w_False
-    return space.w_True
-
 def _upper(ch):
     if ch.islower():
         o = ord(ch) - 32
@@ -98,22 +66,21 @@ def _lower(ch):
     else:
         return ch
 
-_isspace = lambda c: c.isspace()
-_isdigit = lambda c: c.isdigit()
-_isalpha = lambda c: c.isalpha()
-_isalnum = lambda c: c.isalnum()
-
 def str_isspace__String(space, w_self):
-    return _is_generic(space, w_self, _isspace)
+    isspace = lambda c: c.isspace()
+    return is_generic(space, w_self, isspace)
 
 def str_isdigit__String(space, w_self):
-    return _is_generic(space, w_self, _isdigit)
+    isdigit = lambda c: c.isdigit()
+    return is_generic(space, w_self, isdigit)
 
 def str_isalpha__String(space, w_self):
-    return _is_generic(space, w_self, _isalpha)
+    isalpha = lambda c: c.isalpha()
+    return is_generic(space, w_self, isalpha)
 
 def str_isalnum__String(space, w_self):
-    return _is_generic(space, w_self, _isalnum)
+    isalnum = lambda c: c.isalnum()
+    return is_generic(space, w_self, isalnum)
 
 def str_isupper__String(space, w_self):
     """Return True if all cased characters in S are uppercase and there is
