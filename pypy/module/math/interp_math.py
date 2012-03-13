@@ -380,7 +380,13 @@ def fsum(space, w_iterable):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    return math1(space, rfloat.log1p, w_x)
+    x = _get_double(space, w_x)
+    try:
+        y = rfloat.log1p(x)
+    except (OverflowError, ValueError):
+        raise OperationError(space.w_ValueError,
+                             space.wrap("math domain error"))
+    return space.wrap(y)
 
 def acosh(space, w_x):
     """Inverse hyperbolic cosine"""
