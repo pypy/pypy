@@ -103,7 +103,7 @@ def intmask(n):
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
-    return n
+    return int(n)
 
 def longlongmask(n):
     assert isinstance(n, (int, long))
