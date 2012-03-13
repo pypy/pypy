@@ -305,7 +305,6 @@ class TestSymbolTable:
         src = "nonlocal x"
         exc = py.test.raises(SyntaxError, self.func_scope, src).value
         assert exc.msg == "nonlocal declaration not allowed at module level"
-        
 
     def test_optimization(self):
         assert not self.mod_scope("").can_be_optimized
