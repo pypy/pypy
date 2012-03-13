@@ -343,6 +343,21 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_arctan2(self):
+        import math
+        from _numpypy import array, arctan2
+
+        # From the numpy documentation
+        assert (
+            arctan2(
+                [0.,  0.,           1.,          -1., float('inf'),  float('inf')],
+                [0., -0., float('inf'), float('inf'), float('inf'), float('-inf')]) ==
+            [0.,  math.pi,  0., -0.,  math.pi/4, 3*math.pi/4]).all()
+
+        a = array([float('nan')])
+        b = arctan2(a, 0)
+        assert math.isnan(b[0])
+
     def test_sinh(self):
         import math
         from _numpypy import array, sinh

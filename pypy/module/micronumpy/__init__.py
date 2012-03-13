@@ -67,6 +67,7 @@ class Module(MixedModule):
         ("arccos", "arccos"),
         ("arcsin", "arcsin"),
         ("arctan", "arctan"),
+        ("arctan2", "arctan2"),
         ("arccosh", "arccosh"),
         ("arcsinh", "arcsinh"),
         ("arctanh", "arctanh"),

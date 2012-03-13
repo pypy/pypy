@@ -440,6 +440,7 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
+            ("arctan2", "arctan2", 2, {"promote_to_float": True}),
             ("sinh", "sinh", 1, {"promote_to_float": True}),
             ("cosh", "cosh", 1, {"promote_to_float": True}),
             ("tanh", "tanh", 1, {"promote_to_float": True}),

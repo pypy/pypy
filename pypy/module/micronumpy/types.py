@@ -537,6 +537,10 @@ class Float(Primitive):
     def arctan(self, v):
         return math.atan(v)
 
+    @simple_binary_op
+    def arctan2(self, v1, v2):
+        return math.atan2(v1, v2)
+
     @simple_unary_op
     def sinh(self, v):
         return math.sinh(v)
