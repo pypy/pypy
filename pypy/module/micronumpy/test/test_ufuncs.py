@@ -448,6 +448,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.degrees(a[i])
 
+    def test_rad2deg(self):
+        import math
+        from _numpypy import rad2deg, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = rad2deg(a)
+        for i in range(len(a)):
+            assert b[i] == math.degrees(a[i])
+
     def test_reduce_errors(self):
         from _numpypy import sin, add
 

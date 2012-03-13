@@ -94,6 +94,7 @@ class Module(MixedModule):
         ("radians", "radians"),
         ("degrees", "degrees"),
         ("deg2rad", "radians"),
+        ("rad2deg", "degrees"),
         ("reciprocal", "reciprocal"),
         ("sign", "sign"),
         ("sin", "sin"),
