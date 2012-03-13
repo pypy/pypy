@@ -115,6 +115,7 @@ class Module(MixedModule):
         ('log10', 'log10'),
         ('log1p', 'log1p'),
         ('power', 'power'),
+        ('floor_divide', 'floor_divide'),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
