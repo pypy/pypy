@@ -266,6 +266,9 @@ class AppTestPosix:
     def test_getcwd(self):
         assert isinstance(self.posix.getcwd(), str)
 
+    def test_getcwdb(self):
+        assert isinstance(self.posix.getcwdb(), bytes)
+
     def test_listdir(self):
         pdir = self.pdir
         posix = self.posix
