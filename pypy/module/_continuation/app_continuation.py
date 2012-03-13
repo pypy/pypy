@@ -23,7 +23,7 @@ class genlet(_continuation.continulet):
     def __iter__(self):
         return self
 
-    def next(self, value=None):
+    def __next__(self, value=None):
         res = self.switch(value)
         if self.is_pending():
             return res
