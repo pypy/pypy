@@ -34,7 +34,7 @@ class AppTestAST:
         assert isinstance(expr.op, ast.Sub)
         co = compile(mod, "<example>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert ns["x"] == -1
         mod = self.get_ast("4 < 5 < 6", "eval")
         assert isinstance(mod.body, ast.Compare)
@@ -83,14 +83,6 @@ class AppTestAST:
         name.id = "hi"
         assert name.id == "hi"
 
-    def test_bool(self):
-        ast = self.ast
-        pr = ast.Print(None, [ast.Name("hi", ast.Load())], False)
-        assert not pr.nl
-        assert isinstance(pr.nl, bool)
-        pr.nl = True
-        assert pr.nl
-
     @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_object(self):
         ast = self.ast
@@ -123,7 +115,7 @@ class AppTestAST:
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert "y" not in ns
         assert ns["x"] == ns["lemon"] == 3
         assert ns["apple"] == 4
@@ -189,7 +181,7 @@ from __future__ import generators""")
         mod = self.get_ast("from __future__ import division\nx = 1/2")
         co = compile(mod, "<test>", "exec")
         ns = {}
-        exec co in ns
+        exec(co, ns)
         assert ns["x"] == .5
 
     def test_field_attr_writable(self):
@@ -208,7 +200,7 @@ from __future__ import generators""")
         mod2 = pickle.loads(s)
         ns = {"y" : 1}
         co2 = compile(mod2, "<example>", "exec")
-        exec co2 in ns
+        exec(co2, ns)
         assert ns["x"] == 4
 
     def test_classattrs(self):
@@ -284,7 +276,7 @@ from __future__ import generators""")
                                    None, [], lineno=4, col_offset=0)],
                 [], lineno=1, col_offset=0)
         ])
-        exec compile(body, '<string>', 'exec')
+        exec(compile(body, '<string>', 'exec'))
 
     def test_invalid_sum(self):
         import _ast as ast
