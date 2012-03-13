@@ -104,6 +104,8 @@ class AppTestMath:
         self.ftest(math.log1p(0), 0)
         self.ftest(math.log1p(math.e-1), 1)
         self.ftest(math.log1p(1), math.log(2))
+        raises(ValueError, math.log1p, -1)
+        raises(ValueError, math.log1p, -100)
 
     def test_acosh(self):
         import math
