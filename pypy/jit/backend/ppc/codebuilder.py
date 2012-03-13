@@ -1,5 +1,6 @@
 import os
 from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
+from pypy.jit.backend.ppc.locations import RegisterLocation
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.assembler import Assembler
 from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64)
@@ -1037,6 +1038,25 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             else:
                 self.store(r.TOC.value, r.SP.value, 5 * WORD)
                 self.load_imm(r.r11, address)
+                self.load(r.SCRATCH.value, r.r11.value, 0)
+                self.load(r.r2.value, r.r11.value, WORD)
+                self.load(r.r11.value, r.r11.value, 2 * WORD)
+            self.mtctr(r.SCRATCH.value)
+        self.bctrl()
+
+        if IS_PPC_64:
+            self.load(r.TOC.value, r.SP.value, 5 * WORD)
+
+    def call_register(self, call_reg):
+        """ do a call to an address given in a register
+        """
+        assert isinstance(call_reg, RegisterLocation)
+        with scratch_reg(self):
+            if IS_PPC_32:
+                self.mr(r.SCRATCH.value, call_reg.value)
+            else:
+                self.store(r.TOC.value, r.SP.value, 5 * WORD)
+                self.mr(r.r11.value, call_reg.value)
                 self.load(r.SCRATCH.value, r.r11.value, 0)
                 self.load(r.r2.value, r.r11.value, WORD)
                 self.load(r.r11.value, r.r11.value, 2 * WORD)
