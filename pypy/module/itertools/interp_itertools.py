@@ -67,8 +67,7 @@ W_Count.typedef = TypeDef(
         __doc__ = """Make an iterator that returns consecutive integers starting
     with n.  If not specified n defaults to zero. Does not currently
     support python long integers. Often used as an argument to imap()
-    to generate consecutive data points.  Also, used with izip() to
-    add sequence numbers.
+    to generate consecutive data points.
 
     Equivalent to :
 
@@ -127,8 +126,7 @@ W_Repeat.typedef = TypeDef(
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
     as argument to imap() for invariant parameters to the called
-    function. Also used with izip() to create an invariant part of a
-    tuple record.
+    function.
 
     Equivalent to :
 
@@ -581,45 +579,8 @@ W_IMap.typedef = TypeDef(
     """)
 
 
-class W_IZip(W_IMap):
-    _error_name = "izip"
-
-    def next_w(self):
-        # argh.  izip(*args) is almost like imap(None, *args) except
-        # that the former needs a special case for len(args)==0
-        # while the latter just raises a TypeError in this situation.
-        if len(self.iterators_w) == 0:
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        return W_IMap.next_w(self)
-
-def W_IZip___new__(space, w_subtype, args_w):
-    r = space.allocate_instance(W_IZip, w_subtype)
-    r.__init__(space, space.w_None, args_w)
-    return space.wrap(r)
-
-W_IZip.typedef = TypeDef(
-        'izip',
-        __module__ = 'itertools',
-        __new__  = interp2app(W_IZip___new__),
-        __iter__ = interp2app(W_IZip.iter_w),
-        __next__ = interp2app(W_IZip.next_w),
-        __doc__  = """Make an iterator that aggregates elements from each of the
-    iterables.  Like zip() except that it returns an iterator instead
-    of a list. Used for lock-step iteration over several iterables at
-    a time.
-
-    Equivalent to :
-
-    def izip(*iterables):
-        iterables = map(iter, iterables)
-        while iterables:
-            result = [i.next() for i in iterables]
-            yield tuple(result)
-    """)
-
-
-class W_IZipLongest(W_IMap):
-    _error_name = "izip_longest"
+class W_ZipLongest(W_IMap):
+    _error_name = "zip_longest"
 
     def next_w(self):
         space = self.space
@@ -648,7 +609,7 @@ class W_IZipLongest(W_IMap):
             objects_w[index] = w_value
         return space.newtuple(objects_w)
 
-def W_IZipLongest___new__(space, w_subtype, __args__):
+def W_ZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()
     w_fillvalue = space.w_None
     if kwds_w:
@@ -657,22 +618,22 @@ def W_IZipLongest___new__(space, w_subtype, __args__):
             del kwds_w["fillvalue"]
         if kwds_w:
             raise OperationError(space.w_TypeError, space.wrap(
-                "izip_longest() got unexpected keyword argument(s)"))
+                "zip_longest() got unexpected keyword argument(s)"))
 
-    self = space.allocate_instance(W_IZipLongest, w_subtype)
+    self = space.allocate_instance(W_ZipLongest, w_subtype)
     self.__init__(space, space.w_None, arguments_w)
     self.w_fillvalue = w_fillvalue
     self.active = len(self.iterators_w)
 
     return space.wrap(self)
 
-W_IZipLongest.typedef = TypeDef(
-        'izip_longest',
+W_ZipLongest.typedef = TypeDef(
+        'zip_longest',
         __module__ = 'itertools',
-        __new__  = interp2app(W_IZipLongest___new__),
-        __iter__ = interp2app(W_IZipLongest.iter_w),
-        __next__ = interp2app(W_IZipLongest.next_w),
-        __doc__  = """Return an izip_longest object whose .next() method returns a tuple where
+        __new__  = interp2app(W_ZipLongest___new__),
+        __iter__ = interp2app(W_ZipLongest.iter_w),
+        __next__ = interp2app(W_ZipLongest.next_w),
+        __doc__  = """Return a zip_longest object whose .next() method returns a tuple where
     the i-th element comes from the i-th iterable argument.  The .next()
     method continues until the longest iterable in the argument sequence
     is exhausted and then it raises StopIteration.  When the shorter iterables
@@ -1068,7 +1029,7 @@ W_Compress.typedef = TypeDef(
 
        def compress(data, selectors):
            # compress('ABCDEF', [1,0,1,0,1,1]) --> A C E F
-           return (d for d, s in izip(data, selectors) if s)
+           return (d for d, s in zip(data, selectors) if s)
 """)
 
 
