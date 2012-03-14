@@ -827,12 +827,29 @@ class TestCompiler:
         yield self.st, test, "f()", 42
     # This line is needed for py.code to find the source.
 
-    def test_tuple_unpacking(self):
+    def test_extended_unpacking(self):
         func = """def f():
             (a, *b, c) = 1, 2, 3, 4, 5
             return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            [a, *b, c] = 1, 2, 3, 4, 5
+            return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            *a, = [1, 2, 3]
+            return a
+        """
+        yield self.st, func, "f()", [1, 2, 3]
+        py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
+                       None, None)
+        py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
+                       None, None)
+        py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
+                       None, None)
+
 
 class AppTestCompiler:
 

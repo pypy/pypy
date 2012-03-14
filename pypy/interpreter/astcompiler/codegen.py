@@ -883,36 +883,46 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def visit_Tuple(self, tup):
-        self.update_position(tup.lineno)
-        elt_count = len(tup.elts) if tup.elts is not None else 0
-        if tup.ctx == ast.Store:
-            star_pos = -1
+    def _visit_list_or_tuple(self, node, elts, ctx, op):
+        elt_count = len(elts) if elts else 0
+        star_pos = -1
+        if ctx == ast.Store:
             if elt_count > 0:
-                for i, elt in enumerate(tup.elts):
+                for i, elt in enumerate(elts):
                     if isinstance(elt, ast.Starred):
                         if star_pos != -1:
-                            self.error("two starred expressions in assignment", tup)
+                            msg = "too many starred expressions in assignment"
+                            self.error(msg, node)
                         star_pos = i
-            if star_pos > -1:
+            if star_pos != -1:
                 self.emit_op_arg(ops.UNPACK_EX, star_pos | (elt_count-star_pos-1)<<8)
             else:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(tup.elts)
-        if tup.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
+        if elt_count > 0:
+            if star_pos != -1:
+                for elt in elts:
+                    if isinstance(elt, ast.Starred):
+                        elt.value.walkabout(self)
+                    else:
+                        elt.walkabout(self)
+            else:
+                self.visit_sequence(elts)
+        if ctx == ast.Load:
+            self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
-        star.value.walkabout(self)
+        if star.ctx != ast.Store:
+            self.error("can use starred expression only as assignment target",
+                       star)
+        self.error("starred assignment must be in list or tuple", star)
+
+    def visit_Tuple(self, tup):
+        self.update_position(tup.lineno)
+        self._visit_list_or_tuple(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
-        elt_count = len(l.elts) if l.elts is not None else 0
-        if l.ctx == ast.Store:
-            self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(l.elts)
-        if l.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_LIST, elt_count)
+        self._visit_list_or_tuple(l, l.elts, l.ctx, ops.BUILD_LIST)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
