@@ -232,6 +232,7 @@ class ListTests:
     def test_newlist_hint(self):
         def f(i):
             l = newlist_hint(i)
+            l[0] = 55
             return len(l)
 
         r = self.interp_operations(f, [3])
