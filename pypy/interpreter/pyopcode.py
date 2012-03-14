@@ -528,7 +528,6 @@ class __extend__(pyframe.PyFrame):
             self.setdictscope(w_locals)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        from pypy.interpreter.error import W_OperationError
         assert self.space.py3k
         # on CPython, POP_EXCEPT also pops the block. Here, the block is
         # automatically popped by unrollstack()
@@ -1295,7 +1294,6 @@ class ExceptBlock(FrameBlock):
         # instead of the traceback, we store the unroller object,
         # wrapped.
         if frame.space.py3k:
-            from pypy.interpreter.error import W_OperationError
             # this is popped by POP_EXCEPT, which is present only in py3k
             w_last_exception = W_OperationError(frame.last_exception)
             w_last_exception = frame.space.wrap(w_last_exception)
@@ -1362,6 +1360,16 @@ block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_FINALLY': FinallyBlock,
                  'SETUP_WITH': WithBlock,
                  }
+
+
+class W_OperationError(Wrappable):
+    """
+    Tiny applevel wrapper around an OperationError.
+    """
+
+    def __init__(self, operr):
+        self.operr = operr
+
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other

@@ -338,11 +338,11 @@ class AppTestInterpObjectPickling:
         '''
         import pickle
         liter  = iter([3,9,6,12,15,17,19,111])
-        liter.next()
+        next(liter)
         pckl   = pickle.dumps(liter)
         result = pickle.loads(pckl)
-        liter.next()
-        result.next()
+        next(liter)
+        next(result)
         assert type(liter) is type(result)
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
@@ -350,11 +350,11 @@ class AppTestInterpObjectPickling:
     def test_pickle_reversesequenceiter(self):
         import pickle
         liter  = reversed([3,9,6,12,15,17,19,111])
-        liter.next()
+        next(liter)
         pckl   = pickle.dumps(liter)
         result = pickle.loads(pckl)
-        liter.next()
-        result.next()
+        next(liter)
+        next(result)
         assert type(liter) is type(result)
         raises(TypeError, len, liter)
         assert list(liter) == list(result)
@@ -365,38 +365,38 @@ class AppTestInterpObjectPickling:
         import pickle
         tdict = {'2':2, '3':3, '5':5}
         diter  = iter(tdict)
-        diter.next()
+        next(diter)
         raises(TypeError, pickle.dumps, diter)
 
     def test_pickle_reversed(self):
         import pickle
         r = reversed(tuple(range(10)))
-        r.next()
-        r.next()
+        next(r)
+        next(r)
         pickled = pickle.dumps(r)
         result = pickle.loads(pickled)
-        result.next()
-        r.next()
+        next(result)
+        next(r)
         assert type(r) is type(result)
         assert list(r) == list(result)
 
     def test_pickle_enum(self):
         import pickle
         e      = enumerate(range(10))
-        e.next()
-        e.next()
+        next(e)
+        next(e)
         pckl   = pickle.dumps(e)
         result = pickle.loads(pckl)
-        e.next()
-        result.next()
+        next(e)
+        next(result)
         assert type(e) is type(result)
         assert list(e) == list(result)
 
     def test_pickle_xrangeiter(self):
         import pickle
         riter  = iter(xrange(5))
-        riter.next()
-        riter.next()
+        next(riter)
+        next(riter)
         pckl   = pickle.dumps(riter)
         result = pickle.loads(pckl)
         assert type(riter) is type(result)
@@ -417,8 +417,8 @@ class AppTestInterpObjectPickling:
             mod.giveme = giveme
             giveme.__module__ = mod
             g1   = mod.giveme(10)
-            #g1.next()
-            #g1.next()
+            #next(g1)
+            #next(g1)
             pckl = pickle.dumps(g1)
             g2   = pickle.loads(pckl)
             assert list(g1) == list(g2)
@@ -441,8 +441,8 @@ class AppTestInterpObjectPickling:
             mod.giveme = giveme
             giveme.__module__ = mod
             g1   = mod.giveme(10)
-            g1.next()
-            g1.next()
+            next(g1)
+            next(g1)
             pckl = pickle.dumps(g1)
             g2   = pickle.loads(pckl)
             assert list(g1) == list(g2)
