@@ -286,17 +286,64 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.LOAD_CONST, code_index)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
+    def _visit_kwonlydefaults(self, args):
+        defaults = 0
+        for kwonly, default in zip(args.kwonlyargs, args.kw_defaults):
+            if default:
+                self.load_const(self.space.wrap(kwonly.arg))
+                default.walkabout(self)
+                defaults += 1
+        return defaults
+
+    def _visit_arg_annotation(self, name, ann, names):
+        if ann:
+            ann.walkabout(self)
+            names.append(name)
+
+    def _visit_arg_annotations(self, args, names):
+        if args:
+            for arg in args:
+                self._visit_arg_annotation(arg.arg, arg.annotation, names)
+
+    def _visit_annotations(self, func, args, returns):
+        space = self.space
+        names = []
+        self._visit_arg_annotations(args.args, names)
+        if args.varargannotation:
+            self._visit_arg_annotation(args.vararg, args.varargannotation,
+                                       names)
+        self._visit_arg_annotations(args.kwonlyargs, names)
+        if args.kwargannotation:
+            self._visit_arg_annotation(args.kwarg, args.kwargannotation,
+                                       names)
+        self._visit_arg_annotation("return", returns, names)
+        l = len(names)
+        if l:
+            if l > 65534:
+                self.error("too many annotations", func)
+            w_tup = space.newtuple([space.wrap(name) for name in names])
+            self.load_const(w_tup)
+            l += 1
+        return l
+
     def visit_FunctionDef(self, func):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
+        num_annotations = self._visit_annotations(func, args, func.returns)
         num_defaults = len(args.defaults) if args.defaults is not None else 0
+        oparg = num_defaults
+        oparg |= kw_default_count << 8
+        oparg |= num_annotations << 16
         code = self.sub_scope(FunctionCodeGenerator, func.name, func,
                               func.lineno)
-        self._make_function(code, num_defaults)
+        self._make_function(code, oparg)
         # Apply decorators.
         if func.decorator_list:
             for i in range(len(func.decorator_list)):

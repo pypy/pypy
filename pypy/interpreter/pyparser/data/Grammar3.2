@@ -22,7 +22,7 @@ eval_input: testlist NEWLINE* ENDMARKER
 decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
 decorators: decorator+
 decorated: decorators (classdef | funcdef)
-funcdef: 'def' NAME parameters ':' suite
+funcdef: 'def' NAME parameters ['->' test] ':' suite
 parameters: '(' [typedargslist] ')'
 typedargslist: (tfpdef ['=' test] (',' tfpdef ['=' test])* [','
        ['*' [tfpdef] (',' tfpdef ['=' test])* [',' '**' tfpdef] | '**' tfpdef]]

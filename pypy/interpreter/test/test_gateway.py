@@ -12,6 +12,7 @@ class FakeFunc(object):
         self.space = space
         self.name = name
         self.defs_w = []
+        self.w_kw_defs = None
 
 class TestBuiltinCode:
     def test_signature(self):

@@ -356,6 +356,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         args = func.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
+        if args.kw_defaults:
+            for arg in args.kw_defaults:
+                if arg:
+                    arg.walkabout(self)
+        self._visit_annotations(func)
         self.visit_sequence(func.decorator_list)
         new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
@@ -443,7 +448,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 misc.syntax_warning(self.space, msg, self.compile_info.filename,
                                     nonl.lineno, nonl.col_offset)
             self.note_symbol(name, SYM_NONLOCAL)
-            
 
     def visit_Lambda(self, lamb):
         args = lamb.args
@@ -501,11 +505,26 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def _handle_params(self, params, is_toplevel):
         for i in range(len(params)):
-            arg = params[i]
-            if isinstance(arg, ast.Name):
-                self.note_symbol(arg.id, SYM_PARAM)
-            else:
-                raise AssertionError("unknown parameter type")
+            arg = params[i].arg
+            self.note_symbol(arg, SYM_PARAM)
+
+    def _visit_annotations(self, func):
+        args = func.args
+        if args.args:
+            self._visit_arg_annotations(args.args)
+        if args.varargannotation:
+            args.varargannotation.walkabout(self)
+        if args.kwargannotation:
+            args.kwargannotation.walkabout(self)
+        if args.kwonlyargs:
+            self._visit_arg_annotations(args.kwonlyargs)
+        if func.returns:
+            func.returns.walkabout(self)
+
+    def _visit_arg_annotations(self, args):
+        for arg in args:
+            if arg.annotation:
+                arg.annotation.walkabout(self)
 
     def visit_Name(self, name):
         if name.ctx == ast.Load:

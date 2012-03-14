@@ -34,8 +34,8 @@ class Function(Wrappable):
                           'defs_w?[*]',
                           'name?']
 
-    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
-                 forcename=None):
+    def __init__(self, space, code, w_globals=None, defs_w=[], w_kw_defs=None,
+                 closure=None, w_ann=None, forcename=None):
         self.space = space
         self.name = forcename or code.co_name
         self.w_doc = None   # lazily read from code.getdocstring()
@@ -43,8 +43,10 @@ class Function(Wrappable):
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w = defs_w
+        self.w_kw_defs = w_kw_defs
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
+        self.w_ann = w_ann
 
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
@@ -223,7 +225,8 @@ class Function(Wrappable):
                 raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))
             closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         func = space.allocate_instance(Function, w_subtype)
-        Function.__init__(func, space, code, w_globals, defs_w, closure, name)
+        Function.__init__(func, space, code, w_globals, defs_w, None, closure,
+                          None,name)
         return space.wrap(func)
 
     def descr_function_call(self, __args__):
@@ -352,6 +355,22 @@ class Function(Wrappable):
     def fdel_func_defaults(self, space):
         self.defs_w = []
 
+    def fget_func_kwdefaults(self, space):
+        if self.w_kw_defs is None:
+            return space.w_None
+        return self.w_kw_defs
+
+    def fset_func_kwdefaults(self, space, w_new):
+        if space.is_w(w_new, space.w_None):
+            w_new = None
+        elif not space.isinstance_w(w_new, space.w_dict):
+            msg = "__kwdefaults__ must be a dict"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        self.w_kw_defs = w_new
+
+    def fdel_func_kwdefaults(self, space):
+        self.w_kw_defs = None
+
     def fget_func_doc(self, space):
         if self.w_doc is None:
             self.w_doc = self.code.getdocstring(space)
@@ -415,6 +434,22 @@ class Function(Wrappable):
         else:
             w_res = space.w_None
         return w_res
+
+    def fget_func_annotations(self, space):
+        if self.w_ann is None:
+            self.w_ann = space.newdict()
+        return self.w_ann
+
+    def fset_func_annotations(self, space, w_new):
+        if space.is_w(w_new, space.w_None):
+            w_new = None
+        elif not space.isinstance_w(w_new, space.w_dict):
+            msg = "__annotations__ must be a dict"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        self.w_ann = w_new
+
+    def fdel_func_annotations(self, space):
+        self.w_ann = None
 
 def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
@@ -552,7 +587,7 @@ class BuiltinFunction(Function):
     def __init__(self, func):
         assert isinstance(func, Function)
         Function.__init__(self, func.space, func.code, func.w_func_globals,
-                          func.defs_w, func.closure, func.name)
+                          func.defs_w, None, func.closure, None, func.name)
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module

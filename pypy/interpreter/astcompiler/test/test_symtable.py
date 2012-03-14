@@ -68,12 +68,24 @@ class TestSymbolTable:
         assert exc.msg == "duplicate argument 'x' in function definition"
 
     def test_function_defaults(self):
-        scp = self.mod_scope("y = 4\ndef f(x=y): return x")
+        scp = self.mod_scope("y = w = 4\ndef f(x=y, *, z=w): return x")
         self.check_unknown(scp, "x")
+        self.check_unknown(scp, "z")
         assert scp.lookup("y") == symtable.SCOPE_LOCAL
+        assert scp.lookup("w") == symtable.SCOPE_LOCAL
         scp = scp.children[0]
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
+        assert scp.lookup("z") == symtable.SCOPE_LOCAL
         self.check_unknown(scp, "y")
+        self.check_unknown(scp, "w")
+
+    def test_function_annotations(self):
+        scp = self.mod_scope("def f(x : X) -> Y: pass")
+        assert scp.lookup("X") == symtable.SCOPE_GLOBAL_IMPLICIT
+        assert scp.lookup("Y") == symtable.SCOPE_GLOBAL_IMPLICIT
+        scp = scp.children[0]
+        self.check_unknown(scp, "X")
+        self.check_unknown(scp, "Y")
 
     def check_comprehension(self, template):
         def brack(s):

@@ -990,13 +990,36 @@ class __extend__(pyframe.PyFrame):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
-    def MAKE_FUNCTION(self, numdefaults, next_instr):
+    def _make_function(self, oparg, freevars=None):
+        space = self.space
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
-                               defaultarguments)
-        self.pushvalue(self.space.wrap(fn))
+        if freevars is not None:
+            # Pop freevars
+            self.popvalue()
+        posdefaults = oparg & 0xFF
+        kwdefaults = (oparg >> 8) & 0xFF
+        num_annotations = (oparg >> 16) & 0xFF
+        defaultarguments = self.popvalues(posdefaults)
+        w_ann = None
+        if num_annotations:
+            names_w = space.fixedview(self.popvalue())
+            w_ann = space.newdict(strdict=True)
+            for i in range(len(names_w) - 1, -1, -1):
+                space.setitem(w_ann, names_w[i], self.popvalue())
+        w_kw_defs = None
+        if kwdefaults:
+            w_kw_defs = space.newdict(strdict=True)
+            for i in range(kwdefaults - 1, -1, -1):
+                w_name = self.popvalue()
+                w_def = self.popvalue()
+                space.setitem(w_kw_defs, w_def, w_name)
+        fn = function.Function(space, codeobj, self.w_globals, defaultarguments,
+                               w_kw_defs, freevars, w_ann)
+        self.pushvalue(space.wrap(fn))
+
+    def MAKE_FUNCTION(self, oparg, next_instr):
+        return self._make_function(oparg)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:

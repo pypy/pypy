@@ -611,10 +611,10 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -arg - 1
+    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -arg
+    return -_num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:

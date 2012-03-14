@@ -788,10 +788,16 @@ getset___module__ = GetSetProperty(Function.fget___module__,
 getset_func_defaults = GetSetProperty(Function.fget_func_defaults,
                                       Function.fset_func_defaults,
                                       Function.fdel_func_defaults)
+getset_func_kwdefaults = GetSetProperty(Function.fget_func_kwdefaults,
+                                        Function.fset_func_kwdefaults,
+                                        Function.fdel_func_kwdefaults)
 getset_func_code = GetSetProperty(Function.fget_func_code,
                                   Function.fset_func_code)
 getset_func_name = GetSetProperty(Function.fget_func_name,
                                   Function.fset_func_name)
+getset_func_annotations = GetSetProperty(Function.fget_func_annotations,
+                                        Function.fset_func_annotations,
+                                        Function.fdel_func_annotations)
 
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
@@ -808,6 +814,8 @@ Function.typedef = TypeDef("function",
     __name__ = getset_func_name,
     __dict__ = getset_func_dict,
     __defaults__ = getset_func_defaults,
+    __kwdefaults__ = getset_func_kwdefaults,
+    __annotations__ = getset_func_annotations,
     __globals__ = interp_attrproperty_w('w_func_globals', cls=Function),
     __closure__ = GetSetProperty( Function.fget_func_closure ),
     __module__ = getset___module__,

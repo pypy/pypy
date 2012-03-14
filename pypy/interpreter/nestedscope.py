@@ -224,13 +224,8 @@ class __extend__(pyframe.PyFrame):
         raise NotImplementedError
 
     @jit.unroll_safe
-    def MAKE_CLOSURE(self, numdefaults, next_instr):
-        w_codeobj = self.popvalue()
-        codeobj = self.space.interp_w(pycode.PyCode, w_codeobj)
-        w_freevarstuple = self.popvalue()
+    def MAKE_CLOSURE(self, oparg, next_instr):
+        w_freevarstuple = self.peekvalue(1)
         freevars = [self.space.interp_w(Cell, cell)
                     for cell in self.space.fixedview(w_freevarstuple)]
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
-                               defaultarguments, freevars)
-        self.pushvalue(self.space.wrap(fn))
+        self._make_function(oparg, freevars)

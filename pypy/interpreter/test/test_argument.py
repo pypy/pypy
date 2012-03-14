@@ -357,16 +357,16 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults_w=None, blindargs=0):
+                             defaults_w=None, w_kw_defs=None, blindargs=0):
             defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults_w, blindargs))
+                          signature.has_kwarg(), defaults_w, w_kw_defs, blindargs))
         args._match_signature = _match_signature
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], None, None))
         assert len(calls) == 1
         assert calls[0] == (None, [None, None], ["a", "b"], False, False,
-                            [], 0)
+                            [], None, 0)
         assert calls[0][1] is scope_w
         calls = []
 
@@ -374,7 +374,7 @@ class TestArgumentsNormal(object):
                                  blindargs=1)
         assert len(calls) == 1
         assert calls[0] == (None, [None, None, None], ["a", "b"], True, False,
-                            [], 1)
+                            [], None, 1)
         calls = []
 
         scope_w = args.parse_obj(None, "foo", Signature(["a", "b"], "args", "kw"),
@@ -382,7 +382,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == (None, [None, None, None, None], ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
         calls = []
 
         scope_w = args.parse_obj("obj", "foo", Signature(["a", "b"], "args", "kw"),
@@ -390,7 +390,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == ("obj", [None, None, None, None], ["a", "b"],
                             True, True,
-                            ["x", "y"], 1)
+                            ["x", "y"], None, 1)
 
         class FakeArgErr(ArgErr):
 
@@ -415,17 +415,17 @@ class TestArgumentsNormal(object):
         calls = []
 
         def _match_signature(w_firstarg, scope_w, signature,
-                             defaults_w=None, blindargs=0):
+                             defaults_w=None, w_kw_defs=None, blindargs=0):
             defaults_w = [] if defaults_w is None else defaults_w
             calls.append((w_firstarg, scope_w, signature.argnames, signature.has_vararg(),
-                          signature.has_kwarg(), defaults_w, blindargs))
+                          signature.has_kwarg(), defaults_w, w_kw_defs, blindargs))
         args._match_signature = _match_signature
 
         scope_w = [None, None]
         args.parse_into_scope(None, scope_w, "foo", Signature(["a", "b"], None, None))
         assert len(calls) == 1
         assert calls[0] == (None, scope_w, ["a", "b"], False, False,
-                            [], 0)
+                            [], None, 0)
         assert calls[0][1] is scope_w
         calls = []
 
@@ -435,7 +435,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == (None, scope_w, ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
         calls = []
 
         scope_w = [None, None, None, None]
@@ -445,7 +445,7 @@ class TestArgumentsNormal(object):
         assert len(calls) == 1
         assert calls[0] == ("obj", scope_w, ["a", "b"],
                             True, True,
-                            ["x", "y"], 0)
+                            ["x", "y"], None, 0)
 
         class FakeArgErr(ArgErr):
 
@@ -493,34 +493,34 @@ class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
-        err = ArgErrCount(1, 0, 0, False, False, None, 0)
+        err = ArgErrCount(1, 0, 0, False, False, None, None, 0)
         s = err.getmsg()
         assert s == "takes no arguments (1 given)"
-        err = ArgErrCount(0, 0, 1, False, False, [], 1)
+        err = ArgErrCount(0, 0, 1, False, False, [], None, 1)
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
-        err = ArgErrCount(3, 0, 2, False, False, [], 0)
+        err = ArgErrCount(3, 0, 2, False, False, [], None, 0)
         s = err.getmsg()
         assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        err = ArgErrCount(3, 0, 2, False, False, ['a'], None, 0)
         s = err.getmsg()
         assert s == "takes at most 2 arguments (3 given)"
-        err = ArgErrCount(1, 0, 2, True, False, [], 1)
+        err = ArgErrCount(1, 0, 2, True, False, [], None, 1)
         s = err.getmsg()
         assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
+        err = ArgErrCount(0, 1, 2, True, False, ['a'], None, 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, [], 0)
+        err = ArgErrCount(2, 1, 1, False, True, [], None, 0)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        err = ArgErrCount(0, 1, 1, False, True, [], None, 1)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (0 given)"
-        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+        err = ArgErrCount(0, 1, 1, True, True, [], None, 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+        err = ArgErrCount(2, 1, 1, False, True, ['a'], None, 0)
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
 
