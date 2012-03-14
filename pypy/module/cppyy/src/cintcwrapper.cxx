@@ -206,6 +206,15 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
     return (cppyy_type_t)sz;
 }
 
+cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj) {
+    TClassRef cr = type_from_handle(klass);
+    TClass* clActual = cr->GetActualClass( (void*)obj );
+    if (clActual && clActual != cr.GetClass()) {
+        // TODO: lookup through name should not be needed
+        return (cppyy_type_t)cppyy_get_scope(clActual->GetName());
+    }
+    return klass;
+}
 
 /* memory management ------------------------------------------------------ */
 cppyy_object_t cppyy_allocate(cppyy_type_t handle) {

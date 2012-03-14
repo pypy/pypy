@@ -406,3 +406,27 @@ class AppTestADVANCEDCPP:
         assert m.get_multi1_int() == 1
         assert m.get_multi2_int() == 2
         assert m.get_my_own_int() == 3
+
+    def test12_actual_type(self):
+        """Test that a pointer to base return does an auto-downcast"""
+
+        import cppyy
+        base_class = cppyy.gbl.base_class
+        derived_class = cppyy.gbl.derived_class
+
+        b = base_class()
+        d = derived_class()
+
+        assert b == b.cycle(b)
+        assert id(b) == id(b.cycle(b))
+        assert b == d.cycle(b)
+        assert id(b) == id(d.cycle(b))
+        assert d == b.cycle(d)
+        assert id(d) == id(b.cycle(d))
+        assert d == d.cycle(d)
+        assert id(d) == id(d.cycle(d))
+
+        assert isinstance(b.cycle(b), base_class)
+        assert isinstance(d.cycle(b), base_class)
+        assert isinstance(b.cycle(d), derived_class)
+        assert isinstance(d.cycle(d), derived_class)

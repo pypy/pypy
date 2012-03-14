@@ -70,6 +70,17 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
    return (cppyy_type_t)tt.Id();
 }
 
+cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj) {
+    Reflex::Type t = type_from_handle(klass);
+    Reflex::Type tActual = t.DynamicType(Reflex::Object(t, (void*)obj));
+    if (tActual && tActual != t) {
+        // TODO: lookup through name should not be needed (but tActual.Id()
+        // does not return a singular Id for the system :( )
+        return (cppyy_type_t)cppyy_get_scope(tActual.Name().c_str());
+    }
+    return klass;
+}
+
 
 /* memory management ------------------------------------------------------ */
 cppyy_object_t cppyy_allocate(cppyy_type_t handle) {

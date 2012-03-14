@@ -324,15 +324,15 @@ class AppTestPYTHONIFY_UI:
 
         import cppyy
 
-        def example01_pythonize(pyclass):
-            assert pyclass.__name__ == 'example01'
+        def example01a_pythonize(pyclass):
+            assert pyclass.__name__ == 'example01a'
             def getitem(self, idx):
                 return self.addDataToInt(idx)
             pyclass.__getitem__ = getitem
 
-        cppyy.add_pythonization('example01', example01_pythonize)
+        cppyy.add_pythonization('example01a', example01a_pythonize)
 
-        e = cppyy.gbl.example01(1)
+        e = cppyy.gbl.example01a(1)
 
         assert e[0] == 1
         assert e[1] == 2

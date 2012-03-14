@@ -19,6 +19,8 @@ public:
    virtual int get_value() { return m_b; }
    double get_base_value() { return m_db; }
 
+   virtual base_class* cycle(base_class* b) { return b; }
+
 public:
    int m_b;
    double m_db;

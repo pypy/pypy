@@ -45,6 +45,10 @@ c_get_template = rffi.llexternal(
     "cppyy_get_template",
     [rffi.CCHARP], C_TYPE,
     compilation_info=backend.eci)
+c_get_object_type = rffi.llexternal(
+    "cppyy_get_object_type",
+    [C_TYPE, C_OBJECT], C_TYPE,
+    compilation_info=backend.eci)
 
 # memory management ----------------------------------------------------------
 c_allocate = rffi.llexternal(

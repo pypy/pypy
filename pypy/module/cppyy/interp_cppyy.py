@@ -638,12 +638,20 @@ memory_regulator = MemoryRegulator()
 
 
 def new_instance(space, w_type, cpptype, rawobject, isref, python_owns):
-    obj = memory_regulator.retrieve(rawobject)
-    if obj and obj.cppclass == cpptype:
+    obj_actual = rawobject
+    actual = cpptype.handle
+    if rawobject:
+        actual = capi.c_get_object_type(cpptype.handle, rawobject)
+        if actual != cpptype.handle:
+            offset = capi.c_base_offset(actual, cpptype.handle, rawobject)
+            obj_actual = capi.direct_ptradd(rawobject, offset)
+            # TODO: fix-up w_type to be w_actual_type
+    obj = memory_regulator.retrieve(obj_actual)
+    if obj and obj.cppclass.handle == actual:# == cpptype:
         return obj
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-    W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, isref, python_owns)
+    W_CPPInstance.__init__(cppinstance, space, cpptype, obj_actual, isref, python_owns)
     memory_regulator.register(cppinstance)
     return w_cppinstance
 

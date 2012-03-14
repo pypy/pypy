@@ -24,7 +24,7 @@ public:
     example01(int a);
     example01(const example01& e);
     example01& operator=(const example01& e);
-    ~example01();
+    virtual ~example01();
 
 public:        // class-level methods
     static int staticAddOneToInt(int a);
@@ -100,4 +100,10 @@ class z_ {
 public:
    z_& gime_z_(z_& z);
    int myint;
+};
+
+// for pythonization checking
+class example01a : public example01 {
+public:
+   example01a(int a) : example01(a) {}
 };

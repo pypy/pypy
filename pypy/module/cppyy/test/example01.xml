@@ -3,6 +3,7 @@
   <class name="payload" />
   <class name="example01" />
   <class name="example01_t" />
+  <class name="example01a" />
   <class name="std::string" />
   <class name="z_" />
 

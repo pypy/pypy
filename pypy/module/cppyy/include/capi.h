@@ -17,6 +17,7 @@ extern "C" {
     char* cppyy_resolve_name(const char* cppitem_name);
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     cppyy_type_t cppyy_get_template(const char* template_name);
+    cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj);
 
     /* memory management ------------------------------------------------------ */
     cppyy_object_t cppyy_allocate(cppyy_type_t type);
