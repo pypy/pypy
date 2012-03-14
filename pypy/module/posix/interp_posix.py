@@ -422,7 +422,7 @@ if sys.platform == 'win32':
     def getcwd(space):
         """Return the current working directory as a string."""
         try:
-            cur = os.getcwdb()
+            cur = os.getcwdu()
         except OSError, e:
             raise wrap_oserror(space, e)
         else:
