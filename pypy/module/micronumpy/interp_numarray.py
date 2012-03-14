@@ -7,10 +7,10 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
+    SkipLastAxisIterator, Chunk, NewIndexChunk, ViewIterator)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
-    calc_new_strides, to_coords)
+    calc_new_strides, to_coords, enumerate_chunks)
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -321,6 +321,13 @@ class BaseArray(Wrappable):
         is a list of scalars that match the size of shape
         """
         shape_len = len(self.shape)
+        if space.isinstance_w(w_idx, space.w_tuple):
+            for w_item in space.fixedview(w_idx):
+                if (space.isinstance_w(w_item, space.w_slice) or
+                    space.isinstance_w(w_item, space.w_NoneType)):
+                    return False
+        elif space.isinstance_w(w_idx, space.w_NoneType):
+            return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
                 "0-d arrays can't be indexed"))
@@ -336,20 +343,25 @@ class BaseArray(Wrappable):
         if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
-        if lgt < shape_len:
-            return False
-        for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_slice):
-                return False
-        return True
+        return lgt == shape_len
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
-                enumerate(space.fixedview(w_idx))]
+        elif space.isinstance_w(w_idx, space.w_NoneType):
+            return [NewIndexChunk()]
+        result = []
+        i = 0
+        for w_item in space.fixedview(w_idx):
+            if space.isinstance_w(w_item, space.w_NoneType):
+                result.append(NewIndexChunk())
+            else:
+                result.append(Chunk(*space.decode_index4(w_item,
+                                                         self.shape[i])))
+                i += 1
+        return result
 
     def count_all_true(self, arr):
         sig = arr.find_sig()
@@ -443,7 +455,7 @@ class BaseArray(Wrappable):
     def create_slice(self, chunks):
         shape = []
         i = -1
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate_chunks(chunks):
             chunk.extend_shape(shape)
         s = i + 1
         assert s >= 0

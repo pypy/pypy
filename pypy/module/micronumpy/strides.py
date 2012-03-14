@@ -1,6 +1,14 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 
+def enumerate_chunks(chunks):
+    result = []
+    i = -1
+    for chunk in chunks:
+        i += chunk.ind_step
+        result.append((i, chunk))
+    return result
+
 @jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
     jit.isconstant(len(chunks))
 )
@@ -10,7 +18,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     rstart = start
     rshape = []
     i = -1
-    for i, chunk in enumerate(chunks):
+    for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
             rstrides.append(strides[i] * chunk.step)
             rbackstrides.append(strides[i] * (chunk.lgt - 1) * chunk.step)
