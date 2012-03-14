@@ -475,14 +475,16 @@ class AppTestTypeObject:
         """
 
     def test_mro(self):
+        """
         class A_mro(object):
             a = 1
 
-        class B_mro(A_mro):
+        class mymeta(type):
+            def mro(self):
+                return [self, object]
+
+        class B_mro(A_mro, metaclass=mymeta):
             b = 1
-            class __metaclass__(type):
-                def mro(self):
-                    return [self, object]
 
         assert B_mro.__bases__ == (A_mro,)
         assert B_mro.__mro__ == (B_mro, object)
@@ -493,6 +495,7 @@ class AppTestTypeObject:
         assert getattr(B_mro(), 'a', None) == None
         # also check what the built-in mro() method would return for 'B_mro'
         assert type.mro(B_mro) == [B_mro, A_mro, object]
+        """
 
     def test_abstract_mro(self):
         """
