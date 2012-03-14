@@ -3784,6 +3784,15 @@ class BaseLLtypeTests(BasicTests):
         assert res == 11 * 12 * 13
         self.check_operations_history(int_add=3, int_mul=2)
 
+    def test_setinteriorfield(self):
+        A = lltype.GcArray(lltype.Struct('S', ('x', lltype.Signed)))
+        a = lltype.malloc(A, 5, immortal=True)
+        def g(n):
+            a[n].x = n + 2
+            return a[n].x
+        res = self.interp_operations(g, [1])
+        assert res == 3
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
