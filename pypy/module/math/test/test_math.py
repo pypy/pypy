@@ -210,7 +210,7 @@ class AppTestMath:
 
         failures = []
         math_testcases = os.path.join(os.path.dirname(abc.__file__),
-                "../test/math_testcases.txt")
+                "test", "math_testcases.txt")
         for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
             func = getattr(math, fn)
 
