@@ -1,7 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
-from pypy.rlib.rarithmetic import is_valid_int
 
 
 class AppTestSemaphore:
@@ -22,7 +21,7 @@ class AppTestSemaphore:
         sem = SemLock(kind, value, maxvalue)
         assert sem.kind == kind
         assert sem.maxvalue == maxvalue
-        assert is_valid_int(sem.handle)
+        assert isinstance(sem.handle, (int, long))
 
         assert sem._count() == 0
         if sys.platform == 'darwin':

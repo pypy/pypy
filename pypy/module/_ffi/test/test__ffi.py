@@ -4,8 +4,6 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.module._rawffi.interp_rawffi import TYPEMAP
 from pypy.module._rawffi.tracker import Tracker
 from pypy.translator.platform import platform
-from pypy.rlib.rarithmetic import is_valid_int
-
 
 import os, sys, py
 
@@ -187,7 +185,7 @@ class AppTestFfi:
                                         types.void)
         assert get_dummy() == 0
         ptr = get_dummy_ptr()
-        assert is_valid_int(ptr)
+        assert type(ptr) in (int, long)
         ptr2 = MyPointerWrapper(ptr)
         set_val_to_ptr(ptr2, 123)
         assert get_dummy() == 123
