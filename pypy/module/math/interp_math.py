@@ -381,7 +381,6 @@ def fsum(space, w_iterable):
 
 def log1p(space, w_x):
     """Find log(x + 1)."""
-    x = _get_double(space, w_x)
     try:
         return math1(space, rfloat.log1p, w_x)
     except OperationError as e:
