@@ -358,12 +358,6 @@ class AppTestInternalMethods:
         for x in l[0]:
             assert isinstance(x, str)
 
-    def test_formatter_parser_escape(self):
-        l = list("{{a}}"._formatter_parser())
-        assert l == [('{', None, None, None), ('a}', None, None, None)]
-        l = list("{{{{"._formatter_parser())
-        assert l == [('{', None, None, None), ('{', None, None, None)]
-
     def test_formatter_field_name_split(self):
         import _string
         first, rest = _string.formatter_field_name_split('')
