@@ -302,7 +302,7 @@ class AppTestSocket:
 
     def test_ntoa_exception(self):
         import _socket
-        raises(_socket.error, _socket.inet_ntoa, "ab")
+        raises(_socket.error, _socket.inet_ntoa, b"ab")
 
     def test_aton_exceptions(self):
         import _socket
@@ -319,7 +319,7 @@ class AppTestSocket:
                     [(_socket.AF_INET + _socket.AF_INET6, b"", _socket.error),
                      (_socket.AF_INET, b"a", ValueError),
                      (_socket.AF_INET6, b"a", ValueError),
-                     (_socket.AF_INET, u"aa\u2222a", TypeError)]:
+                     (_socket.AF_INET, "aa\u2222a", TypeError)]:
             raises(exception, _socket.inet_ntop, family, packed)
 
     def test_pton_exceptions(self):
@@ -380,7 +380,7 @@ class AppTestSocket:
         # connection.
         try:
             s.connect(("www.python.org", 80))
-        except _socket.gaierror, ex:
+        except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         name = s.getpeername() # Will raise socket.error if not connected
         assert name[1] == 80
@@ -420,7 +420,7 @@ class AppTestSocket:
         sizes = {socket.htonl: 32, socket.ntohl: 32,
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
-            mask = (1L<<size) - 1
+            mask = (1<<size) - 1
             for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
                 assert i & mask == func(func(i&mask)) & mask
 
@@ -448,7 +448,7 @@ class AppTestSocket:
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
             try:
-                func(1L << size)
+                func(1 << size)
             except OverflowError:
                 pass
             else:
@@ -515,12 +515,12 @@ class AppTestSocket:
         # connection.
         try:
             s.connect(("www.python.org", 80))
-        except _socket.gaierror, ex:
+        except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
         s.send(buffer(b''))
         s.sendall(buffer(b''))
-        raises(TypeError, s.send, u'')
-        raises(TypeError, s.sendall, u'')
+        raises(TypeError, s.send, '')
+        raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
         s.sendto(buffer(b''), ('localhost', 9)) # Send to discard port.

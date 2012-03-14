@@ -105,6 +105,8 @@ class AppTestMath:
         self.ftest(math.log1p(0), 0)
         self.ftest(math.log1p(math.e-1), 1)
         self.ftest(math.log1p(1), math.log(2))
+        raises(ValueError, math.log1p, -1)
+        raises(ValueError, math.log1p, -100)
 
     def test_acosh(self):
         import math
@@ -207,8 +209,8 @@ class AppTestMath:
         fail_fmt = "{}:{}({!r}): expected {!r}, got {!r}"
 
         failures = []
-        math_testcases = os.path.join(os.path.dirname(abc.__file__), "test",
-                                      "math_testcases.txt")
+        math_testcases = os.path.join(os.path.dirname(abc.__file__),
+                "test", "math_testcases.txt")
         for id, fn, arg, expected, flags in _parse_mtestfile(math_testcases):
             func = getattr(math, fn)
 

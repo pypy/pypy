@@ -356,53 +356,6 @@ class AppTestItertools:
         raises(TypeError, itertools.imap, bool)
         raises(TypeError, itertools.imap, 42)
 
-    def test_izip(self):
-        import itertools
-
-        it = itertools.izip()
-        raises(StopIteration, next, it)
-
-        obj_list = [object(), object(), object()]
-        it = itertools.izip(obj_list)
-        for x in obj_list:
-            assert next(it) == (x, )
-        raises(StopIteration, next, it)
-        
-        it = itertools.izip([1, 2, 3], [4], [5, 6])
-        assert next(it) == (1, 4, 5)
-        raises(StopIteration, next, it)
-        
-        it = itertools.izip([], [], [1], [])
-        raises(StopIteration, next, it)
-
-        # Up to one additional item may be consumed per iterable, as per python docs
-        it1 = iter([1, 2, 3, 4, 5, 6])
-        it2 = iter([5, 6])
-        it = itertools.izip(it1, it2)
-        for x in [(1, 5), (2, 6)]:
-            assert next(it) == x
-        raises(StopIteration, next, it)
-        assert next(it1) in [3, 4]
-        #---does not work in CPython 2.5
-        #raises(StopIteration, it.next)
-        #assert it1.next() in [4, 5]
-
-    def test_izip_wrongargs(self):
-        import itertools, re
-        
-        # Duplicate python 2.4 behaviour for invalid arguments
-        raises(TypeError, itertools.izip, None, 0)
-
-        # The error message should indicate which argument was dodgy
-        for x in range(10):
-            args = [()] * x + [None] + [()] * (9 - x)
-            try:
-                itertools.izip(*args)
-            except TypeError as e:
-                assert str(e).find("#" + str(x + 1) + " ") >= 0
-            else:
-                fail("TypeError expected")
-
     def test_cycle(self):
         import itertools
 
@@ -613,7 +566,6 @@ class AppTestItertools:
             itertools.ifilterfalse(None, []),
             itertools.imap(None, []),
             itertools.islice([], 0),
-            itertools.izip(),
             itertools.repeat(None),
             itertools.starmap(bool, []),
             itertools.takewhile(bool, []),
@@ -641,7 +593,6 @@ class AppTestItertools:
             itertools.ifilterfalse,
             itertools.imap,
             itertools.islice,
-            itertools.izip,
             itertools.repeat,
             itertools.starmap,
             itertools.takewhile,
@@ -704,8 +655,8 @@ class AppTestItertools26:
         raises(ValueError, combinations, "abc", -2)
         assert list(combinations(range(4), 3)) == [(0, 1, 2), (0, 1, 3), (0, 2, 3), (1, 2, 3)]
 
-    def test_iziplongest(self):
-        from itertools import izip_longest, islice, count
+    def test_ziplongest(self):
+        from itertools import zip_longest, islice, count
         for args in [
                 ['abc', range(6)],
                 [range(6), 'abc'],
@@ -717,29 +668,29 @@ class AppTestItertools26:
             # this is the replacement:
             target = [tuple([arg[i] if i < len(arg) else None for arg in args])
                       for i in range(max(map(len, args)))]
-            assert list(izip_longest(*args)) == target
-            assert list(izip_longest(*args, **{})) == target
+            assert list(zip_longest(*args)) == target
+            assert list(zip_longest(*args, **{})) == target
 
             # Replace None fills with 'X'
             target = [tuple((e is None and 'X' or e) for e in t) for t in target]
-            assert list(izip_longest(*args, **dict(fillvalue='X'))) ==  target
+            assert list(zip_longest(*args, **dict(fillvalue='X'))) ==  target
 
         # take 3 from infinite input
-        assert (list(islice(izip_longest('abcdef', count()),3)) ==
+        assert (list(islice(zip_longest('abcdef', count()),3)) ==
                 zip('abcdef', range(3)))
 
-        assert list(izip_longest()) == zip()
-        assert list(izip_longest([])) ==  zip([])
-        assert list(izip_longest('abcdef')) ==  zip('abcdef')
+        assert list(zip_longest()) == zip()
+        assert list(zip_longest([])) ==  zip([])
+        assert list(zip_longest('abcdef')) ==  zip('abcdef')
 
-        assert (list(izip_longest('abc', 'defg', **{})) ==
+        assert (list(zip_longest('abc', 'defg', **{})) ==
                 zip(list('abc') + [None], 'defg'))  # empty keyword dict
-        raises(TypeError, izip_longest, 3)
-        raises(TypeError, izip_longest, range(3), 3)
+        raises(TypeError, zip_longest, 3)
+        raises(TypeError, zip_longest, range(3), 3)
 
         for stmt in [
-            "izip_longest('abc', fv=1)",
-            "izip_longest('abc', fillvalue=1, bogus_keyword=None)",
+            "zip_longest('abc', fv=1)",
+            "zip_longest('abc', fillvalue=1, bogus_keyword=None)",
         ]:
             try:
                 eval(stmt, globals(), locals())
@@ -748,7 +699,7 @@ class AppTestItertools26:
             else:
                 self.fail('Did not raise Type in:  ' + stmt)
 
-    def test_izip_longest2(self):
+    def test_zip_longest2(self):
         import itertools
         class Repeater(object):
             # this class is similar to itertools.repeat
@@ -771,7 +722,7 @@ class AppTestItertools26:
         r2 = Repeater(2, 4, StopIteration)
         def run(r1, r2):
             result = []
-            for i, j in itertools.izip_longest(r1, r2, fillvalue=0):
+            for i, j in itertools.zip_longest(r1, r2, fillvalue=0):
                 result.append((i, j))
             return result
         assert run(r1, r2) ==  [(1,2), (1,2), (1,2), (0,2)]
@@ -939,7 +890,7 @@ class AppTestItertools27:
         assert list(combinations_with_replacement([], 2)) == []
         assert list(combinations_with_replacement([], 0)) == [()]
 
-    def test_izip_longest3(self):
+    def test_zip_longest3(self):
         import itertools
         class Repeater(object):
             # this class is similar to itertools.repeat
@@ -960,7 +911,7 @@ class AppTestItertools27:
         # and StopIteration would stop as expected
         r1 = Repeater(1, 3, RuntimeError)
         r2 = Repeater(2, 4, StopIteration)
-        it = itertools.izip_longest(r1, r2, fillvalue=0)
+        it = itertools.zip_longest(r1, r2, fillvalue=0)
         assert next(it) == (1, 2)
         assert next(it) == (1, 2)
         assert next(it)== (1, 2)
@@ -987,9 +938,7 @@ class AppTestItertools27:
         assert type(A.from_iterable([])) is A
         class A(itertools.imap): pass
         assert type(A(lambda: 5, [])) is A
-        class A(itertools.izip): pass
-        assert type(A([], [])) is A
-        class A(itertools.izip_longest): pass
+        class A(itertools.zip_longest): pass
         assert type(A([], [])) is A
         class A(itertools.cycle): pass
         assert type(A([])) is A
