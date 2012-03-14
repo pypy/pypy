@@ -10,6 +10,8 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 
 class StrOrUnicode(object):
@@ -730,7 +732,7 @@ def _findall_call_oopspec():
     for name in dir(OptString):
         if name.startswith(prefix):
             value = getattr(EffectInfo, 'OS_' + name[len(prefix):])
-            assert isinstance(value, int) and value != 0
+            assert is_valid_int(value) and value != 0
             result.append((value, getattr(OptString, name)))
     return unrolling_iterable(result)
 opt_call_oopspec_ops = _findall_call_oopspec()
