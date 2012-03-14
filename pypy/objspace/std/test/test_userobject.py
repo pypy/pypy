@@ -160,13 +160,14 @@ class AppTestUserObject:
         assert lst == [42]
 
     def test_del_exception(self):
-        import sys, StringIO, gc
+        import sys, gc
+        from io import StringIO
         class A(object):
             def __del__(self):
                 yaddadlaouti
         prev = sys.stderr
         try:
-            sys.stderr = StringIO.StringIO()
+            sys.stderr = StringIO()
             A()
             gc.collect()
             res = sys.stderr.getvalue()
