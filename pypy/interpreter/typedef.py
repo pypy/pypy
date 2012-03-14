@@ -6,7 +6,7 @@ import py
 from pypy.interpreter.gateway import interp2app, BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, DescrMismatch
-from pypy.interpreter.error import OperationError, operationerrfmt, W_OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate, compute_identity_hash, specialize
 from pypy.rlib.jit import promote
@@ -614,7 +614,7 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code, Frame
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller
+from pypy.interpreter.pyopcode import SuspendedUnroller, W_OperationError
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.function import ClassMethod
