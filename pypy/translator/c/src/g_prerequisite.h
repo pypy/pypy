@@ -2,6 +2,7 @@
 /**************************************************************/
 /***  this is included before any code produced by genc.py  ***/
 
+
 #ifdef PYPY_STANDALONE
 #  include "src/commondefs.h"
 #endif

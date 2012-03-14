@@ -1075,7 +1075,7 @@ class TestLL2Ctypes(object):
                 return sys.maxint/2 * 3
 
         res = cast_adr_to_int(someaddr())
-        assert is_emulated_long(res)
+        assert is_valid_int(res)
         assert res == -sys.maxint/2 - 3
 
     def test_cast_gcref_back_and_forth(self):

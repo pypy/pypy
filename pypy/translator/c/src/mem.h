@@ -76,7 +76,7 @@ pypy_asm_gcroot(void* _r1)
 #ifndef _WIN64
 #  define pypy_asm_keepalive(v)    __asm { }
 #else
-   /* is there soething cheaper? */
+   /* is there something cheaper? */
 #  define pypy_asm_keepalive(v)    _ReadWriteBarrier();
 #endif
 

@@ -1,5 +1,4 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.rlib.rarithmetic import is_valid_int
 
 
 class AppTestDtypes(BaseNumpyAppTest):

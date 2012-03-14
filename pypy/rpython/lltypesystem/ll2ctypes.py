@@ -238,15 +238,17 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if cls._ptrtype:
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
-            for n in [maxint, 2**31]:
+            # on windows it raises AttributeError even for 2**31 (_length_ missing)
+            if _MS_WINDOWS:
+                other_limit = 2**31-1
+            else:
+                other_limit = 2**31
+            for n in [maxint, other_limit]:
                 cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
-                except OverflowError, e:
+                except (OverflowError, AttributeError), e:
                     pass
-                except AttributeError, e:
-                    pass # XXX win64 failure and segfault, afterwards:
-                    # AttributeError: class must define a '_length_' attribute, which must be a positive integer
                 else:
                     break
             else:
