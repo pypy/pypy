@@ -374,6 +374,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 0.
 
+    def test_newindex(self):
+        from _numpypy import array
+        newindex = None
+        a = array(range(5))
+        b = array([range(5)])
+        assert (a[newindex] == b).all()
+
+    def test_newindex_slice(self):
+        from _numpypy import array
+        newindex = None
+
+        a = array(range(5))
+        b = array(range(1,5))
+        c = array([range(1,5)])
+        d = array([[x] for x in range(1,5)])
+
+        assert (a[1:] == b).all()
+        assert (a[1:,newindex] == d).all()
+        assert (a[newindex,1:] == c).all()
+
     def test_scalar(self):
         from _numpypy import array, dtype
         a = array(3)
