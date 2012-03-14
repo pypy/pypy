@@ -15,11 +15,16 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
 
-from pypy.objspace.std.abstractstring import W_AbstractBaseStringObject, \
-        is_generic
+from pypy.objspace.std.abstractstring import \
+        W_AbstractBaseStringObject, Mixin_BaseStringMethods
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
+
+
+class Mixin_StringMethods(Mixin_BaseStringMethods):
+    __slots__ = ()
+
 
 class W_AbstractStringObject(W_AbstractBaseStringObject):
     __slots__ = ()
@@ -27,8 +32,50 @@ class W_AbstractStringObject(W_AbstractBaseStringObject):
     def unwrap(w_self, space):
         return w_self.str_w(space)
 
+    def _isalnum(self, ch):
+        return ch.isalnum()
 
-class W_StringObject(W_AbstractStringObject):
+    def _isalpha(self, ch):
+        return ch.isalpha()
+
+    def _isdigit(self, ch):
+        return ch.isdigit()
+
+    def _islower(self, ch):
+        return ch.islower()
+
+    def _isspace(self, ch):
+        return ch.isspace()
+
+    def _isupper(self, ch):
+        return ch.isupper()
+
+    def _lower(self, ch):
+        if ch.isupper():
+            o = ord(ch) + 32
+            return chr(o)
+        else:
+            return ch
+
+    def _upper(self, ch):
+        if ch.islower():
+            o = ord(ch) - 32
+            return chr(o)
+        else:
+            return ch
+
+    def _swapcase(self, ch):
+        if ch.isupper():
+            o = ord(ch) + 32
+            return chr(o)
+        elif ch.islower():
+            o = ord(ch) - 32
+            return chr(o)
+        else:
+            return ch
+
+
+class W_StringObject(W_AbstractStringObject, Mixin_StringMethods):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_value']
 
@@ -46,96 +93,41 @@ class W_StringObject(W_AbstractStringObject):
         from pypy.objspace.std.unicodetype import plain_str2unicode
         return plain_str2unicode(space, w_self._value)
 
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
 
-def _upper(ch):
-    if ch.islower():
-        o = ord(ch) - 32
-        return chr(o)
-    else:
-        return ch
-
-def _lower(ch):
-    if ch.isupper():
-        o = ord(ch) + 32
-        return chr(o)
-    else:
-        return ch
-
-def str_isspace__String(space, w_self):
-    isspace = lambda c: c.isspace()
-    return is_generic(space, w_self, isspace)
-
-def str_isdigit__String(space, w_self):
-    isdigit = lambda c: c.isdigit()
-    return is_generic(space, w_self, isdigit)
+def str_isalnum__String(space, w_self):
+    return w_self.isalnum(space)
 
 def str_isalpha__String(space, w_self):
-    isalpha = lambda c: c.isalpha()
-    return is_generic(space, w_self, isalpha)
+    return w_self.isalpha(space)
 
-def str_isalnum__String(space, w_self):
-    isalnum = lambda c: c.isalnum()
-    return is_generic(space, w_self, isalnum)
+def str_isdigit__String(space, w_self):
+    return w_self.isdigit(space)
 
-def str_isupper__String(space, w_self):
-    """Return True if all cased characters in S are uppercase and there is
-at least one cased character in S, False otherwise."""
-    v = w_self._value
-    if len(v) == 1:
-        c = v[0]
-        return space.newbool(c.isupper())
-    cased = False
-    for idx in range(len(v)):
-        if v[idx].islower():
-            return space.w_False
-        elif not cased and v[idx].isupper():
-            cased = True
-    return space.newbool(cased)
+def str_isspace__String(space, w_self):
+    return w_self.isspace(space)
 
 def str_islower__String(space, w_self):
     """Return True if all cased characters in S are lowercase and there is
 at least one cased character in S, False otherwise."""
-    v = w_self._value
-    if len(v) == 1:
-        c = v[0]
-        return space.newbool(c.islower())
-    cased = False
-    for idx in range(len(v)):
-        if v[idx].isupper():
-            return space.w_False
-        elif not cased and v[idx].islower():
-            cased = True
-    return space.newbool(cased)
+    return w_self.islower(space)
+
+def str_isupper__String(space, w_self):
+    """Return True if all cased characters in S are uppercase and there is
+at least one cased character in S, False otherwise."""
+    return w_self.isupper(space)
 
 def str_istitle__String(space, w_self):
     """Return True if S is a titlecased string and there is at least one
 character in S, i.e. uppercase characters may only follow uncased
 characters and lowercase characters only cased ones. Return False
 otherwise."""
-    input = w_self._value
-    cased = False
-    previous_is_cased = False
-
-    for pos in range(0, len(input)):
-        ch = input[pos]
-        if ch.isupper():
-            if previous_is_cased:
-                return space.w_False
-            previous_is_cased = True
-            cased = True
-        elif ch.islower():
-            if not previous_is_cased:
-                return space.w_False
-            cased = True
-        else:
-            previous_is_cased = False
-
-    return space.newbool(cased)
+    return w_self.istitle(space)
 
 def str_upper__String(space, w_self):
     self = w_self._value
@@ -150,17 +142,9 @@ def str_swapcase__String(space, w_self):
     builder = StringBuilder(len(self))
     for i in range(len(self)):
         ch = self[i]
-        if ch.isupper():
-            o = ord(ch) + 32
-            builder.append(chr(o))
-        elif ch.islower():
-            o = ord(ch) - 32
-            builder.append(chr(o))
-        else:
-            builder.append(ch)
+        builder.append(w_self._swapcase(ch))
 
     return space.wrap(builder.build())
-
 
 def str_capitalize__String(space, w_self):
     input = w_self._value
@@ -191,10 +175,10 @@ def str_title__String(space, w_self):
     for pos in range(len(input)):
         ch = input[pos]
         if not prev_letter.isalpha():
-            ch = _upper(ch)
+            ch = w_self._upper(ch)
             builder.append(ch)
         else:
-            ch = _lower(ch)
+            ch = w_self._lower(ch)
             builder.append(ch)
 
         prev_letter = ch

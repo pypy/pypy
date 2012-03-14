@@ -19,22 +19,39 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
+from pypy.objspace.std.abstractstring import \
+        W_AbstractBaseStringObject, Mixin_BaseStringMethods
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
 )
-from pypy.tool.sourcetools import func_with_new_name
 
 
-class W_BytearrayObject(W_Object):
+class Mixin_BytearrayMethods(Mixin_BaseStringMethods):
+    __slots__ = ()
+
+
+class W_AbstractBytearrayObject(stringobject.W_AbstractStringObject):
+    __slots__ = ()
+
+
+class W_BytearrayObject(W_AbstractBytearrayObject, Mixin_BytearrayMethods):
     from pypy.objspace.std.bytearraytype import bytearray_typedef as typedef
 
     def __init__(w_self, data):
         w_self.data = data
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%s)" % (w_self.__class__.__name__, ''.join(w_self.data))
+    def raw_value(w_self):
+        return w_self.data
+
+    def str_w(w_self, space):
+        return w_self.data
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self.data)
+
 
 registerimplementation(W_BytearrayObject)
 
@@ -279,6 +296,27 @@ def repr__Bytearray(space, w_bytearray):
 def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
+def str_isalnum__Bytearray(space, w_self):
+    return w_self.isalnum(space)
+
+def str_isalpha__Bytearray(space, w_self):
+    return w_self.isalpha(space)
+
+def str_isdigit__Bytearray(space, w_self):
+    return w_self.isdigit(space)
+
+def str_islower__Bytearray(space, w_self):
+    return w_self.islower(space)
+
+def str_isspace__Bytearray(space, w_self):
+    return w_self.isspace(space)
+
+def str_istitle__Bytearray(space, w_self):
+    return w_self.istitle(space)
+
+def str_isupper__Bytearray(space, w_self):
+    return w_self.isupper(space)
+
 def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     char = w_char.intval
     bytearray = w_bytearray.data
@@ -371,34 +409,6 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
 def str_decode__Bytearray_ANY_ANY(space, w_bytearray, w_encoding, w_errors):
     w_str = str__Bytearray(space, w_bytearray)
     return stringobject.str_decode__String_ANY_ANY(space, w_str, w_encoding, w_errors)
-
-def str_islower__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_islower__String(space, w_str)
-
-def str_isupper__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_isupper__String(space, w_str)
-
-def str_isalpha__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_isalpha__String(space, w_str)
-
-def str_isalnum__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_isalnum__String(space, w_str)
-
-def str_isdigit__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_isdigit__String(space, w_str)
-
-def str_istitle__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_istitle__String(space, w_str)
-
-def str_isspace__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    return stringobject.str_isspace__String(space, w_str)
 
 def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
     where = space.int_w(w_idx)
