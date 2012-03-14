@@ -795,15 +795,11 @@ class TestAstBuilder:
             "from x import y as %s",
             "for %s in x: pass",
         )
-        for name in ("None", "__debug__"):
+        for name in "__debug__",:
             for template in invalid:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
                 assert exc.msg == "cannot assign to %s" % (name,)
-        # This is ok.
-        self.get_ast("from None import x")
-        self.get_ast("from x import None as y")
-        self.get_ast("import None as x")
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")

@@ -788,13 +788,15 @@ class AppTestOptimizer:
         output = s.getvalue()
         assert output.count('LOAD_CONST') == 1
 
-    def test_none_constant(self):
+    def test_constant_name(self):
         import opcode
-        co = compile("def f(): return None", "<test>", "exec").co_consts[0]
-        assert "None" not in co.co_names
-        co = co.co_code
-        op = co[0] + (co[1] << 8)
-        assert op == opcode.opmap["LOAD_CONST"]
+        for name in "None", "True", "False":
+            snip = "def f(): return " + name
+            co = compile(snip, "<test>", "exec").co_consts[0]
+            assert name not in co.co_names
+            co = co.co_code
+            op = co[0] + (co[1] << 8)
+            assert op == opcode.opmap["LOAD_CONST"]
 
     def test_tuple_constants(self):
         ns = {}
