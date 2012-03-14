@@ -10,7 +10,6 @@ class Module(MixedModule):
     repeat(elem [,n]) --> elem, elem, elem, ... endlessly or up to n times
 
     Iterators terminating on the shortest input sequence:
-    izip(p, q, ...) --> (p[0], q[0]), (p[1], q[1]), ... 
     ifilter(pred, seq) --> elements of seq where pred(elem) is True
     ifilterfalse(pred, seq) --> elements of seq where pred(elem) is False
     islice(seq, [start,] stop [, step]) --> elements from
@@ -37,14 +36,13 @@ class Module(MixedModule):
         'ifilterfalse'  : 'interp_itertools.W_IFilterFalse',
         'imap'          : 'interp_itertools.W_IMap',
         'islice'        : 'interp_itertools.W_ISlice',
-        'izip'          : 'interp_itertools.W_IZip',
-        'izip_longest'  : 'interp_itertools.W_IZipLongest',
         'permutations'  : 'interp_itertools.W_Permutations',
         'product'       : 'interp_itertools.W_Product',
         'repeat'        : 'interp_itertools.W_Repeat',
         'starmap'       : 'interp_itertools.W_StarMap',
         'takewhile'     : 'interp_itertools.W_TakeWhile',
         'tee'           : 'interp_itertools.tee',
+        'zip_longest'  : 'interp_itertools.W_ZipLongest',
     }
 
     appleveldefs = {

@@ -83,7 +83,7 @@ class AppTestExc(object):
         assert str(ut) == "can't translate characters in position 1-4: bah"
         ut.start = 4
         ut.object = '012345'
-        assert str(ut) == "can't translate character u'\\x34' in position 4: bah"
+        assert str(ut) == "can't translate character '\\x34' in position 4: bah"
         ut.object = []
         assert ut.object == []
 
@@ -163,7 +163,7 @@ class AppTestExc(object):
         assert ue.object == 'z9'
         assert str(ue) == "'x' codec can't encode characters in position 1-4: bah"
         ue.end = 2
-        assert str(ue) == "'x' codec can't encode character u'\\x39' in position 1: bah"
+        assert str(ue) == "'x' codec can't encode character '\\x39' in position 1: bah"
         ue.object = []
         assert ue.object == []
         raises(TypeError, UnicodeEncodeError, "x", b"y", 1, 5, "bah")

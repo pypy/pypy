@@ -35,9 +35,6 @@ corresponding Unix manual entries for more information on calls."""
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
-    'tmpfile'    : 'app_posix.tmpfile',
-    'tmpnam'     : 'app_posix.tmpnam',
-    'tempnam'    : 'app_posix.tempnam',
     }
     if os.name == 'nt':
         appleveldefs.update({
@@ -73,7 +70,7 @@ corresponding Unix manual entries for more information on calls."""
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
     'getcwd'    : 'interp_posix.getcwd',
-    'getcwdu'   : 'interp_posix.getcwdu',
+    'getcwdb'    : 'interp_posix.getcwdb',
     'chdir'     : 'interp_posix.chdir',
     'mkdir'     : 'interp_posix.mkdir',
     'rmdir'     : 'interp_posix.rmdir',

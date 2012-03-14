@@ -265,8 +265,9 @@ class AppTestPosix:
 
     def test_getcwd(self):
         assert isinstance(self.posix.getcwd(), str)
-        assert isinstance(self.posix.getcwdu(), unicode)
-        assert self.posix.getcwd() == self.posix.getcwdu()
+
+    def test_getcwdb(self):
+        assert isinstance(self.posix.getcwdb(), bytes)
 
     def test_listdir(self):
         pdir = self.pdir
@@ -460,14 +461,6 @@ class AppTestPosix:
                               "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
                              {'FOOBAR': '42'})
             assert ret == 42
-
-    def test_popen(self):
-        os = self.posix
-        for i in range(5):
-            stream = os.popen('echo 1')
-            res = stream.read()
-            assert res == '1\n'
-            assert stream.close() is None
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -845,68 +838,6 @@ class AppTestPosix:
             assert isinstance(self.posix.getlogin(), str)
             # How else could we test that getlogin is properly
             # working?
-
-    def test_tmpfile(self):
-        os = self.posix
-        f = os.tmpfile()
-        f.write(b"xxx")
-        f.flush()
-        f.seek(0, 0)
-        assert isinstance(f, file)
-        assert f.read() == b'xxx'
-
-    def test_tmpnam(self):
-        import stat, os
-        s1 = os.tmpnam()
-        s2 = os.tmpnam()
-        assert s1 != s2
-        def isdir(s):
-            try:
-                return stat.S_ISDIR(os.stat(s).st_mode)
-            except OSError:
-                return -1
-        assert isdir(s1) == -1
-        assert isdir(s2) == -1
-        assert isdir(os.path.dirname(s1)) == 1
-        assert isdir(os.path.dirname(s2)) == 1
-
-    def test_tempnam(self):
-        import stat, os
-        for dir in [None, self.udir]:
-            for prefix in [None, 'foobar']:
-                s1 = os.tempnam(dir, prefix)
-                s2 = os.tempnam(dir, prefix)
-                assert s1 != s2
-                def isdir(s):
-                    try:
-                        return stat.S_ISDIR(os.stat(s).st_mode)
-                    except OSError:
-                        return -1
-                assert isdir(s1) == -1
-                assert isdir(s2) == -1
-                assert isdir(os.path.dirname(s1)) == 1
-                assert isdir(os.path.dirname(s2)) == 1
-                if dir:
-                    assert os.path.dirname(s1) == dir
-                    assert os.path.dirname(s2) == dir
-                assert os.path.basename(s1).startswith(prefix or 'tmp')
-                assert os.path.basename(s2).startswith(prefix or 'tmp')
-
-    def test_tmpnam_warning(self):
-        import warnings, os
-        #
-        def f_tmpnam_warning(): os.tmpnam()    # a single line
-        #
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            f_tmpnam_warning()
-            assert len(w) == 1
-            assert issubclass(w[-1].category, RuntimeWarning)
-            assert "potential security risk" in str(w[-1].message)
-            # check that the warning points to the call to os.tmpnam(),
-            # not to some code inside app_posix.py
-            assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
-
 
 class AppTestEnvironment(object):
     def setup_class(cls):

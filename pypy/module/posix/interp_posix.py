@@ -409,29 +409,29 @@ def _getfullpathname(space, w_path):
     else:
         return w_fullpath
 
-def getcwd(space):
+def getcwdb(space):
     """Return the current working directory."""
     try:
         cur = os.getcwd()
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(cur)
+        return space.wrapbytes(cur)
 
 if sys.platform == 'win32':
-    def getcwdu(space):
-        """Return the current working directory as a unicode string."""
+    def getcwd(space):
+        """Return the current working directory as a string."""
         try:
-            cur = os.getcwdu()
+            cur = os.getcwdb()
         except OSError, e:
             raise wrap_oserror(space, e)
         else:
             return space.wrap(cur)
 else:
-    def getcwdu(space):
-        """Return the current working directory as a unicode string."""
+    def getcwd(space):
+        """Return the current working directory as a string."""
         filesystemencoding = space.sys.filesystemencoding
-        return space.call_method(getcwd(space), 'decode',
+        return space.call_method(getcwdb(space), 'decode',
                                  space.wrap(filesystemencoding))
 
 def chdir(space, w_path):
