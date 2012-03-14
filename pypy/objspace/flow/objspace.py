@@ -449,9 +449,6 @@ class FlowObjSpace(ObjSpace):
     def handle_implicit_exceptions(self, exceptions):
         if not exceptions:
             return
-        for exc in exceptions:    # just for sanity-checking
-            assert exc is not TypeError
-            assert exc is not AttributeError
         # catch possible exceptions implicitly.  If the OperationError
         # below is not caught in the same function, it will produce an
         # exception-raising return block in the flow graph.  Note that
