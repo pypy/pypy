@@ -716,6 +716,15 @@ class TestCompiler:
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
 
+    def test_assert(self):
+        decl = py.code.Source("""
+        try:
+            assert 0, 'hi'
+        except AssertionError as e:
+            msg = str(e)
+        """)
+        yield self.simple_test, decl, 'msg', 'hi'
+
     def test_indentation_error(self):
         source = py.code.Source("""
         x
