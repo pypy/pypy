@@ -192,7 +192,7 @@ class BaseIntegralFormattingTest:
 
     def test_simple(self):
         assert format(self.i(2)) == "2"
-        assert isinstance(format(self.i(2), u""), str)
+        assert isinstance(format(self.i(2), ""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -201,9 +201,6 @@ class BaseIntegralFormattingTest:
     def test_c(self):
         a = self.i(ord("a"))
         assert format(a, "c") == "a"
-        as_uni = format(a, u"c")
-        assert as_uni == u"a"
-        assert isinstance(as_uni, str)
         raises(ValueError, format, a, "-c")
         raises(ValueError, format, a, ",c")
         assert format(a, "3c") == "  a"
@@ -357,7 +354,7 @@ class AppTestInternalMethods:
     def test_u_formatter_parser(self):
         import _string
         l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
-        assert l == [(u'', u'0', u'12{sdd}3', u'x')]
+        assert l == [('', '0', '12{sdd}3', 'x')]
         for x in l[0]:
             assert isinstance(x, str)
 
@@ -401,8 +398,8 @@ class AppTestInternalMethods:
         import _string
         first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         l = list(rest)
-        assert first == u'foo'
-        assert l == [(True, u'baz'), (False, u'hi'), (True, u'bok')]
+        assert first == 'foo'
+        assert l == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
         assert isinstance(first, str)
         for x, y in l:
             assert isinstance(y, str)
