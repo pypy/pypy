@@ -6,6 +6,7 @@
 
 #pragma link C++ class example01;
 #pragma link C++ typedef example01_t;
+#pragma link C++ class example01a;
 #pragma link C++ class payload;
 #pragma link C++ class ArgPasser;
 #pragma link C++ class z_;
