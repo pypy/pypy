@@ -816,7 +816,8 @@ class ASTBuilder(object):
 
     def handle_star_expr(self, star_expr_node):
         expr = self.handle_expr(star_expr_node.children[1])
-        return ast.Starred(expr, ast.Load, star_expr_node.lineno, star_expr_node.column)
+        return ast.Starred(expr, ast.Load, star_expr_node.lineno,
+                           star_expr_node.column)
 
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.children[-1])
