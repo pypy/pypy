@@ -1431,11 +1431,9 @@ app = gateway.applevel(r'''
             if lastchar.isspace() and lastchar != ' ':
                 return
         file_softspace(stream, True)
-    print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
     def print_item(x):
         print_item_to(x, sys_stdout())
-    print_item._annspecialcase_ = "flowspace:print_item"
 
     def print_newline_to(stream):
         stream.write("\n")
@@ -1443,7 +1441,6 @@ app = gateway.applevel(r'''
 
     def print_newline():
         print_newline_to(sys_stdout())
-    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:

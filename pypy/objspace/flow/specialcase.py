@@ -73,6 +73,19 @@ def rpython_print_newline():
         s = '\n'
     import os
     os.write(1, s)
+
+def sc_applevel(space, app, name, args_w):
+    # special case only for print_item and print_newline
+    if 'pyopcode' in app.filename and name == 'print_item':
+        w_s = space.do_operation('str', *args_w)
+        args_w = (w_s,)
+    elif 'pyopcode' in app.filename and name == 'print_newline':
+        pass
+    else:
+        raise Exception("not RPython: calling %r from %r" % (name, app))
+    func = globals()['rpython_' + name]
+    return space.do_operation('simple_call', Constant(func), *args_w)
+
 # _________________________________________________________________________
 
 def sc_r_uint(space, r_uint, args):
@@ -91,6 +104,8 @@ def setup(space):
     # this is now routed through the objspace, directly.
     # space.specialcases[fn] = sc_normalize_exception
     space.specialcases[__import__] = sc_import
+    # redirect ApplevelClass for print et al.
+    space.specialcases[ApplevelClass] = sc_applevel
     # turn calls to built-in functions to the corresponding operation,
     # if possible
     for fn in OperationName:
