@@ -208,6 +208,6 @@ def callable(space, w_object):
 function).  Note that classes are callable."""
     return space.callable(w_object)
 
-def format(space, w_obj, w_format_spec=""):
+def format(space, w_obj, w_format_spec=u""):
     """Format a obj according to format_spec"""
     return space.format(w_obj, w_format_spec)
