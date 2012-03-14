@@ -138,8 +138,6 @@ class PyPyJitPolicy(JitPolicy):
 
         if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale' or mod == 'pypy.rlib.rsocket':
             return False
-        if '_geninterp_' in func.func_globals: # skip all geninterped stuff
-            return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False
         if mod.startswith('pypy.interpreter.pyparser.'):

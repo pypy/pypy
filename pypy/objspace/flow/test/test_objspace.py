@@ -968,61 +968,6 @@ class TestFlowObjSpaceDelay(Base):
         g = self.codetest(f)
 
 
-class TestGenInterpStyle(Base):
-    def setup_class(cls):
-        cls.space = FlowObjSpace()
-        cls.space.config.translation.builtins_can_raise_exceptions = True
-
-    def reraiseAttributeError(v):
-        try:
-            x = getattr(v, "y")
-        except AttributeError:
-            raise
-
-    def test_reraiseAttributeError(self):
-        x = self.codetest(self.reraiseAttributeError)
-        simplify_graph(x)
-        self.show(x)
-        excfound = []
-        for link in x.iterlinks():
-            if link.target is x.exceptblock:
-                excfound.append(link.exitcase)
-        assert len(excfound) == 2
-        excfound.sort()
-        expected = [Exception, AttributeError]
-        expected.sort()
-        assert excfound == expected
-
-    def reraiseTypeError(dic):
-        try:
-            x = dic[5]
-        except TypeError:
-            raise
-
-    def test_reraiseTypeError(self):
-        x = self.codetest(self.reraiseTypeError)
-        simplify_graph(x)
-        self.show(x)
-        excfound = []
-        for link in x.iterlinks():
-            if link.target is x.exceptblock:
-                excfound.append(link.exitcase)
-        assert len(excfound) == 2
-        excfound.sort()
-        expected = [Exception, TypeError]
-        expected.sort()
-        assert excfound == expected
-
-    def test_can_catch_special_exceptions(self):
-        def f():
-            try:
-                f()
-            except NotImplementedError:
-                pass
-        graph = self.codetest(f)
-        # assert did not crash
-
-
 DATA = {'x': 5,
         'y': 6}
 
