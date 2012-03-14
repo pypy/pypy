@@ -16,5 +16,5 @@
 #define OP_ADR_LT(x,y,r)	  r = ((x) <  (y))
 #define OP_ADR_GE(x,y,r)	  r = ((x) >= (y))
 
-#define OP_CAST_ADR_TO_INT(x, mode, r)   r = ((long)x)
+#define OP_CAST_ADR_TO_INT(x, mode, r)   r = ((Signed)x)
 #define OP_CAST_INT_TO_ADR(x, r)         r = ((void *)(x))
