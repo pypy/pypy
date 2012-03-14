@@ -15,8 +15,8 @@ class IntBound(object):
         self.lower = lower
         # check for unexpected overflows:
         if not we_are_translated():
-            assert is_valid_int(upper)
-            assert is_valid_int(lower)
+            assert type(upper) is not long or is_valid_int(upper)
+            assert type(lower) is not long or is_valid_int(lower)
 
     # Returns True if the bound was updated
     def make_le(self, other):
