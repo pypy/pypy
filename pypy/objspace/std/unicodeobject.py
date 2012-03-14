@@ -63,10 +63,11 @@ class W_AbstractUnicodeObject(W_AbstractBaseStringObject, Mixin_UnicodeMethods):
         return unichr(unicodedb.toupper(ord(ch)))
 
     def _swapcase(self, ch):
-        if unicodedb.islower(ch):
-            return unichr(unicodedb.toupper(ord(ch)))
-        elif unicodedb.isupper(ch):
-            return unichr(unicodedb.tolower(ord(ch)))
+        num = ord(ch)
+        if unicodedb.islower(num):
+            return unichr(unicodedb.toupper(num))
+        elif unicodedb.isupper(num):
+            return unichr(unicodedb.tolower(num))
         else:
             return ch
 
@@ -78,6 +79,12 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
     def __init__(w_self, unistr):
         assert isinstance(unistr, unicode)
         w_self._value = unistr
+
+    def builder(w_self, space, size=0):
+        return UnicodeBuilder(size)
+
+    def construct(w_self, space, data):
+        return W_UnicodeObject(data)
 
     def raw_value(w_self):
         return w_self._value
@@ -457,40 +464,13 @@ def unicode_title__Unicode(space, w_self):
     return W_UnicodeObject(builder.build())
 
 def unicode_lower__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
-    return W_UnicodeObject(builder.build())
+    return w_self.lower(space)
 
 def unicode_upper__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        builder.append(unichr(unicodedb.toupper(ord(input[i]))))
-    return W_UnicodeObject(builder.build())
+    return w_self.upper(space)
 
 def unicode_swapcase__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        unichar = ord(input[i])
-        if unicodedb.islower(unichar):
-            builder.append(unichr(unicodedb.toupper(unichar)))
-        elif unicodedb.isupper(unichar):
-            builder.append(unichr(unicodedb.tolower(unichar)))
-        else:
-            builder.append(input[i])
-    return W_UnicodeObject(builder.build())
-
-def _normalize_index(length, index):
-    if index < 0:
-        index += length
-        if index < 0:
-            index = 0
-    elif index > length:
-        index = length
-    return index
+    return w_self.swapcase(space)
 
 @specialize.arg(4)
 def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):

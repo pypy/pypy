@@ -4,7 +4,6 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import _normalize_index
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
@@ -76,12 +75,34 @@ def encode_unicode(space, w_unistr, encoding, errors):
     return encode_object(space, w_unistr, encoding, errors)
 
 
+# XXX create shared base class with RopeBuilder
+class RopeUnicodeBuilder(object):
+    """Mimic sufficent StringBuilder API for over simple character arrays"""
+
+    def __init__(self, size=0):
+        self.data = [u' '] * size
+        self.pos = 0
+
+    def append(self, ch):
+        self.data[self.pos] = ch
+        self.pos += 1
+
+    def build(self):
+        return rope.rope_from_unicharlist(self.data)
+
+
 class W_RopeUnicodeObject(unicodeobject.W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
     _immutable_fields_ = ['_node']
 
     def __init__(w_self, node):
         w_self._node = node
+
+    def builder(w_self, space, size=0):
+        return RopeUnicodeBuilder(size)
+
+    def construct(w_self, space, data):
+        return W_RopeUnicodeObject(data)
 
     def iterator(w_self, space):
         return rope.ItemIterator(w_self._node)
@@ -404,38 +425,14 @@ def unicode_title__RopeUnicode(space, w_self):
         previous_is_cased = unicodedb.iscased(unichar)
     return W_RopeUnicodeObject(rope.rope_from_unicharlist(result))
 
-
-def _local_transform(node, transform):
-    l = node.length()
-    res = [u' '] * l
-    iter = rope.ItemIterator(node)
-    for i in range(l):
-        ch = iter.nextint()
-        res[i] = transform(ch)
-
-    return W_RopeUnicodeObject(rope.rope_from_unicharlist(res))
-_local_transform._annspecialcase_ = "specialize:arg(1)"
-
-def _tolower(ordch):
-    return unichr(unicodedb.tolower(ordch))
 def unicode_lower__RopeUnicode(space, w_self):
-    return _local_transform(w_self._node, _tolower)
+    return w_self.lower(space)
 
-def _toupper(ordch):
-    return unichr(unicodedb.toupper(ordch))
 def unicode_upper__RopeUnicode(space, w_self):
-    return _local_transform(w_self._node, _toupper)
-
-def _swapcase(ordch):
-    if unicodedb.islower(ordch):
-        return unichr(unicodedb.toupper(ordch))
-    elif unicodedb.isupper(ordch):
-        return unichr(unicodedb.tolower(ordch))
-    else:
-        return unichr(ordch)
+    return w_self.upper(space)
 
 def unicode_swapcase__RopeUnicode(space, w_self):
-    return _local_transform(w_self._node, _swapcase)
+    return w_self.swapcase(space)
 
 def _convert_idx_params(space, w_self, w_start, w_end):
     self = w_self._node

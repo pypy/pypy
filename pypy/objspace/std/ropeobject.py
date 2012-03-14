@@ -19,6 +19,22 @@ from pypy.objspace.std.stringobject import (
     str_format__String as str_format__Rope,
     DEFAULT_NOOP_TABLE)
 
+
+class RopeBuilder(object):
+    """Mimic sufficent StringBuilder API for over simple character arrays"""
+
+    def __init__(self, size=0):
+        self.data = [' '] * size
+        self.pos = 0
+
+    def append(self, ch):
+        self.data[self.pos] = ch
+        self.pos += 1
+
+    def build(self):
+        return rope.rope_from_charlist(self.data)
+
+
 class W_RopeObject(stringobject.W_AbstractStringObject,
         stringobject.Mixin_StringMethods):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -28,6 +44,12 @@ class W_RopeObject(stringobject.W_AbstractStringObject,
         if not we_are_translated():
             assert node.is_bytestring()
         w_self._node = node
+
+    def builder(w_self, space, size=0):
+        return RopeBuilder(size)
+
+    def construct(w_self, space, data):
+        return W_RopeObject(data)
 
     def iterator(w_self, space):
         return rope.ItemIterator(w_self._node)
@@ -103,25 +125,14 @@ characters and lowercase characters only cased ones. Return False
 otherwise."""
     return w_self.istitle(space)
 
-def _local_transform(node, transform):
-    l = node.length()
-    res = [' '] * l
-    iter = rope.ItemIterator(node)
-    for i in range(l):
-        ch = iter.nextchar()
-        res[i] = transform(ch)
-
-    return W_RopeObject(rope.rope_from_charlist(res))
-_local_transform._annspecialcase_ = "specialize:arg(1)"
-
-def str_upper__Rope(space, w_self):
-    return _local_transform(w_self._node, w_self._upper)
-
 def str_lower__Rope(space, w_self):
-    return _local_transform(w_self._node, w_self._lower)
+    return w_self.lower(space)
 
 def str_swapcase__Rope(space, w_self):
-    return _local_transform(w_self._node, w_self._swapcase)
+    return w_self.swapcase(space)
+
+def str_upper__Rope(space, w_self):
+    return w_self.upper(space)
 
 def str_capitalize__Rope(space, w_self):
     node = w_self._node

@@ -284,6 +284,12 @@ class AppTestUnicodeString:
         assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 u'\u019b\u1d00\u1d86\u0221\u1fb7')
 
+    def test_lower(self):
+        assert u"ABC".lower() == u"abc"
+
+    def test_upper(self):
+        assert u"abc".upper() == u"ABC"
+
     def test_rjust(self):
         s = u"abc"
         assert s.rjust(2) == s

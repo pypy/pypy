@@ -82,6 +82,12 @@ class W_StringObject(W_AbstractStringObject, Mixin_StringMethods):
     def __init__(w_self, str):
         w_self._value = str
 
+    def builder(w_self, space, size=0):
+        return StringBuilder(size)
+
+    def construct(w_self, space, data):
+        return W_StringObject(data)
+
     def raw_value(w_self):
         return w_self._value
 
@@ -129,22 +135,14 @@ characters and lowercase characters only cased ones. Return False
 otherwise."""
     return w_self.istitle(space)
 
-def str_upper__String(space, w_self):
-    self = w_self._value
-    return space.wrap(self.upper())
-
 def str_lower__String(space, w_self):
-    self = w_self._value
-    return space.wrap(self.lower())
+    return w_self.lower(space)
 
 def str_swapcase__String(space, w_self):
-    self = w_self._value
-    builder = StringBuilder(len(self))
-    for i in range(len(self)):
-        ch = self[i]
-        builder.append(w_self._swapcase(ch))
+    return w_self.swapcase(space)
 
-    return space.wrap(builder.build())
+def str_upper__String(space, w_self):
+    return w_self.upper(space)
 
 def str_capitalize__String(space, w_self):
     input = w_self._value

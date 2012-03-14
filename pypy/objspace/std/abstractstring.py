@@ -28,6 +28,15 @@ class Mixin_BaseStringMethods(object):
     def istitle(w_self, space):
         return w_self._title(space)
 
+    def lower(w_self, space):
+        return w_self._transform(space, w_self._lower)
+
+    def swapcase(w_self, space):
+        return w_self._transform(space, w_self._swapcase)
+
+    def upper(w_self, space):
+        return w_self._transform(space, w_self._upper)
+
 
 class AbstractCharIterator(object):
 
@@ -63,6 +72,12 @@ class W_AbstractBaseStringObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%r)" % (w_self.__class__.__name__, w_self.raw_value())
 
+    def builder(w_self, space, size=0):
+        raise NotImplemented, "method not implemented"
+
+    def construct(w_self, space, data):
+        raise NotImplemented, "method not implemented"
+
     def immutable_unique_id(w_self, space):
         if w_self.user_overridden_class:
             return None
@@ -84,16 +99,16 @@ class W_AbstractBaseStringObject(W_Object):
         return len(w_self.unwrap(space))
 
     def raw_value(w_self):
-        raise NotImplemented("method not implemented")
+        raise NotImplemented, "method not implemented"
 
     def str_w(w_self, space):
-        raise NotImplemented("method not implemented")
+        raise NotImplemented, "method not implemented"
 
     def unicode_w(w_self, space):
-        raise NotImplemented("method not implemented")
+        raise NotImplemented, "method not implemented"
 
     def unwrap(w_self, space):
-        raise NotImplemented("method not implemented")
+        raise NotImplemented, "method not implemented"
 
     @specialize.arg(2)
     def _all_true(w_self, space, func):
@@ -149,3 +164,13 @@ class W_AbstractBaseStringObject(W_Object):
                 previous_is_cased = False
 
         return space.newbool(cased)
+
+    @specialize.arg(2)
+    def _transform(w_self, space, func):
+        sz = w_self.length(space)
+        it = w_self.iterator(space)
+        bd = w_self.builder(space, sz)
+        for pos in range(sz):
+            ch = it.nextchar()
+            bd.append(func(ch))
+        return w_self.construct(space, bd.build())

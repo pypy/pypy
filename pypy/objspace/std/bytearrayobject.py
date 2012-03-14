@@ -41,6 +41,12 @@ class W_BytearrayObject(W_AbstractBytearrayObject, Mixin_BytearrayMethods):
     def __init__(w_self, data):
         w_self.data = data
 
+    def builder(w_self, space, size=0):
+        return StringBuilder(size)
+
+    def construct(w_self, space, data):
+        return W_BytearrayObject(data)
+
     def raw_value(w_self):
         return w_self.data
 
@@ -317,6 +323,15 @@ def str_istitle__Bytearray(space, w_self):
 def str_isupper__Bytearray(space, w_self):
     return w_self.isupper(space)
 
+def str_lower__Bytearray(space, w_self):
+    return w_self.lower(space)
+
+def str_upper__Bytearray(space, w_self):
+    return w_self.upper(space)
+
+def str_swapcase__Bytearray(space, w_self):
+    return w_self.swapcase(space)
+
 def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     char = w_char.intval
     bytearray = w_bytearray.data
@@ -470,24 +485,9 @@ def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max
                                                          w_str2, w_max)
     return String2Bytearray(space, w_res)
 
-def str_upper__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = stringobject.str_upper__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_lower__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = stringobject.str_lower__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
 def str_title__Bytearray(space, w_bytearray):
     w_str = str__Bytearray(space, w_bytearray)
     w_res = stringobject.str_title__String(space, w_str)
-    return String2Bytearray(space, w_res)
-
-def str_swapcase__Bytearray(space, w_bytearray):
-    w_str = str__Bytearray(space, w_bytearray)
-    w_res = stringobject.str_swapcase__String(space, w_str)
     return String2Bytearray(space, w_res)
 
 def str_capitalize__Bytearray(space, w_bytearray):
