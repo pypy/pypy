@@ -430,3 +430,6 @@ class AppTestADVANCEDCPP:
         assert isinstance(d.cycle(b), base_class)
         assert isinstance(b.cycle(d), derived_class)
         assert isinstance(d.cycle(d), derived_class)
+
+        assert isinstance(b.clone(), base_class)      # TODO: clone() leaks
+        assert isinstance(d.clone(), derived_class)   # TODO: clone() leaks

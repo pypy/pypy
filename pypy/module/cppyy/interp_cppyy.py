@@ -30,6 +30,8 @@ class State(object):
         self.r_cppscope_cache = {
             "void" : W_CPPType(space, "void", capi.C_NULL_TYPE) }
         self.r_cpptemplate_cache = {}
+        self.type_registry = {}
+        self.w_clgen_callback = None
 
 @unwrap_spec(name=str)
 def resolve_name(space, name):
@@ -79,6 +81,18 @@ def template_byname(space, name):
         return r_cpptemplate
 
     return None
+
+@unwrap_spec(w_callback=W_Root)
+def set_class_generator(space, w_callback):
+    state = space.fromcache(State)
+    state.w_clgen_callback = w_callback
+
+@unwrap_spec(w_type=W_Root)
+def register_class(space, w_type):
+    w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
+    cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
+    state = space.fromcache(State)
+    state.type_registry[cpptype.handle] = w_type
 
 
 class W_CPPLibrary(Wrappable):
@@ -225,7 +239,7 @@ class CPPConstructor(CPPMethod):
         except Exception:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return new_instance(self.space, w_type, self.cpptype, newthis, False, True)
+        return wrap_new_cppobject_nocast(self.space, w_type, self.cpptype, newthis, False, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -637,23 +651,34 @@ class MemoryRegulator:
 memory_regulator = MemoryRegulator()
 
 
-def new_instance(space, w_type, cpptype, rawobject, isref, python_owns):
-    obj_actual = rawobject
-    actual = cpptype.handle
+def wrap_new_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns):
+    w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+    W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, isref, python_owns)
+    memory_regulator.register(cppinstance)
+    return w_cppinstance
+
+def wrap_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns):
+    obj = memory_regulator.retrieve(rawobject)
+    if obj and obj.cppclass == cpptype:
+         return obj
+    return wrap_new_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns)
+
+def wrap_cppobject(space, w_type, cpptype, rawobject, isref, python_owns):
     if rawobject:
         actual = capi.c_get_object_type(cpptype.handle, rawobject)
         if actual != cpptype.handle:
             offset = capi.c_base_offset(actual, cpptype.handle, rawobject)
-            obj_actual = capi.direct_ptradd(rawobject, offset)
-            # TODO: fix-up w_type to be w_actual_type
-    obj = memory_regulator.retrieve(obj_actual)
-    if obj and obj.cppclass.handle == actual:# == cpptype:
-        return obj
-    w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
-    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-    W_CPPInstance.__init__(cppinstance, space, cpptype, obj_actual, isref, python_owns)
-    memory_regulator.register(cppinstance)
-    return w_cppinstance
+            rawobject = capi.direct_ptradd(rawobject, offset)
+            state = space.fromcache(State)
+            try:
+                w_type = state.type_registry[actual]
+            except KeyError:
+                final_name = capi.charp2str_free(capi.c_final_name(actual))
+                w_type = space.call_function(state.w_clgen_callback, space.wrap(final_name))
+            w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
+            cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
+    return wrap_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns)
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
@@ -665,9 +690,4 @@ def bind_object(space, address, w_type, owns=False):
     rawobject = rffi.cast(capi.C_OBJECT, address)
     w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
     cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
-
-    obj = memory_regulator.retrieve(rawobject)
-    if obj and obj.cppclass == cpptype:
-        return obj
-
-    return new_instance(space, w_type, cpptype, rawobject, False, owns)
+    return wrap_cppobject_nocast(space, w_type, cpptype, rawobject, False, owns)

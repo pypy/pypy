@@ -532,7 +532,7 @@ class InstancePtrConverter(TypeConverter):
     def from_memory(self, space, w_obj, w_type, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, True, False)
+        return interp_cppyy.wrap_cppobject_nocast(space, w_type, self.cpptype, address, True, False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))
@@ -544,7 +544,7 @@ class InstanceConverter(InstancePtrConverter):
     def from_memory(self, space, w_obj, w_type, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module.cppyy import interp_cppyy
-        return interp_cppyy.new_instance(space, w_type, self.cpptype, address, False, False)
+        return interp_cppyy.wrap_cppobject_nocast(space, w_type, self.cpptype, address, False, False)
 
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)

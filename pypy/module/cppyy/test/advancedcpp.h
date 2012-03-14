@@ -20,6 +20,7 @@ public:
    double get_base_value() { return m_db; }
 
    virtual base_class* cycle(base_class* b) { return b; }
+   virtual base_class* clone() { return new base_class; }
 
 public:
    int m_b;
@@ -31,6 +32,7 @@ public:
    derived_class() { m_d = 2; m_dd = 2.2;}
    virtual int get_value() { return m_d; }
    double get_derived_value() { return m_dd; }
+   virtual base_class* clone() { return new derived_class; }
 
 public:
    int m_d;

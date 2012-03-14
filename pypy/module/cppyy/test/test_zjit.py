@@ -131,6 +131,9 @@ class FakeSpace(object):
         assert isinstance(w_type, FakeReturnType)
         return instantiate(cls)
 
+    def call_function(self, w_func, *args_w):
+        return None
+
     def _freeze_(self):
         return True
 

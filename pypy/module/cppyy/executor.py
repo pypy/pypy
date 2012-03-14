@@ -248,12 +248,12 @@ class InstancePtrExecutor(FunctionExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(space, w_returntype, self.cpptype, ptr_result, False, False)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         from pypy.module.cppyy import interp_cppyy
         ptr_result = rffi.cast(capi.C_OBJECT, libffifunc.call(argchain, rffi.VOIDP))
-        return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(space, w_returntype, self.cpptype, ptr_result, False, False)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
     _immutable_ = True
@@ -263,7 +263,7 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
         voidp_result = capi.c_call_r(cppmethod, cppthis, num_args, args)
         ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
         ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
-        return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(space, w_returntype, self.cpptype, ptr_result, False, False)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -276,7 +276,7 @@ class InstanceExecutor(InstancePtrExecutor):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_o(cppmethod, cppthis, num_args, args, self.cpptype.handle)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, False, True)
+        return interp_cppyy.wrap_cppobject(space, w_returntype, self.cpptype, ptr_result, False, True)
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible

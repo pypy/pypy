@@ -8,6 +8,8 @@ class Module(MixedModule):
         '_resolve_name'          : 'interp_cppyy.resolve_name',
         '_type_byname'           : 'interp_cppyy.type_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
+        '_set_class_generator'   : 'interp_cppyy.set_class_generator',
+        '_register_class'        : 'interp_cppyy.register_class',
         'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
         'addressof'              : 'interp_cppyy.addressof',
         'bind_object'            : 'interp_cppyy.bind_object',

@@ -43,6 +43,10 @@ class CppyyTemplateType(object):
         return getattr(self._scope, fullname)
 
 
+def clgen_callback(name):
+    return get_cppclass(name)
+cppyy._set_class_generator(clgen_callback)
+
 def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type
@@ -196,6 +200,7 @@ def make_cppclass(scope, class_name, final_class_name, cpptype):
             setattr(metacpp, dm_name, pydm)
 
     _pythonize(pycpptype)
+    cppyy._register_class(pycpptype)
     return pycpptype
 
 def make_cpptemplatetype(scope, template_name):
