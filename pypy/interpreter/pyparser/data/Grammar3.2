@@ -53,7 +53,8 @@ yield_stmt: yield_expr
 raise_stmt: 'raise' [test ['from' test]]
 import_stmt: import_name | import_from
 import_name: 'import' dotted_as_names
-import_from: ('from' ('.'* dotted_name | '.'+)
+# note below: the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS
+import_from: ('from' (('.' | '...')* dotted_name | ('.' | '...')+)
               'import' ('*' | '(' import_as_names ')' | import_as_names))
 import_as_name: NAME ['as' NAME]
 dotted_as_name: dotted_name ['as' NAME]
@@ -106,12 +107,12 @@ power: atom trailer* ['**' factor]
 atom: ('(' [yield_expr|testlist_comp] ')' |
        '[' [testlist_comp] ']' |
        '{' [dictorsetmaker] '}' |
-       NAME | NUMBER | STRING+)
+       NAME | NUMBER | STRING+ | '...')
 testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] )
 lambdef: 'lambda' [varargslist] ':' test
 trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
 subscriptlist: subscript (',' subscript)* [',']
-subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
+subscript: test | [test] ':' [test] [sliceop]
 sliceop: ':' [test]
 exprlist: expr (',' expr)* [',']
 testlist: test (',' test)* [',']

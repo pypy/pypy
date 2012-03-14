@@ -765,6 +765,7 @@ class TestAstBuilder:
             ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
+            ("...", "Ellipsis"),
         )
         test_contexts = (
             ("assign to", "%s = 23"),
@@ -1076,8 +1077,6 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[1:2:3]").slice
         for field in (slc.lower, slc.upper, slc.step):
             assert isinstance(field, ast.Num)
-        sub = self.get_first_expr("x[...]")
-        assert isinstance(sub.slice, ast.Ellipsis)
         sub = self.get_first_expr("x[1,2,3]")
         slc = sub.slice
         assert isinstance(slc, ast.Index)
@@ -1092,6 +1091,12 @@ class TestAstBuilder:
         assert isinstance(complex_slc.lower, ast.Num)
         assert isinstance(complex_slc.upper, ast.Num)
         assert complex_slc.step is None
+
+    def test_ellipsis(self):
+        e = self.get_first_expr("...")
+        assert isinstance(e, ast.Ellipsis)
+        sub = self.get_first_expr("x[...]")
+        assert isinstance(sub.slice.value, ast.Ellipsis)
 
     def test_string(self):
         space = self.space

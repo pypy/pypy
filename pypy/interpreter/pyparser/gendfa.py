@@ -142,6 +142,7 @@ def makePyPseudoDFA ():
     bracket = groupStr(states, "[](){}")
     special = group(states,
                     makeEOL(),
+                    chainStr(states, "..."),
                     groupStr(states, "@:;.,`"))
     funny = group(states, operator, bracket, special)
     # ____________________________________________________________

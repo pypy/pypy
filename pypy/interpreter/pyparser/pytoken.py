@@ -62,6 +62,7 @@ _add_tok('DOUBLESLASH', "//" )
 _add_tok('DOUBLESLASHEQUAL',"//=" )
 _add_tok('AT', "@" )
 _add_tok('RARROW', "->")
+_add_tok('ELLIPSIS', "...")
 _add_tok('OP')
 _add_tok('ERRORTOKEN')
 

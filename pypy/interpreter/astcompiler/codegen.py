@@ -825,6 +825,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         space = self.space
         self.load_const(const.value)
 
+    def visit_Ellipsis(self, e):
+        self.load_const(self.space.w_Ellipsis)
+
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)
         op.operand.walkabout(self)
@@ -1126,9 +1129,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_SLICE, arg)
 
     def _nested_slice(self, slc, ctx):
-        if isinstance(slc, ast.Ellipsis):
-            self.load_const(self.space.w_Ellipsis)
-        elif isinstance(slc, ast.Slice):
+        if isinstance(slc, ast.Slice):
             self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.Index):
             slc.value.walkabout(self)
@@ -1140,10 +1141,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             kind = "index"
             if ctx != ast.AugStore:
                 slc.value.walkabout(self)
-        elif isinstance(slc, ast.Ellipsis):
-            kind = "ellipsis"
-            if ctx != ast.AugStore:
-                self.load_const(self.space.w_Ellipsis)
         elif isinstance(slc, ast.Slice):
             kind = "slice"
             if ctx != ast.AugStore:

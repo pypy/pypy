@@ -1637,6 +1637,25 @@ class Bytes(expr):
             pass
 
 
+class Ellipsis(expr):
+
+    def __init__(self, lineno, col_offset):
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 3
+
+    def walkabout(self, visitor):
+        visitor.visit_Ellipsis(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_Ellipsis(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 3:
+            self.missing_field(space, ['lineno', 'col_offset'], 'Ellipsis')
+        else:
+            pass
+
+
 class Attribute(expr):
 
     def __init__(self, value, attr, ctx, lineno, col_offset):
@@ -1873,24 +1892,6 @@ expr_context_to_class = [
 
 class slice(AST):
     pass
-
-class Ellipsis(slice):
-
-    def __init__(self):
-        self.initialization_state = 0
-
-    def walkabout(self, visitor):
-        visitor.visit_Ellipsis(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Ellipsis(self)
-
-    def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 0:
-            self.missing_field(space, [], 'Ellipsis')
-        else:
-            pass
-
 
 class Slice(slice):
 
@@ -2562,6 +2563,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Bytes(self, node):
         return self.default_visitor(node)
+    def visit_Ellipsis(self, node):
+        return self.default_visitor(node)
     def visit_Attribute(self, node):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
@@ -2575,8 +2578,6 @@ class ASTVisitor(object):
     def visit_Tuple(self, node):
         return self.default_visitor(node)
     def visit_Const(self, node):
-        return self.default_visitor(node)
-    def visit_Ellipsis(self, node):
         return self.default_visitor(node)
     def visit_Slice(self, node):
         return self.default_visitor(node)
@@ -2778,6 +2779,9 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Bytes(self, node):
         pass
 
+    def visit_Ellipsis(self, node):
+        pass
+
     def visit_Attribute(self, node):
         node.value.walkabout(self)
 
@@ -2798,9 +2802,6 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.elts)
 
     def visit_Const(self, node):
-        pass
-
-    def visit_Ellipsis(self, node):
         pass
 
     def visit_Slice(self, node):
@@ -5830,6 +5831,23 @@ Bytes.typedef = typedef.TypeDef("Bytes",
     __init__=interp2app(Bytes_init),
 )
 
+def Ellipsis_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(Ellipsis, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        w_err = space.wrap("Ellipsis constructor takes no arguments")
+        raise OperationError(space.w_TypeError, w_err)
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+Ellipsis.typedef = typedef.TypeDef("Ellipsis",
+    expr.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(Ellipsis)),
+    __init__=interp2app(Ellipsis_init),
+)
+
 def Attribute_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
@@ -6389,23 +6407,6 @@ slice.typedef = typedef.TypeDef("slice",
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(slice)),
-)
-
-def Ellipsis_init(space, w_self, __args__):
-    w_self = space.descr_self_interp_w(Ellipsis, w_self)
-    args_w, kwargs_w = __args__.unpack()
-    if args_w:
-        w_err = space.wrap("Ellipsis constructor takes no arguments")
-        raise OperationError(space.w_TypeError, w_err)
-    for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
-
-Ellipsis.typedef = typedef.TypeDef("Ellipsis",
-    slice.typedef,
-    __module__='_ast',
-    _fields=_FieldsWrapper([]),
-    __new__=interp2app(get_AST_new(Ellipsis)),
-    __init__=interp2app(Ellipsis_init),
 )
 
 def Slice_get_lower(space, w_self):

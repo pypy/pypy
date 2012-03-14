@@ -168,3 +168,9 @@ class __extend__(ast.Str):
 class __extend__(ast.Num):
 
     constant = True
+
+
+class __extend__(ast.Ellipsis):
+
+    _description = "Ellipsis"
+    constant = True

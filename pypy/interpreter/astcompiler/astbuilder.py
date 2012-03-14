@@ -211,11 +211,15 @@ class ASTBuilder(object):
             dot_count = 0
             while i < child_count:
                 child = import_node.children[i]
-                if child.type == syms.dotted_name:
+                child_type = child.type
+                if child_type == syms.dotted_name:
                     module = self.alias_for_import_name(child, False)
                     i += 1
                     break
-                elif child.type != tokens.DOT:
+                elif child_type == tokens.ELLIPSIS:
+                    # Special case for tokenization.
+                    dot_count += 2
+                elif child_type != tokens.DOT:
                     break
                 i += 1
                 dot_count += 1
@@ -923,8 +927,6 @@ class ASTBuilder(object):
 
     def handle_slice(self, slice_node):
         first_child = slice_node.children[0]
-        if first_child.type == tokens.DOT:
-            return ast.Ellipsis()
         if len(slice_node.children) == 1 and first_child.type == syms.test:
             index = self.handle_expr(first_child)
             return ast.Index(index)
@@ -1138,6 +1140,8 @@ class ASTBuilder(object):
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.value)
             return ast.Num(num_value, atom_node.lineno, atom_node.column)
+        elif first_child_type == tokens.ELLIPSIS:
+            return ast.Ellipsis(atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.LPAR:
             second_child = atom_node.children[1]
             if second_child.type == tokens.RPAR:

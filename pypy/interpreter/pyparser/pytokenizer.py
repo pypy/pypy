@@ -172,8 +172,9 @@ def generate_tokens(lines, flags):
 
                 pos = end
                 token, initial = line[start:end], line[start]
-                if initial in numchars or \
-                   (initial == '.' and token != '.'):      # ordinary number
+                if (initial in numchars or \
+                   (initial == '.' and token != '.' and token != '...')):
+                    # ordinary number
                     token_list.append((tokens.NUMBER, token, lnum, start, line))
                     last_comment = ''
                 elif initial in '\r\n':

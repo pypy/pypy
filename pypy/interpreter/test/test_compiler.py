@@ -449,6 +449,9 @@ def wrong3():
         space = self.space
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
+        snip = "d[. . .]"
+        space.raises_w(space.w_SyntaxError, self.compiler.compile,
+                       snip, '<test>', 'exec', 0)
 
     def test_chained_access_augassign(self):
         snippet = str(py.code.Source(r'''
@@ -757,6 +760,12 @@ class AppTestCompiler:
         assert math.copysign(1., ns['c'][0]) == -1.0
         assert math.copysign(1., ns['c'][1]) == -1.0
 
+    def test_ellipsis_anywhere(self):
+        """
+        x = ...
+        assert x is Ellipsis
+        """
+
 
 class AppTestOptimizer:
 
@@ -792,6 +801,10 @@ class AppTestOptimizer:
         exec("x = (1, 0); y = (1, 0)", ns)
         assert isinstance(ns["x"][0], int)
         assert isinstance(ns["y"][0], int)
+
+    def test_ellipsis_truth(self):
+        co = compile("if ...: x + 3\nelse: x + 4", "<test>", "exec")
+        assert 4 not in co.co_consts
 
     def test_division_folding(self):
         def code(source):
