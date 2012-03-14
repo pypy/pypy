@@ -789,7 +789,7 @@ class AppTestOptimizer:
 
     def test_tuple_constants(self):
         ns = {}
-        exec "x = (1, 0); y = (1, 0)" in ns
+        exec("x = (1, 0); y = (1, 0)", ns)
         assert isinstance(ns["x"][0], int)
         assert isinstance(ns["y"][0], int)
 
