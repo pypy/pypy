@@ -272,8 +272,12 @@ elif "openbsd" in sys.platform:
     else:
         host_factory = OpenBSD_64
 elif os.name == 'nt':
-    from pypy.translator.platform.windows import Windows
-    host_factory = Windows
+    from pypy.translator.platform.windows import Windows, Windows_x64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Windows
+    else:
+        host_factory = Windows_x64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
