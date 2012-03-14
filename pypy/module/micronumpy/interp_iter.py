@@ -50,7 +50,7 @@ dimension, perhaps we could overflow times in one big step.
 # structures to describe slicing
 
 class Chunk(object):
-    ind_step = 1
+    axis_step = 1
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
@@ -65,12 +65,12 @@ class Chunk(object):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
 
-class NewIndexChunk(Chunk):
+class NewAxisChunk(Chunk):
     start = 0
     stop = 1
     step = 1
     lgt = 1
-    ind_step = 0
+    axis_step = 0
 
     def __init__(self):
         pass

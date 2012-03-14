@@ -5,7 +5,7 @@ def enumerate_chunks(chunks):
     result = []
     i = -1
     for chunk in chunks:
-        i += chunk.ind_step
+        i += chunk.axis_step
         result.append((i, chunk))
     return result
 

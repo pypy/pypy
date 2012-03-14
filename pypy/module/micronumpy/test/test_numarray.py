@@ -376,14 +376,14 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_newindex(self):
         from _numpypy import array
-        newindex = None
+        from numpypy.core.numeric import newaxis
         a = array(range(5))
         b = array([range(5)])
-        assert (a[newindex] == b).all()
+        assert (a[newaxis] == b).all()
 
     def test_newindex_slice(self):
         from _numpypy import array
-        newindex = None
+        from numpypy.core.numeric import newaxis
 
         a = array(range(5))
         b = array(range(1,5))
@@ -391,8 +391,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         d = array([[x] for x in range(1,5)])
 
         assert (a[1:] == b).all()
-        assert (a[1:,newindex] == d).all()
-        assert (a[newindex,1:] == c).all()
+        assert (a[1:,newaxis] == d).all()
+        assert (a[newaxis,1:] == c).all()
 
     def test_scalar(self):
         from _numpypy import array, dtype

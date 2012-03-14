@@ -7,7 +7,7 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, NewIndexChunk, ViewIterator)
+    SkipLastAxisIterator, Chunk, NewAxisChunk, ViewIterator)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
     calc_new_strides, to_coords, enumerate_chunks)
@@ -351,12 +351,12 @@ class BaseArray(Wrappable):
             space.isinstance_w(w_idx, space.w_slice)):
             return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
         elif space.isinstance_w(w_idx, space.w_NoneType):
-            return [NewIndexChunk()]
+            return [NewAxisChunk()]
         result = []
         i = 0
         for w_item in space.fixedview(w_idx):
             if space.isinstance_w(w_item, space.w_NoneType):
-                result.append(NewIndexChunk())
+                result.append(NewAxisChunk())
             else:
                 result.append(Chunk(*space.decode_index4(w_item,
                                                          self.shape[i])))
