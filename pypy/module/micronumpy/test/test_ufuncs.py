@@ -481,3 +481,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
                 == [False, True, True, False]).all()
         assert (logical_not([True, False]) == [False, True]).all()
+
+    def test_logn(self):
+        import math
+        from _numpypy import log, log2, log10
+
+        for log_func, base in [(log, math.e), (log2, 2), (log10, 10)]:
+            for v in [float('-nan'), float('-inf'), -1, float('nan')]:
+                assert math.isnan(log_func(v))
+            for v in [-0.0, 0.0]:
+                assert log_func(v) == float("-inf")
+            assert log_func(float('inf')) == float('inf')
+            assert (log_func([1, base]) == [0, 1]).all()
+
+    def test_log1p(self):
+        import math
+        from _numpypy import log1p
+
+        for v in [float('-nan'), float('-inf'), -2, float('nan')]:
+            assert math.isnan(log1p(v))
+        for v in [-1]:
+            assert log1p(v) == float("-inf")
+        assert log1p(float('inf')) == float('inf')
+        assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()

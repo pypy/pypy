@@ -17,9 +17,26 @@ from pypy.rlib import rope
 from pypy.objspace.std.stringobject import (
     mod__String_ANY as mod__Rope_ANY,
     str_format__String as str_format__Rope,
-    _upper, _lower, DEFAULT_NOOP_TABLE)
+    DEFAULT_NOOP_TABLE)
 
-class W_RopeObject(stringobject.W_AbstractStringObject):
+
+class RopeBuilder(object):
+    """Mimic sufficent StringBuilder API for over simple character arrays"""
+
+    def __init__(self, size=0):
+        self.data = [' '] * size
+        self.pos = 0
+
+    def append(self, ch):
+        self.data[self.pos] = ch
+        self.pos += 1
+
+    def build(self):
+        return rope.rope_from_charlist(self.data)
+
+
+class W_RopeObject(stringobject.W_AbstractStringObject,
+        stringobject.Mixin_StringMethods):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_node']
 
@@ -28,23 +45,33 @@ class W_RopeObject(stringobject.W_AbstractStringObject):
             assert node.is_bytestring()
         w_self._node = node
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._node)
+    def builder(w_self, space, size=0):
+        return RopeBuilder(size)
 
-    def unwrap(w_self, space):
+    def construct(w_self, space, data):
+        return W_RopeObject(data)
+
+    def iterator(w_self, space):
+        return rope.ItemIterator(w_self._node)
+
+    def length(w_self, space):
+        return w_self._node.length()
+
+    def raw_value(w_self):
+        return w_self._node
+
+    def str_w(w_self, space):
         return w_self._node.flatten_string()
-    str_w = unwrap
-
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_RopeObject:
-            return w_self
-        return W_RopeObject(w_self._node)
 
     def unicode_w(w_self, space):
         # XXX should this use the default encoding?
         from pypy.objspace.std.unicodetype import plain_str2unicode
         return plain_str2unicode(space, w_self._node.flatten_string())
+
+    def create_if_subclassed(w_self):
+        if type(w_self) is W_RopeObject:
+            return w_self
+        return W_RopeObject(w_self._node)
 
 W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
 W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])
@@ -69,123 +96,43 @@ class W_RopeIterObject(iterobject.W_AbstractIterObject):
 
 registerimplementation(W_RopeIterObject)
 
-def _is_generic(space, w_self, fun):
-    l = w_self._node.length()
-    if l == 0:
-        return space.w_False
-    iter = rope.ItemIterator(w_self._node)
-    for i in range(l):
-        if not fun(iter.nextchar()):
-            return space.w_False
-    return space.w_True
-_is_generic._annspecialcase_ = "specialize:arg(2)"
-
-_isspace = lambda c: c.isspace()
-_isdigit = lambda c: c.isdigit()
-_isalpha = lambda c: c.isalpha()
-_isalnum = lambda c: c.isalnum()
-
 def str_isspace__Rope(space, w_self):
-    return _is_generic(space, w_self, _isspace)
+    return w_self.isspace(space)
 
 def str_isdigit__Rope(space, w_self):
-    return _is_generic(space, w_self, _isdigit)
+    return w_self.isdigit(space)
 
 def str_isalpha__Rope(space, w_self):
-    return _is_generic(space, w_self, _isalpha)
+    return w_self.isalpha(space)
 
 def str_isalnum__Rope(space, w_self):
-    return _is_generic(space, w_self, _isalnum)
+    return w_self.isalnum(space)
 
 def str_isupper__Rope(space, w_self):
     """Return True if all cased characters in S are uppercase and there is
 at least one cased character in S, False otherwise."""
-    l = w_self._node.length()
-
-    if l == 0:
-        return space.w_False
-    cased = False
-    iter = rope.ItemIterator(w_self._node)
-    for idx in range(l):
-        c = iter.nextchar()
-        if c.islower():
-            return space.w_False
-        elif not cased and c.isupper():
-            cased = True
-    return space.newbool(cased)
+    return w_self.isupper(space)
 
 def str_islower__Rope(space, w_self):
     """Return True if all cased characters in S are lowercase and there is
 at least one cased character in S, False otherwise."""
-    l = w_self._node.length()
-
-    if l == 0:
-        return space.w_False
-    cased = False
-    iter = rope.ItemIterator(w_self._node)
-    for idx in range(l):
-        c = iter.nextchar()
-        if c.isupper():
-            return space.w_False
-        elif not cased and c.islower():
-            cased = True
-    return space.newbool(cased)
+    return w_self.islower(space)
 
 def str_istitle__Rope(space, w_self):
     """Return True if S is a titlecased string and there is at least one
 character in S, i.e. uppercase characters may only follow uncased
 characters and lowercase characters only cased ones. Return False
 otherwise."""
-    cased = False
-    previous_is_cased = False
-
-    iter = rope.ItemIterator(w_self._node)
-    for pos in range(0, w_self._node.length()):
-        ch = iter.nextchar()
-        if ch.isupper():
-            if previous_is_cased:
-                return space.w_False
-            previous_is_cased = True
-            cased = True
-        elif ch.islower():
-            if not previous_is_cased:
-                return space.w_False
-            cased = True
-        else:
-            previous_is_cased = False
-
-    return space.newbool(cased)
-
-def _local_transform(node, transform):
-    l = node.length()
-    res = [' '] * l
-    iter = rope.ItemIterator(node)
-    for i in range(l):
-        ch = iter.nextchar()
-        res[i] = transform(ch)
-
-    return W_RopeObject(rope.rope_from_charlist(res))
-_local_transform._annspecialcase_ = "specialize:arg(1)"
-
-def str_upper__Rope(space, w_self):
-    return _local_transform(w_self._node, _upper)
+    return w_self.istitle(space)
 
 def str_lower__Rope(space, w_self):
-    return _local_transform(w_self._node, _lower)
-
-def _swapcase(ch):
-    if ch.isupper():
-        o = ord(ch) + 32
-        return chr(o)
-    elif ch.islower():
-        o = ord(ch) - 32
-        return chr(o)
-    else:
-        return ch
+    return w_self.lower(space)
 
 def str_swapcase__Rope(space, w_self):
-    return _local_transform(w_self._node, _swapcase)
+    return w_self.swapcase(space)
 
+def str_upper__Rope(space, w_self):
+    return w_self.upper(space)
 
 def str_capitalize__Rope(space, w_self):
     node = w_self._node
@@ -223,9 +170,9 @@ def str_title__Rope(space, w_self):
     for pos in range(0, length):
         ch = iter.nextchar()
         if not prev_letter.isalpha():
-            buffer[pos] = _upper(ch)
+            buffer[pos] = w_self._upper(ch)
         else:
-            buffer[pos] = _lower(ch)
+            buffer[pos] = w_self._lower(ch)
 
         prev_letter = buffer[pos]
 

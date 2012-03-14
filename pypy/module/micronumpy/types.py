@@ -280,6 +280,12 @@ class Integer(Primitive):
         return v1 / v2
 
     @simple_binary_op
+    def floordiv(self, v1, v2):
+        if v2 == 0:
+            return 0
+        return v1 // v2
+
+    @simple_binary_op
     def mod(self, v1, v2):
         return v1 % v2
 
@@ -418,6 +424,15 @@ class Float(Primitive):
             return rfloat.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
+    def floordiv(self, v1, v2):
+        try:
+            return v1 // v2
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
+    @simple_binary_op
     def mod(self, v1, v2):
         return math.fmod(v1, v2)
 
@@ -532,6 +547,48 @@ class Float(Primitive):
     @raw_unary_op
     def isinf(self, v):
         return rfloat.isinf(v)
+
+    @simple_unary_op
+    def log(self, v):
+        try:
+            return math.log(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log2(self, v):
+        try:
+            return math.log(v, 2)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log10(self, v):
+        try:
+            return math.log10(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log1p(self, v):
+        try:
+            return rfloat.log1p(v)
+        except OverflowError:
+            return -rfloat.INFINITY
+        except ValueError:
+            return rfloat.NAN
 
 
 class Float32(BaseType, Float):

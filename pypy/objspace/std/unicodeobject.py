@@ -15,27 +15,61 @@ from pypy.rlib.objectmodel import compute_unique_id
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
-from pypy.tool.sourcetools import func_with_new_name
 
+from pypy.objspace.std.abstractstring import \
+        W_AbstractBaseStringObject, Mixin_BaseStringMethods
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
-class W_AbstractUnicodeObject(W_Object):
+
+class Mixin_UnicodeMethods(Mixin_BaseStringMethods):
+    __slows__ = ()
+
+    def isdecimal(w_self, space):
+        return w_self._all_true(space, w_self._isdecimal)
+
+
+class W_AbstractUnicodeObject(W_AbstractBaseStringObject, Mixin_UnicodeMethods):
     __slots__ = ()
 
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractUnicodeObject):
-            return False
-        if self is w_other:
-            return True
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
+    def unwrap(w_self, space):
+        return w_self.unicode_w(space)
 
-    def immutable_unique_id(self, space):
-        if self.user_overridden_class:
-            return None
-        return space.wrap(compute_unique_id(space.unicode_w(self)))
+    def _isalnum(self, ch):
+        return unicodedb.isalnum(ord(ch))
+
+    def _isalpha(self, ch):
+        return unicodedb.isalpha(ord(ch))
+
+    def _isdigit(self, ch):
+        return unicodedb.isdigit(ord(ch))
+
+    def _isdecimal(self, ch):
+        return unicodedb.isdecimal(ord(ch))
+
+    def _islower(self, ch):
+        return unicodedb.islower(ord(ch))
+
+    def _isspace(self, ch):
+        return unicodedb.isspace(ord(ch))
+
+    def _isupper(self, ch):
+        return unicodedb.isupper(ord(ch))
+
+    def _lower(self, ch):
+        return unichr(unicodedb.tolower(ord(ch)))
+
+    def _upper(self, ch):
+        return unichr(unicodedb.toupper(ord(ch)))
+
+    def _swapcase(self, ch):
+        num = ord(ch)
+        if unicodedb.islower(num):
+            return unichr(unicodedb.toupper(num))
+        elif unicodedb.isupper(num):
+            return unichr(unicodedb.tolower(num))
+        else:
+            return ch
 
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
@@ -46,24 +80,26 @@ class W_UnicodeObject(W_AbstractUnicodeObject):
         assert isinstance(unistr, unicode)
         w_self._value = unistr
 
-    def __repr__(w_self):
-        """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
+    def builder(w_self, space, size=0):
+        return UnicodeBuilder(size)
 
-    def unwrap(w_self, space):
-        # for testing
+    def construct(w_self, space, data):
+        return W_UnicodeObject(data)
+
+    def raw_value(w_self):
         return w_self._value
-
-    def create_if_subclassed(w_self):
-        if type(w_self) is W_UnicodeObject:
-            return w_self
-        return W_UnicodeObject(w_self._value)
 
     def str_w(self, space):
         return space.str_w(space.str(self))
 
     def unicode_w(self, space):
         return self._value
+
+    def create_if_subclassed(w_self):
+        if type(w_self) is W_UnicodeObject:
+            return w_self
+        return W_UnicodeObject(w_self._value)
+
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
@@ -75,6 +111,7 @@ def unicode_to_decimal_w(space, w_unistr):
         raise operationerrfmt(space.w_TypeError,
                               "expected unicode, got '%s'",
                               space.type(w_unistr).getname(space))
+    # XXX remove direct use of _value
     unistr = w_unistr._value
     result = ['\0'] * len(unistr)
     digits = [ '0', '1', '2', '3', '4',
@@ -302,63 +339,32 @@ def mul__Unicode_ANY(space, w_uni, w_times):
 def mul__ANY_Unicode(space, w_times, w_uni):
     return mul__Unicode_ANY(space, w_uni, w_times)
 
-def _isspace(uchar):
-    return unicodedb.isspace(ord(uchar))
+def unicode_isspace__Unicode(space, w_self):
+    return w_self.isspace(space)
 
-def make_generic(funcname):
-    def func(space, w_self):
-        v = w_self._value
-        if len(v) == 0:
-            return space.w_False
-        for idx in range(len(v)):
-            if not getattr(unicodedb, funcname)(ord(v[idx])):
-                return space.w_False
-        return space.w_True
-    return func_with_new_name(func, "unicode_%s__Unicode" % (funcname, ))
+def unicode_isalpha__Unicode(space, w_self):
+    return w_self.isalpha(space)
 
-unicode_isspace__Unicode = make_generic("isspace")
-unicode_isalpha__Unicode = make_generic("isalpha")
-unicode_isalnum__Unicode = make_generic("isalnum")
-unicode_isdecimal__Unicode = make_generic("isdecimal")
-unicode_isdigit__Unicode = make_generic("isdigit")
-unicode_isnumeric__Unicode = make_generic("isnumeric")
+def unicode_isalnum__Unicode(space, w_self):
+    return w_self.isalnum(space)
 
-def unicode_islower__Unicode(space, w_unicode):
-    cased = False
-    for uchar in w_unicode._value:
-        if (unicodedb.isupper(ord(uchar)) or
-            unicodedb.istitle(ord(uchar))):
-            return space.w_False
-        if not cased and unicodedb.islower(ord(uchar)):
-            cased = True
-    return space.newbool(cased)
+def unicode_isdecimal__Unicode(space, w_self):
+    return w_self.isdecimal(space)
 
-def unicode_isupper__Unicode(space, w_unicode):
-    cased = False
-    for uchar in w_unicode._value:
-        if (unicodedb.islower(ord(uchar)) or
-            unicodedb.istitle(ord(uchar))):
-            return space.w_False
-        if not cased and unicodedb.isupper(ord(uchar)):
-            cased = True
-    return space.newbool(cased)
+def unicode_isdigit__Unicode(space, w_self):
+    return w_self.isdigit(space)
 
-def unicode_istitle__Unicode(space, w_unicode):
-    cased = False
-    previous_is_cased = False
-    for uchar in w_unicode._value:
-        if (unicodedb.isupper(ord(uchar)) or
-            unicodedb.istitle(ord(uchar))):
-            if previous_is_cased:
-                return space.w_False
-            previous_is_cased = cased = True
-        elif unicodedb.islower(ord(uchar)):
-            if not previous_is_cased:
-                return space.w_False
-            previous_is_cased = cased = True
-        else:
-            previous_is_cased = False
-    return space.newbool(cased)
+def unicode_isnumeric__Unicode(space, w_self):
+    return w_self.isnumeric(space)
+
+def unicode_islower__Unicode(space, w_self):
+    return w_self.islower(space)
+
+def unicode_isupper__Unicode(space, w_self):
+    return w_self.isupper(space)
+
+def unicode_istitle__Unicode(space, w_self):
+    return w_self.istitle(space)
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
@@ -388,11 +394,11 @@ def _strip_none(space, w_self, left, right):
     rpos = len(u_self)
 
     if left:
-        while lpos < rpos and _isspace(u_self[lpos]):
+        while lpos < rpos and w_self._isspace(u_self[lpos]):
            lpos += 1
 
     if right:
-        while rpos > lpos and _isspace(u_self[rpos - 1]):
+        while rpos > lpos and w_self._isspace(u_self[rpos - 1]):
            rpos -= 1
 
     assert rpos >= 0
@@ -458,40 +464,13 @@ def unicode_title__Unicode(space, w_self):
     return W_UnicodeObject(builder.build())
 
 def unicode_lower__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
-    return W_UnicodeObject(builder.build())
+    return w_self.lower(space)
 
 def unicode_upper__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        builder.append(unichr(unicodedb.toupper(ord(input[i]))))
-    return W_UnicodeObject(builder.build())
+    return w_self.upper(space)
 
 def unicode_swapcase__Unicode(space, w_self):
-    input = w_self._value
-    builder = UnicodeBuilder(len(input))
-    for i in range(len(input)):
-        unichar = ord(input[i])
-        if unicodedb.islower(unichar):
-            builder.append(unichr(unicodedb.toupper(unichar)))
-        elif unicodedb.isupper(unichar):
-            builder.append(unichr(unicodedb.tolower(unichar)))
-        else:
-            builder.append(input[i])
-    return W_UnicodeObject(builder.build())
-
-def _normalize_index(length, index):
-    if index < 0:
-        index += length
-        if index < 0:
-            index = 0
-    elif index > length:
-        index = length
-    return index
+    return w_self.swapcase(space)
 
 @specialize.arg(4)
 def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
@@ -666,7 +645,7 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     while True:
         # find the beginning of the next word
         while i < length:
-            if not _isspace(value[i]):
+            if not w_self._isspace(value[i]):
                 break   # found
             i += 1
         else:
@@ -677,7 +656,7 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             j = length   # take all the rest of the string
         else:
             j = i + 1
-            while j < length and not _isspace(value[j]):
+            while j < length and not w_self._isspace(value[j]):
                 j += 1
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
@@ -709,7 +688,7 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     while True:
         # starting from the end, find the end of the next word
         while i >= 0:
-            if not _isspace(value[i]):
+            if not w_self._isspace(value[i]):
                 break   # found
             i -= 1
         else:
@@ -721,7 +700,7 @@ def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             j = -1   # take all the rest of the string
         else:
             j = i - 1
-            while j >= 0 and not _isspace(value[j]):
+            while j >= 0 and not w_self._isspace(value[j]):
                 j -= 1
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 

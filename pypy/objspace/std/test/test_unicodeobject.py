@@ -195,6 +195,58 @@ class AppTestUnicodeString:
         assert u"Brown Fox".title() == u"Brown Fox"
         assert u"bro!wn fox".title() == u"Bro!Wn Fox"
 
+    def test_isalnum(self):
+        assert u"".isalnum() == False
+        assert u"!Bro12345w&&&&n Fox".isalnum() == False
+        assert u"125 Brown Foxes".isalnum() == False
+        assert u"125BrownFoxes".isalnum() == True
+
+    def test_isalpha(self):
+        assert u"".isalpha() == False
+        assert u"!Bro12345w&&&&nFox".isalpha() == False
+        assert u"Brown Foxes".isalpha() == False
+        assert u"125".isalpha() == False
+
+    def test_isdigit(self):
+        assert u"".isdigit() == False
+        assert u"!Bro12345w&&&&nFox".isdigit() == False
+        assert u"Brown Foxes".isdigit() == False
+        assert u"125".isdigit() == True
+
+    def test_isdecimal(self):
+        assert u"".isdecimal() == False
+        assert u"42!".isdecimal() == False
+        assert u"\t1337".isdecimal() == False
+        assert u"6".isdecimal() == True
+
+    def test_isspace(self):
+        assert u"".isspace() == False
+        assert u"!Bro12345w&&&&nFox".isspace() == False
+        assert u" ".isspace() ==  True
+        assert u"\t\t\b\b\n".isspace() == False
+        assert u"\t\t".isspace() == True
+        assert u"\t\t\r\r\n".isspace() == True
+
+    def test_islower(self):
+        assert u"".islower() == False
+        assert u" ".islower() ==  False
+        assert u"\t\t\b\b\n".islower() == False
+        assert u"b".islower() == True
+        assert u"bbb".islower() == True
+        assert u"!bbb".islower() == True
+        assert u"BBB".islower() == False
+        assert u"bbbBBB".islower() == False
+
+    def test_isupper(self):
+        assert u"".isupper() == False
+        assert u" ".isupper() ==  False
+        assert u"\t\t\b\b\n".isupper() == False
+        assert u"B".isupper() == True
+        assert u"BBB".isupper() == True
+        assert u"!BBB".isupper() == True
+        assert u"bbb".isupper() == False
+        assert u"BBBbbb".isupper() == False
+
     def test_istitle(self):
         assert u"".istitle() == False
         assert u"!".istitle() == False
@@ -231,6 +283,12 @@ class AppTestUnicodeString:
         # check with Ll chars with no upper - nothing changes here
         assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
                 u'\u019b\u1d00\u1d86\u0221\u1fb7')
+
+    def test_lower(self):
+        assert u"ABC".lower() == u"abc"
+
+    def test_upper(self):
+        assert u"abc".upper() == u"ABC"
 
     def test_rjust(self):
         s = u"abc"
