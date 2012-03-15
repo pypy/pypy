@@ -843,6 +843,11 @@ class TestCompiler:
             return a
         """
         yield self.st, func, "f()", [1, 2, 3]
+        func = """def f():
+            for a, *b, c in [(1, 2, 3, 4)]:
+                return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3], 4)
         py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
                        None, None)
         py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
