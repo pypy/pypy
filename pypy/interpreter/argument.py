@@ -27,7 +27,8 @@ class Signature(object):
         except ValueError:
             pass
         try:
-            return len(self.argnames) + self.kwonlyargnames.index(name)
+            return (len(self.argnames) + self.has_vararg() +
+                    self.kwonlyargnames.index(name))
         except ValueError:
             pass
         return -1
@@ -430,7 +431,7 @@ class Arguments(object):
                             w_key = self.keyword_names_w[i - limit]
                         self.space.setitem(w_kwds, w_key, keywords_w[i])
                 #
-            scope_w[co_argcount + has_vararg] = w_kwds
+            scope_w[co_argcount + co_kwonlyargcount + has_vararg] = w_kwds
         elif num_remainingkwds:
             if co_argcount == 0:
                 raise ArgErrCount(avail, num_kwds,

@@ -237,8 +237,17 @@ class TestInterpreter:
             '''
         assert self.codetest(code, 'f', []) == os.name
 
+    def test_kwonlyargs_with_kwarg(self):
+        code = """ def f():
+            def g(a, *arg, c, **kw):
+                return [a, arg, c, kw]
+            return g(1, 2, 3, c=4, d=5)
+        """
+        exp = [1, (2, 3), 4, {"d" : 5}]
+        assert self.codetest(code, "f", []) == exp
+
     def test_kwonlyargs_default_parameters(self):
-        code = """ def f(a, b, c=3, *, d=4):
+        code = """ def f(a, b, c=3, d=4):
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2]) == (1, 2, 3, 4)

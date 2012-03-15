@@ -50,13 +50,12 @@ def cpython_code_signature(code):
     assert argcount >= 0     # annotator hint
     assert kwonlyargcount >= 0
     argnames = list(code.co_varnames[:argcount])
-    n = argcount + kwonlyargcount
-    kwonlyargs = list(code.co_varnames[argcount:n])
     if code.co_flags & CO_VARARGS:
         varargname = code.co_varnames[argcount]
         argcount += 1
     else:
         varargname = None
+    kwonlyargs = list(code.co_varnames[argcount:argcount + kwonlyargcount])
     if code.co_flags & CO_VARKEYWORDS:
         kwargname = code.co_varnames[argcount]
         argcount += 1

@@ -138,9 +138,11 @@ class TestSymbolTable:
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
 
     def test_arguments_kwonly(self):
-        scp = self.func_scope("def f(a, *, b): pass")
-        for name in ("a", "b"):
+        scp = self.func_scope("def f(a, *b, c, **d): pass")
+        varnames = ["a", "b", "c", "d"]
+        for name in varnames:
             assert scp.lookup(name) == symtable.SCOPE_LOCAL
+        assert scp.varnames == varnames
 
     def test_function(self):
         scp = self.func_scope("def f(): x = 4")
