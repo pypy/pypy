@@ -394,6 +394,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[1:,newaxis] == d).all()
         assert (a[newaxis,1:] == c).all()
 
+    def test_newaxis_assign(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        a[newaxis,1] = [2]
+        assert a[1] == 2
+
+    def test_newaxis_virtual(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        b = (a + a)[None]
+        c = array([[0, 2, 4, 6, 8]])
+        assert (b == c).all()
+
     def test_scalar(self):
         from _numpypy import array, dtype
         a = array(3)
