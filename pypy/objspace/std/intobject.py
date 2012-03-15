@@ -42,6 +42,7 @@ class W_IntObject(W_AbstractIntObject):
     from pypy.objspace.std.inttype import int_typedef as typedef
 
     def __init__(w_self, intval):
+        assert type(intval) is int or type(intval) is long
         w_self.intval = intval
 
     def __repr__(w_self):

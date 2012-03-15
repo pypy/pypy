@@ -167,7 +167,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newint(x)
         # this is an inlined 'is_valid_int' which cannot be used
         # due to the special annotation nature of 'wrap'.
-        if isinstance(x, long) and (-maxint - 1 <= x <= maxint):
+        if type(x) is long and (-maxint - 1 <= x <= maxint):
             return self.newint(x)
         if isinstance(x, str):
             return wrapstr(self, x)
