@@ -509,6 +509,15 @@ class MIFrame(object):
         self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
         return sbox
 
+    @arguments("descr", "descr", "descr", "descr", "box")
+    def opimpl_newlist_hint(self, structdescr, lengthdescr, itemsdescr,
+                            arraydescr, sizehintbox):
+        sbox = self.opimpl_new(structdescr)
+        self._opimpl_setfield_gc_any(sbox, lengthdescr, history.CONST_FALSE)
+        abox = self.opimpl_new_array(arraydescr, sizehintbox)
+        self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
+        return sbox
+
     @arguments("box", "descr", "descr", "box")
     def _opimpl_getlistitem_gc_any(self, listbox, itemsdescr, arraydescr,
                                    indexbox):

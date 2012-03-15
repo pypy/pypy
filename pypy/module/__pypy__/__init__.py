@@ -1,5 +1,5 @@
+import sys
 
-# Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.module.imp.importing import get_pyc_magic
 
@@ -11,6 +11,19 @@ class BuildersModule(MixedModule):
         "StringBuilder": "interp_builders.W_StringBuilder",
         "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
     }
+
+class TimeModule(MixedModule):
+    appleveldefs = {}
+    interpleveldefs = {}
+    if sys.platform.startswith("linux"):
+        interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
+        interpleveldefs["clock_getres"] = "interp_time.clock_getres"
+        for name in [
+            "CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_MONOTONIC_RAW",
+            "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID"
+        ]:
+            interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
+
 
 class Module(MixedModule):
     appleveldefs = {
@@ -32,6 +45,7 @@ class Module(MixedModule):
 
     submodules = {
         "builders": BuildersModule,
+        "time": TimeModule,
     }
 
     def setup_after_space_initialization(self):

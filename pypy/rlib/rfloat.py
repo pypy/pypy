@@ -295,7 +295,7 @@ def round_double_fallback_repr(value, ndigits):
     return z
 
 INFINITY = 1e200 * 1e200
-NAN = INFINITY / INFINITY
+NAN = abs(INFINITY / INFINITY)    # bah, INF/INF gives us -NAN?
 
 try:
     # Try to get math functions added in 2.6.
@@ -375,8 +375,7 @@ except ImportError:
 
     def log1p(x):
         "NOT_RPYTHON"
-        from pypy.rlib import rfloat
-        if abs(x) < rfloat.DBL_EPSILON // 2.:
+        if abs(x) < DBL_EPSILON // 2.:
             return x
         elif -.5 <= x <= 1.:
             y = 1. + x
