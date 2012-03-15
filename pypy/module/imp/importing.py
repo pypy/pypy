@@ -860,8 +860,8 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname):
                       space.wrap(space.builtin))
     if pathname is not None:
         w_pathname = get_sourcefile(space, pathname)
-    if w_pathname is None:
-        w_pathname = code_w.w_filename
+    else:
+        w_pathname = space.wrap(code_w.co_filename)
     space.setitem(w_dict, space.wrap("__file__"), w_pathname)
     space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
     code_w.exec_code(space, w_dict, w_dict)
@@ -925,8 +925,9 @@ def make_source_pathname(pathname):
     return result
 
 def get_sourcefile(space, filename):
-    l = len(filename)
-    if l < 5 or filename[-4:-1].lower() != ".py":
+    start = len(filename) - 4
+    stop = len(filename) - 1
+    if not 0 <= start <= stop or filename[start:stop].lower() != ".py":
         return space.wrap(filename)
     py = make_source_pathname(filename)
     if py is None:
