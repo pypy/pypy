@@ -1245,6 +1245,7 @@ class Assembler386(object):
     def genop_convert_float_bytes_to_longlong(self, op, arglocs, resloc):
         loc0, = arglocs
         assert isinstance(resloc, RegLoc)
+        assert isinstance(loc0, RegLoc)
         self.mc.MOVD(resloc, loc0)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):

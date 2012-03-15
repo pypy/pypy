@@ -767,7 +767,7 @@ class RegAlloc(object):
     consider_cast_singlefloat_to_float = consider_cast_int_to_float
 
     def consider_convert_float_bytes_to_longlong(self, op):
-        loc0 = self.xrm.loc(op.getarg(0))
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
         loc1 = self.rm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
         self.xrm.possibly_free_var(op.getarg(0))
