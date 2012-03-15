@@ -93,28 +93,6 @@ the items of the sequence (or a list of tuples if more than one sequence)."""
         else:
             return result
 
-sentinel = object()
-
-def reduce(func, sequence, initial=sentinel):
-    """reduce(function, sequence[, initial]) -> value
-
-Apply a function of two arguments cumulatively to the items of a sequence,
-from left to right, so as to reduce the sequence to a single value.
-For example, reduce(lambda x, y: x+y, [1, 2, 3, 4, 5]) calculates
-((((1+2)+3)+4)+5).  If initial is present, it is placed before the items
-of the sequence in the calculation, and serves as a default when the
-sequence is empty."""
-    iterator = iter(sequence)
-    if initial is sentinel:
-        try:
-            initial = next(iterator)
-        except StopIteration:
-            raise TypeError("reduce() of empty sequence with no initial value")
-    result = initial
-    for item in iterator:
-        result = func(result, item)
-    return result
-
 def filter(func, seq):
     """filter(function or None, sequence) -> list, tuple, or string
 
