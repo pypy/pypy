@@ -6,7 +6,7 @@ from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint, is_valid_int
 from pypy.rlib.rbigint import rbigint
 
 """
@@ -42,7 +42,7 @@ class W_IntObject(W_AbstractIntObject):
     from pypy.objspace.std.inttype import int_typedef as typedef
 
     def __init__(w_self, intval):
-        assert type(intval) is int or type(intval) is long
+        assert is_valid_int(intval)
         w_self.intval = intval
 
     def __repr__(w_self):
