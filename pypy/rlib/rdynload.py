@@ -120,9 +120,6 @@ if _WIN32:
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError()
-            err = rffi.cast(rwin32.DWORD, err) # why?
-            # XXX this must not be needed, something else is wrong.
-            # remove ASAP after finding the reason for this
             raise DLOpenError(rwin32.FormatError(err))
         return res
 
