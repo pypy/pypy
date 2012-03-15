@@ -288,8 +288,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_kwonlydefaults(self, args):
         defaults = 0
-        for kwonly, default in zip(args.kwonlyargs, args.kw_defaults):
+        for i, default in enumerate(args.kw_defaults):
             if default:
+                kwonly = args.kwonlyargs[i]
                 self.load_const(self.space.wrap(kwonly.arg))
                 default.walkabout(self)
                 defaults += 1

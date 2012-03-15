@@ -510,6 +510,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def _visit_annotations(self, func):
         args = func.args
+        assert isinstance(args, ast.arguments)
         if args.args:
             self._visit_arg_annotations(args.args)
         if args.varargannotation:
