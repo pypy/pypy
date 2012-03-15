@@ -602,7 +602,7 @@ def _compute_UNPACK_SEQUENCE(arg):
     return arg + 1
 
 def _compute_UNPACK_EX(arg):
-    return (arg % 256) + (arg // 256)
+    return (arg & 0xFF) + (arg >> 8)
 
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
