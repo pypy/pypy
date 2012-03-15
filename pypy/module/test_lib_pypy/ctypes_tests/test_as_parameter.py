@@ -1,8 +1,6 @@
 from ctypes import *
 import py
 from support import BaseCTypesTestChecker
-from pypy.rlib.rarithmetic import is_valid_int
-
 
 def setup_module(mod):
     import conftest
@@ -138,7 +136,7 @@ class BasicTestWrap(BaseCTypesTestChecker):
         f.argtypes = [c_longlong, MyCallback]
 
         def callback(value):
-            assert is_valid_int(value)
+            assert isinstance(value, (int, long))
             return value & 0x7FFFFFFF
 
         cb = MyCallback(callback)

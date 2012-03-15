@@ -9,8 +9,6 @@ from ctypes import *
 import sys
 import py
 from support import BaseCTypesTestChecker
-from pypy.rlib.rarithmetic import is_valid_int
-
 
 try:
     WINFUNCTYPE
@@ -329,7 +327,7 @@ class TestFunctions(BaseCTypesTestChecker):
         f.argtypes = [c_longlong, MyCallback]
 
         def callback(value):
-            assert is_valid_int(value)
+            assert isinstance(value, (int, long))
             return value & 0x7FFFFFFF
 
         cb = MyCallback(callback)

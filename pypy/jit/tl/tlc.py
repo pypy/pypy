@@ -241,7 +241,7 @@ def make_interp(supports_call, jitted=True):
         return interp_eval(code, pc, args, pool).int_o()
 
     def interp_eval(code, pc, args, pool):
-        assert isinstance(pc, (int, long))
+        assert is_valid_int(pc)
         frame = Frame(args, pc)
         pc = frame.pc
 
