@@ -46,9 +46,6 @@ class AppTest(object):
         x.bar = 80
         assert lookup_special(x, "foo")() == 42
         assert lookup_special(x, "bar") is None
-        class X:
-            pass
-        raises(TypeError, lookup_special, X(), "foo")
 
     def test_do_what_I_mean(self):
         from __pypy__ import do_what_I_mean

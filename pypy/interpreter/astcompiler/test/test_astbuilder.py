@@ -478,43 +478,40 @@ class TestAstBuilder:
         assert args.defaults is None
         assert args.kwarg is None
         assert args.vararg is None
+        assert func.returns is None
         args = self.get_first_stmt("def f(a, b): pass").args
         assert len(args.args) == 2
         a1, a2 = args.args
-        assert isinstance(a1, ast.Name)
-        assert a1.id == "a"
-        assert a1.ctx == ast.Param
-        assert isinstance(a2, ast.Name)
-        assert a2.id == "b"
-        assert a2.ctx == ast.Param
+        assert isinstance(a1, ast.arg)
+        assert a1.arg == "a"
+        assert isinstance(a2, ast.arg)
+        assert a2.arg == "b"
         assert args.vararg is None
         assert args.kwarg is None
         args = self.get_first_stmt("def f(a=b): pass").args
         assert len(args.args) == 1
         arg = args.args[0]
-        assert isinstance(arg, ast.Name)
-        assert arg.id == "a"
-        assert arg.ctx == ast.Param
+        assert isinstance(arg, ast.arg)
+        assert arg.arg == "a"
         assert len(args.defaults) == 1
         default = args.defaults[0]
         assert isinstance(default, ast.Name)
         assert default.id == "b"
         assert default.ctx == ast.Load
         args = self.get_first_stmt("def f(*a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.kwarg is None
         assert args.vararg == "a"
         args = self.get_first_stmt("def f(**a): pass").args
-        assert args.args is None
-        assert args.defaults is None
+        assert not args.args
+        assert not args.defaults
         assert args.vararg is None
         assert args.kwarg == "a"
         args = self.get_first_stmt("def f(a, b, c=d, *e, **f): pass").args
         assert len(args.args) == 3
         for arg in args.args:
-            assert isinstance(arg, ast.Name)
-            assert arg.ctx == ast.Param
+            assert isinstance(arg, ast.arg)
         assert len(args.defaults) == 1
         assert isinstance(args.defaults[0], ast.Name)
         assert args.defaults[0].ctx == ast.Load
@@ -523,6 +520,65 @@ class TestAstBuilder:
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
+
+    def test_kwonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, *, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert fn.args.kw_defaults == [None]
+        fn = self.get_first_stmt("def f(a, b, c, *args, kwarg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert fn.args.kw_defaults == [None]
+        fn = self.get_first_stmt("def f(a, b, c, *, kwarg=2): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.kwonlyargs) == 1
+        assert isinstance(fn.args.kwonlyargs[0], ast.arg)
+        assert fn.args.kwonlyargs[0].arg == "kwarg"
+        assert len(fn.args.kw_defaults) == 1
+        assert isinstance(fn.args.kw_defaults[0], ast.Num)
+        input = "def f(p1, *, **k1):  pass"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "named arguments must follows bare *"
+
+    def test_function_annotation(self):
+        func = self.get_first_stmt("def f() -> X: pass")
+        assert isinstance(func.returns, ast.Name)
+        assert func.returns.id == "X"
+        assert func.returns.ctx == ast.Load
+        for stmt in "def f(x : 42): pass", "def f(x : 42=a): pass":
+            func = self.get_first_stmt(stmt)
+            assert isinstance(func.args.args[0].annotation, ast.Num)
+        assert isinstance(func.args.defaults[0], ast.Name)
+        func = self.get_first_stmt("def f(*x : 42): pass")
+        assert isinstance(func.args.varargannotation, ast.Num)
+        func = self.get_first_stmt("def f(**kw : 42): pass")
+        assert isinstance(func.args.kwargannotation, ast.Num)
+        func = self.get_first_stmt("def f(*, kw : 42=a): pass")
+        assert isinstance(func.args.kwonlyargs[0].annotation, ast.Num)
+
+    def test_lots_of_kwonly_arguments(self):
+        fundef = "def f("
+        for i in range(255):
+            fundef += "i%d, "%i
+        fundef += "*, key=100):\n pass\n"
+        py.test.raises(SyntaxError, self.get_first_stmt, fundef)
+
+        fundef2 = "def foo(i,*,"
+        for i in range(255):
+            fundef2 += "i%d, "%i
+        fundef2 += "lastarg):\n  pass\n"
+        py.test.raises(SyntaxError, self.get_first_stmt, fundef)
+
+        fundef3 = "def f(i,*,"
+        for i in range(253):
+            fundef3 += "i%d, "%i
+        fundef3 += "lastarg):\n  pass\n"
+        self.get_first_stmt(fundef3)
 
     def test_decorators(self):
         to_examine = (("def f(): pass", ast.FunctionDef),
@@ -712,6 +768,7 @@ class TestAstBuilder:
             ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
+            ("...", "Ellipsis"),
         )
         test_contexts = (
             ("assign to", "%s = 23"),
@@ -741,15 +798,11 @@ class TestAstBuilder:
             "from x import y as %s",
             "for %s in x: pass",
         )
-        for name in ("None", "__debug__"):
+        for name in "__debug__",:
             for template in invalid:
                 input = template % (name,)
                 exc = py.test.raises(SyntaxError, self.get_ast, input).value
                 assert exc.msg == "cannot assign to %s" % (name,)
-        # This is ok.
-        self.get_ast("from None import x")
-        self.get_ast("from x import None as y")
-        self.get_ast("import None as x")
 
     def test_lambda(self):
         lam = self.get_first_expr("lambda x: expr")
@@ -758,13 +811,13 @@ class TestAstBuilder:
         assert isinstance(args, ast.arguments)
         assert args.vararg is None
         assert args.kwarg is None
-        assert args.defaults is None
+        assert not args.defaults
         assert len(args.args) == 1
-        assert isinstance(args.args[0], ast.Name)
+        assert isinstance(args.args[0], ast.arg)
         assert isinstance(lam.body, ast.Name)
         lam = self.get_first_expr("lambda: True")
         args = lam.args
-        assert args.args is None
+        assert not args.args
         lam = self.get_first_expr("lambda x=x: y")
         assert len(lam.args.args) == 1
         assert len(lam.args.defaults) == 1
@@ -1023,8 +1076,6 @@ class TestAstBuilder:
         slc = self.get_first_expr("x[1:2:3]").slice
         for field in (slc.lower, slc.upper, slc.step):
             assert isinstance(field, ast.Num)
-        sub = self.get_first_expr("x[...]")
-        assert isinstance(sub.slice, ast.Ellipsis)
         sub = self.get_first_expr("x[1,2,3]")
         slc = sub.slice
         assert isinstance(slc, ast.Index)
@@ -1039,6 +1090,12 @@ class TestAstBuilder:
         assert isinstance(complex_slc.lower, ast.Num)
         assert isinstance(complex_slc.upper, ast.Num)
         assert complex_slc.step is None
+
+    def test_ellipsis(self):
+        e = self.get_first_expr("...")
+        assert isinstance(e, ast.Ellipsis)
+        sub = self.get_first_expr("x[...]")
+        assert isinstance(sub.slice.value, ast.Ellipsis)
 
     def test_string(self):
         space = self.space
@@ -1199,17 +1256,3 @@ class TestAstBuilder:
         if1, if2 = comps[0].ifs
         assert isinstance(if1, ast.Name)
         assert isinstance(if2, ast.Name)
-
-    def test_kwonly_arguments(self):
-        fn = self.get_first_stmt("def f(a, b, c, *, kwarg): pass")
-        assert isinstance(fn, ast.FunctionDef)
-        assert len(fn.args.kwonlyargs) == 1
-        assert isinstance(fn.args.kwonlyargs[0], ast.expr)
-        assert fn.args.kwonlyargs[0].id == "kwarg"
-
-    def test_kwonly_arguments_2(self):
-        fn = self.get_first_stmt("def f(a, b, c, *args, kwarg): pass")
-        assert isinstance(fn, ast.FunctionDef)
-        assert len(fn.args.kwonlyargs) == 1
-        assert isinstance(fn.args.kwonlyargs[0], ast.expr)
-        assert fn.args.kwonlyargs[0].id == "kwarg"

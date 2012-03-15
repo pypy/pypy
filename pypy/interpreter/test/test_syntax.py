@@ -612,6 +612,17 @@ if 1:
         """
         exec(s)
 
+class AppTestFunctionAnnotations:
+
+    def test_simple(self):
+        """
+        def f(e:3=4): pass
+        assert f.__annotations__ == {"e" : 3}
+        def f(a : 1, b : 2, *var : 3, hi : 4, bye : 5=0, **kw : 6) -> 42: pass
+        assert f.__annotations__ == {"a" : 1, "b" : 2, "var" : 3, "hi" : 4,
+                                    "bye" : 5, "kw" : 6, "return" : 42}
+        """
+
 class AppTestSyntaxError:
 
     def test_tokenizer_error_location(self):

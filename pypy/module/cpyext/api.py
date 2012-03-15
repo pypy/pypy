@@ -23,7 +23,6 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
-from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
@@ -402,7 +401,6 @@ def build_exported_objects():
         'Module': 'space.gettypeobject(Module.typedef)',
         'Property': 'space.gettypeobject(W_Property.typedef)',
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
-        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
@@ -823,6 +821,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
     pypy_decls.append("#endif\n")
+    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
+    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
     for decl in FORWARD_DECLS:
         pypy_decls.append("%s;" % (decl,))
@@ -854,6 +854,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
+    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
+    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("}")
     pypy_decls.append("#endif")

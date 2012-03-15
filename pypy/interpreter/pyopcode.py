@@ -584,6 +584,7 @@ class __extend__(pyframe.PyFrame):
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
+    @jit.unroll_safe
     def UNPACK_EX(self, oparg, next_instr):
         "a, *b, c = range(10)"
         left = oparg & 0xFF
@@ -990,13 +991,36 @@ class __extend__(pyframe.PyFrame):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
-    def MAKE_FUNCTION(self, numdefaults, next_instr):
+    def _make_function(self, oparg, freevars=None):
+        space = self.space
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = self.popvalues(numdefaults)
-        fn = function.Function(self.space, codeobj, self.w_globals,
-                               defaultarguments)
-        self.pushvalue(self.space.wrap(fn))
+        if freevars is not None:
+            # Pop freevars
+            self.popvalue()
+        posdefaults = oparg & 0xFF
+        kwdefaults = (oparg >> 8) & 0xFF
+        num_annotations = (oparg >> 16) & 0xFF
+        w_ann = None
+        if num_annotations:
+            names_w = space.fixedview(self.popvalue())
+            w_ann = space.newdict(strdict=True)
+            for i in range(len(names_w) - 1, -1, -1):
+                space.setitem(w_ann, names_w[i], self.popvalue())
+        defaultarguments = self.popvalues(posdefaults)
+        w_kw_defs = None
+        if kwdefaults:
+            w_kw_defs = space.newdict(strdict=True)
+            for i in range(kwdefaults - 1, -1, -1):
+                w_name = self.popvalue()
+                w_def = self.popvalue()
+                space.setitem(w_kw_defs, w_def, w_name)
+        fn = function.Function(space, codeobj, self.w_globals, defaultarguments,
+                               w_kw_defs, freevars, w_ann)
+        self.pushvalue(space.wrap(fn))
+
+    def MAKE_FUNCTION(self, oparg, next_instr):
+        return self._make_function(oparg)
 
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
@@ -1414,11 +1438,9 @@ app = gateway.applevel(r'''
             if lastchar.isspace() and lastchar != ' ':
                 return
         file_softspace(stream, True)
-    print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
     def print_item(x):
         print_item_to(x, sys_stdout())
-    print_item._annspecialcase_ = "flowspace:print_item"
 
     def print_newline_to(stream):
         stream.write("\n")
@@ -1426,7 +1448,6 @@ app = gateway.applevel(r'''
 
     def print_newline():
         print_newline_to(sys_stdout())
-    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:

@@ -286,17 +286,64 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.LOAD_CONST, code_index)
             self.emit_op_arg(ops.MAKE_FUNCTION, num_defaults)
 
+    def _visit_kwonlydefaults(self, args):
+        defaults = 0
+        for kwonly, default in zip(args.kwonlyargs, args.kw_defaults):
+            if default:
+                self.load_const(self.space.wrap(kwonly.arg))
+                default.walkabout(self)
+                defaults += 1
+        return defaults
+
+    def _visit_arg_annotation(self, name, ann, names):
+        if ann:
+            ann.walkabout(self)
+            names.append(name)
+
+    def _visit_arg_annotations(self, args, names):
+        if args:
+            for arg in args:
+                self._visit_arg_annotation(arg.arg, arg.annotation, names)
+
+    def _visit_annotations(self, func, args, returns):
+        space = self.space
+        names = []
+        self._visit_arg_annotations(args.args, names)
+        if args.varargannotation:
+            self._visit_arg_annotation(args.vararg, args.varargannotation,
+                                       names)
+        self._visit_arg_annotations(args.kwonlyargs, names)
+        if args.kwargannotation:
+            self._visit_arg_annotation(args.kwarg, args.kwargannotation,
+                                       names)
+        self._visit_arg_annotation("return", returns, names)
+        l = len(names)
+        if l:
+            if l > 65534:
+                self.error("too many annotations", func)
+            w_tup = space.newtuple([space.wrap(name) for name in names])
+            self.load_const(w_tup)
+            l += 1
+        return l
+
     def visit_FunctionDef(self, func):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
         self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
+        num_annotations = self._visit_annotations(func, args, func.returns)
         num_defaults = len(args.defaults) if args.defaults is not None else 0
+        oparg = num_defaults
+        oparg |= kw_default_count << 8
+        oparg |= num_annotations << 16
         code = self.sub_scope(FunctionCodeGenerator, func.name, func,
                               func.lineno)
-        self._make_function(code, num_defaults)
+        self._make_function(code, oparg)
         # Apply decorators.
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
@@ -307,10 +354,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
         code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
-        self._make_function(code, default_count)
+        oparg = default_count
+        oparg |= kw_default_count << 8
+        self._make_function(code, oparg)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
@@ -371,9 +423,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "AssertionError")
         if asrt.msg:
             asrt.msg.walkabout(self)
-            self.emit_op_arg(ops.RAISE_VARARGS, 2)
-        else:
-            self.emit_op_arg(ops.RAISE_VARARGS, 1)
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        self.emit_op_arg(ops.RAISE_VARARGS, 1)
         self.use_next_block(end)
 
     def _binop(self, op):
@@ -778,6 +829,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         space = self.space
         self.load_const(const.value)
 
+    def visit_Ellipsis(self, e):
+        self.load_const(self.space.w_Ellipsis)
+
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)
         op.operand.walkabout(self)
@@ -834,36 +888,46 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.orelse.walkabout(self)
         self.use_next_block(end)
 
-    def visit_Tuple(self, tup):
-        self.update_position(tup.lineno)
-        elt_count = len(tup.elts) if tup.elts is not None else 0
-        if tup.ctx == ast.Store:
-            star_pos = -1
+    def _visit_list_or_tuple(self, node, elts, ctx, op):
+        elt_count = len(elts) if elts else 0
+        star_pos = -1
+        if ctx == ast.Store:
             if elt_count > 0:
-                for i, elt in enumerate(tup.elts):
+                for i, elt in enumerate(elts):
                     if isinstance(elt, ast.Starred):
                         if star_pos != -1:
-                            self.error("two starred expressions in assignment", tup)
+                            msg = "too many starred expressions in assignment"
+                            self.error(msg, node)
                         star_pos = i
-            if star_pos > -1:
+            if star_pos != -1:
                 self.emit_op_arg(ops.UNPACK_EX, star_pos | (elt_count-star_pos-1)<<8)
             else:
                 self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(tup.elts)
-        if tup.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
+        if elt_count > 0:
+            if star_pos != -1:
+                for elt in elts:
+                    if isinstance(elt, ast.Starred):
+                        elt.value.walkabout(self)
+                    else:
+                        elt.walkabout(self)
+            else:
+                self.visit_sequence(elts)
+        if ctx == ast.Load:
+            self.emit_op_arg(op, elt_count)
 
     def visit_Starred(self, star):
-        star.value.walkabout(self)
+        if star.ctx != ast.Store:
+            self.error("can use starred expression only as assignment target",
+                       star)
+        self.error("starred assignment must be in list or tuple", star)
+
+    def visit_Tuple(self, tup):
+        self.update_position(tup.lineno)
+        self._visit_list_or_tuple(tup, tup.elts, tup.ctx, ops.BUILD_TUPLE)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
-        elt_count = len(l.elts) if l.elts is not None else 0
-        if l.ctx == ast.Store:
-            self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(l.elts)
-        if l.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_LIST, elt_count)
+        self._visit_list_or_tuple(l, l.elts, l.ctx, ops.BUILD_LIST)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
@@ -1079,9 +1143,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.BUILD_SLICE, arg)
 
     def _nested_slice(self, slc, ctx):
-        if isinstance(slc, ast.Ellipsis):
-            self.load_const(self.space.w_Ellipsis)
-        elif isinstance(slc, ast.Slice):
+        if isinstance(slc, ast.Slice):
             self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.Index):
             slc.value.walkabout(self)
@@ -1093,10 +1155,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             kind = "index"
             if ctx != ast.AugStore:
                 slc.value.walkabout(self)
-        elif isinstance(slc, ast.Ellipsis):
-            kind = "ellipsis"
-            if ctx != ast.AugStore:
-                self.load_const(self.space.w_Ellipsis)
         elif isinstance(slc, ast.Slice):
             kind = "slice"
             if ctx != ast.AugStore:
@@ -1190,6 +1248,8 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         assert isinstance(args, ast.arguments)
         if args.args:
             self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)

@@ -716,6 +716,15 @@ class TestCompiler:
         decl = str(decl) + '\n'
         yield self.simple_test, decl, 'r', None
 
+    def test_assert(self):
+        decl = py.code.Source("""
+        try:
+            assert 0, 'hi'
+        except AssertionError as e:
+            msg = str(e)
+        """)
+        yield self.simple_test, decl, 'msg', 'hi'
+
     def test_indentation_error(self):
         source = py.code.Source("""
         x
@@ -818,12 +827,34 @@ class TestCompiler:
         yield self.st, test, "f()", 42
     # This line is needed for py.code to find the source.
 
-    def test_tuple_unpacking(self):
+    def test_extended_unpacking(self):
         func = """def f():
             (a, *b, c) = 1, 2, 3, 4, 5
             return a, b, c
         """
         yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            [a, *b, c] = 1, 2, 3, 4, 5
+            return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3, 4], 5)
+        func = """def f():
+            *a, = [1, 2, 3]
+            return a
+        """
+        yield self.st, func, "f()", [1, 2, 3]
+        func = """def f():
+            for a, *b, c in [(1, 2, 3, 4)]:
+                return a, b, c
+        """
+        yield self.st, func, "f()", (1, [2, 3], 4)
+        py.test.raises(SyntaxError, self.simple_test, "*a, *b = [1, 2]",
+                       None, None)
+        py.test.raises(SyntaxError, self.simple_test, "a = [*b, c]",
+                       None, None)
+        py.test.raises(SyntaxError, self.simple_test, "for *a in x: pass",
+                       None, None)
+
 
 class AppTestCompiler:
 

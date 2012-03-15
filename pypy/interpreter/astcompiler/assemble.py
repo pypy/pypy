@@ -602,7 +602,7 @@ def _compute_UNPACK_SEQUENCE(arg):
     return arg + 1
 
 def _compute_UNPACK_EX(arg):
-    return (arg % 256) + (arg // 256)
+    return (arg & 0xFF) + (arg >> 8)
 
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
@@ -611,10 +611,10 @@ def _compute_BUILD_LIST(arg):
     return 1 - arg
 
 def _compute_MAKE_CLOSURE(arg):
-    return -arg - 1
+    return -1 - _num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_MAKE_FUNCTION(arg):
-    return -arg
+    return -_num_args(arg) - ((arg >> 16) & 0xFFFF)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:
@@ -626,7 +626,7 @@ def _compute_RAISE_VARARGS(arg):
     return -arg
 
 def _num_args(oparg):
-    return (oparg % 256) + 2 * (oparg / 256)
+    return (oparg % 256) + 2 * ((oparg // 256) % 256)
 
 def _compute_CALL_FUNCTION(arg):
     return -_num_args(arg)

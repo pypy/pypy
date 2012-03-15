@@ -242,15 +242,16 @@ class stmt(AST):
 
 class FunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, lineno, col_offset):
+    def __init__(self, name, args, body, decorator_list, returns, lineno, col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.w_body = None
         self.decorator_list = decorator_list
         self.w_decorator_list = None
+        self.returns = returns
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 63
+        self.initialization_state = 127
 
     def walkabout(self, visitor):
         visitor.visit_FunctionDef(self)
@@ -261,13 +262,16 @@ class FunctionDef(stmt):
             visitor._mutate_sequence(self.body)
         if self.decorator_list:
             visitor._mutate_sequence(self.decorator_list)
+        if self.returns:
+            self.returns = self.returns.mutate_over(visitor)
         return visitor.visit_FunctionDef(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 63:
-            self.missing_field(space, ['lineno', 'col_offset', 'name', 'args', 'body', 'decorator_list'], 'FunctionDef')
+        if (self.initialization_state & ~64) ^ 63:
+            self.missing_field(space, ['lineno', 'col_offset', 'name', 'args', 'body', 'decorator_list', None], 'FunctionDef')
         else:
-            pass
+            if not self.initialization_state & 64:
+                self.returns = None
         self.args.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
@@ -289,6 +293,8 @@ class FunctionDef(stmt):
         if self.decorator_list is not None:
             for node in self.decorator_list:
                 node.sync_app_attrs(space)
+        if self.returns:
+            self.returns.sync_app_attrs(space)
 
 
 class ClassDef(stmt):
@@ -1631,6 +1637,25 @@ class Bytes(expr):
             pass
 
 
+class Ellipsis(expr):
+
+    def __init__(self, lineno, col_offset):
+        expr.__init__(self, lineno, col_offset)
+        self.initialization_state = 3
+
+    def walkabout(self, visitor):
+        visitor.visit_Ellipsis(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_Ellipsis(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 3:
+            self.missing_field(space, ['lineno', 'col_offset'], 'Ellipsis')
+        else:
+            pass
+
+
 class Attribute(expr):
 
     def __init__(self, value, attr, ctx, lineno, col_offset):
@@ -1867,24 +1892,6 @@ expr_context_to_class = [
 
 class slice(AST):
     pass
-
-class Ellipsis(slice):
-
-    def __init__(self):
-        self.initialization_state = 0
-
-    def walkabout(self, visitor):
-        visitor.visit_Ellipsis(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Ellipsis(self)
-
-    def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 0:
-            self.missing_field(space, [], 'Ellipsis')
-        else:
-            pass
-
 
 class Slice(slice):
 
@@ -2300,57 +2307,75 @@ class ExceptHandler(excepthandler):
 
 class arguments(AST):
 
-    def __init__(self, args, vararg, kwonlyargs, kwarg, defaults):
+    def __init__(self, args, vararg, varargannotation, kwonlyargs, kwarg, kwargannotation, defaults, kw_defaults):
         self.args = args
         self.w_args = None
         self.vararg = vararg
+        self.varargannotation = varargannotation
         self.kwonlyargs = kwonlyargs
         self.w_kwonlyargs = None
         self.kwarg = kwarg
+        self.kwargannotation = kwargannotation
         self.defaults = defaults
         self.w_defaults = None
-        self.initialization_state = 31
+        self.kw_defaults = kw_defaults
+        self.w_kw_defaults = None
+        self.initialization_state = 255
 
     def mutate_over(self, visitor):
         if self.args:
             visitor._mutate_sequence(self.args)
+        if self.varargannotation:
+            self.varargannotation = self.varargannotation.mutate_over(visitor)
         if self.kwonlyargs:
             visitor._mutate_sequence(self.kwonlyargs)
+        if self.kwargannotation:
+            self.kwargannotation = self.kwargannotation.mutate_over(visitor)
         if self.defaults:
             visitor._mutate_sequence(self.defaults)
+        if self.kw_defaults:
+            visitor._mutate_sequence(self.kw_defaults)
         return visitor.visit_arguments(self)
 
     def walkabout(self, visitor):
         visitor.visit_arguments(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~10) ^ 21:
-            self.missing_field(space, ['args', None, 'kwonlyargs', None, 'defaults'], 'arguments')
+        if (self.initialization_state & ~54) ^ 201:
+            self.missing_field(space, ['args', None, None, 'kwonlyargs', None, None, 'defaults', 'kw_defaults'], 'arguments')
         else:
             if not self.initialization_state & 2:
                 self.vararg = None
-            if not self.initialization_state & 8:
+            if not self.initialization_state & 4:
+                self.varargannotation = None
+            if not self.initialization_state & 16:
                 self.kwarg = None
+            if not self.initialization_state & 32:
+                self.kwargannotation = None
         w_list = self.w_args
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.args = [space.interp_w(expr, w_obj) for w_obj in list_w]
+                self.args = [space.interp_w(arg, w_obj) for w_obj in list_w]
             else:
                 self.args = None
         if self.args is not None:
             for node in self.args:
                 node.sync_app_attrs(space)
+        if self.varargannotation:
+            self.varargannotation.sync_app_attrs(space)
         w_list = self.w_kwonlyargs
         if w_list is not None:
             list_w = space.listview(w_list)
             if list_w:
-                self.kwonlyargs = [space.interp_w(expr, w_obj) for w_obj in list_w]
+                self.kwonlyargs = [space.interp_w(arg, w_obj) for w_obj in list_w]
             else:
                 self.kwonlyargs = None
         if self.kwonlyargs is not None:
             for node in self.kwonlyargs:
                 node.sync_app_attrs(space)
+        if self.kwargannotation:
+            self.kwargannotation.sync_app_attrs(space)
         w_list = self.w_defaults
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2361,6 +2386,40 @@ class arguments(AST):
         if self.defaults is not None:
             for node in self.defaults:
                 node.sync_app_attrs(space)
+        w_list = self.w_kw_defaults
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.kw_defaults = [space.interp_w(expr, w_obj) for w_obj in list_w]
+            else:
+                self.kw_defaults = None
+        if self.kw_defaults is not None:
+            for node in self.kw_defaults:
+                node.sync_app_attrs(space)
+
+class arg(AST):
+
+    def __init__(self, arg, annotation):
+        self.arg = arg
+        self.annotation = annotation
+        self.initialization_state = 3
+
+    def mutate_over(self, visitor):
+        if self.annotation:
+            self.annotation = self.annotation.mutate_over(visitor)
+        return visitor.visit_arg(self)
+
+    def walkabout(self, visitor):
+        visitor.visit_arg(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~2) ^ 1:
+            self.missing_field(space, ['arg', None], 'arg')
+        else:
+            if not self.initialization_state & 2:
+                self.annotation = None
+        if self.annotation:
+            self.annotation.sync_app_attrs(space)
 
 class keyword(AST):
 
@@ -2415,7 +2474,8 @@ class ASTVisitor(object):
 
     def _mutate_sequence(self, seq):
         for i in range(len(seq)):
-            seq[i] = seq[i].mutate_over(self)
+            if seq[i] is not None:
+                seq[i] = seq[i].mutate_over(self)
 
     def visit_Module(self, node):
         return self.default_visitor(node)
@@ -2503,6 +2563,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Bytes(self, node):
         return self.default_visitor(node)
+    def visit_Ellipsis(self, node):
+        return self.default_visitor(node)
     def visit_Attribute(self, node):
         return self.default_visitor(node)
     def visit_Subscript(self, node):
@@ -2517,8 +2579,6 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Const(self, node):
         return self.default_visitor(node)
-    def visit_Ellipsis(self, node):
-        return self.default_visitor(node)
     def visit_Slice(self, node):
         return self.default_visitor(node)
     def visit_ExtSlice(self, node):
@@ -2530,6 +2590,8 @@ class ASTVisitor(object):
     def visit_ExceptHandler(self, node):
         return self.default_visitor(node)
     def visit_arguments(self, node):
+        return self.default_visitor(node)
+    def visit_arg(self, node):
         return self.default_visitor(node)
     def visit_keyword(self, node):
         return self.default_visitor(node)
@@ -2554,6 +2616,8 @@ class GenericASTVisitor(ASTVisitor):
         node.args.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
+        if node.returns:
+            node.returns.walkabout(self)
 
     def visit_ClassDef(self, node):
         self.visit_sequence(node.bases)
@@ -2715,6 +2779,9 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Bytes(self, node):
         pass
 
+    def visit_Ellipsis(self, node):
+        pass
+
     def visit_Attribute(self, node):
         node.value.walkabout(self)
 
@@ -2735,9 +2802,6 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.elts)
 
     def visit_Const(self, node):
-        pass
-
-    def visit_Ellipsis(self, node):
         pass
 
     def visit_Slice(self, node):
@@ -2766,8 +2830,17 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_arguments(self, node):
         self.visit_sequence(node.args)
+        if node.varargannotation:
+            node.varargannotation.walkabout(self)
         self.visit_sequence(node.kwonlyargs)
+        if node.kwargannotation:
+            node.kwargannotation.walkabout(self)
         self.visit_sequence(node.defaults)
+        self.visit_sequence(node.kw_defaults)
+
+    def visit_arg(self, node):
+        if node.annotation:
+            node.annotation.walkabout(self)
 
     def visit_keyword(self, node):
         node.value.walkabout(self)
@@ -3083,15 +3156,38 @@ def FunctionDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
     w_self.initialization_state |= 32
 
-_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list'])
+def FunctionDef_get_returns(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'returns')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 64:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'returns')
+    return space.wrap(w_self.returns)
+
+def FunctionDef_set_returns(space, w_self, w_new_value):
+    try:
+        w_self.returns = space.interp_w(expr, w_new_value, True)
+        if type(w_self.returns) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'returns', w_new_value)
+        return
+    w_self.deldictvalue(space, 'returns')
+    w_self.initialization_state |= 64
+
+_FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list', 'returns'])
 def FunctionDef_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(FunctionDef, w_self)
     w_self.w_body = None
     w_self.w_decorator_list = None
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 4:
-            w_err = space.wrap("FunctionDef constructor takes either 0 or 4 positional arguments")
+        if len(args_w) != 5:
+            w_err = space.wrap("FunctionDef constructor takes either 0 or 5 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _FunctionDef_field_unroller:
@@ -3103,11 +3199,12 @@ def FunctionDef_init(space, w_self, __args__):
 FunctionDef.typedef = typedef.TypeDef("FunctionDef",
     stmt.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list']),
+    _fields=_FieldsWrapper(['name', 'args', 'body', 'decorator_list', 'returns']),
     name=typedef.GetSetProperty(FunctionDef_get_name, FunctionDef_set_name, cls=FunctionDef),
     args=typedef.GetSetProperty(FunctionDef_get_args, FunctionDef_set_args, cls=FunctionDef),
     body=typedef.GetSetProperty(FunctionDef_get_body, FunctionDef_set_body, cls=FunctionDef),
     decorator_list=typedef.GetSetProperty(FunctionDef_get_decorator_list, FunctionDef_set_decorator_list, cls=FunctionDef),
+    returns=typedef.GetSetProperty(FunctionDef_get_returns, FunctionDef_set_returns, cls=FunctionDef),
     __new__=interp2app(get_AST_new(FunctionDef)),
     __init__=interp2app(FunctionDef_init),
 )
@@ -5734,6 +5831,23 @@ Bytes.typedef = typedef.TypeDef("Bytes",
     __init__=interp2app(Bytes_init),
 )
 
+def Ellipsis_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(Ellipsis, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        w_err = space.wrap("Ellipsis constructor takes no arguments")
+        raise OperationError(space.w_TypeError, w_err)
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+Ellipsis.typedef = typedef.TypeDef("Ellipsis",
+    expr.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper([]),
+    __new__=interp2app(get_AST_new(Ellipsis)),
+    __init__=interp2app(Ellipsis_init),
+)
+
 def Attribute_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
@@ -6293,23 +6407,6 @@ slice.typedef = typedef.TypeDef("slice",
     __module__='_ast',
     _attributes=_FieldsWrapper([]),
     __new__=interp2app(get_AST_new(slice)),
-)
-
-def Ellipsis_init(space, w_self, __args__):
-    w_self = space.descr_self_interp_w(Ellipsis, w_self)
-    args_w, kwargs_w = __args__.unpack()
-    if args_w:
-        w_err = space.wrap("Ellipsis constructor takes no arguments")
-        raise OperationError(space.w_TypeError, w_err)
-    for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
-
-Ellipsis.typedef = typedef.TypeDef("Ellipsis",
-    slice.typedef,
-    __module__='_ast',
-    _fields=_FieldsWrapper([]),
-    __new__=interp2app(get_AST_new(Ellipsis)),
-    __init__=interp2app(Ellipsis_init),
 )
 
 def Slice_get_lower(space, w_self):
@@ -6993,8 +7090,31 @@ def arguments_set_vararg(space, w_self, w_new_value):
     w_self.deldictvalue(space, 'vararg')
     w_self.initialization_state |= 2
 
-def arguments_get_kwonlyargs(space, w_self):
+def arguments_get_varargannotation(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'varargannotation')
+        if w_obj is not None:
+            return w_obj
     if not w_self.initialization_state & 4:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'varargannotation')
+    return space.wrap(w_self.varargannotation)
+
+def arguments_set_varargannotation(space, w_self, w_new_value):
+    try:
+        w_self.varargannotation = space.interp_w(expr, w_new_value, True)
+        if type(w_self.varargannotation) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'varargannotation', w_new_value)
+        return
+    w_self.deldictvalue(space, 'varargannotation')
+    w_self.initialization_state |= 4
+
+def arguments_get_kwonlyargs(space, w_self):
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwonlyargs')
     if w_self.w_kwonlyargs is None:
@@ -7008,14 +7128,14 @@ def arguments_get_kwonlyargs(space, w_self):
 
 def arguments_set_kwonlyargs(space, w_self, w_new_value):
     w_self.w_kwonlyargs = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 8
 
 def arguments_get_kwarg(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwarg')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwarg')
     return space.wrap(w_self.kwarg)
@@ -7032,10 +7152,33 @@ def arguments_set_kwarg(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'kwarg', w_new_value)
         return
     w_self.deldictvalue(space, 'kwarg')
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 16
+
+def arguments_get_kwargannotation(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'kwargannotation')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 32:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwargannotation')
+    return space.wrap(w_self.kwargannotation)
+
+def arguments_set_kwargannotation(space, w_self, w_new_value):
+    try:
+        w_self.kwargannotation = space.interp_w(expr, w_new_value, True)
+        if type(w_self.kwargannotation) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'kwargannotation', w_new_value)
+        return
+    w_self.deldictvalue(space, 'kwargannotation')
+    w_self.initialization_state |= 32
 
 def arguments_get_defaults(space, w_self):
-    if not w_self.initialization_state & 16:
+    if not w_self.initialization_state & 64:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'defaults')
     if w_self.w_defaults is None:
@@ -7049,18 +7192,36 @@ def arguments_get_defaults(space, w_self):
 
 def arguments_set_defaults(space, w_self, w_new_value):
     w_self.w_defaults = w_new_value
-    w_self.initialization_state |= 16
+    w_self.initialization_state |= 64
 
-_arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'kwonlyargs', 'kwarg', 'defaults'])
+def arguments_get_kw_defaults(space, w_self):
+    if not w_self.initialization_state & 128:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kw_defaults')
+    if w_self.w_kw_defaults is None:
+        if w_self.kw_defaults is None:
+            list_w = []
+        else:
+            list_w = [space.wrap(node) for node in w_self.kw_defaults]
+        w_list = space.newlist(list_w)
+        w_self.w_kw_defaults = w_list
+    return w_self.w_kw_defaults
+
+def arguments_set_kw_defaults(space, w_self, w_new_value):
+    w_self.w_kw_defaults = w_new_value
+    w_self.initialization_state |= 128
+
+_arguments_field_unroller = unrolling_iterable(['args', 'vararg', 'varargannotation', 'kwonlyargs', 'kwarg', 'kwargannotation', 'defaults', 'kw_defaults'])
 def arguments_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(arguments, w_self)
     w_self.w_args = None
     w_self.w_kwonlyargs = None
     w_self.w_defaults = None
+    w_self.w_kw_defaults = None
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 5:
-            w_err = space.wrap("arguments constructor takes either 0 or 5 positional arguments")
+        if len(args_w) != 8:
+            w_err = space.wrap("arguments constructor takes either 0 or 8 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _arguments_field_unroller:
@@ -7072,14 +7233,86 @@ def arguments_init(space, w_self, __args__):
 arguments.typedef = typedef.TypeDef("arguments",
     AST.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['args', 'vararg', 'kwonlyargs', 'kwarg', 'defaults']),
+    _fields=_FieldsWrapper(['args', 'vararg', 'varargannotation', 'kwonlyargs', 'kwarg', 'kwargannotation', 'defaults', 'kw_defaults']),
     args=typedef.GetSetProperty(arguments_get_args, arguments_set_args, cls=arguments),
     vararg=typedef.GetSetProperty(arguments_get_vararg, arguments_set_vararg, cls=arguments),
+    varargannotation=typedef.GetSetProperty(arguments_get_varargannotation, arguments_set_varargannotation, cls=arguments),
     kwonlyargs=typedef.GetSetProperty(arguments_get_kwonlyargs, arguments_set_kwonlyargs, cls=arguments),
     kwarg=typedef.GetSetProperty(arguments_get_kwarg, arguments_set_kwarg, cls=arguments),
+    kwargannotation=typedef.GetSetProperty(arguments_get_kwargannotation, arguments_set_kwargannotation, cls=arguments),
     defaults=typedef.GetSetProperty(arguments_get_defaults, arguments_set_defaults, cls=arguments),
+    kw_defaults=typedef.GetSetProperty(arguments_get_kw_defaults, arguments_set_kw_defaults, cls=arguments),
     __new__=interp2app(get_AST_new(arguments)),
     __init__=interp2app(arguments_init),
+)
+
+def arg_get_arg(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'arg')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 1:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'arg')
+    return space.wrap(w_self.arg)
+
+def arg_set_arg(space, w_self, w_new_value):
+    try:
+        w_self.arg = space.str_w(w_new_value)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'arg', w_new_value)
+        return
+    w_self.deldictvalue(space, 'arg')
+    w_self.initialization_state |= 1
+
+def arg_get_annotation(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'annotation')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 2:
+        typename = space.type(w_self).getname(space)
+        raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'annotation')
+    return space.wrap(w_self.annotation)
+
+def arg_set_annotation(space, w_self, w_new_value):
+    try:
+        w_self.annotation = space.interp_w(expr, w_new_value, True)
+        if type(w_self.annotation) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'annotation', w_new_value)
+        return
+    w_self.deldictvalue(space, 'annotation')
+    w_self.initialization_state |= 2
+
+_arg_field_unroller = unrolling_iterable(['arg', 'annotation'])
+def arg_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(arg, w_self)
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        if len(args_w) != 2:
+            w_err = space.wrap("arg constructor takes either 0 or 2 positional arguments")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _arg_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+arg.typedef = typedef.TypeDef("arg",
+    AST.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper(['arg', 'annotation']),
+    arg=typedef.GetSetProperty(arg_get_arg, arg_set_arg, cls=arg),
+    annotation=typedef.GetSetProperty(arg_get_annotation, arg_set_annotation, cls=arg),
+    __new__=interp2app(get_AST_new(arg)),
+    __init__=interp2app(arg_init),
 )
 
 def keyword_get_arg(space, w_self):

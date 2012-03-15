@@ -20,6 +20,31 @@ class AppTestFunctionIntrospection:
         assert f.__name__ == 'f'
         assert f.__module__ == 'mymodulename'
 
+    def test_annotations(self):
+        def f(): pass
+        ann = f.__annotations__
+        assert ann == {}
+        assert f.__annotations__ is ann
+        raises(TypeError, setattr, f, "__annotations__", 42)
+        del f.__annotations__
+        assert f.__annotations__ is not ann
+        f.__annotations__ = ann
+        assert f.__annotations__ is ann
+
+    def test_kwdefaults(self):
+        """
+        def f(*, kw=3): return kw
+        assert f.__kwdefaults__ == {"kw" : 3}
+        f.__kwdefaults__["kw"] = 4
+        assert f() == 4
+        f.__kwdefaults__ = {"kw" : 5}
+        assert f() == 5
+        del f.__kwdefaults__
+        assert f.__kwdefaults__ is None
+        raises(TypeError, f)
+        assert f(kw=42) == 42
+        """
+
     def test_code_is_ok(self):
         def f(): pass
         assert not hasattr(f.__code__, '__dict__')

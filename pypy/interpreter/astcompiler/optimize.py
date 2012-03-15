@@ -62,6 +62,12 @@ class __extend__(ast.Str):
         return self.s
 
 
+class __extend__(ast.Ellipsis):
+
+    def as_constant_truth(self, space):
+        return True
+
+
 class __extend__(ast.Const):
 
     def as_constant(self):
@@ -255,11 +261,18 @@ class OptimizingVisitor(ast.ASTVisitor):
         return rep
 
     def visit_Name(self, name):
-        # Turn loading None into a constant lookup.  Eventaully, we can do this
-        # for True and False, too.
-        if name.id == "None":
-            assert name.ctx == ast.Load
-            return ast.Const(self.space.w_None, name.lineno, name.col_offset)
+        """Turn loading None, True, and False into a constant lookup."""
+        space = self.space
+        iden = name.id
+        w_const = None
+        if iden == "None":
+            w_const = space.w_None
+        elif iden == "True":
+            w_const = space.w_True
+        elif iden == "False":
+            w_const = space.w_False
+        if w_const is not None:
+            return ast.Const(w_const, name.lineno, name.col_offset)
         return name
 
     def visit_Tuple(self, tup):

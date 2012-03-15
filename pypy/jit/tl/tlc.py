@@ -6,6 +6,8 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.tl.tlopcode import *
 from pypy.jit.tl import tlopcode
 from pypy.rlib.jit import JitDriver, elidable
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 class Obj(object):
 
@@ -219,7 +221,7 @@ def char2int(c):
 class Frame(object):
 
     def __init__(self, args, pc):
-        assert isinstance(pc, int)
+        assert is_valid_int(pc)
         self.args  = args
         self.pc    = pc
         self.stack = []
@@ -239,7 +241,7 @@ def make_interp(supports_call, jitted=True):
         return interp_eval(code, pc, args, pool).int_o()
 
     def interp_eval(code, pc, args, pool):
-        assert isinstance(pc, int)
+        assert is_valid_int(pc)
         frame = Frame(args, pc)
         pc = frame.pc
 

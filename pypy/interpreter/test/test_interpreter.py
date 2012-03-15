@@ -237,8 +237,17 @@ class TestInterpreter:
             '''
         assert self.codetest(code, 'f', []) == os.name
 
+    def test_kwonlyargs_with_kwarg(self):
+        code = """ def f():
+            def g(a, *arg, c, **kw):
+                return [a, arg, c, kw]
+            return g(1, 2, 3, c=4, d=5)
+        """
+        exp = [1, (2, 3), 4, {"d" : 5}]
+        assert self.codetest(code, "f", []) == exp
+
     def test_kwonlyargs_default_parameters(self):
-        code = """ def f(a, b, c=3, *, d=4):
+        code = """ def f(a, b, c=3, d=4):
             return a, b, c, d
         """
         assert self.codetest(code, "f", [1, 2]) == (1, 2, 3, 4)
@@ -324,3 +333,18 @@ class AppTestInterpreter:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
+
+    def test_kwonlyargs_mixed_args(self):
+        """
+        def mixedargs_sum(a, b=0, *args, k1, k2=0):
+            return a + b + k1 + k2 + sum(args)
+        assert mixedargs_sum.__code__.co_varnames == ("a", "b", "k1", "k2", "args")
+        assert mixedargs_sum(1, k1=2) == 1 + 2
+        """
+
+    def test_kwonlyargs_lambda(self):
+        """
+        l = lambda x, y, *, k=20: x+y+k
+        assert l(1, 2) == 1 + 2 + 20
+        assert l(1, 2, k=10) == 1 + 2 + 10
+        """

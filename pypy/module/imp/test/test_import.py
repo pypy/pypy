@@ -768,6 +768,29 @@ class TestPycStuff:
         ret = space.int_w(w_ret)
         assert ret == 42
 
+    def test_load_compiled_module_nopathname(self):
+        space = self.space
+        mtime = 12345
+        co = compile('x = 42', '?', 'exec')
+        cpathname = _testfile(space, importing.get_pyc_magic(space), mtime, co)
+        w_modulename = space.wrap('somemodule')
+        stream = streamio.open_file_as_stream(cpathname, "rb")
+        try:
+            w_mod = space.wrap(Module(space, w_modulename))
+            magic = importing._r_long(stream)
+            timestamp = importing._r_long(stream)
+            w_ret = importing.load_compiled_module(space,
+                                                   w_modulename,
+                                                   w_mod,
+                                                   None,
+                                                   magic,
+                                                   timestamp,
+                                                   stream.readall())
+        finally:
+            stream.close()
+        filename = space.getattr(w_ret, space.wrap('__file__'))
+        assert space.str_w(filename) == u'?'
+
     def test_parse_source_module(self):
         space = self.space
         pathname = _testfilesource()

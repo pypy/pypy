@@ -1,6 +1,6 @@
 
 import py
-from pypy.interpreter.gateway import appdef, ApplevelClass, applevel_temp, applevelinterp_temp
+from pypy.interpreter.gateway import appdef, ApplevelClass, applevel_temp
 from pypy.interpreter.error import OperationError
 
 def test_execwith_novars(space): 
@@ -82,9 +82,6 @@ def test_applevel_functions(space, applevel_temp = applevel_temp):
     w_res = g(space, space.wrap(10), space.wrap(1))
     assert space.eq_w(w_res, space.wrap(-9))
 
-def test_applevelinterp_functions(space):
-    test_applevel_functions(space, applevel_temp = applevelinterp_temp)
-
 def test_applevel_class(space, applevel_temp = applevel_temp):
     app = applevel_temp('''
         class C(object):
@@ -98,9 +95,6 @@ def test_applevel_class(space, applevel_temp = applevel_temp):
     assert space.eq_w(w_attr, space.wrap(42))
     w_clsattr = space.getattr(c, space.wrap('attr'))
     assert space.eq_w(w_clsattr, space.wrap(17))
-
-def test_applevelinterp_class(space):
-    test_applevel_class(space, applevel_temp = applevelinterp_temp)
 
 def app_test_something_at_app_level(): 
     x = 2
@@ -161,7 +155,7 @@ class TestMixedModule:
         w_str = space1.getattr(w_mymod1, space1.wrap("hi"))
         assert space1.str_w(w_str) == "hello"
 
-    def test_geninterp_can_unfreeze(self):
+    def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the
         # imported module is initialized, possibly after it has been already
         # frozen.

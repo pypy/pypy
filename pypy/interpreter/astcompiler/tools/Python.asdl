@@ -1,6 +1,6 @@
 -- ASDL's four builtin types are identifier, int, string, object
 
-module Python version "$Revision: 43614 $"
+module Python version "$Revision$"
 {
 	mod = Module(stmt* body)
 	    | Interactive(stmt* body)
@@ -10,7 +10,7 @@ module Python version "$Revision: 43614 $"
 	    | Suite(stmt* body)
 
 	stmt = FunctionDef(identifier name, arguments args, 
-                            stmt* body, expr* decorator_list)
+                           stmt* body, expr* decorator_list, expr? returns)
 	      | ClassDef(identifier name, 
 			 expr* bases,
 			 keyword* keywords,
@@ -68,7 +68,8 @@ module Python version "$Revision: 43614 $"
 			 expr? starargs, expr? kwargs)
 	     | Num(object n) -- a number as a PyObject.
 	     | Str(string s) -- need to specify raw, unicode, etc?
-             | Bytes(string s)
+	     | Bytes(string s)
+	     | Ellipsis
 	     -- other literals? bools?
 
 	     -- the following expression can appear in assignment context
@@ -79,15 +80,15 @@ module Python version "$Revision: 43614 $"
 	     | List(expr* elts, expr_context ctx) 
 	     | Tuple(expr* elts, expr_context ctx)
 
-             -- PyPy modification
-             | Const(object value)
+              -- PyPy modification
+              | Const(object value)
 
 	      -- col_offset is the byte offset in the utf8 string the parser uses
 	      attributes (int lineno, int col_offset)
 
 	expr_context = Load | Store | Del | AugLoad | AugStore | Param
 
-	slice = Ellipsis | Slice(expr? lower, expr? upper, expr? step) 
+	slice = Slice(expr? lower, expr? upper, expr? step) 
 	      | ExtSlice(slice* dims) 
 	      | Index(expr value) 
 
@@ -106,8 +107,11 @@ module Python version "$Revision: 43614 $"
 	excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
 	                attributes (int lineno, int col_offset)
 
-	arguments = (expr* args, identifier? vararg, expr* kwonlyargs, 
-		     identifier? kwarg, expr* defaults)
+	arguments = (arg* args, identifier? vararg, expr? varargannotation,
+                     arg* kwonlyargs, identifier? kwarg,
+                     expr? kwargannotation, expr* defaults,
+                     expr* kw_defaults)
+	arg = (identifier arg, expr? annotation)
 
         -- keyword arguments supplied to call
         keyword = (identifier arg, expr value)

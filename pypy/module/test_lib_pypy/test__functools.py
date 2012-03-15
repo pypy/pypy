@@ -1,6 +1,6 @@
-import autopath
+from _functools import reduce
 
-class AppTestRange:
+class TestRange:
 
    def test_range_toofew(self):
       raises(TypeError, range)
@@ -22,7 +22,7 @@ class AppTestRange:
 
    def test_range_twoargs(self):
       assert list(range(1, 2)) == [1]
-      
+
    def test_range_decreasingtwoargs(self):
       assert list(range(3, 1)) == []
 

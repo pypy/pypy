@@ -20,7 +20,6 @@ class Module(MixedModule):
         'all'           : 'app_functional.all',
         'sum'           : 'app_functional.sum',
         'map'           : 'app_functional.map',
-        'reduce'        : 'app_functional.reduce',
         'filter'        : 'app_functional.filter',
         'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',

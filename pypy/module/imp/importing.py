@@ -12,6 +12,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit
+from pypy.rlib.rstring import assert_str0
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
@@ -859,8 +860,8 @@ def exec_code_module(space, w_mod, code_w, pathname, cpathname):
                       space.wrap(space.builtin))
     if pathname is not None:
         w_pathname = get_sourcefile(space, pathname)
-    if w_pathname is None:
-        w_pathname = code_w.w_filename
+    else:
+        w_pathname = space.wrap(code_w.co_filename)
     space.setitem(w_dict, space.wrap("__file__"), w_pathname)
     space.setitem(w_dict, space.wrap("__cached__"), space.wrap(cpathname))
     code_w.exec_code(space, w_dict, w_dict)
@@ -924,14 +925,15 @@ def make_source_pathname(pathname):
     return result
 
 def get_sourcefile(space, filename):
-    l = len(filename)
-    if l < 5 or filename[-4:-1].lower() != ".py":
+    start = len(filename) - 4
+    stop = len(filename) - 1
+    if not 0 <= start <= stop or filename[start:stop].lower() != ".py":
         return space.wrap(filename)
     py = make_source_pathname(filename)
     if py is None:
         py = filename[:-1]
     try:
-        st = os.stat(py)
+        st = os.stat(assert_str0(py))
     except OSError:
         pass
     else:
@@ -950,7 +952,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
 
     if space.config.objspace.usepycfiles:
         cpathname = make_compiled_pathname(pathname)
-        src_stat = os.stat(pathname)
+        src_stat = os.stat(assert_str0(pathname))
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)
