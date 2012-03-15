@@ -751,9 +751,9 @@ class ASTBuilder(object):
         # Loop until we return something.
         while True:
             expr_node_type = expr_node.type
-            if expr_node_type == syms.test or expr_node_type == syms.old_test:
+            if expr_node_type == syms.test or expr_node_type == syms.test_nocond:
                 first_child = expr_node.children[0]
-                if first_child.type in (syms.lambdef, syms.old_lambdef):
+                if first_child.type in (syms.lambdef, syms.lambdef_nocond):
                     return self.handle_lambdef(first_child)
                 elif len(expr_node.children) > 1:
                     return self.handle_ifexp(expr_node)
