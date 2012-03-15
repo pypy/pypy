@@ -584,6 +584,7 @@ class __extend__(pyframe.PyFrame):
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
+    @jit.unroll_safe
     def UNPACK_EX(self, oparg, next_instr):
         "a, *b, c = range(10)"
         left = oparg & 0xFF
