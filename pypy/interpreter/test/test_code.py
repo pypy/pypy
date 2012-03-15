@@ -23,12 +23,14 @@ class AppTestCodeIntrospection:
                            'co_names': (),
                            'co_varnames': (),
                            'co_argcount': 0,
+                           'co_kwonlyargcount': 0,
                            'co_consts': (None,)
                            }),
             (g.__code__, {'co_name': 'g',
                            'co_names': (),
                            'co_varnames': ('x', 'y', 'z'),
                            'co_argcount': 1,
+                           'co_kwonlyargcount': 0,
                            'co_consts': ("docstring", None),
                            }),
             ]
@@ -57,6 +59,12 @@ class AppTestCodeIntrospection:
             assert not hasattr(code,'__dict__')
             for key, value in expected.items():
                 assert getattr(code, key) == value
+
+    def test_kwonlyargcount(self):
+        """
+        def f(*args, a, b, **kw): pass
+        assert f.__code__.co_kwonlyargcount == 2
+        """
 
     def test_co_names(self):
         src = '''if 1:
