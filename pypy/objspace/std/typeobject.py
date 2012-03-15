@@ -766,6 +766,7 @@ def ensure_common_attributes(w_self):
     w_self.dict_w.setdefault('__doc__', w_self.w_doc)
     if w_self.is_heaptype():
         ensure_module_attr(w_self)
+    ensure_hash(w_self)
     w_self.mro_w = []      # temporarily
     compute_mro(w_self)
 
@@ -787,6 +788,12 @@ def ensure_module_attr(w_self):
             w_name = space.finditem(w_globals, space.wrap('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name
+
+def ensure_hash(w_self):
+    # if we define __eq__ but not __hash__, we force __hash__ to be None to
+    # prevent inheriting it
+    if '__eq__' in w_self.dict_w and '__hash__' not in w_self.dict_w:
+        w_self.dict_w['__hash__'] = w_self.space.w_None
 
 def compute_mro(w_self):
     if w_self.is_heaptype():

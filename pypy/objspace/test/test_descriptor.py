@@ -101,15 +101,12 @@ class AppTest_Descriptor:
 
     def test_hash(self): 
         class A(object):
-            pass 
+            pass
         hash(A()) 
 
-        # as in CPython, for new-style classes we don't check if
-        # __eq__ is overridden without __hash__ being overridden,
-        # and so hash(B()) always just works (but gives a slightly
-        # useless result).
         class B(object):
-            def __eq__(self, other): pass 
+            def __eq__(self, other): pass
+        assert B.__hash__ is None
         raises(TypeError, "hash(B())") # because we define __eq__ but not __hash__
 
         class E(object):
