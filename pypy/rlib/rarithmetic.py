@@ -137,8 +137,11 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 maxint = int(LONG_TEST - 1)
 
 def is_valid_int(r):
-    return isinstance(r, (int, long)) and (
+    if objectmodel.we_are_translated():
+        return isinstance(r, int)
+    return type(r) in (int, long) and (
         -maxint - 1 <= r <= maxint)
+is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
 def ovfcheck(r):
     "NOT_RPYTHON"

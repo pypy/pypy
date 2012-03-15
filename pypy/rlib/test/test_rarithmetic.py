@@ -330,6 +330,12 @@ class BaseTestRarithmetic(BaseRtypingTest):
             return a == b
         py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
 
+    def test_is_valid_int(self):
+        def f(x):
+            return is_valid_int(x) * 2 + is_valid_int(x + 0.5)
+        res = self.interpret(f, [123])
+        assert res == 2
+
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
