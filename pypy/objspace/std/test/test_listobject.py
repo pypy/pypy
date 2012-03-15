@@ -3,6 +3,7 @@ import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, ObjectListStrategy
 from pypy.interpreter.error import OperationError
+from pypy.rlib.rarithmetic import is_valid_int
 
 from pypy.conftest import gettestobjspace, option
 
@@ -242,7 +243,7 @@ class TestW_ListObject(object):
                 self.space.raises_w(self.space.w_IndexError,
                                     self.space.setitem, w_list, w(key), w(42))
             else:
-                if isinstance(value, int):   # non-slicing
+                if is_valid_int(value):   # non-slicing
                     if random.random() < 0.25:   # deleting
                         self.space.delitem(w_list, w(key))
                         del expected[key]
