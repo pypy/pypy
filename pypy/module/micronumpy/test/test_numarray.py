@@ -407,9 +407,23 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy.core.numeric import newaxis
 
         a = array(range(5))
-        b = (a + a)[None]
+        b = (a + a)[newaxis]
         c = array([[0, 2, 4, 6, 8]])
         assert (b == c).all()
+
+    def test_newaxis_then_slice(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[newaxis]
+        assert (b[0,1:] == a[1:]).all()
+
+    def test_slice_then_newaxis(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[2:]
+        assert (b[newaxis] == [[2, 3, 4]]).all()
 
     def test_scalar(self):
         from _numpypy import array, dtype
