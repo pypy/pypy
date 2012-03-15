@@ -1,6 +1,6 @@
 import sys, os
 import py
-from pypy.tool.nullpath import NullPyPathLocal, NULLPATHNAME
+from pypy.tool.nullpath import NullPyPathLocal
 
 def test_nullpath(tmpdir):
     path = NullPyPathLocal(tmpdir)

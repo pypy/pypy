@@ -1,10 +1,5 @@
 import py, os
 
-if os.name <> 'nt':
-    NULLPATHNAME = '/dev/null'
-else:
-    NULLPATHNAME = 'NUL'
-
 class NullPyPathLocal(py.path.local):
 
     def join(self, *args):

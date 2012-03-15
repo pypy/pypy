@@ -1022,7 +1022,6 @@ class LLFrame(object):
 
     def op_int_neg_ovf(self, x):
         assert is_valid_int(x)
-        assert isinstance(x, (int, long))
         try:
             return ovfcheck(-x)
         except OverflowError:
@@ -1030,7 +1029,6 @@ class LLFrame(object):
 
     def op_int_abs_ovf(self, x):
         assert is_valid_int(x)
-        assert isinstance(x, (int, long))
         try:
             return ovfcheck(abs(x))
         except OverflowError:
@@ -1039,7 +1037,6 @@ class LLFrame(object):
     def op_int_lshift_ovf(self, x, y):
         assert is_valid_int(x)
         assert is_valid_int(y)
-        assert isinstance(y, (int, long))
         try:
             return ovfcheck(x << y)
         except OverflowError:
@@ -1112,7 +1109,7 @@ class LLFrame(object):
             x = x.default
         # if type(x) is a subclass of Symbolic, bool(x) will usually raise
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
-        assert isinstance(x, (int, long, Symbolic))
+        assert is_valid_int(x) or isinstance(x, Symbolic)
         return bool(x)
 
     # hack for jit.codegen.llgraph
@@ -1134,7 +1131,7 @@ class LLFrame(object):
         
     def op_oonewarray(self, ARRAY, length):
         assert isinstance(ARRAY, ootype.Array)
-        assert isinstance(length, (int, long))
+        assert is_valid_int(length)
         return ootype.oonewarray(ARRAY, length)
 
     def op_runtimenew(self, class_):
