@@ -9,7 +9,7 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen, maxint
+from pypy.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
 
@@ -165,10 +165,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newbool(x)
             else:
                 return self.newint(x)
-        # this is an inlined 'is_valid_int' which cannot be used
-        # due to the special annotation nature of 'wrap'.
-        if type(x) is long and (-maxint - 1 <= x <= maxint):
-            return self.newint(x)
         if isinstance(x, str):
             return wrapstr(self, x)
         if isinstance(x, unicode):
@@ -198,6 +194,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def _wrap_not_rpython(self, x):
         "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
+
+        # we might get there in non-translated versions if 'x' is
+        # a long that fits the correct range.
+        if is_valid_int(x):
+            return self.newint(x)
 
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
