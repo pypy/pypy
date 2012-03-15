@@ -606,7 +606,7 @@ class Assembler386(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)            
+        self.loop_run_counters.append(struct)
         return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):
@@ -665,7 +665,7 @@ class Assembler386(object):
                ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                             None, descr=self.debug_counter_descr)]
         operations.extend(ops)
-        
+
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
@@ -1241,6 +1241,11 @@ class Assembler386(object):
         assert isinstance(loc0, RegLoc)
         self.mc.MOVD_xr(resloc.value, loc0.value)
         self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
+
+    def genop_convert_float_bytes_to_longlong(self, op, arglocs, resloc):
+        loc0, = arglocs
+        assert isinstance(resloc, RegLoc)
+        self.mc.MOVD(resloc, loc0)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
