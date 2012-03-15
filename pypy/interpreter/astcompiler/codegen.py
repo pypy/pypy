@@ -354,10 +354,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
+        kw_default_count = 0
+        if args.kwonlyargs:
+            kw_default_count = self._visit_kwonlydefaults(args)
         self.visit_sequence(args.defaults)
         default_count = len(args.defaults) if args.defaults is not None else 0
         code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
-        self._make_function(code, default_count)
+        oparg = default_count
+        oparg |= kw_default_count << 8
+        self._make_function(code, oparg)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
@@ -1243,6 +1248,8 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         assert isinstance(args, ast.arguments)
         if args.args:
             self.argcount = len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)

@@ -341,3 +341,10 @@ class AppTestInterpreter:
         assert mixedargs_sum.__code__.co_varnames == ("a", "b", "k1", "k2", "args")
         assert mixedargs_sum(1, k1=2) == 1 + 2
         """
+
+    def test_kwonlyargs_lambda(self):
+        """
+        l = lambda x, y, *, k=20: x+y+k
+        assert l(1, 2) == 1 + 2 + 20
+        assert l(1, 2, k=10) == 1 + 2 + 10
+        """
