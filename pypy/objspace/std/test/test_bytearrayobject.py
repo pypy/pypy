@@ -27,14 +27,14 @@ class AppTestBytesArray:
         assert x == b"abcd"
 
     def test_encoding(self):
-        data = u"Hello world\n\u1234\u5678\u9abc\def0\def0"
+        data = "Hello world\n\u1234\u5678\u9abc\def0\def0"
         for encoding in 'utf8', 'utf16':
             b = bytearray(data, encoding)
             assert b == data.encode(encoding)
         raises(TypeError, bytearray, 9, 'utf8')
 
     def test_encoding_with_ignore_errors(self):
-        data = u"H\u1234"
+        data = "H\u1234"
         b = bytearray(data, "latin1", errors="ignore")
         assert b == b"H"
 
@@ -82,7 +82,7 @@ class AppTestBytesArray:
         assert bytearray(b'll') in bytearray(b'hello')
         assert memoryview(b'll') in bytearray(b'hello')
 
-        raises(TypeError, lambda: u'foo' in bytearray(b'foobar'))
+        raises(TypeError, lambda: 'foo' in bytearray(b'foobar'))
 
     def test_splitlines(self):
         b = bytearray(b'1234')
@@ -145,10 +145,10 @@ class AppTestBytesArray:
         assert bytearray(b'hello3') != 'hello3'
         assert 'hello3' != bytearray(b'world')
         assert 'hello4' != bytearray(b'hello4')
-        assert not (bytearray(b'') == u'')
-        assert not (u'' == bytearray(b''))
-        assert bytearray(b'') != u''
-        assert u'' != bytearray(b'')
+        assert not (bytearray(b'') == '')
+        assert not ('' == bytearray(b''))
+        assert bytearray(b'') != ''
+        assert '' != bytearray(b'')
 
     def test_stringlike_operations(self):
         assert bytearray(b'hello').islower()
@@ -281,13 +281,13 @@ class AppTestBytesArray:
         assert b == b'heo'
         raises(ValueError, b.remove, ord('l'))
         raises(ValueError, b.remove, 400)
-        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 'e')
         raises(TypeError, b.remove, 2.3)
         # remove first and last
         b.remove(ord('o'))
         b.remove(ord('h'))
         assert b == b'e'
-        raises(TypeError, b.remove, u'e')
+        raises(TypeError, b.remove, 'e')
         b.remove(Indexable())
         assert b == b''
 
@@ -314,7 +314,7 @@ class AppTestBytesArray:
         b += b'def'
         assert b == b'abcdef'
         assert isinstance(b, bytearray)
-        raises(TypeError, b.__iadd__, u"")
+        raises(TypeError, b.__iadd__, "")
 
     def test_add(self):
         b1 = bytearray(b"abc")
@@ -329,27 +329,27 @@ class AppTestBytesArray:
         check(b1, b"def", b"abcdef")
         check(b"def", b1, b"defabc")
         check(b1, memoryview(b"def"), b"abcdef")
-        raises(TypeError, lambda: b1 + u"def")
-        raises(TypeError, lambda: u"abc" + b2)
+        raises(TypeError, lambda: b1 + "def")
+        raises(TypeError, lambda: "abc" + b2)
 
     def test_fromhex(self):
         raises(TypeError, bytearray.fromhex, 9)
 
         assert bytearray.fromhex('') == bytearray()
-        assert bytearray.fromhex(u'') == bytearray()
+        assert bytearray.fromhex('') == bytearray()
 
         b = bytearray([0x1a, 0x2b, 0x30])
         assert bytearray.fromhex('1a2B30') == b
         assert bytearray.fromhex('  1A 2B  30   ') == b
         assert bytearray.fromhex('0000') == b'\0\0'
 
-        raises(ValueError, bytearray.fromhex, u'a')
-        raises(ValueError, bytearray.fromhex, u'A')
-        raises(ValueError, bytearray.fromhex, u'rt')
-        raises(ValueError, bytearray.fromhex, u'1a b cd')
-        raises(ValueError, bytearray.fromhex, u'\x00')
-        raises(ValueError, bytearray.fromhex, u'12   \x00   34')
-        raises(ValueError, bytearray.fromhex, u'\u1234')
+        raises(ValueError, bytearray.fromhex, 'a')
+        raises(ValueError, bytearray.fromhex, 'A')
+        raises(ValueError, bytearray.fromhex, 'rt')
+        raises(ValueError, bytearray.fromhex, '1a b cd')
+        raises(ValueError, bytearray.fromhex, '\x00')
+        raises(ValueError, bytearray.fromhex, '12   \x00   34')
+        raises(ValueError, bytearray.fromhex, '\u1234')
 
     def test_extend(self):
         b = bytearray(b'abc')
@@ -430,14 +430,14 @@ class AppTestBytesArray:
         b = bytearray(b'abcdefghi')
         u = b.decode('utf-8')
         assert isinstance(u, str)
-        assert u == u'abcdefghi'
+        assert u == 'abcdefghi'
 
     def test_int(self):
         assert int(bytearray(b'-1234')) == -1234
 
     def test_reduce(self):
         assert bytearray(b'caf\xe9').__reduce__() == (
-            bytearray, (u'caf\xe9', 'latin-1'), None)
+            bytearray, ('caf\xe9', 'latin-1'), None)
 
     def test_setitem_slice_performance(self):
         # because of a complexity bug, this used to take forever on a
