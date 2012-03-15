@@ -53,6 +53,7 @@ extern "C" {
 
     /* class reflection information ------------------------------------------- */
     char* cppyy_final_name(cppyy_type_t type);
+    char* cppyy_scoped_final_name(cppyy_type_t type);
     int cppyy_has_complex_hierarchy(cppyy_type_t type);
     int cppyy_num_bases(cppyy_type_t type);
     char* cppyy_base_name(cppyy_type_t type, int base_index);

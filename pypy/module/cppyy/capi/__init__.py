@@ -157,6 +157,12 @@ _c_final_name = rffi.llexternal(
     compilation_info=backend.eci)
 def c_final_name(cpptype):
     return charp2str_free(_c_final_name(cpptype))
+_c_scoped_final_name = rffi.llexternal(
+    "cppyy_scoped_final_name",
+    [C_TYPE], rffi.CCHARP,
+    compilation_info=backend.eci)
+def c_scoped_final_name(cpptype):
+    return charp2str_free(_c_scoped_final_name(cpptype))
 c_has_complex_hierarchy = rffi.llexternal(
     "cppyy_has_complex_hierarchy",
     [C_TYPE], rffi.INT,

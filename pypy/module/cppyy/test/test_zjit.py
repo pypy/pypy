@@ -44,9 +44,6 @@ class FakeUserDelAction(object):
     def perform(self, executioncontext, frame):
         pass
 
-class FakeReturnType(object):
-    pass
-
 class FakeSpace(object):
     fake = True
 
@@ -128,7 +125,6 @@ class FakeSpace(object):
         return None
 
     def allocate_instance(self, cls, w_type):
-        assert isinstance(w_type, FakeReturnType)
         return instantiate(cls)
 
     def call_function(self, w_func, *args_w):
@@ -149,13 +145,13 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, FakeReturnType(), [FakeInt(0)])
+            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
-                addDataToInt.call(inst, None, [FakeInt(i)])
+                addDataToInt.call(inst, [FakeInt(i)])
                 i -= 1
             return 7
         f()
@@ -174,13 +170,13 @@ class TestFastPathJIT(LLJitMixin):
         def f():
             lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, FakeReturnType(), [FakeInt(0)])
+            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             addDataToInt = cls.get_overload("overloadedAddDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
             i = 10
             while i > 0:
                 drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
-                addDataToInt.call(inst, None, [FakeInt(i)])
+                addDataToInt.call(inst, [FakeInt(i)])
                 i -= 1
             return 7
         f()

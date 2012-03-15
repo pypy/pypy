@@ -48,24 +48,14 @@ def clgen_callback(name):
 cppyy._set_class_generator(clgen_callback)
 
 def make_static_function(cpptype, func_name, cppol):
-    rettype = cppol.get_returntype()
-    if not rettype:                              # return builtin type
-        def function(*args):
-            return cppol.call(None, None, *args)
-    else:                                        # return instance
-        def function(*args):
-            return cppol.call(None, get_cppclass(rettype), *args)
+    def function(*args):
+        return cppol.call(None, *args)
     function.__name__ = func_name
     return staticmethod(function)
 
 def make_method(meth_name, cppol):
-    rettype = cppol.get_returntype()
-    if not rettype:                              # return builtin type
-        def method(self, *args):
-            return cppol.call(self, None, *args)
-    else:                                        # return instance
-        def method(self, *args):
-            return cppol.call(self, get_cppclass(rettype), *args)
+    def method(self, *args):
+        return cppol.call(self, *args)
     method.__name__ = meth_name
     return method
 
@@ -151,7 +141,7 @@ def make_new(class_name, cpptype):
             raise TypeError(msg)
     else:
         def __new__(cls, *args):
-            return constructor_overload.call(None, cls, *args)
+            return constructor_overload.call(None, *args)
     return __new__
 
 def make_cppclass(scope, class_name, final_class_name, cpptype):

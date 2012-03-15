@@ -127,9 +127,8 @@ class CPPMethod(object):
         self._libffifunc = None
 
     @jit.unroll_safe
-    def call(self, cppthis, w_type, args_w):
+    def call(self, cppthis, args_w):
         jit.promote(self)
-        jit.promote(w_type)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
@@ -141,18 +140,18 @@ class CPPMethod(object):
 
         if self._libffifunc:
             try:
-                return self.do_fast_call(cppthis, w_type, args_w)
+                return self.do_fast_call(cppthis, args_w)
             except FastCallNotPossible:
                 pass          # can happen if converters or executor does not implement ffi
 
         args = self.prepare_arguments(args_w)
         try:
-            return self.executor.execute(self.space, w_type, self.cppmethod, cppthis, len(args_w), args)
+            return self.executor.execute(self.space, self.cppmethod, cppthis, len(args_w), args)
         finally:
             self.free_arguments(args, len(args_w))
 
     @jit.unroll_safe
-    def do_fast_call(self, cppthis, w_type, args_w):
+    def do_fast_call(self, cppthis, args_w):
         jit.promote(self)
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
@@ -164,7 +163,7 @@ class CPPMethod(object):
         for j in range(i+1, len(self.arg_defs)):
             conv = self.arg_converters[j]
             conv.default_argument_libffi(self.space, argchain)
-        return self.executor.execute_libffi(self.space, w_type, self._libffifunc, argchain)
+        return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
 
     def _setup(self, cppthis):
         self.arg_converters = [converter.get_converter(self.space, arg_type, arg_dflt)
@@ -231,15 +230,15 @@ class CPPFunction(CPPMethod):
 class CPPConstructor(CPPMethod):
     _immutable_ = True
 
-    def call(self, cppthis, w_type, args_w):
+    def call(self, cppthis, args_w):
         newthis = capi.c_allocate(self.cpptype.handle)
         assert lltype.typeOf(newthis) == capi.C_OBJECT
         try:
-            CPPMethod.call(self, newthis, None, args_w)
+            CPPMethod.call(self, newthis, args_w)
         except Exception:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
-        return wrap_new_cppobject_nocast(self.space, w_type, self.cpptype, newthis, False, True)
+        return wrap_new_cppobject_nocast(self.space, None, self.cpptype, newthis, False, True)
 
 
 class W_CPPOverload(Wrappable):
@@ -259,7 +258,7 @@ class W_CPPOverload(Wrappable):
         return self.space.wrap(self.functions[0].executor.name)
 
     @jit.unroll_safe
-    def call(self, w_cppinstance, w_type, args_w):
+    def call(self, w_cppinstance, args_w):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._nullcheck()
@@ -275,7 +274,7 @@ class W_CPPOverload(Wrappable):
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
-                return cppyyfunc.call(cppthis, w_type, args_w)
+                return cppyyfunc.call(cppthis, args_w)
             except Exception, e:
                 errmsg += '\n\t'+str(e)
 
@@ -288,7 +287,7 @@ W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static, unwrap_spec=['self']),
     get_returntype = interp2app(W_CPPOverload.get_returntype, unwrap_spec=['self']),
-    call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, W_Root, 'args_w']),
+    call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, 'args_w']),
 )
 
 
@@ -410,7 +409,6 @@ class W_CPPScope(Wrappable):
         return OperationError(
             self.space.w_AttributeError,
             self.space.wrap("%s '%s' has no attribute %s" % (self.kind, self.name, name)))
-
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -657,7 +655,18 @@ class MemoryRegulator:
 memory_regulator = MemoryRegulator()
 
 
+def get_wrapped_type(space, handle):
+    state = space.fromcache(State)
+    try:
+        w_type = state.type_registry[handle]
+    except KeyError:
+        final_name = capi.c_scoped_final_name(handle)
+        w_type = space.call_function(state.w_clgen_callback, space.wrap(final_name))
+    return w_type
+
 def wrap_new_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns):
+    if w_type is None:
+        w_type = get_wrapped_type(space, cpptype.handle)
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
     W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, isref, python_owns)
@@ -676,12 +685,7 @@ def wrap_cppobject(space, w_type, cpptype, rawobject, isref, python_owns):
         if actual != cpptype.handle:
             offset = capi.c_base_offset(actual, cpptype.handle, rawobject)
             rawobject = capi.direct_ptradd(rawobject, offset)
-            state = space.fromcache(State)
-            try:
-                w_type = state.type_registry[actual]
-            except KeyError:
-                final_name = capi.c_final_name(actual)
-                w_type = space.call_function(state.w_clgen_callback, space.wrap(final_name))
+            w_type = get_wrapped_type(space, actual)
             w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
             cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
     return wrap_cppobject_nocast(space, w_type, cpptype, rawobject, isref, python_owns)

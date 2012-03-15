@@ -222,6 +222,14 @@ char* cppyy_final_name(cppyy_type_t handle) {
     return cppstring_to_cstring(name);
 }
 
+char* cppyy_scoped_final_name(cppyy_type_t handle) {
+    Reflex::Scope s = scope_from_handle(handle);
+    if (s.IsEnum())
+        return cppstring_to_cstring("unsigned int");
+    std::string name = s.Name(Reflex::SCOPED | Reflex::FINAL);
+    return cppstring_to_cstring(name);
+}   
+
 static int cppyy_has_complex_hierarchy(const Reflex::Type& t) {
     int is_complex = 1;
     

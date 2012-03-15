@@ -378,6 +378,15 @@ char* cppyy_final_name(cppyy_type_t handle) {
     return cppstring_to_cstring(cr.GetClassName());
 }
 
+char* cppyy_scoped_final_name(cppyy_type_t handle) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass() && cr->GetClassInfo()) {
+        std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
+        return cppstring_to_cstring(true_name);
+    }
+    return cppstring_to_cstring(cr.GetClassName());
+}
+
 int cppyy_has_complex_hierarchy(cppyy_type_t handle) {
 // as long as no fast path is supported for CINT, calculating offsets (which
 // are cached by the JIT) is not going to hurt 
