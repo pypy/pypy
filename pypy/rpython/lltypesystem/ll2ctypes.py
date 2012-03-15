@@ -14,12 +14,14 @@ if sys.version_info >= (2, 6):
 else:
     load_library_kwargs = {}
 
-import os
+import os, platform as host_platform
+from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
+from pypy.rlib.rarithmetic import is_emulated_long, maxint
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -31,6 +33,12 @@ try:
 except ImportError:
     class tlsobject(object):
         pass
+
+_POSIX = os.name == "posix"
+_MS_WINDOWS = os.name == "nt"
+_LINUX = "linux" in sys.platform
+_64BIT = "64bit" in host_platform.architecture()[0]
+
 
 # ____________________________________________________________
 
@@ -68,17 +76,22 @@ def do_allocation_in_far_regions():
     global far_regions
     if not far_regions:
         from pypy.rlib import rmmap
-        if sys.maxint > 0x7FFFFFFF:
+        if _64BIT:
             PIECESIZE = 0x80000000
         else:
-            if sys.platform == 'linux':
+            if _LINUX:
                 PIECESIZE = 0x10000000
             else:
                 PIECESIZE = 0x08000000
         PIECES = 10
-        m = rmmap.mmap(-1, PIECES * PIECESIZE,
-                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
-                       rmmap.PROT_READ|rmmap.PROT_WRITE)
+        flags = 0
+        if _LINUX:
+            flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
+                     rmmap.PROT_READ|rmmap.PROT_WRITE)
+        if _MS_WINDOWS:
+            flags = rmmap.MEM_RESERVE
+            # XXX seems not to work
+        m = rmmap.mmap(-1, PIECES * PIECESIZE, flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
         m._ll2ctypes_pieces = []
@@ -93,9 +106,17 @@ _eci_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
+
+    if is_emulated_long:
+        signed_as_ctype = ctypes.c_longlong
+        unsigned_as_ctypes = ctypes.c_ulonglong
+    else:
+        signed_as_ctype = ctypes.c_long
+        unsigned_as_ctypes = ctypes.c_ulong
+
     _ctypes_cache.update({
-        lltype.Signed:   ctypes.c_long,
-        lltype.Unsigned: ctypes.c_ulong,
+        lltype.Signed:   signed_as_ctype,
+        lltype.Unsigned: unsigned_as_ctypes,
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
@@ -176,10 +197,26 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
+    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
+    for n in [maxint, 2**31]:
+        MAX_SIZE = n/64
+        try:
+            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
+        except (OverflowError, AttributeError), e:
+            pass      #        ^^^ bah, blame ctypes
+        else:
+            break
+    else:
+        raise e
 
     class CArray(ctypes.Structure):
+        if is_emulated_long:
+            lentype = ctypes.c_longlong
+        else:
+            lentype = ctypes.c_long
+
         if not A._hints.get('nolength'):
-            _fields_ = [('length', ctypes.c_long),
+            _fields_ = [('length', lentype),
                         ('items',  max_n * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
@@ -201,11 +238,16 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if cls._ptrtype:
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
-            for n in [sys.maxint, 2**31]:
+            # on windows it raises AttributeError even for 2**31 (_length_ missing)
+            if _MS_WINDOWS:
+                other_limit = 2**31-1
+            else:
+                other_limit = 2**31
+            for n in [maxint, other_limit]:
                 cls.MAX_SIZE = n / ctypes.sizeof(ctypes_item)
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
-                except OverflowError, e:
+                except (OverflowError, AttributeError), e:
                     pass
                 else:
                     break
@@ -566,7 +608,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
 
     def getbounds(self):
         # we have no clue, so we allow whatever index
-        return 0, sys.maxint
+        return 0, maxint
 
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)
@@ -1326,8 +1368,8 @@ def cast_adr_to_int(addr):
             res = force_cast(lltype.Signed, addr.ptr)
     else:
         res = addr._cast_to_int()
-    if res > sys.maxint:
-        res = res - 2*(sys.maxint + 1)
+    if res > maxint:
+        res = res - 2*(maxint + 1)
         assert int(res) == res
         return int(res)
     return res

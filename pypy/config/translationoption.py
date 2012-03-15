@@ -182,11 +182,6 @@ translation_optiondescription = OptionDescription(
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
-    BoolOption("builtins_can_raise_exceptions",
-               "When true, assume any call to a 'simple' builtin such as "
-               "'hex' can raise an arbitrary exception",
-               default=False,
-               cmdline=None),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "

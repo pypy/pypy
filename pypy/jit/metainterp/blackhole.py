@@ -1185,14 +1185,14 @@ class BlackholeInterpreter(object):
     def bhimpl_getinteriorfield_gc_f(cpu, array, index, descr):
         return cpu.bh_getinteriorfield_gc_f(array, index, descr)
 
-    @arguments("cpu", "r", "i", "d", "i")
-    def bhimpl_setinteriorfield_gc_i(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "i", "d")
+    def bhimpl_setinteriorfield_gc_i(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_i(array, index, descr, value)
-    @arguments("cpu", "r", "i", "d", "r")
-    def bhimpl_setinteriorfield_gc_r(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "r", "d")
+    def bhimpl_setinteriorfield_gc_r(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_r(array, index, descr, value)
-    @arguments("cpu", "r", "i", "d", "f")
-    def bhimpl_setinteriorfield_gc_f(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "f", "d")
+    def bhimpl_setinteriorfield_gc_f(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_f(array, index, descr, value)
 
     @arguments("cpu", "r", "d", returns="i")

@@ -176,9 +176,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
 
-    BoolOption("geninterp", "specify whether geninterp should be used",
-               default=False),
-
     BoolOption("logbytecodes",
                "keep track of bytecode usage",
                default=False),
@@ -391,10 +388,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
         # xxx other options? ropes maybe?
-
-    # completely disable geninterp in a level 0 translation
-    if level == '0':
-        config.objspace.suggest(geninterp=False)
 
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':

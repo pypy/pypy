@@ -21,7 +21,6 @@ class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
         'simplifying': True,
-        'builtins_can_raise_exceptions': False,
         'list_comprehension_operations': False,   # True, - not super-tested
         }
 
@@ -31,7 +30,6 @@ class TranslationContext(object):
             config = get_pypy_config(translating=True)
         # ZZZ should go away in the end
         for attr in ['verbose', 'simplifying',
-                     'builtins_can_raise_exceptions',
                      'list_comprehension_operations']:
             if attr in flowing_flags:
                 setattr(config.translation, attr, flowing_flags[attr])
