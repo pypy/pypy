@@ -16,36 +16,32 @@ FLOAT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.FLOAT))
 
 # these definitions are used only in tests, when not translated
 def longlong2float_emulator(llval):
-    d_array = lltype.malloc(DOUBLE_ARRAY_PTR.TO, 1, flavor='raw')
-    ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
-    ll_array[0] = llval
-    floatval = d_array[0]
-    lltype.free(d_array, flavor='raw')
-    return floatval
+    with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 1) as d_array:
+        ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
+        ll_array[0] = llval
+        floatval = d_array[0]
+        return floatval
 
 def float2longlong_emulator(floatval):
-    d_array = lltype.malloc(DOUBLE_ARRAY_PTR.TO, 1, flavor='raw')
-    ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
-    d_array[0] = floatval
-    llval = ll_array[0]
-    lltype.free(d_array, flavor='raw')
-    return llval
+    with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 1) as d_array:
+        ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
+        d_array[0] = floatval
+        llval = ll_array[0]
+        return llval
 
 def uint2singlefloat_emulator(ival):
-    f_array = lltype.malloc(FLOAT_ARRAY_PTR.TO, 1, flavor='raw')
-    i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
-    i_array[0] = ival
-    singlefloatval = f_array[0]
-    lltype.free(f_array, flavor='raw')
-    return singlefloatval
+    with lltype.scoped_alloc(FLOAT_ARRAY_PTR.TO, 1) as f_array:
+        i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
+        i_array[0] = ival
+        singlefloatval = f_array[0]
+        return singlefloatval
 
 def singlefloat2uint_emulator(singlefloatval):
-    f_array = lltype.malloc(FLOAT_ARRAY_PTR.TO, 1, flavor='raw')
-    i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
-    f_array[0] = singlefloatval
-    ival = i_array[0]
-    lltype.free(f_array, flavor='raw')
-    return ival
+    with lltype.scoped_alloc(FLOAT_ARRAY_PTR.TO, 1) as f_array:
+        i_array = rffi.cast(UINT_ARRAY_PTR, f_array)
+        f_array[0] = singlefloatval
+        ival = i_array[0]
+        return ival
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 eci = ExternalCompilationInfo(includes=['string.h', 'assert.h'],
