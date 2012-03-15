@@ -795,7 +795,7 @@ class AppTestOptimizer:
             co = compile(snip, "<test>", "exec").co_consts[0]
             assert name not in co.co_names
             co = co.co_code
-            op = co[0] + (co[1] << 8)
+            op = co[0]
             assert op == opcode.opmap["LOAD_CONST"]
 
     def test_tuple_constants(self):
