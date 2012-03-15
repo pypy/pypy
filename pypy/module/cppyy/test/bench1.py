@@ -55,13 +55,13 @@ class CppyyInterpBench1(object):
         self.lib = cppyy.load_reflection_info("./example01Dict.so")
 
         self.cls  = cppyy._type_byname("example01")
-        self.inst = self.cls.get_overload(self.cls.type_name).call(None, cppyy.CPPInstance, 0)
+        self.inst = self.cls.get_overload(self.cls.type_name).call(None, 0)
 
     def __call__(self):
         addDataToInt = self.cls.get_overload("addDataToInt")
         instance = self.inst
         for i in range(NNN):
-            addDataToInt.call(instance, None, i)
+            addDataToInt.call(instance, i)
         return i
 
 class CppyyInterpBench2(CppyyInterpBench1):
@@ -69,7 +69,7 @@ class CppyyInterpBench2(CppyyInterpBench1):
         addDataToInt = self.cls.get_overload("overloadedAddDataToInt")
         instance = self.inst
         for i in range(NNN):
-            addDataToInt.call(instance, None, i)
+            addDataToInt.call(instance, i)
         return i
 
 class CppyyPythonBench1(object):
