@@ -34,7 +34,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array([], dtype=float64)"
         a = zeros(1001)
         assert repr(a) == "array([ 0.,  0.,  0., ...,  0.,  0.,  0.])"
-        a = array(range(5), long)
+        a = array(range(5), int)
         if a.dtype.itemsize == int_size:
             assert repr(a) == "array([0, 1, 2, 3, 4])"
         else:
