@@ -7,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -833,7 +834,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #

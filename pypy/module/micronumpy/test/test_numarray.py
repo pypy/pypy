@@ -633,6 +633,56 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_floordiv(self):
+        from math import isnan
+        from _numpypy import array, dtype
+
+        a = array(range(1, 6))
+        b = a // a
+        assert (b == [1, 1, 1, 1, 1]).all()
+
+        a = array(range(1, 6), dtype=bool)
+        b = a // a
+        assert b.dtype is dtype("int8")
+        assert (b == [1, 1, 1, 1, 1]).all()
+
+        a = array([-1, 0, 1])
+        b = array([0, 0, 0])
+        c = a // b
+        assert (c == [0, 0, 0]).all()
+
+        a = array([-1.0, 0.0, 1.0])
+        b = array([0.0, 0.0, 0.0])
+        c = a // b
+        assert c[0] == float('-inf')
+        assert isnan(c[1])
+        assert c[2] == float('inf')
+
+        b = array([-0.0, -0.0, -0.0])
+        c = a // b
+        assert c[0] == float('inf')
+        assert isnan(c[1])
+        assert c[2] == float('-inf')
+
+    def test_floordiv_other(self):
+        from _numpypy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2], float)
+        c = a // b
+        assert (c == [0, 0, 1, 1, 2]).all()
+
+    def test_rfloordiv(self):
+        from _numpypy import array
+        a = array(range(1, 6))
+        b = 3 // a
+        assert (b == [3, 1, 1, 0, 0]).all()
+
+    def test_floordiv_constant(self):
+        from _numpypy import array
+        a = array(range(5))
+        b = a // 2
+        assert (b == [0, 0, 1, 1, 2]).all()
+
     def test_truediv(self):
         from operator import truediv
         from _numpypy import arange

@@ -15,6 +15,8 @@ from pypy.rlib import jit
 
 VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
                                                 'render_as_void': True})
+degToRad = math.pi / 180.0
+log2 = math.log(2)
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -316,6 +318,12 @@ class Integer(Primitive):
         return v1 / v2
 
     @simple_binary_op
+    def floordiv(self, v1, v2):
+        if v2 == 0:
+            return 0
+        return v1 // v2
+
+    @simple_binary_op
     def mod(self, v1, v2):
         return v1 % v2
 
@@ -503,6 +511,15 @@ class Float(Primitive):
             return rfloat.copysign(rfloat.INFINITY, v1 * v2)
 
     @simple_binary_op
+    def floordiv(self, v1, v2):
+        try:
+            return math.floor(v1 / v2)
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
+    @simple_binary_op
     def mod(self, v1, v2):
         return math.fmod(v1, v2)
 
@@ -617,6 +634,57 @@ class Float(Primitive):
     @raw_unary_op
     def isinf(self, v):
         return rfloat.isinf(v)
+
+    @simple_unary_op
+    def radians(self, v):
+        return v * degToRad
+    deg2rad = radians
+
+    @simple_unary_op
+    def degrees(self, v):
+        return v / degToRad
+
+    @simple_unary_op
+    def log(self, v):
+        try:
+            return math.log(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log2(self, v):
+        try:
+            return math.log(v) / log2
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log10(self, v):
+        try:
+            return math.log10(v)
+        except ValueError:
+            if v == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_unary_op
+    def log1p(self, v):
+        try:
+            return rfloat.log1p(v)
+        except OverflowError:
+            return -rfloat.INFINITY
+        except ValueError:
+            return rfloat.NAN
 
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
