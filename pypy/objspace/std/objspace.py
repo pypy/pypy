@@ -217,17 +217,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
-            if self.config.objspace.std.withsmalllong:
-                from pypy.rlib.rarithmetic import r_longlong
-                try:
-                    rx = r_longlong(x)
-                except OverflowError:
-                    pass
-                else:
-                    from pypy.objspace.std.smalllongobject import \
-                                                   W_SmallLongObject
-                    return W_SmallLongObject(rx)
-            return W_LongObject.fromlong(x)
+            return self.wraplong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
                                  self.wrap(x.stop),
@@ -267,6 +257,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
+
+    def wraplong(self, x):
+        "NOT_RPYTHON"
+        if self.config.objspace.std.withsmalllong:
+            from pypy.rlib.rarithmetic import r_longlong
+            try:
+                rx = r_longlong(x)
+            except OverflowError:
+                pass
+            else:
+                from pypy.objspace.std.smalllongobject import \
+                                               W_SmallLongObject
+                return W_SmallLongObject(rx)
+        return W_LongObject.fromlong(x)
 
     def unwrap(self, w_obj):
         """NOT_RPYTHON"""
