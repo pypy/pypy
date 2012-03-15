@@ -27,8 +27,7 @@ class Signature(object):
         except ValueError:
             pass
         try:
-            return (len(self.argnames) + self.has_vararg() +
-                    self.kwonlyargnames.index(name))
+            return len(self.argnames) + self.kwonlyargnames.index(name)
         except ValueError:
             pass
         return -1
@@ -347,7 +346,8 @@ class Arguments(object):
                 starargs_w = args_w[args_left:]
             else:
                 starargs_w = []
-            scope_w[co_argcount] = self.space.newtuple(starargs_w)
+            loc = co_argcount + co_kwonlyargcount
+            scope_w[loc] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
             raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,

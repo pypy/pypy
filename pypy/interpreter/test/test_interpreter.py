@@ -333,3 +333,11 @@ class AppTestInterpreter:
             assert str(e) == "maximum recursion depth exceeded"
         else:
             assert 0, "should have raised!"
+
+    def test_kwonlyargs_mixed_args(self):
+        """
+        def mixedargs_sum(a, b=0, *args, k1, k2=0):
+            return a + b + k1 + k2 + sum(args)
+        assert mixedargs_sum.__code__.co_varnames == ("a", "b", "k1", "k2", "args")
+        assert mixedargs_sum(1, k1=2) == 1 + 2
+        """

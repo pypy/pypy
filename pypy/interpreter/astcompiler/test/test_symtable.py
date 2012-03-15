@@ -139,10 +139,12 @@ class TestSymbolTable:
 
     def test_arguments_kwonly(self):
         scp = self.func_scope("def f(a, *b, c, **d): pass")
-        varnames = ["a", "b", "c", "d"]
+        varnames = ["a", "c", "b", "d"]
         for name in varnames:
             assert scp.lookup(name) == symtable.SCOPE_LOCAL
         assert scp.varnames == varnames
+        scp = self.func_scope("def f(a, b=0, *args, k1, k2=0): pass")
+        assert scp.varnames == ["a", "b", "k1", "k2", "args"]
 
     def test_function(self):
         scp = self.func_scope("def f(): x = 4")
