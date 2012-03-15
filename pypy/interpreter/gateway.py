@@ -907,18 +907,12 @@ class ApplevelClass:
         self.filename = filename
         self.source = str(py.code.Source(source).deindent())
         self.modname = modname
-        # look at the first three lines for a NOT_RPYTHON tag
-        first = "\n".join(source.split("\n", 3)[:3])
-        if "NOT_RPYTHON" in first:
-            self.can_use_geninterp = False
-        else:
-            self.can_use_geninterp = True
         # make source code available for tracebacks
         lines = [x + "\n" for x in source.split("\n")]
         py.std.linecache.cache[filename] = (1, None, lines, filename)
 
     def __repr__(self):
-        return "<ApplevelClass filename=%r can_use_geninterp=%r>" % (self.filename, self.can_use_geninterp)
+        return "<ApplevelClass filename=%r>" % (self.filename,)
 
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)
@@ -979,10 +973,7 @@ class ApplevelCache(SpaceCache):
 
     def build(self, app):
         "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
-        if self.space.config.objspace.geninterp and app.can_use_geninterp:
-            return PyPyCacheDir.build_applevelinterp_dict(app, self.space)
-        else:
-            return build_applevel_dict(app, self.space)
+        return build_applevel_dict(app, self.space)
 
 
 # __________ pure applevel version __________
@@ -995,157 +986,6 @@ def build_applevel_dict(self, space):
                 hidden_applevel=self.hidden_applevel,
                 filename=self.filename)
     return w_glob
-
-# __________ geninterplevel version __________
-
-class PyPyCacheDir:
-    "NOT_RPYTHON"
-    # similar to applevel, but using translation to interp-level.
-    # This version maintains a cache folder with single files.
-
-    def build_applevelinterp_dict(cls, self, space):
-        "NOT_RPYTHON"
-        # N.B. 'self' is the ApplevelInterp; this is a class method,
-        # just so that we have a convenient place to store the global state.
-        if not cls._setup_done:
-            cls._setup()
-
-        from pypy.translator.geninterplevel import translate_as_module
-        import marshal
-        scramble = md5(cls.seed)
-        scramble.update(marshal.dumps(self.source))
-        key = scramble.hexdigest()
-        initfunc = cls.known_code.get(key)
-        if not initfunc:
-            # try to get it from file
-            name = key
-            if self.filename:
-                prename = os.path.splitext(os.path.basename(self.filename))[0]
-            else:
-                prename = 'zznoname'
-            name = "%s_%s" % (prename, name)
-            try:
-                __import__("pypy._cache."+name)
-            except ImportError, x:
-                # print x
-                pass
-            else:
-                initfunc = cls.known_code[key]
-        if not initfunc:
-            # build it and put it into a file
-            initfunc, newsrc = translate_as_module(
-                self.source, self.filename, self.modname)
-            fname = cls.cache_path.join(name+".py").strpath
-            f = file(get_tmp_file_name(fname), "w")
-            print >> f, """\
-# self-destruct on double-click:
-if __name__ == "__main__":
-    from pypy import _cache
-    import os
-    namestart = os.path.join(os.path.split(_cache.__file__)[0], '%s')
-    for ending in ('.py', '.pyc', '.pyo'):
-        try:
-            os.unlink(namestart+ending)
-        except os.error:
-            pass""" % name
-            print >> f
-            print >> f, newsrc
-            print >> f, "from pypy._cache import known_code"
-            print >> f, "known_code[%r] = %s" % (key, initfunc.__name__)
-            f.close()
-            rename_tmp_to_eventual_file_name(fname)
-        w_glob = initfunc(space)
-        return w_glob
-    build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
-
-    _setup_done = False
-
-    def _setup(cls):
-        """NOT_RPYTHON"""
-        lp = py.path.local
-        import pypy, os
-        p = lp(pypy.__file__).new(basename='_cache').ensure(dir=1)
-        cls.cache_path = p
-        ini = p.join('__init__.py')
-        try:
-            if not ini.check():
-                raise ImportError  # don't import if only a .pyc file left!!!
-            from pypy._cache import known_code, \
-                 GI_VERSION_RENDERED
-        except ImportError:
-            GI_VERSION_RENDERED = 0
-        from pypy.translator.geninterplevel import GI_VERSION
-        cls.seed = md5(str(GI_VERSION)).digest()
-        if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
-            for pth in p.listdir():
-                if pth.check(file=1):
-                    try:
-                        pth.remove()
-                    except: pass
-            f = file(get_tmp_file_name(str(ini)), "w")
-            f.write("""\
-# This folder acts as a cache for code snippets which have been
-# compiled by compile_as_module().
-# It will get a new entry for every piece of code that has
-# not been seen, yet.
-#
-# Caution! Only the code snippet is checked. If something
-# is imported, changes are not detected. Also, changes
-# to geninterplevel or gateway are also not checked.
-# Exception: There is a checked version number in geninterplevel.py
-#
-# If in doubt, remove this file from time to time.
-
-GI_VERSION_RENDERED = %r
-
-known_code = {}
-
-# self-destruct on double-click:
-def harakiri():
-    import pypy._cache as _c
-    import py
-    lp = py.path.local
-    for pth in lp(_c.__file__).dirpath().listdir():
-        try:
-            pth.remove()
-        except: pass
-
-if __name__ == "__main__":
-    harakiri()
-
-del harakiri
-""" % GI_VERSION)
-            f.close()
-            rename_tmp_to_eventual_file_name(str(ini))
-        import pypy._cache
-        cls.known_code = pypy._cache.known_code
-        cls._setup_done = True
-    _setup = classmethod(_setup)
-
-
-def gethostname(_cache=[]):
-    if not _cache:
-        try:
-            import socket
-            hostname = socket.gethostname()
-        except:
-            hostname = ''
-        _cache.append(hostname)
-    return _cache[0]
-
-def get_tmp_file_name(fname):
-    return '%s~%s~%d' % (fname, gethostname(), os.getpid())
-
-def rename_tmp_to_eventual_file_name(fname):
-    # generated files are first written to the host- and process-specific
-    # file 'tmpname', and then atomically moved to their final 'fname'
-    # to avoid problems if py.py is started several times in parallel
-    tmpname = get_tmp_file_name(fname)
-    try:
-        os.rename(tmpname, fname)
-    except (OSError, IOError):
-        os.unlink(fname)    # necessary on Windows
-        os.rename(tmpname, fname)
 
 # ____________________________________________________________
 
@@ -1183,11 +1023,6 @@ class applevel_temp(ApplevelClass):
     def getwdict(self, space):    # no cache
         return build_applevel_dict(self, space)
 
-
-class applevelinterp_temp(ApplevelClass):
-    hidden_applevel = False
-    def getwdict(self, space):   # no cache
-        return PyPyCacheDir.build_applevelinterp_dict(self, space)
 
 # app2interp_temp is used for testing mainly
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
