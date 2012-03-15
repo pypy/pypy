@@ -4,6 +4,7 @@ from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 from pypy.module.micronumpy.interp_boxes import W_Float64Box
+from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix
 from pypy.conftest import option
 import sys
 
@@ -15,6 +16,7 @@ class BaseNumpyAppTest(object):
                 sys.modules['numpypy'] = numpy
                 sys.modules['_numpypy'] = numpy
         cls.space = gettestobjspace(usemodules=['micronumpy'])
+        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
 
 class TestSignature(object):
     def test_binop_signature(self, space):
