@@ -508,6 +508,8 @@ class AppTestStringObject:
         # Need default encoding utf-8, but sys.setdefaultencoding
         # is removed after startup.
         import sys
+        if not hasattr(sys, 'setdefaultencoding'):
+            skip("sys.setdefaultencoding() not available")
         old_encoding = sys.getdefaultencoding()
         # Duplicate unittest.test_support.CleanImport logic because it won't
         # import.
