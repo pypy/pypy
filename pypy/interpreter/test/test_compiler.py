@@ -766,6 +766,19 @@ class AppTestCompiler:
         assert x is Ellipsis
         """
 
+    def test_keywordonly_syntax_errors(self):
+        cases = ("def f(p, *):\n  pass\n",
+                 "def f(p1, *, p1=100):\n  pass\n",
+                 "def f(p1, *k1, k1=100):\n  pass\n",
+                 "def f(p1, *, k1, k1=100):\n  pass\n",
+                 "def f(p1, *, **k1):\n  pass\n",
+                 "def f(p1, *, k1, **k1):\n  pass\n",
+                 "def f(p1, *, None, **k1):\n  pass\n",
+                 "def f(p, *, (k1, k2), **kw):\n  pass\n")
+        for case in cases:
+            raises(SyntaxError, compile, case, "<test>", "exec")
+
+
 
 class AppTestOptimizer:
 

@@ -552,7 +552,7 @@ class ASTBuilder(object):
             i += 1
         pos = []
         posdefaults = []
-        kwonly = []
+        kwonly = [] if n_kwdonly else None
         kwdefaults = []
         kwarg = None
         kwargann = None
@@ -579,8 +579,9 @@ class ASTBuilder(object):
                 pos.append(self.handle_arg(arg))
                 i += 2
             elif arg_type == tokens.STAR:
-                if i + 1 > child_count:
-                    self.error("named arguments must follow bare *")
+                if i + 1 >= child_count:
+                    self.error("named arguments must follow bare *",
+                               arguments_node)
                 name_node = arguments_node.children[i + 1]
                 keywordonly_args = []
                 if name_node.type == tokens.COMMA:
@@ -612,6 +613,9 @@ class ASTBuilder(object):
                              kwargann, posdefaults, kwdefaults)
 
     def handle_keywordonly_args(self, arguments_node, i, kwonly, kwdefaults):
+        if kwonly is None:
+            self.error("named arguments must follows bare *",
+                       arguments_node.children[i])
         child_count = len(arguments_node.children)
         while i < child_count:
             arg = arguments_node.children[i]

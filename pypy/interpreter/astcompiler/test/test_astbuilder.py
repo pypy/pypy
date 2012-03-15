@@ -541,6 +541,9 @@ class TestAstBuilder:
         assert fn.args.kwonlyargs[0].arg == "kwarg"
         assert len(fn.args.kw_defaults) == 1
         assert isinstance(fn.args.kw_defaults[0], ast.Num)
+        input = "def f(p1, *, **k1):  pass"
+        exc = py.test.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "named arguments must follows bare *"
 
     def test_function_annotation(self):
         func = self.get_first_stmt("def f() -> X: pass")
