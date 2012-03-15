@@ -1329,10 +1329,6 @@ class ObjSpace(object):
         return self.str_w(w_obj)
 
     def unicode_w(self, w_obj):
-        if not we_are_translated():
-            if self.isinstance_w(w_obj, self.w_bytes):
-                import pdb; pdb.set_trace()
-                assert False, "unicode_w was called with a bytes string"
         return w_obj.unicode_w(self)
 
     def unicode0_w(self, w_obj):

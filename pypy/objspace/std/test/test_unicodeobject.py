@@ -30,7 +30,7 @@ class AppTestUnicodeString:
         check(', '.join(['a']), 'a')
         raises(TypeError, ','.join, [b'a']) 
         exc = raises(TypeError, ''.join, ['a', 2, 3])
-        assert 'sequence item 1' in str(e.value)
+        assert 'sequence item 1' in str(exc.value)
 
     def test_contains(self):
         assert '' in 'abc'
