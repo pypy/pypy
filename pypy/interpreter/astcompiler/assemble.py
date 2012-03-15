@@ -626,7 +626,7 @@ def _compute_RAISE_VARARGS(arg):
     return -arg
 
 def _num_args(oparg):
-    return (oparg % 256) + 2 * (oparg / 256)
+    return (oparg % 256) + 2 * ((oparg // 256) % 256)
 
 def _compute_CALL_FUNCTION(arg):
     return -_num_args(arg)
