@@ -374,14 +374,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 0.
 
-    def test_newindex(self):
+    def test_newaxis(self):
         from _numpypy import array
         from numpypy.core.numeric import newaxis
         a = array(range(5))
         b = array([range(5)])
         assert (a[newaxis] == b).all()
 
-    def test_newindex_slice(self):
+    def test_newaxis_slice(self):
         from _numpypy import array
         from numpypy.core.numeric import newaxis
 
