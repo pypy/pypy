@@ -469,6 +469,7 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+# XXX THESE ARE SERIOUSLY BOGUS, DON'T USE!!
 r_long = build_int('r_long', True, 32)
 r_ulong = build_int('r_ulong', False, 32)
 
