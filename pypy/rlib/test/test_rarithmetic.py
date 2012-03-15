@@ -332,9 +332,12 @@ class BaseTestRarithmetic(BaseRtypingTest):
 
     def test_is_valid_int(self):
         def f(x):
-            return is_valid_int(x) * 2 + is_valid_int(x + 0.5)
+            return (is_valid_int(x)     * 4 +
+                    is_valid_int(x > 0) * 2 +
+                    is_valid_int(x + 0.5))
+        assert f(123) == 4 + 2
         res = self.interpret(f, [123])
-        assert res == 2
+        assert res == 4 + 2
 
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass

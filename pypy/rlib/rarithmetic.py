@@ -139,7 +139,7 @@ maxint = int(LONG_TEST - 1)
 def is_valid_int(r):
     if objectmodel.we_are_translated():
         return isinstance(r, int)
-    return type(r) in (int, long) and (
+    return type(r) in (int, long, bool) and (
         -maxint - 1 <= r <= maxint)
 is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
