@@ -15,11 +15,11 @@ class FunctionExecutor(object):
     _immutable_ = True
     libffitype = NULL
 
-    def __init__(self, space, name, cpptype):
-        self.name = name
+    def __init__(self, space, cpptype):
+        pass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        raise TypeError('return type not available or supported ("%s")' % self.name)
+        raise TypeError('return type not available or supported')
 
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -240,8 +240,8 @@ class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
 
-    def __init__(self, space, name, cpptype):
-        FunctionExecutor.__init__(self, space, name, cpptype)
+    def __init__(self, space, cpptype):
+        FunctionExecutor.__init__(self, space, cpptype)
         self.cpptype = cpptype
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -309,7 +309,7 @@ def get_executor(space, name):
 
     #   1) full, qualified match
     try:
-        return _executors[name](space, "", None)
+        return _executors[name](space, None)
     except KeyError:
         pass
 
@@ -318,7 +318,7 @@ def get_executor(space, name):
 
     #   1a) clean lookup
     try:
-        return _executors[clean_name+compound](space, "", None)
+        return _executors[clean_name+compound](space, None)
     except KeyError:
         pass
 
@@ -326,7 +326,7 @@ def get_executor(space, name):
     if compound and compound[len(compound)-1] == "&":
         # TODO: this does not actually work with Reflex (?)
         try:
-            return _executors[clean_name](space, "", None)
+            return _executors[clean_name](space, None)
         except KeyError:
             pass
 
@@ -338,19 +338,19 @@ def get_executor(space, name):
         from pypy.module.cppyy.interp_cppyy import W_CPPType
         cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
         if compound == "":
-            return InstanceExecutor(space, clean_name, cpptype)
+            return InstanceExecutor(space, cpptype)
         elif compound == "*" or compound == "&":
-            return InstancePtrExecutor(space, clean_name, cpptype)
+            return InstancePtrExecutor(space, cpptype)
         elif compound == "**" or compound == "*&":
-            return InstancePtrPtrExecutor(space, clean_name, cpptype)
+            return InstancePtrPtrExecutor(space, cpptype)
     elif capi.c_is_enum(clean_name):
-        return UnsignedIntExecutor(space, "", None)
+        return UnsignedIntExecutor(space, None)
 
     # 4) additional special cases
     # ... none for now
 
     # currently used until proper lazy instantiation available in interp_cppyy
-    return FunctionExecutor(space, "", None)
+    return FunctionExecutor(space, None)
  
  #  raise TypeError("no clue what %s is" % name)
 

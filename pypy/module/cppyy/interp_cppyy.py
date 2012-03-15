@@ -254,9 +254,6 @@ class W_CPPOverload(Wrappable):
     def is_static(self):
         return self.space.wrap(isinstance(self.functions[0], CPPFunction))
 
-    def get_returntype(self):
-        return self.space.wrap(self.functions[0].executor.name)
-
     @jit.unroll_safe
     def call(self, w_cppinstance, args_w):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
@@ -286,7 +283,6 @@ class W_CPPOverload(Wrappable):
 W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static, unwrap_spec=['self']),
-    get_returntype = interp2app(W_CPPOverload.get_returntype, unwrap_spec=['self']),
     call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, 'args_w']),
 )
 
