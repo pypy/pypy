@@ -101,9 +101,9 @@ class TestLongObject(BaseApiTest):
                                   space.wrap((2, 7)))):
             py.test.skip("unsupported before Python 2.7")
 
-        assert api._PyLong_Sign(space.wrap(0L)) == 0
-        assert api._PyLong_Sign(space.wrap(2L)) == 1
-        assert api._PyLong_Sign(space.wrap(-2L)) == -1
+        assert api._PyLong_Sign(space.wraplong(0L)) == 0
+        assert api._PyLong_Sign(space.wraplong(2L)) == 1
+        assert api._PyLong_Sign(space.wraplong(-2L)) == -1
 
         assert api._PyLong_NumBits(space.wrap(0)) == 0
         assert api._PyLong_NumBits(space.wrap(1)) == 1
