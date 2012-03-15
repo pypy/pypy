@@ -786,12 +786,15 @@ def read_can_only_throw(opimpl, *args):
 #
 # safety check that no-one is trying to make annotation and translation
 # faster by providing the -O option to Python.
-try:
-    assert False
-except AssertionError:
-    pass   # fine
-else:
-    raise RuntimeError("The annotator relies on 'assert' statements from the\n"
+import os
+if "WINGDB_PYTHON" not in os.environ:
+    # ...but avoiding this boring check in the IDE
+    try:
+        assert False
+    except AssertionError:
+        pass   # fine
+    else:
+        raise RuntimeError("The annotator relies on 'assert' statements from the\n"
                      "\tannotated program: you cannot run it with 'python -O'.")
 
 # this has the side-effect of registering the unary and binary operations

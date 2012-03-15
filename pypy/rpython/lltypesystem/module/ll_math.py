@@ -114,10 +114,8 @@ VERY_LARGE_FLOAT = 1.0
 while VERY_LARGE_FLOAT * 100.0 != INFINITY:
     VERY_LARGE_FLOAT *= 64.0
 
-_lib_isnan = rffi.llexternal("_isnan", [lltype.Float], lltype.Signed,
-                             compilation_info=eci)
-_lib_finite = rffi.llexternal("_finite", [lltype.Float], lltype.Signed,
-                             compilation_info=eci)
+_lib_isnan = llexternal("_isnan", [lltype.Float], lltype.Signed)
+_lib_finite = llexternal("_finite", [lltype.Float], lltype.Signed)
 
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.

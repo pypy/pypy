@@ -305,7 +305,7 @@ def get_executor(space, name):
     #
     # If all fails, a default is used, which can be ignored at least until use.
 
-    name = capi.charp2str_free(capi.c_resolve_name(name))
+    name = capi.c_resolve_name(name)
 
     #   1) full, qualified match
     try:

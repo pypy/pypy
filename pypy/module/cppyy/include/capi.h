@@ -65,8 +65,8 @@ extern "C" {
     char* cppyy_method_result_type(cppyy_scope_t scope, int method_index);
     int cppyy_method_num_args(cppyy_scope_t scope, int method_index);
     int cppyy_method_req_args(cppyy_scope_t scope, int method_index);
-    char* cppyy_method_arg_type(cppyy_scope_t scope, int method_index, int index);
-    char* cppyy_method_arg_default(cppyy_scope_t scope, int method_index, int index);
+    char* cppyy_method_arg_type(cppyy_scope_t scope, int method_index, int arg_index);
+    char* cppyy_method_arg_default(cppyy_scope_t scope, int method_index, int arg_index);
 
     cppyy_method_t cppyy_get_method(cppyy_scope_t scope, int method_index);
 

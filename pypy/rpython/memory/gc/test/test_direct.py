@@ -9,7 +9,7 @@ see as the list of roots (stack and prebuilt objects).
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctypelayout import TypeLayoutBuilder
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT, is_valid_int
 
 WORD = LONG_BIT // 8
 
@@ -286,7 +286,7 @@ class DirectGCTest(BaseDirectGCTest):
         p = self.malloc(S)
         hash = self.gc.identityhash(p)
         print hash
-        assert isinstance(hash, (int, long))
+        assert is_valid_int(hash)
         assert hash == self.gc.identityhash(p)
         self.stackroots.append(p)
         for i in range(6):
@@ -299,7 +299,7 @@ class DirectGCTest(BaseDirectGCTest):
         self.gc.collect()
         hash = self.gc.identityhash(self.stackroots[-1])
         print hash
-        assert isinstance(hash, (int, long))
+        assert is_valid_int(hash)
         for i in range(6):
             self.gc.collect()
             assert hash == self.gc.identityhash(self.stackroots[-1])
@@ -311,7 +311,7 @@ class DirectGCTest(BaseDirectGCTest):
             self.gc.collect()
         hash = self.gc.identityhash(self.stackroots[-1])
         print hash
-        assert isinstance(hash, (int, long))
+        assert is_valid_int(hash)
         for i in range(2):
             self.gc.collect()
             assert hash == self.gc.identityhash(self.stackroots[-1])
@@ -319,7 +319,7 @@ class DirectGCTest(BaseDirectGCTest):
         # (4) p is a prebuilt object
         hash = self.gc.identityhash(p_const)
         print hash
-        assert isinstance(hash, (int, long))
+        assert is_valid_int(hash)
         assert hash == self.gc.identityhash(p_const)
         # (5) p is actually moving (for the markcompact gc)
         p0 = self.malloc(S)

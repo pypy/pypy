@@ -388,6 +388,7 @@ class UfuncState(object):
                                              "int_only": True}),
             ("bitwise_xor", "bitwise_xor", 2, {"int_only": True}),
             ("invert", "invert", 1, {"int_only": True}),
+            ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
@@ -441,6 +442,14 @@ class UfuncState(object):
             ("arcsinh", "arcsinh", 1, {"promote_to_float": True}),
             ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
+
+            ("radians", "radians", 1, {"promote_to_float": True}),
+            ("degrees", "degrees", 1, {"promote_to_float": True}),
+
+            ("log", "log", 1, {"promote_to_float": True}),
+            ("log2", "log2", 1, {"promote_to_float": True}),
+            ("log10", "log10", 1, {"promote_to_float": True}),
+            ("log1p", "log1p", 1, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

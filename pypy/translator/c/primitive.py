@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, is_emulated_long
 from pypy.rlib.rfloat import isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
@@ -16,6 +16,15 @@ from pypy.translator.c.support import cdecl, barebonearray
 #
 # Primitives
 
+# win64: we need different constants, since we emulate 64 bit long.
+# this function simply replaces 'L' by 'LL' in a format string
+if is_emulated_long:
+    def lll(fmt):
+        return fmt.replace('L', 'LL')
+else:
+    def lll(fmt):
+        return fmt
+    
 def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
@@ -61,22 +70,22 @@ def name_signed(value, db):
         elif isinstance(value, llgroup.CombinedSymbolic):
             name = name_small_integer(value.lowpart, db)
             assert (value.rest & value.MASK) == 0
-            return '(%s+%dL)' % (name, value.rest)
+            return lll('(%s+%dL)') % (name, value.rest)
         elif isinstance(value, AddressAsInt):
-            return '((long)%s)' % name_address(value.adr, db)
+            return '((Signed)%s)' % name_address(value.adr, db)
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:
         assert not db.completed
         return None
     if value == -sys.maxint-1:   # blame C
-        return '(-%dL-1L)' % sys.maxint
+        return lll('(-%dL-1L)') % sys.maxint
     else:
-        return '%dL' % value
+        return lll('%dL') % value
 
 def name_unsigned(value, db):
     assert value >= 0
-    return '%dUL' % value
+    return lll('%dUL') % value
 
 def name_unsignedlonglong(value, db):
     assert value >= 0
@@ -89,6 +98,12 @@ def name_signedlonglong(value, db):
     else:
         return '%dLL' % value
 
+def is_positive_nan(value):
+    # bah.  we don't have math.copysign() if we're running Python 2.5
+    import struct
+    c = struct.pack("!d", value)[0]
+    return {'\x7f': True, '\xff': False}[c]
+
 def name_float(value, db):
     if isinf(value):
         if value > 0:
@@ -96,7 +111,10 @@ def name_float(value, db):
         else:
             return '(-Py_HUGE_VAL)'
     elif isnan(value):
-        return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        if is_positive_nan(value):
+            return '(Py_HUGE_VAL/Py_HUGE_VAL)'
+        else:
+            return '(-(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         x = repr(value)
         assert not x.startswith('n')
@@ -112,7 +130,10 @@ def name_singlefloat(value, db):
             return '((float)-Py_HUGE_VAL)'
     elif isnan(value):
         # XXX are these expressions ok?
-        return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        if is_positive_nan(value):
+            return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+        else:
+            return '(-(float)(Py_HUGE_VAL/Py_HUGE_VAL))'
     else:
         return repr(value) + 'f'
 
@@ -172,6 +193,7 @@ def name_small_integer(value, db):
 
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
+# (some entries collapse during dict creation)
 PrimitiveName = {
     SignedLongLong:   name_signedlonglong,
     Signed:   name_signed,
@@ -190,9 +212,9 @@ PrimitiveName = {
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
-    Signed:   'long @',
+    Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'unsigned long @',
+    Unsigned: 'Unsigned @',
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',

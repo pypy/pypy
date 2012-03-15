@@ -121,6 +121,8 @@ class AppTestFRAGILE:
         raises(TypeError, fragile.A.check, b)
         raises(TypeError, fragile.B.check, a)
 
+        assert not a.gime_null()
+
         assert isinstance(a.gime_null(), fragile.A)
         raises(ReferenceError, fragile.A.check, a.gime_null())
 

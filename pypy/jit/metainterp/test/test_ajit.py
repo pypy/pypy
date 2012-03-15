@@ -14,7 +14,7 @@ from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, promote_string, set_param, record_known_class)
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 
@@ -2296,7 +2296,7 @@ class BasicTests:
             self.check_resops(int_rshift=3)
 
             bigval = 1
-            while (bigval << 3).__class__ is int:
+            while is_valid_int(bigval << 3):
                 bigval = bigval << 1
 
             assert self.meta_interp(f, [bigval, 5]) == 0
@@ -2341,7 +2341,7 @@ class BasicTests:
             self.check_resops(int_rshift=3)
 
             bigval = 1
-            while (bigval << 3).__class__ is int:
+            while is_valid_int(bigval << 3):
                 bigval = bigval << 1
 
             assert self.meta_interp(f, [bigval, 5]) == 0
@@ -3783,6 +3783,15 @@ class BaseLLtypeTests(BasicTests):
         res = self.interp_operations(f, [10])
         assert res == 11 * 12 * 13
         self.check_operations_history(int_add=3, int_mul=2)
+
+    def test_setinteriorfield(self):
+        A = lltype.GcArray(lltype.Struct('S', ('x', lltype.Signed)))
+        a = lltype.malloc(A, 5, immortal=True)
+        def g(n):
+            a[n].x = n + 2
+            return a[n].x
+        res = self.interp_operations(g, [1])
+        assert res == 3
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

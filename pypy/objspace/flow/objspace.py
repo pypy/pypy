@@ -14,6 +14,7 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext, operation, specialcase
 from pypy.rlib.unroll import unrolling_iterable, _unroller
 from pypy.rlib import rstackovf, rarithmetic
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 # method-wrappers have not enough introspection in CPython
@@ -103,7 +104,7 @@ class FlowObjSpace(ObjSpace):
     is_ = None     # real version added by add_operations()
     id  = None     # real version added by add_operations()
 
-    def newdict(self):
+    def newdict(self, module="ignored"):
         if self.concrete_mode:
             return Constant({})
         return self.do_operation('newdict')
@@ -141,7 +142,7 @@ class FlowObjSpace(ObjSpace):
     def int_w(self, w_obj):
         if isinstance(w_obj, Constant):
             val = w_obj.value
-            if type(val) not in (int,long):
+            if not is_valid_int(val):
                 raise TypeError("expected integer: " + repr(w_obj))
             return val
         return self.unwrap(w_obj)
@@ -221,10 +222,8 @@ class FlowObjSpace(ObjSpace):
         except UnwrapException:
             raise Exception, "non-constant except guard"
         if check_class in (NotImplementedError, AssertionError):
-            # if we are in geninterp, we cannot catch these exceptions
-            if not self.config.translation.builtins_can_raise_exceptions:
-                raise error.FlowingError("Catching %s is not valid in RPython" %
-                                         check_class.__name__)
+            raise error.FlowingError("Catching %s is not valid in RPython" %
+                                     check_class.__name__)
         if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
@@ -438,41 +437,33 @@ class FlowObjSpace(ObjSpace):
         exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
-            if not self.config.translation.builtins_can_raise_exceptions:
-                if (isinstance(c, (types.BuiltinFunctionType,
-                                   types.BuiltinMethodType,
-                                   types.ClassType,
-                                   types.TypeType)) and
-                      c.__module__ in ['__builtin__', 'exceptions']):
-                    exceptions = operation.implicit_exceptions.get(c)
+            if (isinstance(c, (types.BuiltinFunctionType,
+                               types.BuiltinMethodType,
+                               types.ClassType,
+                               types.TypeType)) and
+                  c.__module__ in ['__builtin__', 'exceptions']):
+                exceptions = operation.implicit_exceptions.get(c)
         self.handle_implicit_exceptions(exceptions)
         return w_res
 
     def handle_implicit_exceptions(self, exceptions):
         if not exceptions:
             return
-        if not self.config.translation.builtins_can_raise_exceptions:
-            # clean up 'exceptions' by removing the non-RPythonic exceptions
-            # which might be listed for geninterp.
-            exceptions = [exc for exc in exceptions
-                              if exc is not TypeError and
-                                 exc is not AttributeError]
-        if exceptions:
-            # catch possible exceptions implicitly.  If the OperationError
-            # below is not caught in the same function, it will produce an
-            # exception-raising return block in the flow graph.  Note that
-            # even if the interpreter re-raises the exception, it will not
-            # be the same ImplicitOperationError instance internally.
-            context = self.getexecutioncontext()
-            outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
-            if outcome is not None:
-                # we assume that the caught exc_cls will be exactly the
-                # one specified by 'outcome', and not a subclass of it,
-                # unless 'outcome' is Exception.
-                #if outcome is not Exception:
-                    #w_exc_cls = Constant(outcome) Now done by guessexception itself
-                    #pass
-                 raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
+        # catch possible exceptions implicitly.  If the OperationError
+        # below is not caught in the same function, it will produce an
+        # exception-raising return block in the flow graph.  Note that
+        # even if the interpreter re-raises the exception, it will not
+        # be the same ImplicitOperationError instance internally.
+        context = self.getexecutioncontext()
+        outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
+        if outcome is not None:
+            # we assume that the caught exc_cls will be exactly the
+            # one specified by 'outcome', and not a subclass of it,
+            # unless 'outcome' is Exception.
+            #if outcome is not Exception:
+                #w_exc_cls = Constant(outcome) Now done by guessexception itself
+                #pass
+             raise operation.ImplicitOperationError(w_exc_cls, w_exc_value)
 
     def w_KeyboardInterrupt(self):
         # the reason to do this is: if you interrupt the flowing of a function

@@ -33,10 +33,12 @@ def direct_ptradd(ptr, offset):
 c_load_dictionary = backend.c_load_dictionary
 
 # name to opaque C++ scope representation ------------------------------------
-c_resolve_name = rffi.llexternal(
+_c_resolve_name = rffi.llexternal(
     "cppyy_resolve_name",
     [rffi.CCHARP], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_resolve_name(cppitem_name):
+    return charp2str_free(_c_resolve_name(cppitem_name))
 c_get_scope = rffi.llexternal(
     "cppyy_get_scope",
     [rffi.CCHARP], C_SCOPE,
@@ -149,10 +151,12 @@ c_is_enum = rffi.llexternal(
     compilation_info=backend.eci)
 
 # type/class reflection information ------------------------------------------
-c_final_name = rffi.llexternal(
+_c_final_name = rffi.llexternal(
     "cppyy_final_name",
     [C_TYPE], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_final_name(cpptype):
+    return charp2str_free(_c_final_name(cpptype))
 c_has_complex_hierarchy = rffi.llexternal(
     "cppyy_has_complex_hierarchy",
     [C_TYPE], rffi.INT,
@@ -161,10 +165,12 @@ c_num_bases = rffi.llexternal(
     "cppyy_num_bases",
     [C_TYPE], rffi.INT,
     compilation_info=backend.eci)
-c_base_name = rffi.llexternal(
+_c_base_name = rffi.llexternal(
     "cppyy_base_name",
     [C_TYPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_base_name(cpptype, base_index):
+    return charp2str_free(_c_base_name(cpptype, base_index))
 
 _c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
@@ -195,14 +201,18 @@ c_num_methods = rffi.llexternal(
     "cppyy_num_methods",
     [C_SCOPE], rffi.INT,
     compilation_info=backend.eci)
-c_method_name = rffi.llexternal(
+_c_method_name = rffi.llexternal(
     "cppyy_method_name",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
-c_method_result_type = rffi.llexternal(
+def c_method_name(cppscope, method_index):
+    return charp2str_free(_c_method_name(cppscope, method_index))
+_c_method_result_type = rffi.llexternal(
     "cppyy_method_result_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_method_result_type(cppscope, method_index):
+    return charp2str_free(_c_method_result_type(cppscope, method_index))
 c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
     [C_SCOPE, rffi.INT], rffi.INT,
@@ -211,14 +221,18 @@ c_method_req_args = rffi.llexternal(
     "cppyy_method_req_args",
     [C_SCOPE, rffi.INT], rffi.INT,
     compilation_info=backend.eci)
-c_method_arg_type = rffi.llexternal(
+_c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
     [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
-c_method_arg_default = rffi.llexternal(
+def c_method_arg_type(cppscope, method_index, arg_index):
+    return charp2str_free(_c_method_arg_type(cppscope, method_index, arg_index))
+_c_method_arg_default = rffi.llexternal(
     "cppyy_method_arg_default",
     [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_method_arg_default(cppscope, method_index, arg_index):
+    return charp2str_free(_c_method_arg_default(cppscope, method_index, arg_index))
 
 c_get_method = rffi.llexternal(
     "cppyy_get_method",
@@ -240,14 +254,18 @@ c_num_data_members = rffi.llexternal(
     "cppyy_num_data_members",
     [C_SCOPE], rffi.INT,
     compilation_info=backend.eci)
-c_data_member_name = rffi.llexternal(
+_c_data_member_name = rffi.llexternal(
     "cppyy_data_member_name",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
-c_data_member_type = rffi.llexternal(
+def c_data_member_name(cppscope, data_member_index):
+    return charp2str_free(_c_data_member_name(cppscope, data_member_index))
+_c_data_member_type = rffi.llexternal(
     "cppyy_data_member_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     compilation_info=backend.eci)
+def c_data_member_type(cppscope, data_member_index):
+    return charp2str_free(_c_data_member_type(cppscope, data_member_index))
 c_data_member_offset = rffi.llexternal(
     "cppyy_data_member_offset",
     [C_SCOPE, rffi.INT], rffi.SIZE_T,

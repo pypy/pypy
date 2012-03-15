@@ -11,15 +11,24 @@ def Windows(cc=None):
     if cc == 'mingw32':
         return MingwPlatform(cc)
     else:
-        return MsvcPlatform(cc)
+        return MsvcPlatform(cc, False)
+    
+def Windows_x64(cc=None):
+    return MsvcPlatform(cc, True)
 
-def _get_msvc_env(vsver):
+def _get_msvc_env(vsver, x64flag):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
         return None
 
-    vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if x64flag:
+        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+        vcinstalldir = os.path.join(vsinstalldir, 'VC')
+        vcbindir = os.path.join(vcinstalldir, 'BIN')
+        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+    else:
+        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
     popen = subprocess.Popen('"%s" & set' % (vcvars,),
@@ -42,21 +51,21 @@ def _get_msvc_env(vsver):
     ## log.msg("Updated environment with %s" % (vcvars,))
     return env
 
-def find_msvc_env():
+def find_msvc_env(x64flag=False):
     # First, try to get the compiler which served to compile python
     msc_pos = sys.version.find('MSC v.')
     if msc_pos != -1:
         msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
         # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
         vsver = (msc_ver / 10) - 60
-        env = _get_msvc_env(vsver)
+        env = _get_msvc_env(vsver, x64flag)
 
         if env is not None:
             return env
 
     # Then, try any other version
     for vsver in (100, 90, 80, 71, 70): # All the versions I know
-        env = _get_msvc_env(vsver)
+        env = _get_msvc_env(vsver, x64flag)
 
         if env is not None:
             return env
@@ -64,13 +73,14 @@ def find_msvc_env():
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
 
-msvc_compiler_environ = find_msvc_env()
+msvc_compiler_environ32 = find_msvc_env(False)
+msvc_compiler_environ64 = find_msvc_env(True)
 
 class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
-
+    
     relevant_environ = ('PATH', 'INCLUDE', 'LIB')
 
     cc = 'cl.exe'
@@ -81,8 +91,13 @@ class MsvcPlatform(Platform):
     standalone_only = ()
     shared_only = ()
     environ = None
-
+    
     def __init__(self, cc=None, x64=False):
+        self.x64 = x64
+        if x64:
+            msvc_compiler_environ = msvc_compiler_environ64
+        else:
+            msvc_compiler_environ = msvc_compiler_environ32
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
@@ -288,7 +303,10 @@ class MsvcPlatform(Platform):
             ('CC_LINK', self.link),
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
+            ('_WIN32', '1'),
             ]
+        if self.x64:
+            definitions.append(('_WIN64', '1'))
 
         for args in definitions:
             m.definition(*args)

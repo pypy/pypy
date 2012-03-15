@@ -592,7 +592,7 @@ def get_converter(space, name, default):
     #   5) generalized cases (covers basically all user classes)
     #   6) void converter, which fails on use
 
-    name = capi.charp2str_free(capi.c_resolve_name(name))
+    name = capi.c_resolve_name(name)
 
     #   1) full, exact match
     try:

@@ -261,7 +261,7 @@ def get_cppitem(scope, name):
         except AttributeError:
             pass
 
-    if pycppitem:
+    if not (pycppitem is None):   # pycppitem could be a bound C++ NULL, so check explicitly for Py_None
         return pycppitem
 
     raise AttributeError("'%s' has no attribute '%s'" % (str(scope), name))
