@@ -12,6 +12,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from pypy.rlib import streamio, jit
+from pypy.rlib.rstring import assert_str0
 from pypy.rlib.streamio import StreamErrors
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
@@ -931,7 +932,7 @@ def get_sourcefile(space, filename):
     if py is None:
         py = filename[:-1]
     try:
-        st = os.stat(py)
+        st = os.stat(assert_str0(py))
     except OSError:
         pass
     else:
@@ -950,7 +951,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
 
     if space.config.objspace.usepycfiles:
         cpathname = make_compiled_pathname(pathname)
-        src_stat = os.stat(pathname)
+        src_stat = os.stat(assert_str0(pathname))
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
         stream = check_compiled_module(space, cpathname, mtime)
