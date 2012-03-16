@@ -92,7 +92,10 @@ int is no longer necessarily the same size as the target int.
 We therefore can no longer use the int type as it is, but need
 to use long everywhere.
 """
-    
+
+# XXX returning int(n) should not be necessary and should be simply n.
+# XXX TODO: replace all int(n) by long(n) and fix everything that breaks.
+# XXX       Then relax it and replace int(n) by n.
 def intmask(n):
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
@@ -137,8 +140,11 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 maxint = int(LONG_TEST - 1)
 
 def is_valid_int(r):
-    return isinstance(r, (int, long)) and (
+    if objectmodel.we_are_translated():
+        return isinstance(r, int)
+    return type(r) in (int, long, bool) and (
         -maxint - 1 <= r <= maxint)
+is_valid_int._annspecialcase_ = 'specialize:argtype(0)'
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -463,9 +469,6 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
-r_long = build_int('r_long', True, 32)
-r_ulong = build_int('r_ulong', False, 32)
-
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -474,10 +477,7 @@ else:
     r_int64 = int
 
 # needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
-if r_long is not r_int:
-    r_uint32 = r_ulong
-else:
-    r_uint32 = r_uint
+r_uint32 = build_int('r_uint32', False, 32)
 
 # needed for ll_time.time_sleep_llimpl
 maxint32 = int((1 << 31) -1)

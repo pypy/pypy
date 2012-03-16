@@ -1,6 +1,6 @@
 import py, sys
 
-from pypy.rlib.rarithmetic import r_longlong, intmask
+from pypy.rlib.rarithmetic import r_longlong, intmask, is_valid_int
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link
 from pypy.translator.unsimplify import varoftype
@@ -32,7 +32,7 @@ class FakeCPU:
 def test_functions():
     xll = longlong.getfloatstorage(3.5)
     assert longlong.getrealfloat(xll) == 3.5
-    assert isinstance(longlong.gethash(xll), int)
+    assert is_valid_int(longlong.gethash(xll))
 
 
 class TestLongLong:

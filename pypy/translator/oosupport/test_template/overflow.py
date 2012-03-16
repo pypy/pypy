@@ -3,9 +3,12 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 class BaseTestOverflow:
 
-    def check(self, fn, args):
+    def check(self, fn, args, expected=None):
         res1 = self.interpret(fn, args)
-        res2 = fn(*args)
+        if expected is not None:
+            res2 = expected
+        else:
+            res2 = fn(*args)
         assert res1 == res2
 
     def test_add(self):
@@ -63,7 +66,9 @@ class BaseTestOverflow:
                 return ovfcheck(x % y)
             except OverflowError:
                 return 42
-        self.check(fn, [-sys.maxint-1, -1])
+        # force the expected result to be 42, because direct run of ovfcheck()
+        # cannot detect this particular overflow case
+        self.check(fn, [-sys.maxint-1, -1], expected=42)
 
     def test_div(self):
         def fn(x, y):

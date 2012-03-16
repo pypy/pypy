@@ -254,8 +254,6 @@ op_appendices = {
     OverflowError: 'ovf',
     IndexError: 'idx',
     KeyError: 'key',
-    AttributeError: 'att',
-    TypeError: 'typ',
     ZeroDivisionError: 'zer',
     ValueError: 'val',
     }
@@ -289,12 +287,6 @@ def _add_except_ovf(names):
         lis = implicit_exceptions.setdefault(name, [])[:]
         lis.append(OverflowError)
         implicit_exceptions[name+"_ovf"] = lis
-
-for _name in 'getattr', 'delattr':
-    _add_exceptions(_name, AttributeError)
-for _name in 'iter', 'coerce':
-    _add_exceptions(_name, TypeError)
-del _name
 
 _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_div inplace_mod inplace_divmod inplace_truediv
