@@ -901,15 +901,16 @@ class ApplevelClass:
 
     def __init__(self, source, filename=None, modname='__builtin__'):
         # HAAACK (but a good one)
-        if filename is None:
-            f = sys._getframe(1)
-            filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
         self.filename = filename
         self.source = str(py.code.Source(source).deindent())
         self.modname = modname
-        # make source code available for tracebacks
-        lines = [x + "\n" for x in source.split("\n")]
-        py.std.linecache.cache[filename] = (1, None, lines, filename)
+        if filename is None:
+            f = sys._getframe(1)
+            filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
+            # make source code available for tracebacks
+            lines = [x + "\n" for x in source.split("\n")]
+            py.std.linecache.cache[filename] = (1, None, lines, filename)
+        self.filename = filename
 
     def __repr__(self):
         return "<ApplevelClass filename=%r>" % (self.filename,)
