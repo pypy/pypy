@@ -836,8 +836,8 @@ class Assembler386(object):
             self.mc.MOVSD_sx(0, loc.value)
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
-            self.mc.PUSH_b(get_ebp_ofs(loc.position))
-            self.mc.PUSH_b(get_ebp_ofs(loc.position + 1))
+            self.mc.PUSH_b(loc.value + 4)
+            self.mc.PUSH_b(loc.value)
         else:
             self.mc.PUSH(loc)
 
@@ -847,8 +847,8 @@ class Assembler386(object):
             self.mc.ADD_ri(esp.value, 8)   # = size of doubles
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
-            self.mc.POP_b(get_ebp_ofs(loc.position + 1))
-            self.mc.POP_b(get_ebp_ofs(loc.position))
+            self.mc.POP_b(loc.value)
+            self.mc.POP_b(loc.value + 4)
         else:
             self.mc.POP(loc)
 
@@ -1954,8 +1954,6 @@ class Assembler386(object):
             mc.PUSH_r(ebx.value)
         elif IS_X86_64:
             mc.MOV_rr(edi.value, ebx.value)
-            # XXX: Correct to only align the stack on 64-bit?
-            mc.AND_ri(esp.value, -16)
         else:
             raise AssertionError("Shouldn't happen")
 
