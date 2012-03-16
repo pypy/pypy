@@ -256,6 +256,9 @@ class BaseArray(Wrappable):
                             self.size, w_iterable)
         if isinstance(self, Scalar):
             return
+        if self.size < 1:
+            self.shape = new_shape[:]
+            return
         self.get_concrete().setshape(space, new_shape)
 
     def descr_get_size(self, space):
@@ -473,6 +476,10 @@ class BaseArray(Wrappable):
         else:
             w_shape = space.newtuple(args_w)
         new_shape = get_shape_from_iterable(space, self.size, w_shape)
+        if self.size < 1:
+            arr = self.get_concrete().copy(space)
+            arr.shape = new_shape[:]
+            return arr
         return self.reshape(space, new_shape)
 
     def reshape(self, space, new_shape):
