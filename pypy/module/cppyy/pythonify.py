@@ -320,21 +320,26 @@ def _pythonize(pyclass):
             return self
         pyclass.__iadd__ = __iadd__
 
+    # for STL iterators, whose comparison functions live globally for gcc
+    # TODO: this needs to be solved fundamentally for all classes
+    if 'iterator' in pyclass.__name__:
+        if hasattr(gbl, '__gnu_cxx'):
+            if hasattr(gbl.__gnu_cxx, '__eq__'):
+                setattr(pyclass, '__eq__', gbl.__gnu_cxx.__eq__)
+            if hasattr(gbl.__gnu_cxx, '__ne__'):
+                setattr(pyclass, '__ne__', gbl.__gnu_cxx.__ne__)
+
     # map begin()/end() protocol to iter protocol
     if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
-        try:
-            # TODO: make gnu-independent
-            ne = gbl.__gnu_cxx.__ne__
-            def __iter__(self):
-                iter = self.begin()
-                while gbl.__gnu_cxx.__ne__(iter, self.end()):
-                    yield iter.__deref__()
-                    iter.__preinc__()
-                iter.destruct()
-                raise StopIteration
-            pyclass.__iter__ = __iter__
-        except AttributeError:
-            pass
+        # TODO: make gnu-independent
+        def __iter__(self):
+            iter = self.begin()
+            while gbl.__gnu_cxx.__ne__(iter, self.end()):
+                yield iter.__deref__()
+                iter.__preinc__()
+            iter.destruct()
+            raise StopIteration
+        pyclass.__iter__ = __iter__
 
     # combine __getitem__ and __len__ to make a pythonized __getitem__
     if hasattr(pyclass, '__getitem__') and hasattr(pyclass, '__len__'):

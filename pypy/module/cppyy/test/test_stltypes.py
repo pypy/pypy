@@ -39,8 +39,18 @@ class AppTestSTLVECTOR:
 
         assert tv1 is tv2
 
+        assert cppyy.gbl.std.vector(int).iterator is cppyy.gbl.std.vector(int).iterator
+
         #-----
         v = tv1(self.N)
+        # TODO: get the following in order
+        #assert v.begin().__eq__(v.begin())
+        #assert v.begin() == v.begin()
+        #assert v.end() == v.end()
+        #assert v.begin() != v.end()
+        #assert v.end() != v.begin()
+
+        #-----
         for i in range(self.N):
           # TODO:
           #  v[i] = i
