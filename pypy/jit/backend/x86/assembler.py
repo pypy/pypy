@@ -2117,9 +2117,12 @@ class Assembler386(object):
         # First, we need to save away the registers listed in
         # 'save_registers' that are not callee-save.  XXX We assume that
         # the XMM registers won't be modified.  We store them in
-        # [ESP+4], [ESP+8], etc., leaving enough room in [ESP] for the
-        # single argument to closestack_addr below.
-        p = WORD
+        # [ESP+4], [ESP+8], etc.; on x86-32 we leave enough room in [ESP]
+        # for the single argument to closestack_addr below.
+        if IS_X86_32:
+            p = WORD
+        elif IS_X86_64:
+            p = 0
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
                 self.mc.MOV_sr(p, reg.value)
@@ -2174,7 +2177,10 @@ class Assembler386(object):
         #
         self._emit_call(-1, imm(self.releasegil_addr), args)
         # Finally, restore the registers saved above.
-        p = WORD
+        if IS_X86_32:
+            p = WORD
+        elif IS_X86_64:
+            p = 0
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
                 self.mc.MOV_rs(reg.value, p)
