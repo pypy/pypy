@@ -423,7 +423,7 @@ unicode_typedef = StdTypeDef("str",
     __new__ = gateway.interp2app(descr_new_),
     __doc__ = '''str(string [, encoding[, errors]]) -> object
 
-Create a new Unicode object from the given encoded string.
+Create a new string object from the given encoded string.
 encoding defaults to the current default string encoding.
 errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.''',
     maketrans = gateway.interp2app(descr_maketrans, as_classmethod=True),
