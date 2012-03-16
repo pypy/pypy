@@ -131,6 +131,65 @@ class AppTestSTLVECTOR:
 
         v.destruct()
 
+    def test05_push_back_iterables_with_iadd(self):
+        """Test usage of += of iterable on push_back-able container"""
+
+        import cppyy
+
+        v = cppyy.gbl.std.vector(int)()
+
+        v += [1, 2, 3]
+        assert len(v) == 3
+        assert v[0] == 1
+        assert v[1] == 2
+        assert v[2] == 3
+
+        v += (4, 5, 6)
+        assert len(v) == 6
+        assert v[3] == 4
+        assert v[4] == 5
+        assert v[5] == 6
+
+        raises(TypeError, v.__iadd__, (7, '8'))  # string shouldn't pass
+        assert len(v) == 7   # TODO: decide whether this should roll-back
+
+        v2 = cppyy.gbl.std.vector(int)()
+        v2 += [8, 9]
+        assert len(v2) == 2
+        assert v2[0] == 8
+        assert v2[1] == 9
+
+        v += v2
+        assert len(v) == 9
+        assert v[6] == 7
+        assert v[7] == 8
+        assert v[8] == 9
+
+    def test06_vector_indexing(self):
+        """Test python-style indexing to an std::vector<int>"""
+
+        import cppyy
+
+        v = cppyy.gbl.std.vector(int)()
+
+        for i in range(self.N):
+            v.push_back(i)
+
+        raises(IndexError, 'v[self.N]')
+        raises(IndexError, 'v[self.N+1]')
+
+        assert v[-1] == self.N-1
+        assert v[-2] == self.N-2
+
+        assert len(v[0:0]) == 0
+        assert v[1:2][0] == v[1]
+
+        v2 = v[2:-1]
+        assert len(v2) == self.N-3     # 2 off from start, 1 from end
+        assert v2[0] == v[2]
+        assert v2[-1] == v[-2]
+        assert v2[self.N-4] == v[-2]
+
 
 class AppTestSTLSTRING:
     def setup_class(cls):

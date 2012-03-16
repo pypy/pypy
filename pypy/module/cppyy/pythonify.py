@@ -280,6 +280,26 @@ def get_cppclass(name):
     return scope
 
 
+# pythonization by decoration (move to their own file?)
+import types
+
+def python_style_getitem(self, idx):
+    # python-style indexing: check for size and allow indexing from the back
+    sz = len(self)
+    if idx < 0: idx = sz + idx
+    if idx < sz:
+        return self._getitem__unchecked(idx)
+    raise IndexError('index out of range: %d requested for %s of size %d' % (idx, str(self), sz))
+
+def python_style_sliceable_getitem(self, slice_or_idx):
+    if type(slice_or_idx) == types.SliceType:
+        nseq = self.__class__()
+        nseq += [python_style_getitem(self, i) \
+                    for i in range(*slice_or_idx.indices(len(self)))]
+        return nseq
+    else:
+        return python_style_getitem(self, slice_or_idx)
+
 _pythonizations = {}
 def _pythonize(pyclass):
 
@@ -290,20 +310,39 @@ def _pythonize(pyclass):
 
     # map size -> __len__ (generally true for STL)
     if hasattr(pyclass, 'size') and \
-            not hasattr(pyclass,'__len__') and callable(pyclass.size):
+            not hasattr(pyclass, '__len__') and callable(pyclass.size):
         pyclass.__len__ = pyclass.size
+
+    # map push_back -> __iadd__ (generally true for STL)
+    if hasattr(pyclass, 'push_back') and not hasattr(pyclass, '__iadd__'):
+        def __iadd__(self, ll):
+            [self.push_back(x) for x in ll]
+            return self
+        pyclass.__iadd__ = __iadd__
 
     # map begin()/end() protocol to iter protocol
     if hasattr(pyclass, 'begin') and hasattr(pyclass, 'end'):
-        def __iter__(self):
-            iter = self.begin()
+        try:
             # TODO: make gnu-independent
-            while gbl.__gnu_cxx.__ne__(iter, self.end()):
-                yield iter.__deref__()
-                iter.__preinc__()
-            iter.destruct()
-            raise StopIteration
-        pyclass.__iter__ = __iter__
+            ne = gbl.__gnu_cxx.__ne__
+            def __iter__(self):
+                iter = self.begin()
+                while gbl.__gnu_cxx.__ne__(iter, self.end()):
+                    yield iter.__deref__()
+                    iter.__preinc__()
+                iter.destruct()
+                raise StopIteration
+            pyclass.__iter__ = __iter__
+        except AttributeError:
+            pass
+
+    # combine __getitem__ and __len__ to make a pythonized __getitem__
+    if hasattr(pyclass, '__getitem__') and hasattr(pyclass, '__len__'):
+        pyclass._getitem__unchecked = pyclass.__getitem__
+        if hasattr(pyclass, '__setitem__') and hasattr(pyclass, '__iadd__'):
+            pyclass.__getitem__ = python_style_sliceable_getitem
+        else:
+            pyclass.__getitem__ = python_style_getitem
 
     # string comparisons (note: CINT backend requires the simple name 'string')
     if pyclass.__name__ == 'std::basic_string<char>' or pyclass.__name__ == 'string':
