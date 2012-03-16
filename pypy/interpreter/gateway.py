@@ -907,6 +907,7 @@ class ApplevelClass:
         if filename is None:
             f = sys._getframe(1)
             filename = '<%s:%d>' % (f.f_code.co_filename, f.f_lineno)
+        if not os.path.exists(filename):
             # make source code available for tracebacks
             lines = [x + "\n" for x in source.split("\n")]
             py.std.linecache.cache[filename] = (1, None, lines, filename)
