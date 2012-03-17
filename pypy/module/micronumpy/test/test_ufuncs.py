@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import is_valid_int
+
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
@@ -142,7 +142,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         x = maximum(2, 3)
         assert x == 3
-        assert is_valid_int(x)
+        assert isinstance(x, (int, long))
 
     def test_multiply(self):
         from _numpypy import array, multiply
