@@ -21,6 +21,9 @@ def arguments(*argtypes, **kwds):
         return function
     return decorate
 
+LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
+
+
 class LeaveFrame(JitException):
     pass
 
@@ -664,8 +667,9 @@ class BlackholeInterpreter(object):
         a = float(a)
         return longlong.getfloatstorage(a)
 
-    @arguments("f", returns="i")
+    @arguments("f", returns=LONGLONG_TYPECODE)
     def bhimpl_convert_float_bytes_to_longlong(a):
+        a = longlong.getrealfloat(a)
         return longlong2float.float2longlong(a)
 
     # ----------
@@ -1314,7 +1318,7 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
-    @arguments(returns=(longlong.is_64_bit and "i" or "f"))
+    @arguments(returns=LONGLONG_TYPECODE)
     def bhimpl_ll_read_timestamp():
         return read_timestamp()
 
