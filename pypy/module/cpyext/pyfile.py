@@ -4,9 +4,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.interpreter.error import OperationError
-from pypy.module._file.interp_file import W_File
-
-PyFile_Check, PyFile_CheckExact = build_type_checkers("File", W_File)
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
 def PyFile_GetLine(space, w_obj, n):
