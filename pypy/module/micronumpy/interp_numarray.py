@@ -7,10 +7,10 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
+    SkipLastAxisIterator, Chunk, NewAxisChunk, ViewIterator)
 from pypy.module.micronumpy.strides import (calculate_slice_strides,
     shape_agreement, find_shape_and_elems, get_shape_from_iterable,
-    calc_new_strides, to_coords)
+    calc_new_strides, to_coords, enumerate_chunks)
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -102,6 +102,7 @@ class BaseArray(Wrappable):
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_truediv = _binop_impl("true_divide")
+    descr_floordiv = _binop_impl("floor_divide")
     descr_mod = _binop_impl("mod")
     descr_pow = _binop_impl("power")
     descr_lshift = _binop_impl("left_shift")
@@ -136,6 +137,7 @@ class BaseArray(Wrappable):
     descr_rmul = _binop_right_impl("multiply")
     descr_rdiv = _binop_right_impl("divide")
     descr_rtruediv = _binop_right_impl("true_divide")
+    descr_rfloordiv = _binop_right_impl("floor_divide")
     descr_rmod = _binop_right_impl("mod")
     descr_rpow = _binop_right_impl("power")
     descr_rlshift = _binop_right_impl("left_shift")
@@ -319,6 +321,13 @@ class BaseArray(Wrappable):
         is a list of scalars that match the size of shape
         """
         shape_len = len(self.shape)
+        if space.isinstance_w(w_idx, space.w_tuple):
+            for w_item in space.fixedview(w_idx):
+                if (space.isinstance_w(w_item, space.w_slice) or
+                    space.isinstance_w(w_item, space.w_NoneType)):
+                    return False
+        elif space.isinstance_w(w_idx, space.w_NoneType):
+            return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
                 "0-d arrays can't be indexed"))
@@ -334,20 +343,25 @@ class BaseArray(Wrappable):
         if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
-        if lgt < shape_len:
-            return False
-        for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_slice):
-                return False
-        return True
+        return lgt == shape_len
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
-                enumerate(space.fixedview(w_idx))]
+        elif space.isinstance_w(w_idx, space.w_NoneType):
+            return [NewAxisChunk()]
+        result = []
+        i = 0
+        for w_item in space.fixedview(w_idx):
+            if space.isinstance_w(w_item, space.w_NoneType):
+                result.append(NewAxisChunk())
+            else:
+                result.append(Chunk(*space.decode_index4(w_item,
+                                                         self.shape[i])))
+                i += 1
+        return result
 
     def count_all_true(self, arr):
         sig = arr.find_sig()
@@ -441,7 +455,7 @@ class BaseArray(Wrappable):
     def create_slice(self, chunks):
         shape = []
         i = -1
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate_chunks(chunks):
             chunk.extend_shape(shape)
         s = i + 1
         assert s >= 0
@@ -476,7 +490,9 @@ class BaseArray(Wrappable):
     def reshape(self, space, new_shape):
         concrete = self.get_concrete()
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape, concrete.shape,
+        new_strides = None
+        if self.size > 0:
+            new_strides = calc_new_strides(new_shape, concrete.shape,
                                      concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
@@ -779,8 +795,6 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
         VirtualArray.__init__(self, name, shape, res_dtype)
         self.ufunc = ufunc
@@ -856,8 +870,6 @@ class ReduceArray(Call2):
                                          self.right.create_sig(), done_func)
 
 class AxisReduce(Call2):
-    _immutable_fields_ = ['left', 'right']
-
     def __init__(self, ufunc, name, identity, shape, dtype, left, right, dim):
         Call2.__init__(self, ufunc, name, shape, dtype, dtype,
                        left, right)
@@ -1033,7 +1045,7 @@ class W_NDimSlice(ViewArray):
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
-        elif len(self.shape) < 2:
+        elif len(self.shape) < 2 or self.size < 1:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor
             strides = []
@@ -1044,7 +1056,7 @@ class W_NDimSlice(ViewArray):
             for sh in new_shape:
                 strides.append(s)
                 backstrides.append(s * (sh - 1))
-                s *= sh
+                s *= max(1, sh)
             if self.order == 'C':
                 strides.reverse()
                 backstrides.reverse()
@@ -1254,6 +1266,7 @@ BaseArray.typedef = TypeDef(
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
     __truediv__ = interp2app(BaseArray.descr_truediv),
+    __floordiv__ = interp2app(BaseArray.descr_floordiv),
     __mod__ = interp2app(BaseArray.descr_mod),
     __divmod__ = interp2app(BaseArray.descr_divmod),
     __pow__ = interp2app(BaseArray.descr_pow),
@@ -1268,6 +1281,7 @@ BaseArray.typedef = TypeDef(
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rtruediv__ = interp2app(BaseArray.descr_rtruediv),
+    __rfloordiv__ = interp2app(BaseArray.descr_rfloordiv),
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __rdivmod__ = interp2app(BaseArray.descr_rdivmod),
     __rpow__ = interp2app(BaseArray.descr_rpow),

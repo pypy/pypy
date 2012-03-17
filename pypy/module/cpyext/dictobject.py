@@ -184,8 +184,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         w_item = space.call_method(w_iter, "next")
         w_key, w_value = space.fixedview(w_item, 2)
         state = space.fromcache(RefcountState)
-        pkey[0]   = state.make_borrowed(w_dict, w_key)
-        pvalue[0] = state.make_borrowed(w_dict, w_value)
+        if pkey:
+            pkey[0]   = state.make_borrowed(w_dict, w_key)
+        if pvalue:
+            pvalue[0] = state.make_borrowed(w_dict, w_value)
         ppos[0] += 1
     except OperationError, e:
         if not e.match(space, space.w_StopIteration):

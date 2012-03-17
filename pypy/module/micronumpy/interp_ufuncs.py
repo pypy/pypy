@@ -388,6 +388,7 @@ class UfuncState(object):
                                              "int_only": True}),
             ("bitwise_xor", "bitwise_xor", 2, {"int_only": True}),
             ("invert", "invert", 1, {"int_only": True}),
+            ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
@@ -403,6 +404,9 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
+            ("isneginf", "isneginf", 1, {"bool_result": True}),
+            ("isposinf", "isposinf", 1, {"bool_result": True}),
+            ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
                                                'identity': 1}),
@@ -420,12 +424,16 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
+            ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
+            ("exp2", "exp2", 1, {"promote_to_float": True}),
+            ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
 
@@ -435,8 +443,23 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
+            ("arctan2", "arctan2", 2, {"promote_to_float": True}),
+            ("sinh", "sinh", 1, {"promote_to_float": True}),
+            ("cosh", "cosh", 1, {"promote_to_float": True}),
+            ("tanh", "tanh", 1, {"promote_to_float": True}),
             ("arcsinh", "arcsinh", 1, {"promote_to_float": True}),
+            ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
+
+            ("radians", "radians", 1, {"promote_to_float": True}),
+            ("degrees", "degrees", 1, {"promote_to_float": True}),
+
+            ("log", "log", 1, {"promote_to_float": True}),
+            ("log2", "log2", 1, {"promote_to_float": True}),
+            ("log10", "log10", 1, {"promote_to_float": True}),
+            ("log1p", "log1p", 1, {"promote_to_float": True}),
+            ("logaddexp", "logaddexp", 2, {"promote_to_float": True}),
+            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

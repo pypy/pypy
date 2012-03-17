@@ -7,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -328,7 +329,7 @@ class ObjSpace(object):
                 raise
             modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module):
+            if isinstance(mod, Module) and not mod.startup_called:
                 self.timer.start("startup " + modname)
                 mod.init(self)
                 self.timer.stop("startup " + modname)
@@ -833,7 +834,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #
@@ -1471,8 +1472,8 @@ class ObjSpace(object):
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
-            import warnings
-            warnings.warn(msg, warningcls, stacklevel=2)
+            import _warnings
+            _warnings.warn(msg, warningcls, stacklevel=2)
         """)
 
     def resolve_target(self, w_obj):

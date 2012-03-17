@@ -1,10 +1,11 @@
 from pypy.module.imp import importing
 from pypy.module._file.interp_file import W_File
 from pypy.rlib import streamio
+from pypy.rlib.streamio import StreamErrors
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
+from pypy.interpreter.streamutil import wrap_streamerror
 
 
 def get_suffixes(space):

@@ -16,7 +16,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
 
 def boxfloat(x):
@@ -281,6 +281,38 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
 
+    def test_compile_big_bridge_out_of_small_loop(self):
+        i0 = BoxInt()
+        faildescr1 = BasicFailDescr(1)
+        looptoken = JitCellToken()
+        operations = [
+            ResOperation(rop.GUARD_FALSE, [i0], None, descr=faildescr1),
+            ResOperation(rop.FINISH, [], None, descr=BasicFailDescr(2)),
+            ]
+        inputargs = [i0]
+        operations[0].setfailargs([i0])
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+
+        i1list = [BoxInt() for i in range(1000)]
+        bridge = []
+        iprev = i0
+        for i1 in i1list:
+            bridge.append(ResOperation(rop.INT_ADD, [iprev, ConstInt(1)], i1))
+            iprev = i1
+        bridge.append(ResOperation(rop.GUARD_FALSE, [i0], None,
+                                   descr=BasicFailDescr(3)))
+        bridge.append(ResOperation(rop.FINISH, [], None,
+                                   descr=BasicFailDescr(4)))
+        bridge[-2].setfailargs(i1list)
+
+        self.cpu.compile_bridge(faildescr1, [i0], bridge, looptoken)
+
+        fail = self.cpu.execute_token(looptoken, 1)
+        assert fail.identifier == 3
+        for i in range(1000):
+            res = self.cpu.get_latest_value_int(i)
+            assert res == 2 + i
+
     def test_get_latest_value_count(self):
         i0 = BoxInt()
         i1 = BoxInt()
@@ -476,7 +508,7 @@ class BaseBackendTest(Runner):
         if cpu.supports_floats:
             def func(f, i):
                 assert isinstance(f, float)
-                assert isinstance(i, int)
+                assert is_valid_int(i)
                 return f - float(i)
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))
@@ -594,7 +626,7 @@ class BaseBackendTest(Runner):
                                          [funcbox, BoxInt(arg1), BoxInt(arg2)],
                                          'int', descr=calldescr)
             assert res.getint() == f(arg1, arg2)
-        
+
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
         # also test the ordering of the arguments.
@@ -1615,7 +1647,8 @@ class BaseBackendTest(Runner):
     def test_noops(self):
         c_box = self.alloc_string("hi there").constbox()
         c_nest = ConstInt(0)
-        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest], 'void')
+        c_id = ConstInt(0)
+        self.execute_operation(rop.DEBUG_MERGE_POINT, [c_box, c_nest, c_id], 'void')
         self.execute_operation(rop.JIT_DEBUG, [c_box, c_nest, c_nest,
                                                c_nest, c_nest], 'void')
 
@@ -3238,7 +3271,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ResOperation(rop.JUMP, [i2], None, descr=targettoken2),
             ]
         self.cpu.compile_bridge(faildescr, inputargs, operations, looptoken)
-        
+
         fail = self.cpu.execute_token(looptoken, 2)
         assert fail.identifier == 3
         res = self.cpu.get_latest_value_int(0)
@@ -3282,7 +3315,7 @@ class LLtypeBackendTest(BaseBackendTest):
         def checkops(mc, ops):
             assert len(mc) == len(ops)
             for i in range(len(mc)):
-                assert mc[i].split("\t")[2].startswith(ops[i])
+                assert mc[i].split("\t")[-1].startswith(ops[i])
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         mc = list(machine_code_dump(data, info.asmaddr, cpuname))

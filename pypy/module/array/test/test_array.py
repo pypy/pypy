@@ -536,12 +536,6 @@ class BaseArrayTests:
                 assert (a >= c) is False
                 assert (c >= a) is True
 
-                assert cmp(a, a) == 0
-                assert cmp(a, b) == 0
-                assert cmp(a, c) <  0
-                assert cmp(b, a) == 0
-                assert cmp(c, a) >  0
-
     def test_reduce(self):
         import pickle
         a = self.array('i', [1, 2, 3])
@@ -851,8 +845,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
+    OPTIONS = {}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'))
+        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'),
+                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -874,3 +871,7 @@ class AppTestArray(BaseArrayTests):
         a = self.array('b', range(4))
         a[::-1] = a
         assert a == self.array('b', [3, 2, 1, 0])
+
+
+class AppTestArrayBuiltinShortcut(AppTestArray):
+    OPTIONS = {'objspace.std.builtinshortcut': True}

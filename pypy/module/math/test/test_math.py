@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import sys
 from pypy.conftest import gettestobjspace
 from pypy.module.math.test import test_direct
@@ -268,3 +269,7 @@ class AppTestMath:
             def __trunc__(self):
                 return "truncated"
         assert math.trunc(foo()) == "truncated"
+
+    def test_copysign_nan(self):
+        import math
+        assert math.copysign(1.0, float('-nan')) == -1.0

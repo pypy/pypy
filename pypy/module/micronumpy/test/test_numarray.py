@@ -374,6 +374,57 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 0.
 
+    def test_newaxis(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = array([range(5)])
+        assert (a[newaxis] == b).all()
+
+    def test_newaxis_slice(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        b = array(range(1,5))
+        c = array([range(1,5)])
+        d = array([[x] for x in range(1,5)])
+
+        assert (a[1:] == b).all()
+        assert (a[1:,newaxis] == d).all()
+        assert (a[newaxis,1:] == c).all()
+
+    def test_newaxis_assign(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        a[newaxis,1] = [2]
+        assert a[1] == 2
+
+    def test_newaxis_virtual(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        b = (a + a)[newaxis]
+        c = array([[0, 2, 4, 6, 8]])
+        assert (b == c).all()
+
+    def test_newaxis_then_slice(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[newaxis]
+        assert (b[0,1:] == a[1:]).all()
+
+    def test_slice_then_newaxis(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[2:]
+        assert (b[newaxis] == [[2, 3, 4]]).all()
+
     def test_scalar(self):
         from _numpypy import array, dtype
         a = array(3)
@@ -434,6 +485,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros((4, 2, 3))
         a.shape = (12, 2)
         (a + a).reshape(2, 12) # assert did not explode
+        a = array([[[[]]]])
+        assert a.reshape((0,)).shape == (0,)
 
     def test_slice_reshape(self):
         from _numpypy import zeros, arange
@@ -624,6 +677,56 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a / 5.0
         for i in range(5):
             assert b[i] == i / 5.0
+
+    def test_floordiv(self):
+        from math import isnan
+        from _numpypy import array, dtype
+
+        a = array(range(1, 6))
+        b = a // a
+        assert (b == [1, 1, 1, 1, 1]).all()
+
+        a = array(range(1, 6), dtype=bool)
+        b = a // a
+        assert b.dtype is dtype("int8")
+        assert (b == [1, 1, 1, 1, 1]).all()
+
+        a = array([-1, 0, 1])
+        b = array([0, 0, 0])
+        c = a // b
+        assert (c == [0, 0, 0]).all()
+
+        a = array([-1.0, 0.0, 1.0])
+        b = array([0.0, 0.0, 0.0])
+        c = a // b
+        assert c[0] == float('-inf')
+        assert isnan(c[1])
+        assert c[2] == float('inf')
+
+        b = array([-0.0, -0.0, -0.0])
+        c = a // b
+        assert c[0] == float('inf')
+        assert isnan(c[1])
+        assert c[2] == float('-inf')
+
+    def test_floordiv_other(self):
+        from _numpypy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2], float)
+        c = a // b
+        assert (c == [0, 0, 1, 1, 2]).all()
+
+    def test_rfloordiv(self):
+        from _numpypy import array
+        a = array(range(1, 6))
+        b = 3 // a
+        assert (b == [3, 1, 1, 0, 0]).all()
+
+    def test_floordiv_constant(self):
+        from _numpypy import array
+        a = array(range(5))
+        b = a // 2
+        assert (b == [0, 0, 1, 1, 2]).all()
 
     def test_truediv(self):
         from operator import truediv

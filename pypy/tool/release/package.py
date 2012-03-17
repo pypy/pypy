@@ -60,7 +60,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if sys.platform == 'win32':
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll',
+                      'libexpat.dll', 'sqlite3.dll', 'msvcr100.dll',
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
@@ -82,6 +82,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')

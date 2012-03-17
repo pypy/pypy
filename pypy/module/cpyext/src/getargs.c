@@ -23,16 +23,33 @@ int PyArg_VaParseTupleAndKeywords(PyObject *, PyObject *,
 #define FLAG_COMPAT 1
 #define FLAG_SIZE_T 2
 
+typedef int (*destr_t)(PyObject *, void *);
+
+
+/* Keep track of "objects" that have been allocated or initialized and
+   which will need to be deallocated or cleaned up somehow if overall
+   parsing fails.
+*/
+typedef struct {
+  void *item;
+  destr_t destructor;
+} freelistentry_t;
+
+typedef struct {
+  int first_available;
+  freelistentry_t *entries;
+} freelist_t;
+
 
 /* Forward */
 static int vgetargs1(PyObject *, const char *, va_list *, int);
 static void seterror(int, const char *, int *, const char *, const char *);
 static char *convertitem(PyObject *, const char **, va_list *, int, int *, 
-                         char *, size_t, PyObject **);
+                         char *, size_t, freelist_t *);
 static char *converttuple(PyObject *, const char **, va_list *, int,
-			  int *, char *, size_t, int, PyObject **);
+			  int *, char *, size_t, int, freelist_t *);
 static char *convertsimple(PyObject *, const char **, va_list *, int, char *,
-			   size_t, PyObject **);
+			   size_t, freelist_t *);
 static Py_ssize_t convertbuffer(PyObject *, void **p, char **);
 static int getbuffer(PyObject *, Py_buffer *, char**);
 
@@ -129,57 +146,56 @@ _PyArg_VaParse_SizeT(PyObject *args, char *format, va_list va)
 
 /* Handle cleanup of allocated memory in case of exception */
 
-static void
-cleanup_ptr(void *ptr)
+static int
+cleanup_ptr(PyObject *self, void *ptr)
 {
-	PyMem_FREE(ptr);
-}
-
-static void
-cleanup_buffer(void *ptr)
-{
-	PyBuffer_Release((Py_buffer *) ptr);
+    if (ptr) {
+        PyMem_FREE(ptr);
+    }
+    return 0;
 }
 
 static int
-addcleanup(void *ptr, PyObject **freelist, void (*destr)(void *))
+cleanup_buffer(PyObject *self, void *ptr)
 {
-	PyObject *cobj;
-	if (!*freelist) {
-		*freelist = PyList_New(0);
-		if (!*freelist) {
-			destr(ptr);
-			return -1;
-		}
-	}
-	cobj = PyCObject_FromVoidPtr(ptr, destr);
-	if (!cobj) {
-		destr(ptr);
-		return -1;
-	}
-	if (PyList_Append(*freelist, cobj)) {
-		Py_DECREF(cobj);
-		return -1;
-	}
-        Py_DECREF(cobj);
-	return 0;
+    Py_buffer *buf = (Py_buffer *)ptr;
+    if (buf) {
+        PyBuffer_Release(buf);
+    }
+    return 0;
 }
 
 static int
-cleanreturn(int retval, PyObject *freelist)
+addcleanup(void *ptr, freelist_t *freelist, destr_t destructor)
 {
-	if (freelist && retval != 0) {
-		/* We were successful, reset the destructors so that they
-		   don't get called. */
-		Py_ssize_t len = PyList_GET_SIZE(freelist), i;
-		for (i = 0; i < len; i++)
-			((PyCObject *) PyList_GET_ITEM(freelist, i))
-				->destructor = NULL;
-	}
-	Py_XDECREF(freelist);
-	return retval;
+    int index;
+
+    index = freelist->first_available;
+    freelist->first_available += 1;
+
+    freelist->entries[index].item = ptr;
+    freelist->entries[index].destructor = destructor;
+
+    return 0;
 }
 
+static int
+cleanreturn(int retval, freelist_t *freelist)
+{
+    int index;
+
+    if (retval == 0) {
+      /* A failure occurred, therefore execute all of the cleanup
+	 functions.
+      */
+      for (index = 0; index < freelist->first_available; ++index) {
+          freelist->entries[index].destructor(NULL,
+                                              freelist->entries[index].item);
+      }
+    }
+    PyMem_Free(freelist->entries);
+    return retval;
+}
 
 static int
 vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
@@ -195,7 +211,7 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 	const char *formatsave = format;
 	Py_ssize_t i, len;
 	char *msg;
-	PyObject *freelist = NULL;
+	freelist_t freelist = {0, NULL};
 	int compat = flags & FLAG_COMPAT;
 
 	assert(compat || (args != (PyObject*)NULL));
@@ -251,16 +267,18 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 	
 	format = formatsave;
 	
+	freelist.entries = PyMem_New(freelistentry_t, max);
+
 	if (compat) {
 		if (max == 0) {
 			if (args == NULL)
-				return 1;
+			    return cleanreturn(1, &freelist);
 			PyOS_snprintf(msgbuf, sizeof(msgbuf),
 				      "%.200s%s takes no arguments",
 				      fname==NULL ? "function" : fname,
 				      fname==NULL ? "" : "()");
 			PyErr_SetString(PyExc_TypeError, msgbuf);
-			return 0;
+			return cleanreturn(0, &freelist);
 		}
 		else if (min == 1 && max == 1) {
 			if (args == NULL) {
@@ -269,26 +287,26 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 					      fname==NULL ? "function" : fname,
 					      fname==NULL ? "" : "()");
 				PyErr_SetString(PyExc_TypeError, msgbuf);
-				return 0;
+				return cleanreturn(0, &freelist);
 			}
 			msg = convertitem(args, &format, p_va, flags, levels, 
 					  msgbuf, sizeof(msgbuf), &freelist);
 			if (msg == NULL)
-				return cleanreturn(1, freelist);
+				return cleanreturn(1, &freelist);
 			seterror(levels[0], msg, levels+1, fname, message);
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		}
 		else {
 			PyErr_SetString(PyExc_SystemError,
 			    "old style getargs format uses new features");
-			return 0;
+			return cleanreturn(0, &freelist);
 		}
 	}
 	
 	if (!PyTuple_Check(args)) {
 		PyErr_SetString(PyExc_SystemError,
 		    "new style getargs format but argument is not a tuple");
-		return 0;
+		return cleanreturn(0, &freelist);
 	}
 	
 	len = PyTuple_GET_SIZE(args);
@@ -308,7 +326,7 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 			message = msgbuf;
 		}
 		PyErr_SetString(PyExc_TypeError, message);
-		return 0;
+		return cleanreturn(0, &freelist);
 	}
 	
 	for (i = 0; i < len; i++) {
@@ -319,7 +337,7 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 				  sizeof(msgbuf), &freelist);
 		if (msg) {
 			seterror(i+1, msg, levels, fname, message);
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		}
 	}
 
@@ -328,10 +346,10 @@ vgetargs1(PyObject *args, const char *format, va_list *p_va, int flags)
 	    *format != '|' && *format != ':' && *format != ';') {
 		PyErr_Format(PyExc_SystemError,
 			     "bad format string: %.200s", formatsave);
-		return cleanreturn(0, freelist);
+		return cleanreturn(0, &freelist);
 	}
 	
-	return cleanreturn(1, freelist);
+	return cleanreturn(1, &freelist);
 }
 
 
@@ -395,7 +413,7 @@ seterror(int iarg, const char *msg, int *levels, const char *fname,
 static char *
 converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
              int *levels, char *msgbuf, size_t bufsize, int toplevel, 
-             PyObject **freelist)
+             freelist_t *freelist)
 {
 	int level = 0;
 	int n = 0;
@@ -472,7 +490,7 @@ converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
 
 static char *
 convertitem(PyObject *arg, const char **p_format, va_list *p_va, int flags,
-            int *levels, char *msgbuf, size_t bufsize, PyObject **freelist)
+            int *levels, char *msgbuf, size_t bufsize, freelist_t *freelist)
 {
 	char *msg;
 	const char *format = *p_format;
@@ -539,7 +557,7 @@ float_argument_error(PyObject *arg)
 
 static char *
 convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
-              char *msgbuf, size_t bufsize, PyObject **freelist)
+              char *msgbuf, size_t bufsize, freelist_t *freelist)
 {
 	/* For # codes */
 #define FETCH_SIZE	int *q=NULL;Py_ssize_t *q2=NULL;\
@@ -1501,7 +1519,9 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 	const char *fname, *msg, *custom_msg, *keyword;
 	int min = INT_MAX;
 	int i, len, nargs, nkeywords;
-	PyObject *freelist = NULL, *current_arg;
+	PyObject *current_arg;
+	freelist_t freelist = {0, NULL};
+
 
 	assert(args != NULL && PyTuple_Check(args));
 	assert(keywords == NULL || PyDict_Check(keywords));
@@ -1525,6 +1545,8 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 	for (len=0; kwlist[len]; len++)
 		continue;
 
+	freelist.entries = PyMem_New(freelistentry_t, len);
+
 	nargs = PyTuple_GET_SIZE(args);
 	nkeywords = (keywords == NULL) ? 0 : PyDict_Size(keywords);
 	if (nargs + nkeywords > len) {
@@ -1535,7 +1557,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			     len,
 			     (len == 1) ? "" : "s",
 			     nargs + nkeywords);
-		return 0;
+		return cleanreturn(0, &freelist);
 	}
 
 	/* convert tuple args and keyword args in same loop, using kwlist to drive process */
@@ -1549,7 +1571,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			PyErr_Format(PyExc_RuntimeError,
 				     "More keyword list entries (%d) than "
 				     "format specifiers (%d)", len, i);
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		}
 		current_arg = NULL;
 		if (nkeywords) {
@@ -1563,11 +1585,11 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 					     "Argument given by name ('%s') "
 					     "and position (%d)",
 					     keyword, i+1);
-				return cleanreturn(0, freelist);
+				return cleanreturn(0, &freelist);
 			}
 		}
 		else if (nkeywords && PyErr_Occurred())
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		else if (i < nargs)
 			current_arg = PyTuple_GET_ITEM(args, i);
 			
@@ -1576,7 +1598,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 				levels, msgbuf, sizeof(msgbuf), &freelist);
 			if (msg) {
 				seterror(i+1, msg, levels, fname, custom_msg);
-				return cleanreturn(0, freelist);
+				return cleanreturn(0, &freelist);
 			}
 			continue;
 		}
@@ -1585,14 +1607,14 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			PyErr_Format(PyExc_TypeError, "Required argument "
 				     "'%s' (pos %d) not found",
 				     keyword, i+1);
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		}
 		/* current code reports success when all required args
 		 * fulfilled and no keyword args left, with no further
 		 * validation. XXX Maybe skip this in debug build ?
 		 */
 		if (!nkeywords)
-			return cleanreturn(1, freelist);
+			return cleanreturn(1, &freelist);
 
 		/* We are into optional args, skip thru to any remaining
 		 * keyword args */
@@ -1600,7 +1622,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 		if (msg) {
 			PyErr_Format(PyExc_RuntimeError, "%s: '%s'", msg,
 				     format);
-			return cleanreturn(0, freelist);
+			return cleanreturn(0, &freelist);
 		}
 	}
 
@@ -1608,7 +1630,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 		PyErr_Format(PyExc_RuntimeError,
 			"more argument specifiers than keyword list entries "
 			"(remaining format:'%s')", format);
-		return cleanreturn(0, freelist);
+		return cleanreturn(0, &freelist);
 	}
 
 	/* make sure there are no extraneous keyword arguments */
@@ -1621,7 +1643,7 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 			if (!PyString_Check(key)) {
                             PyErr_SetString(PyExc_TypeError, 
 					        "keywords must be strings");
-				return cleanreturn(0, freelist);
+				return cleanreturn(0, &freelist);
 			}
 			ks = PyString_AsString(key);
 			for (i = 0; i < len; i++) {
@@ -1635,12 +1657,12 @@ vgetargskeywords(PyObject *args, PyObject *keywords, const char *format,
 					     "'%s' is an invalid keyword "
 					     "argument for this function",
 					     ks);
-				return cleanreturn(0, freelist);
+				return cleanreturn(0, &freelist);
 			}
 		}
 	}
 
-	return cleanreturn(1, freelist);
+	return cleanreturn(1, &freelist);
 }
 
 

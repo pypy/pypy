@@ -100,7 +100,10 @@ class AppTestFfi:
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        assert pow_addr == self.pow_addr & (sys.maxint*2-1)
+        fff = sys.maxint*2-1
+        if sys.platform == 'win32':
+            fff = sys.maxint*2+1
+        assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
         import sys

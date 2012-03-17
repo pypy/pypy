@@ -185,6 +185,15 @@ def wrap_objobjargproc(space, w_self, w_args, func):
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.wrap(res)
 
+def wrap_delitem(space, w_self, w_args, func):
+    func_target = rffi.cast(objobjargproc, func)
+    check_num_args(space, w_args, 1)
+    w_key, = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_target, w_self, w_key, None)
+    if rffi.cast(lltype.Signed, res) == -1:
+        space.fromcache(State).check_and_raise_exception(always=True)
+    return space.w_None
+
 def wrap_ssizessizeargfunc(space, w_self, w_args, func):
     func_target = rffi.cast(ssizessizeargfunc, func)
     check_num_args(space, w_args, 2)
@@ -290,6 +299,14 @@ def slot_tp_str(space, w_self):
 @cpython_api([PyObject], PyObject, external=False)
 def slot_nb_int(space, w_self):
     return space.int(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iter(space, w_self):
+    return space.iter(w_self)
+
+@cpython_api([PyObject], PyObject, external=False)
+def slot_tp_iternext(space, w_self):
+    return space.next(w_self)
 
 from pypy.rlib.nonconst import NonConstant
 
@@ -631,6 +648,19 @@ slotdefs = eval(slotdefs_str)
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
 )
+
+# partial sort to solve some slot conflicts:
+# Number slots before Mapping slots before Sequence slots.
+# These are the only conflicts between __name__ methods
+def slotdef_sort_key(slotdef):
+    if slotdef.slot_name.startswith('tp_as_number'):
+        return 1
+    if slotdef.slot_name.startswith('tp_as_mapping'):
+        return 2
+    if slotdef.slot_name.startswith('tp_as_sequence'):
+        return 3
+    return 0
+slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 
 slotdefs_for_tp_slots = unrolling_iterable(
     [(x.method_name, x.slot_name, x.slot_names, x.slot_func)

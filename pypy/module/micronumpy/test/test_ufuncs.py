@@ -113,14 +113,37 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert (divide(array([-10]), array([2])) == array([-5])).all()
 
+    def test_true_divide(self):
+        from _numpypy import array, true_divide
+
+        a = array([0, 1, 2, 3, 4, 1, -1])
+        b = array([4, 4, 4, 4, 4, 0,  0])
+        c = true_divide(a, b)
+        assert (c == [0.0, 0.25, 0.5, 0.75, 1.0, float('inf'), float('-inf')]).all()
+
+        assert math.isnan(true_divide(0, 0))
+
     def test_fabs(self):
         from _numpypy import array, fabs
-        from math import fabs as math_fabs
+        from math import fabs as math_fabs, isnan
 
         a = array([-5.0, -0.0, 1.0])
         b = fabs(a)
         for i in range(3):
             assert b[i] == math_fabs(a[i])
+        assert fabs(float('inf')) == float('inf')
+        assert fabs(float('-inf')) == float('inf')
+        assert isnan(fabs(float('nan')))
+
+    def test_fmod(self):
+        from _numpypy import fmod
+        import math
+
+        assert fmod(-1e-100, 1e100) == -1e-100
+        assert fmod(3, float('inf')) == 3
+        assert (fmod([-3, -2, -1, 1, 2, 3], 2) == [-1,  0, -1,  1,  0,  1]).all()
+        for v in [float('inf'), float('-inf'), float('nan'), float('-nan')]:
+            assert math.isnan(fmod(v, 2))
 
     def test_minimum(self):
         from _numpypy import array, minimum
@@ -171,6 +194,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a.dtype == dtype("int8")
         assert a[0] == 1
         assert a[1] == 0
+
+    def test_signbit(self):
+        from _numpypy import signbit, copysign
+        import struct
+
+        assert (signbit([0, 0.0, 1, 1.0, float('inf'), float('nan')]) ==
+            [False, False, False, False, False, False]).all()
+        assert (signbit([-0, -0.0, -1, -1.0, float('-inf'), -float('nan'), float('-nan')]) ==
+            [False,  True,  True,  True,  True,  True, True]).all()
 
     def test_reciporocal(self):
         from _numpypy import array, reciprocal
@@ -231,12 +263,45 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
         b = exp(a)
-        for i in range(4):
+        for i in range(len(a)):
             try:
                 res = math.exp(a[i])
             except OverflowError:
                 res = float('inf')
             assert b[i] == res
+
+    def test_exp2(self):
+        import math
+        from _numpypy import array, exp2
+
+        a = array([-5.0, -0.0, 0.0, 2, 12345678.0, float("inf"),
+                   -float('inf'), -12343424.0])
+        b = exp2(a)
+        for i in range(len(a)):
+            try:
+                res = 2 ** a[i]
+            except OverflowError:
+                res = float('inf')
+            assert b[i] == res
+
+        assert exp2(3) == 8
+        assert math.isnan(exp2(float("nan")))
+
+    def test_expm1(self):
+        import math
+        from _numpypy import array, expm1
+
+        a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
+                   -float('inf'), -12343424.0])
+        b = expm1(a)
+        for i in range(4):
+            try:
+                res = math.exp(a[i]) - 1
+            except OverflowError:
+                res = float('inf')
+            assert b[i] == res
+
+        assert expm1(1e-50) == 1e-50
 
     def test_sin(self):
         import math
@@ -310,6 +375,48 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_arctan2(self):
+        import math
+        from _numpypy import array, arctan2
+
+        # From the numpy documentation
+        assert (
+            arctan2(
+                [0.,  0.,           1.,          -1., float('inf'),  float('inf')],
+                [0., -0., float('inf'), float('inf'), float('inf'), float('-inf')]) ==
+            [0.,  math.pi,  0., -0.,  math.pi/4, 3*math.pi/4]).all()
+
+        a = array([float('nan')])
+        b = arctan2(a, 0)
+        assert math.isnan(b[0])
+
+    def test_sinh(self):
+        import math
+        from _numpypy import array, sinh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = sinh(a)
+        for i in range(len(a)):
+            assert b[i] == math.sinh(a[i])
+
+    def test_cosh(self):
+        import math
+        from _numpypy import array, cosh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = cosh(a)
+        for i in range(len(a)):
+            assert b[i] == math.cosh(a[i])
+
+    def test_tanh(self):
+        import math
+        from _numpypy import array, tanh
+
+        a = array([-1, 0, 1, float('inf'), float('-inf')])
+        b = tanh(a)
+        for i in range(len(a)):
+            assert b[i] == math.tanh(a[i])
+
     def test_arcsinh(self):
         import math
         from _numpypy import arcsinh
@@ -317,6 +424,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for v in [float('inf'), float('-inf'), 1.0, math.e]:
             assert math.asinh(v) == arcsinh(v)
         assert math.isnan(arcsinh(float("nan")))
+
+    def test_arccosh(self):
+        import math
+        from _numpypy import arccosh
+
+        for v in [1.0, 1.1, 2]:
+            assert math.acosh(v) == arccosh(v)
+        for v in [-1.0, 0, .99]:
+            assert math.isnan(arccosh(v))
 
     def test_arctanh(self):
         import math
@@ -339,6 +455,58 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (sqrt(data) == results).all()
         assert math.isnan(sqrt(-1))
         assert math.isnan(sqrt(nan))
+
+    def test_radians(self):
+        import math
+        from _numpypy import radians, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = radians(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_deg2rad(self):
+        import math
+        from _numpypy import deg2rad, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = deg2rad(a)
+        for i in range(len(a)):
+            assert b[i] == math.radians(a[i])
+
+    def test_degrees(self):
+        import math
+        from _numpypy import degrees, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = degrees(a)
+        for i in range(len(a)):
+            assert b[i] == math.degrees(a[i])
+
+    def test_rad2deg(self):
+        import math
+        from _numpypy import rad2deg, array
+        a = array([
+            -181, -180, -179,
+            181, 180, 179,
+            359, 360, 361,
+            400, -1, 0, 1,
+            float('inf'), float('-inf')])
+        b = rad2deg(a)
+        for i in range(len(a)):
+            assert b[i] == math.degrees(a[i])
 
     def test_reduce_errors(self):
         from _numpypy import sin, add
@@ -435,6 +603,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (isinf(array([0.2, float('inf'), float('nan')])) == [False, True, False]).all()
         assert isinf(array([0.2])).dtype.kind == 'b'
 
+    def test_isposinf_isneginf(self):
+        from _numpypy import isneginf, isposinf
+        assert isposinf(float('inf'))
+        assert not isposinf(float('-inf'))
+        assert not isposinf(float('nan'))
+        assert not isposinf(0)
+        assert not isposinf(0.0)
+        assert isneginf(float('-inf'))
+        assert not isneginf(float('inf'))
+        assert not isneginf(float('nan'))
+        assert not isneginf(0)
+        assert not isneginf(0.0)
+
+    def test_isfinite(self):
+        from _numpypy import isfinite
+        assert (isfinite([0, 0.0, 1e50, -1e-50]) ==
+            [True, True, True, True]).all()
+        assert (isfinite([float('-inf'), float('inf'), float('-nan'), float('nan')]) ==
+            [False, False, False, False]).all()
+
     def test_logical_ops(self):
         from _numpypy import logical_and, logical_or, logical_xor, logical_not
 
@@ -445,3 +633,132 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
                 == [False, True, True, False]).all()
         assert (logical_not([True, False]) == [False, True]).all()
+
+    def test_logn(self):
+        import math
+        from _numpypy import log, log2, log10
+
+        for log_func, base in [(log, math.e), (log2, 2), (log10, 10)]:
+            for v in [float('-nan'), float('-inf'), -1, float('nan')]:
+                assert math.isnan(log_func(v))
+            for v in [-0.0, 0.0]:
+                assert log_func(v) == float("-inf")
+            assert log_func(float('inf')) == float('inf')
+            assert (log_func([1, base]) == [0, 1]).all()
+
+    def test_log1p(self):
+        import math
+        from _numpypy import log1p
+
+        for v in [float('-nan'), float('-inf'), -2, float('nan')]:
+            assert math.isnan(log1p(v))
+        for v in [-1]:
+            assert log1p(v) == float("-inf")
+        assert log1p(float('inf')) == float('inf')
+        assert (log1p([0, 1e-50, math.e - 1]) == [0, 1e-50, 1]).all()
+
+    def test_power_float(self):
+        import math
+        from _numpypy import power, array
+        a = array([1., 2., 3.])
+        b = power(a, 3)
+        for i in range(len(a)):
+            assert b[i] == a[i] ** 3
+
+        a = array([1., 2., 3.])
+        b = array([1., 2., 3.])
+        c = power(a, b)
+        for i in range(len(a)):
+            assert c[i] == a[i] ** b[i]
+
+        assert power(2, float('inf')) == float('inf')
+        assert power(float('inf'), float('inf')) == float('inf')
+        assert power(12345.0, 12345.0) == float('inf')
+        assert power(-12345.0, 12345.0) == float('-inf')
+        assert power(-12345.0, 12346.0) == float('inf')
+        assert math.isnan(power(-1, 1.1))
+        assert math.isnan(power(-1, -1.1))
+        assert power(-2.0, -1) == -0.5
+        assert power(-2.0, -2) == 0.25
+        assert power(12345.0, -12345.0) == 0
+        assert power(float('-inf'), 2) == float('inf')
+        assert power(float('-inf'), 2.5) == float('inf')
+        assert power(float('-inf'), 3) == float('-inf')
+
+    def test_power_int(self):
+        import math
+        from _numpypy import power, array
+        a = array([1, 2, 3])
+        b = power(a, 3)
+        for i in range(len(a)):
+            assert b[i] == a[i] ** 3
+
+        a = array([1, 2, 3])
+        b = array([1, 2, 3])
+        c = power(a, b)
+        for i in range(len(a)):
+            assert c[i] == a[i] ** b[i]
+
+        # assert power(12345, 12345) == -9223372036854775808
+        # assert power(-12345, 12345) == -9223372036854775808
+        # assert power(-12345, 12346) == -9223372036854775808
+        assert power(2, 0) == 1
+        assert power(2, -1) == 0
+        assert power(2, -2) == 0
+        assert power(-2, -1) == 0
+        assert power(-2, -2) == 0
+        assert power(12345, -12345) == 0
+
+    def test_floordiv(self):
+        from _numpypy import floor_divide, array
+        a = array([1., 2., 3., 4., 5., 6., 6.01])
+        b = floor_divide(a, 2.5)
+        for i in range(len(a)):
+            assert b[i] == a[i] // 2.5
+
+    def test_logaddexp(self):
+        import math
+        from _numpypy import logaddexp
+
+        # From the numpy documentation
+        prob1 = math.log(1e-50)
+        prob2 = math.log(2.5e-50)
+        prob12 = logaddexp(prob1, prob2)
+        assert math.fabs(-113.87649168120691 - prob12) < 0.000000000001
+
+        assert logaddexp(0, 0) == math.log(2)
+        assert logaddexp(float('-inf'), 0) == 0
+        assert logaddexp(12345678, 12345678) == float('inf')
+
+        assert math.isnan(logaddexp(float('nan'), 1))
+        assert math.isnan(logaddexp(1, float('nan')))
+        assert math.isnan(logaddexp(float('nan'), float('inf')))
+        assert math.isnan(logaddexp(float('inf'), float('nan')))
+        assert logaddexp(float('-inf'), float('-inf')) == float('-inf')
+        assert logaddexp(float('-inf'), float('inf')) == float('inf')
+        assert logaddexp(float('inf'), float('-inf')) == float('inf')
+        assert logaddexp(float('inf'), float('inf')) == float('inf')
+
+    def test_logaddexp2(self):
+        import math
+        from _numpypy import logaddexp2
+        log2 = math.log(2)
+
+        # From the numpy documentation
+        prob1 = math.log(1e-50) / log2
+        prob2 = math.log(2.5e-50) / log2
+        prob12 = logaddexp2(prob1, prob2)
+        assert math.fabs(-164.28904982231052 - prob12) < 0.000000000001
+
+        assert logaddexp2(0, 0) == 1
+        assert logaddexp2(float('-inf'), 0) == 0
+        assert logaddexp2(12345678, 12345678) == float('inf')
+
+        assert math.isnan(logaddexp2(float('nan'), 1))
+        assert math.isnan(logaddexp2(1, float('nan')))
+        assert math.isnan(logaddexp2(float('nan'), float('inf')))
+        assert math.isnan(logaddexp2(float('inf'), float('nan')))
+        assert logaddexp2(float('-inf'), float('-inf')) == float('-inf')
+        assert logaddexp2(float('-inf'), float('inf')) == float('inf')
+        assert logaddexp2(float('inf'), float('-inf')) == float('inf')
+        assert logaddexp2(float('inf'), float('inf')) == float('inf')

@@ -322,3 +322,14 @@ class TestModuleMinimal:
             space.ALL_BUILTIN_MODULES.pop()
             del space._builtinmodule_list
             mods = space.get_builtinmodule_to_install()
+
+    def test_dont_reload_builtin_mods_on_startup(self):
+        from pypy.tool.option import make_config, make_objspace
+        config = make_config(None)
+        space = make_objspace(config)
+        w_executable = space.wrap('executable')
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'py.py'
+        space.setattr(space.sys, w_executable, space.wrap('foobar'))
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
+        space.startup()
+        assert space.str_w(space.getattr(space.sys, w_executable)) == 'foobar'
