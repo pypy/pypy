@@ -3,6 +3,7 @@ import sys
 import py
 
 from pypy import conftest
+from pypy.jit.codewriter import longlong
 from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
@@ -3802,7 +3803,7 @@ class BaseLLtypeTests(BasicTests):
             # There are tests elsewhere to verify the correctness of this.
             expected = float2longlong(x)
             res = self.interp_operations(f, [x])
-            assert res == expected
+            assert longlong.getfloatstorage(res) == expected
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
