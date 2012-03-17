@@ -18,7 +18,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import maxint, LONG_BIT
 import os, sys
 
 class CConstant(Symbolic):
@@ -933,14 +933,11 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-# XXX re-enable this after correcting the windows case
-"""
 assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
     "but the C compiler says that 'long' is %d bytes" % (
     maxint, sizeof(lltype.Signed)))
-"""
 
 # ********************** some helpers *******************
 
