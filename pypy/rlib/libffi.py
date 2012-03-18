@@ -429,6 +429,11 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
+def array_getitem_T(TYPE, width, addr, index, offset):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
+
 @specialize.call_location()
 @jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
@@ -439,3 +444,8 @@ def array_setitem(ffitype, width, addr, index, offset, value):
             rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value
             return
     assert False
+
+def array_setitem_T(TYPE, width, addr, index, offset, value):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value

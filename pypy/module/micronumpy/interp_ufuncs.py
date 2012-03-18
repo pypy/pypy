@@ -156,7 +156,7 @@ class W_Ufunc(Wrappable):
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
             shape = obj.shape[:dim] + obj.shape[dim + 1:]
-        result = W_NDimArray(support.product(shape), shape, dtype)
+        result = W_NDimArray(shape, dtype)
         arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
                          result, obj, dim)
         loop.compute(arr)
