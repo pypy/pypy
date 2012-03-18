@@ -233,6 +233,7 @@ __int_type_map = [
     (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
     (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
     (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    (lltype.Char, _signed_type_for(lltype.Char)),
     ]
 
 __float_type_map = [
