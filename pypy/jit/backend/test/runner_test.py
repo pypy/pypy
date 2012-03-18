@@ -1497,9 +1497,9 @@ class BaseBackendTest(Runner):
 
     def test_read_timestamp(self):
         if sys.platform == 'win32':
-            # windows quite often is very inexact (like the old 8259 PIC),
+            # windows quite often is very inexact (like the old Intel 8259 PIC),
             # so we stretch the time a little bit.
-            # On my virtual Parallels machine in a 2GhZ Core i7 Mac Mini,
+            # On my virtual Parallels machine in a 2GHz Core i7 Mac Mini,
             # the test starts working at delay == 21670 and stops at 20600000.
             # We take the geometric mean value.
             from math import log, exp
