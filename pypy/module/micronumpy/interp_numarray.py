@@ -7,10 +7,10 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator)
-from pypy.module.micronumpy.strides import (calculate_slice_strides,
-    shape_agreement, find_shape_and_elems, get_shape_from_iterable,
-    calc_new_strides, to_coords)
+    SkipLastAxisIterator, Chunk, ViewIterator, Chunks, RecordChunk,
+    NewAxisChunk)
+from pypy.module.micronumpy.strides import (shape_agreement,
+    find_shape_and_elems, get_shape_from_iterable, calc_new_strides, to_coords)
 from pypy.rlib import jit
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -47,7 +47,7 @@ flat_get_driver = jit.JitDriver(
 )
 flat_set_driver = jit.JitDriver(
     greens=['shapelen', 'base'],
-    reds=['step', 'ai', 'lngth', 'arr', 'basei'],
+    reds=['step', 'lngth', 'ri', 'arr', 'basei'],
     name='numpy_flatset',
 )
 
@@ -79,8 +79,8 @@ class BaseArray(Wrappable):
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
-        size, shape = _find_size_and_shape(space, w_size)
-        return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
+        shape = _find_shape(space, w_size)
+        return space.wrap(W_NDimArray(shape[:], dtype=dtype))
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space):
@@ -225,8 +225,7 @@ class BaseArray(Wrappable):
             return scalar_w(space, dtype, space.wrap(0))
         # Do the dims match?
         out_shape, other_critical_dim = match_dot_shapes(space, self, other)
-        out_size = support.product(out_shape)
-        result = W_NDimArray(out_size, out_shape, dtype)
+        result = W_NDimArray(out_shape, dtype)
         # This is the place to add fpypy and blas
         return multidim_dot(space, self.get_concrete(),
                             other.get_concrete(), result, dtype,
@@ -245,7 +244,7 @@ class BaseArray(Wrappable):
         return space.wrap(self.find_dtype().itemtype.get_element_size())
 
     def descr_get_nbytes(self, space):
-        return space.wrap(self.size * self.find_dtype().itemtype.get_element_size())
+        return space.wrap(self.size)
 
     @jit.unroll_safe
     def descr_get_shape(self, space):
@@ -253,13 +252,16 @@ class BaseArray(Wrappable):
 
     def descr_set_shape(self, space, w_iterable):
         new_shape = get_shape_from_iterable(space,
-                            self.size, w_iterable)
+                            support.product(self.shape), w_iterable)
         if isinstance(self, Scalar):
             return
         self.get_concrete().setshape(space, new_shape)
 
     def descr_get_size(self, space):
-        return space.wrap(self.size)
+        return space.wrap(self.get_size())
+
+    def get_size(self):
+        return self.size // self.find_dtype().get_size()
 
     def descr_copy(self, space):
         return self.copy(space)
@@ -279,7 +281,7 @@ class BaseArray(Wrappable):
 
     def empty_copy(self, space, dtype):
         shape = self.shape
-        return W_NDimArray(support.product(shape), shape[:], dtype, 'C')
+        return W_NDimArray(shape[:], dtype, 'C')
 
     def descr_len(self, space):
         if len(self.shape):
@@ -320,7 +322,16 @@ class BaseArray(Wrappable):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape
         """
+        if space.isinstance_w(w_idx, space.w_str):
+            return False
         shape_len = len(self.shape)
+        if space.isinstance_w(w_idx, space.w_tuple):
+            for w_item in space.fixedview(w_idx):
+                if (space.isinstance_w(w_item, space.w_slice) or
+                    space.is_w(w_item, space.w_None)):
+                    return False
+        elif space.is_w(w_idx, space.w_None):
+            return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
                 "0-d arrays can't be indexed"))
@@ -336,43 +347,55 @@ class BaseArray(Wrappable):
         if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
-        if lgt < shape_len:
-            return False
-        for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_slice):
-                return False
-        return True
+        return lgt == shape_len
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
+        if space.isinstance_w(w_idx, space.w_str):
+            idx = space.str_w(w_idx)
+            dtype = self.find_dtype()
+            if not dtype.is_record_type() or idx not in dtype.fields:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "field named %s not defined" % idx))
+            return RecordChunk(idx)
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
-            return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        return [Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
-                enumerate(space.fixedview(w_idx))]
+            return Chunks([Chunk(*space.decode_index4(w_idx, self.shape[0]))])
+        elif space.is_w(w_idx, space.w_None):
+            return Chunks([NewAxisChunk()])
+        result = []
+        i = 0
+        for w_item in space.fixedview(w_idx):
+            if space.is_w(w_item, space.w_None):
+                result.append(NewAxisChunk())
+            else:
+                result.append(Chunk(*space.decode_index4(w_item,
+                                                         self.shape[i])))
+                i += 1
+        return Chunks(result)
 
-    def count_all_true(self, arr):
-        sig = arr.find_sig()
-        frame = sig.create_frame(arr)
-        shapelen = len(arr.shape)
+    def count_all_true(self):
+        sig = self.find_sig()
+        frame = sig.create_frame(self)
+        shapelen = len(self.shape)
         s = 0
         iter = None
         while not frame.done():
-            count_driver.jit_merge_point(arr=arr, frame=frame, iter=iter, s=s,
+            count_driver.jit_merge_point(arr=self, frame=frame, iter=iter, s=s,
                                          shapelen=shapelen)
             iter = frame.get_final_iter()
-            s += arr.dtype.getitem_bool(arr.storage, iter.offset)
+            s += self.dtype.getitem_bool(self, iter.offset)
             frame.next(shapelen)
         return s
 
     def getitem_filter(self, space, arr):
         concr = arr.get_concrete()
-        if concr.size > self.size:
+        if concr.get_size() > self.get_size():
             raise OperationError(space.w_IndexError,
                                  space.wrap("index out of range for array"))
-        size = self.count_all_true(concr)
-        res = W_NDimArray(size, [size], self.find_dtype())
-        ri = ArrayIterator(size)
+        size = concr.count_all_true()
+        res = W_NDimArray([size], self.find_dtype())
+        ri = res.create_iter()
         shapelen = len(self.shape)
         argi = concr.create_iter()
         sig = self.find_sig()
@@ -382,7 +405,7 @@ class BaseArray(Wrappable):
             filter_driver.jit_merge_point(concr=concr, argi=argi, ri=ri,
                                           frame=frame, v=v, res=res, sig=sig,
                                           shapelen=shapelen, self=self)
-            if concr.dtype.getitem_bool(concr.storage, argi.offset):
+            if concr.dtype.getitem_bool(concr, argi.offset):
                 v = sig.eval(frame, self)
                 res.setitem(ri.offset, v)
                 ri = ri.next(1)
@@ -391,23 +414,6 @@ class BaseArray(Wrappable):
             argi = argi.next(shapelen)
             frame.next(shapelen)
         return res
-
-    def setitem_filter(self, space, idx, val):
-        size = self.count_all_true(idx)
-        arr = SliceArray([size], self.dtype, self, val)
-        sig = arr.find_sig()
-        shapelen = len(self.shape)
-        frame = sig.create_frame(arr)
-        idxi = idx.create_iter()
-        while not frame.done():
-            filter_set_driver.jit_merge_point(idx=idx, idxi=idxi, sig=sig,
-                                              frame=frame, arr=arr,
-                                              shapelen=shapelen)
-            if idx.dtype.getitem_bool(idx.storage, idxi.offset):
-                sig.eval(frame, arr)
-                frame.next_from_second(1)
-            frame.next_first(shapelen)
-            idxi = idxi.next(shapelen)
 
     def descr_getitem(self, space, w_idx):
         if (isinstance(w_idx, BaseArray) and w_idx.shape == self.shape and
@@ -418,7 +424,24 @@ class BaseArray(Wrappable):
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item)
         chunks = self._prepare_slice_args(space, w_idx)
-        return self.create_slice(chunks)
+        return chunks.apply(self)
+
+    def setitem_filter(self, space, idx, val):
+        size = idx.count_all_true()
+        arr = SliceArray([size], self.dtype, self, val)
+        sig = arr.find_sig()
+        shapelen = len(self.shape)
+        frame = sig.create_frame(arr)
+        idxi = idx.create_iter()
+        while not frame.done():
+            filter_set_driver.jit_merge_point(idx=idx, idxi=idxi, sig=sig,
+                                              frame=frame, arr=arr,
+                                              shapelen=shapelen)
+            if idx.dtype.getitem_bool(idx, idxi.offset):
+                sig.eval(frame, arr)
+                frame.next_from_second(1)
+            frame.next_first(shapelen)
+            idxi = idxi.next(shapelen)
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -436,25 +459,8 @@ class BaseArray(Wrappable):
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
         chunks = self._prepare_slice_args(space, w_idx)
-        view = self.create_slice(chunks).get_concrete()
+        view = chunks.apply(self).get_concrete()
         view.setslice(space, w_value)
-
-    @jit.unroll_safe
-    def create_slice(self, chunks):
-        shape = []
-        i = -1
-        for i, chunk in enumerate(chunks):
-            chunk.extend_shape(shape)
-        s = i + 1
-        assert s >= 0
-        shape += self.shape[s:]
-        if not isinstance(self, ConcreteArray):
-            return VirtualSlice(self, chunks, shape)
-        r = calculate_slice_strides(self.shape, self.start, self.strides,
-                                    self.backstrides, chunks)
-        _, start, strides, backstrides = r
-        return W_NDimSlice(start, strides[:], backstrides[:],
-                           shape[:], self)
 
     def descr_reshape(self, space, args_w):
         """reshape(...)
@@ -472,13 +478,16 @@ class BaseArray(Wrappable):
             w_shape = args_w[0]
         else:
             w_shape = space.newtuple(args_w)
-        new_shape = get_shape_from_iterable(space, self.size, w_shape)
+        new_shape = get_shape_from_iterable(space, support.product(self.shape),
+                                            w_shape)
         return self.reshape(space, new_shape)
 
     def reshape(self, space, new_shape):
         concrete = self.get_concrete()
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape, concrete.shape,
+        new_strides = None
+        if self.size > 0:
+            new_strides = calc_new_strides(new_shape, concrete.shape,
                                      concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
@@ -508,7 +517,7 @@ class BaseArray(Wrappable):
     def descr_mean(self, space, w_axis=None):
         if space.is_w(w_axis, space.w_None):
             w_axis = space.wrap(-1)
-            w_denom = space.wrap(self.size)
+            w_denom = space.wrap(support.product(self.shape))
         else:
             dim = space.int_w(w_axis)
             w_denom = space.wrap(self.shape[dim])
@@ -527,7 +536,7 @@ class BaseArray(Wrappable):
         concr.fill(space, w_value)
 
     def descr_nonzero(self, space):
-        if self.size > 1:
+        if self.get_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
         concr = self.get_concrete_or_scalar()
@@ -606,8 +615,7 @@ class BaseArray(Wrappable):
                                  space.wrap("axis unsupported for take"))
         index_i = index.create_iter()
         res_shape = index.shape
-        size = support.product(res_shape)
-        res = W_NDimArray(size, res_shape[:], concr.dtype, concr.order)
+        res = W_NDimArray(res_shape[:], concr.dtype, concr.order)
         res_i = res.create_iter()
         shapelen = len(index.shape)
         sig = concr.find_sig()
@@ -646,6 +654,11 @@ class BaseArray(Wrappable):
         raise OperationError(space.w_NotImplementedError, space.wrap(
             "non-int arg not supported"))
 
+    def descr_tostring(self, space):
+        ra = ToStringArray(self)
+        loop.compute(ra)
+        return space.wrap(ra.s.build())
+
     def compute_first_step(self, sig, frame):
         pass
 
@@ -667,8 +680,7 @@ class Scalar(BaseArray):
     """
     Intermediate class representing a literal.
     """
-    size = 1
-    _attrs_ = ["dtype", "value", "shape"]
+    _attrs_ = ["dtype", "value", "shape", "size"]
 
     def __init__(self, dtype, value):
         self.shape = []
@@ -676,6 +688,7 @@ class Scalar(BaseArray):
         self.dtype = dtype
         assert isinstance(value, interp_boxes.W_GenericBox)
         self.value = value
+        self.size = dtype.get_size()
 
     def find_dtype(self):
         return self.dtype
@@ -693,8 +706,7 @@ class Scalar(BaseArray):
         return self
 
     def reshape(self, space, new_shape):
-        size = support.product(new_shape)
-        res = W_NDimArray(size, new_shape, self.dtype, 'C')
+        res = W_NDimArray(new_shape, self.dtype, 'C')
         res.setitem(0, self.value)
         return res
 
@@ -707,6 +719,7 @@ class VirtualArray(BaseArray):
         self.forced_result = None
         self.res_dtype = res_dtype
         self.name = name
+        self.size = support.product(self.shape) * res_dtype.get_size()
 
     def _del_sources(self):
         # Function for deleting references to source arrays,
@@ -714,7 +727,7 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        ra = ResultArray(self, self.size, self.shape, self.res_dtype)
+        ra = ResultArray(self, self.shape, self.res_dtype)
         loop.compute(ra)
         return ra.left
 
@@ -742,7 +755,6 @@ class VirtualSlice(VirtualArray):
     def __init__(self, child, chunks, shape):
         self.child = child
         self.chunks = chunks
-        self.size = support.product(shape)
         VirtualArray.__init__(self, 'slice', shape, child.find_dtype())
 
     def create_sig(self):
@@ -754,7 +766,7 @@ class VirtualSlice(VirtualArray):
     def force_if_needed(self):
         if self.forced_result is None:
             concr = self.child.get_concrete()
-            self.forced_result = concr.create_slice(self.chunks)
+            self.forced_result = self.chunks.apply(concr)
 
     def _del_sources(self):
         self.child = None
@@ -787,7 +799,6 @@ class Call2(VirtualArray):
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
-        self.size = support.product(self.shape)
 
     def _del_sources(self):
         self.left = None
@@ -815,14 +826,29 @@ class Call2(VirtualArray):
                                self.left.create_sig(), self.right.create_sig())
 
 class ResultArray(Call2):
-    def __init__(self, child, size, shape, dtype, res=None, order='C'):
+    def __init__(self, child, shape, dtype, res=None, order='C'):
         if res is None:
-            res = W_NDimArray(size, shape, dtype, order)
+            res = W_NDimArray(shape, dtype, order)
         Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
 
     def create_sig(self):
         return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
                                          self.right.create_sig())
+
+class ToStringArray(Call1):
+    def __init__(self, child):
+        dtype = child.find_dtype()
+        self.item_size = dtype.itemtype.get_element_size()
+        self.s = StringBuilder(child.size * self.item_size)
+        Call1.__init__(self, None, 'tostring', child.shape, dtype, dtype,
+                       child)
+        self.res = W_NDimArray([1], dtype, 'C')
+        self.res_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
+                                    self.res.storage)
+
+    def create_sig(self):
+        return signature.ToStringSignature(self.calc_dtype,
+                                           self.values.create_sig())
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -895,13 +921,13 @@ class ConcreteArray(BaseArray):
     """
     _immutable_fields_ = ['storage']
 
-    def __init__(self, size, shape, dtype, order='C', parent=None):
-        self.size = size
+    def __init__(self, shape, dtype, order='C', parent=None):
         self.parent = parent
+        self.size = support.product(shape) * dtype.get_size()
         if parent is not None:
             self.storage = parent.storage
         else:
-            self.storage = dtype.malloc(size)
+            self.storage = dtype.itemtype.malloc(self.size)
         self.order = order
         self.dtype = dtype
         if self.strides is None:
@@ -920,13 +946,14 @@ class ConcreteArray(BaseArray):
         return self.dtype
 
     def getitem(self, item):
-        return self.dtype.getitem(self.storage, item)
+        return self.dtype.getitem(self, item)
 
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self, item, value)
 
     def calc_strides(self, shape):
+        dtype = self.find_dtype()
         strides = []
         backstrides = []
         s = 1
@@ -934,8 +961,8 @@ class ConcreteArray(BaseArray):
         if self.order == 'C':
             shape_rev.reverse()
         for sh in shape_rev:
-            strides.append(s)
-            backstrides.append(s * (sh - 1))
+            strides.append(s * dtype.get_size())
+            backstrides.append(s * (sh - 1) * dtype.get_size())
             s *= sh
         if self.order == 'C':
             strides.reverse()
@@ -983,9 +1010,9 @@ class ConcreteArray(BaseArray):
         shapelen = len(self.shape)
         if shapelen == 1:
             rffi.c_memcpy(
-                rffi.ptradd(self.storage, self.start * itemsize),
-                rffi.ptradd(w_value.storage, w_value.start * itemsize),
-                self.size * itemsize
+                rffi.ptradd(self.storage, self.start),
+                rffi.ptradd(w_value.storage, w_value.start),
+                self.size
             )
         else:
             dest = SkipLastAxisIterator(self)
@@ -1000,7 +1027,7 @@ class ConcreteArray(BaseArray):
                 dest.next()
 
     def copy(self, space):
-        array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
+        array = W_NDimArray(self.shape[:], self.dtype, self.order)
         array.setslice(space, self)
         return array
 
@@ -1014,14 +1041,15 @@ class ViewArray(ConcreteArray):
 
 
 class W_NDimSlice(ViewArray):
-    def __init__(self, start, strides, backstrides, shape, parent):
+    def __init__(self, start, strides, backstrides, shape, parent, dtype=None):
         assert isinstance(parent, ConcreteArray)
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
         self.strides = strides
         self.backstrides = backstrides
-        ViewArray.__init__(self, support.product(shape), shape, parent.dtype,
-                           parent.order, parent)
+        if dtype is None:
+            dtype = parent.dtype
+        ViewArray.__init__(self, shape, dtype, parent.order, parent)
         self.start = start
 
     def create_iter(self, transforms=None):
@@ -1031,18 +1059,19 @@ class W_NDimSlice(ViewArray):
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
-        elif len(self.shape) < 2:
+        elif len(self.shape) < 2 or self.size < 1:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor
             strides = []
             backstrides = []
-            s = self.strides[0]
+            dtype = self.find_dtype()
+            s = self.strides[0] // dtype.get_size()
             if self.order == 'C':
                 new_shape.reverse()
             for sh in new_shape:
-                strides.append(s)
-                backstrides.append(s * (sh - 1))
-                s *= sh
+                strides.append(s * dtype.get_size())
+                backstrides.append(s * (sh - 1) * dtype.get_size())
+                s *= max(1, sh)
             if self.order == 'C':
                 strides.reverse()
                 backstrides.reverse()
@@ -1069,14 +1098,16 @@ class W_NDimArray(ConcreteArray):
     """
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
+        self.dtype.setitem(self, item, value)
 
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
 
     def create_iter(self, transforms=None):
-        return ArrayIterator(self.size).apply_transformations(self, transforms)
+        esize = self.find_dtype().get_size()
+        return ArrayIterator(self.size, esize).apply_transformations(self,
+                                                                     transforms)
 
     def create_sig(self):
         return signature.ArraySignature(self.dtype)
@@ -1084,18 +1115,13 @@ class W_NDimArray(ConcreteArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
-def _find_size_and_shape(space, w_size):
+def _find_shape(space, w_size):
     if space.isinstance_w(w_size, space.w_int):
-        size = space.int_w(w_size)
-        shape = [size]
-    else:
-        size = 1
-        shape = []
-        for w_item in space.fixedview(w_size):
-            item = space.int_w(w_item)
-            size *= item
-            shape.append(item)
-    return size, shape
+        return [space.int_w(w_size)]
+    shape = []
+    for w_item in space.fixedview(w_size):
+        shape.append(space.int_w(w_item))
+    return shape
 
 @unwrap_spec(subok=bool, copy=bool, ownmaskna=bool)
 def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
@@ -1129,28 +1155,28 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
         if copy:
             return w_item_or_iterable.copy(space)
         return w_item_or_iterable
-    shape, elems_w = find_shape_and_elems(space, w_item_or_iterable)
-    # they come back in C order
-    size = len(elems_w)
     if w_dtype is None or space.is_w(w_dtype, space.w_None):
-        w_dtype = None
+        dtype = None
+    else:
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+    shape, elems_w = find_shape_and_elems(space, w_item_or_iterable, dtype)
+    # they come back in C order
+    if dtype is None:
         for w_elem in elems_w:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
-                                                          w_dtype)
-            if w_dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
+            dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
+                                                        dtype)
+            if dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
                 break
-    if w_dtype is None:
-        w_dtype = space.w_None
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
-    arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
+        if dtype is None:
+            dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
+    arr = W_NDimArray(shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
-    arr_iter = ArrayIterator(arr.size)
+    arr_iter = arr.create_iter()
     # XXX we might want to have a jitdriver here
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
-        dtype.setitem(arr.storage, arr_iter.offset,
+        dtype.setitem(arr, arr_iter.offset,
                       dtype.coerce(space, w_elem))
         arr_iter = arr_iter.next(shapelen)
     return arr
@@ -1159,22 +1185,22 @@ def zeros(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-    size, shape = _find_size_and_shape(space, w_size)
+    shape = _find_shape(space, w_size)
     if not shape:
         return scalar_w(space, dtype, space.wrap(0))
-    return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
+    return space.wrap(W_NDimArray(shape[:], dtype=dtype))
 
 def ones(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
 
-    size, shape = _find_size_and_shape(space, w_size)
+    shape = _find_shape(space, w_size)
     if not shape:
         return scalar_w(space, dtype, space.wrap(1))
-    arr = W_NDimArray(size, shape[:], dtype=dtype)
+    arr = W_NDimArray(shape[:], dtype=dtype)
     one = dtype.box(1)
-    arr.dtype.fill(arr.storage, one, 0, size)
+    arr.dtype.fill(arr.storage, one, 0, arr.size)
     return space.wrap(arr)
 
 @unwrap_spec(arr=BaseArray, skipna=bool, keepdims=bool)
@@ -1222,13 +1248,13 @@ def concatenate(space, w_args, axis=0):
                     "array dimensions must agree except for axis being concatenated"))
             elif i == axis:
                 shape[i] += axis_size
-    res = W_NDimArray(support.product(shape), shape, dtype, 'C')
+    res = W_NDimArray(shape, dtype, 'C')
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:
         chunks[axis] = Chunk(axis_start, axis_start + arr.shape[axis], 1,
                              arr.shape[axis])
-        res.create_slice(chunks).setslice(space, arr)
+        Chunks(chunks).apply(res).setslice(space, arr)
         axis_start += arr.shape[axis]
     return res
 
@@ -1316,6 +1342,7 @@ BaseArray.typedef = TypeDef(
     std = interp2app(BaseArray.descr_std),
 
     fill = interp2app(BaseArray.descr_fill),
+    tostring = interp2app(BaseArray.descr_tostring),
 
     copy = interp2app(BaseArray.descr_copy),
     flatten = interp2app(BaseArray.descr_flatten),
@@ -1338,7 +1365,7 @@ class W_FlatIterator(ViewArray):
         self.iter = sig.create_frame(arr).get_final_iter()
         self.base = arr
         self.index = 0
-        ViewArray.__init__(self, arr.size, [arr.size], arr.dtype, arr.order,
+        ViewArray.__init__(self, [arr.get_size()], arr.dtype, arr.order,
                            arr)
 
     def descr_next(self, space):
@@ -1353,7 +1380,7 @@ class W_FlatIterator(ViewArray):
         return self
 
     def descr_len(self, space):
-        return space.wrap(self.size)
+        return space.wrap(self.get_size())
 
     def descr_index(self, space):
         return space.wrap(self.index)
@@ -1371,28 +1398,26 @@ class W_FlatIterator(ViewArray):
             raise OperationError(space.w_IndexError,
                                  space.wrap('unsupported iterator index'))
         base = self.base
-        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
+        start, stop, step, lngth = space.decode_index4(w_idx, base.get_size())
         # setslice would have been better, but flat[u:v] for arbitrary
         # shapes of array a cannot be represented as a[x1:x2, y1:y2]
         basei = ViewIterator(base.start, base.strides,
-                               base.backstrides,base.shape)
+                             base.backstrides, base.shape)
         shapelen = len(base.shape)
         basei = basei.next_skip_x(shapelen, start)
         if lngth <2:
             return base.getitem(basei.offset)
-        ri = ArrayIterator(lngth)
-        res = W_NDimArray(lngth, [lngth], base.dtype,
-                                    base.order)
+        res = W_NDimArray([lngth], base.dtype, base.order)
+        ri = res.create_iter()
         while not ri.done():
             flat_get_driver.jit_merge_point(shapelen=shapelen,
                                              base=base,
                                              basei=basei,
                                              step=step,
                                              res=res,
-                                             ri=ri,
-                                            )
+                                             ri=ri)
             w_val = base.getitem(basei.offset)
-            res.setitem(ri.offset,w_val)
+            res.setitem(ri.offset, w_val)
             basei = basei.next_skip_x(shapelen, step)
             ri = ri.next(shapelen)
         return res
@@ -1403,27 +1428,28 @@ class W_FlatIterator(ViewArray):
             raise OperationError(space.w_IndexError,
                                  space.wrap('unsupported iterator index'))
         base = self.base
-        start, stop, step, lngth = space.decode_index4(w_idx, base.size)
+        start, stop, step, lngth = space.decode_index4(w_idx, base.get_size())
         arr = convert_to_array(space, w_value)
-        ai = 0
+        ri = arr.create_iter()
         basei = ViewIterator(base.start, base.strides,
-                               base.backstrides,base.shape)
+                             base.backstrides, base.shape)
         shapelen = len(base.shape)
         basei = basei.next_skip_x(shapelen, start)
         while lngth > 0:
             flat_set_driver.jit_merge_point(shapelen=shapelen,
-                                             basei=basei,
-                                             base=base,
-                                             step=step,
-                                             arr=arr,
-                                             ai=ai,
-                                             lngth=lngth,
-                                            )
-            v = arr.getitem(ai).convert_to(base.dtype)
+                                            basei=basei,
+                                            base=base,
+                                            step=step,
+                                            arr=arr,
+                                            lngth=lngth,
+                                            ri=ri)
+            v = arr.getitem(ri.offset).convert_to(base.dtype)
             base.setitem(basei.offset, v)
             # need to repeat input values until all assignments are done
-            ai = (ai + 1) % arr.size
             basei = basei.next_skip_x(shapelen, step)
+            ri = ri.next(shapelen)
+            # WTF is numpy thinking?
+            ri.offset %= arr.size
             lngth -= 1
 
     def create_sig(self):
@@ -1431,9 +1457,9 @@ class W_FlatIterator(ViewArray):
 
     def create_iter(self, transforms=None):
         return ViewIterator(self.base.start, self.base.strides,
-                    self.base.backstrides,
-                    self.base.shape).apply_transformations(self.base,
-                                                           transforms)
+                            self.base.backstrides,
+                            self.base.shape).apply_transformations(self.base,
+                                                                   transforms)
 
     def descr_base(self, space):
         return space.wrap(self.base)
