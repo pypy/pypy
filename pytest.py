@@ -10,7 +10,7 @@ __all__ = ['main']
 # and the branch stage 2 is started, where we remove this patch.
 import sys
 if hasattr(sys, "maxsize"):
-    if sys.maxint <> sys.maxsize:
+    if sys.maxint != sys.maxsize:
         sys.maxint = sys.maxsize
         import warnings
         warnings.warn("""\n
