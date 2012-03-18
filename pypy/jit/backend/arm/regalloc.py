@@ -988,7 +988,7 @@ class Regalloc(object):
         return [imm(size)]
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape(False)
+        shape = gcrootmap.get_basic_shape()
         for v, val in self.frame_manager.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert val.is_stack()
