@@ -803,6 +803,8 @@ for tp in [UInt32, UInt64]:
         UIntP = tp
         break
 del tp
+assert rffi.sizeof(IntP) == rffi.sizeof(rffi.VOIDP)
+assert rffi.sizeof(UIntP) == rffi.sizeof(rffi.VOIDP)
 
 def _setup():
     # compute alignment
