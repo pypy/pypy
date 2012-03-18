@@ -324,9 +324,9 @@ class BaseArray(Wrappable):
         if space.isinstance_w(w_idx, space.w_tuple):
             for w_item in space.fixedview(w_idx):
                 if (space.isinstance_w(w_item, space.w_slice) or
-                    space.isinstance_w(w_item, space.w_NoneType)):
+                    space.is_w(w_item, space.w_None)):
                     return False
-        elif space.isinstance_w(w_idx, space.w_NoneType):
+        elif space.is_w(w_idx, space.w_None):
             return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
@@ -350,12 +350,12 @@ class BaseArray(Wrappable):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        elif space.isinstance_w(w_idx, space.w_NoneType):
+        elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk()]
         result = []
         i = 0
         for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_NoneType):
+            if space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
             else:
                 result.append(Chunk(*space.decode_index4(w_item,
