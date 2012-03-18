@@ -485,6 +485,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros((4, 2, 3))
         a.shape = (12, 2)
         (a + a).reshape(2, 12) # assert did not explode
+        a = array([[[[]]]])
+        assert a.reshape((0,)).shape == (0,)
 
     def test_slice_reshape(self):
         from _numpypy import zeros, arange

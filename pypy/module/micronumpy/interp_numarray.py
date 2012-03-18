@@ -324,9 +324,9 @@ class BaseArray(Wrappable):
         if space.isinstance_w(w_idx, space.w_tuple):
             for w_item in space.fixedview(w_idx):
                 if (space.isinstance_w(w_item, space.w_slice) or
-                    space.isinstance_w(w_item, space.w_NoneType)):
+                    space.is_w(w_item, space.w_None)):
                     return False
-        elif space.isinstance_w(w_idx, space.w_NoneType):
+        elif space.is_w(w_idx, space.w_None):
             return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
@@ -350,12 +350,12 @@ class BaseArray(Wrappable):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return [Chunk(*space.decode_index4(w_idx, self.shape[0]))]
-        elif space.isinstance_w(w_idx, space.w_NoneType):
+        elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk()]
         result = []
         i = 0
         for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_NoneType):
+            if space.is_w(w_item, space.w_None):
                 result.append(NewAxisChunk())
             else:
                 result.append(Chunk(*space.decode_index4(w_item,
@@ -490,7 +490,9 @@ class BaseArray(Wrappable):
     def reshape(self, space, new_shape):
         concrete = self.get_concrete()
         # Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape, concrete.shape,
+        new_strides = None
+        if self.size > 0:
+            new_strides = calc_new_strides(new_shape, concrete.shape,
                                      concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
@@ -1043,7 +1045,7 @@ class W_NDimSlice(ViewArray):
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
-        elif len(self.shape) < 2:
+        elif len(self.shape) < 2 or self.size < 1:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor
             strides = []
@@ -1054,7 +1056,7 @@ class W_NDimSlice(ViewArray):
             for sh in new_shape:
                 strides.append(s)
                 backstrides.append(s * (sh - 1))
-                s *= sh
+                s *= max(1, sh)
             if self.order == 'C':
                 strides.reverse()
                 backstrides.reverse()

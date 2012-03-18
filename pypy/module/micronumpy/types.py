@@ -155,6 +155,14 @@ class Primitive(object):
     def isinf(self, v):
         return False
 
+    @raw_unary_op
+    def isneginf(self, v):
+        return False
+
+    @raw_unary_op
+    def isposinf(self, v):
+        return False
+
     @raw_binary_op
     def eq(self, v1, v2):
         return v1 == v2
@@ -293,6 +301,8 @@ class Integer(Primitive):
 
     @simple_binary_op
     def pow(self, v1, v2):
+        if v2 < 0:
+            return 0
         res = 1
         while v2 > 0:
             if v2 & 1:
@@ -440,7 +450,15 @@ class Float(Primitive):
 
     @simple_binary_op
     def pow(self, v1, v2):
-        return math.pow(v1, v2)
+        try:
+            return math.pow(v1, v2)
+        except ValueError:
+            return rfloat.NAN
+        except OverflowError:
+            if math.modf(v2)[0] == 0 and math.modf(v2 / 2)[0] != 0:
+                # Odd integer powers result in the same sign as the base
+                return rfloat.copysign(rfloat.INFINITY, v1)
+            return rfloat.INFINITY
 
     @simple_binary_op
     def copysign(self, v1, v2):
@@ -452,9 +470,20 @@ class Float(Primitive):
             return 0.0
         return rfloat.copysign(1.0, v)
 
+    @raw_unary_op
+    def signbit(self, v):
+        return rfloat.copysign(1.0, v) < 0.0
+
     @simple_unary_op
     def fabs(self, v):
         return math.fabs(v)
+
+    @simple_binary_op
+    def fmod(self, v1, v2):
+        try:
+            return math.fmod(v1, v2)
+        except ValueError:
+            return rfloat.NAN
 
     @simple_unary_op
     def reciprocal(self, v):
@@ -474,6 +503,20 @@ class Float(Primitive):
     def exp(self, v):
         try:
             return math.exp(v)
+        except OverflowError:
+            return rfloat.INFINITY
+
+    @simple_unary_op
+    def exp2(self, v):
+        try:
+            return math.pow(2, v)
+        except OverflowError:
+            return rfloat.INFINITY
+
+    @simple_unary_op
+    def expm1(self, v):
+        try:
+            return rfloat.expm1(v)
         except OverflowError:
             return rfloat.INFINITY
 
@@ -504,6 +547,10 @@ class Float(Primitive):
     @simple_unary_op
     def arctan(self, v):
         return math.atan(v)
+
+    @simple_binary_op
+    def arctan2(self, v1, v2):
+        return math.atan2(v1, v2)
 
     @simple_unary_op
     def sinh(self, v):
@@ -549,6 +596,18 @@ class Float(Primitive):
     @raw_unary_op
     def isinf(self, v):
         return rfloat.isinf(v)
+
+    @raw_unary_op
+    def isneginf(self, v):
+        return rfloat.isinf(v) and v < 0
+
+    @raw_unary_op
+    def isposinf(self, v):
+        return rfloat.isinf(v) and v > 0
+
+    @raw_unary_op
+    def isfinite(self, v):
+        return not (rfloat.isinf(v) or rfloat.isnan(v))
 
     @simple_unary_op
     def radians(self, v):
@@ -599,6 +658,48 @@ class Float(Primitive):
         except OverflowError:
             return -rfloat.INFINITY
         except ValueError:
+            return rfloat.NAN
+
+    @simple_binary_op
+    def logaddexp(self, v1, v2):
+        try:
+            v1e = math.exp(v1)
+        except OverflowError:
+            v1e = rfloat.INFINITY
+        try:
+            v2e = math.exp(v2)
+        except OverflowError:
+            v2e = rfloat.INFINITY
+
+        v12e = v1e + v2e
+        try:
+            return math.log(v12e)
+        except ValueError:
+            if v12e == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
+            return rfloat.NAN
+
+    @simple_binary_op
+    def logaddexp2(self, v1, v2):
+        try:
+            v1e = math.pow(2, v1)
+        except OverflowError:
+            v1e = rfloat.INFINITY
+        try:
+            v2e = math.pow(2, v2)
+        except OverflowError:
+            v2e = rfloat.INFINITY
+
+        v12e = v1e + v2e
+        try:
+            return math.log(v12e) / log2
+        except ValueError:
+            if v12e == 0.0:
+                # CPython raises ValueError here, so we have to check
+                # the value to find the correct numpy return value
+                return -rfloat.INFINITY
             return rfloat.NAN
 
 

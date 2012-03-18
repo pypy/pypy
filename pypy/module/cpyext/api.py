@@ -824,6 +824,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
     pypy_decls.append("#endif\n")
+    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
+    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
     for decl in FORWARD_DECLS:
         pypy_decls.append("%s;" % (decl,))
@@ -855,6 +857,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
+    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
+    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("}")
     pypy_decls.append("#endif")

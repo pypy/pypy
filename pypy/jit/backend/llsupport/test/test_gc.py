@@ -11,6 +11,7 @@ from pypy.jit.metainterp.resoperation import get_deep_immutable_oplist
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
+from pypy.rlib.rarithmetic import is_valid_int
 
 def test_boehm():
     gc_ll_descr = GcLLDescr_boehm(None, None, None)
@@ -103,7 +104,7 @@ class TestGcRootMapAsmGcc:
         gcrootmap.put(retaddr, shapeaddr)
         assert gcrootmap._gcmap[0] == retaddr
         assert gcrootmap._gcmap[1] == shapeaddr
-        p = rffi.cast(rffi.LONGP, gcrootmap.gcmapstart())
+        p = rffi.cast(rffi.SIGNEDP, gcrootmap.gcmapstart())
         assert p[0] == retaddr
         assert (gcrootmap.gcmapend() ==
                 gcrootmap.gcmapstart() + rffi.sizeof(lltype.Signed) * 2)
@@ -419,9 +420,9 @@ class TestFramework(object):
         assert newops[0].getarg(1) == v_value
         assert newops[0].result is None
         wbdescr = newops[0].getdescr()
-        assert isinstance(wbdescr.jit_wb_if_flag, int)
-        assert isinstance(wbdescr.jit_wb_if_flag_byteofs, int)
-        assert isinstance(wbdescr.jit_wb_if_flag_singlebyte, int)
+        assert is_valid_int(wbdescr.jit_wb_if_flag)
+        assert is_valid_int(wbdescr.jit_wb_if_flag_byteofs)
+        assert is_valid_int(wbdescr.jit_wb_if_flag_singlebyte)
 
     def test_get_rid_of_debug_merge_point(self):
         operations = [
