@@ -21,8 +21,9 @@ UNICODELTR = 'U'
 class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
-    def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[], aliases=[],
-                 fields=None, fieldnames=None):
+    def __init__(self, itemtype, num, kind, name, char, w_box_type,
+                 alternate_constructors=[], aliases=[],
+                 fields=None, fieldnames=None, native=True):
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -33,6 +34,7 @@ class W_Dtype(Wrappable):
         self.aliases = aliases
         self.fields = fields
         self.fieldnames = fieldnames
+        self.native = native
 
     @specialize.argtype(1)
     def box(self, value):
@@ -61,6 +63,11 @@ class W_Dtype(Wrappable):
 
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())
+
+    def descr_get_byteorder(self, space):
+        if self.native:
+            return space.wrap('=')
+        return space.wrap(nonnative_byteorder_prefix)
 
     def descr_get_alignment(self, space):
         return space.wrap(self.itemtype.alignment)
@@ -149,11 +156,7 @@ def dtype_from_dict(space, w_dict):
         "dtype from dict"))
 
 def variable_dtype(space, name):
-    if name[0] in '<>':
-        # ignore byte order, not sure if it's worth it for unicode only
-        if name[0] != byteorder_prefix and name[1] == 'U':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "unimplemented non-native unicode"))
+    if name[0] in '<>=':
         name = name[1:]
     char = name[0]
     if len(name) == 1:
@@ -203,7 +206,7 @@ def descr__new__(space, w_subtype, w_dtype):
             return cache.dtypes_by_name[name]
         except KeyError:
             pass
-        if name[0] in 'VSU' or name[0] in '<>' and name[1] in 'VSU':
+        if name[0] in 'VSU' or name[0] in '<>=' and name[1] in 'VSU':
             return variable_dtype(space, name)
     elif space.isinstance_w(w_dtype, space.w_list):
         return dtype_from_list(space, w_dtype)
@@ -231,6 +234,7 @@ W_Dtype.typedef = TypeDef("dtype",
     kind = interp_attrproperty("kind", cls=W_Dtype),
     char = interp_attrproperty("char", cls=W_Dtype),
     type = interp_attrproperty_w("w_box_type", cls=W_Dtype),
+    byteorder = GetSetProperty(W_Dtype.descr_get_byteorder),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
     alignment = GetSetProperty(W_Dtype.descr_get_alignment),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
@@ -446,12 +450,14 @@ class DtypeCache(object):
             can_name = dtype.kind + str(dtype.itemtype.get_element_size())
             self.dtypes_by_name[can_name] = dtype
             self.dtypes_by_name[byteorder_prefix + can_name] = dtype
+            self.dtypes_by_name['=' + can_name] = dtype
             new_name = nonnative_byteorder_prefix + can_name
             itemtypename = dtype.itemtype.__class__.__name__
             itemtype = getattr(types, 'NonNative' + itemtypename)()
             self.dtypes_by_name[new_name] = W_Dtype(
                 itemtype,
-                dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type)
+                dtype.num, dtype.kind, new_name, dtype.char, dtype.w_box_type,
+                native=False)
             for alias in dtype.aliases:
                 self.dtypes_by_name[alias] = dtype
             self.dtypes_by_name[dtype.char] = dtype

@@ -458,8 +458,13 @@ class AppTestTypes(BaseNumpyAppTest):
 
     def test_alternate_constructs(self):
         from _numpypy import dtype
-        assert dtype('i8') == dtype('<i8')# XXX should be equal == dtype(long)
-        assert dtype(self.non_native_prefix + 'i8') != dtype('i8')
+        nnp = self.non_native_prefix
+        byteorder = self.native_prefix
+        assert dtype('i8') == dtype(byteorder + 'i8') == dtype('=i8') # XXX should be equal == dtype(long)
+        assert dtype(nnp + 'i8') != dtype('i8')
+        assert dtype(nnp + 'i8').byteorder == nnp
+        assert dtype('=i8').byteorder == '='
+        assert dtype(byteorder + 'i8').byteorder == '='
 
     def test_alignment(self):
         from _numpypy import dtype
