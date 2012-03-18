@@ -7,7 +7,8 @@ from pypy.module.micronumpy import (interp_ufuncs, interp_dtype, interp_boxes,
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.dot import multidim_dot, match_dot_shapes
 from pypy.module.micronumpy.interp_iter import (ArrayIterator,
-    SkipLastAxisIterator, Chunk, ViewIterator, Chunks, RecordChunk)
+    SkipLastAxisIterator, Chunk, ViewIterator, Chunks, RecordChunk,
+    NewAxisChunk)
 from pypy.module.micronumpy.strides import (shape_agreement,
     find_shape_and_elems, get_shape_from_iterable, calc_new_strides, to_coords)
 from pypy.rlib import jit
@@ -324,6 +325,13 @@ class BaseArray(Wrappable):
         if space.isinstance_w(w_idx, space.w_str):
             return False
         shape_len = len(self.shape)
+        if space.isinstance_w(w_idx, space.w_tuple):
+            for w_item in space.fixedview(w_idx):
+                if (space.isinstance_w(w_item, space.w_slice) or
+                    space.is_w(w_item, space.w_None)):
+                    return False
+        elif space.is_w(w_idx, space.w_None):
+            return False
         if shape_len == 0:
             raise OperationError(space.w_IndexError, space.wrap(
                 "0-d arrays can't be indexed"))
@@ -339,12 +347,7 @@ class BaseArray(Wrappable):
         if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
-        if lgt < shape_len:
-            return False
-        for w_item in space.fixedview(w_idx):
-            if space.isinstance_w(w_item, space.w_slice):
-                return False
-        return True
+        return lgt == shape_len
 
     @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
@@ -358,8 +361,18 @@ class BaseArray(Wrappable):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             return Chunks([Chunk(*space.decode_index4(w_idx, self.shape[0]))])
-        return Chunks([Chunk(*space.decode_index4(w_item, self.shape[i])) for i, w_item in
-                enumerate(space.fixedview(w_idx))])
+        elif space.is_w(w_idx, space.w_None):
+            return Chunks([NewAxisChunk()])
+        result = []
+        i = 0
+        for w_item in space.fixedview(w_idx):
+            if space.is_w(w_item, space.w_None):
+                result.append(NewAxisChunk())
+            else:
+                result.append(Chunk(*space.decode_index4(w_item,
+                                                         self.shape[i])))
+                i += 1
+        return Chunks(result)
 
     def count_all_true(self):
         sig = self.find_sig()
@@ -471,8 +484,10 @@ class BaseArray(Wrappable):
 
     def reshape(self, space, new_shape):
         concrete = self.get_concrete()
-        # Since we got to here, prod(new_shape) == self.get_size()
-        new_strides = calc_new_strides(new_shape, concrete.shape,
+        # Since we got to here, prod(new_shape) == self.size
+        new_strides = None
+        if self.size > 0:
+            new_strides = calc_new_strides(new_shape, concrete.shape,
                                      concrete.strides, concrete.order)
         if new_strides:
             # We can create a view, strides somehow match up.
@@ -1044,7 +1059,7 @@ class W_NDimSlice(ViewArray):
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
-        elif len(self.shape) < 2:
+        elif len(self.shape) < 2 or self.size < 1:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor
             strides = []
@@ -1056,7 +1071,7 @@ class W_NDimSlice(ViewArray):
             for sh in new_shape:
                 strides.append(s * dtype.get_size())
                 backstrides.append(s * (sh - 1) * dtype.get_size())
-                s *= sh
+                s *= max(1, sh)
             if self.order == 'C':
                 strides.reverse()
                 backstrides.reverse()

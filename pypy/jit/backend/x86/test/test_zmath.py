@@ -6,6 +6,8 @@ from pypy.module.math.test import test_direct
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.backend.x86.support import ensure_sse2_floats
 from pypy.rlib import rfloat
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.debug import debug_print
 
 
 def get_test_case((fnname, args, expected)):
@@ -16,16 +18,32 @@ def get_test_case((fnname, args, expected)):
     expect_valueerror = (expected == ValueError)
     expect_overflowerror = (expected == OverflowError)
     check = test_direct.get_tester(expected)
+    unroll_args = unrolling_iterable(args)
     #
     def testfn():
+        debug_print('calling', fnname, 'with arguments:')
+        for arg in unroll_args:
+            debug_print('\t', arg)
         try:
             got = fn(*args)
         except ValueError:
-            return expect_valueerror
+            if expect_valueerror:
+                return True
+            else:
+                debug_print('unexpected ValueError!')
+                return False
         except OverflowError:
-            return expect_overflowerror
+            if expect_overflowerror:
+                return True
+            else:
+                debug_print('unexpected OverflowError!')
+                return False
         else:
-            return check(got)
+            if check(got):
+                return True
+            else:
+                debug_print('unexpected result:', got)
+                return False
     #
     testfn.func_name = 'test_' + fnname
     return testfn

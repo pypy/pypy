@@ -2,7 +2,7 @@
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
 from pypy.module.micronumpy.strides import calculate_broadcast_strides,\
-     calculate_slice_strides, calculate_dot_strides
+     calculate_slice_strides, calculate_dot_strides, enumerate_chunks
 
 """ This is a mini-tutorial on iterators, strides, and
 memory layout. It assumes you are familiar with the terms, see
@@ -73,7 +73,7 @@ class Chunks(BaseChunk):
     def extend_shape(self, old_shape):
         shape = []
         i = -1
-        for i, c in enumerate(self.l):
+        for i, c in enumerate_chunks(self.l):
             if c.step != 0:
                 shape.append(c.lgt)
         s = i + 1
@@ -95,6 +95,8 @@ class Chunks(BaseChunk):
 
 
 class Chunk(BaseChunk):
+    axis_step = 1
+
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
@@ -104,6 +106,16 @@ class Chunk(BaseChunk):
     def __repr__(self):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
+
+class NewAxisChunk(Chunk):
+    start = 0
+    stop = 1
+    step = 1
+    lgt = 1
+    axis_step = 0
+
+    def __init__(self):
+        pass
 
 class BaseTransform(object):
     pass

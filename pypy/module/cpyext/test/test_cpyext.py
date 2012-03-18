@@ -106,10 +106,7 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
-        try:
-            del space.getexecutioncontext().cpyext_threadstate
-        except AttributeError:
-            pass
+        space.getexecutioncontext().cleanup_cpyext_state()
 
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)

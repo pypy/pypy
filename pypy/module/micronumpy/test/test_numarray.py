@@ -382,6 +382,58 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 0.
 
+    def test_newaxis(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = array([range(5)])
+        assert (a[newaxis] == b).all()
+
+    def test_newaxis_slice(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        b = array(range(1,5))
+        c = array([range(1,5)])
+        d = array([[x] for x in range(1,5)])
+
+        assert (a[1:] == b).all()
+        assert (a[1:,newaxis] == d).all()
+        assert (a[newaxis,1:] == c).all()
+
+    def test_newaxis_assign(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        a[newaxis,1] = [2]
+        assert a[1] == 2
+
+    def test_newaxis_virtual(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+
+        a = array(range(5))
+        b = (a + a)[newaxis]
+        c = array([[0, 2, 4, 6, 8]])
+        assert (b == c).all()
+
+    def test_newaxis_then_slice(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[newaxis]
+        assert b.shape == (1, 5)
+        assert (b[0,1:] == a[1:]).all()
+
+    def test_slice_then_newaxis(self):
+        from _numpypy import array
+        from numpypy.core.numeric import newaxis
+        a = array(range(5))
+        b = a[2:]
+        assert (b[newaxis] == [[2, 3, 4]]).all()
+
     def test_scalar(self):
         from _numpypy import array, dtype
         a = array(3)
@@ -442,6 +494,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros((4, 2, 3))
         a.shape = (12, 2)
         (a + a).reshape(2, 12) # assert did not explode
+        a = array([[[[]]]])
+        assert a.reshape((0,)).shape == (0,)
 
     def test_slice_reshape(self):
         from _numpypy import zeros, arange
