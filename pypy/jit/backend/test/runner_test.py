@@ -1598,6 +1598,11 @@ class LLtypeBackendTest(BaseBackendTest):
                                      [BoxPtr(x)], 'int').value
         assert res == -19
 
+    def test_convert_float_bytes(self):
+        res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
+                                     [constfloat(2.5)], 'int').value
+        assert res == float2longlong.float2longlong(2.5)
+
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
         v = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
