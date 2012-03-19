@@ -1601,8 +1601,9 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res == -19
 
     def test_convert_float_bytes(self):
+        t = 'int' if longlong.is_64_bit else 'float'
         res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
-                                     [boxfloat(2.5)], 'int').value
+                                     [boxfloat(2.5)], t).value
         assert res == longlong2float.float2longlong(2.5)
 
     def test_ooops_non_gc(self):
