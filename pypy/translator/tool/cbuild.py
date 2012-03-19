@@ -323,12 +323,10 @@ STANDARD_DEFINES = '''
 #ifdef _WIN64
    typedef          long long Signed;
    typedef unsigned long long Unsigned;
-#warning 64 bit build
 #  define SIGNED_MIN LLONG_MIN 
 #else
    typedef          long Signed;
    typedef unsigned long Unsigned;
-#warning 32 bit build
 #  define SIGNED_MIN LONG_MIN
 #endif
 '''
