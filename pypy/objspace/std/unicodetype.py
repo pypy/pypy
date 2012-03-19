@@ -294,7 +294,12 @@ def unicode_from_object(space, w_obj):
         typename = space.type(w_res).getname(space)
         msg = "__str__ returned non-string (type %s)" % typename
         raise OperationError(space.w_TypeError, space.wrap(msg))
-    return w_res
+
+    if space.is_w(space.type(w_res), space.w_unicode):
+        return w_res
+    else:
+        # Subtype -- return genuine unicode string with the same value.
+        return space.wrap(space.str_w(w_res))
 
 def descr_new_(space, w_unicodetype, w_object=u'', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
