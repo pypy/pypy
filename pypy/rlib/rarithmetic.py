@@ -578,7 +578,8 @@ def byteswap(arg):
     
     T = lltype.typeOf(arg)
     # XXX we cannot do arithmetics on small ints
-    arg = widen(arg)
+    if isinstance(arg, base_int):
+        arg = widen(arg)
     if rffi.sizeof(T) == 1:
         res = arg
     elif rffi.sizeof(T) == 2:
