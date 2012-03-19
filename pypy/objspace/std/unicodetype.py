@@ -299,7 +299,7 @@ def unicode_from_object(space, w_obj):
         return w_res
     else:
         # Subtype -- return genuine unicode string with the same value.
-        return space.wrap(space.str_w(w_res))
+        return space.wrap(space.unicode_w(w_res))
 
 def descr_new_(space, w_unicodetype, w_object=u'', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
