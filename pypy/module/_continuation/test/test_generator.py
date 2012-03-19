@@ -22,7 +22,7 @@ class AppTestGenerator(BaseAppTest):
         assert res == 24
         res = next(g)
         assert res == 13
-        raises(StopIteration, g.__next__)
+        raises(StopIteration, next, g)
 
     def test_iterator(self):
         from _continuation import generator
@@ -67,4 +67,4 @@ class AppTestGenerator(BaseAppTest):
         g = f(10)
         res = next(g)
         assert res == 11
-        raises(TypeError, g.__next__)
+        raises(TypeError, next, g)

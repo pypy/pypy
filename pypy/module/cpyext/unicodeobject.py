@@ -11,7 +11,6 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
-from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
