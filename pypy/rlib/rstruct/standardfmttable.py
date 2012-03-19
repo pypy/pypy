@@ -6,11 +6,12 @@ The format table for standard sizes and alignments.
 # values when packing.
 
 import struct
-from pypy.rlib.rstruct.error import StructError, StructOverflowError
-from pypy.rlib.rstruct import ieee
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rstruct import ieee
+from pypy.rlib.rstruct.error import StructError, StructOverflowError
+from pypy.rlib.unroll import unrolling_iterable
 
 # In the CPython struct module, pack() unconsistently accepts inputs
 # that are out-of-range or floats instead of ints.  Should we emulate

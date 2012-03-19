@@ -16,8 +16,10 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.rlib import longlong2float
 from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
+
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -1614,6 +1616,11 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [BoxPtr(x)], 'int').value
         assert res == -19
+
+    def test_convert_float_bytes(self):
+        res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
+                                     [boxfloat(2.5)], 'int').value
+        assert res == longlong2float.float2longlong(2.5)
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
