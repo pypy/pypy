@@ -711,18 +711,6 @@ def unicode_replace__Unicode_Unicode_Unicode_ANY(space, w_self, w_old,
     return _unicode_replace(space, w_self, w_old._value, w_new._value,
                             w_maxsplit)
 
-def unicode_replace__Unicode_ANY_ANY_ANY(space, w_self, w_old, w_new,
-                                         w_maxsplit):
-    if not space.isinstance_w(w_old, space.w_unicode):
-        old = unicode(space.bufferstr_w(w_old))
-    else:
-        old = space.unicode_w(w_old)
-    if not space.isinstance_w(w_new, space.w_unicode):
-        new = unicode(space.bufferstr_w(w_new))
-    else:
-        new = space.unicode_w(w_new)
-    return _unicode_replace(space, w_self, old, new, w_maxsplit)
-
 def _unicode_replace(space, w_self, old, new, w_maxsplit):
     if len(old):
         parts = _split_with(w_self._value, old, space.int_w(w_maxsplit))
