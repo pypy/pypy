@@ -64,6 +64,8 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
+    _attrs_ = ()
+    
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
 
