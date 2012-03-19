@@ -8,14 +8,31 @@ from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 
 def Windows(cc=None):
-    if cc == 'mingw32':
+    import subprocess
+    if not cc:
+        return MsvcPlatform(cc=cc, x64=False)
+    elif cc.startswith('mingw'):
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc, False)
-    
-def Windows_x64(cc=None):
-    return MsvcPlatform(cc, True)
+    try:
+        subprocess.check_output([cc, '--version'])
+    except:
+        log.error("Unknown cc option '%s'"%cc)
+        return None
+    return MingwPlatform(cc)
 
+def Windows_x64(cc=None):
+    import subprocess
+    if not cc:
+        return MsvcPlatform(cc=cc, x64=True)
+    elif cc.startswith('mingw'):
+        return MingwPlatform(cc)
+    try:
+        subprocess.check_output([cc, '--version'])
+    except:
+        log.error("Unknown cc option '%s'"%cc)
+        return None
+    return MingwPlatform(cc)
+    
 def _get_msvc_env(vsver, x64flag):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
@@ -31,14 +48,16 @@ def _get_msvc_env(vsver, x64flag):
         vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
-    popen = subprocess.Popen('"%s" & set' % (vcvars,),
+    try:
+        popen = subprocess.Popen('"%s" & set' % (vcvars,),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
 
-    stdout, stderr = popen.communicate()
-    if popen.wait() != 0:
-        return
-
+        stdout, stderr = popen.communicate()
+        if popen.wait() != 0:
+            return None
+    except:
+        return None
     env = {}
 
     stdout = stdout.replace("\r\n", "\n")
@@ -395,7 +414,9 @@ class MingwPlatform(posix.BasePosix):
     so_ext = 'dll'
 
     def __init__(self, cc=None):
-        Platform.__init__(self, 'gcc')
+        if not cc:
+            cc = 'gcc'
+        Platform.__init__(self, cc)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args

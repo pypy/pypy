@@ -14,7 +14,7 @@ eci = ExternalCompilationInfo(
     includes = ['src/stacklet/stacklet.h'],
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
-if sys.platform == 'win32':
+if 'masm' in dir(eci.platform): # Microsoft compiler
     if is_emulated_long:
         asmsrc = 'switch_x64_msvc.asm'
     else:
