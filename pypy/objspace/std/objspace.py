@@ -49,7 +49,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         self.FrameClass = frame.build_frame(self)
 
-        self.StringObjectCls = W_UnicodeObject
+        # XXX use W_UnicodeObject when identifiers really support unicode
+        if self.config.objspace.std.withrope:
+            self.StringObjectCls = W_RopeObject
+        else:
+            self.StringObjectCls = W_StringObject
 
         self._install_multimethods()
 
