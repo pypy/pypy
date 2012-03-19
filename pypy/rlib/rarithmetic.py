@@ -569,3 +569,37 @@ def int_between(n, m, p):
     if not objectmodel.we_are_translated():
         assert n <= p
     return llop.int_between(lltype.Bool, n, m, p)
+
+@objectmodel.specialize.ll()
+def byteswap(arg):
+    """ Convert little->big endian and the opposite
+    """
+    from pypy.rpython.lltypesystem import lltype, rffi
+    
+    T = lltype.typeOf(arg)
+    # XXX we cannot do arithmetics on small ints
+    if isinstance(arg, base_int):
+        arg = widen(arg)
+    if rffi.sizeof(T) == 1:
+        res = arg
+    elif rffi.sizeof(T) == 2:
+        a, b = arg & 0xFF, arg & 0xFF00
+        res = (a << 8) | (b >> 8)
+    elif rffi.sizeof(T) == 4:
+        FF = r_uint(0xFF)
+        arg = r_uint(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
+        res = (a << 24) | (b << 8) | (c >> 8) | (d >> 24)
+    elif rffi.sizeof(T) == 8:
+        FF = r_ulonglong(0xFF)
+        arg = r_ulonglong(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
+        e, f, g, h = (arg & (FF << 32), arg & (FF << 40), arg & (FF << 48),
+                      arg & (FF << 56))
+        res = ((a << 56) | (b << 40) | (c << 24) | (d << 8) | (e >> 8) |
+               (f >> 24) | (g >> 40) | (h >> 56))
+    else:
+        assert False # unreachable code
+    return rffi.cast(T, res)

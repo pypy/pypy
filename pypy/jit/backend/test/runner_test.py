@@ -1498,13 +1498,30 @@ class BaseBackendTest(Runner):
                                                c_nest, c_nest], 'void')
 
     def test_read_timestamp(self):
+        if sys.platform == 'win32':
+            # windows quite often is very inexact (like the old Intel 8259 PIC),
+            # so we stretch the time a little bit.
+            # On my virtual Parallels machine in a 2GHz Core i7 Mac Mini,
+            # the test starts working at delay == 21670 and stops at 20600000.
+            # We take the geometric mean value.
+            from math import log, exp
+            delay_min = 21670
+            delay_max = 20600000
+            delay = int(exp((log(delay_min)+log(delay_max))/2))
+            def wait_a_bit():
+                for i in xrange(delay): pass
+        else:
+            def wait_a_bit():
+                pass
         if longlong.is_64_bit:
             got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            wait_a_bit()
             got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
             res1 = got1.getint()
             res2 = got2.getint()
         else:
             got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            wait_a_bit()
             got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
             res1 = got1.getlonglong()
             res2 = got2.getlonglong()
