@@ -527,8 +527,14 @@ class AppTestUnicodeString:
         assert b'\xe1\x80'.decode('utf-8', 'replace') == "\ufffd"
 
     def test_repr_bug(self):
-        assert (repr('\U00090418\u027d\U000582b9\u54c3\U000fcb6e') == 
-                "'\\U00090418\u027d\\U000582b9\u54c3\\U000fcb6e'")
+        # we need to implement PEP 3138 for this to work
+        # http://www.python.org/dev/peps/pep-3138/
+        x = '\u027d'
+        y = "'\u027d'"
+        assert (repr(x) == y)
+        x = '\U00090418\u027d\U000582b9\u54c3\U000fcb6e'
+        y = "'\\U00090418\u027d\\U000582b9\u54c3\\U000fcb6e'"
+        assert (repr(x) == y)
         assert (repr('\n') == 
                 "'\\n'")
 
