@@ -14,18 +14,18 @@ class AppTestMarshalMore:
         # (of course we only test that if we're running on such a
         # platform :-)
         import marshal
-        z = marshal.loads('I\x00\xe4\x0bT\x02\x00\x00\x00')
+        z = marshal.loads(b'I\x00\xe4\x0bT\x02\x00\x00\x00')
         assert z == 10000000000
-        z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
+        z = marshal.loads(b'I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
-        z = marshal.loads('I\x88\x87\x86\x85\x84\x83\x82\x01')
+        z = marshal.loads(b'I\x88\x87\x86\x85\x84\x83\x82\x01')
         assert z == 108793946209421192
-        z = marshal.loads('I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
+        z = marshal.loads(b'I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
         assert z == -0x0132232425262728
 
     def test_buffer(self):
         import marshal
-        z = marshal.loads(buffer('i\x02\x00\x00\x00???'))
+        z = marshal.loads(buffer(b'i\x02\x00\x00\x00???'))
         assert z == 2
 
     def test_marshal_buffer_object(self):
@@ -42,10 +42,10 @@ class AppTestMarshalMore:
 
     def test_unmarshal_evil_long(self):
         import marshal
-        raises(ValueError, marshal.loads, 'l\x02\x00\x00\x00\x00\x00\x00\x00')
-        z = marshal.loads('I\x00\xe4\x0bT\x02\x00\x00\x00')
+        raises(ValueError, marshal.loads, b'l\x02\x00\x00\x00\x00\x00\x00\x00')
+        z = marshal.loads(b'I\x00\xe4\x0bT\x02\x00\x00\x00')
         assert z == 10000000000
-        z = marshal.loads('I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
+        z = marshal.loads(b'I\x00\x1c\xf4\xab\xfd\xff\xff\xff')
         assert z == -10000000000
 
     def test_marshal_code_object(self):
