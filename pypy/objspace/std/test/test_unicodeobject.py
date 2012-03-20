@@ -297,6 +297,7 @@ class AppTestUnicodeString:
         class U(str):
             pass
         assert str(U()).__class__ is str
+        assert U().__str__().__class__ is str
         assert U('test') == 'test'
         assert U('test').__class__ is U
 

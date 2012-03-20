@@ -94,7 +94,11 @@ def unicode_to_decimal_w(space, w_unistr):
     return ''.join(result)
 
 def str__Unicode(space, w_uni):
-    return w_uni
+    if space.is_w(space.type(w_uni), space.w_unicode):
+        return w_uni
+    else:
+        # Subtype -- return genuine unicode string with the same value.
+        return space.wrap(space.unicode_w(w_uni))
 
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)
