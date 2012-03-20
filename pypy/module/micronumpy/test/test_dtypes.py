@@ -32,7 +32,6 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         assert dtype(bool).num == 0
         assert dtype(int).num == 7
-        assert dtype(int).num == 9
         assert dtype(float).num == 12
 
     def test_array_dtype_attr(self):
@@ -481,8 +480,8 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_str_unicode(self):
         from _numpypy import str_, unicode_, character, flexible, generic
         
-        assert str_.mro() == [str_, str, str, character, flexible, generic, object]
-        assert unicode_.mro() == [unicode_, str, str, character, flexible, generic, object]
+        assert str_.mro() == [str_, str, character, flexible, generic, object]
+        assert unicode_.mro() == [unicode_, str, character, flexible, generic, object]
 
     def test_str_dtype(self):
         from _numpypy import dtype, str_
