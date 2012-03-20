@@ -23,22 +23,11 @@ class AppTestMarshalMore:
         z = marshal.loads(b'I\xd8\xd8\xd9\xda\xdb\xdc\xcd\xfe')
         assert z == -0x0132232425262728
 
-    def test_buffer(self):
-        import marshal
-        z = marshal.loads(buffer(b'i\x02\x00\x00\x00???'))
-        assert z == 2
-
-    def test_marshal_buffer_object(self):
-        import marshal
-        s = marshal.dumps(buffer('foobar'))
-        t = marshal.loads(s)
-        assert type(t) is str and t == 'foobar'
-
     def test_marshal_bufferlike_object(self):
         import marshal, array
-        s = marshal.dumps(array.array('c', 'asd'))
+        s = marshal.dumps(array.array('b', b'asd'))
         t = marshal.loads(s)
-        assert type(t) is str and t == 'asd'
+        assert type(t) is bytes and t == b'asd'
 
     def test_unmarshal_evil_long(self):
         import marshal
