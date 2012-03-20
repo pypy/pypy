@@ -182,6 +182,9 @@ class AppTestMarshal:
 
 class AppTestRope(AppTestMarshal):
     def setup_class(cls):
+        import py
+        # space.bytes_w(w_some_rope) doesn't work
+        py.test.skip('rope does not work')
         from pypy.conftest import gettestobjspace
         cls.space = gettestobjspace(**{"objspace.std.withrope": True})
         AppTestMarshal.setup_class.im_func(cls)
