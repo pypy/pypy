@@ -6,15 +6,12 @@
 #include <TFrame.h>
 #include <TROOT.h>
 #include <TSystem.h>
-#include <TRandom.h>
+#include <TRandom3.h>
 #include <TBenchmark.h>
 #include <TInterpreter.h>
 
-#include <math.h>
-
 TFile *hsimple(Int_t get=0)
 {
-   gROOT->SetBatch();
 //  This program creates :
 //    - a one dimensional histogram
 //    - a two dimensional histogram
@@ -27,14 +24,11 @@ TFile *hsimple(Int_t get=0)
 //  The file "hsimple.root" is created in $ROOTSYS/tutorials if the caller has
 //  write access to this directory, otherwise the file is created in $PWD
 
-/*
    TString filename = "hsimple.root";
    TString dir = gSystem->UnixPathName(gInterpreter->GetCurrentMacroName());
    dir.ReplaceAll("hsimple.C","");
    dir.ReplaceAll("/./","/");
-
    TFile *hfile = 0;
-
    if (get) {
       // if the argument get =1 return the file "hsimple.root"
       // if the file does not exist, it is created
@@ -60,13 +54,10 @@ TFile *hsimple(Int_t get=0)
       return 0;
    }
    hfile = (TFile*)gROOT->FindObject(filename); if (hfile) hfile->Close();
-*/
-//   hfile = new TFile(filename,"RECREATE","Demo ROOT file with histograms");
+   hfile = new TFile(filename,"RECREATE","Demo ROOT file with histograms");
 
    // Create some histograms, a profile histogram and an ntuple
    TH1F *hpx = new TH1F("hpx","This is the px distribution",100,-4,4);
-   hpx->Print();
-/*
    hpx->SetFillColor(48);
    TH2F *hpxpy = new TH2F("hpxpy","py vs px",40,-4,4,40,-4,4);
    TProfile *hprof = new TProfile("hprof","Profile of pz versus px",100,-4,4,0,20);
@@ -81,20 +72,21 @@ TFile *hsimple(Int_t get=0)
    c1->GetFrame()->SetBorderSize(6);
    c1->GetFrame()->SetBorderMode(-1);
 
-*/
+
    // Fill histograms randomly
-   gRandom->SetSeed();
-   Float_t px, py, pt;
+   TRandom3 random;
+   Float_t px, py, pz;
    const Int_t kUPDATE = 1000;
-   for (Int_t i = 0; i < 2500000; i++) {
-      gRandom->Rannor(px,py);
-      pt = sqrt(px*px + py*py);
- //     Float_t random = gRandom->Rndm(1);
-      hpx->Fill(pt);
-/*
+   for (Int_t i = 0; i < 50000; i++) {
+   //      random.Rannor(px,py);
+      px = random.Gaus(0, 1);
+      py = random.Gaus(0, 1);
+      pz = px*px + py*py;
+      Float_t rnd = random.Rndm(1);
+      hpx->Fill(px);
       hpxpy->Fill(px,py);
       hprof->Fill(px,pz);
-      ntuple->Fill(px,py,pz,random,i);
+      ntuple->Fill(px,py,pz,rnd,i);
       if (i && (i%kUPDATE) == 0) {
          if (i == kUPDATE) hpx->Draw();
          c1->Modified();
@@ -102,9 +94,7 @@ TFile *hsimple(Int_t get=0)
          if (gSystem->ProcessEvents())
             break;
       }
-*/
    }
-/*
    gBenchmark->Show("hsimple");
 
    // Save all objects in this file
@@ -112,9 +102,7 @@ TFile *hsimple(Int_t get=0)
    hfile->Write();
    hpx->SetFillColor(48);
    c1->Modified();
-*/
-   hpx->Print();
-   return 0;//hfile;
+   return hfile;
   
 // Note that the file is automatically close when application terminates
 // or when the file destructor is called.
