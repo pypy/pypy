@@ -265,9 +265,26 @@ class W_CPPOverload(Wrappable):
             cppthis = capi.C_NULL_OBJECT
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
-        space = self.space
-        errmsg = 'None of the overloads matched:'
+        # The following code tries out each of the functions in order. If
+        # argument conversion fails (or simply if the number of arguments do
+        # not match, that will lead to an exception, The JIT will snip out
+        # those (always) failing paths, but only if they have no side-effects.
+        # A second loop gathers all exceptions in the case all methods fail
+        # (the exception gathering would otherwise be a side-effect as far as
+        # the JIT is concerned).
+        #
+        # TODO: figure out what happens if a callback into from the C++ call
+        # raises a Python exception.
         jit.promote(self)
+        for i in range(len(self.functions)):
+            cppyyfunc = self.functions[i]
+            try:
+                return cppyyfunc.call(cppthis, args_w)
+            except Exception:
+                pass
+
+        # only get here if all overloads failed ...
+        errmsg = 'None of the overloads matched:'
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
@@ -275,7 +292,7 @@ class W_CPPOverload(Wrappable):
             except Exception, e:
                 errmsg += '\n\t'+str(e)
 
-        raise OperationError(space.w_TypeError, space.wrap(errmsg))
+        raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
 
     def __repr__(self):
         return "W_CPPOverload(%s, %s)" % (self.func_name, self.functions)
