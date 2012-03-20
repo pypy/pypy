@@ -9,13 +9,6 @@ class AppTestMarshalMore:
         space = gettestobjspace(usemodules=('array',))
         cls.space = space
 
-    def test_long_0(self):
-        import marshal
-        z = 0L
-        z1 = marshal.loads(marshal.dumps(z))
-        assert z == z1
-        assert type(z1) is long
-
     def test_unmarshal_int64(self):
         # test that we can unmarshal 64-bit ints on 32-bit platforms
         # (of course we only test that if we're running on such a
