@@ -176,7 +176,7 @@ class AppTestMarshal:
 
     def test_bad_typecode(self):
         import marshal
-        exc = raises(ValueError, marshal.loads, chr(1))
+        exc = raises(ValueError, marshal.loads, b'\x01')
         assert r"'\x01'" in exc.value.message
 
 
