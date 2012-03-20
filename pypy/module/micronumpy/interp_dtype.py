@@ -394,7 +394,7 @@ class DtypeCache(object):
             name='int64',
             char='q',
             w_box_type = space.gettypefor(interp_boxes.W_LongLongBox),
-            alternate_constructors=[space.w_long],
+            alternate_constructors=[space.w_int],
         )
         self.w_ulonglongdtype = W_Dtype(
             types.UInt64(),
