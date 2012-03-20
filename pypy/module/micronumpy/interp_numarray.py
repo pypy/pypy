@@ -1125,7 +1125,8 @@ def _find_shape(space, w_size):
 
 @unwrap_spec(subok=bool, copy=bool, ownmaskna=bool)
 def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
-          subok=True, copy=True, w_maskna=None, ownmaskna=False):
+          subok=True, copy=True, w_maskna=None, ownmaskna=False,
+          w_ndmin=None):
     # find scalar
     if w_maskna is None:
         w_maskna = space.w_None
@@ -1170,8 +1171,13 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=None,
                 break
         if dtype is None:
             dtype = interp_dtype.get_dtype_cache(space).w_float64dtype
-    arr = W_NDimArray(shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
+    if w_ndmin is not None and not space.is_w(w_ndmin, space.w_None):
+        ndmin = space.int_w(w_ndmin)
+        if ndmin > shapelen:
+            shape = [1] * (ndmin - shapelen) + shape
+            shapelen = ndmin
+    arr = W_NDimArray(shape[:], dtype=dtype, order=order)
     arr_iter = arr.create_iter()
     # XXX we might want to have a jitdriver here
     for i in range(len(elems_w)):
