@@ -73,10 +73,16 @@ public:
     TCppyyApplication(const char* acn, Int_t* argc, char** argv, Bool_t do_load = kTRUE)
            : TApplication(acn, argc, argv) {
 
+       // Explicitly load libMathCore as CINT will not auto load it when using one
+       // of its globals. Once moved to Cling, which should work correctly, we
+       // can remove this statement.
+       gSystem->Load("libMathCore");
+
        if (do_load) {
             // follow TRint to minimize differences with CINT
             ProcessLine("#include <iostream>", kTRUE);
             ProcessLine("#include <_string>",  kTRUE); // for std::string iostream.
+            ProcessLine("#include <DllImport.h>", kTRUE);// Defined R__EXTERN
             ProcessLine("#include <vector>",   kTRUE); // needed because they're used within the
             ProcessLine("#include <pair>",     kTRUE); //  core ROOT dicts and CINT won't be able
                                                        //  to properly unload these files

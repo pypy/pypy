@@ -28,34 +28,13 @@ with rffi.scoped_str2charp('libCint.so') as ll_libname:
     _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 with rffi.scoped_str2charp('libCore.so') as ll_libname:
     _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libMathCore.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-
-with rffi.scoped_str2charp('libRIO.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libHist.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libGraf.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libGraf3d.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libGpad.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libTree.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libMatrix.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libNet.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
-with rffi.scoped_str2charp('libThread.so') as ll_libname:
-    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lMathCore", "-lCore", "-lCint"],
+    link_extra=["-lCore", "-lCint"],
     use_cpp_linker=True,
 )
 
