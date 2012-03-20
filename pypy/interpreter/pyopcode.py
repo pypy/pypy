@@ -991,6 +991,7 @@ class __extend__(pyframe.PyFrame):
         w_varargs = self.popvalue()
         self.call_function(oparg, w_varargs, w_varkw)
 
+    @jit.unroll_safe
     def _make_function(self, oparg, freevars=None):
         space = self.space
         w_codeobj = self.popvalue()
