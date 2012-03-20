@@ -578,22 +578,26 @@ def byteswap(arg):
     
     T = lltype.typeOf(arg)
     # XXX we cannot do arithmetics on small ints
-    arg = widen(arg)
+    if isinstance(arg, base_int):
+        arg = widen(arg)
     if rffi.sizeof(T) == 1:
         res = arg
     elif rffi.sizeof(T) == 2:
         a, b = arg & 0xFF, arg & 0xFF00
         res = (a << 8) | (b >> 8)
     elif rffi.sizeof(T) == 4:
-        a, b, c, d = arg & 0xFF, arg & 0xFF00, arg & 0xFF0000, arg & r_uint(0xFF000000)
+        FF = r_uint(0xFF)
+        arg = r_uint(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
         res = (a << 24) | (b << 8) | (c >> 8) | (d >> 24)
     elif rffi.sizeof(T) == 8:
-        a, b, c, d = (arg & 0xFF, arg & 0xFF00, arg & 0xFF0000,
-                      arg & r_uint(0xFF000000))
-        e, f, g, h = (arg & (r_ulonglong(0xFF) << 32),
-                      arg & (r_ulonglong(0xFF) << 40),
-                      arg & (r_ulonglong(0xFF) << 48),
-                      arg & (r_ulonglong(0xFF) << 56))
+        FF = r_ulonglong(0xFF)
+        arg = r_ulonglong(arg)
+        a, b, c, d = (arg & FF, arg & (FF << 8), arg & (FF << 16),
+                      arg & (FF << 24))
+        e, f, g, h = (arg & (FF << 32), arg & (FF << 40), arg & (FF << 48),
+                      arg & (FF << 56))
         res = ((a << 56) | (b << 40) | (c << 24) | (d << 8) | (e >> 8) |
                (f >> 24) | (g >> 40) | (h >> 56))
     else:

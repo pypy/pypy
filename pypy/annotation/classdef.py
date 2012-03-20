@@ -148,7 +148,6 @@ class Attribute(object):
                 "the attribute here; the list of read locations is:\n" +
                 '\n'.join([str(loc[0]) for loc in self.read_locations]))
 
-
 class ClassDef(object):
     "Wraps a user class."
 

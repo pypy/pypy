@@ -64,6 +64,8 @@ def raw_binary_op(func):
     return dispatcher
 
 class BaseType(object):
+    _attrs_ = ()
+    
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
 
@@ -241,15 +243,27 @@ class NonNativePrimitive(Primitive):
     _mixin_ = True
     
     def _read(self, storage, width, i, offset):
-        return byteswap(Primitive._read(self, storage, width, i, offset))
+        if we_are_translated():
+            res = libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                        width, storage, i, offset)
+        else:
+            res = libffi.array_getitem_T(self.T, width, storage, i, offset)
+        return byteswap(res)
 
     def _write(self, storage, width, i, offset, value):
-        Primitive._write(self, storage, width, i, offset, byteswap(value))
+        value = byteswap(value)
+        if we_are_translated():
+            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+                                 width, storage, i, offset, value)
+        else:
+            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
 
     def pack_str(self, box):
         return struct.pack(self.format_code, byteswap(self.unbox(box)))
 
 class Bool(BaseType, Primitive):
+    _attrs_ = ()
+
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
     format_code = "?"
@@ -387,83 +401,115 @@ class NonNativeInteger(NonNativePrimitive, Integer):
     _mixin_ = True
 
 class Int8(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
     format_code = "b"
 NonNativeInt8 = Int8
 
 class UInt8(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
     format_code = "B"
 NonNativeUInt8 = UInt8
 
 class Int16(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class NonNativeInt16(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
     format_code = "h"
 
 class UInt16(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class NonNativeUInt16(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
     format_code = "H"
 
 class Int32(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class NonNativeInt32(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
     format_code = "i"
 
 class UInt32(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class NonNativeUInt32(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
     format_code = "I"
 
 class Long(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class NonNativeLong(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
     format_code = "l"
 
 class ULong(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
 class NonNativeULong(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
 class Int64(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
 
 class NonNativeInt64(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"    
@@ -482,6 +528,8 @@ def _uint64_coerce(self, space, w_item):
     return self.box(value)
 
 class UInt64(BaseType, Integer):
+    _attrs_ = ()
+
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -489,6 +537,8 @@ class UInt64(BaseType, Integer):
     _coerce = func_with_new_name(_uint64_coerce, '_coerce')
 
 class NonNativeUInt64(BaseType, NonNativeInteger):
+    _attrs_ = ()
+
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
     format_code = "Q"
@@ -790,33 +840,55 @@ class Float(Primitive):
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
 
+    def _read(self, storage, width, i, offset):
+        if we_are_translated():
+            res = libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+                                        width, storage, i, offset)
+        else:
+            res = libffi.array_getitem_T(self.T, width, storage, i, offset)
+        #return byteswap(res)
+        return res
+
+    def _write(self, storage, width, i, offset, value):
+        #value = byteswap(value) XXX
+        if we_are_translated():
+            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+                                 width, storage, i, offset, value)
+        else:
+            libffi.array_setitem_T(self.T, width, storage, i, offset, value)
+
+    def pack_str(self, box):
+        # XXX byteswap
+        return struct.pack(self.format_code, self.unbox(box))
+
+
 class Float32(BaseType, Float):
+    _attrs_ = ()
+
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"
 
 class NonNativeFloat32(BaseType, NonNativeFloat):
+    _attrs_ = ()
+
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
     format_code = "f"    
 
 class Float64(BaseType, Float):
+    _attrs_ = ()
+
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
 
 class NonNativeFloat64(BaseType, NonNativeFloat):
+    _attrs_ = ()
+
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
     format_code = "d"
-
-class CompositeType(BaseType):
-    def __init__(self, offsets_and_fields, size):
-        self.offsets_and_fields = offsets_and_fields
-        self.size = size
-
-    def get_element_size(self):
-        return self.size
 
 class BaseStringType(object):
     _mixin_ = True
@@ -841,8 +913,16 @@ class UnicodeType(BaseType, BaseStringType):
 
 NonNativeUnicodeType = UnicodeType
 
-class RecordType(CompositeType):
+class RecordType(BaseType):
+
     T = lltype.Char
+
+    def __init__(self, offsets_and_fields, size):
+        self.offsets_and_fields = offsets_and_fields
+        self.size = size
+
+    def get_element_size(self):
+        return self.size
     
     def read(self, arr, width, i, offset, dtype=None):
         if dtype is None:

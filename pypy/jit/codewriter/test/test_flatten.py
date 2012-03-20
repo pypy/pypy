@@ -968,6 +968,15 @@ class TestFlatten:
             int_return %i2
         """, transform=True)
 
+    def test_convert_float_bytes_to_int(self):
+        from pypy.rlib.longlong2float import float2longlong
+        def f(x):
+            return float2longlong(x)
+        self.encoding_test(f, [25.0], """
+            convert_float_bytes_to_longlong %f0 -> %i0
+            int_return %i0
+        """)
+
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
