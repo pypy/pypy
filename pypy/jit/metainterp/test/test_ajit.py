@@ -3,6 +3,7 @@ import sys
 import py
 
 from pypy import conftest
+from pypy.jit.codewriter import longlong
 from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy.jit.metainterp import pyjitpl, history
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
@@ -14,6 +15,7 @@ from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, promote_string, set_param, record_known_class)
+from pypy.rlib.longlong2float import float2longlong
 from pypy.rlib.rarithmetic import ovfcheck, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -292,7 +294,7 @@ class BasicTests:
         assert res == f(6, sys.maxint, 32, 48)
         res = self.meta_interp(f, [sys.maxint, 6, 32, 48])
         assert res == f(sys.maxint, 6, 32, 48)
-        
+
 
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -953,7 +955,7 @@ class BasicTests:
         self.meta_interp(f, [20], repeat=7)
         # the loop and the entry path as a single trace
         self.check_jitcell_token_count(1)
-        
+
         # we get:
         #    ENTER             - compile the new loop and the entry bridge
         #    ENTER             - compile the leaving path
@@ -1470,7 +1472,7 @@ class BasicTests:
         assert res == f(299)
         self.check_resops(guard_class=0, guard_nonnull=4,
                           guard_nonnull_class=4, guard_isnull=2)
-        
+
 
     def test_merge_guardnonnull_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1499,7 +1501,7 @@ class BasicTests:
         assert res == f(299)
         self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
                           guard_nonnull_class=0, guard_isnull=2)
-        
+
 
     def test_merge_guardnonnull_guardvalue_2(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1528,7 +1530,7 @@ class BasicTests:
         assert res == f(299)
         self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
                           guard_nonnull_class=0, guard_isnull=2)
-        
+
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -2636,7 +2638,7 @@ class BasicTests:
             return sa
         assert self.meta_interp(f, [20]) == f(20)
         self.check_resops(int_lt=6, int_le=2, int_ge=4, int_gt=3)
-        
+
 
     def test_intbounds_not_generalized2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'node'])
@@ -2677,7 +2679,7 @@ class BasicTests:
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
         self.check_jitcell_token_count(1)
         self.check_target_token_count(5)
-        
+
     def test_max_retrace_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
@@ -2815,7 +2817,7 @@ class BasicTests:
         for cell in get_stats().get_all_jitcell_tokens():
             # Initialal trace with two labels and 5 retraces
             assert len(cell.target_tokens) <= 7
-            
+
     def test_nested_retrace(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
@@ -3792,6 +3794,16 @@ class BaseLLtypeTests(BasicTests):
             return a[n].x
         res = self.interp_operations(g, [1])
         assert res == 3
+
+    def test_float2longlong(self):
+        def f(n):
+            return float2longlong(n)
+
+        for x in [2.5, float("nan"), -2.5, float("inf")]:
+            # There are tests elsewhere to verify the correctness of this.
+            expected = float2longlong(x)
+            res = self.interp_operations(f, [x])
+            assert longlong.getfloatstorage(res) == expected
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
