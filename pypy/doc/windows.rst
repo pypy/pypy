@@ -132,10 +132,10 @@ gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it shou
 the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
 compiler creating a 64 bit target.
 
-libffi for the mingw32 compiler
+libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To enable the _rawffi (and ctypes) module, you need to compile a mingw32
+To enable the _rawffi (and ctypes) module, you need to compile a mingw
 version of libffi.  Here is one way to do this, wich should allow you to try
 to build for win64 or win32:
 
@@ -150,7 +150,7 @@ to build for win64 or win32:
    them in the base directory.  
 #. Run c:\msys\msys.bat or a cygwin shell which should make you
    feel better since it is a shell prompt with shell tools.
-#. cd to the libffi directory and do::
+#. From inside the shell, cd to the libffi directory and do::
 
     sh ./configure
     make
@@ -167,6 +167,8 @@ If you wish to experiment with win64, you must run configure with flags::
 
 or such, depending on your mingw64 download.
 
+hacking on Pypy with the mingw compiler
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since hacking on Pypy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
