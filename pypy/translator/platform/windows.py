@@ -10,7 +10,7 @@ from pypy.translator.platform import Platform, posix
 def _get_compiler_type(cc, x64_flag):
     import subprocess
     if not cc:
-        cc = os.environ['CC']
+        cc = os.environ.get('CC','')
     if not cc:
         return MsvcPlatform(cc=cc, x64=x64_flag)
     elif cc.startswith('mingw'):
