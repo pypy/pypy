@@ -64,18 +64,9 @@ class AppTestObject:
         class x(object):
             def __str__(self):
                 return "Pickle"
-            def __unicode__(self):
-                return u"Cheese"
         res = format(x())
         assert res == "Pickle"
         assert isinstance(res, str)
-        res = format(x(), u"")
-        assert res == u"Cheese"
-        assert isinstance(res, unicode)
-        del x.__unicode__
-        res = format(x(), u"")
-        assert res == u"Pickle"
-        assert isinstance(res, unicode)
 
     def test_subclasshook(self):
         class x(object):
