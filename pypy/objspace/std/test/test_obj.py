@@ -19,9 +19,9 @@ class AppTestObject:
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.wrap(space.unicode_w(w_obj))
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
-        def w_unwrap_wrap_str(space, w_obj):
-            return space.wrap(space.str_w(w_obj))
-        cls.w_unwrap_wrap_str = space.wrap(gateway.interp2app(w_unwrap_wrap_str))
+        def w_unwrap_wrap_bytes(space, w_obj):
+            return space.wrapbytes(space.bytes_w(w_obj))
+        cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
 
     def test_hash_builtin(self):
         if not self.cpython_behavior:
@@ -142,10 +142,10 @@ class AppTestObject:
             skip("cannot run this test as apptest")
         l = ["a"]
         assert l[0] is l[0]
-        u = u"a"
+        u = "a"
         assert self.unwrap_wrap_unicode(u) is u
-        s = "a"
-        assert self.unwrap_wrap_str(s) is s
+        s = b"a"
+        assert self.unwrap_wrap_bytes(s) is s
 
     def test_is_on_subclasses(self):
         for typ in [int, long, float, complex, str, unicode]:
@@ -185,10 +185,10 @@ class AppTestObject:
     def test_id_on_strs(self):
         if self.appdirect:
             skip("cannot run this test as apptest")
-        u = u"a"
+        u = "a"
         assert id(self.unwrap_wrap_unicode(u)) == id(u)
-        s = "a"
-        assert id(self.unwrap_wrap_str(s)) == id(s)
+        s = b"a"
+        assert id(self.unwrap_wrap_bytes(s)) == id(s)
 
     def test_identity_vs_id_primitives(self):
         if self.cpython_apptest:
@@ -226,18 +226,18 @@ class AppTestObject:
         if self.appdirect:
             skip("cannot run this test as apptest")
         import sys
-        l = range(-10, 10)
+        l = list(range(-10, 10))
         for i in range(10):
-            s = str(i)
+            s = bytes(i)
             l.append(s)
-            l.append(self.unwrap_wrap_str(s))
-            u = unicode(s)
+            l.append(self.unwrap_wrap_bytes(s))
+            u = str(s)
             l.append(u)
             l.append(self.unwrap_wrap_unicode(u))
-        s = "s"
+        s = b"s"
         l.append(s)
-        l.append(self.unwrap_wrap_str(s))
-        s = u"s"
+        l.append(self.unwrap_wrap_bytes(s))
+        s = "s"
         l.append(s)
         l.append(self.unwrap_wrap_unicode(s))
 
