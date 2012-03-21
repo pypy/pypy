@@ -138,27 +138,33 @@ libffi for the mingw32 compiler
 To enable the _rawffi (and ctypes) module, you need to compile a mingw32
 version of libffi.  Here is one way to do this, wich should allow you to try
 to build for win64 or win32:
-- Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw
-- If you do not use cygwin, you will need msys to provide make, 
-autoconf tools and other goodies.
-    - Download and unzip a `msys for mingw`_, say into c:\msys
-    - Edit the c:\msys\etc\fstab file to mount c:\mingw
-- Download and unzip the `libffi source files`_, and extract
-them in the base directory.  
-- Run c:\msys\msys.bat or a cygwin shell which should make you
-feel better since it is a shell prompt with shell tools.
-- cd to the libffi directory and do::
+
+#. Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw
+#. If you do not use cygwin, you will need msys to provide make, 
+   autoconf tools and other goodies.
+
+    #. Download and unzip a `msys for mingw`_, say into c:\msys
+    #. Edit the c:\msys\etc\fstab file to mount c:\mingw
+
+#. Download and unzip the `libffi source files`_, and extract
+   them in the base directory.  
+#. Run c:\msys\msys.bat or a cygwin shell which should make you
+   feel better since it is a shell prompt with shell tools.
+#. cd to the libffi directory and do::
 
     sh ./configure
     make
     cp .libs/libffi-5.dll <somewhere on the PATH>
+
 If you can't find the dll, and the libtool issued a warning about 
 "undefined symbols not allowed", you will need to edit the libffi
 Makefile in the toplevel directory. Add the flag -no-undefined to
 the definition of libffi_la_LDFLAGS
 
 If you wish to experiment with win64, you must run configure with flags::
+
     sh ./configure --build=x86_64-w64-mingw32 --host=x86_64-w64-mingw32
+
 or such, depending on your mingw64 download.
 
 Since hacking on Pypy means running tests, you will need a way to specify
