@@ -224,11 +224,11 @@ class rbigint(object):
             accum |= c
             accumbits += 8
             if accumbits >= SHIFT:
-                digits.append(_store_digit(accum & MASK))
+                digits.append(_store_digit(intmask(accum & MASK)))
                 accum >>= SHIFT
                 accumbits -= SHIFT
         if accumbits:
-            digits.append(_store_digit(accum))
+            digits.append(_store_digit(intmask(accum)))
         return rbigint(digits[:], 1)
 
     @jit.elidable

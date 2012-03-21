@@ -692,3 +692,8 @@ class TestTranslatable(object):
 
         res = interpret(fn, [])
         assert res == -42.0
+
+    def test_frombytes(self):
+        s = "\xFF\x12\x34\x56"
+        bigint = rbigint.frombytes(s)
+        assert bigint.tolong() == 0xFF123456
