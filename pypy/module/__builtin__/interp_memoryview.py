@@ -41,10 +41,6 @@ class W_MemoryView(Wrappable):
 
     descr_eq = _make_descr__cmp('eq')
     descr_ne = _make_descr__cmp('ne')
-    descr_lt = _make_descr__cmp('lt')
-    descr_le = _make_descr__cmp('le')
-    descr_gt = _make_descr__cmp('gt')
-    descr_ge = _make_descr__cmp('ge')
 
     def as_str(self):
         return self.buf.as_str()
@@ -134,12 +130,8 @@ Create a new memoryview object which references the given object.
     __new__ = interp2app(descr_new),
     __buffer__  = interp2app(W_MemoryView.descr_buffer),
     __eq__      = interp2app(W_MemoryView.descr_eq),
-    __ge__      = interp2app(W_MemoryView.descr_ge),
     __getitem__ = interp2app(W_MemoryView.descr_getitem),
-    __gt__      = interp2app(W_MemoryView.descr_gt),
-    __le__      = interp2app(W_MemoryView.descr_le),
     __len__     = interp2app(W_MemoryView.descr_len),
-    __lt__      = interp2app(W_MemoryView.descr_lt),
     __ne__      = interp2app(W_MemoryView.descr_ne),
     __setitem__ = interp2app(W_MemoryView.descr_setitem),
     __repr__    = interp2app(W_MemoryView.descr_repr),
