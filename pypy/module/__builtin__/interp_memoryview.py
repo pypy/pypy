@@ -81,10 +81,10 @@ class W_MemoryView(Wrappable):
     def descr_getitem(self, space, w_index):
         start, stop, step = space.decode_index(w_index, self.getlength())
         if step == 0:  # index only
-            return space.wrap(self.buf.getitem(start))
+            return space.wrapbytes(self.buf.getitem(start))
         elif step == 1:
             res = self.getslice(start, stop)
-            return space.wrap(res)
+            return space.wrapbytes(res)
         else:
             raise OperationError(space.w_ValueError,
                 space.wrap("memoryview object does not support"

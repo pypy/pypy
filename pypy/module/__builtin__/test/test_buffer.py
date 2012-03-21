@@ -11,6 +11,7 @@ class AppTestMemoryView:
         v = memoryview(b"abc")
         assert v.tobytes() == b"abc"
         assert len(v) == 3
+        assert v[0] == b'a'
         assert list(v) == [b'a', b'b', b'c']
         assert v.tolist() == [97, 98, 99]
         assert v[1] == b"b"
