@@ -752,10 +752,10 @@ class AppTestStringObject:
 
     def test_replace_overflow(self):
         import sys
-        if sys.maxint > 2**31-1:
+        if sys.maxsize > 2**31-1:
             skip("Wrong platform")
         s = b"a" * (2**16)
-        raises(OverflowError, s.replace, "", s)
+        raises(OverflowError, s.replace, b"", s)
 
     def test_getslice(self):
         s = b"abc"
