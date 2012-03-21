@@ -183,18 +183,17 @@ class AppTestObject:
         if self.cpython_apptest:
             skip("cpython behaves differently")
         import sys
-        l = range(-10, 10)
+        l = list(range(-10, 10))
         for i in range(10):
             l.append(float(i))
             l.append(i + 0.1)
-            l.append(long(i))
             l.append(i + sys.maxint)
             l.append(i - sys.maxint)
             l.append(i + 1j)
             l.append(1 + i * 1j)
             s = str(i)
             l.append(s)
-            u = unicode(s)
+            u = bytes(s, 'ascii')
             l.append(u)
         l.append(-0.0)
         l.append(None)
@@ -202,7 +201,7 @@ class AppTestObject:
         l.append(False)
         s = "s"
         l.append(s)
-        s = u"s"
+        s = b"s"
         l.append(s)
 
         for i, a in enumerate(l):
@@ -237,7 +236,7 @@ class AppTestObject:
                     assert a == b
 
     def test_identity_bug(self):
-        x = 0x4000000000000000L
+        x = 0x4000000000000000
         y = 2j
         assert id(x) != id(y)
 
