@@ -37,7 +37,7 @@ class AppTestObject:
         assert hash(o) == o.__hash__()
 
     def test_hash_list(self):
-        l = range(5)
+        l = list(range(5))
         raises(TypeError, hash, l)
 
     def test_no_getnewargs(self):
