@@ -264,25 +264,17 @@ class AppTestAppComplexTest:
         assert self.almost_equal(complex("1+10j"), 1+10j)
         assert self.almost_equal(complex(10), 10+0j)
         assert self.almost_equal(complex(10.0), 10+0j)
-        assert self.almost_equal(complex(10L), 10+0j)
         assert self.almost_equal(complex(10+0j), 10+0j)
         assert self.almost_equal(complex(1,10), 1+10j)
-        assert self.almost_equal(complex(1,10L), 1+10j)
         assert self.almost_equal(complex(1,10.0), 1+10j)
-        assert self.almost_equal(complex(1L,10), 1+10j)
-        assert self.almost_equal(complex(1L,10L), 1+10j)
-        assert self.almost_equal(complex(1L,10.0), 1+10j)
         assert self.almost_equal(complex(1.0,10), 1+10j)
-        assert self.almost_equal(complex(1.0,10L), 1+10j)
         assert self.almost_equal(complex(1.0,10.0), 1+10j)
         assert self.almost_equal(complex(3.14+0j), 3.14+0j)
         assert self.almost_equal(complex(3.14), 3.14+0j)
         assert self.almost_equal(complex(314), 314.0+0j)
-        assert self.almost_equal(complex(314L), 314.0+0j)
         assert self.almost_equal(complex(3.14+0j, 0j), 3.14+0j)
         assert self.almost_equal(complex(3.14, 0.0), 3.14+0j)
         assert self.almost_equal(complex(314, 0), 314.0+0j)
-        assert self.almost_equal(complex(314L, 0L), 314.0+0j)
         assert self.almost_equal(complex(0j, 3.14j), -3.14+0j)
         assert self.almost_equal(complex(0.0, 3.14j), -3.14+0j)
         assert self.almost_equal(complex(0j, 3.14), 3.14j)
@@ -317,7 +309,6 @@ class AppTestAppComplexTest:
         raises(ValueError, complex, '1+1j\0j')
 
         raises(TypeError, int, 5+3j)
-        raises(TypeError, long, 5+3j)
         raises(TypeError, float, 5+3j)
         raises(ValueError, complex, "")
         raises(TypeError, complex, None)
@@ -368,7 +359,6 @@ class AppTestAppComplexTest:
             pass
         assert j(100 + 0j) == 100 + 0j
         assert isinstance(j(100), j)
-        assert j(100L + 0j) == 100 + 0j
         assert j("100 + 0j") == 100 + 0j
         x = j(1+0j)
         x.foo = 42
@@ -541,8 +531,7 @@ class AppTestAppComplexTest:
 
         # make sure everything works in ''.format()
         assert '*{0:.3f}*'.format(3.14159+2.71828j) == '*3.142+2.718j*'
-        assert u'*{0:.3f}*'.format(3.14159+2.71828j) == u'*3.142+2.718j*'
-        assert u'{:-}'.format(1.5+3.5j) == u'(1.5+3.5j)'
+        assert '{:-}'.format(1.5+3.5j) == '(1.5+3.5j)'
 
         INF = float("inf")
         NAN = float("nan")
