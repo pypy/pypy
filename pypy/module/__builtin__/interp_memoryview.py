@@ -84,7 +84,7 @@ class W_MemoryView(Wrappable):
             return space.wrapbytes(self.buf.getitem(start))
         elif step == 1:
             res = self.getslice(start, stop)
-            return space.wrapbytes(res)
+            return space.wrap(res)
         else:
             raise OperationError(space.w_ValueError,
                 space.wrap("memoryview object does not support"
