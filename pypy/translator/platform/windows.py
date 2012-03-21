@@ -18,8 +18,8 @@ def _get_compiler_type(cc, x64_flag):
     try:
         subprocess.check_output([cc, '--version'])
     except:
-        log.error("Unknown cc option '%s'"%cc)
-        return None
+        raise ValueError,"Could not find compiler specified by cc option" + \
+                " '%s', it must be a valid exe file on your path"%cc
     return MingwPlatform(cc)
 
 def Windows(cc=None):
