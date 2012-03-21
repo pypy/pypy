@@ -18,7 +18,8 @@ We routinely test the `RPython translation toolchain`_ using Visual Studio .NET
 Edition.  Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
-for the compiler.  They will attempt to locate the same compiler version that
+for the compiler, so you do not need to run vcvars before translation.  
+They will attempt to locate the same compiler version that
 was used to build the Python interpreter doing the
 translation.  Failing that, they will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
@@ -26,7 +27,7 @@ compiler they can find.  In addition, the target architecture
 using a 32 bit Python and vice versa.
 
 **Note:** PyPy is currently not supported for 64 bit Windows, and translation
-will be aborted in this case.
+will fail in this case.
 
 The compiler is all you need to build pypy-c, but it will miss some
 modules that relies on third-party libraries.  See below how to get
@@ -57,7 +58,8 @@ On Windows, there is no standard place where to download, build and
 install third-party libraries.  We chose to install them in the parent
 directory of the pypy checkout.  For example, if you installed pypy in
 ``d:\pypy\trunk\`` (This directory contains a README file), the base
-directory is ``d:\pypy``.
+directory is ``d:\pypy``. You may choose different values by setting the
+INCLUDE, LIB and PATH (for DLLs)
 
 The Boehm garbage collector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,18 +128,46 @@ Using the mingw compiler
 ------------------------
 
 You can compile pypy with the mingw compiler, using the --cc=mingw32 option;
-mingw.exe must be on the PATH.
+gcc.exe must be on the PATH. If the -cc flag does not begin with "ming", it should be
+the name of a valid gcc-derivative compiler, i.e. x86_64-w64-mingw32-gcc for the 64 bit
+compiler creating a 64 bit target.
 
 libffi for the mingw32 compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To enable the _rawffi (and ctypes) module, you need to compile a mingw32
-version of libffi.  I downloaded the `libffi source files`_, and extracted
-them in the base directory.  Then run::
+version of libffi.  Here is one way to do this, wich should allow you to try
+to build for win64 or win32:
+- Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw
+- If you do not use cygwin, you will need msys to provide make, 
+autoconf tools and other goodies.
+    - Download and unzip a `msys for mingw`_, say into c:\msys
+    - Edit the c:\msys\etc\fstab file to mount c:\mingw
+- Download and unzip the `libffi source files`_, and extract
+them in the base directory.  
+- Run c:\msys\msys.bat or a cygwin shell which should make you
+feel better since it is a shell prompt with shell tools.
+- cd to the libffi directory and do::
 
     sh ./configure
     make
     cp .libs/libffi-5.dll <somewhere on the PATH>
+If you can't find the dll, and the libtool issued a warning about 
+"undefined symbols not allowed", you will need to edit the libffi
+Makefile in the toplevel directory. Add the flag -no-undefined to
+the definition of libffi_la_LDFLAGS
 
+If you wish to experiment with win64, you must run configure with flags::
+    sh ./configure --build=x86_64-w64-mingw32 --host=x86_64-w64-mingw32
+or such, depending on your mingw64 download.
+
+Since hacking on Pypy means running tests, you will need a way to specify
+the mingw compiler when hacking (as opposed to translating). As of
+March 2012, --cc is not a valid option for pytest.py. However if you set an
+environment variable CC it will allow you to choose a compiler.
+
+.. _'mingw32 build': http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
+.. _`mingw64 build`: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
+.. _`msys for mingw`: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29   
 .. _`libffi source files`: http://sourceware.org/libffi/
 .. _`RPython translation toolchain`: translation.html
