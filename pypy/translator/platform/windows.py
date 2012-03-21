@@ -7,10 +7,12 @@ from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 
-def Windows(cc=None):
+def _get_compiler_type(cc, x64_flag):
     import subprocess
     if not cc:
-        return MsvcPlatform(cc=cc, x64=False)
+        cc = os.environ['CC']
+    if not cc:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
     elif cc.startswith('mingw'):
         return MingwPlatform(cc)
     try:
@@ -20,18 +22,11 @@ def Windows(cc=None):
         return None
     return MingwPlatform(cc)
 
+def Windows(cc=None):
+    return _get_compiler_type(cc, False)
+
 def Windows_x64(cc=None):
-    import subprocess
-    if not cc:
-        return MsvcPlatform(cc=cc, x64=True)
-    elif cc.startswith('mingw'):
-        return MingwPlatform(cc)
-    try:
-        subprocess.check_output([cc, '--version'])
-    except:
-        log.error("Unknown cc option '%s'"%cc)
-        return None
-    return MingwPlatform(cc)
+    return _get_compiler_type(cc, True)
     
 def _get_msvc_env(vsver, x64flag):
     try:
