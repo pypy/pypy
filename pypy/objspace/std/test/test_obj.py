@@ -137,10 +137,10 @@ class AppTestObject:
         assert self.unwrap_wrap_bytes(s) is s
 
     def test_is_on_subclasses(self):
-        for typ in [int, long, float, complex, str, unicode]:
+        for typ in [int, float, complex, str]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ not in (str, unicode):
+            if not self.cpython_apptest and typ is not str:
                 assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
