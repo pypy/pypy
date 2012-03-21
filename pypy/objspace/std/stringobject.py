@@ -9,7 +9,7 @@ from pypy.rlib.objectmodel import compute_unique_id
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
-from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -457,9 +457,16 @@ def contains__String_String(space, w_self, w_sub):
     sub = w_sub._value
     return space.newbool(self.find(sub) >= 0)
 
-def contains__String_Int(space, w_self, w_char):
+def contains__String_Long(space, w_self, w_char):
     self = w_self._value
-    char = w_char.intval
+    try:
+        char = space.int_w(w_char)
+    except OperationError, e:
+        if e.match(space, space.w_OverflowError):
+            char = 256 # arbitrary value which will trigger the ValueError
+                       # condition below
+        else:
+            raise
     if 0 <= char < 256:
         return space.newbool(self.find(chr(char)) >= 0)
     else:
