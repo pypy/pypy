@@ -252,4 +252,8 @@ def test_isinstance_shortcut():
     space = objspace.StdObjSpace()
     w_a = space.wrap("a")
     space.type = None
-    space.isinstance_w(w_a, space.w_str) # does not crash
+    # if it crashes, it means that space._type_isinstance didn't go through
+    # the fast path, and tries to call type() (which is set to None just
+    # above)
+    space.isinstance_w(w_a, space.w_unicode) # does not crash
+
