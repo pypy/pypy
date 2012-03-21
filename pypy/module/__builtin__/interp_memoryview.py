@@ -118,6 +118,9 @@ class W_MemoryView(Wrappable):
         # I've never seen anyone filling this field
         return space.w_None
 
+    def descr_repr(self, space):
+        return self.getrepr(space, 'memory')
+
 
 def descr_new(space, w_subtype, w_object):
     memoryview = W_MemoryView(space.buffer(w_object))
@@ -139,6 +142,7 @@ Create a new memoryview object which references the given object.
     __lt__      = interp2app(W_MemoryView.descr_lt),
     __ne__      = interp2app(W_MemoryView.descr_ne),
     __setitem__ = interp2app(W_MemoryView.descr_setitem),
+    __repr__    = interp2app(W_MemoryView.descr_repr),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
     format      = GetSetProperty(W_MemoryView.w_get_format),
