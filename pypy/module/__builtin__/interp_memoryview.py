@@ -8,9 +8,6 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 import operator
 
-W_Buffer = buffer.Buffer      # actually implemented in pypy.interpreter.buffer
-
-
 class W_MemoryView(Wrappable):
     """Implement the built-in 'memoryview' type as a thin wrapper around
     an interp-level buffer.
