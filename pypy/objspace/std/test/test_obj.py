@@ -114,14 +114,12 @@ class AppTestObject:
         x = 1000000
         assert x + 1 is int(str(x + 1))
         assert 1 is not 1.0
-        assert 1 is not 1l
-        assert 1l is not 1.0
         assert 1.1 is 1.1
         assert 0.0 is not -0.0
         for x in range(10):
             assert x + 0.1 is x + 0.1
         for x in range(10):
-            assert x + 1L is x + 1L
+            assert x + 1 is x + 1
         for x in range(10):
             assert x+1j is x+1j
             assert 1+x*1j is 1+x*1j
