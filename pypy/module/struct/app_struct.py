@@ -11,12 +11,12 @@ class error(Exception):
 # XXX inefficient
 def pack_into(fmt, buf, offset, *args):
     data = struct.pack(fmt, *args)
-    buffer(buf)[offset:offset+len(data)] = data
+    memoryview(buf)[offset:offset+len(data)] = data
 
 # XXX inefficient
 def unpack_from(fmt, buf, offset=0):
     size = _struct.calcsize(fmt)
-    data = buffer(buf)[offset:offset+size]
+    data = memoryview(buf)[offset:offset+size]
     if len(data) != size:
         raise error("unpack_from requires a buffer of at least %d bytes"
                     % (size,))
