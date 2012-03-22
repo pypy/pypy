@@ -215,21 +215,21 @@ class AppTestZlib(object):
         """
         We should be able to pass buffer objects instead of strings.
         """
-        assert self.zlib.crc32(buffer(b'hello, world.')) == -936931198
-        assert self.zlib.adler32(buffer(b'hello, world.')) == 571147447
+        assert self.zlib.crc32(memoryview(b'hello, world.')) == -936931198
+        assert self.zlib.adler32(memoryview(b'hello, world.')) == 571147447
 
         compressor = self.zlib.compressobj()
-        bytes = compressor.compress(buffer(self.expanded))
+        bytes = compressor.compress(memoryview(self.expanded))
         bytes += compressor.flush()
         assert bytes == self.compressed
 
         decompressor = self.zlib.decompressobj()
-        bytes = decompressor.decompress(buffer(self.compressed))
+        bytes = decompressor.decompress(memoryview(self.compressed))
         bytes += decompressor.flush()
         assert bytes == self.expanded
 
-        bytes = self.zlib.compress(buffer(self.expanded))
+        bytes = self.zlib.compress(memoryview(self.expanded))
         assert bytes == self.compressed
 
-        bytes = self.zlib.decompress(buffer(self.compressed))
+        bytes = self.zlib.decompress(memoryview(self.compressed))
         assert bytes == self.expanded
