@@ -165,8 +165,11 @@ class LeakCheckingTest(object):
         return leaking
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
+    extra_modules = []
+    
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'] +
+                                               cls.extra_modules)
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
