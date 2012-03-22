@@ -992,7 +992,7 @@ class AppTestFfi:
         import _rawffi
         S = _rawffi.Structure((40, 1))
         s = S(autofree=True)
-        b = buffer(s)
+        b = memoryview(s)
         assert len(b) == 40
         b[4] = b'X'
         b[:3] = b'ABC'
@@ -1001,7 +1001,7 @@ class AppTestFfi:
         A = _rawffi.Array('c')
         a = A(10, autofree=True)
         a[3] = b'x'
-        b = buffer(a)
+        b = memoryview(a)
         assert len(b) == 10
         assert b[3] == b'x'
         b[6] = b'y'

@@ -534,7 +534,7 @@ class AppTestMMap:
         f.write(b"foobar")
         f.flush()
         m = mmap(f.fileno(), 6)
-        b = buffer(m)
+        b = memoryview(m)
         assert len(b) == 6
         assert b[3] == b"b"
         assert b[:] == b"foobar"
