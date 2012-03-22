@@ -15,7 +15,7 @@ def pack_into(fmt, buf, offset, *args):
 
 # XXX inefficient
 def unpack_from(fmt, buf, offset=0):
-    size = _struct.calcsize(fmt)
+    size = struct.calcsize(fmt)
     data = memoryview(buf)[offset:offset+size]
     if len(data) != size:
         raise error("unpack_from requires a buffer of at least %d bytes"
