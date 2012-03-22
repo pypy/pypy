@@ -47,9 +47,9 @@ class AppTestZipimport:
         """).compile()
 
         if cls.compression == ZIP_DEFLATED:
-            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime'])
+            space = gettestobjspace(usemodules=['zipimport', 'zlib', 'rctime', 'struct'])
         else:
-            space = gettestobjspace(usemodules=['zipimport', 'rctime'])
+            space = gettestobjspace(usemodules=['zipimport', 'rctime', 'struct'])
             
         cls.space = space
         tmpdir = udir.ensure('zipimport_%s' % cls.__name__, dir=1)
