@@ -306,6 +306,125 @@ def set_string_function(f, repr=True):
     else:
         return multiarray.set_string_function(f, repr)
 
+def array_equal(a1, a2):
+    """
+    True if two arrays have the same shape and elements, False otherwise.
+
+    Parameters
+    ----------
+    a1, a2 : array_like
+        Input arrays.
+
+    Returns
+    -------
+    b : bool
+        Returns True if the arrays are equal.
+
+    See Also
+    --------
+    allclose: Returns True if two arrays are element-wise equal within a
+              tolerance.
+    array_equiv: Returns True if input arrays are shape consistent and all
+                 elements equal.
+
+    Examples
+    --------
+    >>> np.array_equal([1, 2], [1, 2])
+    True
+    >>> np.array_equal(np.array([1, 2]), np.array([1, 2]))
+    True
+    >>> np.array_equal([1, 2], [1, 2, 3])
+    False
+    >>> np.array_equal([1, 2], [1, 4])
+    False
+
+    """
+    try:
+        a1, a2 = asarray(a1), asarray(a2)
+    except:
+        return False
+    if a1.shape != a2.shape:
+        return False
+    return bool((a1 == a2).all())
+
+def asarray(a, dtype=None, order=None, maskna=None, ownmaskna=False):
+    """
+    Convert the input to an array.
+
+    Parameters
+    ----------
+    a : array_like
+        Input data, in any form that can be converted to an array.  This
+        includes lists, lists of tuples, tuples, tuples of tuples, tuples
+        of lists and ndarrays.
+    dtype : data-type, optional
+        By default, the data-type is inferred from the input data.
+    order : {'C', 'F'}, optional
+        Whether to use row-major ('C') or column-major ('F' for FORTRAN)
+        memory representation.  Defaults to 'C'.
+   maskna : bool or None, optional
+        If this is set to True, it forces the array to have an NA mask.
+        If this is set to False, it forces the array to not have an NA
+        mask.
+    ownmaskna : bool, optional
+        If this is set to True, forces the array to have a mask which
+        it owns.
+
+    Returns
+    -------
+    out : ndarray
+        Array interpretation of `a`.  No copy is performed if the input
+        is already an ndarray.  If `a` is a subclass of ndarray, a base
+        class ndarray is returned.
+
+    See Also
+    --------
+    asanyarray : Similar function which passes through subclasses.
+    ascontiguousarray : Convert input to a contiguous array.
+    asfarray : Convert input to a floating point ndarray.
+    asfortranarray : Convert input to an ndarray with column-major
+                     memory order.
+    asarray_chkfinite : Similar function which checks input for NaNs and Infs.
+    fromiter : Create an array from an iterator.
+    fromfunction : Construct an array by executing a function on grid
+                   positions.
+
+    Examples
+    --------
+    Convert a list into an array:
+
+    >>> a = [1, 2]
+    >>> np.asarray(a)
+    array([1, 2])
+
+    Existing arrays are not copied:
+
+    >>> a = np.array([1, 2])
+    >>> np.asarray(a) is a
+    True
+
+    If `dtype` is set, array is copied only if dtype does not match:
+
+    >>> a = np.array([1, 2], dtype=np.float32)
+    >>> np.asarray(a, dtype=np.float32) is a
+    True
+    >>> np.asarray(a, dtype=np.float64) is a
+    False
+
+    Contrary to `asanyarray`, ndarray subclasses are not passed through:
+
+    >>> issubclass(np.matrix, np.ndarray)
+    True
+    >>> a = np.matrix([[1, 2]])
+    >>> np.asarray(a) is a
+    False
+    >>> np.asanyarray(a) is a
+    True
+
+    """
+    return array(a, dtype, copy=False, order=order,
+                            maskna=maskna, ownmaskna=ownmaskna)
+
 set_string_function(array_str, 0)
 set_string_function(array_repr, 1)
 

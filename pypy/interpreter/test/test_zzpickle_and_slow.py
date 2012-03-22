@@ -75,6 +75,7 @@ def _detatch_helpers(space):
 class AppTestInterpObjectPickling:
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
     def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['struct'])
         _attach_helpers(cls.space)
 
     def teardown_class(cls):

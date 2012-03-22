@@ -256,4 +256,3 @@ def test_isinstance_shortcut():
     # the fast path, and tries to call type() (which is set to None just
     # above)
     space.isinstance_w(w_a, space.w_unicode) # does not crash
-
