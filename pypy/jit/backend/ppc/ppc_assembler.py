@@ -390,8 +390,8 @@ class AssemblerPPC(OpAssembler):
         # |        OLD BACKCHAIN        |
         # |                             |
         # =============================== -
-        # |                             |  | > MINI FRAME (BACHCHAIN SIZE * WORD)
-        # |          BACKCHAIN          |  |
+        # |                             |  | 
+        # |          BACKCHAIN          |  | > MINI FRAME (BACHCHAIN SIZE * WORD)
         # |                             |  |
         # =============================== - 
         # |                             |
@@ -404,7 +404,6 @@ class AssemblerPPC(OpAssembler):
         # =============================== <- SP
         #
         mc = PPCBuilder()
-        # save argument registers and return address
         
         # make small frame to store data (parameter regs + LR + SCRATCH) in
         # there
