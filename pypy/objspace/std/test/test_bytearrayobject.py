@@ -356,7 +356,7 @@ class AppTestBytesArray:
         b.extend(bytearray(b'def'))
         b.extend(b'ghi')
         assert b == b'abcdefghi'
-        b.extend(buffer(b'jkl'))
+        b.extend(memoryview(b'jkl'))
         assert b == b'abcdefghijkl'
 
         b = bytearray(b'world')
@@ -419,7 +419,7 @@ class AppTestBytesArray:
 
     def test_buffer(self):
         b = bytearray(b'abcdefghi')
-        buf = buffer(b)
+        buf = memoryview(b)
         assert buf[2] == b'c'
         buf[3] = b'D'
         assert b == b'abcDefghi'

@@ -244,8 +244,8 @@ class AppTestStringObject:
         assert b'123x123'.replace(b'123', b'') == b'x'
 
     def test_replace_buffer(self):
-        assert b'one'.replace(buffer(b'o'), buffer(b'n'), 1) == b'nne'
-        assert b'one'.replace(buffer(b'o'), buffer(b'n')) == b'nne'
+        assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
+        assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
 
     def test_strip(self):
         s = " a b "
@@ -689,7 +689,7 @@ class AppTestStringObject:
     def test_buffer(self):
         x = b"he"
         x += b"llo"
-        b = buffer(x)
+        b = memoryview(x)
         assert len(b) == 5
         assert b[-1] == b"o"
         assert b[:] == b"hello"
