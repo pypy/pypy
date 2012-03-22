@@ -6,7 +6,7 @@ import optparse
 def test_ctr():
     td = TranslationDriver()
     expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source',
-                'compile', 'run', 'pyjitpl']
+                'compile', 'pyjitpl']
     assert set(td.exposed) == set(expected)
 
     assert td.backend_select_goals(['compile_c']) == ['compile_c']
@@ -33,7 +33,6 @@ def test_ctr():
                  'rtype_ootype', 'rtype_lltype',
                  'source_cli', 'source_c',
                  'compile_cli', 'compile_c',
-                 'run_c', 'run_cli',
                  'compile_jvm', 'source_jvm', 'run_jvm',
                  'pyjitpl_lltype',
                  'pyjitpl_ootype']
@@ -50,6 +49,6 @@ def test_ctr():
         'backendopt_lltype']
 
     expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source_c',
-                'compile_c', 'run_c', 'pyjitpl']
+                'compile_c', 'pyjitpl']
 
     assert set(td.exposed) == set(expected)
