@@ -24,7 +24,7 @@ class TestTranslationARM(CCompiledMixin):
         return t
 
     def _check_cbuilder(self, cbuilder):
-        import pdb; pdb.set_trace()
+        pass
 
     def test_stuff_translates(self):
         # this is a basic test that tries to hit a number of features and their
