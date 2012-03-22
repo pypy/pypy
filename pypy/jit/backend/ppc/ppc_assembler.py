@@ -485,7 +485,7 @@ class AssemblerPPC(OpAssembler):
         # are interrupting the function.
         
         # restore link register out of preprevious frame
-        offset_LR = frame_size + BACKCHAIN_SIZE * WORD + WORD
+        offset_LR = frame_size + MINIFRAME_SIZE + WORD
         if IS_PPC_64:
             offset_LR += WORD
 
@@ -494,7 +494,7 @@ class AssemblerPPC(OpAssembler):
             mc.mtlr(r.SCRATCH.value)
 
         # remove this frame and the miniframe
-        both_framesizes = frame_size + BACKCHAIN_SIZE * WORD
+        both_framesizes = frame_size + MINIFRAME_SIZE
         mc.addi(r.SP.value, r.SP.value, both_framesizes)
         mc.blr()
 
