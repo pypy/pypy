@@ -968,7 +968,6 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
             code_w = read_compiled_module(space, cpathname, stream.readall())
         finally:
             stream.close()
-        pathname = cpathname
     else:
         code_w = parse_source_module(space, pathname, source)
 
