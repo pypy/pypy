@@ -744,12 +744,12 @@ class VirtualArray(BaseArray):
             broadcast_dims = len(self.res.shape) - len(self.shape)
             chunks = [Chunk(0,0,0,0)] * broadcast_dims + \
                      [Chunk(0, i, 1, i) for i in self.shape]
-            return ra.left.create_slice(chunks)
+            return Chunks(chunks).apply(self.res)
         return ra.left
 
     def force_if_needed(self):
         if self.forced_result is None:
-            self.forced_result = self.compute()
+            self.forced_result = self.compute().get_concrete()
             self._del_sources()
 
     def get_concrete(self):
@@ -979,7 +979,7 @@ class ConcreteArray(BaseArray):
 
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self, item, value)
+        self.dtype.setitem(self, item, value.convert_to(self.dtype))
 
     def calc_strides(self, shape):
         dtype = self.find_dtype()
