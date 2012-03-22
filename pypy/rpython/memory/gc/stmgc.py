@@ -102,7 +102,7 @@ class StmGC(GCBase):
     def _free_nursery(self, nursery):
         llarena.arena_free(nursery)
 
-    def setup_thread(self, in_main_thread):
+    def setup_thread(self, in_main_thread=False):
         """Setup a thread.  Allocates the thread-local data structures.
         Must be called only once per OS-level thread."""
         tls = lltype.malloc(self.GCTLS, zero=True, flavor='raw')
@@ -122,9 +122,6 @@ class StmGC(GCBase):
         else:
             tls.malloc_flags = -1   # don't malloc outside a transaction!
         return tls
-
-    def _setup_secondary_thread(self):
-        self.setup_thread(False)
 
     @staticmethod
     def reset_nursery(tls):
