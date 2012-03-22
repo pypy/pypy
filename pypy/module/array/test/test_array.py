@@ -400,7 +400,7 @@ class BaseArrayTests:
 
     def test_buffer(self):
         a = self.array('h', b'Hi')
-        buf = buffer(a)
+        buf = memoryview(a)
         assert buf[1] == b'i'
         #raises(TypeError, buf.__setitem__, 1, 'o')
 

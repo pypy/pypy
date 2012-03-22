@@ -95,7 +95,7 @@ class AppTestBZ2Compressor(CheckAllocation):
     def test_buffer(self):
         from bz2 import BZ2Compressor
         bz2c = BZ2Compressor()
-        data = bz2c.compress(buffer(self.TEXT))
+        data = bz2c.compress(memoryview(self.TEXT))
         data += bz2c.flush()
         assert self.decompress(data) == self.TEXT
 
@@ -163,7 +163,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
     def test_buffer(self):
         from bz2 import BZ2Decompressor
         bz2d = BZ2Decompressor()
-        decompressed_data = bz2d.decompress(buffer(self.DATA))
+        decompressed_data = bz2d.decompress(memoryview(self.DATA))
         assert decompressed_data == self.TEXT
 
     def test_subsequent_read(self):
@@ -219,6 +219,6 @@ class AppTestBZ2ModuleFunctions(CheckAllocation):
 
     def test_buffer(self):
         import bz2
-        data = bz2.compress(buffer(self.TEXT))
-        result = bz2.decompress(buffer(data))
+        data = bz2.compress(memoryview(self.TEXT))
+        result = bz2.decompress(memoryview(data))
         assert result == self.TEXT
