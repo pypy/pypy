@@ -108,6 +108,7 @@ class AppTestPickle:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('_continuation', 'struct'),
                                     CALL_METHOD=True)
+        cls.space.config.translation.continuation = True
         cls.space.appexec([], """():
             global continulet, A, __name__
 
