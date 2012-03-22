@@ -517,13 +517,13 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(buffer(b''))
-        s.sendall(buffer(b''))
+        s.send(memoryview(b''))
+        s.sendall(memoryview(b''))
         raises(TypeError, s.send, '')
         raises(TypeError, s.sendall, '')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
-        s.sendto(buffer(b''), ('localhost', 9)) # Send to discard port.
+        s.sendto(memoryview(b''), ('localhost', 9)) # Send to discard port.
         s.close()
 
     def test_unix_socket_connect(self):
@@ -642,7 +642,7 @@ class AppTestSocketTCP:
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
         conn = socket.socket(fileno=fileno)
-        buf = buffer(MSG)
+        buf = memoryview(MSG)
         conn.send(buf)
         buf = array.array('b', b' '*1024)
         nbytes = cli.recv_into(buf)
@@ -658,7 +658,7 @@ class AppTestSocketTCP:
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
         conn = socket.socket(fileno=fileno)
-        buf = buffer(MSG)
+        buf = memoryview(MSG)
         conn.send(buf)
         buf = array.array('b', b' '*1024)
         nbytes, addr = cli.recvfrom_into(buf)
