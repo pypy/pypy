@@ -7,7 +7,7 @@ from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
-from sys import maxint
+from pypy.rlib.rarithmetic import maxint, is_valid_int, is_emulated_long
 import weakref
 
 class State(object):
@@ -693,6 +693,11 @@ def build_number(name, type):
         raise ValueError('No matching lowlevel type for %r'%type)
     number = _numbertypes[type] = Number(name, type)
     return number
+
+if is_emulated_long:
+    SignedFmt = 'q'
+else:
+    SignedFmt = 'l'
 
 Signed   = build_number("Signed", int)
 Unsigned = build_number("Unsigned", r_uint)
@@ -1667,7 +1672,7 @@ class _array(_parentable):
     __slots__ = ('items',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
-        if not isinstance(n, int):
+        if not is_valid_int(n):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"

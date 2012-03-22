@@ -2,6 +2,7 @@ from pypy.conftest import gettestobjspace
 import os
 import py
 
+
 class AppTestSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))
@@ -29,7 +30,6 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
 
-        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, (int, long))
         assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
         assert len(_ssl.OPENSSL_VERSION_INFO) == 5
         assert isinstance(_ssl.OPENSSL_VERSION, str)

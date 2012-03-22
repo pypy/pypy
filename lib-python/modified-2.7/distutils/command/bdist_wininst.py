@@ -298,7 +298,8 @@ class bdist_wininst (Command):
                              bitmaplen,        # number of bytes in bitmap
                              )
         file.write(header)
-        file.write(open(arcname, "rb").read())
+        with open(arcname, "rb") as arcfile:
+            file.write(arcfile.read())
 
     # create_exe()
 

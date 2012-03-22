@@ -13,7 +13,7 @@ all_modules = [p.basename for p in modulepath.listdir()
                and not p.basename.startswith('test')]
 
 essential_modules = dict.fromkeys(
-    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+    ["exceptions", "_file", "sys", "__builtin__", "posix", "_warnings"]
 )
 
 default_modules = essential_modules.copy()
@@ -175,9 +175,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                default=False,
                cmdline="--translationmodules",
                suggests=[("objspace.allworkingmodules", False)]),
-
-    BoolOption("geninterp", "specify whether geninterp should be used",
-               default=False),
 
     BoolOption("logbytecodes",
                "keep track of bytecode usage",
@@ -392,10 +389,6 @@ def set_pypy_opt_level(config, level):
         if not IS_64_BITS:
             config.objspace.std.suggest(withsmalllong=True)
         # xxx other options? ropes maybe?
-
-    # completely disable geninterp in a level 0 translation
-    if level == '0':
-        config.objspace.suggest(geninterp=False)
 
     # some optimizations have different effects depending on the typesystem
     if type_system == 'ootype':

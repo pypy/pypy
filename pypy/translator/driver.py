@@ -559,6 +559,9 @@ class TranslationDriver(SimpleTaskEngine):
                 newsoname = newexename.new(basename=soname.basename)
                 shutil.copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
+                if sys.platform == 'win32':
+                    shutil.copyfile(str(soname.new(ext='lib')),
+                                    str(newsoname.new(ext='lib')))
             self.c_entryp = newexename
         self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
@@ -581,22 +584,6 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = cbuilder.get_entry_point(isolated=isolated)
     #
     task_compile_c = taskdef(task_compile_c, ['source_c'], "Compiling c source")
-
-    def backend_run(self, backend):
-        c_entryp = self.c_entryp
-        standalone = self.standalone 
-        if standalone:
-            os.system(c_entryp)
-        else:
-            runner = self.extra.get('run', lambda f: f())
-            runner(c_entryp)
-
-    def task_run_c(self):
-        self.backend_run('c')
-    #
-    task_run_c = taskdef(task_run_c, ['compile_c'], 
-                         "Running compiled c source",
-                         idemp=True)
 
     def task_llinterpret_lltype(self):
         from pypy.rpython.llinterp import LLInterpreter
@@ -707,11 +694,6 @@ $LEDIT $MONO "$(dirname $EXE)/$(basename $EXE)-data/%s" "$@" # XXX doesn't work 
         shutil.copy(main_exe, '.')
         self.log.info("Copied to %s" % os.path.join(os.getcwd(), dllname))
 
-    def task_run_cli(self):
-        pass
-    task_run_cli = taskdef(task_run_cli, ['compile_cli'],
-                              'XXX')
-    
     def task_source_jvm(self):
         from pypy.translator.jvm.genjvm import GenJvm
         from pypy.translator.jvm.node import EntryPoint

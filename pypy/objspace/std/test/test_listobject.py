@@ -1,7 +1,9 @@
 # coding: iso-8859-15
 import random
-from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
+     IntegerListStrategy, ObjectListStrategy
 from pypy.interpreter.error import OperationError
+from pypy.rlib.rarithmetic import is_valid_int
 
 from pypy.conftest import gettestobjspace, option
 
@@ -241,7 +243,7 @@ class TestW_ListObject(object):
                 self.space.raises_w(self.space.w_IndexError,
                                     self.space.setitem, w_list, w(key), w(42))
             else:
-                if isinstance(value, int):   # non-slicing
+                if is_valid_int(value):   # non-slicing
                     if random.random() < 0.25:   # deleting
                         self.space.delitem(w_list, w(key))
                         del expected[key]
@@ -389,6 +391,16 @@ class TestW_ListObject(object):
                            self.space.w_True)
         assert self.space.eq_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
+
+    def test_sizehint(self):
+        space = self.space
+        w_l = space.newlist([], sizehint=10)
+        assert isinstance(w_l.strategy, SizeListStrategy)
+        space.call_method(w_l, 'append', space.wrap(3))
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l = space.newlist([], sizehint=10)
+        space.call_method(w_l, 'append', space.w_None)
+        assert isinstance(w_l.strategy, ObjectListStrategy)
 
 
 class AppTestW_ListObject(object):

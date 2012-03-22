@@ -355,6 +355,7 @@ LL_OPERATIONS = {
     'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
     'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
+    'convert_float_bytes_to_longlong': LLOp(canfold=True),
 
     # __________ pointer operations __________
 

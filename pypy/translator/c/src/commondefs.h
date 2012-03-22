@@ -11,6 +11,21 @@
 
    In particular, Win64 is not supported because it has sizeof(long) == 4.
    To fix this, find and review all the places that cast a pointer to a long.
+
+   Update:
+   We are trying to lift this restriction for Win64:
+
+   Win64         int     long     long long     void*
+   --64-bit--    32      32         64          64
+
+   The migration to this platform is complicated and tedious, because
+   PyPy assumes that a void* fits into a long. Therefore, the created PyPy
+   will (first) have a 64 bit int type. The dependency of sys.maxint must
+   be removed in very many places, and the distinction between Python int
+   and long must be changed in explicit range checks.
+
+   This is work in progress with first successes.
+
 */
 
 #include <limits.h>
@@ -58,16 +73,32 @@
 /******************** 64-bit support ********************/
 #else
 
-#  if LONG_MAX != 9223372036854775807L
-#    error "error in LONG_MAX (64-bit sources but a 32-bit compiler?)"
-#  endif
-#  if LONG_MIN != -9223372036854775807L-1L
-#    error "unsupported value for LONG_MIN"
-#  endif
+#  ifndef _WIN64
+#    if LONG_MAX != 9223372036854775807L
+#      error "error in LONG_MAX (64-bit sources but a 32-bit compiler?)"
+#    endif
+#    if LONG_MIN != -9223372036854775807L-1L
+#      error "unsupported value for LONG_MIN"
+#    endif
 
-#  define SIZEOF_INT        4
-#  define SIZEOF_LONG       8
-#  define SIZEOF_LONG_LONG  8
+#    define SIZEOF_INT        4
+#    define SIZEOF_LONG       8
+#    define SIZEOF_LONG_LONG  8
+
+/******************** Win-64 support ********************/
+#  else
+#    if LONG_MAX != 2147483647L
+#      error "error in LONG_MAX (64-bit sources but incompatible compiler?)"
+#    endif
+#    if LONG_MIN != -2147483647L-1L
+#      error "unsupported value for LONG_MIN"
+#    endif
+
+#    define SIZEOF_INT        4
+#    define SIZEOF_LONG       4
+#    define SIZEOF_LONG_LONG  8
+
+#  endif
 
 #endif
 

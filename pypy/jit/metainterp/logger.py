@@ -18,6 +18,10 @@ class Logger(object):
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif number == -2:
+            debug_start("jit-log-compiling-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, '(%s)' % name , ":", type,
@@ -31,6 +35,10 @@ class Logger(object):
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
+        elif number == -2:
+            debug_start("jit-log-compiling-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
@@ -102,9 +110,9 @@ class LogOperations(object):
     def repr_of_resop(self, op, ops_offset=None):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-            s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+            s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
-            return "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
+            return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
         if ops_offset is None:
             offset = -1
         else:
@@ -141,7 +149,7 @@ class LogOperations(object):
             if target_token.exported_state:
                 for op in target_token.exported_state.inputarg_setup_ops:
                     debug_print('    ' + self.repr_of_resop(op))
-        
+
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return

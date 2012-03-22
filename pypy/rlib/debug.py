@@ -1,5 +1,7 @@
 import sys, time
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 def ll_assert(x, msg):
     """After translation to C, this becomes an RPyAssert."""
@@ -26,6 +28,7 @@ def fatalerror(msg):
     llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
+fatalerror._jit_look_inside_ = False
 fatalerror._annenforceargs_ = [str]
 
 def fatalerror_notb(msg):
@@ -34,6 +37,7 @@ def fatalerror_notb(msg):
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror_notb._dont_inline_ = True
+fatalerror_notb._jit_look_inside_ = False
 fatalerror_notb._annenforceargs_ = [str]
 
 
@@ -333,7 +337,7 @@ def check_regular_int(x):
     """Give a translation-time error if 'x' is not a plain int
     (e.g. if it's a r_longlong or an r_uint).
     """
-    assert type(x) is int
+    assert is_valid_int(x)
     return x
 
 class Entry(ExtRegistryEntry):

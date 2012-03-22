@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import running_on_llinterp
 from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -567,7 +567,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         if r_longlong is not r_int:
             assert isinstance(res, r_longlong)
         else:
-            assert isinstance(res, int)
+            assert is_valid_int(res)
         #
         def llfn(v):
             return rffi.cast(rffi.ULONGLONG, v)

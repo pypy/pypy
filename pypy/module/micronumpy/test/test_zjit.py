@@ -479,38 +479,3 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_sub': 3,
                                 'jump': 1,
                                 'setinteriorfield_raw': 1})
-
-
-class TestNumpyOld(LLJitMixin):
-    def setup_class(cls):
-        py.test.skip("old")
-        from pypy.module.micronumpy.compile import FakeSpace
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-
-        cls.space = FakeSpace()
-        cls.float64_dtype = get_dtype_cache(cls.space).w_float64dtype
-
-    def test_int32_sum(self):
-        py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "
-                     "deal correctly with int dtypes for this test to "
-                     "work. skip for now until someone feels up to the task")
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int32_dtype = self.int32_dtype
-
-        def f(n):
-            if NonConstant(False):
-                dtype = float64_dtype
-            else:
-                dtype = int32_dtype
-            ar = W_NDimArray(n, [n], dtype=dtype)
-            i = 0
-            while i < n:
-                ar.get_concrete().setitem(i, int32_dtype.box(7))
-                i += 1
-            v = ar.descr_add(space, ar).descr_sum(space)
-            assert isinstance(v, IntObject)
-            return v.intval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        assert result == f(5)

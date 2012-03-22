@@ -168,7 +168,7 @@ class RegAlloc(object):
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
-        self.param_depth = 0
+        self.min_frame_depth = 0
         cpu = self.assembler.cpu
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
@@ -193,11 +193,9 @@ class RegAlloc(object):
             self.min_bytes_before_label = 13
         return operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
-                       allgcrefs):
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs):
         operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
-        self.param_depth = prev_depths[1]
         self.min_bytes_before_label = 0
         return operations
 
@@ -205,8 +203,15 @@ class RegAlloc(object):
         self.min_bytes_before_label = max(self.min_bytes_before_label,
                                           at_least_position)
 
-    def reserve_param(self, n):
-        self.param_depth = max(self.param_depth, n)
+    def needed_extra_stack_locations(self, n):
+        # call *after* you needed extra stack locations: (%esp), (%esp+4)...
+        min_frame_depth = self.fm.get_frame_depth() + n
+        if min_frame_depth > self.min_frame_depth:
+            self.min_frame_depth = min_frame_depth
+
+    def get_final_frame_depth(self):
+        self.needed_extra_stack_locations(0)  # update min_frame_depth
+        return self.min_frame_depth
 
     def _set_initial_bindings(self, inputargs):
         if IS_X86_64:
@@ -376,25 +381,12 @@ class RegAlloc(object):
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
-    def get_current_depth(self):
-        # return (self.fm.frame_depth, self.param_depth), but trying to share
-        # the resulting tuple among several calls
-        arg0 = self.fm.get_frame_depth()
-        arg1 = self.param_depth
-        result = self.assembler._current_depths_cache
-        if result[0] != arg0 or result[1] != arg1:
-            result = (arg0, arg1)
-            self.assembler._current_depths_cache = result
-        return result
-
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
         self.rm.position += 1
         self.xrm.position += 1
-        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
-                                                   arglocs, result_loc,
-                                                   current_depths)
+                                                   arglocs, result_loc)
         if op.result is not None:
             self.possibly_free_var(op.result)
         self.possibly_free_vars(guard_op.getfailargs())
@@ -407,10 +399,8 @@ class RegAlloc(object):
                                                       arglocs))
             else:
                 self.assembler.dump('%s(%s)' % (guard_op, arglocs))
-        current_depths = self.get_current_depth()
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
-                                              result_loc,
-                                              current_depths)
+                                              result_loc)
         self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
@@ -775,6 +765,18 @@ class RegAlloc(object):
         self.Perform(op, [loc0, loctmp], loc1)
 
     consider_cast_singlefloat_to_float = consider_cast_int_to_float
+
+    def consider_convert_float_bytes_to_longlong(self, op):
+        if longlong.is_64_bit:
+            loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+            loc1 = self.rm.force_allocate_reg(op.result)
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(op.getarg(0))
+        else:
+            loc0 = self.xrm.loc(op.getarg(0))
+            loc1 = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(op.getarg(0))
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
@@ -1393,7 +1395,7 @@ class RegAlloc(object):
         self.force_spill_var(op.getarg(0))
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape(IS_X86_64)
+        shape = gcrootmap.get_basic_shape()
         for v, val in self.fm.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)

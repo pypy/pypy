@@ -12,7 +12,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr)
 from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
-from pypy.objspace.std import unicodeobject, unicodetype
+from pypy.objspace.std import unicodeobject, unicodetype, stringtype
 from pypy.rlib import runicode
 from pypy.tool.sourcetools import func_renamer
 import sys
@@ -89,6 +89,11 @@ def Py_UNICODE_ISSPACE(space, ch):
     return unicodedb.isspace(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISALPHA(space, ch):
+    """Return 1 or 0 depending on whether ch is an alphabetic character."""
+    return unicodedb.isalpha(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
     return unicodedb.isalnum(ord(ch))
@@ -104,6 +109,16 @@ def Py_UNICODE_ISDECIMAL(space, ch):
     return unicodedb.isdecimal(ord(ch))
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISDIGIT(space, ch):
+    """Return 1 or 0 depending on whether ch is a digit character."""
+    return unicodedb.isdigit(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISNUMERIC(space, ch):
+    """Return 1 or 0 depending on whether ch is a numeric character."""
+    return unicodedb.isnumeric(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
     return unicodedb.islower(ord(ch))
@@ -112,6 +127,11 @@ def Py_UNICODE_ISLOWER(space, ch):
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
     return unicodedb.isupper(ord(ch))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_ISTITLE(space, ch):
+    """Return 1 or 0 depending on whether ch is a titlecase character."""
+    return unicodedb.istitle(ord(ch))
 
 @cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
 def Py_UNICODE_TOLOWER(space, ch):
@@ -154,6 +174,11 @@ def Py_UNICODE_TONUMERIC(space, ch):
         return unicodedb.numeric(ord(ch))
     except KeyError:
         return -1.0
+
+@cpython_api([], Py_UNICODE, error=CANNOT_FAIL)
+def PyUnicode_GetMax(space):
+    """Get the maximum ordinal for a Unicode character."""
+    return runicode.UNICHR(runicode.MAXUNICODE)
 
 @cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
@@ -548,6 +573,28 @@ def PyUnicode_Format(space, w_format, w_args):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Join(space, w_sep, w_seq):
-    """Join a sequence of strings using the given separator and return the resulting
-    Unicode string."""
+    """Join a sequence of strings using the given separator and return
+    the resulting Unicode string."""
     return space.call_method(w_sep, 'join', w_seq)
+
+@cpython_api([PyObject, PyObject, PyObject, Py_ssize_t], PyObject)
+def PyUnicode_Replace(space, w_str, w_substr, w_replstr, maxcount):
+    """Replace at most maxcount occurrences of substr in str with replstr and
+    return the resulting Unicode object. maxcount == -1 means replace all
+    occurrences."""
+    return space.call_method(w_str, "replace", w_substr, w_replstr,
+                             space.wrap(maxcount))
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
+             rffi.INT_real, error=-1)
+def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
+    """Return 1 if substr matches str[start:end] at the given tail end
+    (direction == -1 means to do a prefix match, direction == 1 a
+    suffix match), 0 otherwise. Return -1 if an error occurred."""
+    str = space.unicode_w(w_str)
+    substr = space.unicode_w(w_substr)
+    if rffi.cast(lltype.Signed, direction) >= 0:
+        return stringtype.stringstartswith(str, substr, start, end)
+    else:
+        return stringtype.stringendswith(str, substr, start, end)
+
