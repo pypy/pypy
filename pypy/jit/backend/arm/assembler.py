@@ -61,6 +61,7 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.datablockwrapper = None
         self.propagate_exception_path = 0
+        self.stack_check_slowpath = 0
         self._compute_stack_size()
         self._debug = False
         self.loop_run_counters = []
@@ -108,6 +109,7 @@ class AssemblerARM(ResOpAssembler):
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
+        self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
@@ -237,6 +239,51 @@ class AssemblerARM(ResOpAssembler):
         mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog(mc=mc)
         self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
+
+    def _build_stack_check_slowpath(self):
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
+            return      # no stack check (for tests, or non-translated)
+        #
+        # make a "function" that is called immediately at the start of
+        # an assembler function.  In particular, the stack looks like:
+        #
+        #    |  retaddr of caller    |   <-- aligned to a multiple of 16
+        #    |  saved argument regs  |
+        #    |  my own retaddr       |    <-- sp
+        #    +-----------------------+
+        #
+        mc = ARMv7Builder()
+        # save argument registers and return address
+        mc.PUSH([reg.value for reg in r.argument_regs] + [r.lr.value])
+        # stack is aligned here
+        # Pass current stack pointer as argument to the call
+        mc.MOV_rr(r.r0.value, r.sp.value)
+        #
+        mc.BL(slowpathaddr)
+
+        # check for an exception
+        mc.gen_load_int(r.r0.value, self.cpu.pos_exception())
+        mc.LDR_ri(r.r0.value, r.r0.value)
+        mc.TST_rr(r.r0.value, r.r0.value)
+        # restore registers and return 
+        # We check for c.EQ here, meaning all bits zero in this case
+        mc.POP([reg.value for reg in r.argument_regs] + [r.pc.value], cond=c.EQ)
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+        mc.BL(addr)
+        #
+        mc.gen_load_int(r.r0.value, self.cpu.propagate_exception_v)
+        #
+        # footer -- note the ADD, which skips the return address of this
+        # function, and will instead return to the caller's caller.  Note
+        # also that we completely ignore the saved arguments, because we
+        # are interrupting the function.
+        mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 1) * WORD)
+        mc.POP([r.pc.value])
+        #
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        self.stack_check_slowpath = rawstart
 
     def setup_failure_recovery(self):
 
@@ -568,6 +615,27 @@ class AssemblerARM(ResOpAssembler):
         self.align()
         self.gen_func_prolog()
 
+    def _call_header_with_stack_check(self):
+        if self.stack_check_slowpath == 0:
+            pass                # no stack check (e.g. not translated)
+        else:
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            self.mc.PUSH([r.lr.value])
+            # load stack end
+            self.mc.gen_load_int(r.ip.value, endaddr)          # load ip, [end]
+            self.mc.LDR_ri(r.ip.value, r.ip.value)             # LDR ip, ip
+            # load stack length
+            self.mc.gen_load_int(r.lr.value, lengthaddr)       # load lr, lengh
+            self.mc.LDR_ri(r.lr.value, r.lr.value)             # ldr lr, *lengh
+            # calculate ofs
+            self.mc.SUB_rr(r.ip.value, r.ip.value, r.sp.value) # SUB ip, current
+            # if ofs 
+            self.mc.CMP_rr(r.ip.value, r.lr.value)             # CMP ip, lr
+            self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
+            #
+            self.mc.POP([r.lr.value])
+        self._call_header()
+
     # cpu interface
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
@@ -584,7 +652,7 @@ class AssemblerARM(ResOpAssembler):
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
 
-        self._call_header()
+        self._call_header_with_stack_check()
         sp_patch_location = self._prepare_sp_patch_position()
 
         regalloc = Regalloc(assembler=self, frame_manager=ARMFrameManager())
