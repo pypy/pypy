@@ -92,6 +92,7 @@ class AssemblerPPC(OpAssembler):
         self._regalloc = None
         self.max_stack_params = 0
         self.propagate_exception_path = 0
+        self.stack_check_slowpath = 0
         self.setup_failure_recovery()
         self._debug = False
         self.loop_run_counters = []
@@ -377,6 +378,133 @@ class AssemblerPPC(OpAssembler):
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.malloc_slowpath = rawstart
 
+    def _build_stack_check_slowpath(self):
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
+            return      # no stack check (for tests, or non-translated)
+        #
+        # make a "function" that is called immediately at the start of
+        # an assembler function.  In particular, the stack looks like:
+        #
+        # |                             |
+        # |        OLD BACKCHAIN        |
+        # |                             |
+        # =============================== -
+        # |                             |  | > MINI FRAME (BACHCHAIN SIZE * WORD)
+        # |          BACKCHAIN          |  |
+        # |                             |  |
+        # =============================== - 
+        # |                             |
+        # |       SAVED PARAM REGS      |
+        # |                             |
+        # -------------------------------
+        # |                             |
+        # |          BACKCHAIN          |
+        # |                             |
+        # =============================== <- SP
+        #
+        mc = PPCBuilder()
+        # save argument registers and return address
+        
+        # make small frame to store data (parameter regs + LR + SCRATCH) in
+        # there
+        SAVE_AREA = len(r.PARAM_REGS)
+        frame_size = (BACKCHAIN_SIZE + SAVE_AREA) * WORD
+
+        # align the SP
+        MINIFRAME_SIZE = BACKCHAIN_SIZE * WORD
+        while (frame_size + MINIFRAME_SIZE) % (4 * WORD) != 0:
+            frame_size += WORD
+
+        # write function descriptor
+        if IS_PPC_64:
+            for _ in range(6):
+                mc.write32(0)
+
+        # build frame
+        with scratch_reg(mc):
+            if IS_PPC_32:
+                mc.stwu(r.SP.value, r.SP.value, -frame_size)
+                mc.mflr(r.SCRATCH.value)
+                mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
+            else:
+                mc.stdu(r.SP.value, r.SP.value, -frame_size)
+                mc.mflr(r.SCRATCH.value)
+                mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+
+        # save parameter registers
+        for i, reg in enumerate(r.PARAM_REGS):
+            mc.store(reg.value, r.SP.value, (i + BACKCHAIN_SIZE) * WORD)
+
+        # use SP as single parameter for the call
+        mc.mr(r.r3.value, r.SP.value)
+
+        # stack still aligned
+        mc.call(slowpathaddr)
+
+        with scratch_reg(mc):
+            mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
+            mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
+            # if this comparison is true, then everything is ok,
+            # else we have an exception
+            mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+
+        jnz_location = mc.currpos()
+        mc.nop()
+
+        # restore parameter registers
+        for i, reg in enumerate(r.PARAM_REGS):
+            mc.load(reg.value, r.SP.value, (i + BACKCHAIN_SIZE) * WORD)
+
+        # restore LR
+        with scratch_reg(mc):
+            lr_offset = frame_size + WORD
+            if IS_PPC_64:
+                lr_offset += WORD
+                
+            mc.load(r.SCRATCH.value, r.SP.value, 
+                        lr_offset)
+            mc.mtlr(r.SCRATCH.value)
+
+        # reset SP
+        mc.addi(r.SP.value, r.SP.value, frame_size)
+        mc.blr()
+
+        pmc = OverwritingBuilder(mc, jnz_location, 1)
+        pmc.bc(4, 2, mc.currpos() - jnz_location)
+        pmc.overwrite()
+
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+        mc.call(addr)
+        #
+        mc.load_imm(r.RES, self.cpu.propagate_exception_v)
+        #
+        # footer -- note the addi, which skips the return address of this
+        # function, and will instead return to the caller's caller.  Note
+        # also that we completely ignore the saved arguments, because we
+        # are interrupting the function.
+        
+        # restore link register out of preprevious frame
+        offset_LR = frame_size + BACKCHAIN_SIZE * WORD + WORD
+        if IS_PPC_64:
+            offset_LR += WORD
+
+        with scratch_reg(mc):
+            mc.load(r.SCRATCH.value, r.SP.value, offset_LR)
+            mc.mtlr(r.SCRATCH.value)
+
+        # remove this frame and the miniframe
+        both_framesizes = frame_size + BACKCHAIN_SIZE * WORD
+        mc.addi(r.SP.value, r.SP.value, both_framesizes)
+        mc.blr()
+
+        mc.prepare_insts_blocks()
+        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        if IS_PPC_64:
+            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
+        self.stack_check_slowpath = rawstart
+
     def _build_propagate_exception_path(self):
         if self.cpu.propagate_exception_v < 0:
             return
@@ -463,8 +591,75 @@ class AssemblerPPC(OpAssembler):
             mc.store(reg.value, r.SPP.value, i * WORD)
 
     def gen_bootstrap_code(self, loophead, spilling_area):
+        self._insert_stack_check()
         self._make_frame(spilling_area)
         self.mc.b_offset(loophead)
+
+    def _insert_stack_check(self):
+        if self.stack_check_slowpath == 0:
+            pass            # not translated
+        else:
+            # this is the size for the miniframe
+            frame_size = BACKCHAIN_SIZE * WORD
+
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+
+            # save r16
+            self.mc.mtctr(r.r16.value)
+
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, endaddr)        # load SCRATCH, [start]
+                self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
+                self.mc.subf(r.SCRATCH.value, r.SP.value, r.SCRATCH.value)
+                self.mc.load_imm(r.r16, lengthaddr)
+                self.mc.load(r.r16.value, r.r16.value, 0)
+                self.mc.cmp_op(0, r.SCRATCH.value, r.r16.value, signed=False)
+
+            # restore r16
+            self.mc.mfctr(r.r16.value)
+
+            patch_loc = self.mc.currpos()
+            self.mc.nop()
+
+            # make minimal frame which contains the LR
+            #
+            # |         OLD    FRAME       |
+            # ==============================
+            # |                            |
+            # |         BACKCHAIN          | > BACKCHAIN_SIZE * WORD
+            # |                            |
+            # ============================== <- SP
+
+            if IS_PPC_32:
+                self.mc.stwu(r.SP.value, r.SP.value, -frame_size)
+                self.mc.mflr(r.SCRATCH.value)
+                self.mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
+            else:
+                self.mc.stdu(r.SP.value, r.SP.value, -frame_size)
+                self.mc.mflr(r.SCRATCH.value)
+                self.mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+
+            # make check
+            self.mc.call(self.stack_check_slowpath)
+
+            # restore LR
+            with scratch_reg(self.mc):
+                lr_offset = frame_size + WORD
+                if IS_PPC_64:
+                    lr_offset += WORD
+                    
+                self.mc.load(r.SCRATCH.value, r.SP.value, 
+                            lr_offset)
+                self.mc.mtlr(r.SCRATCH.value)
+
+            # remove minimal frame
+            self.mc.addi(r.SP.value, r.SP.value, frame_size)
+
+            offset = self.mc.currpos() - patch_loc
+            #
+            pmc = OverwritingBuilder(self.mc, patch_loc, 1)
+            pmc.bc(4, 1, offset) # jump if SCRATCH <= r16, i. e. not(SCRATCH > r16)
+            pmc.overwrite()
 
     def setup(self, looptoken, operations):
         self.current_clt = looptoken.compiled_loop_token 
@@ -486,6 +681,7 @@ class AssemblerPPC(OpAssembler):
         self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
+        self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
             self._build_release_gil(gc_ll_descr.gcrootmap)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
@@ -596,6 +792,7 @@ class AssemblerPPC(OpAssembler):
         if log:
             operations = self._inject_debugging_code(looptoken, operations,
                                                      'e', looptoken.number)
+
         self.startpos = self.mc.currpos()
         regalloc = Regalloc(assembler=self, frame_manager=PPCFrameManager())
 
