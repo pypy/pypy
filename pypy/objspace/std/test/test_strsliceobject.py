@@ -98,7 +98,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert b'a' in s
         assert b'ab' in s
         assert not b'd' in s
-        raises(TypeError, slice(b'a' * 100).__contains__, 1)
+        assert ord(b'a') in slice(b'a' * 100)
         
     def test_hash(self):
         import __pypy__
