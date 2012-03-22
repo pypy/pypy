@@ -8,7 +8,6 @@ class AppTest(object):
     def test_bytebuffer(self):
         from __pypy__ import bytebuffer
         b = bytebuffer(12)
-        assert isinstance(b, buffer)
         assert len(b) == 12
         b[3] = b'!'
         b[5] = b'?'
