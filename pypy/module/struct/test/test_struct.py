@@ -372,9 +372,11 @@ class AppTestStruct(object):
         import sys
         if '__pypy__' not in sys.builtin_module_names:
             skip("PyPy extension")
-        data = self.struct.pack("uuu", u'X', u'Y', u'Z')
-        assert data == bytes(buffer(u'XYZ'))
-        assert self.struct.unpack("uuu", data) == (u'X', u'Y', u'Z')
+        data = self.struct.pack("uuu", 'X', 'Y', 'Z')
+        # this assumes UCS4; adapt/extend the test on platforms where we use
+        # another format
+        assert data == b'X\x00\x00\x00Y\x00\x00\x00Z\x00\x00\x00'
+        assert self.struct.unpack("uuu", data) == ('X', 'Y', 'Z')
 
 
     def test_unpack_buffer(self):
