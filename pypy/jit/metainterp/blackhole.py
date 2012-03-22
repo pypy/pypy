@@ -1,15 +1,16 @@
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rtimer import read_timestamp
-from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from pypy.jit.metainterp.compile import ResumeAtPositionDescr
+from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
+from pypy.rlib import longlong2float
+from pypy.rlib.debug import debug_start, debug_stop, ll_assert, make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import debug_start, debug_stop, ll_assert
-from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from pypy.rlib.rtimer import read_timestamp
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
-from pypy.jit.metainterp.compile import ResumeAtPositionDescr
+
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -19,6 +20,9 @@ def arguments(*argtypes, **kwds):
         function.resulttype = resulttype
         return function
     return decorate
+
+LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
+
 
 class LeaveFrame(JitException):
     pass
@@ -662,6 +666,11 @@ class BlackholeInterpreter(object):
         a = longlong.int2singlefloat(a)
         a = float(a)
         return longlong.getfloatstorage(a)
+
+    @arguments("f", returns=LONGLONG_TYPECODE)
+    def bhimpl_convert_float_bytes_to_longlong(a):
+        a = longlong.getrealfloat(a)
+        return longlong2float.float2longlong(a)
 
     # ----------
     # control flow operations
@@ -1309,7 +1318,7 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
-    @arguments(returns=(longlong.is_64_bit and "i" or "f"))
+    @arguments(returns=LONGLONG_TYPECODE)
     def bhimpl_ll_read_timestamp():
         return read_timestamp()
 

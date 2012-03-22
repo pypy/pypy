@@ -103,21 +103,13 @@ experiments can be done for the general purpose. Examples
 
 * A concurrent garbage collector (a lot of work)
 
-Remove the GIL
---------------
+STM, a.k.a. "remove the GIL"
+----------------------------
 
-This is a major task that requires lots of thinking. However, few subprojects
-can be potentially specified, unless a better plan can be thought out:
+Removing the GIL --- or more precisely, a GIL-less thread-less solution ---
+is `now work in progress.`__  Contributions welcome.
 
-* A thread-aware garbage collector
-
-* Better RPython primitives for dealing with concurrency
-
-* JIT passes to remove locks on objects
-
-* (maybe) implement locking in Python interpreter
-
-* alternatively, look at Software Transactional Memory
+.. __: http://pypy.org/tmdonate.html
 
 Introduce new benchmarks
 ------------------------

@@ -28,7 +28,6 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-        from interp_numarray import BaseArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
@@ -189,7 +188,7 @@ class W_Ufunc(Wrappable):
                 #        "mismatched  dtypes"))
                 return self.do_axis_reduce(obj, out.find_dtype(), axis, out)
             else:
-                result = W_NDimArray(support.product(shape), shape, dtype)
+                result = W_NDimArray(shape, dtype)
                 return self.do_axis_reduce(obj, dtype, axis, result)
         if out:
             if len(out.shape)>0:
@@ -515,6 +514,9 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
+            ("isneginf", "isneginf", 1, {"bool_result": True}),
+            ("isposinf", "isposinf", 1, {"bool_result": True}),
+            ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
                                                'identity': 1}),
@@ -532,12 +534,16 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
+            ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
+            ("exp2", "exp2", 1, {"promote_to_float": True}),
+            ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
 
@@ -547,6 +553,7 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
+            ("arctan2", "arctan2", 2, {"promote_to_float": True}),
             ("sinh", "sinh", 1, {"promote_to_float": True}),
             ("cosh", "cosh", 1, {"promote_to_float": True}),
             ("tanh", "tanh", 1, {"promote_to_float": True}),
@@ -561,6 +568,8 @@ class UfuncState(object):
             ("log2", "log2", 1, {"promote_to_float": True}),
             ("log10", "log10", 1, {"promote_to_float": True}),
             ("log1p", "log1p", 1, {"promote_to_float": True}),
+            ("logaddexp", "logaddexp", 2, {"promote_to_float": True}),
+            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

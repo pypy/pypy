@@ -27,7 +27,7 @@
 #define OP_FLOAT_SUB(x,y,r)     r = x - y
 #define OP_FLOAT_MUL(x,y,r)     r = x * y
 #define OP_FLOAT_TRUEDIV(x,y,r) r = x / y
-#define OP_FLOAT_POW(x,y,r)     r = pow(x, y) 
+#define OP_FLOAT_POW(x,y,r)     r = pow(x, y)
 
 /*** conversions ***/
 
@@ -42,5 +42,6 @@
 #ifdef HAVE_LONG_LONG
 #define OP_CAST_FLOAT_TO_LONGLONG(x,r) r = (long long)(x)
 #define OP_CAST_FLOAT_TO_ULONGLONG(x,r) r = (unsigned long long)(x)
+#define OP_CONVERT_FLOAT_BYTES_TO_LONGLONG(x,r) memcpy(&r, &x, sizeof(double))
 #endif
 
