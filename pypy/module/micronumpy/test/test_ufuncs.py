@@ -197,7 +197,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_signbit(self):
         from _numpypy import signbit, copysign
-        import struct
 
         assert (signbit([0, 0.0, 1, 1.0, float('inf'), float('nan')]) ==
             [False, False, False, False, False, False]).all()
