@@ -302,6 +302,7 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             raises(OverflowError, numpy.int32, 2147483648)
             raises(OverflowError, numpy.int32, '2147483648')
+        assert numpy.dtype('int32') is numpy.dtype(numpy.int32)
 
     def test_uint32(self):
         import sys

@@ -429,7 +429,9 @@ class DtypeCache(object):
             for dtype in [self.w_float32dtype, self.w_float64dtype]
         )
         self.dtypes_by_name = {}
-        for dtype in self.builtin_dtypes:
+        # we reverse, so the stuff with lower numbers override stuff with
+        # higher numbers
+        for dtype in reversed(self.builtin_dtypes):
             self.dtypes_by_name[dtype.name] = dtype
             can_name = dtype.kind + str(dtype.itemtype.get_element_size())
             self.dtypes_by_name[can_name] = dtype
