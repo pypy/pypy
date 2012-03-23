@@ -1,0 +1,8 @@
+kill Exception.message
+
+what to do with the ListRangeStrategy? We also have __builtin__.functional.W_Range
+
+run coverage against the parser/astbuilder/astcompiler: it's probably full of
+dead code because the grammar changed
+
+re-enable IntDictStrategy
