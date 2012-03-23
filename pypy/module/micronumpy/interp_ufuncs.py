@@ -156,7 +156,7 @@ class W_Ufunc(Wrappable):
             shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
         else:
             shape = obj.shape[:dim] + obj.shape[dim + 1:]
-        result = W_NDimArray(support.product(shape), shape, dtype)
+        result = W_NDimArray(shape, dtype)
         arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
                          result, obj, dim)
         loop.compute(arr)
@@ -314,7 +314,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             return dt
         if dt.num >= 5:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in interp_dtype.get_dtype_cache(space).dtypes_by_num_bytes:
+        for bytes, dtype in interp_dtype.get_dtype_cache(space).float_dtypes_by_num_bytes:
             if (dtype.kind == interp_dtype.FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype

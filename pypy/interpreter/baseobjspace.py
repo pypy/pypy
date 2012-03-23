@@ -1336,7 +1336,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
+        return self.str_w(w_obj)            
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)

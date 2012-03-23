@@ -606,7 +606,7 @@ class Assembler386(object):
         else:
             assert token
             struct.number = compute_unique_id(token)
-        self.loop_run_counters.append(struct)            
+        self.loop_run_counters.append(struct)
         return struct
 
     def _find_failure_recovery_bytecode(self, faildescr):
@@ -665,7 +665,7 @@ class Assembler386(object):
                ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                             None, descr=self.debug_counter_descr)]
         operations.extend(ops)
-        
+
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):
         if self._debug:
@@ -836,8 +836,8 @@ class Assembler386(object):
             self.mc.MOVSD_sx(0, loc.value)
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
-            self.mc.PUSH_b(get_ebp_ofs(loc.position))
-            self.mc.PUSH_b(get_ebp_ofs(loc.position + 1))
+            self.mc.PUSH_b(loc.value + 4)
+            self.mc.PUSH_b(loc.value)
         else:
             self.mc.PUSH(loc)
 
@@ -847,8 +847,8 @@ class Assembler386(object):
             self.mc.ADD_ri(esp.value, 8)   # = size of doubles
         elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
-            self.mc.POP_b(get_ebp_ofs(loc.position + 1))
-            self.mc.POP_b(get_ebp_ofs(loc.position))
+            self.mc.POP_b(loc.value)
+            self.mc.POP_b(loc.value + 4)
         else:
             self.mc.POP(loc)
 
@@ -1241,6 +1241,15 @@ class Assembler386(object):
         assert isinstance(loc0, RegLoc)
         self.mc.MOVD_xr(resloc.value, loc0.value)
         self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
+
+    def genop_convert_float_bytes_to_longlong(self, op, arglocs, resloc):
+        loc0, = arglocs
+        if longlong.is_64_bit:
+            assert isinstance(resloc, RegLoc)
+            assert isinstance(loc0, RegLoc)
+            self.mc.MOVD(resloc, loc0)
+        else:
+            self.mov(loc0, resloc)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
@@ -1954,8 +1963,6 @@ class Assembler386(object):
             mc.PUSH_r(ebx.value)
         elif IS_X86_64:
             mc.MOV_rr(edi.value, ebx.value)
-            # XXX: Correct to only align the stack on 64-bit?
-            mc.AND_ri(esp.value, -16)
         else:
             raise AssertionError("Shouldn't happen")
 
@@ -2117,9 +2124,12 @@ class Assembler386(object):
         # First, we need to save away the registers listed in
         # 'save_registers' that are not callee-save.  XXX We assume that
         # the XMM registers won't be modified.  We store them in
-        # [ESP+4], [ESP+8], etc., leaving enough room in [ESP] for the
-        # single argument to closestack_addr below.
-        p = WORD
+        # [ESP+4], [ESP+8], etc.; on x86-32 we leave enough room in [ESP]
+        # for the single argument to closestack_addr below.
+        if IS_X86_32:
+            p = WORD
+        elif IS_X86_64:
+            p = 0
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
                 self.mc.MOV_sr(p, reg.value)
@@ -2174,7 +2184,10 @@ class Assembler386(object):
         #
         self._emit_call(-1, imm(self.releasegil_addr), args)
         # Finally, restore the registers saved above.
-        p = WORD
+        if IS_X86_32:
+            p = WORD
+        elif IS_X86_64:
+            p = 0
         for reg in self._regalloc.rm.save_around_call_regs:
             if reg in save_registers:
                 self.mc.MOV_rs(reg.value, p)

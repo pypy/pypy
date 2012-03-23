@@ -770,6 +770,10 @@ class LLFrame(object):
         checkadr(adr)
         return llmemory.cast_adr_to_int(adr, mode)
 
+    def op_convert_float_bytes_to_longlong(self, f):
+        from pypy.rlib import longlong2float
+        return longlong2float.float2longlong(f)
+
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
             return self.getval(v_obj)

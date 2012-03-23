@@ -9,6 +9,7 @@ from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import intmask
 
 import math
 
@@ -173,7 +174,7 @@ def delegate_Float2Complex(space, w_float):
 def hash__Complex(space, w_value):
     hashreal = _hash_float(space, w_value.realval)
     hashimg = _hash_float(space, w_value.imagval)
-    combined = hashreal + 1000003 * hashimg
+    combined = intmask(hashreal + 1000003 * hashimg)
     return space.newint(combined)
 
 def add__Complex_Complex(space, w_complex1, w_complex2):

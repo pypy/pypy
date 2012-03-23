@@ -19,7 +19,7 @@ class TestImport(BaseApiTest):
                                          space.wrap('__name__'))) == 'foobar'
 
     def test_getmoduledict(self, space, api):
-        testmod = "binascii"
+        testmod = "_functools"
         w_pre_dict = api.PyImport_GetModuleDict()
         assert not space.is_true(space.contains(w_pre_dict, space.wrap(testmod)))
 
