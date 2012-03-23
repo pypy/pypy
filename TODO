@@ -6,3 +6,5 @@ run coverage against the parser/astbuilder/astcompiler: it's probably full of
 dead code because the grammar changed
 
 re-enable IntDictStrategy
+
+unskip numpypy tests in module/test_lib_pypy/numpypy/

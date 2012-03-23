@@ -2,6 +2,11 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestFromNumeric(BaseNumpyAppTest):
+
+    def setup_class(cls):
+        import py
+        py.test.skip('the applevel parts are not ready for py3k')
+    
     def test_argmax(self):
         # tests taken from numpy/core/fromnumeric.py docstring
         from numpypy import array, arange, argmax
