@@ -268,7 +268,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __format__ = interp2app(W_GenericBox.descr_format),
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
-    __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
+    __bool__ = interp2app(W_GenericBox.descr_nonzero),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),
