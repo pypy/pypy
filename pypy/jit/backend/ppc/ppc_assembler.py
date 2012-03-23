@@ -121,16 +121,8 @@ class AssemblerPPC(OpAssembler):
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
     def _make_frame(self, frame_depth):
-        if IS_PPC_32:
-            # save it in previous frame (Backchain)
-            self.mc.stwu(r.SP.value, r.SP.value, -frame_depth)
-            self.mc.mflr(r.SCRATCH.value)  # move old link register
-            # save old link register in previous frame
-            self.mc.stw(r.SCRATCH.value, r.SP.value, frame_depth + WORD) 
-        else:
-            self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
-            self.mc.mflr(r.SCRATCH.value)
-            self.mc.std(r.SCRATCH.value, r.SP.value, frame_depth + 2 * WORD)
+        self.mc.make_function_prologue(frame_depth)
+
         # save SPP at the bottom of the stack frame
         self.mc.store(r.SPP.value, r.SP.value, WORD)
 
@@ -353,7 +345,7 @@ class AssemblerPPC(OpAssembler):
             ofs = WORD
         else:
             ofs = WORD * 2
-
+        
         with scratch_reg(mc):
             mc.load(r.SCRATCH.value, r.SP.value, frame_size + ofs) 
             mc.mtlr(r.SCRATCH.value)
@@ -421,15 +413,7 @@ class AssemblerPPC(OpAssembler):
                 mc.write32(0)
 
         # build frame
-        with scratch_reg(mc):
-            if IS_PPC_32:
-                mc.stwu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
-            else:
-                mc.stdu(r.SP.value, r.SP.value, -frame_size)
-                mc.mflr(r.SCRATCH.value)
-                mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+        mc.make_function_prologue(frame_size)
 
         # save parameter registers
         for i, reg in enumerate(r.PARAM_REGS):
@@ -456,14 +440,7 @@ class AssemblerPPC(OpAssembler):
             mc.load(reg.value, r.SP.value, (i + BACKCHAIN_SIZE) * WORD)
 
         # restore LR
-        with scratch_reg(mc):
-            lr_offset = frame_size + WORD
-            if IS_PPC_64:
-                lr_offset += WORD
-                
-            mc.load(r.SCRATCH.value, r.SP.value, 
-                        lr_offset)
-            mc.mtlr(r.SCRATCH.value)
+        mc.restore_LR_from_caller_frame(frame_size)
 
         # reset SP
         mc.addi(r.SP.value, r.SP.value, frame_size)
@@ -629,27 +606,13 @@ class AssemblerPPC(OpAssembler):
             # |                            |
             # ============================== <- SP
 
-            if IS_PPC_32:
-                self.mc.stwu(r.SP.value, r.SP.value, -frame_size)
-                self.mc.mflr(r.SCRATCH.value)
-                self.mc.stw(r.SCRATCH.value, r.SP.value, frame_size + WORD) 
-            else:
-                self.mc.stdu(r.SP.value, r.SP.value, -frame_size)
-                self.mc.mflr(r.SCRATCH.value)
-                self.mc.std(r.SCRATCH.value, r.SP.value, frame_size + 2 * WORD)
+            self.mc.make_function_prologue(frame_size)
 
             # make check
             self.mc.call(self.stack_check_slowpath)
 
             # restore LR
-            with scratch_reg(self.mc):
-                lr_offset = frame_size + WORD
-                if IS_PPC_64:
-                    lr_offset += WORD
-                    
-                self.mc.load(r.SCRATCH.value, r.SP.value, 
-                            lr_offset)
-                self.mc.mtlr(r.SCRATCH.value)
+            self.mc.restore_LR_from_caller_frame(frame_size)
 
             # remove minimal frame
             self.mc.addi(r.SP.value, r.SP.value, frame_size)

@@ -30,3 +30,9 @@ MAX_REG_PARAMS          = 8
 SIZE_LOAD_IMM_PATCH_SP  = 6
 
 FORCE_INDEX_OFS         = len(MANAGED_REGS) * WORD
+
+# offset to LR in BACKCHAIN
+if IS_PPC_32:
+    LR_BC_OFFSET = WORD
+else:
+    LR_BC_OFFSET = 2 * WORD

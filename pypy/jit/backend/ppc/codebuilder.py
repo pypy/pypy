@@ -3,7 +3,8 @@ from pypy.jit.backend.ppc.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.locations import RegisterLocation
 from pypy.jit.backend.ppc.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.assembler import Assembler
-from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64)
+from pypy.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
+                                       LR_BC_OFFSET)
 import pypy.jit.backend.ppc.register as r
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -1066,6 +1067,24 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         if IS_PPC_64:
             self.load(r.TOC.value, r.SP.value, 5 * WORD)
 
+    def make_function_prologue(self, frame_size):
+        """ Build a new stackframe of size frame_size 
+            and store the LR in the previous frame.
+        """
+        with scratch_reg(self):
+            self.store_update(r.SP.value, r.SP.value, -frame_size)
+            self.mflr(r.SCRATCH.value)
+            self.store(r.SCRATCH.value, r.SP.value, frame_size + LR_BC_OFFSET) 
+
+    def restore_LR_from_caller_frame(self, frame_size):
+        """ Restore the LR from the calling frame.
+            frame_size is the size of the current frame.
+        """
+        with scratch_reg(self):
+            lr_offset = frame_size + LR_BC_OFFSET
+            self.load(r.SCRATCH.value, r.SP.value, lr_offset)
+            self.mtlr(r.SCRATCH.value)
+
     def load(self, target_reg, base_reg, offset):
         if IS_PPC_32:
             self.lwz(target_reg, base_reg, offset)
@@ -1089,6 +1108,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.stwx(from_reg, base_reg, offset_reg)
         else:
             self.stdx(from_reg, base_reg, offset_reg)
+
+    def store_update(self, target_reg, from_reg, offset):
+        if IS_PPC_32:
+            self.stwu(target_reg, from_reg, offset)
+        else:
+            self.stdu(target_reg, from_reg, offset)
 
     def srli_op(self, target_reg, from_reg, numbits):
         if IS_PPC_32:
