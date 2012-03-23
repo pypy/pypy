@@ -695,7 +695,7 @@ class AppTestPosix:
                 assert count > 0
                 s = s[count:]
         writeall(b'hello, ')
-        writeall(buffer(b'world!\n'))
+        writeall(memoryview(b'world!\n'))
         res = os.lseek(fd, 0, 0)
         assert res == 0
         data = b''
