@@ -302,6 +302,7 @@ class AppTestTypes(BaseNumpyAppTest):
         else:
             raises(OverflowError, numpy.int32, 2147483648)
             raises(OverflowError, numpy.int32, '2147483648')
+        assert numpy.dtype('int32') is numpy.dtype(numpy.int32)
 
     def test_uint32(self):
         import sys
@@ -333,15 +334,11 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.dtype(numpy.int64).type is numpy.int64
         assert numpy.int64(3) == 3
 
-        if sys.maxint >= 2 ** 63 - 1:
-            assert numpy.int64(9223372036854775807) == 9223372036854775807
-            assert numpy.int64('9223372036854775807') == 9223372036854775807
-        else:
-            raises(OverflowError, numpy.int64, 9223372036854775807)
-            raises(OverflowError, numpy.int64, '9223372036854775807')
+        assert numpy.int64(9223372036854775807) == 9223372036854775807
+        assert numpy.int64(9223372036854775807) == 9223372036854775807
 
         raises(OverflowError, numpy.int64, 9223372036854775808)
-        raises(OverflowError, numpy.int64, '9223372036854775808')
+        raises(OverflowError, numpy.int64, 9223372036854775808L)
 
     def test_uint64(self):
         import sys

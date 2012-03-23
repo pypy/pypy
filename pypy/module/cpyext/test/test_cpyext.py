@@ -35,7 +35,7 @@ class TestApi:
 
 class AppTestApi:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         from pypy.rlib.libffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
@@ -165,8 +165,9 @@ class LeakCheckingTest(object):
         return leaking
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
+    
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts

@@ -314,7 +314,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             return dt
         if dt.num >= 5:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in interp_dtype.get_dtype_cache(space).dtypes_by_num_bytes:
+        for bytes, dtype in interp_dtype.get_dtype_cache(space).float_dtypes_by_num_bytes:
             if (dtype.kind == interp_dtype.FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
