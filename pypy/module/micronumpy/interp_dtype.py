@@ -198,7 +198,7 @@ def descr__new__(space, w_subtype, w_dtype):
         return cache.w_float64dtype
     elif space.isinstance_w(w_dtype, w_subtype):
         return w_dtype
-    elif space.isinstance_w(w_dtype, space.w_str):
+    elif space.isinstance_w(w_dtype, space.w_unicode):
         name = space.str_w(w_dtype)
         if ',' in name:
             return dtype_from_spec(space, name)
