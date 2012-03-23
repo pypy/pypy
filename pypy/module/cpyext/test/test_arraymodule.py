@@ -6,7 +6,6 @@ import sys
 
 class AppTestArrayModule(AppTestCpythonExtensionBase):
     enable_leak_checking = False
-    extra_modules = ['array']
 
     def test_basic(self):
         module = self.import_module(name='array')
