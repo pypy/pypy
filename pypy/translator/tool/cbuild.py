@@ -321,8 +321,8 @@ STANDARD_DEFINES = '''
 /* Windows: winsock/winsock2 mess */
 #define WIN32_LEAN_AND_MEAN
 #ifdef _WIN64
-   typedef          long long Signed;
-   typedef unsigned long long Unsigned;
+   typedef          __int64 Signed;
+   typedef unsigned __int64 Unsigned;
 #  define SIGNED_MIN LLONG_MIN 
 #else
    typedef          long Signed;
