@@ -871,9 +871,9 @@ class ToStringArray(Call1):
         self.s = StringBuilder(child.size * self.item_size)
         Call1.__init__(self, None, 'tostring', child.shape, dtype, dtype,
                        child)
-        self.res = W_NDimArray([1], dtype, 'C')
-        self.res_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
-                                    self.res.storage)
+        self.res_str = W_NDimArray([1], dtype, order='C')
+        self.res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
+                                    self.res_str.storage)
 
     def create_sig(self):
         return signature.ToStringSignature(self.calc_dtype,
