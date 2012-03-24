@@ -60,9 +60,14 @@ PyPy has layers. The 100 miles view:
 
   xxx
 
-* Garbage Collectors
+* Garbage Collectors: as you can notice, there are no ``Py_INCREF/Py_DECREF``
+  equivalents in RPython code.  `Garbage collection in PyPy`_ is inserted
+  during translation.  Moreover, this is not reference counting; it is a real
+  GC written as more RPython code.  The best one we have so far is in
+  ``rpython/memory/gc/minimark.py``.
 
-  xxx
+.. _`Garbage collection in PyPy`: garbage_collection.html
+
 
 Toolset
 =======
