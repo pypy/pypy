@@ -637,13 +637,16 @@ class AbstractTestRstr(BaseRtypingTest):
     def _make_split_test(self, split_fn):
         const = self.const
         def fn(i):
-            s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
-            l = getattr(s, split_fn)(const('.'))
-            sum = 0
-            for num in l:
-                if len(num):
-                    sum += ord(num[0]) - ord(const('0')[0])
-            return sum + len(l) * 100
+            try:
+                s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
+                l = getattr(s, split_fn)(const('.'))
+                sum = 0
+                for num in l:
+                    if len(num):
+                        sum += ord(num[0]) - ord(const('0')[0])
+                return sum + len(l) * 100
+            except MemoryError:
+                return 42
         return fn
 
     def test_split(self):

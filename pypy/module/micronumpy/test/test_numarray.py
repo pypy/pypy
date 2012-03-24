@@ -211,6 +211,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (3,)
         assert a.dtype is dtype(int)
 
+    def test_ndmin(self):
+        from _numpypy import array
+
+        arr = array([[[1]]], ndmin=1)
+        assert arr.shape == (1, 1, 1)
+
+    def test_noop_ndmin(self):
+        from _numpypy import array
+
+        arr = array([1], ndmin=3)
+        assert arr.shape == (1, 1, 1)
+
     def test_type(self):
         from _numpypy import array
         ar = array(range(5))
