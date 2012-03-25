@@ -707,14 +707,14 @@ def run_example_code(filepath, eci, ignore_errors=False):
 
 # ____________________________________________________________
 
-PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
+PYPY_EXTERNAL_DIR =  os.path.abspath(os.path.join(pypydir,'../..'))
 # XXX make this configurable
 if sys.platform == 'win32':
     for libdir in [
-        py.path.local('c:/buildslave/support'), # on the bigboard buildbot
-        py.path.local('d:/myslave'), # on the snakepit buildbot
+        'c:/buildslave/support', # on the bigboard buildbot
+        'd:/myslave', # on the snakepit buildbot
         ]:
-        if libdir.check():
+        if os.path.exists(libdir):
             PYPY_EXTERNAL_DIR = libdir
             break
 
@@ -759,7 +759,7 @@ def configure_external_library(name, eci, configurations,
             if prefix and not os.path.isabs(prefix):
                 import glob
 
-                entries = glob.glob(str(PYPY_EXTERNAL_DIR.join(prefix + '*')))
+                entries = glob.glob(os.path.join(PYPY_EXTERNAL_DIR,'*'))
                 if entries:
                     # Get last version
                     prefix = sorted(entries)[-1]
