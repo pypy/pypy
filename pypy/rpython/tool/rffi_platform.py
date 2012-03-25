@@ -758,8 +758,8 @@ def configure_external_library(name, eci, configurations,
 
             if prefix and not os.path.isabs(prefix):
                 import glob
-
-                entries = glob.glob(os.path.join(PYPY_EXTERNAL_DIR,'*'))
+                testdir = os.path.join(PYPY_EXTERNAL_DIR,prefix)
+                entries = glob.glob(os.path.join(testdir,'*'))
                 if entries:
                     # Get last version
                     prefix = sorted(entries)[-1]
