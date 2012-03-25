@@ -58,10 +58,15 @@ PyPy has layers. The 100 miles view:
 
 * Just-in-Time Compiler (JIT): `we have a tracing JIT`_ that traces the
   interpreter written in RPython, rather than the user program that it
-  interprets.  As a result it applies to any interpreter, i.e. any language.
-  But getting it to work correctly is not trivial: it requires a small
-  number of precise "hints" and possibly some small refactorings of the
-  interpreter.
+  interprets.  As a result it applies to any interpreter, i.e. any
+  language.  But getting it to work correctly is not trivial: it
+  requires a small number of precise "hints" and possibly some small
+  refactorings of the interpreter.  The JIT itself also has several
+  almost-independent parts: the tracer itself in ``jit/metainterp``, the
+  optimizer in ``jit/metainterp/optimizer`` that optimizes a list of
+  residual operations, and the backend in ``jit/backend/<machine-name>``
+  that turns it into machine code.  Writing a new backend is a
+  traditional way to get into the project.
 
 .. _`we have a tracing JIT`: jit/index.html
 
