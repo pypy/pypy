@@ -419,6 +419,7 @@ _oplist = [
     'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
+    'CONVERT_FLOAT_BYTES_TO_LONGLONG/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -503,6 +504,7 @@ _oplist = [
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
     'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
+    'KEEPALIVE/1',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

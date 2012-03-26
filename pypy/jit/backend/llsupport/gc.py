@@ -1,7 +1,6 @@
 import os
 from pypy.rlib import rgc
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem import llgroup
@@ -209,6 +208,7 @@ class GcRootMap_asmgcc(object):
     This is the class supporting --gcrootfinder=asmgcc.
     """
     is_shadow_stack = False
+    is_64_bit = (WORD == 8)
 
     LOC_REG       = 0
     LOC_ESP_PLUS  = 1
@@ -337,17 +337,17 @@ class GcRootMap_asmgcc(object):
             self._gcmap_deadentries += 1
             item += asmgcroot.arrayitemsize
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         # XXX: Should this code even really know about stack frame layout of
         # the JIT?
-        if is_64_bit:
-            return [chr(self.LOC_EBP_PLUS  | 8),
-                    chr(self.LOC_EBP_MINUS | 8),
-                    chr(self.LOC_EBP_MINUS | 16),
-                    chr(self.LOC_EBP_MINUS | 24),
-                    chr(self.LOC_EBP_MINUS | 32),
-                    chr(self.LOC_EBP_MINUS | 40),
-                    chr(self.LOC_EBP_PLUS  | 0),
+        if self.is_64_bit:
+            return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 4),    # saved %rbx:  at  -8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 8),    # saved %r12:  at -16(%rbp)
+                    chr(self.LOC_EBP_MINUS | 12),   # saved %r13:  at -24(%rbp)
+                    chr(self.LOC_EBP_MINUS | 16),   # saved %r14:  at -32(%rbp)
+                    chr(self.LOC_EBP_MINUS | 20),   # saved %r15:  at -40(%rbp)
+                    chr(self.LOC_EBP_PLUS  | 0),    # saved %rbp:  at    (%rbp)
                     chr(0)]
         else:
             return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
@@ -367,7 +367,11 @@ class GcRootMap_asmgcc(object):
         shape.append(chr(number | flag))
 
     def add_frame_offset(self, shape, offset):
-        assert (offset & 3) == 0
+        if self.is_64_bit:
+            assert (offset & 7) == 0
+            offset >>= 1
+        else:
+            assert (offset & 3) == 0
         if offset >= 0:
             num = self.LOC_EBP_PLUS | offset
         else:
@@ -394,13 +398,13 @@ class GcRootMap_shadowstack(object):
     This is the class supporting --gcrootfinder=shadowstack.
     """
     is_shadow_stack = True
-    MARKER = 8
+    MARKER_FRAME = 8       # this marker now *follows* the frame addr
 
     # The "shadowstack" is a portable way in which the GC finds the
     # roots that live in the stack.  Normally it is just a list of
     # pointers to GC objects.  The pointers may be moved around by a GC
-    # collection.  But with the JIT, an entry can also be MARKER, in
-    # which case the next entry points to an assembler stack frame.
+    # collection.  But with the JIT, an entry can also be MARKER_FRAME,
+    # in which case the previous entry points to an assembler stack frame.
     # During a residual CALL from the assembler (which may indirectly
     # call the GC), we use the force_index stored in the assembler
     # stack frame to identify the call: we can go from the force_index
@@ -433,11 +437,16 @@ class GcRootMap_shadowstack(object):
         class RootIterator:
             _alloc_flavor_ = "raw"
 
-            def next(iself, gc, next, range_highest):
-                # Return the "next" valid GC object' address.  This usually
-                # means just returning "next", until we reach "range_highest",
-                # except that we are skipping NULLs.  If "next" contains a
-                # MARKER instead, then we go into JIT-frame-lookup mode.
+            def setcontext(iself, context):
+                iself.context = context
+
+            def nextleft(iself, gc, range_lowest, prev):
+                # Return the next valid GC object's address, in right-to-left
+                # order from the shadowstack array.  This usually means just
+                # returning "prev - sizeofaddr", until we reach "range_lowest",
+                # except that we are skipping NULLs.  If "prev - sizeofaddr"
+                # contains a MARKER_FRAME instead, then we go into
+                # JIT-frame-lookup mode.
                 #
                 while True:
                     #
@@ -446,20 +455,20 @@ class GcRootMap_shadowstack(object):
                         #
                         # Look for the next shadowstack address that
                         # contains a valid pointer
-                        while next != range_highest:
-                            if next.signed[0] == self.MARKER:
+                        while prev != range_lowest:
+                            prev -= llmemory.sizeof(llmemory.Address)
+                            if prev.signed[0] == self.MARKER_FRAME:
                                 break
-                            if gc.points_to_valid_gc_object(next):
-                                return next
-                            next += llmemory.sizeof(llmemory.Address)
+                            if gc.points_to_valid_gc_object(prev):
+                                return prev
                         else:
                             return llmemory.NULL     # done
                         #
-                        # It's a JIT frame.  Save away 'next' for later, and
+                        # It's a JIT frame.  Save away 'prev' for later, and
                         # go into JIT-frame-exploring mode.
-                        next += llmemory.sizeof(llmemory.Address)
-                        frame_addr = next.signed[0]
-                        iself.saved_next = next
+                        prev -= llmemory.sizeof(llmemory.Address)
+                        frame_addr = prev.signed[0]
+                        iself.saved_prev = prev
                         iself.frame_addr = frame_addr
                         addr = llmemory.cast_int_to_adr(frame_addr +
                                                         self.force_index_ofs)
@@ -499,8 +508,7 @@ class GcRootMap_shadowstack(object):
                     #
                     # Restore 'prev' and loop back to the start.
                     iself.frame_addr = 0
-                    next = iself.saved_next
-                    next += llmemory.sizeof(llmemory.Address)
+                    prev = iself.saved_prev
 
         # ---------------
         #
@@ -515,7 +523,7 @@ class GcRootMap_shadowstack(object):
     def initialize(self):
         pass
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         return []
 
     def add_frame_offset(self, shape, offset):
@@ -591,7 +599,7 @@ class WriteBarrierDescr(AbstractDescr):
         # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
         import struct
-        value = struct.pack("l", flag_word)
+        value = struct.pack(lltype.SignedFmt, flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
         i = 0
         while value[i] == '\x00': i += 1
@@ -766,11 +774,19 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
 
-        # Rarely called: allocate a fixed-size amount of bytes, but
-        # not in the nursery, because it is too big.  Implemented like
-        # malloc_nursery_slowpath() above.
-        self.generate_function('malloc_fixedsize', malloc_nursery_slowpath,
-                               [lltype.Signed])
+        # Never called as far as I can tell, but there for completeness:
+        # allocate a fixed-size object, but not in the nursery, because
+        # it is too big.
+        def malloc_big_fixedsize(size, tid):
+            if self.DEBUG:
+                self._random_usage_of_xmm_registers()
+            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
+            check_typeid(type_id)
+            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                   type_id, size,
+                                                   False, False, False)
+        self.generate_function('malloc_big_fixedsize', malloc_big_fixedsize,
+                               [lltype.Signed] * 2)
 
     def _bh_malloc(self, sizedescr):
         from pypy.rpython.memory.gctypelayout import check_typeid

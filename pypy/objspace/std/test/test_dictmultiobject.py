@@ -652,6 +652,7 @@ class AppTestDictViews:
         assert len(keys) == 2
         assert set(keys) == set([1, "a"])
         assert keys == set([1, "a"])
+        assert keys == frozenset([1, "a"])
         assert keys != set([1, "a", "b"])
         assert keys != set([1, "b"])
         assert keys != set([1])
@@ -672,6 +673,7 @@ class AppTestDictViews:
         assert len(items) == 2
         assert set(items) == set([(1, 10), ("a", "ABC")])
         assert items == set([(1, 10), ("a", "ABC")])
+        assert items == frozenset([(1, 10), ("a", "ABC")])
         assert items != set([(1, 10), ("a", "ABC"), "junk"])
         assert items != set([(1, 10), ("a", "def")])
         assert items != set([(1, 10)])

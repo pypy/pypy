@@ -271,8 +271,9 @@ def _check_utc_offset(name, offset):
     raise ValueError("%s()=%d, must be in -1439..1439" % (name, offset))
 
 def _check_date_fields(year, month, day):
-    if not isinstance(year, (int, long)):
-        raise TypeError('int expected')
+    for value in [year, day]:
+        if not isinstance(value, (int, long)):
+            raise TypeError('int expected')
     if not MINYEAR <= year <= MAXYEAR:
         raise ValueError('year must be in %d..%d' % (MINYEAR, MAXYEAR), year)
     if not 1 <= month <= 12:
@@ -282,8 +283,9 @@ def _check_date_fields(year, month, day):
         raise ValueError('day must be in 1..%d' % dim, day)
 
 def _check_time_fields(hour, minute, second, microsecond):
-    if not isinstance(hour, (int, long)):
-        raise TypeError('int expected')
+    for value in [hour, minute, second, microsecond]:
+        if not isinstance(value, (int, long)):
+            raise TypeError('int expected')
     if not 0 <= hour <= 23:
         raise ValueError('hour must be in 0..23', hour)
     if not 0 <= minute <= 59:
@@ -1030,8 +1032,8 @@ class date(object):
     def __setstate(self, string):
         if len(string) != 4 or not (1 <= ord(string[2]) <= 12):
             raise TypeError("not enough arguments")
-        yhi, ylo, self._month, self._day = map(ord, string)
-        self._year = yhi * 256 + ylo
+        self._month, self._day = ord(string[2]), ord(string[3])
+        self._year = ord(string[0]) * 256 + ord(string[1])
 
     def __reduce__(self):
         return (self.__class__, self._getstate())
@@ -1419,9 +1421,10 @@ class time(object):
     def __setstate(self, string, tzinfo):
         if len(string) != 6 or ord(string[0]) >= 24:
             raise TypeError("an integer is required")
-        self._hour, self._minute, self._second, us1, us2, us3 = \
-                                                            map(ord, string)
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        self._hour, self._minute, self._second = ord(string[0]), \
+                                                 ord(string[1]), ord(string[2])
+        self._microsecond = (((ord(string[3]) << 8) | \
+                            ord(string[4])) << 8) | ord(string[5])
         self._tzinfo = tzinfo
 
     def __reduce__(self):
@@ -1520,7 +1523,7 @@ class datetime(date):
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
         t, frac = divmod(t, 1.0)
-        us = round(frac * 1e6)
+        us = int(round(frac * 1e6))
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1901,10 +1904,11 @@ class datetime(date):
             return (basestate, self._tzinfo)
 
     def __setstate(self, string, tzinfo):
-        (yhi, ylo, self._month, self._day, self._hour,
-         self._minute, self._second, us1, us2, us3) = map(ord, string)
-        self._year = yhi * 256 + ylo
-        self._microsecond = (((us1 << 8) | us2) << 8) | us3
+        (self._month, self._day, self._hour, self._minute,
+            self._second) = (ord(string[2]), ord(string[3]), ord(string[4]),
+                             ord(string[5]), ord(string[6]))
+        self._year = ord(string[0]) * 256 + ord(string[1])
+        self._microsecond = (((ord(string[7]) << 8) | ord(string[8])) << 8) | ord(string[9])
         self._tzinfo = tzinfo
 
     def __reduce__(self):

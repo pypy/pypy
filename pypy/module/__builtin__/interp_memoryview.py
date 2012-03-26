@@ -69,6 +69,10 @@ class W_MemoryView(Wrappable):
         return W_MemoryView(buf)
 
     def descr_buffer(self, space):
+        """Note that memoryview() objects in PyPy support buffer(), whereas
+        not in CPython; but CPython supports passing memoryview() to most
+        built-in functions that accept buffers, with the notable exception
+        of the buffer() built-in."""
         return space.wrap(self.buf)
 
     def descr_tobytes(self, space):

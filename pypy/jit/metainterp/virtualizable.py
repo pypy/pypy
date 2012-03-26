@@ -262,15 +262,15 @@ class VirtualizableInfo(object):
         force_now._dont_inline_ = True
         self.force_now = force_now
 
-        def gettoken(virtualizable):
+        def is_token_nonnull_gcref(virtualizable):
             virtualizable = cast_gcref_to_vtype(virtualizable)
-            return virtualizable.vable_token
-        self.gettoken = gettoken
+            return bool(virtualizable.vable_token)
+        self.is_token_nonnull_gcref = is_token_nonnull_gcref
 
-        def settoken(virtualizable, token):
+        def reset_token_gcref(virtualizable):
             virtualizable = cast_gcref_to_vtype(virtualizable)
-            virtualizable.vable_token = token
-        self.settoken = settoken
+            virtualizable.vable_token = VirtualizableInfo.TOKEN_NONE
+        self.reset_token_gcref = reset_token_gcref
 
     def _freeze_(self):
         return True

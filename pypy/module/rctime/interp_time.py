@@ -24,6 +24,7 @@ if _WIN:
     from pypy.module.thread import ll_thread as thread
 
     eci = ExternalCompilationInfo(
+        post_include_bits = ["BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
         separate_module_sources=['''
             #include <windows.h>
 
@@ -498,8 +499,11 @@ def mktime(space, w_tup):
     Convert a time tuple in local time to seconds since the Epoch."""
 
     buf = _gettmarg(space, w_tup, allowNone=False)
+    rffi.setintfield(buf, "c_tm_wday", -1)
     tt = c_mktime(buf)
-    if tt == -1:
+    # A return value of -1 does not necessarily mean an error, but tm_wday
+    # cannot remain set to -1 if mktime succeeds.
+    if tt == -1 and rffi.getintfield(buf, "c_tm_wday") == -1:
         raise OperationError(space.w_OverflowError,
             space.wrap("mktime argument out of range"))
 

@@ -78,9 +78,9 @@ class FunctionGcRootTracker(object):
             if self.is_stack_bottom:
                 retaddr = LOC_NOWHERE     # end marker for asmgcroot.py
             elif self.uses_frame_pointer:
-                retaddr = frameloc_ebp(self.WORD)
+                retaddr = frameloc_ebp(self.WORD, self.WORD)
             else:
-                retaddr = frameloc_esp(insn.framesize)
+                retaddr = frameloc_esp(insn.framesize, self.WORD)
             shape = [retaddr]
             # the first gcroots are always the ones corresponding to
             # the callee-saved registers
@@ -471,19 +471,24 @@ class FunctionGcRootTracker(object):
         return []
 
     IGNORE_OPS_WITH_PREFIXES = dict.fromkeys([
-        'cmp', 'test', 'set', 'sahf', 'lahf', 'cltd', 'cld', 'std',
-        'rep', 'movs', 'lods', 'stos', 'scas', 'cwtl', 'cwde', 'prefetch',
+        'cmp', 'test', 'set', 'sahf', 'lahf', 'cld', 'std',
+        'rep', 'movs', 'movhp', 'lods', 'stos', 'scas', 'cwde', 'prefetch',
         # floating-point operations cannot produce GC pointers
         'f',
         'cvt', 'ucomi', 'comi', 'subs', 'subp' , 'adds', 'addp', 'xorp',
         'movap', 'movd', 'movlp', 'sqrtsd', 'movhpd',
         'mins', 'minp', 'maxs', 'maxp', 'unpck', 'pxor', 'por', # sse2
+        'shufps', 'shufpd',
         # arithmetic operations should not produce GC pointers
         'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
         'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
-        'paddq', 'pinsr',
+        'paddq', 'pinsr', 'pmul', 'psrl',
+        # all vectors don't produce pointers
+        'v',
+        # sign-extending moves should not produce GC pointers
+        'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers
         'movz', 
         # locked operations should not move GC pointers, at least so far
@@ -891,6 +896,8 @@ class FunctionGcRootTracker(object):
             return '%' + cls.CALLEE_SAVE_REGISTERS[reg].replace("%", "")
         else:
             offset = loc & ~ LOC_MASK
+            if cls.WORD == 8:
+                offset <<= 1
             if kind == LOC_EBP_PLUS:
                 result = '(%' + cls.EBP.replace("%", "") + ')'
             elif kind == LOC_EBP_MINUS:
@@ -1694,6 +1701,8 @@ class GcRootTracker(object):
             }
             """
         elif self.format in ('elf64', 'darwin64'):
+            if self.format == 'elf64':   # gentoo patch: hardened systems
+                print >> output, "\t.section .note.GNU-stack,\"\",%progbits"
             print >> output, "\t.text"
             print >> output, "\t.globl %s" % _globalname('pypy_asm_stackwalk')
             _variant(elf64='.type pypy_asm_stackwalk, @function',

@@ -144,6 +144,10 @@ _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
 _ll_2_newlist.need_result_type = True
 
+def _ll_1_newlist_hint(LIST, hint):
+    return LIST.ll_newlist_hint(hint)
+_ll_1_newlist_hint.need_result_type = True
+
 def _ll_1_list_len(l):
     return l.ll_length()
 def _ll_2_list_getitem(l, index):

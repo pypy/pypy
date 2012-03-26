@@ -8,8 +8,6 @@ import sys
 from __pypy__ import lookup_special
 
 def _caller_locals(): 
-    # note: the reason why this is working is because the functions in here are
-    # compiled by geninterp, so they don't have a frame
     return sys._getframe(0).f_locals 
 
 def vars(*obj):
@@ -25,17 +23,6 @@ def vars(*obj):
             return obj[0].__dict__
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"
-
-# Replaced by the interp-level helper space.callable(): 
-##def callable(ob):
-##    import __builtin__ # XXX this is insane but required for now for geninterp
-##    for c in type(ob).__mro__:
-##        if '__call__' in c.__dict__:
-##            if isinstance(ob, __builtin__._instance): # old style instance!
-##                return getattr(ob, '__call__', None) is not None
-##            return True
-##    else:
-##        return False
 
 def dir(*args):
     """dir([object]) -> list of strings

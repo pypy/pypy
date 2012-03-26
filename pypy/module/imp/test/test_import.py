@@ -357,7 +357,7 @@ class AppTestImport:
 
     def test_cannot_write_pyc(self):
         import sys, os
-        p = os.path.join(sys.path[-1], 'readonly')
+        p = os.path.join(sys.path[0], 'readonly')
         try:
             os.chmod(p, 0555)
         except:
@@ -987,6 +987,10 @@ def test_PYTHONPATH_takes_precedence(space):
             os.environ['LANG'] = oldlang
 
 class AppTestImportHooks(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('struct',))
+    
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):

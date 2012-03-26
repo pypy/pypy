@@ -10,6 +10,8 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.lltypesystem import lltype, rstr
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 
 class StrOrUnicode(object):
@@ -505,14 +507,23 @@ class OptString(optimizer.Optimization):
 
         if length.is_constant() and length.box.getint() == 0:
             return
-        copy_str_content(self,
-            src.force_box(self),
-            dst.force_box(self),
-            srcstart.force_box(self),
-            dststart.force_box(self),
-            length.force_box(self),
-            mode, need_next_offset=False
-        )
+        elif (src.is_virtual() and dst.is_virtual() and srcstart.is_constant() and
+            dststart.is_constant() and length.is_constant()):
+
+            src_start = srcstart.force_box(self).getint()
+            dst_start = dststart.force_box(self).getint()
+            for index in range(length.force_box(self).getint()):
+                vresult = self.strgetitem(src, optimizer.ConstantValue(ConstInt(index + src_start)), mode)
+                dst.setitem(index + dst_start, vresult)
+        else:
+            copy_str_content(self,
+                src.force_box(self),
+                dst.force_box(self),
+                srcstart.force_box(self),
+                dststart.force_box(self),
+                length.force_box(self),
+                mode, need_next_offset=False
+            )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -721,7 +732,7 @@ def _findall_call_oopspec():
     for name in dir(OptString):
         if name.startswith(prefix):
             value = getattr(EffectInfo, 'OS_' + name[len(prefix):])
-            assert isinstance(value, int) and value != 0
+            assert is_valid_int(value) and value != 0
             result.append((value, getattr(OptString, name)))
     return unrolling_iterable(result)
 opt_call_oopspec_ops = _findall_call_oopspec()

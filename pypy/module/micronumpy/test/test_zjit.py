@@ -84,7 +84,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         result = self.run("add")
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'setinteriorfield_raw': 1, 'int_add': 1,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
         assert result == 3 + 3
@@ -99,7 +99,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("float_add")
         assert result == 3 + 3
         self.check_simple_loop({"getinteriorfield_raw": 1, "float_add": 1,
-                                "setinteriorfield_raw": 1, "int_add": 2,
+                                "setinteriorfield_raw": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1,
                                 'arraylen_gc': 1})
 
@@ -198,7 +198,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_ne": 1, "int_add": 1,
+                                "int_and": 1, "int_add": 1,
+                                'cast_float_to_int': 1,
                                 "int_ge": 1, "jump": 1,
                                 "guard_false": 2, 'arraylen_gc': 1})
 
@@ -239,7 +240,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == -6
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
                                 "float_neg": 1,
-                                "setinteriorfield_raw": 1, "int_add": 2,
+                                "setinteriorfield_raw": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1,
                                 'arraylen_gc': 1})
 
@@ -321,7 +322,7 @@ class TestNumpyJIt(LLJitMixin):
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
         self.check_simple_loop({'float_add': 1, 'getinteriorfield_raw': 2,
-                                'guard_false': 1, 'int_add': 2, 'int_ge': 1,
+                                'guard_false': 1, 'int_add': 1, 'int_ge': 1,
                                 'jump': 1, 'setinteriorfield_raw': 1,
                                 'arraylen_gc': 1})
 
@@ -387,7 +388,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 4
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 2,
+                                'setinteriorfield_raw': 1, 'int_add': 1,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1,
                                 'arraylen_gc': 1})
     def define_flat_iter():
@@ -403,7 +404,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 6
         self.check_trace_count(1)
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
+                                'setinteriorfield_raw': 1, 'int_add': 2,
                                 'int_ge': 1, 'guard_false': 1,
                                 'arraylen_gc': 1, 'jump': 1})
 
@@ -456,36 +457,25 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_rshift': 1,
                                 })
 
-class TestNumpyOld(LLJitMixin):
-    def setup_class(cls):
-        py.test.skip("old")
-        from pypy.module.micronumpy.compile import FakeSpace
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+    def define_dot():
+        return """
+        a = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
+        b=[[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]]
+        c = dot(a, b)
+        c -> 1 -> 2
+        """
 
-        cls.space = FakeSpace()
-        cls.float64_dtype = get_dtype_cache(cls.space).w_float64dtype
-
-    def test_int32_sum(self):
-        py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "
-                     "deal correctly with int dtypes for this test to "
-                     "work. skip for now until someone feels up to the task")
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int32_dtype = self.int32_dtype
-
-        def f(n):
-            if NonConstant(False):
-                dtype = float64_dtype
-            else:
-                dtype = int32_dtype
-            ar = W_NDimArray(n, [n], dtype=dtype)
-            i = 0
-            while i < n:
-                ar.get_concrete().setitem(i, int32_dtype.box(7))
-                i += 1
-            v = ar.descr_add(space, ar).descr_sum(space)
-            assert isinstance(v, IntObject)
-            return v.intval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        assert result == f(5)
+    def test_dot(self):
+        result = self.run("dot")
+        assert result == 184
+        self.check_simple_loop({'arraylen_gc': 9,
+                                'float_add': 1,
+                                'float_mul': 1,
+                                'getinteriorfield_raw': 3,
+                                'guard_false': 3,
+                                'guard_true': 3,
+                                'int_add': 6,
+                                'int_lt': 6,
+                                'int_sub': 3,
+                                'jump': 1,
+                                'setinteriorfield_raw': 1})

@@ -1,9 +1,10 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
-from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     ConstantIterator, AxisIterator, ViewTransform,\
-     BroadcastTransform
-from pypy.rlib.jit import hint, unroll_safe, promote
+from pypy.module.micronumpy.interp_iter import ConstantIterator, AxisIterator,\
+     ViewTransform, BroadcastTransform
+from pypy.tool.pairtype import extendabletype
+from pypy.module.micronumpy.loop import ComputationDone
+from pypy.rlib import jit
 
 """ Signature specifies both the numpy expression that has been constructed
 and the assembler to be compiled. This is a very important observation -
@@ -54,50 +55,6 @@ def find_sig(sig, arr):
         known_sigs[sig] = sig
         return sig
 
-class NumpyEvalFrame(object):
-    _virtualizable2_ = ['iterators[*]', 'final_iter', 'arraylist[*]',
-                        'value', 'identity']
-
-    @unroll_safe
-    def __init__(self, iterators, arrays):
-        self = hint(self, access_directly=True, fresh_virtualizable=True)
-        self.iterators = iterators[:]
-        self.arrays = arrays[:]
-        for i in range(len(self.iterators)):
-            iter = self.iterators[i]
-            if not isinstance(iter, ConstantIterator):
-                self.final_iter = i
-                break
-        else:
-            self.final_iter = -1
-
-    def done(self):
-        final_iter = promote(self.final_iter)
-        if final_iter < 0:
-            assert False
-        return self.iterators[final_iter].done()
-
-    @unroll_safe
-    def next(self, shapelen):
-        for i in range(len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)
-
-    @unroll_safe
-    def next_from_second(self, shapelen):
-        """ Don't increase the first iterator
-        """
-        for i in range(1, len(self.iterators)):
-            self.iterators[i] = self.iterators[i].next(shapelen)
-
-    def next_first(self, shapelen):
-        self.iterators[0] = self.iterators[0].next(shapelen)
-
-    def get_final_iter(self):
-        final_iter = promote(self.final_iter)
-        if final_iter < 0:
-            assert False
-        return self.iterators[final_iter]
-
 def _add_ptr_to_cache(ptr, cache):
     i = 0
     for p in cache:
@@ -113,6 +70,8 @@ def new_cache():
     return r_dict(sigeq_no_numbering, sighash)
 
 class Signature(object):
+    __metaclass_ = extendabletype
+    
     _attrs_ = ['iter_no', 'array_no']
     _immutable_fields_ = ['iter_no', 'array_no']
 
@@ -138,11 +97,15 @@ class Signature(object):
         self.iter_no = no
 
     def create_frame(self, arr):
+        from pypy.module.micronumpy.loop import NumpyEvalFrame
+        
         iterlist = []
         arraylist = []
         self._create_iter(iterlist, arraylist, arr, [])
-        return NumpyEvalFrame(iterlist, arraylist)
-
+        f = NumpyEvalFrame(iterlist, arraylist)
+        # hook for cur_value being used by reduce
+        arr.compute_first_step(self, f)
+        return f
 
 class ConcreteSignature(Signature):
     _immutable_fields_ = ['dtype']
@@ -180,14 +143,10 @@ class ArraySignature(ConcreteSignature):
         from pypy.module.micronumpy.interp_numarray import ConcreteArray
         concr = arr.get_concrete()
         assert isinstance(concr, ConcreteArray)
-        storage = concr.storage
         if self.iter_no >= len(iterlist):
-            iterlist.append(self.allocate_iter(concr, transforms))
+            iterlist.append(concr.create_iter(transforms))
         if self.array_no >= len(arraylist):
-            arraylist.append(storage)
-
-    def allocate_iter(self, arr, transforms):
-        return ArrayIterator(arr.size).apply_transformations(arr, transforms)
+            arraylist.append(concr)
 
     def eval(self, frame, arr):
         iter = frame.iterators[self.iter_no]
@@ -220,21 +179,9 @@ class ViewSignature(ArraySignature):
         allnumbers.append(no)
         self.iter_no = no
 
-    def allocate_iter(self, arr, transforms):
-        return ViewIterator(arr.start, arr.strides, arr.backstrides,
-                            arr.shape).apply_transformations(arr, transforms)
-
 class FlatSignature(ViewSignature):
     def debug_repr(self):
         return 'Flat'
-
-    def allocate_iter(self, arr, transforms):
-        from pypy.module.micronumpy.interp_numarray import W_FlatIterator
-        assert isinstance(arr, W_FlatIterator)
-        return ViewIterator(arr.base.start, arr.base.strides, 
-                    arr.base.backstrides,
-                    arr.base.shape).apply_transformations(arr.base,
-                                                         transforms)
 
 class VirtualSliceSignature(Signature):
     def __init__(self, child):
@@ -269,12 +216,13 @@ class VirtualSliceSignature(Signature):
         return self.child.eval(frame, arr.child)
 
 class Call1(Signature):
-    _immutable_fields_ = ['unfunc', 'name', 'child']
+    _immutable_fields_ = ['unfunc', 'name', 'child', 'dtype']
 
-    def __init__(self, func, name, child):
+    def __init__(self, func, name, dtype, child):
         self.unfunc = func
         self.child = child
         self.name = name
+        self.dtype = dtype
 
     def hash(self):
         return compute_hash(self.name) ^ intmask(self.child.hash() << 1)
@@ -353,12 +301,36 @@ class Call2(Signature):
         assert isinstance(arr, Call2)
         lhs = self.left.eval(frame, arr.left).convert_to(self.calc_dtype)
         rhs = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
-        
         return self.binfunc(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
         return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
                                       self.right.debug_repr())
+
+class ResultSignature(Call2):
+    def __init__(self, dtype, left, right):
+        Call2.__init__(self, None, 'assign', dtype, left, right)
+
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import ResultArray
+
+        assert isinstance(arr, ResultArray)
+        offset = frame.get_final_iter().offset
+        arr.left.setitem(offset, self.right.eval(frame, arr.right))
+
+class ToStringSignature(Call1):
+    def __init__(self, dtype, child):
+        Call1.__init__(self, None, 'tostring', dtype, child)
+
+    @jit.unroll_safe
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import ToStringArray
+
+        assert isinstance(arr, ToStringArray)
+        arr.res.setitem(0, self.child.eval(frame, arr.values).convert_to(
+            self.dtype))
+        for i in range(arr.item_size):
+            arr.s.append(arr.res_casted[i])
 
 class BroadcastLeft(Call2):
     def _invent_numbering(self, cache, allnumbers):
@@ -401,20 +373,24 @@ class BroadcastBoth(Call2):
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arraylist, arr, transforms):
-        self.right._create_iter(iterlist, arraylist, arr, transforms)
-
-    def _invent_numbering(self, cache, allnumbers):
-        self.right._invent_numbering(cache, allnumbers)
-
-    def _invent_array_numbering(self, arr, cache):
-        self.right._invent_array_numbering(arr, cache)
-
+    _immutable_fields_ = ['binfunc', 'name', 'calc_dtype',
+                          'left', 'right', 'done_func']
+    
+    def __init__(self, func, name, calc_dtype, left, right,
+                 done_func):
+        Call2.__init__(self, func, name, calc_dtype, left, right)
+        self.done_func = done_func
+        
     def eval(self, frame, arr):
-        return self.right.eval(frame, arr)
+        from pypy.module.micronumpy.interp_numarray import ReduceArray
+        assert isinstance(arr, ReduceArray)
+        rval = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        if self.done_func is not None and self.done_func(self.calc_dtype, rval):
+            raise ComputationDone(rval)
+        frame.cur_value = self.binfunc(self.calc_dtype, frame.cur_value, rval)
 
     def debug_repr(self):
-        return 'ReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
+        return 'ReduceSig(%s)' % (self.name, self.right.debug_repr())
 
 class SliceloopSignature(Call2):
     def eval(self, frame, arr):
@@ -468,7 +444,17 @@ class AxisReduceSignature(Call2):
         from pypy.module.micronumpy.interp_numarray import AxisReduce
 
         assert isinstance(arr, AxisReduce)
-        return self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        iterator = frame.get_final_iter()
+        v = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        if iterator.first_line:
+            if frame.identity is not None:
+                value = self.binfunc(self.calc_dtype, frame.identity, v)
+            else:
+                value = v
+        else:
+            cur = arr.left.getitem(iterator.offset)
+            value = self.binfunc(self.calc_dtype, cur, v)
+        arr.left.setitem(iterator.offset, value)
     
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())

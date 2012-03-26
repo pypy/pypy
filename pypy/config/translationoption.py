@@ -105,7 +105,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],
-               suggests=[("translation.gc", "generation")]),
+               suggests=[("translation.gc", "generation"),
+                         ("translation.gcrootfinder", "shadowstack")]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
@@ -123,6 +124,9 @@ translation_optiondescription = OptionDescription(
                  default="off"),
     # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
     BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
+    BoolOption("check_str_without_nul",
+               "Forbid NUL chars in strings in some external function calls",
+               default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
@@ -178,11 +182,6 @@ translation_optiondescription = OptionDescription(
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
-    BoolOption("builtins_can_raise_exceptions",
-               "When true, assume any call to a 'simple' builtin such as "
-               "'hex' can raise an arbitrary exception",
-               default=False,
-               cmdline=None),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "

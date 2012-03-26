@@ -54,7 +54,7 @@ class AppTestJitHook(object):
         oplist = parse("""
         [i1, i2, p2]
         i3 = int_add(i1, i2)
-        debug_merge_point(0, 0, 0, 0, ConstPtr(ptr0))
+        debug_merge_point(0, 0, 0, 0, 0, ConstPtr(ptr0))
         guard_nonnull(p2) []
         guard_true(i3) []
         """, namespace={'ptr0': code_gcref}).operations
@@ -87,7 +87,7 @@ class AppTestJitHook(object):
         def interp_on_abort():
             pypy_hooks.on_abort(ABORT_TOO_LONG, pypyjitdriver, greenkey,
                                 'blah')
-        
+
         cls.w_on_compile = space.wrap(interp2app(interp_on_compile))
         cls.w_on_compile_bridge = space.wrap(interp2app(interp_on_compile_bridge))
         cls.w_on_abort = space.wrap(interp2app(interp_on_abort))
@@ -105,7 +105,7 @@ class AppTestJitHook(object):
 
         def hook(name, looptype, tuple_or_guard_no, ops, asmstart, asmlen):
             all.append((name, looptype, tuple_or_guard_no, ops))
-        
+
         self.on_compile()
         pypyjit.set_compile_hook(hook)
         assert not all
@@ -122,7 +122,9 @@ class AppTestJitHook(object):
         assert isinstance(dmp, pypyjit.DebugMergePoint)
         assert dmp.pycode is self.f.func_code
         assert dmp.greenkey == (self.f.func_code, 0, False)
-        #assert int_add.name == 'int_add'
+        assert dmp.call_depth == 0
+        assert dmp.call_id == 0
+        assert int_add.name == 'int_add'
         assert int_add.num == self.int_add_num
         self.on_compile_bridge()
         assert len(all) == 2
@@ -150,18 +152,18 @@ class AppTestJitHook(object):
     def test_non_reentrant(self):
         import pypyjit
         l = []
-        
+
         def hook(*args):
             l.append(None)
             self.on_compile()
             self.on_compile_bridge()
-        
+
         pypyjit.set_compile_hook(hook)
         self.on_compile()
         assert len(l) == 1 # and did not crash
         self.on_compile_bridge()
         assert len(l) == 2 # and did not crash
-        
+
     def test_on_compile_types(self):
         import pypyjit
         l = []
@@ -181,7 +183,7 @@ class AppTestJitHook(object):
 
         def hook(jitdriver_name, greenkey, reason):
             l.append((jitdriver_name, reason))
-        
+
         pypyjit.set_abort_hook(hook)
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG')]
@@ -223,11 +225,14 @@ class AppTestJitHook(object):
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', (f.func_code, 0, 0))
+        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
         assert op.num == self.dmp_num
-        op = DebugMergePoint([Box(0)], 'repr', 'notmain', ('str',))
+        assert op.call_depth == 2
+        assert op.call_id == 3
+        op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, 4, ('str',))
         raises(AttributeError, 'op.pycode')
+        assert op.call_depth == 5

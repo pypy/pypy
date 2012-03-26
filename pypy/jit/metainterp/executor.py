@@ -2,7 +2,7 @@
 """
 
 from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
@@ -248,11 +248,14 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 def do_read_timestamp(cpu, _):
     x = read_timestamp()
     if longlong.is_64_bit:
-        assert isinstance(x, int)         # 64-bit
+        assert is_valid_int(x)            # 64-bit
         return BoxInt(x)
     else:
         assert isinstance(x, r_longlong)  # 32-bit
         return BoxFloat(x)
+
+def do_keepalive(cpu, _, x):
+    pass
 
 # ____________________________________________________________
 

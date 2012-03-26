@@ -15,9 +15,10 @@ from pypy.rpython.tool.rfficache import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import maxint, LONG_BIT
 import os, sys
 
 class CConstant(Symbolic):
@@ -433,7 +434,8 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t', 'wchar_t']
+          'size_t', 'time_t', 'wchar_t',
+          'uintptr_t', 'intptr_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -617,8 +619,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
 
-INTPTR_T = SSIZE_T
-
 # double
 DOUBLE = lltype.Float
 LONGDOUBLE = lltype.LongFloat
@@ -649,6 +649,10 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+
+# Signed, Signed *
+SIGNED = lltype.Signed
+SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 
 # various type mapping
 
@@ -698,7 +702,7 @@ def make_string_mappings(strtype):
         while cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # str -> char*
     # Can't inline this because of the raw address manipulation.
@@ -759,6 +763,7 @@ def make_string_mappings(strtype):
     alloc_buffer._annenforceargs_ = [int]
 
     # (char*, str, int, int) -> None
+    @jit.dont_look_inside
     def str_from_buffer(raw_buf, gc_buf, allocated_size, needed_size):
         """
         Converts from a pair returned by alloc_buffer to a high-level string.
@@ -784,6 +789,7 @@ def make_string_mappings(strtype):
         return hlstrtype(new_buf)
 
     # (char*, str) -> None
+    @jit.dont_look_inside
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
         """
         Keeps buffers alive or frees temporary buffers created by alloc_buffer.
@@ -802,7 +808,7 @@ def make_string_mappings(strtype):
         while i < maxlen and cp[i] != lastchar:
             b.append(cp[i])
             i += 1
-        return b.build()
+        return assert_str0(b.build())
 
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
@@ -840,6 +846,7 @@ def liststr2charpp(l):
         array[i] = str2charp(l[i])
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
+liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
 
 def free_charpp(ref):
     """ frees list of char**, NULL terminated
@@ -895,7 +902,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = ULONG     # XXX!
+        tp = lltype.Signed
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -906,7 +913,7 @@ def sizeof(tp):
         return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
-        return ULONG._type.BITS/8
+        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 
@@ -926,11 +933,11 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert sys.maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
     "but the C compiler says that 'long' is %d bytes" % (
-    sys.maxint, sizeof(lltype.Signed)))
+    maxint, sizeof(lltype.Signed)))
 
 # ********************** some helpers *******************
 

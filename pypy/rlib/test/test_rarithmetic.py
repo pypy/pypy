@@ -330,6 +330,15 @@ class BaseTestRarithmetic(BaseRtypingTest):
             return a == b
         py.test.raises(MissingRTypeOperation, "self.interpret(f, [42.0])")
 
+    def test_is_valid_int(self):
+        def f(x):
+            return (is_valid_int(x)     * 4 +
+                    is_valid_int(x > 0) * 2 +
+                    is_valid_int(x + 0.5))
+        assert f(123) == 4 + 2
+        res = self.interpret(f, [123])
+        assert res == 4 + 2
+
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass
 
@@ -374,3 +383,9 @@ def test_int_between():
     assert not int_between(1, 2, 2)
     assert not int_between(1, 1, 1)
 
+def test_byteswap():
+    from pypy.rpython.lltypesystem import rffi
+    
+    assert byteswap(rffi.cast(rffi.USHORT, 0x0102)) == 0x0201
+    assert byteswap(rffi.cast(rffi.INT, 0x01020304)) == 0x04030201
+    assert byteswap(rffi.cast(rffi.ULONGLONG, 0x0102030405060708L)) == 0x0807060504030201L

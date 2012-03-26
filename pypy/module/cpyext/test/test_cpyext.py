@@ -35,7 +35,7 @@ class TestApi:
 
 class AppTestApi:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         from pypy.rlib.libffi import get_libc_name
         cls.w_libc = cls.space.wrap(get_libc_name())
 
@@ -106,10 +106,7 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
-        try:
-            del space.getexecutioncontext().cpyext_threadstate
-        except AttributeError:
-            pass
+        space.getexecutioncontext().cleanup_cpyext_state()
 
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)
@@ -168,8 +165,9 @@ class LeakCheckingTest(object):
         return leaking
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
+    
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi'])
+        cls.space = gettestobjspace(usemodules=['cpyext', 'thread', '_rawffi', 'array'])
         cls.space.getbuiltinmodule("cpyext")
         from pypy.module.imp.importing import importhook
         importhook(cls.space, "os") # warm up reference counts
@@ -743,6 +741,22 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         p = mod.get_programname()
         print p
         assert 'py' in p
+
+    def test_get_version(self):
+        mod = self.import_extension('foo', [
+            ('get_version', 'METH_NOARGS',
+             '''
+             char* name1 = Py_GetVersion();
+             char* name2 = Py_GetVersion();
+             if (name1 != name2)
+                 Py_RETURN_FALSE;
+             return PyString_FromString(name1);
+             '''
+             ),
+            ])
+        p = mod.get_version()
+        print p
+        assert 'PyPy' in p
 
     def test_no_double_imports(self):
         import sys, os

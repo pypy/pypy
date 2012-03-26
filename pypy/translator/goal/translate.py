@@ -31,7 +31,6 @@ GOALS= [
         ("backendopt", "do backend optimizations", "--backendopt", ""),
         ("source", "create source", "-s --source", ""),
         ("compile", "compile", "-c --compile", " (default goal)"),
-        ("run", "run the resulting binary", "--run", ""),
         ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
        ]
 def goal_options():
@@ -78,7 +77,7 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
                     defaultfactory=list),
     # xxx default goals ['annotate', 'rtype', 'backendopt', 'source', 'compile']
     ArbitraryOption("skipped_goals", "XXX",
-                    defaultfactory=lambda: ['run']),
+                    defaultfactory=list),
     OptionDescription("goal_options",
                       "Goals that should be reached during translation", 
                       goal_options()),        

@@ -7,7 +7,7 @@ from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.objectmodel import instantiate, specialize
+from pypy.rlib.objectmodel import instantiate, specialize, newlist_hint
 from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
@@ -32,9 +32,11 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-@jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
-def get_strategy_from_list_objects(space, list_w):
+@jit.look_inside_iff(lambda space, list_w, sizehint: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
+def get_strategy_from_list_objects(space, list_w, sizehint):
     if not list_w:
+        if sizehint != -1:
+            return SizeListStrategy(space, sizehint)
         return space.fromcache(EmptyListStrategy)
 
     # check for ints
@@ -75,11 +77,13 @@ def is_W_FloatObject(w_object):
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
-    def __init__(w_self, space, wrappeditems):
+    def __init__(w_self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
         w_self.space = space
         if space.config.objspace.std.withliststrategies:
-            w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
+            w_self.strategy = get_strategy_from_list_objects(space,
+                                                             wrappeditems,
+                                                             sizehint)
         else:
             w_self.strategy = space.fromcache(ObjectListStrategy)
         w_self.init_from_list_w(wrappeditems)
@@ -260,6 +264,7 @@ registerimplementation(W_ListObject)
 
 
 class ListStrategy(object):
+    sizehint = -1
 
     def __init__(self, space):
         self.space = space
@@ -344,6 +349,7 @@ class ListStrategy(object):
     def sort(self, w_list, reverse):
         raise NotImplementedError
 
+
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
     The storage is None. When items are added to the W_List a new RPython list
@@ -405,7 +411,7 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage()
+        storage = strategy.get_empty_storage(self.sizehint)
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -445,6 +451,13 @@ class EmptyListStrategy(ListStrategy):
 
     def reverse(self, w_list):
         pass
+
+class SizeListStrategy(EmptyListStrategy):
+    """ Like empty, but when modified it'll preallocate the size to sizehint
+    """
+    def __init__(self, space, sizehint):
+        self.sizehint = sizehint
+        ListStrategy.__init__(self, space)
 
 class RangeListStrategy(ListStrategy):
     """RangeListStrategy is used when a list is created using the range method.
@@ -671,8 +684,10 @@ class AbstractUnwrappedStrategy(object):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
 
-    def get_empty_storage(self):
-        return self.erase([])
+    def get_empty_storage(self, sizehint):
+        if sizehint == -1:
+            return self.erase([])
+        return self.erase(newlist_hint(sizehint))
 
     def clone(self, w_list):
         l = self.unerase(w_list.lstorage)

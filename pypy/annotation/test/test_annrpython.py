@@ -1,15 +1,12 @@
 from __future__ import with_statement
-import autopath
 import py.test
 import sys
 from pypy import conftest
-from pypy.tool.udir import udir
 
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
-from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef, ListChangeUnallowed
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
@@ -456,6 +453,20 @@ class TestAnnotateTestCase:
             return ''.join(g(n))
         s = a.build_types(f, [int])
         assert s.knowntype == str
+        assert s.no_nul
+
+    def test_str_split(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return "test string"
+        def f(n):
+            if n:
+                return g(n).split(' ')
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert s_item.no_nul
 
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
@@ -464,6 +475,18 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [str])
         assert isinstance(s, annmodel.SomeList)
         assert s.listdef.listitem.resized
+
+    def test_str_strip(self):
+        a = self.RPythonAnnotator()
+        def f(n, a_str):
+            if n == 0:
+                return a_str.strip(' ')
+            elif n == 1:
+                return a_str.rstrip(' ')
+            else: 
+                return a_str.lstrip(' ')
+        s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
+        assert s.no_nul
 
     def test_str_mul(self):
         a = self.RPythonAnnotator()
@@ -1841,7 +1864,7 @@ class TestAnnotateTestCase:
             return obj.indirect()
         a = self.RPythonAnnotator()
         s = a.build_types(f, [bool])
-        assert s == annmodel.SomeString(can_be_None=True)
+        assert annmodel.SomeString(can_be_None=True).contains(s)
 
     def test_dont_see_AttributeError_clause(self):
         class Stuff:
@@ -2018,6 +2041,37 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert not s.can_be_None
 
+    def test_string_noNUL_canbeNone(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
+    def test_str_or_None(self):
+        def f(a):
+            if a:
+                return "abc"
+            else:
+                return None
+        def g(a):
+            x = f(a)
+            #assert x is not None
+            if x is None:
+                return "abcd"
+            return x
+            if isinstance(x, str):
+                return x
+            return "impossible"
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
     def test_emulated_pbc_call_simple(self):
         def f(a,b):
             return a + b
@@ -2070,6 +2124,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeIterator)
         assert s.variant == ('items',)
+
+    def test_iteritems_str0(self):
+        def it(d):
+            return d.iteritems()
+        def f():
+            d0 = {'1a': '2a', '3': '4'}
+            for item in it(d0):
+                return "%s=%s" % item
+            raise ValueError
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
         class A(object):
@@ -2361,6 +2428,93 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[1], annmodel.SomeChar)
         assert isinstance(s.items[2], annmodel.SomeChar)
 
+    def test_mixin_first(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Mixin, Base):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 4
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 4
+
+    def test_mixin_last(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Base(object):
+            def foo(self): return 5
+        class Concrete(Base, Mixin):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_mixin_concrete(self):
+        class Mixin(object):
+            _mixin_ = True
+            def foo(self): return 4
+        class Concrete(Mixin):
+            def foo(self): return 5
+        def f():
+            return Concrete().foo()
+
+        assert f() == 5
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 5
+
+    def test_multiple_mixins_mro(self):
+        # an obscure situation, but it occurred in module/micronumpy/types.py
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class D(B, C):
+            _mixin_ = True
+        class Concrete(D):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
+    def test_multiple_mixins_mro_2(self):
+        class A(object):
+            _mixin_ = True
+            def foo(self): return 1
+        class B(A):
+            _mixin_ = True
+            def foo(self): return 2
+        class C(A):
+            _mixin_ = True
+        class Concrete(C, B):
+            pass
+        def f():
+            return Concrete().foo()
+
+        assert f() == 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == 2
+
     def test___class___attribute(self):
         class Base(object): pass
         class A(Base): pass
@@ -2398,6 +2552,26 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.knowntype == int
+
+    def test_slots_reads(self):
+        class A(object):
+            __slots__ = ()
+        class B(A):
+            def __init__(self, x):
+                self.x = x
+        def f(x):
+            if x:
+                a = A()
+            else:
+                a = B(x)
+            return a.x   # should explode here
+
+        a = self.RPythonAnnotator()
+        e = py.test.raises(Exception, a.build_types, f, [int])
+        # this should explode on reading the attribute 'a.x', but it can
+        # sometimes explode on 'self.x = x', which does not make much sense.
+        # But it looks hard to fix in general: we don't know yet during 'a.x'
+        # if the attribute x will be read-only or read-write.
 
     def test_unboxed_value(self):
         class A(object):

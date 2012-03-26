@@ -207,6 +207,11 @@ class FakeObjSpace(ObjSpace):
         is_arguments(args)
         return w_some_obj()
 
+    def get_and_call_function(space, w_descr, w_obj, *args_w):
+        args = argument.Arguments(space, list(args_w))
+        w_impl = space.get(w_descr, w_obj)
+        return space.call_args(w_impl, args)
+
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
@@ -326,4 +331,5 @@ class FakeModule(Wrappable):
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
+FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.builtin = FakeModule()

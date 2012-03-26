@@ -58,9 +58,34 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
+        #What runtime do we need?
+        msvc_runtime = 'msvcr80.dll' #default is studio 2005 vc8
+        try:
+            import subprocess
+            out,err = subprocess.Popen([str(pypy_c), '-c', 
+                        'import sys; print sys.version'],
+                        stdout=subprocess.PIPE).communicate()
+            indx=out.find('MSC v.') + 6
+            if indx> 10:
+                if out[indx:].startswith('1600'):
+                    msvc_runtime = 'msvcr100.dll' #studio 2010 vc10
+                elif out[indx:].startwith('1500'):
+                    msvc_runtime = 'msvcr90.dll' #studio 2009 vc9
+                elif out[indx:].startswith('1400'):
+                    msvc_runtime = 'msvcr80.dll' #studio 2005 vc8
+                else:
+                    print 'Cannot determine runtime dll for pypy' \
+                                ' version "%s"'%out
+            else:                    
+                print 'Cannot determine runtime dll for pypy' \
+                                ' version "%s"'%out
+        except :
+            pass
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
+                      'libexpat.dll', 'sqlite3.dll', msvc_runtime,
+                      'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -81,6 +106,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')
@@ -125,7 +153,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)

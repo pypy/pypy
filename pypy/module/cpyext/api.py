@@ -23,6 +23,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.module.__builtin__.descriptor import W_Property
+from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
 from pypy.rlib.unroll import unrolling_iterable
@@ -351,6 +352,9 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
 
     'PyOS_getsig', 'PyOS_setsig',
+    'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
+    'PyThread_get_key_value', 'PyThread_delete_key_value',
+    'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
 ]
@@ -383,6 +387,8 @@ def build_exported_objects():
         "Dict": "space.w_dict",
         "Tuple": "space.w_tuple",
         "List": "space.w_list",
+        "Set": "space.w_set",
+        "FrozenSet": "space.w_frozenset",
         "Int": "space.w_int",
         "Bool": "space.w_bool",
         "Float": "space.w_float",
@@ -397,13 +403,14 @@ def build_exported_objects():
         'Module': 'space.gettypeobject(Module.typedef)',
         'Property': 'space.gettypeobject(W_Property.typedef)',
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
+        'Class': 'space.gettypeobject(W_ClassObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
         'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
-    for cpyname in 'Method List Int Long Dict Tuple Class'.split():
+    for cpyname in 'Method List Long Dict Tuple Class'.split():
         FORWARD_DECLS.append('typedef struct { PyObject_HEAD } '
                              'Py%sObject' % (cpyname, ))
 build_exported_objects()
@@ -432,16 +439,16 @@ Py_buffer = cpython_struct(
         ('buf', rffi.VOIDP),
         ('obj', PyObject),
         ('len', Py_ssize_t),
-        # ('itemsize', Py_ssize_t),
+        ('itemsize', Py_ssize_t),
 
-        # ('readonly', lltype.Signed),
-        # ('ndim', lltype.Signed),
-        # ('format', rffi.CCHARP),
-        # ('shape', Py_ssize_tP),
-        # ('strides', Py_ssize_tP),
-        # ('suboffets', Py_ssize_tP),
-        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
-        # ('internal', rffi.VOIDP)
+        ('readonly', lltype.Signed),
+        ('ndim', lltype.Signed),
+        ('format', rffi.CCHARP),
+        ('shape', Py_ssize_tP),
+        ('strides', Py_ssize_tP),
+        ('suboffsets', Py_ssize_tP),
+        #('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        ('internal', rffi.VOIDP)
         ))
 
 @specialize.memo()
@@ -613,6 +620,10 @@ def setup_init_functions(eci):
         lambda space: init_pycobject(),
         lambda space: init_capsule(),
     ])
+    from pypy.module.posix.interp_posix import add_fork_hook
+    reinit_tls = rffi.llexternal('PyThread_ReInitTLS', [], lltype.Void,
+                                 compilation_info=eci)    
+    add_fork_hook('child', reinit_tls)
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -813,6 +824,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("extern \"C\" {")
     pypy_decls.append("#endif\n")
+    pypy_decls.append('#define Signed   long           /* xxx temporary fix */\n')
+    pypy_decls.append('#define Unsigned unsigned long  /* xxx temporary fix */\n')
 
     for decl in FORWARD_DECLS:
         pypy_decls.append("%s;" % (decl,))
@@ -844,6 +857,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
             typ = 'PyObject*'
         pypy_decls.append('PyAPI_DATA(%s) %s;' % (typ, name))
 
+    pypy_decls.append('#undef Signed    /* xxx temporary fix */\n')
+    pypy_decls.append('#undef Unsigned  /* xxx temporary fix */\n')
     pypy_decls.append("#ifdef __cplusplus")
     pypy_decls.append("}")
     pypy_decls.append("#endif")
@@ -922,6 +937,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
+                               source_dir / "thread.c",
                                ],
         separate_module_sources=separate_module_sources,
         export_symbols=export_symbols_eci,

@@ -425,3 +425,32 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         obj = module.new_obj()
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
+
+    def test_tp_iter(self):
+        module = self.import_extension('foo', [
+           ("tp_iter", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iter)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iter(args);
+             '''
+             ),
+           ("tp_iternext", "METH_O",
+            '''
+                 if (!args->ob_type->tp_iternext)
+                 {
+                     PyErr_SetNone(PyExc_ValueError);
+                     return NULL;
+                 }
+                 return args->ob_type->tp_iternext(args);
+             '''
+             )
+            ])
+        l = [1]
+        it = module.tp_iter(l)
+        assert type(it) is type(iter([]))
+        assert module.tp_iternext(it) == 1
+        raises(StopIteration, module.tp_iternext, it)

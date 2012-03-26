@@ -1,6 +1,14 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 
+def enumerate_chunks(chunks):
+    result = []
+    i = -1
+    for chunk in chunks:
+        i += chunk.axis_step
+        result.append((i, chunk))
+    return result
+
 @jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
     jit.isconstant(len(chunks))
 )
@@ -10,7 +18,7 @@ def calculate_slice_strides(shape, start, strides, backstrides, chunks):
     rstart = start
     rshape = []
     i = -1
-    for i, chunk in enumerate(chunks):
+    for i, chunk in enumerate_chunks(chunks):
         if chunk.step != 0:
             rstrides.append(strides[i] * chunk.step)
             rbackstrides.append(strides[i] * (chunk.lgt - 1) * chunk.step)
@@ -38,22 +46,31 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape):
     rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
 
-def find_shape_and_elems(space, w_iterable):
+def is_single_elem(space, w_elem, is_rec_type):
+    if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
+        return True
+    if space.issequence_w(w_elem):
+        return False
+    return True
+
+def find_shape_and_elems(space, w_iterable, dtype):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
+    is_rec_type = dtype is not None and dtype.is_record_type()
     while True:
         new_batch = []
         if not batch:
             return shape, []
-        if not space.issequence_w(batch[0]):
-            for elem in batch:
-                if space.issequence_w(elem):
+        if is_single_elem(space, batch[0], is_rec_type):
+            for w_elem in batch:
+                if not is_single_elem(space, w_elem, is_rec_type):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "setting an array element with a sequence"))
             return shape, batch
         size = space.len_w(batch[0])
         for w_elem in batch:
-            if not space.issequence_w(w_elem) or space.len_w(w_elem) != size:
+            if (is_single_elem(space, w_elem, is_rec_type) or
+                space.len_w(w_elem) != size):
                 raise OperationError(space.w_ValueError, space.wrap(
                     "setting an array element with a sequence"))
             new_batch += space.listview(w_elem)
@@ -230,3 +247,18 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                     n_old_elems_to_use *= old_shape[oldI]
     assert len(new_strides) == len(new_shape)
     return new_strides
+
+
+def calculate_dot_strides(strides, backstrides, res_shape, skip_dims):
+    rstrides = []
+    rbackstrides = []
+    j=0
+    for i in range(len(res_shape)):
+        if i in skip_dims:
+            rstrides.append(0)
+            rbackstrides.append(0)
+        else:
+            rstrides.append(strides[j])
+            rbackstrides.append(backstrides[j])
+            j += 1
+    return rstrides, rbackstrides

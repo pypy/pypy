@@ -2,6 +2,7 @@ from pypy.conftest import gettestobjspace
 import os
 import py
 
+
 class AppTestSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl', '_socket'))
@@ -29,7 +30,6 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
 
-        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, (int, long))
         assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
         assert len(_ssl.OPENSSL_VERSION_INFO) == 5
         assert isinstance(_ssl.OPENSSL_VERSION, str)
@@ -90,7 +90,7 @@ class AppTestSSL:
 
 class AppTestConnectedSSL:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
         cls.space = space
 
     def setup_method(self, method):
@@ -179,7 +179,7 @@ class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # to exercise the poll() calls
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
         cls.space = space
         cls.space.appexec([], """():
             import socket; socket.setdefaulttimeout(1)

@@ -171,7 +171,7 @@ TYPES = {
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
     'cast_int_to_ptr' : (('int',), 'ref'),
-    'debug_merge_point': (('ref', 'int'), None),
+    'debug_merge_point': (('ref', 'int', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
     'guard_not_forced': ((), None),
@@ -779,6 +779,9 @@ class Frame(object):
             ovf = False
         self.overflow_flag = ovf
         return z
+
+    def op_keepalive(self, _, x):
+        pass
 
     # ----------
     # delegating to the builtins do_xxx() (done automatically for simple cases)

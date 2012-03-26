@@ -231,6 +231,13 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         eq(a//10, td(0, 7*24*360))
         eq(a//3600000, td(0, 0, 7*24*1000))
 
+        # Issue #11576
+        eq(td(999999999, 86399, 999999) - td(999999999, 86399, 999998),
+           td(0, 0, 1))
+        eq(td(999999999, 1, 1) - td(999999999, 1, 0),
+           td(0, 0, 1))
+
+
     def test_disallowed_computations(self):
         a = timedelta(42)
 
@@ -3108,7 +3115,7 @@ class TestTimezoneConversions(unittest.TestCase):
             self.assertEqual(dt, there_and_back)
 
         # Because we have a redundant spelling when DST begins, there is
-        # (unforunately) an hour when DST ends that can't be spelled at all in
+        # (unfortunately) an hour when DST ends that can't be spelled at all in
         # local time.  When DST ends, the clock jumps from 1:59 back to 1:00
         # again.  The hour 1:MM DST has no spelling then:  1:MM is taken to be
         # standard time.  1:MM DST == 0:MM EST, but 0:MM is taken to be

@@ -20,7 +20,7 @@ typedef struct PyMemberDef {
 } PyMemberDef;
 
 
-/* Types */
+/* Types. These constants are also in structmemberdefs.py. */
 #define T_SHORT		0
 #define T_INT		1
 #define T_LONG		2
@@ -42,9 +42,12 @@ typedef struct PyMemberDef {
 #define T_LONGLONG	17
 #define T_ULONGLONG	 18
 
-/* Flags */
+/* Flags. These constants are also in structmemberdefs.py. */
 #define READONLY      1
 #define RO            READONLY                /* Shorthand */
+#define READ_RESTRICTED 2
+#define PY_WRITE_RESTRICTED 4
+#define RESTRICTED    (READ_RESTRICTED | PY_WRITE_RESTRICTED)
 
 
 #ifdef __cplusplus

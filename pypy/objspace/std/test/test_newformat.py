@@ -11,6 +11,7 @@ class BaseStringFormatTests:
         assert self.s("}}").format() == self.s("}")
         assert self.s("{} {{ {}").format(1, 2) == self.s("1 { 2")
         assert self.s("{{}}").format() == self.s("{}")
+        assert self.s("{{{{").format() == self.s("{{")
 
     def test_empty(self):
         assert self.s().format() == self.s()
@@ -384,6 +385,12 @@ class AppTestInternalMethods:
         assert l == [(u'', u'0', u'12{sdd}3', u'x')]
         for x in l[0]:
             assert isinstance(x, unicode)
+
+    def test_formatter_parser_escape(self):
+        l = list("{{a}}"._formatter_parser())
+        assert l == [('{', None, None, None), ('a}', None, None, None)]
+        l = list("{{{{"._formatter_parser())
+        assert l == [('{', None, None, None), ('{', None, None, None)]
 
     def test_formatter_field_name_split(self):
         first, rest = ''._formatter_field_name_split()

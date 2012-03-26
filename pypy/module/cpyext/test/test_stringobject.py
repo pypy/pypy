@@ -105,6 +105,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             )])
         assert module.string_as_string("huheduwe") == "huhe"
 
+    def test_py_string_as_string_None(self):
+        module = self.import_extension('foo', [
+            ("string_None", "METH_VARARGS",
+             '''
+             return PyString_AsString(Py_None);
+             '''
+            )])
+        raises(TypeError, module.string_None)
+
     def test_AsStringAndSize(self):
         module = self.import_extension('foo', [
             ("getstring", "METH_NOARGS",
@@ -165,6 +174,20 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ])
         res = module.test_string_format(1, "xyz")
         assert res == "bla 1 ble xyz\n"
+
+    def test_intern_inplace(self):
+        module = self.import_extension('foo', [
+            ("test_intern_inplace", "METH_O",
+             '''
+                 PyObject *s = args;
+                 Py_INCREF(s);
+                 PyString_InternInPlace(&s);
+                 return s;
+             '''
+             )
+            ])
+        # This does not test much, but at least the refcounts are checked.
+        assert module.test_intern_inplace('s') == 's'
 
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
