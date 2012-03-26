@@ -111,7 +111,10 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
     length = len(data)
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
-    newdata = [data[start + i*step] for i in range(slicelength)]
+    if step == 1 and 0 <= start <= stop:
+        newdata = data[start:stop]
+    else:
+        newdata = [data[start + i*step] for i in range(slicelength)]
     return W_BytearrayObject(newdata)
 
 def contains__Bytearray_Int(space, w_bytearray, w_char):
