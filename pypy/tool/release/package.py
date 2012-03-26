@@ -58,33 +58,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
-        #What runtime do we need?
-        msvc_runtime = 'msvcr80.dll' #default is studio 2005 vc8
-        try:
-            import subprocess
-            out,err = subprocess.Popen([str(pypy_c), '-c', 
-                        'import sys; print sys.version'],
-                        stdout=subprocess.PIPE).communicate()
-            indx=out.find('MSC v.') + 6
-            if indx> 10:
-                if out[indx:].startswith('1600'):
-                    msvc_runtime = 'msvcr100.dll' #studio 2010 vc10
-                elif out[indx:].startwith('1500'):
-                    msvc_runtime = 'msvcr90.dll' #studio 2009 vc9
-                elif out[indx:].startswith('1400'):
-                    msvc_runtime = 'msvcr80.dll' #studio 2005 vc8
-                else:
-                    print 'Cannot determine runtime dll for pypy' \
-                                ' version "%s"'%out
-            else:                    
-                print 'Cannot determine runtime dll for pypy' \
-                                ' version "%s"'%out
-        except :
-            pass
+        #Don't include a mscvrXX.dll, users should get their own.
+        #Instructions are provided on the website.
+
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
         
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', msvc_runtime,
+                      'libexpat.dll', 'sqlite3.dll', 
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
