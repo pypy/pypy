@@ -167,7 +167,8 @@ class BaseArray(Wrappable):
             else:
                 out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, axis, False, out)
+                                        self, True, promote_to_largest, axis,
+                                                                   False, out)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
@@ -219,15 +220,15 @@ class BaseArray(Wrappable):
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
-    def descr_dot(self, space, w_other, w_out=None):
+    def descr_dot(self, space, w_other):
         other = convert_to_array(space, w_other)
         if isinstance(other, Scalar):
             #Note: w_out is not modified, this is numpy compliant.
             return self.descr_mul(space, other)
         elif len(self.shape) < 2 and len(other.shape) < 2:
-            w_res = self.descr_mul(space, other, w_out)
+            w_res = self.descr_mul(space, other)
             assert isinstance(w_res, BaseArray)
-            return w_res.descr_sum(space, space.wrap(-1), w_out)
+            return w_res.descr_sum(space, space.wrap(-1))
         dtype = interp_ufuncs.find_binop_result_dtype(space,
                                      self.find_dtype(), other.find_dtype())
         if self.size < 1 and other.size < 1:
