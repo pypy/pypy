@@ -399,16 +399,11 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.switch_to_empty_strategy()
 
     def copy_real(self, w_set):
+        # may be used internally on frozen sets, although frozenset().copy()
+        # returns self in frozenset_copy__Frozenset.
         strategy = w_set.strategy
-        if isinstance(w_set, W_FrozensetObject):
-            # only used internally since frozenset().copy()
-            # returns self in frozenset_copy__Frozenset
-            d = self.unerase(w_set.sstorage)
-            storage = self.erase(d.copy())
-            #storage = w_set.sstorage
-        else:
-            d = self.unerase(w_set.sstorage)
-            storage = self.erase(d.copy())
+        d = self.unerase(w_set.sstorage)
+        storage = self.erase(d.copy())
         clone = w_set.from_storage_and_strategy(storage, strategy)
         return clone
 
@@ -958,14 +953,15 @@ def _initialize_set(space, w_obj, w_iterable=None):
     set_strategy_and_setdata(space, w_obj, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
-    #XXX can be optimized
-    if space.is_true(space.isinstance(w_obj, space.w_set)):
-        assert isinstance(w_obj, W_SetObject)
-        #XXX better instantiate?
+    if isinstance(w_obj, W_SetObject):
         w_frozen = W_FrozensetObject(space, None)
         w_frozen.strategy = w_obj.strategy
         w_frozen.sstorage = w_obj.sstorage
         return w_frozen
+    elif space.isinstance_w(w_obj, space.w_set):
+        w_frz = space.allocate_instance(W_FrozensetObject, space.w_frozenset)
+        W_FrozensetObject.__init__(w_frz, space, w_obj)
+        return w_frz
     else:
         return None
 
@@ -1011,8 +1007,6 @@ sub__Frozenset_Set = sub__Set_Set
 sub__Frozenset_Frozenset = sub__Set_Set
 
 def set_difference__Set(space, w_left, others_w):
-    if len(others_w) == 0:
-        return w_left.copy_real()
     result = w_left.copy_real()
     set_difference_update__Set(space, result, others_w)
     return result
