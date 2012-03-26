@@ -450,6 +450,7 @@ for _op in [rop.FLOAT_NEG,
 OPERATIONS.append(CastFloatToIntOperation(rop.CAST_FLOAT_TO_INT))
 OPERATIONS.append(CastIntToFloatOperation(rop.CAST_INT_TO_FLOAT))
 OPERATIONS.append(CastFloatToIntOperation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG))
+OPERATIONS.append(CastIntToFloatOperation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 

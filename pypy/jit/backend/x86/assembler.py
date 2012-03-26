@@ -1251,6 +1251,15 @@ class Assembler386(object):
         else:
             self.mov(loc0, resloc)
 
+    def genop_convert_longlong_bytes_to_float(self, op, arglocs, resloc):
+        loc0, = arglocs
+        if longlong.is_64_bit:
+            assert isinstance(resloc, RegLoc)
+            assert isinstance(loc0, RegLoc)
+            self.mc.MOVD(resloc, loc0)
+        else:
+            raise
+
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
         self.mc.CMP(arglocs[0], imm0)

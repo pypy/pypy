@@ -1,3 +1,4 @@
+import math
 import sys
 
 import py
@@ -15,7 +16,7 @@ from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
     isconstant, isvirtual, promote_string, set_param, record_known_class)
-from pypy.rlib.longlong2float import float2longlong
+from pypy.rlib.longlong2float import float2longlong, longlong2float
 from pypy.rlib.rarithmetic import ovfcheck, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -3805,6 +3806,14 @@ class BaseLLtypeTests(BasicTests):
             res = self.interp_operations(f, [x])
             assert longlong.getfloatstorage(res) == expected
 
+    def test_longlong2float(self):
+        def f(n):
+            return longlong2float(n)
+
+        for x in [2.5, float("nan"), -2.5, float("inf")]:
+            longval = float2longlong(x)
+            res = self.interp_operations(f, [longval])
+            assert res == x or math.isnan(x) and math.isnan(res)
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
