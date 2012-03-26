@@ -160,26 +160,26 @@ class W_BaseSetObject(W_Object):
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
-    def _newobj(w_self, space, rdict_w):
-        """Make a new set by taking ownership of 'rdict_w'."""
+    def _newobj(w_self, space, w_iterable):
+        """Make a new set by taking ownership of 'w_iterable'."""
         if type(w_self) is W_SetObject:
-            return W_SetObject(space, rdict_w)
+            return W_SetObject(space, w_iterable)
         w_type = space.type(w_self)
         w_obj = space.allocate_instance(W_SetObject, w_type)
-        W_SetObject.__init__(w_obj, space, rdict_w)
+        W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
     hash = 0
 
-    def _newobj(w_self, space, rdict_w):
-        """Make a new frozenset by taking ownership of 'rdict_w'."""
+    def _newobj(w_self, space, w_iterable):
+        """Make a new frozenset by taking ownership of 'w_iterable'."""
         if type(w_self) is W_FrozensetObject:
-            return W_FrozensetObject(space, rdict_w)
+            return W_FrozensetObject(space, w_iterable)
         w_type = space.type(w_self)
         w_obj = space.allocate_instance(W_FrozensetObject, w_type)
-        W_FrozensetObject.__init__(w_obj, space, rdict_w)
+        W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
 registerimplementation(W_BaseSetObject)
@@ -1230,10 +1230,9 @@ and__Set_Frozenset = and__Set_Set
 and__Frozenset_Set = and__Set_Set
 and__Frozenset_Frozenset = and__Set_Set
 
-def _intersection_multiple(space, w_left, others_w):
+def set_intersection__Set(space, w_left, others_w):
     #XXX find smarter implementations
-    others_w = others_w[:] # original others_w can't be resized
-    others_w.append(w_left)
+    others_w = [w_left] + others_w
 
     # find smallest set in others_w to reduce comparisons
     startindex, startlength = 0, -1
@@ -1262,12 +1261,6 @@ def _intersection_multiple(space, w_left, others_w):
             w_other_as_set = w_left._newobj(space, w_other)
             result.intersect_update(w_other_as_set)
     return result
-
-def set_intersection__Set(space, w_left, others_w):
-    if len(others_w) == 0:
-        return w_left.copy_real()
-    else:
-        return _intersection_multiple(space, w_left, others_w)
 
 frozenset_intersection__Frozenset = set_intersection__Set
 
