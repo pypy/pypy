@@ -202,7 +202,7 @@ class W_ListObject(W_AbstractListObject):
         return self.strategy.getitems_str(self)
 
     def getitems_int(self):
-        """ Return the items in the list as unwrapped strings. If the list does
+        """ Return the items in the list as unwrapped ints. If the list does
         not use the list strategy, return None. """
         return self.strategy.getitems_int(self)
     # ___________________________________________________
