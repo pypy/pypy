@@ -25,6 +25,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
+from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
@@ -448,9 +449,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def listview_str(self, w_obj):
         if isinstance(w_obj, W_ListObject):
             return w_obj.getitems_str()
-        if isinstance(w_obj, W_SetObject):
+        if isinstance(w_obj, W_BaseSetObject):
             return w_obj.listview_str()
-        if isinstance(w_obj, W_DictMultiObject):
+        if type(w_obj) is W_DictMultiObject:   # test_listobject.test_uses_cus.
             return w_obj.listview_str()
         if isinstance(w_obj, W_StringObject):
             return w_obj.listview_str()
@@ -459,9 +460,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def listview_int(self, w_obj):
         if isinstance(w_obj, W_ListObject):
             return w_obj.getitems_int()
-        if isinstance(w_obj, W_SetObject):
+        if isinstance(w_obj, W_BaseSetObject):
             return w_obj.listview_int()
-        if isinstance(w_obj, W_DictMultiObject):
+        if type(w_obj) is W_DictMultiObject:   # test_listobject.test_uses_cus.
             return w_obj.listview_int()
         return None
 

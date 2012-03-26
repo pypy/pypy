@@ -1182,13 +1182,12 @@ class AppTestW_ListObject(object):
         assert list(g) == []
 
     def test_uses_custom_iterator(self):
-        for base, arg in [(list, []), (list, [5]), (list, ['x']),
-                          (dict, []), (dict, [(5,6)]), (dict, [('x',7)]),
-                          (tuple, []), (tuple, [5]), (tuple, ['x']),
-                          (str, 'hello'), (unicode, 'hello')]:
-            class SubClass(base):
-                def __iter__(self):
-                    return iter("foobar")
+        # obscure corner case: space.listview*() must not shortcut subclasses
+        # of dicts, because the OrderedDict in the stdlib relies on this.
+        class SubClass(dict):
+            def __iter__(self):
+                return iter("foobar")
+        for arg in [[], [(5,6)], [('x',7)]]:
             assert list(SubClass(arg)) == ['f', 'o', 'o', 'b', 'a', 'r']
 
 class AppTestForRangeLists(AppTestW_ListObject):
