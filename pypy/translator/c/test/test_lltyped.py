@@ -494,7 +494,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 
         fn = self.getcompiled(f, [int])
         res = fn(1)
-        print res
         assert_eq(res, (
             # int
             -sys.maxint, undefined,               # add
@@ -531,7 +530,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             ))
 
         res = fn(5)
-        print res
         assert_eq(res, (
             # int
             -sys.maxint+4, undefined,             # add
@@ -649,10 +647,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             def llf():
                 s = ''
                 for i in range(5):
-                    print i
-                    print s
                     s += a[i]
-                print s
                 assert s == "85?!" + lastchar
             fn = self.getcompiled(llf)
             fn()
@@ -734,7 +729,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             s = ''
             for i in range(4):
                 s += a[i]
-            print s
             return s == 'abcd'
         fn = self.getcompiled(llf)
         assert fn()

@@ -647,6 +647,7 @@ def test_fixedsizearray():
     py.test.raises(IndexError, "a[5] = 183")
     py.test.raises(IndexError, "a[-1]")
     assert len(a) == 5
+    assert a._obj.items == [5, 0, 0, 0, 83]
 
     S = GcStruct('S', ('n1', Signed),
                       ('a', A),

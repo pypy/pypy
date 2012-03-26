@@ -1639,6 +1639,10 @@ class _struct(_parentable):
     def getbounds(self):
         return 0, self.getlength()
 
+    @property
+    def items(self):
+        return [self.getitem(i) for i in xrange(self.getlength())]
+
     def getitem(self, index, uninitialized_ok=False):
         assert isinstance(self._TYPE, FixedSizeArray)
         return self._getattr('item%d' % index, uninitialized_ok)

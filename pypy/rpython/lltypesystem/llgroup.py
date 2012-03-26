@@ -17,14 +17,15 @@ class GroupType(lltype.ContainerType):
     """
     _gckind = 'raw'
 
-Group = GroupType()
+    def __init__(self, name):
+        self.name = name
 
 
 class group(lltype._container):
-    _TYPE = Group
     outdated = None
 
     def __init__(self, name):
+        self._TYPE = GroupType(name)
         self.name = name
         self.members = []
 
@@ -71,7 +72,7 @@ class GroupMemberOffset(llmemory.Symbolic):
         return HALFWORD
 
     def __init__(self, grp, memberindex):
-        assert lltype.typeOf(grp) == Group
+        assert isinstance(lltype.typeOf(grp), GroupType)
         self.grpptr = grp._as_ptr()
         self.index = memberindex
         self.member = grp.members[memberindex]._as_ptr()
