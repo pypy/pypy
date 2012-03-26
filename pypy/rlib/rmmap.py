@@ -711,9 +711,9 @@ if _POSIX:
     free = c_munmap_safe
 
 elif _MS_WINDOWS:
-    def mmap(fileno, length, flags=0, tagname="", access=_ACCESS_DEFAULT, offset=0):
+    def mmap(fileno, length, tagname="", access=_ACCESS_DEFAULT, offset=0):
         # XXX flags is or-ed into access by now.
-        
+        flags = 0
         # check size boundaries
         _check_map_size(length)
         map_size = length
