@@ -110,35 +110,35 @@ class W_BaseSetObject(W_Object):
         return self.strategy.difference(self, w_other)
 
     def difference_update(self, w_other):
-        """ As difference but overwrites the sets content with the result. """
-        return self.strategy.difference_update(self, w_other)
+        """ As difference but overwrites the sets content with the result. W_other must be a set."""
+        self.strategy.difference_update(self, w_other)
 
     def symmetric_difference(self, w_other):
         """ Returns a set with all items that are either in this set or in w_other, but not in both. W_other must be a set. """
         return self.strategy.symmetric_difference(self, w_other)
 
     def symmetric_difference_update(self, w_other):
-        """ As symmetric_difference but overwrites the content of the set with the result. """
-        return self.strategy.symmetric_difference_update(self, w_other)
+        """ As symmetric_difference but overwrites the content of the set with the result. W_other must be a set."""
+        self.strategy.symmetric_difference_update(self, w_other)
 
     def intersect(self, w_other):
         """ Returns a set with all items that exists in both sets, this set and in w_other. W_other must be a set. """
         return self.strategy.intersect(self, w_other)
 
     def intersect_update(self, w_other):
-        """ Keeps only those elements found in both sets, removing all other elements. """
-        return self.strategy.intersect_update(self, w_other)
+        """ Keeps only those elements found in both sets, removing all other elements. W_other must be a set."""
+        self.strategy.intersect_update(self, w_other)
 
     def issubset(self, w_other):
         """ Checks wether this set is a subset of w_other. W_other must be a set. """
         return self.strategy.issubset(self, w_other)
 
     def isdisjoint(self, w_other):
-        """ Checks wether this set and the w_other are completly different, i.e. have no equal elements. """
+        """ Checks wether this set and the w_other are completly different, i.e. have no equal elements. W_other must be a set."""
         return self.strategy.isdisjoint(self, w_other)
 
     def update(self, w_other):
-        """ Appends all elements from the given set to this set. """
+        """ Appends all elements from the given set to this set. W_other must be a set."""
         self.strategy.update(self, w_other)
 
     def has_key(self, w_key):
@@ -146,7 +146,7 @@ class W_BaseSetObject(W_Object):
         return self.strategy.has_key(self, w_key)
 
     def equals(self, w_other):
-        """ Checks wether this set and the given set are equal, i.e. contain the same elements. """
+        """ Checks wether this set and the given set are equal, i.e. contain the same elements. W_other must be a set."""
         return self.strategy.equals(self, w_other)
 
     def iter(self):
@@ -281,17 +281,6 @@ class EmptySetStrategy(SetStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def check_for_unhashable_objects(self, w_iterable):
-        w_iterator = self.space.iter(w_iterable)
-        while True:
-            try:
-                elem = self.space.next(w_iterator)
-                self.space.hash(elem)
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_StopIteration):
-                    raise
-                break
-
     def get_empty_storage(self):
         return self.erase(None)
 
@@ -344,15 +333,13 @@ class EmptySetStrategy(SetStrategy):
         return w_set.copy_real()
 
     def difference_update(self, w_set, w_other):
-        self.check_for_unhashable_objects(w_other)
+        pass
 
     def intersect(self, w_set, w_other):
-        self.check_for_unhashable_objects(w_other)
         return w_set.copy_real()
 
     def intersect_update(self, w_set, w_other):
-        self.check_for_unhashable_objects(w_other)
-        return w_set.copy_real()
+        pass
 
     def isdisjoint(self, w_set, w_other):
         return True
@@ -622,7 +609,6 @@ class AbstractUnwrappedSetStrategy(object):
             storage, strategy = self._intersect_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
-        return w_set
 
     def _issubset_unwrapped(self, w_set, w_other):
         d_other = self.unerase(w_other.sstorage)
@@ -1061,7 +1047,7 @@ def eq__Set_settypedef(space, w_left, w_other):
     # tested in test_buildinshortcut.py
     #XXX do not make new setobject here
     w_other_as_set = w_left._newobj(space, w_other)
-    return space.wrap(w_left.equals(w_other))
+    return space.wrap(w_left.equals(w_other_as_set))
 
 eq__Set_frozensettypedef = eq__Set_settypedef
 eq__Frozenset_settypedef = eq__Set_settypedef
@@ -1084,7 +1070,7 @@ ne__Frozenset_Set = ne__Set_Set
 def ne__Set_settypedef(space, w_left, w_other):
     #XXX this is not tested
     w_other_as_set = w_left._newobj(space, w_other)
-    return space.wrap(not w_left.equals(w_other))
+    return space.wrap(not w_left.equals(w_other_as_set))
 
 ne__Set_frozensettypedef = ne__Set_settypedef
 ne__Frozenset_settypedef = ne__Set_settypedef
@@ -1298,7 +1284,8 @@ def set_intersection_update__Set(space, w_left, others_w):
     return
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    return w_left.intersect_update(w_other)
+    w_left.intersect_update(w_other)
+    return w_left
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 
