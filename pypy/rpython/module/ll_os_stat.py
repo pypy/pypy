@@ -319,6 +319,7 @@ def make_win32_stat_impl(name, traits):
 
     def attributes_to_mode(attributes):
         m = 0
+        attributes = intmask(attributes)
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:

@@ -208,6 +208,7 @@ class GcRootMap_asmgcc(object):
     This is the class supporting --gcrootfinder=asmgcc.
     """
     is_shadow_stack = False
+    is_64_bit = (WORD == 8)
 
     LOC_REG       = 0
     LOC_ESP_PLUS  = 1
@@ -336,17 +337,17 @@ class GcRootMap_asmgcc(object):
             self._gcmap_deadentries += 1
             item += asmgcroot.arrayitemsize
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         # XXX: Should this code even really know about stack frame layout of
         # the JIT?
-        if is_64_bit:
-            return [chr(self.LOC_EBP_PLUS  | 8),
-                    chr(self.LOC_EBP_MINUS | 8),
-                    chr(self.LOC_EBP_MINUS | 16),
-                    chr(self.LOC_EBP_MINUS | 24),
-                    chr(self.LOC_EBP_MINUS | 32),
-                    chr(self.LOC_EBP_MINUS | 40),
-                    chr(self.LOC_EBP_PLUS  | 0),
+        if self.is_64_bit:
+            return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 4),    # saved %rbx:  at  -8(%rbp)
+                    chr(self.LOC_EBP_MINUS | 8),    # saved %r12:  at -16(%rbp)
+                    chr(self.LOC_EBP_MINUS | 12),   # saved %r13:  at -24(%rbp)
+                    chr(self.LOC_EBP_MINUS | 16),   # saved %r14:  at -32(%rbp)
+                    chr(self.LOC_EBP_MINUS | 20),   # saved %r15:  at -40(%rbp)
+                    chr(self.LOC_EBP_PLUS  | 0),    # saved %rbp:  at    (%rbp)
                     chr(0)]
         else:
             return [chr(self.LOC_EBP_PLUS  | 4),    # return addr: at   4(%ebp)
@@ -366,7 +367,11 @@ class GcRootMap_asmgcc(object):
         shape.append(chr(number | flag))
 
     def add_frame_offset(self, shape, offset):
-        assert (offset & 3) == 0
+        if self.is_64_bit:
+            assert (offset & 7) == 0
+            offset >>= 1
+        else:
+            assert (offset & 3) == 0
         if offset >= 0:
             num = self.LOC_EBP_PLUS | offset
         else:
@@ -518,7 +523,7 @@ class GcRootMap_shadowstack(object):
     def initialize(self):
         pass
 
-    def get_basic_shape(self, is_64_bit=False):
+    def get_basic_shape(self):
         return []
 
     def add_frame_offset(self, shape, offset):
@@ -594,7 +599,7 @@ class WriteBarrierDescr(AbstractDescr):
         # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
         import struct
-        value = struct.pack("l", flag_word)
+        value = struct.pack(lltype.SignedFmt, flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
         i = 0
         while value[i] == '\x00': i += 1

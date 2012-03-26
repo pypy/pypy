@@ -33,8 +33,7 @@ def test_ctr():
                  'rtype_ootype', 'rtype_lltype',
                  'source_cli', 'source_c',
                  'compile_cli', 'compile_c',
-                 'run_c', 'run_cli',
-                 'source_llvm', 'compile_llvm', 'run_llvm',
+                 'source_llvm', 'compile_llvm',
                  'compile_jvm', 'source_jvm', 'run_jvm',
                  'pyjitpl_lltype',
                  'pyjitpl_ootype']
@@ -51,6 +50,6 @@ def test_ctr():
         'backendopt_lltype']
 
     expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source_c',
-                'compile_c', 'run_c', 'pyjitpl']
+                'compile_c', 'pyjitpl']
 
     assert set(td.exposed) == set(expected)

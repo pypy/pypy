@@ -34,7 +34,6 @@ class TestRecompilation(BaseTestRegalloc):
         '''
         loop = self.interpret(ops, [0])
         previous = loop._jitcelltoken.compiled_loop_token.frame_depth
-        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         assert self.getint(0) == 20
         ops = '''
         [i1]
@@ -51,7 +50,6 @@ class TestRecompilation(BaseTestRegalloc):
         bridge = self.attach_bridge(ops, loop, -2)
         descr = loop.operations[3].getdescr()
         new = descr._x86_bridge_frame_depth
-        assert descr._x86_bridge_param_depth == 0
         # the force_spill() forces the stack to grow
         assert new > previous
         fail = self.run(loop, 0)
@@ -116,10 +114,8 @@ class TestRecompilation(BaseTestRegalloc):
         loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
         bridge = self.attach_bridge(ops, loop, 6)
         guard_op = loop.operations[6]
-        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         # the force_spill() forces the stack to grow
         assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
-        assert guard_op.getdescr()._x86_bridge_param_depth == 0
         self.run(loop, 0, 0, 0, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20

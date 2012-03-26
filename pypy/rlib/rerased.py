@@ -24,11 +24,11 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.error import TyperError
-
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 def erase_int(x):
-    assert isinstance(x, int)
+    assert is_valid_int(x)
     res = 2 * x + 1
     if res > sys.maxint or res < -sys.maxint - 1:
         raise OverflowError
@@ -36,7 +36,7 @@ def erase_int(x):
 
 def unerase_int(y):
     assert y._identity is _identity_for_ints
-    assert isinstance(y._x, int)
+    assert is_valid_int(y._x)
     return y._x
 
 

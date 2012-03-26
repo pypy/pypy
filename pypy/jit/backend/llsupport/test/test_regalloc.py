@@ -1,4 +1,4 @@
-
+import py
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT
 from pypy.jit.backend.llsupport.regalloc import FrameManager
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
@@ -235,6 +235,16 @@ class TestRegalloc(object):
         loc = rm.loc(b0)
         assert isinstance(loc, FakeFramePos)
         assert len(asm.moves) == 1
+
+    def test_bogus_make_sure_var_in_reg(self):
+        b0, = newboxes(0)
+        longevity = {b0: (0, 1)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.next_instruction()
+        # invalid call to make_sure_var_in_reg(): box unknown so far
+        py.test.raises(KeyError, rm.make_sure_var_in_reg, b0)
 
     def test_return_constant(self):
         asm = MockAsm()

@@ -4,7 +4,7 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 
 import math
 
-from pypy.rlib import rarithmetic, rfloat, objectmodel
+from pypy.rlib import rarithmetic, rfloat, objectmodel, jit
 from pypy.rlib.rarithmetic import r_ulonglong
 
 
@@ -135,14 +135,15 @@ def float_pack(x, size):
     return ((sign << BITS - 1) | (exp << MANT_DIG - 1)) | mant
 
 
+@jit.unroll_safe
 def pack_float(result, x, size, be):
-    l = [] if be else result
+    l = []
     unsigned = float_pack(x, size)
     for i in range(size):
         l.append(chr((unsigned >> (i * 8)) & 0xFF))
     if be:
         l.reverse()
-        result.extend(l)
+    result.append("".join(l))
 
 
 def unpack_float(s, be):

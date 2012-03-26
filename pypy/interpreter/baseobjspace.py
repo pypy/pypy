@@ -7,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -833,7 +834,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #
@@ -1335,7 +1336,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
+        return self.str_w(w_obj)            
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)

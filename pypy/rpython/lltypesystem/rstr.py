@@ -62,6 +62,14 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
+        """Copies 'length' characters from the 'src' string to the 'dst'
+        string, starting at position 'srcstart' and 'dststart'."""
+        # xxx Warning: don't try to do this at home.  It relies on a lot
+        # of details to be sure that it works correctly in all cases.
+        # Notably: no GC operation at all from the first cast_ptr_to_adr()
+        # because it might move the strings.  The keepalive_until_here()
+        # are obscurely essential to make sure that the strings stay alive
+        # longer than the raw_memcopy().
         assert srcstart >= 0
         assert dststart >= 0
         assert length >= 0
