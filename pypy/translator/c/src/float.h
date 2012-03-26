@@ -43,5 +43,6 @@
 #define OP_CAST_FLOAT_TO_LONGLONG(x,r) r = (long long)(x)
 #define OP_CAST_FLOAT_TO_ULONGLONG(x,r) r = (unsigned long long)(x)
 #define OP_CONVERT_FLOAT_BYTES_TO_LONGLONG(x,r) memcpy(&r, &x, sizeof(double))
+#define OP_CONVERT_LONGLONG_BYTES_TO_FLOAT(x,r) memcpy(&r, &x, sizeof(long long))
 #endif
 

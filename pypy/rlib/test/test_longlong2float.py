@@ -2,6 +2,7 @@ from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.longlong2float import longlong2float, float2longlong
 from pypy.rlib.longlong2float import uint2singlefloat, singlefloat2uint
 from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rpython.test.test_llinterp import interpret
 
 
 def fn(f1):
@@ -29,6 +30,11 @@ def test_compiled():
     fn2 = compile(fn, [float])
     for x in enum_floats():
         res = fn2(x)
+        assert repr(res) == repr(x)
+
+def test_interpreted():
+    for x in enum_floats():
+        res = interpret(fn, [x])
         assert repr(res) == repr(x)
 
 # ____________________________________________________________
