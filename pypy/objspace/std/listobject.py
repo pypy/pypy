@@ -1064,17 +1064,17 @@ init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
 def init__List(space, w_list, __args__):
-    from pypy.objspace.std.tupleobject import W_TupleObject
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
     w_list.clear(space)
     if w_iterable is not None:
-        if isinstance(w_iterable, W_ListObject):
+        if type(w_iterable) is W_ListObject:
             w_iterable.copy_into(w_list)
             return
-        elif isinstance(w_iterable, W_TupleObject):
-            W_ListObject(space, w_iterable.wrappeditems[:]).copy_into(w_list)
+        elif isinstance(w_iterable, W_AbstractTupleObject):
+            w_list.__init__(space, w_iterable.getitems_copy())
             return
 
         intlist = space.listview_int(w_iterable)

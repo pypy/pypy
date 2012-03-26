@@ -25,7 +25,6 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.iterobject import W_SeqIterObject
-from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
@@ -401,7 +400,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
@@ -415,7 +414,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.tolist()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             if unroll:
                 t = w_obj.getitems_unroll()
             else:
@@ -436,7 +435,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_ListObject):
+        if type(w_obj) is W_ListObject:
             t = w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
@@ -447,22 +446,24 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return t
 
     def listview_str(self, w_obj):
-        if isinstance(w_obj, W_ListObject):
+        # note: uses exact type checking for objects with strategies,
+        # and isinstance() for others.  See test_listobject.test_uses_custom...
+        if type(w_obj) is W_ListObject:
             return w_obj.getitems_str()
-        if isinstance(w_obj, W_BaseSetObject):
+        if type(w_obj) is W_DictMultiObject:
             return w_obj.listview_str()
-        if type(w_obj) is W_DictMultiObject:   # test_listobject.test_uses_cus.
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_str()
         if isinstance(w_obj, W_StringObject):
             return w_obj.listview_str()
         return None
 
     def listview_int(self, w_obj):
-        if isinstance(w_obj, W_ListObject):
+        if type(w_obj) is W_ListObject:
             return w_obj.getitems_int()
-        if isinstance(w_obj, W_BaseSetObject):
+        if type(w_obj) is W_DictMultiObject:
             return w_obj.listview_int()
-        if type(w_obj) is W_DictMultiObject:   # test_listobject.test_uses_cus.
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_int()
         return None
 

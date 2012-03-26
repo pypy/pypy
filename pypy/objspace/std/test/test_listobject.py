@@ -1184,10 +1184,15 @@ class AppTestW_ListObject(object):
     def test_uses_custom_iterator(self):
         # obscure corner case: space.listview*() must not shortcut subclasses
         # of dicts, because the OrderedDict in the stdlib relies on this.
-        class SubClass(dict):
-            def __iter__(self):
-                return iter("foobar")
-        for arg in [[], [(5,6)], [('x',7)]]:
+        # we extend the use case to lists and sets, i.e. all types that have
+        # strategies, to avoid surprizes depending on the strategy.
+        for base, arg in [(list, []), (list, [5]), (list, ['x']),
+                          (set, []),  (set,  [5]), (set,  ['x']),
+                          (dict, []), (dict, [(5,6)]), (dict, [('x',7)])]:
+            print base, arg
+            class SubClass(base):
+                def __iter__(self):
+                    return iter("foobar")
             assert list(SubClass(arg)) == ['f', 'o', 'o', 'b', 'a', 'r']
 
 class AppTestForRangeLists(AppTestW_ListObject):
