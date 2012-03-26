@@ -486,6 +486,14 @@ class AppTestW_ListObject(object):
         list.__init__(l, ['a', 'b', 'c'])
         assert l is l0
         assert l == ['a', 'b', 'c']
+        list.__init__(l)
+        assert l == []
+
+    def test_explicit_new_init_more_cases(self):
+        for assignment in [[], (), [3], ["foo"]]:
+            l = [1, 2]
+            l.__init__(assignment)
+            assert l == list(assignment)
 
     def test_extend_list(self):
         l = l0 = [1]
