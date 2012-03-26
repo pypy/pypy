@@ -139,6 +139,15 @@ class W_ListObject(W_AbstractListObject):
         new erased object as storage"""
         self.strategy.init_from_list_w(self, list_w)
 
+    def clear(self):
+        """Make the listobject empty."""
+        if self.space.config.objspace.std.withliststrategies:
+            strategy = self.space.fromcache(EmptyListStrategy)
+        else:
+            strategy = self.space.fromcache(ObjectListStrategy)
+        self.strategy = strategy
+        strategy.clear(self)
+
     def clone(self):
         """Returns a clone by creating a new listobject
         with the same strategy and a copy of the storage"""
@@ -364,6 +373,9 @@ class EmptyListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
+        w_list.lstorage = self.erase(None)
+
+    def clear(self, w_list):
         w_list.lstorage = self.erase(None)
 
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -949,6 +961,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.lstorage = self.erase(list_w)
 
+    def clear(self, w_list):
+        w_list.lstorage = self.erase([])
+
     def contains(self, w_list, w_obj):
         return ListStrategy.contains(self, w_list, w_obj)
 
@@ -1052,6 +1067,7 @@ def init__List(space, w_list, __args__):
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
+    w_list.clear()
     if w_iterable is not None:
         if isinstance(w_iterable, W_ListObject):
             w_iterable.copy_into(w_list)
@@ -1074,7 +1090,6 @@ def init__List(space, w_list, __args__):
             w_list.lstorage = strategy.erase(strlist[:])
             return
 
-        w_list.__init__(space, [])
         # xxx special hack for speed
         from pypy.interpreter.generator import GeneratorIterator
         if isinstance(w_iterable, GeneratorIterator):
@@ -1082,8 +1097,6 @@ def init__List(space, w_list, __args__):
             return
         # /xxx
         _init_from_iterable(space, w_list, w_iterable)
-    else:
-        w_list.__init__(space, [])
 
 def _init_from_iterable(space, w_list, w_iterable):
     # in its own function to make the JIT look into init__List
