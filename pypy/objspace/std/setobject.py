@@ -862,6 +862,8 @@ class RDictIteratorImplementation(IteratorImplementation):
 
 class W_SetIterObject(W_Object):
     from pypy.objspace.std.settype import setiter_typedef as typedef
+    # XXX this class should be killed, and the various
+    # iterimplementations should be W_Objects directly.
 
     def __init__(w_self, space, iterimplementation):
         w_self.space = space
