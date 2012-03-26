@@ -69,6 +69,14 @@ class W_StringObject(W_AbstractStringObject):
     def str_w(w_self, space):
         return w_self._value
 
+    def listview_str(w_self):
+        return _create_list_from_string(w_self._value)
+
+def _create_list_from_string(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_str
+    return [s for s in value]
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
