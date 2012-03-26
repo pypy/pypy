@@ -3796,24 +3796,16 @@ class BaseLLtypeTests(BasicTests):
         res = self.interp_operations(g, [1])
         assert res == 3
 
-    def test_float2longlong(self):
+    def test_float_bytes(self):
         def f(n):
-            return float2longlong(n)
+            ll = float2longlong(n)
+            return longlong2float(ll)
 
         for x in [2.5, float("nan"), -2.5, float("inf")]:
             # There are tests elsewhere to verify the correctness of this.
-            expected = float2longlong(x)
             res = self.interp_operations(f, [x])
-            assert longlong.getfloatstorage(res) == expected
-
-    def test_longlong2float(self):
-        def f(n):
-            return longlong2float(n)
-
-        for x in [2.5, float("nan"), -2.5, float("inf")]:
-            longval = float2longlong(x)
-            res = self.interp_operations(f, [longval])
             assert res == x or math.isnan(x) and math.isnan(res)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):

@@ -1258,7 +1258,7 @@ class Assembler386(object):
             assert isinstance(loc0, RegLoc)
             self.mc.MOVD(resloc, loc0)
         else:
-            raise
+            self.mov(loc0, resloc)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()

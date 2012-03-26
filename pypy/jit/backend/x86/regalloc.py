@@ -785,7 +785,10 @@ class RegAlloc(object):
             self.Perform(op, [loc0], loc1)
             self.rm.possibly_free_var(op.getarg(0))
         else:
-            raise
+            loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+            loc1 = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [loc0], loc1)
+            self.xrm.possibly_free_var(op.getarg(0))
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't

@@ -674,7 +674,8 @@ class BlackholeInterpreter(object):
 
     @arguments(LONGLONG_TYPECODE, returns="f")
     def bhimpl_convert_longlong_bytes_to_float(a):
-        return longlong2float.longlong2float(a)
+        a = longlong2float.longlong2float(a)
+        return longlong.getfloatstorage(a)
 
     # ----------
     # control flow operations
