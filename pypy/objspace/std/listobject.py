@@ -139,12 +139,13 @@ class W_ListObject(W_AbstractListObject):
         new erased object as storage"""
         self.strategy.init_from_list_w(self, list_w)
 
-    def clear(self):
-        """Make the listobject empty."""
-        if self.space.config.objspace.std.withliststrategies:
-            strategy = self.space.fromcache(EmptyListStrategy)
+    def clear(self, space):
+        """Initializes (or overrides) the listobject as empty."""
+        self.space = space
+        if space.config.objspace.std.withliststrategies:
+            strategy = space.fromcache(EmptyListStrategy)
         else:
-            strategy = self.space.fromcache(ObjectListStrategy)
+            strategy = space.fromcache(ObjectListStrategy)
         self.strategy = strategy
         strategy.clear(self)
 
@@ -1067,7 +1068,7 @@ def init__List(space, w_list, __args__):
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
-    w_list.clear()
+    w_list.clear(space)
     if w_iterable is not None:
         if isinstance(w_iterable, W_ListObject):
             w_iterable.copy_into(w_list)
