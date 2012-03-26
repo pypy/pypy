@@ -1243,9 +1243,10 @@ def set_intersection__Set(space, w_left, others_w):
         try:
             length = space.int_w(space.len(w_other))
         except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            continue
+            if (e.match(space, space.w_TypeError) or
+                e.match(space, space.w_AttributeError)):
+                continue
+            raise
 
         if startlength == -1 or length < startlength:
             startindex = i

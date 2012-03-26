@@ -900,3 +900,10 @@ class AppTestAppSetTest:
         raises(AttributeError, "frozenset().difference_update()")
         raises(AttributeError, "frozenset().symmetric_difference_update()")
         raises(AttributeError, "frozenset().intersection_update()")
+
+    def test_intersection_obj(self):
+        class Obj:
+            def __getitem__(self, i):
+                return [5, 3, 4][i]
+        s = set([10,3,2]).intersection(Obj())
+        assert list(s) == [3]
