@@ -30,9 +30,11 @@
 #include <utility>
 
 
-/*  CINT internals (won't work on Windwos) ------------------------------- */
+/*  CINT internals (some won't work on Windows) -------------------------- */
 extern long G__store_struct_offset;
 extern "C" void* G__SetShlHandle(char*);
+extern "C" void G__LockCriticalSection();
+extern "C" void G__UnlockCriticalSection();
 
 
 /* data for life time management ------------------------------------------ */
@@ -247,19 +249,25 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     assert(libp->paran == nargs);
     fixup_args(libp);
 
-    // TODO: access to store_struct_offset won't work on Windows
-    long store_struct_offset = G__store_struct_offset;
-    if (self) {
-        G__setgvp((long)self);
-        G__store_struct_offset = (long)self;
-    }
-
     G__value result;
     G__setnull(&result);
+
+    G__LockCriticalSection();      // is recursive lock
+
+    // TODO: access to store_struct_offset won't work on Windows
+    long store_struct_offset = G__store_struct_offset;
+    if (self)
+        G__store_struct_offset = (long)self;
+
     meth(&result, 0, libp, 0);
 
     if (self)
         G__store_struct_offset = store_struct_offset;
+
+    if (G__get_return(0) > G__RETURN_NORMAL)
+        G__security_recover(0);    // 0 ensures silence
+
+    G__UnlockCriticalSection();
 
     return result;
 }
@@ -317,6 +325,12 @@ char* cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
         return charp;
     }
     return cppstring_to_cstring("");
+}
+
+void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    G__setgvp((long)self);
+    cppyy_call_T(method, self, nargs, args);
+    G__setgvp((long)G__PVOID);
 }
 
 cppyy_object_t cppyy_call_o(cppyy_type_t method, cppyy_object_t self, int nargs, void* args,

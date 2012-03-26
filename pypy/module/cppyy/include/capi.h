@@ -37,6 +37,7 @@ extern "C" {
     void*  cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     char*  cppyy_call_s(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 
+    void cppyy_constructor(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     cppyy_object_t cppyy_call_o(cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type);
 
     cppyy_methptrgetter_t cppyy_get_methptr_getter(cppyy_scope_t scope, int method_index);

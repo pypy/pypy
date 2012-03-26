@@ -236,6 +236,14 @@ class DoublePtrExecutor(PtrTypeExecutor):
     typecode = 'd'
 
 
+class ConstructorExecutor(VoidExecutor):
+    _immutable_ = True
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        capi.c_constructor(cppmethod, cppthis, num_args, args)
+        return space.w_None
+
+
 class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
@@ -386,6 +394,8 @@ _executors["float"]               = FloatExecutor
 _executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor
 _executors["double*"]             = DoublePtrExecutor
+
+_executors["constructor"]         = ConstructorExecutor
 
 # special cases (note: CINT backend requires the simple name 'string')
 _executors["std::basic_string<char>"]        = StdStringExecutor

@@ -109,6 +109,11 @@ c_call_s = rffi.llexternal(
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.CCHARP,
     compilation_info=backend.eci)
 
+c_constructor = rffi.llexternal(
+    "cppyy_constructor",
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], lltype.Void,
+    compilation_info=backend.eci)
+
 c_call_o = rffi.llexternal(
     "cppyy_call_o",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPE], rffi.LONG,

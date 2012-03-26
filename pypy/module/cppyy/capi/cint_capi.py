@@ -41,6 +41,7 @@ eci = ExternalCompilationInfo(
 _c_load_dictionary = rffi.llexternal(
     "cppyy_load_dictionary",
     [rffi.CCHARP], rdynload.DLLHANDLE,
+    threadsafe=False,
     compilation_info=eci)
 
 def c_load_dictionary(name):
