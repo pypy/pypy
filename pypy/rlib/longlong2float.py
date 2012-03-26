@@ -6,6 +6,7 @@ long long to a float and back to a long long.  There are corner cases
 in which it does not work.
 """
 
+from __future__ import with_statement
 from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import r_int64
 from pypy.rpython.lltypesystem import lltype, rffi
