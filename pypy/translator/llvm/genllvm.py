@@ -147,6 +147,11 @@ class IntegralType(Type):
                     return 'zext'
                 else:
                     return 'sext'
+        elif isinstance(to, FloatType):
+                if self.unsigned:
+                    return 'uitofp'
+                else:
+                    return 'sitofp'
         elif isinstance(to, BasePtrType):
             return 'inttoptr'
         return 'bitcast'
@@ -181,14 +186,28 @@ class BoolType(IntegralType):
 
 
 class FloatType(Type):
-    def __init__(self, typestr):
+    def __init__(self, typestr, bitwidth):
         self.typestr = typestr
+        self.bitwidth = bitwidth
 
     def is_zero(self, value):
         return float(value) == 0.0
 
     def repr_value(self, value, extra_len=None):
         return repr(float(value))
+
+    def get_cast_op(self, to):
+        if isinstance(to, FloatType):
+            if self.bitwidth > to.bitwidth:
+                return 'fptrunc'
+            elif self.bitwidth < to.bitwidth:
+                return 'fpext'
+        elif isinstance(to, IntegralType):
+                if to.unsigned:
+                    return 'fptoui'
+                else:
+                    return 'fptosi'
+        return 'bitcast'
 
 
 class BasePtrType(Type):
@@ -215,9 +234,9 @@ LLVMSigned = IntegralType(8, False)
 LLVMUnsigned = IntegralType(8, True)
 LLVMChar = CharType()
 LLVMBool = BoolType()
-LLVMFloat = FloatType('double')
-LLVMSingleFloat = FloatType('float')
-LLVMLongFloat = FloatType('x86_fp80')
+LLVMFloat = FloatType('double', 64)
+LLVMSingleFloat = FloatType('float', 32)
+LLVMLongFloat = FloatType('x86_fp80', 80)
 LLVMAddress = AddressType()
 
 PRIMITIVES = {
@@ -1106,6 +1125,7 @@ class GenLLVM(object):
 
         bk = self.translator.annotator.bookkeeper
         ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
+        ptr_repr = get_repr(ptr)
 
         with self.base_path.new(ext='.ll').open('w') as f:
             # XXX
@@ -1116,7 +1136,8 @@ class GenLLVM(object):
             f.write('declare void @llvm.memset.p0i8.i64 ('
                     'i8*, i8, i64, i32, i1)\n')
             database = Database(self, f)
-            self.entry_point_name = get_repr(ptr).V[1:]
+            self.entry_point_name = ptr_repr.V[1:]
+            self.entry_point_type = ptr_repr.type_.to
             self.gcpolicy.finish()
 
     def compile_standalone(self, exe_name):
@@ -1130,5 +1151,26 @@ class GenLLVM(object):
         cmdexec('ld -shared -o {0}.so {0}.o'.format(base_path))
 
         import ctypes
-        cdll = ctypes.CDLL(str(self.base_path) + '.so')
-        return getattr(cdll, self.entry_point_name)
+        CTYPES_MAP = {
+            LLVMVoid: ctypes.c_long,
+            LLVMSigned: ctypes.c_long,
+            LLVMUnsigned: ctypes.c_ulong,
+            LLVMChar: ctypes.c_char,
+            LLVMBool: ctypes.c_long,
+            LLVMFloat: ctypes.c_double
+        }
+        func = getattr(ctypes.CDLL(base_path + '.so'), self.entry_point_name)
+        func.argtypes = [CTYPES_MAP[arg] for arg in self.entry_point_type.args]
+        if isinstance(self.entry_point_type.result, PtrType):
+            to = self.entry_point_type.result.to
+            assert isinstance(to, StructType)
+            class Struct(ctypes.Structure):
+                _fields_ = [(fn, CTYPES_MAP[ft]) for ft, fn in to.fields]
+            func.restype = ctypes.POINTER(Struct)
+            def errcheck(result, func, arguments):
+                struct = result.contents
+                return tuple(getattr(struct, fn) for ft, fn in to.fields)
+            func.errcheck = errcheck
+        else:
+            func.restype = CTYPES_MAP[self.entry_point_type.result]
+        return func

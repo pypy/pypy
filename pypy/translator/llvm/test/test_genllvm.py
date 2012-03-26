@@ -241,15 +241,6 @@ class TestLowLevelTypeLLVM(test_lltyped.TestLowLevelType):
         gen_llvm.gen_source(func)
         return gen_llvm.compile_module()
 
-    def test_force_cast(self):
-        py.test.skip('not yet implemented modules returning strings')
-
-    def test_arithmetic_cornercases(self):
-        py.test.skip('not yet implemented modules returning tuples')
-
-    def test_r_singlefloat(self):
-        py.test.skip('not yet implemented modules returning floats')
-
     def test_llgroup_size_limit(self):
         py.test.skip('not working yet')
 
