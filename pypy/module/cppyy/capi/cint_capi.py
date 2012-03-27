@@ -20,6 +20,8 @@ else:
 def identify():
     return 'CINT'
 
+threadsafe = False
+
 # force loading in global mode of core libraries, rather than linking with
 # them as PyPy uses various version of dlopen in various places; note that
 # this isn't going to fly on Windows (note that locking them in objects and

@@ -19,6 +19,8 @@ else:
 def identify():
     return 'Reflex'
 
+threadsafe='auto'
+
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("reflexcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
