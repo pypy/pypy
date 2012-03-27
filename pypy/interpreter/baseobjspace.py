@@ -467,9 +467,9 @@ class ObjSpace(object):
                 if name not in modules:
                     modules.append(name)
 
-        # a bit of custom logic: time2 or rctime take precedence over time
+        # a bit of custom logic: rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
-        if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
+        if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
         if not self.config.objspace.nofaking:
