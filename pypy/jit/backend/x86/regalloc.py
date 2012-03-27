@@ -773,8 +773,9 @@ class RegAlloc(object):
             self.Perform(op, [loc0], loc1)
             self.xrm.possibly_free_var(op.getarg(0))
         else:
-            loc0 = self.xrm.loc(op.getarg(0))
-            loc1 = self.xrm.force_allocate_reg(op.result)
+            arg0 = op.getarg(0)
+            loc0 = self.xrm.loc(arg0)
+            loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
             self.Perform(op, [loc0], loc1)
             self.xrm.possibly_free_var(op.getarg(0))
 
