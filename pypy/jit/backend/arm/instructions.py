@@ -140,3 +140,11 @@ float64_data_proc_instructions = {
     'VSQRT' : {'opc1':0xB, 'opc2':0x1, 'opc3':0x3, 'base': False},
     #'VCVT' : {'opc1':0xB, 'opc2':0xE, 'opc3':0x1, 'base': False},
 }
+
+simd_instructions_3regs = {
+    'VADD_i64': {'A': 0x8, 'B': 0, 'U': 0},
+    'VSUB_i64': {'A': 0x8, 'B': 0, 'U': 1},
+    'VAND_i64': {'A': 0x1, 'B': 1, 'U': 0, 'C': 0},
+    'VORR_i64': {'A': 0x1, 'B': 1, 'U': 0, 'C': 0x10},
+    'VEOR_i64': {'A': 0x1, 'B': 1, 'U': 1, 'C': 0x0},
+}

@@ -350,6 +350,36 @@ def define_float64_data_proc_instructions_func(name, table):
             self.write32(instr)
     return f
 
+def define_simd_instructions_3regs_func(name, table):
+    n = 0x79 << 25
+    if 'A' in table:
+        n |= (table['A'] & 0xF) << 8
+    if 'B' in table:
+        n |= (table['B'] & 0x1) << 4
+    if 'U' in table:
+        n |= (table['U'] & 0x1) << 24
+    if 'C' in table:
+        n |= (table['C'] & 0x3) << 20
+    if name == 'VADD_i64' or name == 'VSUB_i64':
+        size = 0x3
+        n |= size << 20
+    def f(self, dd, dn, dm):
+	N = (dn >> 4) & 0x1
+	M = (dm >> 4) & 0x1
+	D = (dd >> 4) & 0x1
+	Q = 0 # we want doubleword regs
+        instr = (n
+                | D << 22
+                | (dn & 0xf) << 16
+                | (dd & 0xf) << 12
+                | N << 7
+                | Q << 6
+                | M << 5
+                | (dm & 0xf))
+	
+        self.write32(instr)
+    return f
+
 
 def imm_operation(rt, rn, imm):
     return ((rn & 0xFF) << 16
@@ -368,6 +398,7 @@ def reg_operation(rt, rn, rm, imm, s, shifttype):
 
 def define_instruction(builder, key, val, target):
     f = builder(key, val)
+    f.__name__ = key
     setattr(target, key, f)
 
 
@@ -378,7 +409,6 @@ def define_instructions(target):
             continue
         try:
             func = globals()['define_%s_func' % name]
-            func.__name__ = name
         except KeyError:
             print 'No instr generator for %s instructions' % name
             continue

@@ -1282,4 +1282,9 @@ class ResOpAssembler(object):
         self.mc.VCVT_int_to_float(res.value, temp.value)
         return fcond
 
+    emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
+    emit_op_llong_sub = gen_emit_float_op('llong_sub', 'VSUB_i64')
+    emit_op_llong_and = gen_emit_float_op('llong_and', 'VAND_i64')
+    emit_op_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
+    emit_op_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
 

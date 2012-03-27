@@ -925,6 +925,19 @@ class AssemblerARM(ResOpAssembler):
             return False
         return True
 
+    def regalloc_emit_llong(self, op, arglocs, fcond, regalloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        asm_llong_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
+	return fcond 
+
+    def regalloc_emit_math(self, op, arglocs, fcond, regalloc):
+        effectinfo = op.getdescr().get_extra_info()
+        oopspecindex = effectinfo.oopspecindex
+        asm_math_operations[oopspecindex](self, op, arglocs, resloc)
+        return fcond
+
+
     def _insert_checks(self, mc=None):
         if not we_are_translated() and self._debug:
             if mc is None:
@@ -1265,6 +1278,7 @@ def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
 asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
+asm_llong_operations = {}
 asm_math_operations = {}
 
 for name, value in ResOpAssembler.__dict__.iteritems():
