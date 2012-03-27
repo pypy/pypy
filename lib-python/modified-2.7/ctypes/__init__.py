@@ -451,6 +451,7 @@ if _os.name in ("nt", "ce"):
         GetLastError = windll.kernel32.GetLastError
     else:
         GetLastError = windll.coredll.GetLastError
+    GetLastError.argtypes=[]
     from _ctypes import get_last_error, set_last_error
 
     def WinError(code=None, descr=None):
