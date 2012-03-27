@@ -6,6 +6,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform as compiler
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.entrypoint import entrypoint, secondary_entrypoints
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -17,6 +18,8 @@ class AbstractTestAsmGCRoot:
 
     @classmethod
     def make_config(cls):
+        if compiler.name == "msvc":
+            py.test.skip("all asmgcroot tests disabled for MSVC")
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gcpolicy

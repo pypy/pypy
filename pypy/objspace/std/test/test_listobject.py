@@ -1,7 +1,9 @@
 # coding: iso-8859-15
 import random
-from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
+     IntegerListStrategy, ObjectListStrategy
 from pypy.interpreter.error import OperationError
+from pypy.rlib.rarithmetic import is_valid_int
 
 from pypy.conftest import gettestobjspace, option
 
@@ -241,7 +243,7 @@ class TestW_ListObject(object):
                 self.space.raises_w(self.space.w_IndexError,
                                     self.space.setitem, w_list, w(key), w(42))
             else:
-                if isinstance(value, int):   # non-slicing
+                if is_valid_int(value):   # non-slicing
                     if random.random() < 0.25:   # deleting
                         self.space.delitem(w_list, w(key))
                         del expected[key]
@@ -390,6 +392,16 @@ class TestW_ListObject(object):
         assert self.space.eq_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
+    def test_sizehint(self):
+        space = self.space
+        w_l = space.newlist([], sizehint=10)
+        assert isinstance(w_l.strategy, SizeListStrategy)
+        space.call_method(w_l, 'append', space.wrap(3))
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l = space.newlist([], sizehint=10)
+        space.call_method(w_l, 'append', space.w_None)
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+
 
 class AppTestW_ListObject(object):
     def setup_class(cls):
@@ -474,6 +486,14 @@ class AppTestW_ListObject(object):
         list.__init__(l, ['a', 'b', 'c'])
         assert l is l0
         assert l == ['a', 'b', 'c']
+        list.__init__(l)
+        assert l == []
+
+    def test_explicit_new_init_more_cases(self):
+        for assignment in [[], (), [3], ["foo"]]:
+            l = [1, 2]
+            l.__init__(assignment)
+            assert l == list(assignment)
 
     def test_extend_list(self):
         l = l0 = [1]
@@ -1160,6 +1180,20 @@ class AppTestW_ListObject(object):
         l.__init__(g)
         assert l == []
         assert list(g) == []
+
+    def test_uses_custom_iterator(self):
+        # obscure corner case: space.listview*() must not shortcut subclasses
+        # of dicts, because the OrderedDict in the stdlib relies on this.
+        # we extend the use case to lists and sets, i.e. all types that have
+        # strategies, to avoid surprizes depending on the strategy.
+        for base, arg in [(list, []), (list, [5]), (list, ['x']),
+                          (set, []),  (set,  [5]), (set,  ['x']),
+                          (dict, []), (dict, [(5,6)]), (dict, [('x',7)])]:
+            print base, arg
+            class SubClass(base):
+                def __iter__(self):
+                    return iter("foobar")
+            assert list(SubClass(arg)) == ['f', 'o', 'o', 'b', 'a', 'r']
 
 class AppTestForRangeLists(AppTestW_ListObject):
 

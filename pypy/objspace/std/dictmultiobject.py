@@ -2,6 +2,7 @@ import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -89,9 +90,9 @@ class W_DictMultiObject(W_Object):
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
-                    clear keys values \
+                    clear w_keys values \
                     items iter setdefault \
-                    popitem".split()
+                    popitem listview_str listview_int".split()
 
     def make_method(method):
         def f(self, *args):
@@ -112,7 +113,7 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         iterator = self.iter(w_dict)
         result = []
         while 1:
@@ -120,7 +121,7 @@ class DictStrategy(object):
             if w_key is not None:
                 result.append(w_key)
             else:
-                return result
+                return self.space.newlist(result)
 
     def values(self, w_dict):
         iterator = self.iter(w_dict)
@@ -159,6 +160,11 @@ class DictStrategy(object):
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
+    def listview_str(self, w_dict):
+        return None
+
+    def listview_int(self, w_dict):
+        return None
 
 class EmptyDictStrategy(DictStrategy):
 
@@ -370,8 +376,9 @@ class AbstractTypedStrategy(object):
             self.switch_to_object_strategy(w_dict)
             return w_dict.getitem(w_key)
 
-    def keys(self, w_dict):
-        return [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+    def w_keys(self, w_dict):
+        l = [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+        return self.space.newlist(l)
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage).values()
@@ -424,8 +431,8 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
     def iter(self, w_dict):
         return ObjectIteratorImplementation(self.space, self, w_dict)
 
-    def keys(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
+    def w_keys(self, w_dict):
+        return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -468,8 +475,14 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.unerase(w_dict.dstorage).get(key, None)
 
+    def listview_str(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
     def iter(self, w_dict):
         return StrIteratorImplementation(self.space, self, w_dict)
+
+    def w_keys(self, w_dict):
+        return self.space.newlist_str(self.listview_str(w_dict))
 
 
 class _WrappedIteratorMixin(object):
@@ -488,7 +501,7 @@ class _WrappedIteratorMixin(object):
 
 class _UnwrappedIteratorMixin:
     _mixin_ = True
-    
+
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
@@ -532,6 +545,14 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def iter(self, w_dict):
         return IntIteratorImplementation(self.space, self, w_dict)
+
+    def listview_int(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
+    def w_keys(self, w_dict):
+        # XXX there is no space.newlist_int yet
+        space = self.space
+        return space.call_function(space.w_list, w_dict)
 
 class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
     pass
@@ -687,7 +708,7 @@ def dict_items__DictMulti(space, w_self):
     return space.newlist(w_self.items())
 
 def dict_keys__DictMulti(space, w_self):
-    return space.newlist(w_self.keys())
+    return w_self.w_keys()
 
 def dict_values__DictMulti(space, w_self):
     return space.newlist(w_self.values())
@@ -837,10 +858,12 @@ def eq__DictViewKeys_DictViewKeys(space, w_dictview, w_otherview):
         return all_contained_in(space, w_dictview, w_otherview)
     return space.w_False
 eq__DictViewKeys_settypedef = eq__DictViewKeys_DictViewKeys
+eq__DictViewKeys_frozensettypedef = eq__DictViewKeys_DictViewKeys
 
 eq__DictViewKeys_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_DictViewItems = eq__DictViewKeys_DictViewKeys
 eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
+eq__DictViewItems_frozensettypedef = eq__DictViewItems_DictViewItems
 
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)

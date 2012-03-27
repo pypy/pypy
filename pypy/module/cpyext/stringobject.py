@@ -130,6 +130,11 @@ def PyString_FromString(space, char_p):
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
+    if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_str:
+        pass    # typecheck returned "ok" without forcing 'ref' at all
+    elif not PyString_Check(space, ref):   # otherwise, use the alternate way
+        raise OperationError(space.w_TypeError, space.wrap(
+            "PyString_AsString only support strings"))
     ref_str = rffi.cast(PyStringObject, ref)
     if not ref_str.c_buffer:
         # copy string buffer

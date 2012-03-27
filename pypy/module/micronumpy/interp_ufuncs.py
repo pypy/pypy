@@ -28,26 +28,38 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
+	from interp_numarray import BaseArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
         kwds_w.pop('casting', None)
         w_subok = kwds_w.pop('subok', None)
         w_out = kwds_w.pop('out', space.w_None)
-        if ((w_subok is not None and space.is_true(w_subok)) or
-            not space.is_w(w_out, space.w_None)):
+        # Setup a default value for out
+        if space.is_w(w_out, space.w_None):
+            out = None
+        else:
+            out = w_out
+        if (w_subok is not None and space.is_true(w_subok)):
             raise OperationError(space.w_NotImplementedError,
                                  space.wrap("parameters unsupported"))
         if kwds_w or len(args_w) < self.argcount:
             raise OperationError(space.w_ValueError,
                 space.wrap("invalid number of arguments")
             )
-        elif len(args_w) > self.argcount:
-            # The extra arguments should actually be the output array, but we
-            # don't support that yet.
+        elif (len(args_w) > self.argcount and out is not None) or \
+             (len(args_w) > self.argcount + 1):
             raise OperationError(space.w_TypeError,
                 space.wrap("invalid number of arguments")
             )
+        # Override the default out value, if it has been provided in w_wargs
+        if len(args_w) > self.argcount:
+            out = args_w[-1]
+        else:
+            args_w = args_w[:] + [out]
+        if out is not None and not isinstance(out, BaseArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                            'output must be an array'))
         return self.call(space, args_w)
 
     @unwrap_spec(skipna=bool, keepdims=bool)
@@ -105,28 +117,33 @@ class W_Ufunc(Wrappable):
         array([[ 1,  5],
                [ 9, 13]])
         """
-        if not space.is_w(w_out, space.w_None):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "out not supported"))
+        from pypy.module.micronumpy.interp_numarray import BaseArray
         if w_axis is None:
             axis = 0
         elif space.is_w(w_axis, space.w_None):
             axis = -1
         else:
             axis = space.int_w(w_axis)
-        return self.reduce(space, w_obj, False, False, axis, keepdims)
+        if space.is_w(w_out, space.w_None):
+            out = None
+        elif not isinstance(w_out, BaseArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+        else:
+            out = w_out
+        return self.reduce(space, w_obj, False, False, axis, keepdims, out)
 
-    def reduce(self, space, w_obj, multidim, promote_to_largest, dim,
-               keepdims=False):
+    def reduce(self, space, w_obj, multidim, promote_to_largest, axis,
+               keepdims=False, out=None):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, \
-                                                           Scalar, ReduceArray
+                                             Scalar, ReduceArray, W_NDimArray
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
-        if dim >= len(obj.shape):
-            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % dim))
+        if axis >= len(obj.shape):
+            raise OperationError(space.w_ValueError, space.wrap("axis(=%d) out of bounds" % axis))
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
                 "on a scalar"))
@@ -144,21 +161,55 @@ class W_Ufunc(Wrappable):
         if self.identity is None and size == 0:
             raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-        if shapelen > 1 and dim >= 0:
-            return self.do_axis_reduce(obj, dtype, dim, keepdims)
-        arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
-        return loop.compute(arr)
-
-    def do_axis_reduce(self, obj, dtype, dim, keepdims):
-        from pypy.module.micronumpy.interp_numarray import AxisReduce,\
-             W_NDimArray
-        if keepdims:
-            shape = obj.shape[:dim] + [1] + obj.shape[dim + 1:]
+        if shapelen > 1 and axis >= 0:
+            if keepdims:
+                shape = obj.shape[:axis] + [1] + obj.shape[axis + 1:]
+            else:
+                shape = obj.shape[:axis] + obj.shape[axis + 1:]
+            if out:
+                #Test for shape agreement
+                if len(out.shape) > len(shape):
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter for reduction operation %s' +
+                        ' has too many dimensions', self.name)
+                elif len(out.shape) < len(shape):
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter for reduction operation %s' +
+                        ' does not have enough dimensions', self.name)
+                elif out.shape != shape:
+                    raise operationerrfmt(space.w_ValueError,
+                        'output parameter shape mismatch, expecting [%s]' +
+                        ' , got [%s]', 
+                        ",".join([str(x) for x in shape]),
+                        ",".join([str(x) for x in out.shape]),
+                        )
+                #Test for dtype agreement, perhaps create an itermediate
+                #if out.dtype != dtype:
+                #    raise OperationError(space.w_TypeError, space.wrap(
+                #        "mismatched  dtypes"))
+                return self.do_axis_reduce(obj, out.find_dtype(), axis, out)
+            else:
+                result = W_NDimArray(shape, dtype)
+                return self.do_axis_reduce(obj, dtype, axis, result)
+        if out:
+            if len(out.shape)>0:
+                raise operationerrfmt(space.w_ValueError, "output parameter "
+                              "for reduction operation %s has too many"
+                              " dimensions",self.name)
+            arr = ReduceArray(self.func, self.name, self.identity, obj,
+                                                            out.find_dtype())
+            val = loop.compute(arr)
+            assert isinstance(out, Scalar)
+            out.value = val
         else:
-            shape = obj.shape[:dim] + obj.shape[dim + 1:]
-        result = W_NDimArray(support.product(shape), shape, dtype)
+            arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
+            val = loop.compute(arr)
+        return val 
+
+    def do_axis_reduce(self, obj, dtype, axis, result):
+        from pypy.module.micronumpy.interp_numarray import AxisReduce
         arr = AxisReduce(self.func, self.name, self.identity, obj.shape, dtype,
-                         result, obj, dim)
+                         result, obj, axis)
         loop.compute(arr)
         return arr.left
 
@@ -176,24 +227,55 @@ class W_Ufunc1(W_Ufunc):
         self.bool_result = bool_result
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call1,
-            convert_to_array, Scalar)
-
-        [w_obj] = args_w
+        from pypy.module.micronumpy.interp_numarray import (Call1, BaseArray,
+            convert_to_array, Scalar, shape_agreement)
+        if len(args_w)<2:
+            [w_obj] = args_w
+            out = None
+        else:
+            [w_obj, out] = args_w
+            if space.is_w(out, space.w_None):
+                out = None
         w_obj = convert_to_array(space, w_obj)
         calc_dtype = find_unaryop_result_dtype(space,
                                   w_obj.find_dtype(),
                                   promote_to_float=self.promote_to_float,
                                   promote_bools=self.promote_bools)
-        if self.bool_result:
+        if out:
+            if not isinstance(out, BaseArray):
+                raise OperationError(space.w_TypeError, space.wrap(
+                                                'output must be an array'))
+            res_dtype = out.find_dtype()
+        elif self.bool_result:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
         if isinstance(w_obj, Scalar):
-            return space.wrap(self.func(calc_dtype, w_obj.value.convert_to(calc_dtype)))
-
-        w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype, res_dtype,
-                      w_obj)
+            arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
+            if isinstance(out,Scalar):
+                out.value=arr
+            elif isinstance(out, BaseArray):
+                out.fill(space, arr)
+            else:
+                out = arr
+            return space.wrap(out)
+        if out:
+            assert isinstance(out, BaseArray) # For translation
+            broadcast_shape =  shape_agreement(space, w_obj.shape, out.shape)
+            if not broadcast_shape or broadcast_shape != out.shape:
+                raise operationerrfmt(space.w_ValueError,
+                    'output parameter shape mismatch, could not broadcast [%s]' +
+                    ' to [%s]', 
+                    ",".join([str(x) for x in w_obj.shape]),
+                    ",".join([str(x) for x in out.shape]),
+                    )
+            w_res = Call1(self.func, self.name, out.shape, calc_dtype,
+                                         res_dtype, w_obj, out)
+            #Force it immediately
+            w_res.get_concrete()
+        else:
+            w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype,
+                                         res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -212,32 +294,61 @@ class W_Ufunc2(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar, shape_agreement)
-
-        [w_lhs, w_rhs] = args_w
+            convert_to_array, Scalar, shape_agreement, BaseArray)
+        if len(args_w)>2:
+            [w_lhs, w_rhs, w_out] = args_w
+        else:
+            [w_lhs, w_rhs] = args_w
+            w_out = None
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        calc_dtype = find_binop_result_dtype(space,
-            w_lhs.find_dtype(), w_rhs.find_dtype(),
-            int_only=self.int_only,
-            promote_to_float=self.promote_to_float,
-            promote_bools=self.promote_bools,
-        )
+        if space.is_w(w_out, space.w_None) or w_out is None:
+            out = None
+            calc_dtype = find_binop_result_dtype(space,
+                w_lhs.find_dtype(), w_rhs.find_dtype(),
+                int_only=self.int_only,
+                promote_to_float=self.promote_to_float,
+                promote_bools=self.promote_bools,
+            )
+        elif not isinstance(w_out, BaseArray):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    'output must be an array'))
+        else:
+            out = w_out
+            calc_dtype = out.find_dtype()
         if self.comparison_func:
             res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return space.wrap(self.func(calc_dtype,
+            arr = self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
-            ))
+            )
+            if isinstance(out,Scalar):
+                out.value=arr
+            elif isinstance(out, BaseArray):
+                out.fill(space, arr)
+            else:
+                out = arr
+            return space.wrap(out)
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        # Test correctness of out.shape
+        if out and out.shape != shape_agreement(space, new_shape, out.shape):
+            raise operationerrfmt(space.w_ValueError,
+                'output parameter shape mismatch, could not broadcast [%s]' +
+                ' to [%s]', 
+                ",".join([str(x) for x in new_shape]),
+                ",".join([str(x) for x in out.shape]),
+                )
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs)
+                      res_dtype, w_lhs, w_rhs, out)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
+        if out:
+            #out.add_invalidates(w_res) #causes a recursion loop
+            w_res.get_concrete()
         return w_res
 
 
@@ -314,7 +425,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             return dt
         if dt.num >= 5:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
-        for bytes, dtype in interp_dtype.get_dtype_cache(space).dtypes_by_num_bytes:
+        for bytes, dtype in interp_dtype.get_dtype_cache(space).float_dtypes_by_num_bytes:
             if (dtype.kind == interp_dtype.FLOATINGLTR and
                 dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
                 return dtype
@@ -388,6 +499,7 @@ class UfuncState(object):
                                              "int_only": True}),
             ("bitwise_xor", "bitwise_xor", 2, {"int_only": True}),
             ("invert", "invert", 1, {"int_only": True}),
+            ("floor_divide", "floordiv", 2, {"promote_bools": True}),
             ("divide", "div", 2, {"promote_bools": True}),
             ("true_divide", "div", 2, {"promote_to_float": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
@@ -403,6 +515,9 @@ class UfuncState(object):
             ("greater_equal", "ge", 2, {"comparison_func": True}),
             ("isnan", "isnan", 1, {"bool_result": True}),
             ("isinf", "isinf", 1, {"bool_result": True}),
+            ("isneginf", "isneginf", 1, {"bool_result": True}),
+            ("isposinf", "isposinf", 1, {"bool_result": True}),
+            ("isfinite", "isfinite", 1, {"bool_result": True}),
 
             ('logical_and', 'logical_and', 2, {'comparison_func': True,
                                                'identity': 1}),
@@ -420,12 +535,16 @@ class UfuncState(object):
             ("negative", "neg", 1),
             ("absolute", "abs", 1),
             ("sign", "sign", 1, {"promote_bools": True}),
+            ("signbit", "signbit", 1, {"bool_result": True}),
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
+            ("exp2", "exp2", 1, {"promote_to_float": True}),
+            ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
 
@@ -435,12 +554,23 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
+            ("arctan2", "arctan2", 2, {"promote_to_float": True}),
             ("sinh", "sinh", 1, {"promote_to_float": True}),
             ("cosh", "cosh", 1, {"promote_to_float": True}),
             ("tanh", "tanh", 1, {"promote_to_float": True}),
             ("arcsinh", "arcsinh", 1, {"promote_to_float": True}),
             ("arccosh", "arccosh", 1, {"promote_to_float": True}),
             ("arctanh", "arctanh", 1, {"promote_to_float": True}),
+
+            ("radians", "radians", 1, {"promote_to_float": True}),
+            ("degrees", "degrees", 1, {"promote_to_float": True}),
+
+            ("log", "log", 1, {"promote_to_float": True}),
+            ("log2", "log2", 1, {"promote_to_float": True}),
+            ("log10", "log10", 1, {"promote_to_float": True}),
+            ("log1p", "log1p", 1, {"promote_to_float": True}),
+            ("logaddexp", "logaddexp", 2, {"promote_to_float": True}),
+            ("logaddexp2", "logaddexp2", 2, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

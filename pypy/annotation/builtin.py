@@ -37,7 +37,11 @@ def constpropagate(func, args_s, s_result):
     try:
         realresult = func(*args)
     except (ValueError, OverflowError):
-        return s_ImpossibleValue   # no possible answer for this precise input
+        # no possible answer for this precise input.  Be conservative
+        # and keep the computation non-constant.  Example:
+        # unichr(constant-that-doesn't-fit-16-bits) on platforms where
+        # the underlying Python has sys.maxunicode == 0xffff.
+        return s_result
     s_realresult = immutablevalue(realresult)
     if not s_result.contains(s_realresult):
         raise Exception("%s%r returned %r, which is not contained in %s" % (
@@ -163,7 +167,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                         r.const = False
                 return r
                 
-            assert not issubclass(typ, (int,long)) or typ in (bool, int), (
+            assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
                 "for integers only isinstance(.,int|r_uint) are supported")
  
             if s_obj.is_constant():
@@ -297,7 +301,7 @@ def rarith_intmask(s_obj):
 def robjmodel_instantiate(s_clspbc):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
-    more_than_one = len(s_clspbc.descriptions)
+    more_than_one = len(s_clspbc.descriptions) > 1
     for desc in s_clspbc.descriptions:
         cdef = desc.getuniqueclassdef()
         if more_than_one:

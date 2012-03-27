@@ -420,7 +420,7 @@ class TestW_ListStrategies(TestW_ListObject):
 
     def test_listview_str(self):
         space = self.space
-        assert space.listview_str(space.wrap("a")) is None
+        assert space.listview_str(space.wrap(1)) == None
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         assert space.listview_str(w_l) == ["a", "b"]
 
@@ -462,6 +462,44 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l.pop = None
         w_res = listobject.list_pop__List_ANY(space, w_l, space.w_None) # does not crash
         assert space.unwrap(w_res) == 3
+
+    def test_create_list_from_set(self):
+        from pypy.objspace.std.setobject import W_SetObject
+        from pypy.objspace.std.setobject import _initialize_set
+
+        space = self.space
+        w = space.wrap
+
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+
+        w_set = W_SetObject(self.space)
+        _initialize_set(self.space, w_set, w_l)
+        w_set.iter = None # make sure fast path is used
+
+        w_l2 = W_ListObject(space, [])
+        space.call_method(w_l2, "__init__", w_set)
+
+        w_l2.sort(False)
+        assert space.eq_w(w_l, w_l2)
+
+        w_l = W_ListObject(space, [space.wrap("a"), space.wrap("b"), space.wrap("c")])
+        _initialize_set(self.space, w_set, w_l)
+
+        space.call_method(w_l2, "__init__", w_set)
+
+        w_l2.sort(False)
+        assert space.eq_w(w_l, w_l2)
+
+
+    def test_listview_str_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap("a"), space.wrap("b")])
+        assert self.space.listview_str(w_l) == ["a", "b"]
+
+    def test_listview_int_list(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+        assert self.space.listview_int(w_l) == [1, 2, 3]
 
 
 class TestW_ListStrategiesDisabled:

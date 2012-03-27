@@ -223,6 +223,7 @@ class MIFrame(object):
                     'cast_float_to_singlefloat', 'cast_singlefloat_to_float',
                     'float_neg', 'float_abs',
                     'cast_ptr_to_int', 'cast_int_to_ptr',
+                    'convert_float_bytes_to_longlong',
                     ]:
         exec py.code.Source('''
             @arguments("box")
@@ -506,6 +507,15 @@ class MIFrame(object):
         sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, lengthdescr, sizebox)
         abox = self.opimpl_new_array(arraydescr, sizebox)
+        self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
+        return sbox
+
+    @arguments("descr", "descr", "descr", "descr", "box")
+    def opimpl_newlist_hint(self, structdescr, lengthdescr, itemsdescr,
+                            arraydescr, sizehintbox):
+        sbox = self.opimpl_new(structdescr)
+        self._opimpl_setfield_gc_any(sbox, lengthdescr, history.CONST_FALSE)
+        abox = self.opimpl_new_array(arraydescr, sizehintbox)
         self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
         return sbox
 

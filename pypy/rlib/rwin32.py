@@ -133,14 +133,18 @@ if WIN32:
         # Prior to Visual Studio 8, the MSVCRT dll doesn't export the
         # _dosmaperr() function, which is available only when compiled
         # against the static CRT library.
-        from pypy.translator.platform import platform, Windows
-        static_platform = Windows()
+        from pypy.translator.platform import host_factory
+        static_platform = host_factory()
         if static_platform.name == 'msvc':
             static_platform.cflags = ['/MT']  # static CRT
             static_platform.version = 0       # no manifest
         cfile = udir.join('dosmaperr.c')
         cfile.write(r'''
                 #include <errno.h>
+                #include  <stdio.h>
+                #ifdef __GNUC__
+                #define _dosmaperr mingw_dosmaperr
+                #endif
                 int main()
                 {
                     int i;

@@ -16,8 +16,10 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib import longlong2float
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.jit.backend.detect_cpu import autodetect_main_model_and_size
+
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -493,7 +495,7 @@ class BaseBackendTest(Runner):
         if cpu.supports_floats:
             def func(f, i):
                 assert isinstance(f, float)
-                assert isinstance(i, int)
+                assert is_valid_int(i)
                 return f - float(i)
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))
@@ -1496,13 +1498,30 @@ class BaseBackendTest(Runner):
                                                c_nest, c_nest], 'void')
 
     def test_read_timestamp(self):
+        if sys.platform == 'win32':
+            # windows quite often is very inexact (like the old Intel 8259 PIC),
+            # so we stretch the time a little bit.
+            # On my virtual Parallels machine in a 2GHz Core i7 Mac Mini,
+            # the test starts working at delay == 21670 and stops at 20600000.
+            # We take the geometric mean value.
+            from math import log, exp
+            delay_min = 21670
+            delay_max = 20600000
+            delay = int(exp((log(delay_min)+log(delay_max))/2))
+            def wait_a_bit():
+                for i in xrange(delay): pass
+        else:
+            def wait_a_bit():
+                pass
         if longlong.is_64_bit:
             got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
+            wait_a_bit()
             got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'int')
             res1 = got1.getint()
             res2 = got2.getint()
         else:
             got1 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
+            wait_a_bit()
             got2 = self.execute_operation(rop.READ_TIMESTAMP, [], 'float')
             res1 = got1.getlonglong()
             res2 = got2.getlonglong()
@@ -1597,6 +1616,12 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
                                      [BoxPtr(x)], 'int').value
         assert res == -19
+
+    def test_convert_float_bytes(self):
+        t = 'int' if longlong.is_64_bit else 'float'
+        res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
+                                     [boxfloat(2.5)], t).value
+        assert res == longlong2float.float2longlong(2.5)
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')

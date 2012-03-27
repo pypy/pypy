@@ -485,6 +485,8 @@ class FunctionGcRootTracker(object):
         'bswap', 'bt', 'rdtsc',
         'punpck', 'pshufd', 'pcmp', 'pand', 'psllw', 'pslld', 'psllq',
         'paddq', 'pinsr', 'pmul', 'psrl',
+        # all vectors don't produce pointers
+        'v',
         # sign-extending moves should not produce GC pointers
         'cbtw', 'cwtl', 'cwtd', 'cltd', 'cltq', 'cqto',
         # zero-extending moves should not produce GC pointers

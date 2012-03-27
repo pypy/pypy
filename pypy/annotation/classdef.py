@@ -134,13 +134,19 @@ class Attribute(object):
             if self.name not in homedef.classdesc.all_enforced_attrs:
                 self.attr_allowed = False
                 if not self.readonly:
-                    raise NoSuchAttrError(homedef, self.name)
+                    raise NoSuchAttrError(
+                        "setting forbidden attribute %r on %r" % (
+                        self.name, homedef))
 
     def modified(self, classdef='?'):
         self.readonly = False
         if not self.attr_allowed:
-            raise NoSuchAttrError(classdef, self.name)
-
+            raise NoSuchAttrError(
+                "Attribute %r on %r should be read-only.\n" % (self.name,
+                                                               classdef) +
+                "This error can be caused by another 'getattr' that promoted\n"
+                "the attribute here; the list of read locations is:\n" +
+                '\n'.join([str(loc[0]) for loc in self.read_locations]))
 
 class ClassDef(object):
     "Wraps a user class."

@@ -75,7 +75,7 @@ class AppTestKqueue(object):
         assert ev == ev
         assert ev != other
 
-        bignum = sys.maxsize * 2 + 1
+        bignum = (sys.maxsize * 2 + 1) & 0xffffffff
         fd = sys.maxsize
         ev = select.kevent(fd, 1, 2, bignum, sys.maxsize, bignum)
         assert ev.ident == fd
