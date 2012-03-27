@@ -139,6 +139,16 @@ class W_ListObject(W_AbstractListObject):
         new erased object as storage"""
         self.strategy.init_from_list_w(self, list_w)
 
+    def clear(self, space):
+        """Initializes (or overrides) the listobject as empty."""
+        self.space = space
+        if space.config.objspace.std.withliststrategies:
+            strategy = space.fromcache(EmptyListStrategy)
+        else:
+            strategy = space.fromcache(ObjectListStrategy)
+        self.strategy = strategy
+        strategy.clear(self)
+
     def clone(self):
         """Returns a clone by creating a new listobject
         with the same strategy and a copy of the storage"""
@@ -200,6 +210,11 @@ class W_ListObject(W_AbstractListObject):
         """ Return the items in the list as unwrapped strings. If the list does
         not use the list strategy, return None. """
         return self.strategy.getitems_str(self)
+
+    def getitems_int(self):
+        """ Return the items in the list as unwrapped ints. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_int(self)
     # ___________________________________________________
 
 
@@ -300,6 +315,9 @@ class ListStrategy(object):
     def getitems_str(self, w_list):
         return None
 
+    def getitems_int(self, w_list):
+        return None
+
     def getstorage_copy(self, w_list):
         raise NotImplementedError
 
@@ -356,6 +374,9 @@ class EmptyListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
+        w_list.lstorage = self.erase(None)
+
+    def clear(self, w_list):
         w_list.lstorage = self.erase(None)
 
     erase, unerase = rerased.new_erasing_pair("empty")
@@ -515,6 +536,9 @@ class RangeListStrategy(ListStrategy):
         elif i >= length:
             raise IndexError
         return start + i * step
+
+    def getitems_int(self, w_list):
+        return self._getitems_range(w_list, False)
 
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
@@ -696,6 +720,7 @@ class AbstractUnwrappedStrategy(object):
             for i in l:
                 if i == obj:
                     return True
+            return False
         return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
@@ -937,6 +962,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.lstorage = self.erase(list_w)
 
+    def clear(self, w_list):
+        w_list.lstorage = self.erase([])
+
     def contains(self, w_list, w_obj):
         return ListStrategy.contains(self, w_list, w_obj)
 
@@ -969,6 +997,9 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def getitems_int(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0.0
@@ -1027,37 +1058,49 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
 
-
 # _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
 def init__List(space, w_list, __args__):
-    from pypy.objspace.std.tupleobject import W_TupleObject
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     # this is on the silly side
     w_iterable, = __args__.parse_obj(
             None, 'list', init_signature, init_defaults)
-    w_list.__init__(space, [])
+    w_list.clear(space)
     if w_iterable is not None:
-        # unfortunately this is duplicating space.unpackiterable to avoid
-        # assigning a new RPython list to 'wrappeditems', which defeats the
-        # W_FastListIterObject optimization.
-        if isinstance(w_iterable, W_ListObject):
-            w_list.extend(w_iterable)
-        elif isinstance(w_iterable, W_TupleObject):
-            w_list.extend(W_ListObject(space, w_iterable.wrappeditems[:]))
-        else:
-            _init_from_iterable(space, w_list, w_iterable)
+        if type(w_iterable) is W_ListObject:
+            w_iterable.copy_into(w_list)
+            return
+        elif isinstance(w_iterable, W_AbstractTupleObject):
+            w_list.__init__(space, w_iterable.getitems_copy())
+            return
+
+        intlist = space.listview_int(w_iterable)
+        if intlist is not None:
+            w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
+             # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(intlist[:])
+            return
+
+        strlist = space.listview_str(w_iterable)
+        if strlist is not None:
+            w_list.strategy = strategy = space.fromcache(StringListStrategy)
+             # need to copy because intlist can share with w_iterable
+            w_list.lstorage = strategy.erase(strlist[:])
+            return
+
+        # xxx special hack for speed
+        from pypy.interpreter.generator import GeneratorIterator
+        if isinstance(w_iterable, GeneratorIterator):
+            w_iterable.unpack_into_w(w_list)
+            return
+        # /xxx
+        _init_from_iterable(space, w_list, w_iterable)
 
 def _init_from_iterable(space, w_list, w_iterable):
     # in its own function to make the JIT look into init__List
-    # xxx special hack for speed
-    from pypy.interpreter.generator import GeneratorIterator
-    if isinstance(w_iterable, GeneratorIterator):
-        w_iterable.unpack_into_w(w_list)
-        return
-    # /xxx
     w_iterator = space.iter(w_iterable)
     while True:
         try:

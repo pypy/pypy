@@ -269,7 +269,7 @@ class ViewIterator(BaseIterator):
 
     def apply_transformations(self, arr, transformations):
         v = BaseIterator.apply_transformations(self, arr, transformations)
-        if len(arr.shape) == 1:
+        if len(arr.shape) == 1 and len(v.res_shape) == 1:
             return OneDimIterator(self.offset, self.strides[0],
                                   self.res_shape[0])
         return v

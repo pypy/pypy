@@ -16,7 +16,7 @@ def identity(n, dtype=None):
         a[i][i] = 1
     return a
 
-def sum(a,axis=None):
+def sum(a,axis=None, out=None):
     '''sum(a, axis=None)
     Sum of array elements over a given axis.
 
@@ -43,17 +43,17 @@ def sum(a,axis=None):
     # TODO: add to doc (once it's implemented): cumsum : Cumulative sum of array elements.
     if not hasattr(a, "sum"):
         a = _numpypy.array(a)
-    return a.sum(axis)
+    return a.sum(axis=axis, out=out)
 
-def min(a, axis=None):
+def min(a, axis=None, out=None):
     if not hasattr(a, "min"):
         a = _numpypy.array(a)
-    return a.min(axis)
+    return a.min(axis=axis, out=out)
 
-def max(a, axis=None):
+def max(a, axis=None, out=None):
     if not hasattr(a, "max"):
         a = _numpypy.array(a)
-    return a.max(axis)
+    return a.max(axis=axis, out=out)
 
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)

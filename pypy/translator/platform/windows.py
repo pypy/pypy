@@ -7,15 +7,27 @@ from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 
-def Windows(cc=None):
-    if cc == 'mingw32':
+def _get_compiler_type(cc, x64_flag):
+    import subprocess
+    if not cc:
+        cc = os.environ.get('CC','')
+    if not cc:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
+    elif cc.startswith('mingw'):
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc, False)
-    
-def Windows_x64(cc=None):
-    return MsvcPlatform(cc, True)
+    try:
+        subprocess.check_output([cc, '--version'])
+    except:
+        raise ValueError,"Could not find compiler specified by cc option" + \
+                " '%s', it must be a valid exe file on your path"%cc
+    return MingwPlatform(cc)
 
+def Windows(cc=None):
+    return _get_compiler_type(cc, False)
+
+def Windows_x64(cc=None):
+    return _get_compiler_type(cc, True)
+    
 def _get_msvc_env(vsver, x64flag):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
@@ -31,14 +43,16 @@ def _get_msvc_env(vsver, x64flag):
         vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
-    popen = subprocess.Popen('"%s" & set' % (vcvars,),
+    try:
+        popen = subprocess.Popen('"%s" & set' % (vcvars,),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
 
-    stdout, stderr = popen.communicate()
-    if popen.wait() != 0:
-        return
-
+        stdout, stderr = popen.communicate()
+        if popen.wait() != 0:
+            return None
+    except:
+        return None
     env = {}
 
     stdout = stdout.replace("\r\n", "\n")
@@ -395,7 +409,9 @@ class MingwPlatform(posix.BasePosix):
     so_ext = 'dll'
 
     def __init__(self, cc=None):
-        Platform.__init__(self, 'gcc')
+        if not cc:
+            cc = 'gcc'
+        Platform.__init__(self, cc)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args

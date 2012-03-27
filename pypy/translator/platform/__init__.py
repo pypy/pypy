@@ -304,6 +304,8 @@ def set_platform(new_platform, cc):
     global platform
     log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
+    if not platform:
+        raise ValueError("pick_platform failed")
 
     if new_platform == 'host':
         global host

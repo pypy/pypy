@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import sys
 
 from pypy.interpreter.error import exception_from_errno
