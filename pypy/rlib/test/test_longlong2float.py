@@ -33,8 +33,15 @@ def test_compiled():
         assert repr(res) == repr(x)
 
 def test_interpreted():
+    def f(f1):
+        try:
+            ll = float2longlong(f1)
+            return longlong2float(ll)
+        except Exception:
+            return 500
+
     for x in enum_floats():
-        res = interpret(fn, [x])
+        res = interpret(f, [x])
         assert repr(res) == repr(x)
 
 # ____________________________________________________________

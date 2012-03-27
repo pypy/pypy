@@ -87,6 +87,7 @@ class Float2LongLongEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         [v_float] = hop.inputargs(lltype.Float)
+        hop.exception_cannot_occur()
         return hop.genop("convert_float_bytes_to_longlong", [v_float], resulttype=lltype.SignedLongLong)
 
 class LongLong2FloatEntry(ExtRegistryEntry):
@@ -98,4 +99,5 @@ class LongLong2FloatEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         [v_longlong] = hop.inputargs(lltype.SignedLongLong)
+        hop.exception_cannot_occur()
         return hop.genop("convert_longlong_bytes_to_float", [v_longlong], resulttype=lltype.Float)
