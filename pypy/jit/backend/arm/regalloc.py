@@ -1186,19 +1186,13 @@ class Regalloc(object):
 
     def prepare_op_cast_float_to_int(self, op, fcond):
         loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
         res = self.rm.force_allocate_reg(op.result)
-        return [loc1, temp_loc, res]
+        return [loc1, res]
 
     def prepare_op_cast_int_to_float(self, op, fcond):
         loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
         res = self.vfprm.force_allocate_reg(op.result)
-        return [loc1, temp_loc, res]
+        return [loc1, res]
 
     def prepare_force_spill(self, op, fcond):
         self.force_spill_var(op.getarg(0))

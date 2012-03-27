@@ -1268,18 +1268,20 @@ class ResOpAssembler(object):
     emit_guard_float_ge = gen_emit_float_cmp_op_guard('float_ge', c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
-        arg, temp, res = arglocs
-        self.mc.VCVT_float_to_int(temp.value, arg.value)
-        self.mc.VPUSH([temp.value])
-        # res is lower register than r.ip
-        self.mc.POP([res.value, r.ip.value])
+        arg, res = arglocs
+        assert arg.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
+	self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
-        arg, temp, res = arglocs
-        self.mc.PUSH([arg.value, r.ip.value])
-        self.mc.VPOP([temp.value])
-        self.mc.VCVT_int_to_float(res.value, temp.value)
+        arg, res = arglocs
+        assert res.is_vfp_reg()
+        assert arg.is_reg()
+	self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
+        self.mc.VCVT_int_to_float(res.value, res.value)
         return fcond
 
     emit_op_llong_add = gen_emit_float_op('llong_add', 'VADD_i64')
