@@ -21,7 +21,7 @@ UINT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.UINT))
 FLOAT_ARRAY_PTR = lltype.Ptr(lltype.Array(rffi.FLOAT))
 
 # these definitions are used only in tests, when not translated
-def longlong2float_emulator(llval):
+def longlong2float(llval):
     with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 1) as d_array:
         ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
         ll_array[0] = llval
@@ -51,12 +51,6 @@ def singlefloat2uint_emulator(singlefloatval):
 
 eci = ExternalCompilationInfo(includes=['string.h', 'assert.h'],
                               post_include_bits=["""
-static double pypy__longlong2float(long long x) {
-    double dd;
-    assert(sizeof(double) == 8 && sizeof(long long) == 8);
-    memcpy(&dd, &x, 8);
-    return dd;
-}
 static float pypy__uint2singlefloat(unsigned int x) {
     float ff;
     assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
@@ -70,12 +64,6 @@ static unsigned int pypy__singlefloat2uint(float x) {
     return ii;
 }
 """])
-
-longlong2float = rffi.llexternal(
-    "pypy__longlong2float", [rffi.LONGLONG], rffi.DOUBLE,
-    _callable=longlong2float_emulator, compilation_info=eci,
-    _nowrapper=True, elidable_function=True, sandboxsafe=True,
-    oo_primitive="pypy__longlong2float")
 
 uint2singlefloat = rffi.llexternal(
     "pypy__uint2singlefloat", [rffi.UINT], rffi.FLOAT,
@@ -99,4 +87,17 @@ class Float2LongLongEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         [v_float] = hop.inputargs(lltype.Float)
-        return hop.genop("convert_float_bytes_to_longlong", [v_float], resulttype=hop.r_result)
+        hop.exception_cannot_occur()
+        return hop.genop("convert_float_bytes_to_longlong", [v_float], resulttype=lltype.SignedLongLong)
+
+class LongLong2FloatEntry(ExtRegistryEntry):
+    _about_ = longlong2float
+
+    def compute_result_annotation(self, s_longlong):
+        assert annmodel.SomeInteger(knowntype=r_int64).contains(s_longlong)
+        return annmodel.SomeFloat()
+
+    def specialize_call(self, hop):
+        [v_longlong] = hop.inputargs(lltype.SignedLongLong)
+        hop.exception_cannot_occur()
+        return hop.genop("convert_longlong_bytes_to_float", [v_longlong], resulttype=lltype.Float)

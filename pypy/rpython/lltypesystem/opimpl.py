@@ -431,6 +431,10 @@ def op_convert_float_bytes_to_longlong(a):
     from pypy.rlib.longlong2float import float2longlong
     return float2longlong(a)
 
+def op_convert_longlong_bytes_to_float(a):
+    from pypy.rlib.longlong2float import longlong2float
+    return longlong2float(a)
+
 
 def op_unichar_eq(x, y):
     assert isinstance(x, unicode) and len(x) == 1

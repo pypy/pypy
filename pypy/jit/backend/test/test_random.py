@@ -328,6 +328,15 @@ class CastIntToFloatOperation(AbstractFloatOperation):
     def produce_into(self, builder, r):
         self.put(builder, [r.choice(builder.intvars)])
 
+class CastLongLongToFloatOperation(AbstractFloatOperation):
+    def produce_into(self, builder, r):
+        if longlong.is_64_bit:
+            self.put(builder, [r.choice(builder.intvars)])
+        else:
+            if not builder.floatvars:
+                raise CannotProduceOperation
+            self.put(builder, [r.choice(builder.floatvars)])
+
 class CastFloatToIntOperation(AbstractFloatOperation):
     def produce_into(self, builder, r):
         if not builder.floatvars:
@@ -450,6 +459,7 @@ for _op in [rop.FLOAT_NEG,
 OPERATIONS.append(CastFloatToIntOperation(rop.CAST_FLOAT_TO_INT))
 OPERATIONS.append(CastIntToFloatOperation(rop.CAST_INT_TO_FLOAT))
 OPERATIONS.append(CastFloatToIntOperation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG))
+OPERATIONS.append(CastLongLongToFloatOperation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT))
 
 OperationBuilder.OPERATIONS = OPERATIONS
 
