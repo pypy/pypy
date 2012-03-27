@@ -14,6 +14,7 @@ from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager,
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.jit.codewriter import longlong
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
@@ -1264,24 +1265,25 @@ def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
 asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
+asm_math_operations = {}
 
-for key, value in rop.__dict__.items():
-    key = key.lower()
-    if key.startswith('_'):
-        continue
-    methname = 'emit_op_%s' % key
-    if hasattr(AssemblerARM, methname):
-        func = getattr(AssemblerARM, methname).im_func
-        asm_operations[value] = func
-
-for key, value in rop.__dict__.items():
-    key = key.lower()
-    if key.startswith('_'):
-        continue
-    methname = 'emit_guard_%s' % key
-    if hasattr(AssemblerARM, methname):
-        func = getattr(AssemblerARM, methname).im_func
-        asm_operations_with_guard[value] = func
+for name, value in ResOpAssembler.__dict__.iteritems():
+    if name.startswith('emit_guard_'):
+        opname = name[len('emit_guard_'):]
+        num = getattr(rop, opname.upper())
+        asm_operations_with_guard[num] = value
+    elif name.startswith('emit_op_llong_'):
+        opname = name[len('emit_op_llong_'):]
+        num = getattr(EffectInfo, 'OS_LLONG_' + opname.upper())
+        asm_llong_operations[num] = value
+    elif name.startswith('emit_op_math_'):
+        opname = name[len('emit_op_math_'):]
+        num = getattr(EffectInfo, 'OS_MATH_' + opname.upper())
+        asm_math_operations[num] = value
+    elif name.startswith('emit_op_'):
+        opname = name[len('emit_op_'):]
+        num = getattr(rop, opname.upper())
+        asm_operations[num] = value
 
 
 class BridgeAlreadyCompiled(Exception):

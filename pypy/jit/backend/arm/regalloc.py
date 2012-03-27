@@ -543,7 +543,7 @@ class Regalloc(object):
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 args = self.prepare_op_math_sqrt(op, fcond)
-                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+                self.perform_math(op, args, fcond)
                 return
         return self._prepare_call(op)
 

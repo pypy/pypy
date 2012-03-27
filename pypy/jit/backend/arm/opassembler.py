@@ -45,9 +45,7 @@ class GuardToken(object):
         self.fcond = fcond
 
 
-class IntOpAsslember(object):
-
-    _mixin_ = True
+class ResOpAssembler(object):
 
     def emit_op_int_add(self, op, arglocs, regalloc, fcond, flags=False):
         l0, l1, res = arglocs
@@ -162,10 +160,6 @@ class IntOpAsslember(object):
     emit_op_int_sub_ovf = emit_op_int_sub
 
 
-class UnaryIntOpAssembler(object):
-
-    _mixin_ = True
-
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
 
@@ -183,10 +177,6 @@ class UnaryIntOpAssembler(object):
         self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
 
-
-class GuardOpAssembler(object):
-
-    _mixin_ = True
 
     def _emit_guard(self, op, arglocs, fcond, save_exc,
                                     is_guard_not_invalidated=False):
@@ -290,10 +280,6 @@ class GuardOpAssembler(object):
         return self._emit_guard(op, locs, fcond, save_exc=False,
                                             is_guard_not_invalidated=True)
 
-
-class OpAssembler(object):
-
-    _mixin_ = True
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         # The backend's logic assumes that the target code is in a piece of
@@ -616,10 +602,6 @@ class OpAssembler(object):
     emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
 
 
-class FieldOpAssembler(object):
-
-    _mixin_ = True
-
     def emit_op_setfield_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
@@ -760,10 +742,6 @@ class FieldOpAssembler(object):
     emit_op_setinteriorfield_raw = emit_op_setinteriorfield_gc
 
 
-class ArrayOpAssember(object):
-
-    _mixin_ = True
-
     def emit_op_arraylen_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs = arglocs
         self.mc.LDR_ri(res.value, base_loc.value, ofs.value)
@@ -845,10 +823,6 @@ class ArrayOpAssember(object):
     emit_op_getarrayitem_raw = emit_op_getarrayitem_gc
     emit_op_getarrayitem_gc_pure = emit_op_getarrayitem_gc
 
-
-class StrOpAssembler(object):
-
-    _mixin_ = True
 
     def emit_op_strlen(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
@@ -998,11 +972,7 @@ class StrOpAssembler(object):
             raise AssertionError("bad unicode item size")
 
 
-class UnicodeOpAssembler(object):
-
-    _mixin_ = True
-
-    emit_op_unicodelen = StrOpAssembler.emit_op_strlen
+    emit_op_unicodelen = emit_op_strlen
 
     def emit_op_unicodegetitem(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
@@ -1031,10 +1001,6 @@ class UnicodeOpAssembler(object):
 
         return fcond
 
-
-class ForceOpAssembler(object):
-
-    _mixin_ = True
 
     def emit_op_force_token(self, op, arglocs, regalloc, fcond):
         res_loc = arglocs[0]
@@ -1248,10 +1214,6 @@ class ForceOpAssembler(object):
         self.mc.STR_ri(r.ip.value, r.fp.value)
 
 
-class AllocOpAssembler(object):
-
-    _mixin_ = True
-
     def emit_op_call_malloc_gc(self, op, arglocs, regalloc, fcond):
         self.emit_op_call(op, arglocs, regalloc, fcond)
         self.propagate_memoryerror_if_r0_is_null()
@@ -1281,9 +1243,6 @@ class AllocOpAssembler(object):
         self.mc.BKPT()
         self.mc.NOP()
 
-
-class FloatOpAssemlber(object):
-    _mixin_ = True
 
     emit_op_float_add = gen_emit_float_op('float_add', 'VADD')
     emit_op_float_sub = gen_emit_float_op('float_sub', 'VSUB')
@@ -1324,10 +1283,3 @@ class FloatOpAssemlber(object):
         return fcond
 
 
-class ResOpAssembler(GuardOpAssembler, IntOpAsslember,
-                    OpAssembler, UnaryIntOpAssembler,
-                    FieldOpAssembler, ArrayOpAssember,
-                    StrOpAssembler, UnicodeOpAssembler,
-                    ForceOpAssembler, AllocOpAssembler,
-                    FloatOpAssemlber):
-    pass
