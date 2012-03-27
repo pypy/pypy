@@ -777,7 +777,7 @@ class RegAlloc(object):
             loc0 = self.xrm.loc(arg0)
             loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
             self.Perform(op, [loc0], loc1)
-            self.xrm.possibly_free_var(op.getarg(0))
+            self.xrm.possibly_free_var(arg0)
 
     def consider_convert_longlong_bytes_to_float(self, op):
         if longlong.is_64_bit:
@@ -786,10 +786,11 @@ class RegAlloc(object):
             self.Perform(op, [loc0], loc1)
             self.rm.possibly_free_var(op.getarg(0))
         else:
-            loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
-            loc1 = self.xrm.force_allocate_reg(op.result)
+            arg0 = op.getarg(0)
+            loc0 = self.xrm.make_sure_var_in_reg(arg0)
+            loc1 = self.xrm.force_allocate_reg(op.result, forbidden_vars=[arg0])
             self.Perform(op, [loc0], loc1)
-            self.xrm.possibly_free_var(op.getarg(0))
+            self.xrm.possibly_free_var(arg0)
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
