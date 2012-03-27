@@ -127,10 +127,10 @@ class ModuleDictStrategy(DictStrategy):
     def iter(self, w_dict):
         return ModuleDictIteratorImplementation(self.space, self, w_dict)
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         space = self.space
-        iterator = self.unerase(w_dict.dstorage).iteritems
-        return [space.wrap(key) for key, cell in iterator()]
+        l = self.unerase(w_dict.dstorage).keys()
+        return space.newlist_str(l)
 
     def values(self, w_dict):
         iterator = self.unerase(w_dict.dstorage).itervalues

@@ -117,7 +117,7 @@ class FlowObjSpace(ObjSpace):
         else:
             return Constant(tuple(content))
 
-    def newlist(self, args_w):
+    def newlist(self, args_w, sizehint=None):
         if self.concrete_mode:
             content = [self.unwrap(w_arg) for w_arg in args_w]
             return Constant(content)

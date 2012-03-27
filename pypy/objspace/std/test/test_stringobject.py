@@ -85,6 +85,10 @@ class TestW_StringObject:
         w_slice = space.newslice(w(1), w_None, w(2))
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('el'))
 
+    def test_listview_str(self):
+        w_str = self.space.wrap('abcd')
+        assert self.space.listview_str(w_str) == list("abcd")
+
 class AppTestStringObject:
 
     def test_format_wrongchar(self):

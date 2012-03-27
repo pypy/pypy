@@ -51,9 +51,11 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
-    a = W_NDimArray(num_items, [num_items], dtype=dtype)
-    for i, val in enumerate(items):
-        a.dtype.setitem(a.storage, i, val)
+    a = W_NDimArray([num_items], dtype=dtype)
+    ai = a.create_iter()
+    for val in items:
+        a.dtype.setitem(a, ai.offset, val)
+        ai = ai.next(1)
     
     return space.wrap(a)
 
@@ -61,6 +63,7 @@ def _fromstring_bin(space, s, count, length, dtype):
     from pypy.module.micronumpy.interp_numarray import W_NDimArray
     
     itemsize = dtype.itemtype.get_element_size()
+    assert itemsize >= 0
     if count == -1:
         count = length / itemsize
     if length % itemsize != 0:
@@ -71,20 +74,23 @@ def _fromstring_bin(space, s, count, length, dtype):
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
         
-    a = W_NDimArray(count, [count], dtype=dtype)
-    fromstring_loop(a, count, dtype, itemsize, s)
+    a = W_NDimArray([count], dtype=dtype)
+    fromstring_loop(a, dtype, itemsize, s)
     return space.wrap(a)
 
-fromstring_driver = jit.JitDriver(greens=[], reds=['count', 'i', 'itemsize',
-                                                   'dtype', 's', 'a'])
+fromstring_driver = jit.JitDriver(greens=[], reds=['i', 'itemsize',
+                                                   'dtype', 'ai', 's', 'a'])
 
-def fromstring_loop(a, count, dtype, itemsize, s):
+def fromstring_loop(a, dtype, itemsize, s):
     i = 0
-    while i < count:
-        fromstring_driver.jit_merge_point(a=a, count=count, dtype=dtype,
-                                          itemsize=itemsize, s=s, i=i)
+    ai = a.create_iter()
+    while not ai.done():
+        fromstring_driver.jit_merge_point(a=a, dtype=dtype,
+                                          itemsize=itemsize, s=s, i=i,
+                                          ai=ai)
         val = dtype.itemtype.runpack_str(s[i*itemsize:i*itemsize + itemsize])
-        a.dtype.setitem(a.storage, i, val)
+        a.dtype.setitem(a, ai.offset, val)
+        ai = ai.next(1)
         i += 1
 
 @unwrap_spec(s=str, count=int, sep=str)

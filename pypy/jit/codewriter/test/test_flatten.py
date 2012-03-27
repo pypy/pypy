@@ -968,14 +968,20 @@ class TestFlatten:
             int_return %i2
         """, transform=True)
 
-    def test_direct_ptradd(self):
-        from pypy.rpython.lltypesystem import rffi
-        def f(p, n):
-            return lltype.direct_ptradd(p, n)
-        self.encoding_test(f, [lltype.nullptr(rffi.CCHARP.TO), 123], """
-            int_add %i0, %i1 -> %i2
-            int_return %i2
-        """, transform=True)
+    def test_convert_float_bytes_to_int(self):
+        from pypy.rlib.longlong2float import float2longlong
+        def f(x):
+            return float2longlong(x)
+        if longlong.is_64_bit:
+            result_var = "%i0"
+            return_op = "int_return"
+        else:
+            result_var = "%f1"
+            return_op = "float_return"
+        self.encoding_test(f, [25.0], """
+            convert_float_bytes_to_longlong %%f0 -> %(result_var)s
+            %(return_op)s %(result_var)s
+        """ % {"result_var": result_var, "return_op": return_op})
 
 
 def check_force_cast(FROM, TO, operations, value):

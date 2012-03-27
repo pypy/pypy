@@ -114,9 +114,10 @@ elif _MINGW:
         )
 
     eci = rffi_platform.configure_external_library(
-        'libffi', eci,
+        'libffi-5', eci,
         [dict(prefix='libffi-',
               include_dir='include', library_dir='.libs'),
+         dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
@@ -233,6 +234,7 @@ __int_type_map = [
     (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
     (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
     (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    (lltype.Char, _signed_type_for(lltype.Char)),
     ]
 
 __float_type_map = [
