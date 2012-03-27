@@ -1632,7 +1632,7 @@ class LLtypeBackendTest(BaseBackendTest):
         bytes = longlong2float.float2longlong(2.5)
         res = self.execute_operation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT,
                                      [boxlonglong(res)], 'float').value
-        assert res == 2.5
+        assert longlong.getrealfloat(res) == 2.5
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
