@@ -595,6 +595,12 @@ class Regalloc(object):
         res = self.vfprm.force_allocate_reg(op.result)
         return [loc0, loc1, res]
 
+    def _prepare_llong_to_int(self, op, fcond):
+        loc0 = self._ensure_value_is_boxed(op.getarg(1))
+        res = self.force_allocate_reg(op.result)
+        return [loc0, res]
+
+
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []

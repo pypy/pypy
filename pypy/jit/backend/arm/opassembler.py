@@ -1290,3 +1290,10 @@ class ResOpAssembler(object):
     emit_op_llong_or = gen_emit_float_op('llong_or', 'VORR_i64')
     emit_op_llong_xor = gen_emit_float_op('llong_xor', 'VEOR_i64')
 
+    def emit_op_llong_to_int(self, op, arglocs, regalloc, fcond):
+        loc = arglocs[0]
+        res = arglocs[1]
+        assert loc.is_vfp_reg()
+        assert res.is_reg()
+        self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
+        return fcond
