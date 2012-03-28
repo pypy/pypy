@@ -284,6 +284,10 @@ def gen_test_block_data_func(name, table):
             tests.append((asm, (r.r3.value, range(regs+1))))
     return tests
 
+def gen_test_simd_instructions_3regs_func(name, table):
+    op_name = name[:name.index('_')]
+    return  [('d1, d2, d3', (r.d1.value, r.d2.value, r.d3.value), {}, '.i64')]
+
 def build_tests():
     cls = TestInstrCodeBuilderForGeneratedInstr
     test_name = 'test_generated_%s'
