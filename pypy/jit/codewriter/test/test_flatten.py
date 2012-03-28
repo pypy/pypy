@@ -968,20 +968,22 @@ class TestFlatten:
             int_return %i2
         """, transform=True)
 
-    def test_convert_float_bytes_to_int(self):
-        from pypy.rlib.longlong2float import float2longlong
+    def test_convert_float_bytes(self):
+        from pypy.rlib.longlong2float import float2longlong, longlong2float
         def f(x):
-            return float2longlong(x)
+            ll = float2longlong(x)
+            return longlong2float(ll)
         if longlong.is_64_bit:
-            result_var = "%i0"
-            return_op = "int_return"
-        else:
+            tmp_var = "%i0"
             result_var = "%f1"
-            return_op = "float_return"
+        else:
+            tmp_var = "%f1"
+            result_var = "%f2"
         self.encoding_test(f, [25.0], """
-            convert_float_bytes_to_longlong %%f0 -> %(result_var)s
-            %(return_op)s %(result_var)s
-        """ % {"result_var": result_var, "return_op": return_op})
+            convert_float_bytes_to_longlong %%f0 -> %(tmp_var)s
+            convert_longlong_bytes_to_float %(tmp_var)s -> %(result_var)s
+            float_return %(result_var)s
+        """ % {"result_var": result_var, "tmp_var": tmp_var}, transform=True)
 
 
 def check_force_cast(FROM, TO, operations, value):
