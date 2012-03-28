@@ -23,21 +23,18 @@ def parsestr(space, encoding, s, unicode_literal=False):
     rawmode = False
 
     # string decoration handling
-    o = ord(quote)
-    isalpha = (o>=97 and o<=122) or (o>=65 and o<=90)
-    if isalpha or quote == '_':
-        if quote == 'b' or quote == 'B':
-            ps += 1
-            quote = s[ps]
-            unicode_literal = False
-        elif quote == 'u' or quote == 'U':
-            ps += 1
-            quote = s[ps]
-            unicode_literal = True
-        if quote == 'r' or quote == 'R':
-            ps += 1
-            quote = s[ps]
-            rawmode = True
+    if quote == 'b' or quote == 'B':
+        ps += 1
+        quote = s[ps]
+        unicode_literal = False
+    elif quote == 'u' or quote == 'U':
+        ps += 1
+        quote = s[ps]
+        unicode_literal = True
+    if quote == 'r' or quote == 'R':
+        ps += 1
+        quote = s[ps]
+        rawmode = True
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
                              'Internal error: parser passed unquoted literal')
