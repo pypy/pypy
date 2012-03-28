@@ -1204,6 +1204,9 @@ class Regalloc(object):
         self.force_spill_var(op.getarg(0))
         return []
 
+    prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
+			    name='prepare_op_convert_float_bytes_to_longlong')
+
 
 def add_none_argument(fn):
     return lambda self, op, fcond: fn(self, op, None, fcond)

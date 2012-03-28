@@ -1297,3 +1297,5 @@ class ResOpAssembler(object):
         assert res.is_reg()
         self.mc.VMOV_rc(res.value, r.ip.value, loc.value)
         return fcond
+
+    emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op('float_bytes_to_longlong', 'VMOV_cc')
