@@ -3,8 +3,10 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -179,7 +181,7 @@ class W_Ufunc(Wrappable):
                 elif out.shape != shape:
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter shape mismatch, expecting [%s]' +
-                        ' , got [%s]', 
+                        ' , got [%s]',
                         ",".join([str(x) for x in shape]),
                         ",".join([str(x) for x in out.shape]),
                         )
@@ -204,7 +206,7 @@ class W_Ufunc(Wrappable):
         else:
             arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
             val = loop.compute(arr)
-        return val 
+        return val
 
     def do_axis_reduce(self, obj, dtype, axis, result):
         from pypy.module.micronumpy.interp_numarray import AxisReduce
@@ -253,7 +255,7 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
             if isinstance(out,Scalar):
-                out.value=arr
+                out.value = arr
             elif isinstance(out, BaseArray):
                 out.fill(space, arr)
             else:
@@ -265,7 +267,7 @@ class W_Ufunc1(W_Ufunc):
             if not broadcast_shape or broadcast_shape != out.shape:
                 raise operationerrfmt(space.w_ValueError,
                     'output parameter shape mismatch, could not broadcast [%s]' +
-                    ' to [%s]', 
+                    ' to [%s]',
                     ",".join([str(x) for x in w_obj.shape]),
                     ",".join([str(x) for x in out.shape]),
                     )
@@ -292,10 +294,11 @@ class W_Ufunc2(W_Ufunc):
         self.func = func
         self.comparison_func = comparison_func
 
+    @jit.unroll_safe
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement, BaseArray)
-        if len(args_w)>2:
+        if len(args_w) > 2:
             [w_lhs, w_rhs, w_out] = args_w
         else:
             [w_lhs, w_rhs] = args_w
@@ -326,7 +329,7 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
             if isinstance(out,Scalar):
-                out.value=arr
+                out.value = arr
             elif isinstance(out, BaseArray):
                 out.fill(space, arr)
             else:
@@ -337,7 +340,7 @@ class W_Ufunc2(W_Ufunc):
         if out and out.shape != shape_agreement(space, new_shape, out.shape):
             raise operationerrfmt(space.w_ValueError,
                 'output parameter shape mismatch, could not broadcast [%s]' +
-                ' to [%s]', 
+                ' to [%s]',
                 ",".join([str(x) for x in new_shape]),
                 ",".join([str(x) for x in out.shape]),
                 )
@@ -347,7 +350,6 @@ class W_Ufunc2(W_Ufunc):
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         if out:
-            #out.add_invalidates(w_res) #causes a recursion loop
             w_res.get_concrete()
         return w_res
 

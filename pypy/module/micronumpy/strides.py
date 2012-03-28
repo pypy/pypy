@@ -1,6 +1,7 @@
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 
+@jit.look_inside_iff(lambda chunks: jit.isconstant(len(chunks)))
 def enumerate_chunks(chunks):
     result = []
     i = -1
@@ -85,9 +86,9 @@ def to_coords(space, shape, size, order, w_item_or_slice):
         space.isinstance_w(w_item_or_slice, space.w_slice)):
         raise OperationError(space.w_IndexError,
                              space.wrap('unsupported iterator index'))
-            
+
     start, stop, step, lngth = space.decode_index4(w_item_or_slice, size)
-        
+
     coords = [0] * len(shape)
     i = start
     if order == 'C':
