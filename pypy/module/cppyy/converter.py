@@ -51,7 +51,7 @@ class TypeConverter(object):
         return fieldptr
 
     def _is_abstract(self, space):
-        raise TypeError("no converter available")
+        raise OperationError(space.w_TypeError, space.wrap("no converter available"))
 
     def convert_argument(self, space, w_obj, address):
         self._is_abstract(space)
@@ -140,7 +140,8 @@ class PtrTypeConverterMixin(object):
         try:
             byteptr[0] = buf.get_raw_address()
         except ValueError:
-            raise TypeError("raw buffer interface not supported")
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("raw buffer interface not supported"))
 
 
 class NumericTypeConverterMixin(object):
@@ -190,7 +191,8 @@ class VoidConverter(TypeConverter):
         self.name = name
 
     def convert_argument(self, space, w_obj, address):
-        raise TypeError('no converter available for type "%s"' % self.name)
+        raise OperationError(space.w_TypeError,
+                             space.wrap('no converter available for type "%s"' % self.name))
 
 
 class BoolConverter(TypeConverter):
@@ -200,7 +202,8 @@ class BoolConverter(TypeConverter):
     def _unwrap_object(self, space, w_obj):
         arg = space.c_int_w(w_obj)
         if arg != False and arg != True:
-            raise ValueError("boolean value should be bool, or integer 1 or 0")
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("boolean value should be bool, or integer 1 or 0"))
         return arg
 
     def convert_argument(self, space, w_obj, address):
@@ -233,14 +236,16 @@ class CharConverter(TypeConverter):
         if space.isinstance_w(w_value, space.w_int):
             ival = space.c_int_w(w_value)
             if ival < 0 or 256 <= ival:
-                raise ValueError("char arg not in range(256)")
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("char arg not in range(256)"))
 
             value = rffi.cast(rffi.CHAR, space.c_int_w(w_value))
         else:
             value = space.str_w(w_value)
 
         if len(value) != 1:  
-            raise ValueError("char expected, got string of size %d" % len(value))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("char expected, got string of size %d" % len(value)))
         return value[0] # turn it into a "char" to the annotator
 
     def convert_argument(self, space, w_obj, address):
@@ -516,8 +521,9 @@ class InstancePtrConverter(TypeConverter):
                     obj.cppclass.handle, self.cpptype.handle, rawobject)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
-        raise TypeError("cannot pass %s as %s" %
-                        (space.type(w_obj).getname(space, "?"), self.cpptype.name))
+        raise OperationError(space.w_TypeError,
+                             space.wrap("cannot pass %s as %s" %
+                             (space.type(w_obj).getname(space, "?"), self.cpptype.name)))
 
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.VOIDPP, address)

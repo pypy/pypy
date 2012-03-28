@@ -25,8 +25,13 @@ class FakeType(FakeBase):
     typename = "type"
     def __init__(self, name):
         self.name = name
+        self.__name__ = name
     def getname(self, space, name):
         return self.name
+class FakeException(FakeType):
+    def __init__(self, name):
+        FakeType.__init__(self, name)
+        self.message = name
 
 @jit.dont_look_inside
 def _opaque_direct_ptradd(ptr, offset):
@@ -47,12 +52,12 @@ class FakeUserDelAction(object):
 class FakeSpace(object):
     fake = True
 
-    w_ValueError = FakeType("ValueError")
-    w_TypeError = FakeType("TypeError")
-    w_AttributeError = FakeType("AttributeError")
-    w_ReferenceError = FakeType("ReferenceError")
-    w_NotImplementedError = FakeType("NotImplementedError")
-    w_RuntimeError = FakeType("RuntimeError")
+    w_ValueError = FakeException("ValueError")
+    w_TypeError = FakeException("TypeError")
+    w_AttributeError = FakeException("AttributeError")
+    w_ReferenceError = FakeException("ReferenceError")
+    w_NotImplementedError = FakeException("NotImplementedError")
+    w_RuntimeError = FakeException("RuntimeError")
 
     w_None = None
     w_str = FakeType("str")
@@ -99,6 +104,9 @@ class FakeSpace(object):
     def exception_match(self, typ, sub):
         return typ is sub
 
+    def is_w(self, w_one, w_two):
+        return w_one is w_two
+
     def int_w(self, w_obj):
         assert isinstance(w_obj, FakeInt)
         return w_obj.val
@@ -107,10 +115,13 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeInt)
         return rarithmetic.r_uint(w_obj.val)
 
-
     def str_w(self, w_obj):
         assert isinstance(w_obj, FakeString)
         return w_obj.val
+
+    def str(self, obj):
+        assert isinstance(obj, str)
+        return obj
 
     c_int_w = int_w
 
@@ -120,6 +131,11 @@ class FakeSpace(object):
 
     def type(self, w_obj):
         return FakeType("fake")
+
+    def getattr(self, w_obj, w_name):
+        assert isinstance(w_obj, FakeException)
+        assert self.str_w(w_name) == "__name__"
+        return FakeString(w_obj.name)
 
     def findattr(self, w_obj, w_name):
         return None

@@ -133,7 +133,8 @@ class CPPMethod(object):
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
-            raise TypeError("wrong number of arguments")
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("wrong number of arguments"))
 
         if self.arg_converters is None:
             self._setup(cppthis)
@@ -235,7 +236,7 @@ class CPPConstructor(CPPMethod):
         assert lltype.typeOf(newthis) == capi.C_OBJECT
         try:
             CPPMethod.call(self, newthis, args_w)
-        except Exception:
+        except:
             capi.c_deallocate(self.cpptype.handle, newthis)
             raise
         return wrap_new_cppobject_nocast(self.space, None, self.cpptype, newthis, False, True)
@@ -285,12 +286,16 @@ class W_CPPOverload(Wrappable):
 
         # only get here if all overloads failed ...
         errmsg = 'None of the overloads matched:'
+        if hasattr(self.space, "fake"):     # FakeSpace fails errorstr (see below)
+            raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
         for i in range(len(self.functions)):
             cppyyfunc = self.functions[i]
             try:
                 return cppyyfunc.call(cppthis, args_w)
+            except OperationError, e:
+                errmsg += '\n\t'+e.errorstr(self.space)
             except Exception, e:
-                errmsg += '\n\t'+str(e)
+                errmsg += '\n\tException:'+str(e)
 
         raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
 
@@ -334,23 +339,13 @@ class W_CPPDataMember(Wrappable):
     def get(self, w_cppinstance, w_type):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         offset = self._get_offset(cppinstance)
-        try:
-            return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
-        except TypeError, e:
-            raise OperationError(self.space.w_TypeError, self.space.wrap(str(e)))
-        except ValueError, e:
-            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
+        return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
 
     def set(self, w_cppinstance, w_value):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         offset = self._get_offset(cppinstance)
-        try:
-            self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
-            return self.space.w_None
-        except TypeError, e:
-            raise OperationError(self.space.w_TypeError, self.space.wrap(str(e)))
-        except ValueError, e:
-            raise OperationError(self.space.w_ValueError, self.space.wrap(str(e)))
+        self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
+        return self.space.w_None
 
 W_CPPDataMember.typedef = TypeDef(
     'CPPDataMember',

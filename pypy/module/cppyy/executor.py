@@ -1,5 +1,7 @@
 import sys
 
+from pypy.interpreter.error import OperationError
+
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib import libffi, clibffi
 
@@ -19,7 +21,8 @@ class FunctionExecutor(object):
         pass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        raise TypeError('return type not available or supported')
+        raise OperationError(space.w_TypeError,
+                             space.wrap('return type not available or supported'))
 
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -360,7 +363,6 @@ def get_executor(space, name):
     # currently used until proper lazy instantiation available in interp_cppyy
     return FunctionExecutor(space, None)
  
- #  raise TypeError("no clue what %s is" % name)
 
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
