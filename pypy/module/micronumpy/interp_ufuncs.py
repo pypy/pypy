@@ -28,7 +28,7 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-	from interp_numarray import BaseArray
+        from interp_numarray import BaseArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
