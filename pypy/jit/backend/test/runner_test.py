@@ -1657,6 +1657,7 @@ class BaseBackendTest(Runner):
     def test_read_timestamp(self):
         if not self.cpu.supports_longlong:
             py.test.skip("longlong test")
+        if sys.platform == 'win32':
             # so we stretch the time a little bit.
             # On my virtual Parallels machine in a 2GHz Core i7 Mac Mini,
             # the test starts working at delay == 21670 and stops at 20600000.
