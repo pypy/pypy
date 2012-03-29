@@ -288,7 +288,7 @@ class W_CPPOverload(Wrappable):
                 pass
 
         # only get here if all overloads failed ...
-        errmsg = 'None of the overloads matched:'
+        errmsg = 'none of the %d overloaded methods succeeded. Full details:' % len(self.functions)
         if hasattr(self.space, "fake"):     # FakeSpace fails errorstr (see below)
             raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
         for i in range(len(self.functions)):
@@ -296,9 +296,11 @@ class W_CPPOverload(Wrappable):
             try:
                 return cppyyfunc.call(cppthis, args_w)
             except OperationError, e:
-                errmsg += '\n\t'+e.errorstr(self.space)
+                errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
+                errmsg += '    '+e.errorstr(self.space)
             except Exception, e:
-                errmsg += '\n\tException:'+str(e)
+                errmsg += '\n  '+cppyyfunc.signature()+' =>\n'
+                errmsg += '    Exception:'+str(e)
 
         raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
 

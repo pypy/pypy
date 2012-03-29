@@ -172,7 +172,21 @@ class AppTestFRAGILE:
             d.check(None)         # raises TypeError
             assert 0
         except TypeError, e:
+            assert "fragile::D::check()" in str(e)
             assert "TypeError: wrong number of arguments" in str(e)
+
+        try:
+            d.overload(None)      # raises TypeError
+            assert 0
+        except TypeError, e:
+            assert "fragile::D::overload()" in str(e)
+            assert "TypeError: wrong number of arguments" in str(e)
+            assert "fragile::D::overload(fragile::no_such_class*)" in str(e)
+            assert "TypeError: no converter available for type \"fragile::no_such_class*\"" in str(e)
+            assert "fragile::D::overload(char, int)" in str(e)
+            assert "TypeError: expected string, got NoneType object" in str(e)
+            assert "fragile::D::overload(int, fragile::no_such_class*)" in str(e)
+            assert "TypeError: unsupported operand type for int(): 'NoneType'" in str(e)
 
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__
