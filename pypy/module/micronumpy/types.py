@@ -631,6 +631,22 @@ class Float(Primitive):
         return math.fabs(v)
 
     @simple_binary_op
+    def fmax(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return max(v1, v2)
+
+    @simple_binary_op
+    def fmin(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return min(v1, v2)
+
+    @simple_binary_op
     def fmod(self, v1, v2):
         try:
             return math.fmod(v1, v2)

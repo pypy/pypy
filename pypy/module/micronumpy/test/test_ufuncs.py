@@ -135,6 +135,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert fabs(float('-inf')) == float('inf')
         assert isnan(fabs(float('nan')))
 
+    def test_fmax(self):
+        from _numpypy import fmax
+        import math
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        a = [ninf, -5, 0, 5, inf]
+        assert (fmax(a, [ninf]*5) == a).all()
+        assert (fmax(a, [inf]*5) == [inf]*5).all()
+        assert (fmax(a, [1]*5) == [1, 1, 1, 5, inf]).all()
+        assert math.isnan(fmax(nan, 0))
+        assert math.isnan(fmax(0, nan))
+        assert math.isnan(fmax(nan, nan))
+        # The numpy docs specify that the FIRST NaN should be used if both are NaN
+        assert math.copysign(1.0, fmax(nnan, nan)) == -1.0
+
+    def test_fmin(self):
+        from _numpypy import fmin
+        import math
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        a = [ninf, -5, 0, 5, inf]
+        assert (fmin(a, [ninf]*5) == [ninf]*5).all()
+        assert (fmin(a, [inf]*5) == a).all()
+        assert (fmin(a, [1]*5) == [ninf, -5, 0, 1, 1]).all()
+        assert math.isnan(fmin(nan, 0))
+        assert math.isnan(fmin(0, nan))
+        assert math.isnan(fmin(nan, nan))
+        # The numpy docs specify that the FIRST NaN should be used if both are NaN
+        assert math.copysign(1.0, fmin(nnan, nan)) == -1.0
+
     def test_fmod(self):
         from _numpypy import fmod
         import math

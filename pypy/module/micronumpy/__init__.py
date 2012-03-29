@@ -99,6 +99,8 @@ class Module(MixedModule):
         ("exp2", "exp2"),
         ("expm1", "expm1"),
         ("fabs", "fabs"),
+        ("fmax", "fmax"),
+        ("fmin", "fmin"),
         ("fmod", "fmod"),
         ("floor", "floor"),
         ("ceil", "ceil"),
