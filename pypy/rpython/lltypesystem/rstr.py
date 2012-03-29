@@ -766,7 +766,7 @@ class LLHelpers(AbstractLLHelpers):
         lgt = stop - start
         assert start >= 0
         # If start > stop, return a empty string. This can happen if the start
-        # is greater than the length of the string. Use < instead <= to avoid
+        # is greater than the length of the string. Use < instead of <= to avoid
         # creating another path for the JIT.
         if lgt < 0:
             return s1.empty()
