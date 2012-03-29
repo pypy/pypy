@@ -874,6 +874,12 @@ class GatewayCache(SpaceCache):
             fn.add_to_table()
         if gateway.as_classmethod:
             fn = ClassMethod(space.wrap(fn))
+        #
+        from pypy.module.sys.vm import exc_info
+        if code._bltin is exc_info:
+            assert space._code_of_sys_exc_info is None
+            space._code_of_sys_exc_info = code
+        #
         return fn
 
 
