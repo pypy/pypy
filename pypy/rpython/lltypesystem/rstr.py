@@ -767,7 +767,7 @@ class LLHelpers(AbstractLLHelpers):
         assert start >= 0
         # If start > stop, return a empty string. This can happen if the start
         # is greater than the length of the string. Use < instead of <= to avoid
-        # creating another path for the JIT.
+        # creating another path for the JIT when start == stop.
         if lgt < 0:
             return s1.empty()
         newstr = s1.malloc(lgt)
