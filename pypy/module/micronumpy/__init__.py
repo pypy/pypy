@@ -131,6 +131,7 @@ class Module(MixedModule):
         ('bitwise_or', 'bitwise_or'),
         ('bitwise_xor', 'bitwise_xor'),
         ('bitwise_not', 'invert'),
+        ('invert', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
         ('isneginf', 'isneginf'),

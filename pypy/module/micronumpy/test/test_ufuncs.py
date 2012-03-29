@@ -591,10 +591,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, 'array([1.0]) & 1')
 
     def test_unary_bitops(self):
-        from _numpypy import bitwise_not, array
+        from _numpypy import bitwise_not, invert, array
         a = array([1, 2, 3, 4])
         assert (~a == [-2, -3, -4, -5]).all()
         assert (bitwise_not(a) == ~a).all()
+        assert (invert(a) == ~a).all()
 
     def test_comparisons(self):
         import operator
