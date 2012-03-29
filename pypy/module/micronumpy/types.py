@@ -631,6 +631,22 @@ class Float(Primitive):
         return math.fabs(v)
 
     @simple_binary_op
+    def fmax(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return max(v1, v2)
+
+    @simple_binary_op
+    def fmin(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return min(v1, v2)
+
+    @simple_binary_op
     def fmod(self, v1, v2):
         try:
             return math.fmod(v1, v2)
@@ -740,6 +756,10 @@ class Float(Primitive):
             return math.sqrt(v)
         except ValueError:
             return rfloat.NAN
+
+    @simple_unary_op
+    def square(self, v):
+        return v*v
 
     @raw_unary_op
     def isnan(self, v):
