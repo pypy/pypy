@@ -70,4 +70,9 @@ public:
 
 extern I gI;
 
+class J {
+public:
+    int method1(int, double) { return 0; }
+};
+
 } // namespace fragile

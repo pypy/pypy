@@ -57,6 +57,7 @@ def make_method(meth_name, cppol):
     def method(self, *args):
         return cppol.call(self, *args)
     method.__name__ = meth_name
+    method.__doc__ = cppol.signature()
     return method
 
 

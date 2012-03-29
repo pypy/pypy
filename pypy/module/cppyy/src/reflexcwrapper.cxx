@@ -11,6 +11,7 @@
 #include "Reflex/TypeTemplate.h"
 
 #include <string>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -353,6 +354,22 @@ char* cppyy_method_arg_default(cppyy_scope_t handle, int method_index, int arg_i
     Reflex::Member m = s.FunctionMemberAt(method_index);
     std::string dflt = m.FunctionParameterDefaultAt(arg_index);
     return cppstring_to_cstring(dflt);
+}
+
+char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.FunctionMemberAt(method_index);
+    Reflex::Type mt = m.TypeOf();
+    std::ostringstream sig;
+    sig << s.Name(Reflex::SCOPED) << "::" << m.Name() << "(";
+    int nArgs = m.FunctionParameterSize();
+    for (int iarg = 0; iarg < nArgs; ++iarg) {
+        sig << mt.FunctionParameterAt(iarg).Name(Reflex::SCOPED|Reflex::QUALIFIED);
+        if (iarg != nArgs-1)
+            sig << ", ";
+    }
+    sig << ")" << std::ends;
+    return cppstring_to_cstring(sig.str());
 }
 
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {

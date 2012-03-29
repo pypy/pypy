@@ -158,3 +158,22 @@ class AppTestFRAGILE:
 
         g = cppyy.gbl.fragile.gI
         assert not g
+
+    def test10_documentation(self):
+        """Check contents of documentation"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile == cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+
+        d = fragile.D()
+        try:
+            d.check(None)         # raises TypeError
+            assert 0
+        except TypeError, e:
+            assert "TypeError: wrong number of arguments" in str(e)
+
+        j = fragile.J()
+        assert fragile.J.method1.__doc__ == j.method1.__doc__
+        assert j.method1.__doc__ == "fragile::J::method1(int, double)"

@@ -216,6 +216,9 @@ class CPPMethod(object):
             conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i))
         capi.c_deallocate_function_args(args)
 
+    def signature(self):
+        return capi.c_method_signature(self.cpptype.handle, self.method_index)
+
     def __repr__(self):
         return "CPPFunction(%s, %s, %r, %s)" % (
             self.cpptype, self.method_index, self.executor, self.arg_defs)
@@ -299,6 +302,12 @@ class W_CPPOverload(Wrappable):
 
         raise OperationError(self.space.w_TypeError, self.space.wrap(errmsg))
 
+    def signature(self):
+        sig = self.functions[0].signature()
+        for i in range(1, len(self.functions)):
+            sig += '\n'+self.functions[i].signature()
+        return self.space.wrap(sig)
+
     def __repr__(self):
         return "W_CPPOverload(%s, %s)" % (self.func_name, self.functions)
 
@@ -306,6 +315,7 @@ W_CPPOverload.typedef = TypeDef(
     'CPPOverload',
     is_static = interp2app(W_CPPOverload.is_static, unwrap_spec=['self']),
     call = interp2app(W_CPPOverload.call, unwrap_spec=['self', W_Root, 'args_w']),
+    signature = interp2app(W_CPPOverload.signature, unwrap_spec=['self']),
 )
 
 

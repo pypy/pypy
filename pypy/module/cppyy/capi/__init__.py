@@ -285,6 +285,13 @@ _c_method_arg_default = rffi.llexternal(
     compilation_info=backend.eci)
 def c_method_arg_default(cppscope, method_index, arg_index):
     return charp2str_free(_c_method_arg_default(cppscope, method_index, arg_index))
+_c_method_signature = rffi.llexternal(
+    "cppyy_method_signature",
+    [C_SCOPE, rffi.INT], rffi.CCHARP,
+    threadsafe=threadsafe,
+    compilation_info=backend.eci)
+def c_method_signature(cppscope, method_index):
+    return charp2str_free(_c_method_signature(cppscope, method_index))
 
 c_get_method = rffi.llexternal(
     "cppyy_get_method",
