@@ -525,6 +525,21 @@ char* cppyy_method_arg_default(cppyy_scope_t, int, int) {
     return cppstring_to_cstring("");
 }
 
+char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
+    TFunction* f = type_get_method(handle, method_index);
+    TClassRef cr = type_from_handle(handle);
+    std::ostringstream sig;
+    sig << cr.GetClassName() << "::" << f->GetName() << "(";
+    int nArgs = f->GetNargs();
+    for (int iarg = 0; iarg < nArgs; ++iarg) {
+        sig << ((TMethodArg*)f->GetListOfMethodArgs()->At(iarg))->GetFullTypeName();
+        if (iarg != nArgs-1)
+            sig << ", ";
+    }
+    sig << ")" << std::ends;
+    return cppstring_to_cstring(sig.str());
+}
+
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
     TFunction* f = type_get_method(handle, method_index);
     return (cppyy_method_t)f->InterfaceMethod();
