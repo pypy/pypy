@@ -122,6 +122,7 @@ class Module(MixedModule):
         ("sinh", "sinh"),
         ("subtract", "subtract"),
         ('sqrt', 'sqrt'),
+        ('square', 'square'),
         ("tan", "tan"),
         ("tanh", "tanh"),
         ('bitwise_and', 'bitwise_and'),

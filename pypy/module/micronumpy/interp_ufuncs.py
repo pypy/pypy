@@ -549,6 +549,7 @@ class UfuncState(object):
             ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
+            ('square', 'square', 1, {'promote_to_float': True}),
 
             ("sin", "sin", 1, {"promote_to_float": True}),
             ("cos", "cos", 1, {"promote_to_float": True}),

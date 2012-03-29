@@ -741,6 +741,10 @@ class Float(Primitive):
         except ValueError:
             return rfloat.NAN
 
+    @simple_unary_op
+    def square(self, v):
+        return v*v
+
     @raw_unary_op
     def isnan(self, v):
         return rfloat.isnan(v)

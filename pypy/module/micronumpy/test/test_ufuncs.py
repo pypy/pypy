@@ -455,6 +455,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(sqrt(-1))
         assert math.isnan(sqrt(nan))
 
+    def test_square(self):
+        import math
+        from _numpypy import square
+
+        nan, inf, ninf = float("nan"), float("inf"), float("-inf")
+
+        assert math.isnan(square(nan))
+        assert math.isinf(square(inf))
+        assert math.isinf(square(ninf))
+        assert square(ninf) > 0
+        assert [square(x) for x in range(-5, 5)] == [x*x for x in range(-5, 5)]
+        assert math.isinf(square(1e300))
+
     def test_radians(self):
         import math
         from _numpypy import radians, array
