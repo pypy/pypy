@@ -1,7 +1,7 @@
 from pypy.rlib import jit
 
 
-@jit.look_inside_iff(lambda s: jit.isconstant(len(s)))
+@jit.unroll_safe
 def product(s):
     i = 1
     for x in s:
