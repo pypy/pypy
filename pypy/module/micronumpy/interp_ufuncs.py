@@ -541,6 +541,8 @@ class UfuncState(object):
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmax", "fmax", 2, {"promote_to_float": True}),
+            ("fmin", "fmin", 2, {"promote_to_float": True}),
             ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
@@ -549,6 +551,7 @@ class UfuncState(object):
             ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
+            ('square', 'square', 1, {'promote_to_float': True}),
 
             ("sin", "sin", 1, {"promote_to_float": True}),
             ("cos", "cos", 1, {"promote_to_float": True}),

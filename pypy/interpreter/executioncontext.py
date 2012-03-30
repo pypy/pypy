@@ -154,6 +154,7 @@ class ExecutionContext(object):
         #operationerr.print_detailed_traceback(self.space)
 
     def _convert_exc(self, operr):
+        # Only for the flow object space
         return operr
 
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
