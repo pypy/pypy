@@ -2,12 +2,14 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fileno, feof, Py_ssize_tP,
     cpython_struct)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
 from pypy.module.__builtin__ import compiling
+
+import os
 
 PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),))
@@ -152,19 +154,23 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     closeit set to 0 and flags set to NULL."""
     BUF_SIZE = 8192
     source = ""
-    filename = rffi.charp2str(filename)
-    buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
     try:
-        while True:
-            count = fread(buf, 1, BUF_SIZE, fp)
-            count = rffi.cast(lltype.Signed, count)
-            source += rffi.charpsize2str(buf, count)
-            if count < BUF_SIZE:
-                if feof(fp):
-                    break
-                PyErr_SetFromErrno(space, space.w_IOError)
+        fd = fileno(fp)
+        count = os.fstat(fd).st_size
+        while len(source) < count:
+            buf = os.read(fd, BUF_SIZE)
+            source += buf
+            if len(buf) < BUF_SIZE:
+                break
+        else:
+            PyErr_SetFromErrno(space, space.w_IOError)
+    except:
+        PyErr_SetFromErrno(space, space.w_IOError)
+        return None
     finally:
-        lltype.free(buf, flavor='raw')
+        pass
+        #lltype.free(buf, flavor='raw')
+    filename = rffi.charp2str(filename)
     return run_string(space, source, filename, start, w_globals, w_locals)
 
 # Undocumented function!

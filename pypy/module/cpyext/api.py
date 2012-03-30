@@ -79,8 +79,16 @@ assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
 FILEP = rffi.COpaquePtr('FILE')
+
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
+#fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
+def fclose(fp):
+    try:
+        fd = fileno(fp)
+        return os.close(fd)
+    except:
+        return -1
+
 fwrite = rffi.llexternal('fwrite',
                          [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                          rffi.SIZE_T)
