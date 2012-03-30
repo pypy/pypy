@@ -100,6 +100,7 @@ int get_d(d_class& d);
 //===========================================================================
 namespace a_ns {                   // for namespace testing
    extern int g_a;
+   int get_g_a();
 
    struct b_class {
       b_class() { m_b = -2; }
@@ -115,6 +116,7 @@ namespace a_ns {                   // for namespace testing
 
    namespace d_ns {
       extern int g_d;
+      int get_g_d();
 
       struct e_class {
          e_class() { m_e = -5; }

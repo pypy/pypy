@@ -413,7 +413,8 @@ class W_CPPScope(Wrappable):
         try:
             return self.methods[name]
         except KeyError:
-            raise self.missing_attribute_error(name)
+            pass
+        return self.find_overload(name)
 
     def get_data_member_names(self):
         return self.space.newlist([self.space.wrap(name) for name in self.data_members])
@@ -423,7 +424,8 @@ class W_CPPScope(Wrappable):
         try:
             return self.data_members[name]
         except KeyError:
-            raise self.missing_attribute_error(name)
+            pass
+        return self.find_data_member(name)
 
     def missing_attribute_error(self, name):
         return OperationError(
@@ -451,6 +453,13 @@ class W_CPPNamespace(W_CPPScope):
             arg_defs.append((arg_type, arg_dflt))
         return CPPFunction(self, method_index, result_type, arg_defs, args_required)
 
+    def _make_data_member(self, dm_name, dm_idx):
+        type_name = capi.c_data_member_type(self.handle, dm_idx)
+        offset = capi.c_data_member_offset(self.handle, dm_idx)
+        data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, True)
+        self.data_members[dm_name] = data_member
+        return data_member
+
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
@@ -458,10 +467,24 @@ class W_CPPNamespace(W_CPPScope):
                 continue
             data_member_name = capi.c_data_member_name(self.handle, i)
             if not data_member_name in self.data_members:
-                type_name = capi.c_data_member_type(self.handle, i)
-                offset = capi.c_data_member_offset(self.handle, i)
-                data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, True)
-                self.data_members[data_member_name] = data_member
+                self._make_data_member(data_member_name, i)
+
+    def find_overload(self, meth_name):
+        # TODO: collect all overloads, not just the non-overloaded version
+        meth_idx = capi.c_method_index(self.handle, meth_name)
+        if meth_idx < 0:
+            raise self.missing_attribute_error(meth_name)
+        cppfunction = self._make_cppfunction(meth_idx)
+        overload = W_CPPOverload(self.space, self.handle, meth_name, [cppfunction])
+        self.methods[meth_name] = overload
+        return overload
+
+    def find_data_member(self, dm_name):
+        dm_idx = capi.c_data_member_index(self.handle, dm_name)
+        if dm_idx < 0:
+            raise self.missing_attribute_error(dm_name)
+        data_member = self._make_data_member(dm_name, dm_idx)
+        return data_member
 
     def update(self):
         self._find_methods()
@@ -516,6 +539,12 @@ class W_CPPType(W_CPPScope):
             is_static = bool(capi.c_is_staticdata(self.handle, i))
             data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, is_static)
             self.data_members[data_member_name] = data_member
+
+    def find_overload(self, name):
+        raise self.missing_attribute_error(name)
+
+    def find_data_member(self, name):
+        raise self.missing_attribute_error(name)
 
     def get_cppthis(self, cppinstance, scope_handle):
         assert self.handle == cppinstance.cppclass.handle

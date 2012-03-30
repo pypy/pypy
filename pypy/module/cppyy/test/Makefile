@@ -1,5 +1,6 @@
-dicts = example01Dict.so datatypesDict.so advancedcppDict.so overloadsDict.so \
-stltypesDict.so operatorsDict.so fragileDict.so std_streamsDict.so
+dicts = example01Dict.so datatypesDict.so advancedcppDict.so advancedcpp2Dict.so \
+overloadsDict.so stltypesDict.so operatorsDict.so fragileDict.so \
+std_streamsDict.so
 all : $(dicts)
 
 ROOTSYS := ${ROOTSYS}

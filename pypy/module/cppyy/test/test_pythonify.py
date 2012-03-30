@@ -24,7 +24,7 @@ class AppTestPYTHONIFY:
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
-    def test01_load_dicionary_cache(self):
+    def test01_load_dictionary_cache(self):
         """Test whether loading a dictionary twice results in the same object."""
         import cppyy
         lib2 = cppyy.load_reflection_info(self.test_dct)

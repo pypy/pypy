@@ -71,6 +71,8 @@ extern "C" {
     char* cppyy_method_arg_default(cppyy_scope_t scope, int method_index, int arg_index);
     char* cppyy_method_signature(cppyy_scope_t scope, int method_index);
 
+    int cppyy_method_index(cppyy_scope_t scope, const char* name);
+
     cppyy_method_t cppyy_get_method(cppyy_scope_t scope, int method_index);
 
     /* method properties -----------------------------------------------------  */
@@ -82,6 +84,8 @@ extern "C" {
     char* cppyy_data_member_name(cppyy_scope_t scope, int data_member_index);
     char* cppyy_data_member_type(cppyy_scope_t scope, int data_member_index);
     size_t cppyy_data_member_offset(cppyy_scope_t scope, int data_member_index);
+
+    int cppyy_data_member_index(cppyy_scope_t scope, const char* name);
 
     /* data member properties ------------------------------------------------  */
     int cppyy_is_publicdata(cppyy_type_t type, int data_member_index);

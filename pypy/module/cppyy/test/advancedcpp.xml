@@ -22,7 +22,9 @@
   <namespace pattern="a_ns::*" />
   <class pattern="a_ns::*" />
   <variable name="a_ns::g_a" />
+  <function name="a_ns::get_g_a" />
   <variable name="a_ns::d_ns::g_d" />
+  <function name="a_ns::d_ns::get_g_d" />
 
   <class name="some_abstract_class" />
   <class name="some_concrete_class" />

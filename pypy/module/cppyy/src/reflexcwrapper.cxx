@@ -372,6 +372,23 @@ char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
+int cppyy_method_index(cppyy_scope_t handle, const char* name) {
+    Reflex::Scope s = scope_from_handle(handle);
+    // the following appears dumb, but the internal storage for Reflex is an
+    // unsorted std::vector anyway, so there's no gain to be had in using the
+    // Scope::FunctionMemberByName() function
+    int num_meth = s.FunctionMemberSize();
+    for (int imeth = 0; imeth < num_meth; ++imeth) {
+        Reflex::Member m = s.FunctionMemberAt(imeth);
+        if (m.Name() == name) {
+            if (m.IsPublic())
+                return imeth;
+            return -1;
+        }
+    }
+    return -1;
+}
+
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
@@ -434,6 +451,23 @@ size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
     if (m.IsArtificial() && m.TypeOf().IsEnum())
         return (size_t)&m.InterpreterOffset();
     return m.Offset();
+}
+
+int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
+    Reflex::Scope s = scope_from_handle(handle);
+    // the following appears dumb, but the internal storage for Reflex is an
+    // unsorted std::vector anyway, so there's no gain to be had in using the
+    // Scope::DataMemberByName() function (which returns Member, not an index)
+    int num_dm = cppyy_num_data_members(handle);
+    for (int idm = 0; idm < num_dm; ++idm) {
+        Reflex::Member m = s.DataMemberAt(idm);
+        if (m.Name() == name || m.Name(Reflex::FINAL) == name) {
+            if (m.IsPublic())
+                return idm;
+            return -1;
+        }
+    }
+    return -1;
 }
 
 

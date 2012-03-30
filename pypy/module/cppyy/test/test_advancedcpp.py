@@ -10,9 +10,10 @@ space = gettestobjspace(usemodules=['cppyy'])
 def setup_module(mod):
     if sys.platform == 'win32':
         py.test.skip("win32 not supported so far")
-    err = os.system("cd '%s' && make advancedcppDict.so" % currpath)
-    if err:
-        raise OSError("'make' failed (see stderr)")
+    for refl_dict in ["advancedcppDict.so", "advancedcpp2Dict.so"]:
+        err = os.system("cd '%s' && make %s" % (currpath, refl_dict))
+        if err:
+            raise OSError("'make' failed (see stderr)")
 
 class AppTestADVANCEDCPP:
     def setup_class(cls):
@@ -113,23 +114,55 @@ class AppTestADVANCEDCPP:
         import cppyy
         gbl = cppyy.gbl
 
+        assert gbl.a_ns      is gbl.a_ns
+        assert gbl.a_ns.d_ns is gbl.a_ns.d_ns
+
+        assert gbl.a_ns.b_class              is gbl.a_ns.b_class
+        assert gbl.a_ns.b_class.c_class      is gbl.a_ns.b_class.c_class
+        assert gbl.a_ns.d_ns.e_class         is gbl.a_ns.d_ns.e_class
+        assert gbl.a_ns.d_ns.e_class.f_class is gbl.a_ns.d_ns.e_class.f_class
+
         assert gbl.a_ns.g_a                           == 11
+        assert gbl.a_ns.get_g_a()                     == 11
         assert gbl.a_ns.b_class.s_b                   == 22
         assert gbl.a_ns.b_class().m_b                 == -2
         assert gbl.a_ns.b_class.c_class.s_c           == 33
         assert gbl.a_ns.b_class.c_class().m_c         == -3
         assert gbl.a_ns.d_ns.g_d                      == 44
+        assert gbl.a_ns.d_ns.get_g_d()                == 44
         assert gbl.a_ns.d_ns.e_class.s_e              == 55
         assert gbl.a_ns.d_ns.e_class().m_e            == -5
         assert gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
         assert gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
 
+    def test03a_namespace_lookup_on_update(self):
+        """Test whether namespaces can be shared across dictionaries."""
+
+        import cppyy
+        gbl = cppyy.gbl
+
+        lib2 = cppyy.load_reflection_info("advancedcpp2Dict.so")
+
         assert gbl.a_ns      is gbl.a_ns
         assert gbl.a_ns.d_ns is gbl.a_ns.d_ns
 
-        assert gbl.a_ns.b_class              is gbl.a_ns.b_class
-        assert gbl.a_ns.d_ns.e_class         is gbl.a_ns.d_ns.e_class
-        assert gbl.a_ns.d_ns.e_class.f_class is gbl.a_ns.d_ns.e_class.f_class
+        assert gbl.a_ns.g_class              is gbl.a_ns.g_class
+        assert gbl.a_ns.g_class.h_class      is gbl.a_ns.g_class.h_class
+        assert gbl.a_ns.d_ns.i_class         is gbl.a_ns.d_ns.i_class
+        assert gbl.a_ns.d_ns.i_class.j_class is gbl.a_ns.d_ns.i_class.j_class
+
+        assert gbl.a_ns.g_g                           ==  77
+        assert gbl.a_ns.get_g_g()                     ==  77
+        assert gbl.a_ns.g_class.s_g                   ==  88
+        assert gbl.a_ns.g_class().m_g                 ==  -7
+        assert gbl.a_ns.g_class.h_class.s_h           ==  99
+        assert gbl.a_ns.g_class.h_class().m_h         ==  -8
+        assert gbl.a_ns.d_ns.g_i                      == 111
+        assert gbl.a_ns.d_ns.get_g_i()                == 111
+        assert gbl.a_ns.d_ns.i_class.s_i              == 222
+        assert gbl.a_ns.d_ns.i_class().m_i            ==  -9
+        assert gbl.a_ns.d_ns.i_class.j_class.s_j      == 333
+        assert gbl.a_ns.d_ns.i_class.j_class().m_j    == -10
 
     def test04_template_types(self):
         """Test bindings of templated types"""

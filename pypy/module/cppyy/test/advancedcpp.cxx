@@ -24,6 +24,9 @@ int a_ns::d_ns::g_d                   = 44;
 int a_ns::d_ns::e_class::s_e          = 55;
 int a_ns::d_ns::e_class::f_class::s_f = 66;
 
+int a_ns::get_g_a() { return g_a; }
+int a_ns::d_ns::get_g_d() { return g_d; }
+
 
 // for template testing
 template class T1<int>;

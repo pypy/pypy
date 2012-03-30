@@ -293,6 +293,12 @@ _c_method_signature = rffi.llexternal(
 def c_method_signature(cppscope, method_index):
     return charp2str_free(_c_method_signature(cppscope, method_index))
 
+c_method_index = rffi.llexternal(
+    "cppyy_method_index",
+    [C_SCOPE, rffi.CCHARP], rffi.INT,
+    threadsafe=threadsafe,
+    compilation_info=backend.eci)
+
 c_get_method = rffi.llexternal(
     "cppyy_get_method",
     [C_SCOPE, rffi.INT], C_METHOD,
@@ -334,6 +340,12 @@ def c_data_member_type(cppscope, data_member_index):
 c_data_member_offset = rffi.llexternal(
     "cppyy_data_member_offset",
     [C_SCOPE, rffi.INT], rffi.SIZE_T,
+    threadsafe=threadsafe,
+    compilation_info=backend.eci)
+
+c_data_member_index = rffi.llexternal(
+    "cppyy_data_member_index",
+    [C_SCOPE, rffi.CCHARP], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 

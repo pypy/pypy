@@ -207,13 +207,6 @@ def get_cppitem(scope, name):
 
     pycppitem = None
 
-    # namespaces are "open"; TODO: classes are too (template methods, inner classes ...)
-    if isinstance(scope, CppyyNamespaceMeta):
-        global _loaded_dictionaries_isdirty
-        if _loaded_dictionaries_isdirty:  # TODO: this should be per namespace
-            scope._cpp_proxy.update()     # TODO: this is currently quadratic
-            _loaded_dictionaries_isdirty = False
-
     # classes
     cppitem = cppyy._type_byname(true_name)
     if cppitem:
@@ -365,15 +358,12 @@ def _pythonize(pyclass):
         pyclass.__getitem__ = pyclass.__setitem__
 
 _loaded_dictionaries = {}
-_loaded_dictionaries_isdirty = True     # should be per namespace
 def load_reflection_info(name):
     try:
         return _loaded_dictionaries[name]
     except KeyError:
         dct = cppyy._load_dictionary(name)
         _loaded_dictionaries[name] = dct
-        global _loaded_dictionaries_isdirty
-        _loaded_dictionaries_isdirty = True
         return dct
     
 
