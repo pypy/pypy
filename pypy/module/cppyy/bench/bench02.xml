@@ -7,6 +7,11 @@
      <class pattern="ROOT::T[A-Z]*" />
      <class pattern="ROOT::Fit::*" />
 
+     <!-- ROOT globals -->
+     <variable name="gROOT" />
+     <variable name="gSystem" />
+     <variable name="gRandom" />
+
      <!-- STL classes actually used -->
      <class name="std::string" />
      <class name="std::ostream" />

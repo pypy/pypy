@@ -7,12 +7,15 @@
 #include "TH1F.h"
 #include "TH2F.h"
 #include "TRandom.h"
+#include "TRandom3.h"
 
 #include "TROOT.h"
 #include "TApplication.h"
+#include "TSystem.h"
 
 #include "TArchiveFile.h"
 #include "TBasket.h"
+#include "TBenchmark.h"
 #include "TBox.h"
 #include "TBranchRef.h"
 #include "TBrowser.h"
@@ -67,10 +70,3 @@ public:
    void report();
    void close_file(TFile* f);
 };
-
-/*
-gROOT      = cppyy.gbl.gROOT
-gBenchmark = cppyy.gbl.gBenchmark
-gRandom    = cppyy.gbl.gRandom
-gSystem    = cppyy.gbl.gSystem
-*/
