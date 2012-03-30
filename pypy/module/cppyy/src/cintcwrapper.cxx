@@ -36,6 +36,23 @@ extern "C" void* G__SetShlHandle(char*);
 extern "C" void G__LockCriticalSection();
 extern "C" void G__UnlockCriticalSection();
 
+/* ROOT meta internals ---------------------------------------------------- */
+namespace {
+
+class Cppyy_OpenedTClass : public TDictionary {
+public:
+   mutable TObjArray *fStreamerInfo;    //Array of TVirtualStreamerInfo
+   mutable std::map<std::string, TObjArray*> *fConversionStreamerInfo; //Array of the streamer infos derived from another class.
+   TList             *fRealData;        //linked list for persistent members including base classes
+   TList             *fBase;            //linked list for base classes
+   TList             *fData;            //linked list for data members
+   TList             *fMethod;          //linked list for methods
+   TList             *fAllPubData;      //all public data members (including from base classes)
+   TList             *fAllPubMethod;    //all public methods (including from base classes)
+};
+
+} // unnamed namespace
+
 
 /* data for life time management ------------------------------------------ */
 #define GLOBAL_HANDLE 1l
@@ -540,6 +557,30 @@ char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
     return cppstring_to_cstring(sig.str());
 }
 
+int cppyy_method_index(cppyy_scope_t handle, const char* name) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        gInterpreter->UpdateListOfMethods(cr.GetClass());
+        int imeth = 0;
+        TFunction* func;
+        TIter next(cr->GetListOfMethods());
+        while ((func = (TFunction*)next())) {
+            if (strcmp(name, func->GetName()) == 0) {
+                if (func->Property() & G__BIT_ISPUBLIC)
+                    return imeth;
+                return -1;
+            }
+            ++imeth;
+        }
+    }
+    TFunction* func = gROOT->GetGlobalFunction(name, NULL, kTRUE);
+    if (!func)
+        return -1;
+    int idx = g_globalfuncs.size();
+    g_globalfuncs.push_back(*func);
+    return idx;
+}
+
 cppyy_method_t cppyy_get_method(cppyy_scope_t handle, int method_index) {
     TFunction* f = type_get_method(handle, method_index);
     return (cppyy_method_t)f->InterfaceMethod();
@@ -619,6 +660,39 @@ size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
     }
     TGlobal& gbl = g_globalvars[data_member_index];
     return (size_t)gbl.GetAddress();
+}
+
+int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        // called from updates; add a hard reset as the code itself caches in
+        // Class (TODO: by-pass ROOT/meta)
+        Cppyy_OpenedTClass* c = (Cppyy_OpenedTClass*)cr.GetClass();
+        if (c->fData) {
+            c->fData->Delete();
+            delete c->fData; c->fData = 0;
+            delete c->fAllPubData; c->fAllPubData = 0;
+        }
+        // the following appears dumb, but TClass::GetDataMember() does a linear
+        // search itself, so there is no gain
+        int idm = 0;
+        TDataMember* dm;
+        TIter next(cr->GetListOfDataMembers());
+        while ((dm = (TDataMember*)next())) {
+            if (strcmp(name, dm->GetName()) == 0) {
+                if (dm->Property() & G__BIT_ISPUBLIC)
+                    return idm;
+                return -1;
+            }
+            ++idm;
+        }
+    }
+    TGlobal* gbl = (TGlobal*)gROOT->GetListOfGlobals(kTRUE)->FindObject(name);
+    if (!gbl)
+        return -1;
+    int idx = g_globalvars.size();
+    g_globalvars.push_back(*gbl);
+    return idx;
 }
 
 

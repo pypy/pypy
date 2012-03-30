@@ -36,7 +36,9 @@
 #pragma link C++ struct a_ns::d_ns::e_class;
 #pragma link C++ struct a_ns::d_ns::e_class::f_class;
 #pragma link C++ variable a_ns::g_a;
+#pragma link C++ function a_ns::get_g_a;
 #pragma link C++ variable a_ns::d_ns::g_d;
+#pragma link C++ function a_ns::d_ns::get_g_d;
 
 #pragma link C++ class some_abstract_class;
 #pragma link C++ class some_concrete_class;
