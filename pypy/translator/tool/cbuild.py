@@ -329,4 +329,9 @@ STANDARD_DEFINES = '''
    typedef unsigned long Unsigned;
 #  define SIGNED_MIN LONG_MIN
 #endif
+#ifdef __GNUC__       /* other platforms too, probably */
+typedef _Bool bool_t;
+#else
+typedef unsigned char bool_t;
+#endif
 '''

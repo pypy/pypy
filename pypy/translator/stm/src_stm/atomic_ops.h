@@ -1,3 +1,5 @@
+#ifndef _SRCSTM_ATOMIC_OPS_
+#define _SRCSTM_ATOMIC_OPS_
 
 
 /* "compiler fence" for preventing reordering of loads/stores to
@@ -45,3 +47,6 @@ static inline void spinloop(void)
      relevant data from memory after the spinloop */
   asm volatile ("pause":::"memory");
 }
+
+
+#endif  /* _SRCSTM_ATOMIC_OPS_ */
