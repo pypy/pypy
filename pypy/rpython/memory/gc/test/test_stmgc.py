@@ -588,3 +588,7 @@ class TestBasic:
         assert a == sr1_adr
         a = self.gc.stm_normalize_global(tr1_adr)
         assert a == sr1_adr
+
+    def test_alloc_a_lot_from_main_thread(self):
+        for i in range(1000):
+            sr1, sr1_adr = self.malloc(SR)

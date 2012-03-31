@@ -147,14 +147,13 @@ class StmGC(GCBase):
     def _allocate_bump_pointer(self, tls, size):
         free = tls.nursery_free
         top  = tls.nursery_top
-        new  = free + size
-        tls.nursery_free = new
-        if new > top:
-            free = self.local_collection(free)
+        if (top - free) < llmemory.raw_malloc_usage(size):
+            free = self.local_collection(size)
+        tls.nursery_free = free + size
         return free
 
     @dont_inline
-    def local_collection(self, oldfree):
+    def local_collection(self, size):
         raise MemoryError("nursery exhausted")   # XXX for now
 
 
