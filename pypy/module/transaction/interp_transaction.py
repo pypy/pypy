@@ -23,6 +23,7 @@ class State(object):
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
+        self.epolls = None
         self.pending = Fifo()
 
     def _freeze_(self):
@@ -305,6 +306,7 @@ def run(space):
     assert not state.is_locked_no_tasks_pending()
     state.clear_all_values_apart_from_main()
     state.running = False
+    state.epolls = None
     #
     # now re-raise the exception that we got in a transaction
     state.close_exceptions()

@@ -15,6 +15,9 @@ def add(f, *args):
     _pending[r] = (f, args)
 
 def add_epoll(ep, callback):
+    for key, (f, args) in _pending.items():
+        if getattr(f, '_reads_from_epoll_', None) is ep:
+            raise ValueError("add_epoll(ep): ep is already registered")
     def poll_reader():
         # assume only one epoll is added.  If the _pending list is
         # now empty, wait.  If not, then just poll non-blockingly.
@@ -26,7 +29,16 @@ def add_epoll(ep, callback):
         for fd, events in got:
             add(callback, fd, events)
         add(poll_reader)
+    poll_reader._reads_from_epoll_ = ep
     add(poll_reader)
+
+def remove_epoll(ep):
+    for key, (f, args) in _pending.items():
+        if getattr(f, '_reads_from_epoll_', None) is ep:
+            del _pending[key]
+            break
+    else:
+        raise ValueError("remove_epoll(ep): ep is not registered")
 
 def run():
     pending = _pending

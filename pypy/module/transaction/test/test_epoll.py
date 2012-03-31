@@ -50,6 +50,26 @@ class AppTestEpoll:
         raises(Done, transaction.run)
         assert steps == ['write_stuff', 'callback']
 
+    def test_remove_closed_epoll(self):
+        import transaction, select, posix as os
+
+        fd_read, fd_write = os.pipe()
+
+        epoller = select.epoll()
+        epoller.register(fd_read)
+
+        # we run it 10 times in order to get both possible orders in
+        # the emulator
+        for i in range(10):
+            transaction.add_epoll(epoller, lambda *args: not_actually_callable)
+            transaction.add(transaction.remove_epoll, epoller)
+            transaction.run()
+            # assert didn't deadlock
+            transaction.add(transaction.remove_epoll, epoller)
+            transaction.add_epoll(epoller, lambda *args: not_actually_callable)
+            transaction.run()
+            # assert didn't deadlock
+
 
 class AppTestEpollEmulator(AppTestEpoll):
     def setup_class(cls):

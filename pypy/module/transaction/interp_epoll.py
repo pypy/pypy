@@ -35,6 +35,7 @@ class EPollPending(interp_transaction.AbstractPending):
         self.evs = lltype.malloc(rffi.CArray(epoll_event), self.maxevents,
                                  flavor='raw', add_memory_pressure=True,
                                  track_allocation=False)
+        self.force_quit = False
 
     def __del__(self):
         evs = self.evs
@@ -45,7 +46,7 @@ class EPollPending(interp_transaction.AbstractPending):
     def run(self):
         # This code is run non-transactionally.  Careful, no GC available.
         state = interp_transaction.state
-        if state.has_exception():
+        if state.has_exception() or self.force_quit:
             return
         fd = rffi.cast(rffi.INT, self.epoller.epfd)
         maxevents = rffi.cast(rffi.INT, self.maxevents)
@@ -107,4 +108,25 @@ def _reraise_from_errno():
 
 @unwrap_spec(epoller=W_Epoll)
 def add_epoll(space, epoller, w_callback):
-    EPollPending(space, epoller, w_callback).register()
+    state = interp_transaction.state
+    if state.epolls is None:
+        state.epolls = {}
+    elif epoller in state.epolls:
+        raise OperationError(space.w_ValueError,
+            space.wrap("add_epoll(ep): ep is already registered"))
+    pending = EPollPending(space, epoller, w_callback)
+    state.epolls[epoller] = pending
+    pending.register()
+
+@unwrap_spec(epoller=W_Epoll)
+def remove_epoll(space, epoller):
+    state = interp_transaction.state
+    if state.epolls is None:
+        pending = None
+    else:
+        pending = state.epolls.get(epoller, None)
+    if pending is None:
+        raise OperationError(space.w_ValueError,
+            space.wrap("remove_epoll(ep): ep is not registered"))
+    pending.force_quit = True
+    del state.epolls[epoller]
