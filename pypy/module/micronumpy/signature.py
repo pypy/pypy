@@ -107,6 +107,10 @@ class Signature(object):
         arr.compute_first_step(self, f)
         return f
 
+    def debug_repr(self):
+        # should be overridden, but in case it isn't, provide a default
+        return str(self)
+
 class ConcreteSignature(Signature):
     _immutable_fields_ = ['dtype']
 
