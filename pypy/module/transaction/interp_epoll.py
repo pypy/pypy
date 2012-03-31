@@ -25,28 +25,32 @@ _epoll_wait = rffi.llexternal(
 
 
 class EPollPending(interp_transaction.AbstractPending):
+    maxevents = FD_SETSIZE - 1    # for now
+    evs = lltype.nullptr(rffi.CArray(epoll_event))
+
     def __init__(self, space, epoller, w_callback):
         self.space = space
         self.epoller = epoller
         self.w_callback = w_callback
+        self.evs = lltype.malloc(rffi.CArray(epoll_event), self.maxevents,
+                                 flavor='raw', add_memory_pressure=True,
+                                 track_allocation=False)
+
+    def __del__(self):
+        evs = self.evs
+        if evs:
+            self.evs = lltype.nullptr(rffi.CArray(epoll_event))
+            lltype.free(evs, flavor='raw', track_allocation=False)
 
     def run(self):
         # This code is run non-transactionally.  Careful, no GC available.
         state = interp_transaction.state
         if state.has_exception():
             return
-        maxevents = FD_SETSIZE - 1    # for now
-        evs = lltype.malloc(rffi.CArray(epoll_event), maxevents, flavor='raw')
-        try:
-            self.wait_and_process_events(evs, maxevents)
-        finally:
-            lltype.free(evs, flavor='raw')
-
-    def wait_and_process_events(self, evs, maxevents):
         fd = rffi.cast(rffi.INT, self.epoller.epfd)
-        maxevents = rffi.cast(rffi.INT, maxevents)
+        maxevents = rffi.cast(rffi.INT, self.maxevents)
         timeout = rffi.cast(rffi.INT, 500)     # for now: half a second
-        nfds = _epoll_wait(fd, evs, maxevents, timeout)
+        nfds = _epoll_wait(fd, self.evs, maxevents, timeout)
         nfds = rffi.cast(lltype.Signed, nfds)
         #
         if nfds < 0:
@@ -63,7 +67,6 @@ class EPollPending(interp_transaction.AbstractPending):
         # allocate anything here because we are not running transactionally.
         # Workaround for now: run a new tiny transaction just to create
         # and register these PendingCallback's.
-        self.evs = evs
         self.nfds = nfds
         rstm.perform_transaction(EPollPending._add_real_transactions,
                                  EPollPending, self)
