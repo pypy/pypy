@@ -56,7 +56,7 @@ def add_epoll(ep, callback):
 
 def remove_epoll(ep):
     """Explicitly unregister the epoll object.  Note that raising an
-    exception in a transaction also cancels any add_epoll().
+    exception in a transaction to abort run() also unregisters all epolls.
     """
     for key, (f, args, kwds) in _pending.items():
         if getattr(f, '_reads_from_epoll_', None) is ep:
