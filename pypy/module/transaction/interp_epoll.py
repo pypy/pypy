@@ -112,7 +112,7 @@ def add_epoll(space, epoller, w_callback):
     if state.epolls is None:
         state.epolls = {}
     elif epoller in state.epolls:
-        raise OperationError(space.w_ValueError,
+        raise OperationError(state.w_error,
             space.wrap("add_epoll(ep): ep is already registered"))
     pending = EPollPending(space, epoller, w_callback)
     state.epolls[epoller] = pending
@@ -126,7 +126,7 @@ def remove_epoll(space, epoller):
     else:
         pending = state.epolls.get(epoller, None)
     if pending is None:
-        raise OperationError(space.w_ValueError,
+        raise OperationError(state.w_error,
             space.wrap("remove_epoll(ep): ep is not registered"))
     pending.force_quit = True
     del state.epolls[epoller]

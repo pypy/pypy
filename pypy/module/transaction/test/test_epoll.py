@@ -70,6 +70,17 @@ class AppTestEpoll:
             transaction.run()
             # assert didn't deadlock
 
+    def test_errors(self):
+        import transaction, select
+        epoller = select.epoll()
+        callback = lambda *args: not_actually_callable
+        transaction.add_epoll(epoller, callback)
+        raises(transaction.TransactionError,
+               transaction.add_epoll, epoller, callback)
+        transaction.remove_epoll(epoller)
+        raises(transaction.TransactionError,
+               transaction.remove_epoll, epoller)
+
 
 class AppTestEpollEmulator(AppTestEpoll):
     def setup_class(cls):
