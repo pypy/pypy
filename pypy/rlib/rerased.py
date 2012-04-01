@@ -100,6 +100,7 @@ def new_erasing_pair(name):
         def specialize_call(self, hop):
             bk = hop.rtyper.annotator.bookkeeper
             s_obj = identity.get_input_annotation(bk)
+            hop.exception_cannot_occur()
             return hop.r_result.rtype_erase(hop, s_obj)
 
     class Entry(ExtRegistryEntry):
@@ -113,6 +114,7 @@ def new_erasing_pair(name):
             if hop.r_result.lowleveltype is lltype.Void:
                 return hop.inputconst(lltype.Void, None)
             [v] = hop.inputargs(hop.args_r[0])
+            hop.exception_cannot_occur()
             return hop.args_r[0].rtype_unerase(hop, v)
 
     return erase, unerase
