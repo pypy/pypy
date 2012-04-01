@@ -86,6 +86,7 @@ class Entry(ExtRegistryEntry):
         return s_None
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 # ____________________________________________________________

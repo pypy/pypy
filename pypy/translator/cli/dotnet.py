@@ -459,6 +459,7 @@ class Entry(ExtRegistryEntry):
             
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         assert hop.args_s[1].is_constant()
         TYPE = hop.args_s[1].const
         v_obj = hop.inputarg(hop.args_r[0], arg=0)
@@ -507,6 +508,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
         return hop.genop('same_as', [v_obj], hop.r_result.lowleveltype)
 
 def new_array(type, length):
@@ -608,6 +610,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         v_type, = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
         return hop.genop('cli_typeof', [v_type], hop.r_result.lowleveltype)
 
 
@@ -626,6 +629,7 @@ class Entry(ExtRegistryEntry):
         v_obj, = hop.inputargs(*hop.args_r)
         methodname = hop.args_r[0].methodname
         c_methodname = hop.inputconst(ootype.Void, methodname)
+        hop.exception_cannot_occur()
         return hop.genop('cli_eventhandler', [v_obj, c_methodname], hop.r_result.lowleveltype)
 
 
@@ -647,6 +651,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
+        hop.exception_cannot_occur()
         return hop.genop('oodowncast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
 
@@ -668,6 +673,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
+        hop.exception_cannot_occur()
         return hop.genop('ooupcast', [v_inst], resulttype = hop.r_result.lowleveltype)
 
 
@@ -701,6 +707,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         v_obj = hop.inputarg(hop.args_r[0], arg=0)
+        hop.exception_cannot_occur()
         return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
 
 

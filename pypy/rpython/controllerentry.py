@@ -201,6 +201,7 @@ class IsBoxEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
         assert hop.s_result.is_constant()
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________

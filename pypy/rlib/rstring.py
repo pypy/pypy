@@ -245,5 +245,5 @@ class Entry(ExtRegistryEntry):
             raise ValueError("Value is not no_nul")
 
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 

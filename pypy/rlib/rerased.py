@@ -155,7 +155,6 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         [v] = hop.inputargs(hop.args_r[0])
         assert isinstance(hop.s_result, annmodel.SomeInteger)
-        hop.exception_cannot_occur()
         return hop.args_r[0].rtype_unerase_int(hop, v)
 
 def ll_unerase_int(gcref):
@@ -217,6 +216,7 @@ class ErasedRepr(Repr):
         return hop.genop('cast_opaque_ptr', [v], resulttype=hop.r_result)
 
     def rtype_unerase_int(self, hop, v):
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_unerase_int, v)
 
     def rtype_erase_int(self, hop):
@@ -267,6 +267,7 @@ class OOErasedRepr(Repr):
 
     def rtype_unerase_int(self, hop, v):
         c_one = hop.inputconst(lltype.Signed, 1)
+        hop.exception_cannot_occur()
         v2 = hop.genop('oounbox_int', [v], resulttype=hop.r_result)
         return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
 
