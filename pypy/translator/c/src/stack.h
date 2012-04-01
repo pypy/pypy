@@ -18,14 +18,14 @@ extern char _LLstacktoobig_report_error;
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
 void LL_stack_set_length_fraction(double);
 
-/* some macros referenced from pypy.rlib.rstack */
-#define LL_stack_get_end() ((long)_LLstacktoobig_stack_end)
-#define LL_stack_get_length() _LLstacktoobig_stack_length
-#define LL_stack_get_end_adr()    ((long)&_LLstacktoobig_stack_end)   /* JIT */
-#define LL_stack_get_length_adr() ((long)&_LLstacktoobig_stack_length)/* JIT */
+/* some functions referenced from pypy.rlib.rstack */
+long LL_stack_get_end() { return (long)_LLstacktoobig_stack_end; }
+long LL_stack_get_length() { return (long)_LLstacktoobig_stack_length; }
+long LL_stack_get_end_adr() { return (long)&_LLstacktoobig_stack_end; }      /* JIT */
+long LL_stack_get_length_adr() { return (long)&_LLstacktoobig_stack_length; }/* JIT */
 
-#define LL_stack_criticalcode_start()  (_LLstacktoobig_report_error = 0)
-#define LL_stack_criticalcode_stop()   (_LLstacktoobig_report_error = 1)
+void LL_stack_criticalcode_start()  { _LLstacktoobig_report_error = 0; }
+void LL_stack_criticalcode_stop()   { _LLstacktoobig_report_error = 1; }
 
 
 #ifdef __GNUC__

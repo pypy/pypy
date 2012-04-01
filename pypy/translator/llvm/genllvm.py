@@ -1,3 +1,4 @@
+import ctypes
 from itertools import count
 
 from py.process import cmdexec
@@ -11,6 +12,7 @@ from pypy.rpython.memory.gctransform.transform import GCTransformer
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.gensupp import uniquemodulename
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.unsimplify import remove_double_links
 from pypy.tool.udir import udir
 
@@ -103,6 +105,7 @@ class IntegralType(Type):
                     ', '.join(indices))
         elif isinstance(value, llgroup.GroupMemberOffset):
             grpptr = get_repr(value.grpptr)
+            grpptr.V
             member = get_repr(value.member)
             return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
                     'i64 0, i32 {value.index}) to i32)').format(**locals())
@@ -158,10 +161,8 @@ class IntegralType(Type):
 
 
 class CharType(IntegralType):
-    def __init__(self):
-        self.bitwidth = 8
-        self.unsigned = True
-        self.typestr = 'i8'
+    def __init__(self, bitwidth):
+        IntegralType.__init__(self, bitwidth, True)
 
     def is_zero(self, value):
         return value is None or value == '\00'
@@ -194,6 +195,11 @@ class FloatType(Type):
         return float(value) == 0.0
 
     def repr_value(self, value, extra_len=None):
+        from pypy.rlib.rfloat import isinf, isnan
+        if isinf(value) or isnan(value):
+            import struct
+            packed = struct.pack("d", value)
+            return "0x" + ''.join([('{:02x}'.format(ord(i))) for i in packed])
         return repr(float(value))
 
     def get_cast_op(self, to):
@@ -232,7 +238,8 @@ class AddressType(BasePtrType):
 LLVMVoid = VoidType()
 LLVMSigned = IntegralType(8, False)
 LLVMUnsigned = IntegralType(8, True)
-LLVMChar = CharType()
+LLVMChar = CharType(1)
+LLVMUniChar = CharType(4)
 LLVMBool = BoolType()
 LLVMFloat = FloatType('double', 64)
 LLVMSingleFloat = FloatType('float', 32)
@@ -244,6 +251,7 @@ PRIMITIVES = {
     lltype.Signed: LLVMSigned,
     lltype.Unsigned: LLVMUnsigned,
     lltype.Char: LLVMChar,
+    lltype.UniChar: LLVMUniChar,
     lltype.Bool: LLVMBool,
     lltype.Float: LLVMFloat,
     lltype.SingleFloat: LLVMSingleFloat,
@@ -437,12 +445,12 @@ class BareArrayType(Type):
     def repr_value(self, value, extra_len=None):
         if self.is_zero(value):
             return 'zeroinitializer'
-        if isinstance(self.of, CharType):
+        if self.of is LLVMChar:
             return 'c"{}"'.format(''.join(i if 32 <= ord(i) <= 126 and i != '"'
                                           else r'\{:02x}'.format(ord(i))
                                   for i in value.items))
-        return '[\n    {}\n]'.format(', '.join(self.of.repr_type_and_value(item)
-                                               for item in value.items))
+        return '[\n    {}\n]'.format(', '.join(
+                self.of.repr_type_and_value(item) for item in value.items))
 
     def add_indices(self, gep, key):
         if key.type_ is LLVMVoid:
@@ -461,8 +469,7 @@ class ArrayHelper(object):
 class ArrayType(Type):
     varsize = True
 
-    def setup_from_lltype(self, db, type_):
-        of = db.get_type(type_.OF)
+    def setup(self, of):
         tmp = '%array_of_' + of.repr_type().lstrip('%').replace('*', '_ptr')\
                                                        .replace('[', '_')\
                                                        .replace(']', '_')\
@@ -474,6 +481,9 @@ class ArrayType(Type):
         self.struct_type = StructType()
         self.struct_type.setup(
                 tmp, [(LLVMSigned, 'len'), (self.bare_array_type, 'items')])
+
+    def setup_from_lltype(self, db, type_):
+        self.setup(db.get_type(type_.OF))
 
     def repr_type(self, extra_len=None):
         return self.struct_type.repr_type(extra_len)
@@ -547,8 +557,9 @@ class FuncType(Type):
                 database.f.write(ROUND_UP_FOR_ALLOCATION)
             elif obj._name not in ('malloc', 'free'):
                 database.f.write('declare {} {}({})\n'.format(
-                        self.result.typestr, name,
+                        self.result.repr_type(), name,
                         ', '.join(arg.repr_type() for arg in self.args)))
+                database.genllvm.ecis.append(obj.compilation_info)
         else:
             name = database.unique_name('@rpy_' + obj._name
                     .replace(',', '_').replace(' ', '_')
@@ -624,8 +635,6 @@ class Database(object):
 
 
 OPS = {
-        'int_add_ovf': 'add', # XXX check for overflow
-        'int_mul_ovf': 'mul', # XXX check for overflow
 }
 for type_ in ['int', 'uint', 'llong', 'ullong']:
     OPS[type_ + '_lshift'] = 'shl'
@@ -637,7 +646,10 @@ for type_ in ['int', 'uint', 'llong', 'ullong']:
 
 for type_ in ['float']:
     for op in ['add', 'sub', 'mul', 'div']:
-        OPS['{}_{}'.format(type_, op)] = 'f' + op
+        if op == 'div':
+            OPS['{}_truediv'.format(type_)] = 'f' + op
+        else:
+            OPS['{}_{}'.format(type_, op)] = 'f' + op
 
 for type_, prefix in [('char', 'u'), ('unichar', 'u'), ('int', 's'),
                       ('uint', 'u'), ('llong', 's'), ('ullong', 'u'),
@@ -790,7 +802,7 @@ class FunctionWriter(object):
     def _tmp(self, type_=None):
         return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
 
-    # XXX: implement
+    # TODO: implement
 
     def op_zero_gc_pointers_inside(self, result, var):
         pass
@@ -902,8 +914,10 @@ class FunctionWriter(object):
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_direct_ptradd(self, result, var, val):
-        self.w('{result.V} = getelementptr {var.TV}, {val.TV}'
+        t = self._tmp(PtrType.to(result.type_.to.of))
+        self.w('{t.V} = getelementptr {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
+        self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
     def op_getarraysize(self, result, ptr, *fields):
         gep = GEP(self, ptr)
@@ -924,14 +938,20 @@ class FunctionWriter(object):
         self.w('{result.V} = icmp ne i64 {var.V}, 0'.format(**locals()))
     op_uint_is_true = op_int_is_true
 
+    def op_int_between(self, result, a, b, c):
+        t1 = self._tmp()
+        t2 = self._tmp()
+        self.w('{t1.V} = icmp sle {a.TV}, {b.V}'.format(**locals()))
+        self.w('{t2.V} = icmp slt {b.TV}, {c.V}'.format(**locals()))
+        self.w('{result.V} = and i1 {t1.V}, {t2.V}'.format(**locals()))
+
     def op_int_neg(self, result, var):
         self.w('{result.V} = sub {var.T} 0, {var.V}'.format(**locals()))
 
     def op_int_invert(self, result, var):
         self.w('{result.V} = xor {var.TV}, -1'.format(**locals()))
-
-    def op_int_add_nonneg_ovf(self, result, val1, val2):
-        self.w('{result.V} = add {val1.TV}, {val2.V}'.format(**locals()))
+    op_uint_invert = op_int_invert
+    op_bool_not = op_int_invert
 
     def op_ptr_iszero(self, result, var):
         self.w('{result.V} = icmp eq {var.TV}, null'.format(**locals()))
@@ -958,6 +978,20 @@ class FunctionWriter(object):
         return f
     op_adr_add = _adr_op('add')
     op_adr_sub = _adr_op('sub')
+
+    def op_float_neg(self, result, var):
+        self.w('{result.V} = fsub {var.T} 0.0, {var.V}'.format(**locals()))
+
+    def op_float_abs(self, result, var):
+        ispos = self._tmp()
+        neg = self._tmp(var.type_)
+        self.w('{ispos.V} = fcmp oge {var.TV}, 0.0'.format(**locals()))
+        self.w('{neg.V} = fsub {var.T} 0.0, {var.V}'.format(**locals()))
+        self.w('{result.V} = select i1 {ispos.V}, {var.TV}, {neg.TV}'
+                .format(**locals()))
+
+    def op_float_is_true(self, result, var):
+        self.w('{result.V} = fcmp one {var.TV}, 0.0'.format(**locals()))
 
     def op_raw_malloc(self, result, size):
         self.w('{result.V} = call i8* @malloc({size.TV})'.format(**locals()))
@@ -1027,6 +1061,12 @@ class FunctionWriter(object):
     def op_keepalive(self, result, var):
         pass
 
+    def op_stack_current(self, result):
+        t = self._tmp()
+        self.w('{t.V} = call i8* @llvm.frameaddress(i32 0)'.format(**locals()))
+        self.w('{result.V} = ptrtoint i8* {t.V} to {result.T}'
+                .format(**locals()))
+
     def write_branches(self, block):
         if len(block.exits) == 0:
             self.write_returnblock(block)
@@ -1080,7 +1120,6 @@ class RawGCTransformer(GCTransformer):
         return self.gct_fv_raw_malloc(hop, flags, *args, **kwds)
 
     def gct_fv_gc_malloc_varsize(self, hop, flags, *args, **kwds):
-        #flags['zero'] = True
         return self.gct_fv_raw_malloc_varsize(hop, flags, *args, **kwds)
 
 
@@ -1096,15 +1135,123 @@ class FrameworkGCPolicy(GCPolicy):
         self.gctransformer = FrameworkGCTransformer(genllvm.translator)
 
 
+class CTypesFuncWrapper(object):
+    def __init__(self, genllvm, database, ep_ptr):
+        self.translator = genllvm.translator
+        self.entry_point_graph = ep_ptr._obj.graph
+        self.entry_point_def = self._get_ctypes_def(ep_ptr)
+        self.rpyexc_occured_def = self._get_ctypes_def(
+                genllvm.exctransformer.rpyexc_occured_ptr)
+        self.rpyexc_fetch_type_def = self._get_ctypes_def(
+                genllvm.exctransformer.rpyexc_fetch_type_ptr)
+
+    def _get_ctypes_def(self, func_ptr):
+        ptr_repr = get_repr(func_ptr)
+        return (ptr_repr.V[1:],
+                self._get_ctype(ptr_repr.type_.to.result),
+                map(self._get_ctype, ptr_repr.type_.to.args))
+
+    def _get_ctype(self, llvm_type, extra_len=0):
+        CTYPES_MAP = {
+            LLVMVoid: None,
+            LLVMSigned: ctypes.c_long,
+            LLVMUnsigned: ctypes.c_ulong,
+            LLVMChar: ctypes.c_char,
+            LLVMUniChar: ctypes.c_wchar,
+            LLVMBool: ctypes.c_bool,
+            LLVMFloat: ctypes.c_double
+        }
+        if isinstance(llvm_type, PtrType):
+            return ctypes.POINTER(self._get_ctype(llvm_type.to))
+        elif isinstance(llvm_type, StructType):
+            fields = [(fldname, self._get_ctype(fldtype, extra_len))
+                      for fldtype, fldname in llvm_type.fields]
+            return type('Struct', (ctypes.Structure,), {'_fields_': fields})
+        elif isinstance(llvm_type, ArrayType):
+            return self._get_ctype(llvm_type.struct_type, extra_len)
+        elif isinstance(llvm_type, BareArrayType):
+            if llvm_type.length is None:
+                return self._get_ctype(llvm_type.of) * extra_len
+            return self._get_ctype(llvm_type.of) * llvm_type.length
+        elif isinstance(llvm_type, FuncType):
+            return ctypes.c_void_p
+        elif isinstance(llvm_type, OpaqueType):
+            return ctypes.c_void_p
+        else:
+            return CTYPES_MAP[llvm_type]
+
+    def load_cdll(self, path):
+        cdll = ctypes.CDLL(path)
+        self.entry_point = self._func(cdll, *self.entry_point_def)
+        self.rpyexc_occured = self._func(cdll, *self.rpyexc_occured_def)
+        self.rpyexc_fetch_type = self._func(cdll, *self.rpyexc_fetch_type_def)
+
+    def _func(self, cdll, name, restype, argtypes):
+        func = getattr(cdll, name)
+        func.restype = restype
+        func.argtypes = argtypes
+        return func
+
+    def _to_ctype_StringRepr(self, repr_, ctype, value):
+        llvm_type = database.get_type(repr_.lowleveltype)
+        arr = self._get_ctype(llvm_type.to, len(value))(0, (len(value), value))
+        return ctypes.cast(ctypes.pointer(arr), ctype)
+
+    def _to_ctype(self, repr_, ctype, value):
+        if repr_.lowleveltype in PRIMITIVES:
+            return value
+        convert = getattr(self, '_to_ctype_' + repr_.__class__.__name__)
+        return convert(repr_, ctype, value)
+
+    def _from_ctype_TupleRepr(self, repr_, result):
+        l = []
+        for r, name in zip(repr_.items_r, repr_.fieldnames):
+            l.append(self._from_ctype(r, getattr(result.contents, name)))
+        return tuple(l)
+
+    def _from_ctype_StringRepr(self, repr_, result):
+        llvm_type = database.get_type(repr_.lowleveltype)
+        type_ = self._get_ctype(llvm_type.to, result.contents.chars.len)
+        return ctypes.cast(result, ctypes.POINTER(type_)).contents.chars.items
+
+    def _from_ctype_UnicodeRepr(self, repr_, result):
+        llvm_type = database.get_type(repr_.lowleveltype)
+        type_ = self._get_ctype(llvm_type.to, result.contents.chars.len)
+        return ctypes.cast(result, ctypes.POINTER(type_)).contents.chars.items
+
+    def _from_ctype(self, repr_, result):
+        if repr_.lowleveltype in PRIMITIVES:
+            return result
+        convert = getattr(self, '_from_ctype_' + repr_.__class__.__name__)
+        return convert(repr_, result)
+
+    def __call__(self, *args):
+        bindingrepr = self.translator.rtyper.bindingrepr
+        graph = self.entry_point_graph
+        converted = [self._to_ctype(bindingrepr(llt), ct, arg) for llt, ct, arg
+                     in zip(graph.getargs(), self.entry_point.argtypes, args)]
+        ret = self.entry_point(*converted)
+        if self.rpyexc_occured():
+            name_arr = self.rpyexc_fetch_type().contents.name
+            array_type = ArrayType()
+            array_type.setup(LLVMChar)
+            type_ = self._get_ctype(array_type, name_arr.contents.len)
+            name = ctypes.cast(name_arr, ctypes.POINTER(type_)).contents.items
+            raise __builtins__.get(name, RuntimeError)
+        return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
+
+
 class GenLLVM(object):
     def __init__(self, translator, standalone):
         self.translator = translator
+        self.standalone = standalone
         self.exctransformer = translator.getexceptiontransformer()
         self.gcpolicy = {
             'none': RawGCPolicy,
             'framework': FrameworkGCPolicy
         }[translator.config.translation.gctransformer](self)
         self.transformed_graphs = set()
+        self.ecis = []
 
     def transform_graph(self, graph):
         if (graph not in self.transformed_graphs and
@@ -1124,10 +1271,10 @@ class GenLLVM(object):
             self.transform_graph(graph)
 
         bk = self.translator.annotator.bookkeeper
-        ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
-        ptr_repr = get_repr(ptr)
+        ep_ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
 
         with self.base_path.new(ext='.ll').open('w') as f:
+            f.write(cmdexec('clang -emit-llvm -S -x c - -o -'))
             # XXX
             f.write('declare i8* @malloc(i64)\n')
             f.write('declare void @free(i8*)\n')
@@ -1135,42 +1282,23 @@ class GenLLVM(object):
                     'i8*, i8*, i64, i32, i1)\n')
             f.write('declare void @llvm.memset.p0i8.i64 ('
                     'i8*, i8, i64, i32, i1)\n')
+            f.write('declare i8* @llvm.frameaddress(i32)\n')
+
             database = Database(self, f)
-            self.entry_point_name = ptr_repr.V[1:]
-            self.entry_point_type = ptr_repr.type_.to
+            if self.standalone:
+                raise NotImplementedError
+            else:
+                self.wrapper = CTypesFuncWrapper(self, database, ep_ptr)
             self.gcpolicy.finish()
 
     def compile_standalone(self, exe_name):
-        pass
+        raise NotImplementedError
 
     def compile_module(self):
-        base_path = str(self.base_path)
-        cmdexec('opt -std-compile-opts {0}.ll -o {0}.bc'.format(base_path))
-        cmdexec('llc -relocation-model=pic {0}.bc -o {0}.s'.format(base_path))
-        cmdexec('llvm-mc {0}.s -filetype=obj -o {0}.o'.format(base_path))
-        cmdexec('ld -shared -o {0}.so {0}.o'.format(base_path))
-
-        import ctypes
-        CTYPES_MAP = {
-            LLVMVoid: ctypes.c_long,
-            LLVMSigned: ctypes.c_long,
-            LLVMUnsigned: ctypes.c_ulong,
-            LLVMChar: ctypes.c_char,
-            LLVMBool: ctypes.c_long,
-            LLVMFloat: ctypes.c_double
-        }
-        func = getattr(ctypes.CDLL(base_path + '.so'), self.entry_point_name)
-        func.argtypes = [CTYPES_MAP[arg] for arg in self.entry_point_type.args]
-        if isinstance(self.entry_point_type.result, PtrType):
-            to = self.entry_point_type.result.to
-            assert isinstance(to, StructType)
-            class Struct(ctypes.Structure):
-                _fields_ = [(fn, CTYPES_MAP[ft]) for ft, fn in to.fields]
-            func.restype = ctypes.POINTER(Struct)
-            def errcheck(result, func, arguments):
-                struct = result.contents
-                return tuple(getattr(struct, fn) for ft, fn in to.fields)
-            func.errcheck = errcheck
-        else:
-            func.restype = CTYPES_MAP[self.entry_point_type.result]
-        return func
+        eci = ExternalCompilationInfo().merge(*self.ecis)
+        eci = eci.convert_sources_to_files()
+        cmdexec('clang -O2 -shared -fPIC {0} {1} {2}.ll -o {2}.so'.format(
+                ' '.join('-I{}'.format(ic) for ic in eci.include_dirs),
+                ' '.join(eci.separate_module_files), self.base_path))
+        self.wrapper.load_cdll('{0}.so'.format(self.base_path))
+        return self.wrapper

@@ -5,6 +5,8 @@ RPython-compliant way, intended mostly for use by the Stackless PyPy.
 
 import inspect
 
+from py.path import local
+
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import rgc
@@ -13,10 +15,16 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.controllerentry import Controller, SomeControlledInstance
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.tool.autopath import pypydir
 
 # ____________________________________________________________
 
-compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
+compilation_info = ExternalCompilationInfo(
+    include_dirs=[local(pypydir) / 'translator' / 'c'],
+    # XXX functions from src/stack.h should be defined in a .c file
+    includes=['src/stack.h'],
+    separate_module_sources=[''] # include src/stack.h
+)
 
 def llexternal(name, args, res, _callable=None):
     return rffi.llexternal(name, args, res, compilation_info=compilation_info,

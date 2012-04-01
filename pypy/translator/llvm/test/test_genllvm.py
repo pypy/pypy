@@ -1,25 +1,11 @@
 from cStringIO import StringIO
 import py
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.translator.c.test import test_lltyped
-from pypy.translator.interactive import Translation
+from pypy.translator.backendopt.raisingop2direct_call import (
+     raisingop2direct_call)
+from pypy.translator.c.test import test_typed, test_lltyped
 from pypy.translator.llvm import genllvm
 from pypy.translator.translator import TranslationContext
-
-
-def compile(func, argtypes=None, gc=False):
-    translation = Translation(func, argtypes, backend='llvm', verbose=False)
-    translation.disable(['backendopt_lltype'])
-    translation.config.translation.backendopt.none = True
-    if gc:
-        translation.config.translation.gctransformer = 'framework'
-        translation.config.translation.gc = 'minimark'
-    else:
-        translation.config.translation.gctransformer = 'none'
-        translation.config.translation.gc = 'none'
-
-    translation.annotate()
-    return translation.compile_llvm()
 
 
 class TestDatabase(object):
@@ -220,10 +206,11 @@ class TestDatabase(object):
                 '}\n')
 
 
-class TestLowLevelTypeLLVM(test_lltyped.TestLowLevelType):
+class _LLVMMixin(test_typed.CompilationTestCase):
     def annotatefunc(self, func, argtypes=None):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
+        config.translation.backendopt.raisingop2direct_call = True
         config.translation.gc = 'none'
         config.translation.simplifying = True
         t = TranslationContext(config=config)
@@ -236,83 +223,30 @@ class TestLowLevelTypeLLVM(test_lltyped.TestLowLevelType):
 
     def compilefunc(self, t, func):
         gen_llvm = genllvm.GenLLVM(t, False)
-        #if hasattr(self, 'include_also_eci'):
-        #    builder.merge_eci(self.include_also_eci)
+        if hasattr(self, 'include_also_eci'):
+            gen_llvm.ecis.append(self.include_also_eci)
         gen_llvm.gen_source(func)
         return gen_llvm.compile_module()
 
+    def process(self, t):
+        t.buildrtyper().specialize()
+        raisingop2direct_call(t)
+
+
+class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def test_llgroup_size_limit(self):
+        py.test.skip('takes too long to complete')
+
+    def test_prebuilt_ll2ctypes_array(self):
         py.test.skip('not working yet')
 
-    def test_rstring_to_float(self):
+
+class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
+    def test_memoryerror(self):
         py.test.skip('not working yet')
 
+    def test_hash_preservation(self):
+        py.test.skip('not working yet')
 
-class TestSimple(object):
-    def test_pass(self):
-        def f():
-            pass
-
-        fc = compile(f)
-        assert fc() == 0
-
-    def test_return(self):
-        def f():
-            return 42
-
-        fc = compile(f)
-        assert fc() == 42
-
-    def test_argument(self):
-        def f(echo):
-            return echo
-
-        fc = compile(f, [int])
-        assert fc(123) == 123
-
-    def test_add_int(self):
-        def f(i):
-            return i + 1
-
-        fc = compile(f, [int])
-        assert fc(2) == 3
-        assert fc(3) == 4
-
-    def test_invert_int(self):
-        def f(i):
-            return ~i
-
-        fc = compile(f, [int])
-        assert fc(33) == ~33
-        assert fc(-70) == ~-70
-
-    def test_call(self):
-        def g():
-            return 11
-        def f():
-            return g()
-
-        fc = compile(f)
-        assert fc() == 11
-
-    def test_bool(self):
-        def f(b):
-            return not b
-
-        fc = compile(f, [bool])
-        assert fc(True) == False
-        assert fc(False) == True
-
-
-class TestGarbageCollected(object):
-    def test_struct(self):
-        class C(object):
-            pass
-
-        def f(i):
-            c = C()
-            c.i = i
-            return c.i
-
-        fc = compile(f, [int], gc=True)
-        assert fc(33) == 33
+    def test_r_dict_exceptions(self):
+        py.test.skip('not working yet')
