@@ -2,6 +2,7 @@ import os
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
@@ -364,10 +365,12 @@ def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
     if w_value is None or space.is_w(w_value, space.w_None):
         operror = None
     else:
-        if w_traceback is None or space.is_w(w_traceback, space.w_None):
-            tb = None
-        else:
-            tb = w_traceback
+        tb = None
+        if w_traceback is not None:
+            try:
+                tb = pytraceback.check_traceback(space, w_traceback, '?')
+            except OperationError:    # catch and ignore bogus objects
+                pass
         operror = OperationError(w_type, w_value, tb)
     #
     ec = space.getexecutioncontext()
