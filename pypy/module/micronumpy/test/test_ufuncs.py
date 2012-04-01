@@ -597,6 +597,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (bitwise_not(a) == ~a).all()
         assert (invert(a) == ~a).all()
 
+    def test_shift(self):
+        from _numpypy import left_shift, right_shift
+        import sys
+
+        assert (left_shift([5, 1], [2, 31]) == [20, 2**31]).all()
+        assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
+
     def test_comparisons(self):
         import operator
         from _numpypy import equal, not_equal, less, less_equal, greater, greater_equal

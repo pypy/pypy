@@ -131,6 +131,8 @@ class Module(MixedModule):
         ('bitwise_or', 'bitwise_or'),
         ('bitwise_xor', 'bitwise_xor'),
         ('bitwise_not', 'invert'),
+        ('left_shift', 'left_shift'),
+        ('right_shift', 'right_shift'),
         ('invert', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),
