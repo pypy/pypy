@@ -205,6 +205,7 @@ def get_builtin_method_self(x):
 # ____________________________________________________________
 
 def rtype_builtin_bool(hop):
+    xxx   # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_is_true(hop)
 
@@ -451,6 +452,7 @@ def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
     v_type, v_value = hop.inputargs(lltype.Void, hop.args_r[1])
+    hop.exception_cannot_occur()
     return gen_cast(hop.llops, TGT, v_value)
 
 _cast_to_Signed = {
@@ -615,6 +617,7 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 # non-gc objects
 
 def rtype_free_non_gc_object(hop):
+    hop.exception_cannot_occur()
     vinst, = hop.inputargs(hop.args_r[0])
     flavor = hop.args_r[0].gcflavor
     assert flavor != 'gc'
