@@ -215,4 +215,5 @@ class EnumerateIteratorRepr(IteratorRepr):
                                      [v_index, v_item])
 
 def rtype_builtin_enumerate(hop):
+    hop.exception_cannot_occur()
     return hop.r_result.r_baseiter.newiter(hop)

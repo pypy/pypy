@@ -215,6 +215,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
@@ -397,6 +398,7 @@ class Entry(ExtRegistryEntry):
         r_obj, = hop.args_r
         v_obj, = hop.inputargs(r_obj)
         ll_fn = r_obj.get_ll_hash_function()
+        hop.exception_is_here()
         return hop.gendirectcall(ll_fn, v_obj)
 
 class Entry(ExtRegistryEntry):

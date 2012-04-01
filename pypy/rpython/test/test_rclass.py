@@ -1085,6 +1085,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
                 return annmodel.SomeInteger()
             def specialize_call(self, hop):
                 [v_instance] = hop.inputargs(*hop.args_r)
+                hop.exception_is_here()
                 return hop.gendirectcall(ll_my_gethash, v_instance)
 
         def f(n):

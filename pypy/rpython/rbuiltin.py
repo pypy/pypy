@@ -205,7 +205,7 @@ def get_builtin_method_self(x):
 # ____________________________________________________________
 
 def rtype_builtin_bool(hop):
-    xxx   # not called any more?
+    # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_is_true(hop)
 
@@ -536,11 +536,13 @@ def rtype_cast_int_to_ptr(hop):
 
 def rtype_identity_hash(hop):
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('gc_identityhash', vlist, resulttype=lltype.Signed)
 
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('runtime_type_info', vlist,
                      resulttype = hop.r_result.lowleveltype)
 

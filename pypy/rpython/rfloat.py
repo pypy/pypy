@@ -136,7 +136,10 @@ class __extend__(FloatRepr):
         hop.exception_cannot_occur()
         return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
 
-    rtype_float = rtype_pos
+    def rtype_float(_, hop):
+        vlist = hop.inputargs(Float)
+        hop.exception_cannot_occur()
+        return vlist[0]
 
     # version picked by specialisation based on which
     # type system rtyping is using, from <type_system>.ll_str module
