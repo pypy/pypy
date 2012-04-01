@@ -130,6 +130,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
