@@ -919,4 +919,5 @@ class TestExtFuncStandalone(StandaloneTests):
             t, cbuilder = self.compile(does_stuff)
             data = cbuilder.cmdexec('')
             res = os.nice(0) + 3
+            if res > 19: res = 19    # xxx Linux specific, probably
             assert data.startswith('os.nice returned %d\n' % res)
