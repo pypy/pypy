@@ -249,6 +249,7 @@ def rtype_intmask(hop):
 
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_min, v1, v2)
 
 def ll_min(i1, i2):
@@ -258,6 +259,7 @@ def ll_min(i1, i2):
 
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):
@@ -569,6 +571,7 @@ BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
 def rtype_raw_malloc_usage(hop):
@@ -597,6 +600,7 @@ def rtype_raw_memclear(hop):
     if s_addr.is_null_address():
         raise TyperError("raw_memclear(x, n) where x is the constant NULL")
     v_list = hop.inputargs(llmemory.Address, lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_memclear', v_list)
 
 BUILTIN_TYPER[llmemory.raw_malloc] = rtype_raw_malloc
