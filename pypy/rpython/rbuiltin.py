@@ -111,25 +111,32 @@ class BuiltinFunctionRepr(Repr):
         raise TyperError("don't know about built-in function %r" % (
             self.builtinfunc,))
 
+    def _call(self, hop2, **kwds_i):
+        bltintyper = self.findbltintyper(hop2.rtyper)
+        hop2.llops._called_exception_is_here_or_cannot_occur = False
+        v_result = bltintyper(hop2, **kwds_i)
+        if not hop2.llops._called_exception_is_here_or_cannot_occur:
+            raise TyperError("missing hop.exception_cannot_occur() or "
+                             "hop.exception_is_here() in %s" % bltintyper)
+        return v_result
+
     def rtype_simple_call(self, hop):
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
-        return bltintyper(hop2)
+        return self._call(hop2)
 
     def rtype_call_args(self, hop):
         # calling a built-in function with keyword arguments:
         # mostly for rpython.objectmodel.hint()
         hop, kwds_i = call_args_expand(hop)
 
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
         hop2.r_s_popfirstarg()
         # the RPython-level keyword args are passed with an 'i_' prefix and
         # the corresponding value is an *index* in the hop2 arguments,
         # to be used with hop.inputarg(arg=..)
-        return bltintyper(hop2, **kwds_i)
+        return self._call(hop2, **kwds_i)
 
 
 class BuiltinMethodRepr(Repr):
@@ -264,6 +271,7 @@ def rtype_object__init__(hop):
     pass
 
 def rtype_OSError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("OSError() should not be called with "
                          "a single argument")
@@ -274,6 +282,7 @@ def rtype_OSError__init__(hop):
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
 def rtype_WindowsError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("WindowsError() should not be called with "
                          "a single argument")
