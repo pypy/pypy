@@ -9,6 +9,7 @@ from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rbool import bool_repr
 
 def rtype_builtin_isinstance(hop):
+    hop.exception_cannot_occur()
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
     if hop.args_r[0] == pyobj_repr or hop.args_r[1] == pyobj_repr:

@@ -111,10 +111,10 @@ def new_erasing_pair(name):
             return identity.leave_tunnel(self.bookkeeper)
 
         def specialize_call(self, hop):
+            hop.exception_cannot_occur()
             if hop.r_result.lowleveltype is lltype.Void:
                 return hop.inputconst(lltype.Void, None)
             [v] = hop.inputargs(hop.args_r[0])
-            hop.exception_cannot_occur()
             return hop.args_r[0].rtype_unerase(hop, v)
 
     return erase, unerase
@@ -155,6 +155,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         [v] = hop.inputargs(hop.args_r[0])
         assert isinstance(hop.s_result, annmodel.SomeInteger)
+        hop.exception_cannot_occur()
         return hop.args_r[0].rtype_unerase_int(hop, v)
 
 def ll_unerase_int(gcref):

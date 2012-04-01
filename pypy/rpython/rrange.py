@@ -107,8 +107,10 @@ def rtype_builtin_range(hop):
     if isinstance(hop.r_result, AbstractRangeRepr):
         if hop.r_result.step != 0:
             c_rng = hop.inputconst(Void, hop.r_result.RANGE)
+            hop.exception_is_here()
             return hop.gendirectcall(hop.r_result.ll_newrange, c_rng, vstart, vstop)
         else:
+            hop.exception_is_here()
             return hop.gendirectcall(hop.r_result.ll_newrangest, vstart, vstop, vstep)
     else:
         # cannot build a RANGE object, needs a real list
@@ -117,6 +119,7 @@ def rtype_builtin_range(hop):
         if isinstance(ITEMTYPE, Ptr):
             ITEMTYPE = ITEMTYPE.TO
         cLIST = hop.inputconst(Void, ITEMTYPE)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_range2list, cLIST, vstart, vstop, vstep)
 
 rtype_builtin_xrange = rtype_builtin_range

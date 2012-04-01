@@ -605,6 +605,7 @@ BUILTIN_TYPER[llmemory.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
+    hop.exception_cannot_occur()
     return hop.inputconst(lltype.Signed,
                           llmemory.offsetof(TYPE.value, field.value))
 
@@ -626,6 +627,7 @@ BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 # keepalive_until_here
 
 def rtype_keepalive_until_here(hop):
+    hop.exception_cannot_occur()
     for v in hop.args_v:
         hop.genop('keepalive', [v], resulttype=lltype.Void)
     return hop.inputconst(lltype.Void, None)
