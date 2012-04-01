@@ -709,10 +709,12 @@ class VariableRepr(object):
         return '<{} {}>'.format(self.type_.repr_type(), self.name)
 
 
-def get_repr(cov):
+def get_repr(cov, var_aliases={}):
     if isinstance(cov, Constant):
         return ConstantRepr(database.get_type(cov.concretetype), cov.value)
     elif isinstance(cov, Variable):
+        if cov in var_aliases:
+            return var_aliases[cov]
         return VariableRepr(database.get_type(cov.concretetype), '%'+cov.name)
     return ConstantRepr(database.get_type(lltype.typeOf(cov)), cov)
 
@@ -747,6 +749,7 @@ class FunctionWriter(object):
     def __init__(self):
         self.lines = []
         self.tmp_counter = count()
+        self.var_aliases = {}
 
     def w(self, line, indent='    '):
         self.lines.append('{}{}\n'.format(indent, line))
@@ -763,9 +766,17 @@ class FunctionWriter(object):
         self.block_to_name = {}
         for i, block in enumerate(graph.iterblocks()):
             self.block_to_name[block] = 'block{}'.format(i)
+            for i, arg in enumerate(block.inputargs):
+                if len(self.entrymap[block]) == 1:
+                    self.var_aliases[arg] = get_repr(
+                        self.entrymap[block][0].args[i], self.var_aliases)
+            self.var_aliases.update(
+                    (op.result, get_repr(op.args[0], self.var_aliases))
+                    for op in block.operations if op.opname == 'same_as')
+
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
-            if block is not graph.startblock:
+            if block is not graph.startblock and len(self.entrymap[block]) > 1:
                 self.write_phi_nodes(block)
             self.write_operations(block)
             self.write_branches(block)
@@ -776,7 +787,8 @@ class FunctionWriter(object):
             if arg.concretetype == lltype.Void:
                 continue
             s = ', '.join('[{}, %{}]'.format(
-                    get_repr(l.args[i]).V, self.block_to_name[l.prevblock])
+                        get_repr(l.args[i], self.var_aliases).V,
+                        self.block_to_name[l.prevblock])
                     for l in self.entrymap[block] if l.prevblock is not None)
             self.w('{arg.V} = phi {arg.T} {s}'.format(arg=get_repr(arg), s=s))
 
@@ -784,20 +796,47 @@ class FunctionWriter(object):
         for op in block.operations:
             self.w('; {}'.format(op))
             opname = op.opname
-            opres = get_repr(op.result)
-            opargs = map(get_repr, op.args)
+            opres = get_repr(op.result, self.var_aliases)
+            opargs = [get_repr(arg, self.var_aliases) for arg in op.args]
             if opname in OPS:
                 simple_op = OPS[opname]
                 self.w('{opres.V} = {simple_op} {opargs[0].TV}, {opargs[1].V}'
                         .format(**locals()))
+            elif opname == 'same_as':
+                pass
             elif opname.startswith('cast_') or opname.startswith('truncate_'):
-                self._cast(get_repr(op.result), get_repr(op.args[0]))
+                self._cast(opres, opargs[0])
             else:
                 func = getattr(self, 'op_' + opname, None)
                 if func is not None:
                     func(opres, *opargs)
                 else:
                     raise NotImplementedError(op)
+
+    def write_branches(self, block):
+        if len(block.exits) == 0:
+            self.write_returnblock(block)
+        elif len(block.exits) == 1:
+            self.w('br label %' + self.block_to_name[block.exits[0].target])
+        elif len(block.exits) == 2:
+            assert block.exitswitch.concretetype is lltype.Bool
+            for link in block.exits:
+                if link.llexitcase:
+                    true = self.block_to_name[link.target]
+                else:
+                    false = self.block_to_name[link.target]
+            self.w('br i1 {}, label %{}, label %{}'.format(
+                    get_repr(block.exitswitch, self.var_aliases).V, true,
+                    false))
+        else:
+            raise NotImplementedError
+
+    def write_returnblock(self, block):
+        ret = block.inputargs[0]
+        if ret.concretetype is lltype.Void:
+            self.w('ret void')
+        else:
+            self.w('ret {ret.TV}'.format(ret=get_repr(ret, self.var_aliases)))
 
     def _tmp(self, type_=None):
         return VariableRepr(type_, '%tmp{}'.format(next(self.tmp_counter)))
@@ -856,7 +895,6 @@ class FunctionWriter(object):
         else:
             op = fr.type_.get_cast_op(to.type_)
         self.w('{to.V} = {op} {fr.TV} to {to.T}'.format(**locals()))
-    op_same_as = _cast
     op_force_cast = _cast
     op_raw_malloc_usage = _cast
 
@@ -1067,30 +1105,6 @@ class FunctionWriter(object):
         self.w('{result.V} = ptrtoint i8* {t.V} to {result.T}'
                 .format(**locals()))
 
-    def write_branches(self, block):
-        if len(block.exits) == 0:
-            self.write_returnblock(block)
-        elif len(block.exits) == 1:
-            self.w('br label %' + self.block_to_name[block.exits[0].target])
-        elif len(block.exits) == 2:
-            assert block.exitswitch.concretetype is lltype.Bool
-            for link in block.exits:
-                if link.llexitcase:
-                    true = self.block_to_name[link.target]
-                else:
-                    false = self.block_to_name[link.target]
-            self.w('br i1 {}, label %{}, label %{}'.format(
-                    get_repr(block.exitswitch).V, true, false))
-        else:
-            raise NotImplementedError
-
-    def write_returnblock(self, block):
-        ret = block.inputargs[0]
-        if ret.concretetype is lltype.Void:
-            self.w('ret void')
-        else:
-            self.w('ret {ret.TV}'.format(ret=get_repr(ret)))
-
 
 class GCPolicy(object):
     def __init__(self, genllvm):
@@ -1297,8 +1311,9 @@ class GenLLVM(object):
     def compile_module(self):
         eci = ExternalCompilationInfo().merge(*self.ecis)
         eci = eci.convert_sources_to_files()
-        cmdexec('clang -O2 -shared -fPIC {0} {1} {2}.ll -o {2}.so'.format(
-                ' '.join('-I{}'.format(ic) for ic in eci.include_dirs),
-                ' '.join(eci.separate_module_files), self.base_path))
+        cmdexec('clang -O2 -shared -fPIC {0}{1}{2}.ll -o {2}.so'.format(
+                ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
+                ''.join(smf + ' ' for smf in eci.separate_module_files),
+                self.base_path))
         self.wrapper.load_cdll('{0}.so'.format(self.base_path))
         return self.wrapper
