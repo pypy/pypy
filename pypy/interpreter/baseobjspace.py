@@ -296,6 +296,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
+        self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -467,9 +468,9 @@ class ObjSpace(object):
                 if name not in modules:
                     modules.append(name)
 
-        # a bit of custom logic: time2 or rctime take precedence over time
+        # a bit of custom logic: rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
-        if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
+        if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
         if not self.config.objspace.nofaking:

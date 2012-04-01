@@ -477,7 +477,11 @@ class AbstractTestRstr(BaseRtypingTest):
             s1 = s[:3]
             s2 = s[3:]
             s3 = s[3:10]
-            return s1+s2 == s and s2+s1 == const('lohel') and s1+s3 == s
+            s4 = s[42:44]
+            return (s1+s2 == s and
+                    s2+s1 == const('lohel') and
+                    s1+s3 == s and
+                    s4 == const(''))
         res = self.interpret(fn, [0])
         assert res
 

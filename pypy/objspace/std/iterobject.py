@@ -29,9 +29,8 @@ class W_AbstractSeqIterObject(W_AbstractIterObject):
 class W_SeqIterObject(W_AbstractSeqIterObject):
     """Sequence iterator implementation for general sequences."""
 
-class W_FastListIterObject(W_AbstractSeqIterObject):
-    """Sequence iterator specialized for lists, accessing directly their
-    RPython-level list of wrapped objects.
+class W_FastListIterObject(W_AbstractSeqIterObject): # XXX still needed
+    """Sequence iterator specialized for lists.
     """
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):

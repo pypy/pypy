@@ -227,10 +227,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
-            rdict_w = r_dict(self.eq_w, self.hash_w)
-            for item in x:
-                rdict_w[self.wrap(item)] = None
-            res = W_SetObject(self, rdict_w)
+            res = W_SetObject(self, self.newlist([self.wrap(item) for item in x]))
             return res
 
         if isinstance(x, frozenset):
@@ -325,7 +322,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def newset(self):
         from pypy.objspace.std.setobject import newset
-        return W_SetObject(self, newset(self))
+        return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
@@ -403,7 +400,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
@@ -417,7 +414,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.tolist()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             if unroll:
                 t = w_obj.getitems_unroll()
             else:
@@ -438,7 +435,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_ListObject):
+        if type(w_obj) is W_ListObject:
             t = w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
@@ -449,8 +446,25 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return t
 
     def listview_str(self, w_obj):
-        if isinstance(w_obj, W_ListObject):
+        # note: uses exact type checking for objects with strategies,
+        # and isinstance() for others.  See test_listobject.test_uses_custom...
+        if type(w_obj) is W_ListObject:
             return w_obj.getitems_str()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_str()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_str()
+        if isinstance(w_obj, W_StringObject):
+            return w_obj.listview_str()
+        return None
+
+    def listview_int(self, w_obj):
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_int()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_int()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_int()
         return None
 
     def sliceindices(self, w_slice, w_length):

@@ -25,6 +25,16 @@ class AppTestUserObject:
         key, value = NotEmpty.__dict__.popitem()
         assert (key == 'a' and value == 1) or (key == 'b' and value == 4)
 
+    def test_dictproxy_getitem(self):
+        class NotEmpty(object):
+            a = 1
+        assert 'a' in NotEmpty.__dict__
+        class substr(str): pass
+        assert substr('a') in NotEmpty.__dict__
+        assert u'a' in NotEmpty.__dict__
+        assert NotEmpty.__dict__[u'a'] == 1
+        assert u'\xe9' not in NotEmpty.__dict__
+
     def test_dictproxyeq(self):
         class a(object):
             pass

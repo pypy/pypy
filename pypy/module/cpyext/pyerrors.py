@@ -2,6 +2,7 @@ import os
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import pytraceback
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.cpyext.pyobject import (
@@ -315,3 +316,65 @@ def PyErr_SetInterrupt(space):
     It may be called without holding the interpreter lock."""
     space.check_signal_action.set_interrupt()
 
+@cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
+def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
+    """---Cython extension---
+
+    Retrieve the exception info, as known from ``sys.exc_info()``.  This
+    refers to an exception that was already caught, not to an exception
+    that was freshly raised.  Returns new references for the three
+    objects, any of which may be *NULL*.  Does not modify the exception
+    info state.
+
+    .. note::
+
+       This function is not normally used by code that wants to handle
+       exceptions.  Rather, it can be used when code needs to save and
+       restore the exception state temporarily.  Use
+       :c:func:`PyErr_SetExcInfo` to restore or clear the exception
+       state.
+    """
+    ec = space.getexecutioncontext()
+    operror = ec.sys_exc_info()
+    if operror:
+        ptype[0] = make_ref(space, operror.w_type)
+        pvalue[0] = make_ref(space, operror.get_w_value(space))
+        ptraceback[0] = make_ref(space, space.wrap(operror.get_traceback()))
+    else:
+        ptype[0] = lltype.nullptr(PyObject.TO)
+        pvalue[0] = lltype.nullptr(PyObject.TO)
+        ptraceback[0] = lltype.nullptr(PyObject.TO)
+
+@cpython_api([PyObject, PyObject, PyObject], lltype.Void)
+def PyErr_SetExcInfo(space, w_type, w_value, w_traceback):
+    """---Cython extension---
+
+    Set the exception info, as known from ``sys.exc_info()``.  This refers
+    to an exception that was already caught, not to an exception that was
+    freshly raised.  This function steals the references of the arguments.
+    To clear the exception state, pass *NULL* for all three arguments.
+    For general rules about the three arguments, see :c:func:`PyErr_Restore`.
+ 
+    .. note::
+ 
+       This function is not normally used by code that wants to handle
+       exceptions.  Rather, it can be used when code needs to save and
+       restore the exception state temporarily.  Use
+       :c:func:`PyErr_GetExcInfo` to read the exception state.
+    """
+    if w_value is None or space.is_w(w_value, space.w_None):
+        operror = None
+    else:
+        tb = None
+        if w_traceback is not None:
+            try:
+                tb = pytraceback.check_traceback(space, w_traceback, '?')
+            except OperationError:    # catch and ignore bogus objects
+                pass
+        operror = OperationError(w_type, w_value, tb)
+    #
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info(operror)
+    Py_DecRef(space, w_type)
+    Py_DecRef(space, w_value)
+    Py_DecRef(space, w_traceback)

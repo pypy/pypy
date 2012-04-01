@@ -295,6 +295,7 @@ class Transformer(object):
         return op
 
     rewrite_op_convert_float_bytes_to_longlong = _noop_rewrite
+    rewrite_op_convert_longlong_bytes_to_float = _noop_rewrite
 
     # ----------
     # Various kinds of calls
