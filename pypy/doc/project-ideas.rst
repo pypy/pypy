@@ -103,21 +103,13 @@ experiments can be done for the general purpose. Examples
 
 * A concurrent garbage collector (a lot of work)
 
-Remove the GIL
---------------
+STM, a.k.a. "remove the GIL"
+----------------------------
 
-This is a major task that requires lots of thinking. However, few subprojects
-can be potentially specified, unless a better plan can be thought out:
+Removing the GIL --- or more precisely, a GIL-less thread-less solution ---
+is `now work in progress.`__  Contributions welcome.
 
-* A thread-aware garbage collector
-
-* Better RPython primitives for dealing with concurrency
-
-* JIT passes to remove locks on objects
-
-* (maybe) implement locking in Python interpreter
-
-* alternatively, look at Software Transactional Memory
+.. __: http://pypy.org/tmdonate.html
 
 Introduce new benchmarks
 ------------------------
@@ -157,6 +149,22 @@ it runs a .py module that installs (via ctypes) the interface it wants
 exported.  This would give us a one-size-fits-all generic .so file to be
 imported by any application that wants to load .so files :-)
 
+Optimising cpyext (CPython C-API compatibility layer)
+-----------------------------------------------------
+
+A lot of work has gone into PyPy's implementation of CPython's C-API over
+the last years to let it reach a practical level of compatibility, so that
+C extensions for CPython work on PyPy without major rewrites. However,
+there are still many edges and corner cases where it misbehaves, and it has
+not received any substantial optimisation so far.
+
+The objective of this project is to fix bugs in cpyext and to optimise
+several performance critical parts of it, such as the reference counting
+support and other heavily used C-API functions. The net result would be to
+have CPython extensions run much faster on PyPy than they currently do, or
+to make them work at all if they currently don't. A part of this work would
+be to get cpyext into a shape where it supports running Cython generated
+extensions.
 
 .. _`issue tracker`: http://bugs.pypy.org
 .. _`mailing list`: http://mail.python.org/mailman/listinfo/pypy-dev

@@ -68,7 +68,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_settype, __args__):
     from pypy.objspace.std.setobject import W_SetObject, newset
     w_obj = space.allocate_instance(W_SetObject, w_settype)
-    W_SetObject.__init__(w_obj, space, newset(space))
+    W_SetObject.__init__(w_obj, space)
     return w_obj
 
 set_typedef = StdTypeDef("set",

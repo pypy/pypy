@@ -272,8 +272,12 @@ elif "openbsd" in sys.platform:
     else:
         host_factory = OpenBSD_64
 elif os.name == 'nt':
-    from pypy.translator.platform.windows import Windows
-    host_factory = Windows
+    from pypy.translator.platform.windows import Windows, Windows_x64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Windows
+    else:
+        host_factory = Windows_x64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
@@ -297,6 +301,8 @@ def set_platform(new_platform, cc):
     global platform
     log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
+    if not platform:
+        raise ValueError("pick_platform failed")
 
     if new_platform == 'host':
         global host

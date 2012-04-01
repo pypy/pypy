@@ -222,6 +222,10 @@ class LLHelpers(AbstractLLHelpers):
         length = s.ll_strlen()
         if stop > length:
             stop = length
+        # If start > stop, return a empty string. This can happen if the start
+        # is greater than the length of the string.
+        if start > stop:
+            start = stop
         return s.ll_substring(start, stop-start)
 
     def ll_stringslice_minusone(s):

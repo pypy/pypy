@@ -165,6 +165,7 @@ class __extend__(AbstractStringRepr):
         v_char = hop.inputarg(rstr.char_repr, arg=1)
         v_left = hop.inputconst(Bool, left)
         v_right = hop.inputconst(Bool, right)
+        hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_strip, v_str, v_char, v_left, v_right)
 
     def rtype_method_lstrip(self, hop):

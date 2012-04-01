@@ -291,6 +291,12 @@ class Transformer(object):
         op1 = SpaceOperation('-live-', [], None)
         return [op, op1]
 
+    def _noop_rewrite(self, op):
+        return op
+
+    rewrite_op_convert_float_bytes_to_longlong = _noop_rewrite
+    rewrite_op_convert_longlong_bytes_to_float = _noop_rewrite
+
     # ----------
     # Various kinds of calls
 
