@@ -395,11 +395,21 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3] == 0.
 
     def test_newaxis(self):
-        from _numpypy import array
+        import math
+        from _numpypy import array, cos, zeros
         from numpypy.core.numeric import newaxis
         a = array(range(5))
         b = array([range(5)])
         assert (a[newaxis] == b).all()
+        a = array(range(3))
+        b = array([1, 3])
+        expected = zeros((3, 2))
+        for x in range(3):
+            for y in range(2):
+                expected[x, y] = math.cos(a[x]) * math.cos(b[y])
+        print (cos(a)[:,newaxis] * cos(b).T)
+        print expected
+        assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
 
     def test_newaxis_slice(self):
         from _numpypy import array
