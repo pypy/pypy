@@ -20,6 +20,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
+        assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
         module = self.import_module(name='foo')
