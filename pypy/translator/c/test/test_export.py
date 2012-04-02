@@ -161,3 +161,21 @@ class TestExportFunctions:
             return s.x
         mod = self.compile_module("second", g=g)
         assert mod.g() == 36.2
+
+    def test_exception(self):
+        @export(int)
+        def f(n):
+            if n == 0:
+                raise KeyError
+            return n
+        firstmodule = self.compile_module("first", f=f)
+
+        @export(int)
+        def g(n):
+            try:
+                return firstmodule.f(n)
+            except KeyError:
+                return 42
+        mod = self.compile_module("second", g=g)
+        assert mod.g(1) == 1
+        assert mod.g(0) == 42
