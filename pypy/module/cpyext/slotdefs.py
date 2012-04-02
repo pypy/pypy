@@ -173,7 +173,8 @@ def wrap_objobjproc(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     w_value, = space.fixedview(w_args)
     res = generic_cpy_call(space, func_target, w_self, w_value)
-    if rffi.cast(lltype.Signed, res) == -1:
+    res = rffi.cast(lltype.Signed, res)
+    if res == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
     return space.wrap(bool(res))
 
