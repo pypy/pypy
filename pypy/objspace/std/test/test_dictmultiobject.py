@@ -811,7 +811,17 @@ class AppTestStrategies(object):
         # 'd' is now length 4
         raises(RuntimeError, it.next)
 
-    def test_iter_dict_strategy_only_change(self):
+    def test_iter_dict_strategy_only_change_1(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        class Foo(object):
+            def __eq__(self, other):
+                return False
+        d.get(Foo())    # this changes the strategy of 'd'
+        lst = list(it)  # but iterating still works
+        assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
+
+    def test_iter_dict_strategy_only_change_2(self):
         d = {1: 2, 3: 4, 5: 6}
         it = d.iteritems()
         d['foo'] = 'bar'

@@ -273,8 +273,7 @@ class IteratorImplementation(object):
     def next(self):
         if self.dictimplementation is None:
             return None, None
-        if (self.len != self.dictimplementation.length()
-              or self.strategy is not self.dictimplementation.strategy):
+        if self.len != self.dictimplementation.length():
             self.len = -1   # Make this error state sticky
             raise OperationError(self.space.w_RuntimeError,
                      self.space.wrap("dictionary changed size during iteration"))
@@ -282,7 +281,20 @@ class IteratorImplementation(object):
         if self.pos < self.len:
             result = self.next_entry()
             self.pos += 1
-            return result
+            if self.strategy is self.dictimplementation.strategy:
+                return result      # common case
+            else:
+                # waaa, obscure case: the strategy changed, but not the
+                # length of the dict.  The (key, value) pair in 'result'
+                # might be out-of-date.  We try to explicitly look up
+                # the key in the dict.
+                w_key = result[0]
+                w_value = self.dictimplementation.getitem(w_key)
+                if w_value is None:
+                    self.len = -1   # Make this error state sticky
+                    raise OperationError(self.space.w_RuntimeError,
+                        self.space.wrap("dictionary changed during iteration"))
+                return (w_key, w_value)
         # no more entries
         self.dictimplementation = None
         return None, None
