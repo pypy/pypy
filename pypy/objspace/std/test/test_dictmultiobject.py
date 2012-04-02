@@ -804,6 +804,21 @@ class AppTestStrategies(object):
         assert "IntDictStrategy" in self.get_strategy(d)
         assert d[1L] == "hi"
 
+    def test_iter_dict_length_change(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d[7] = 8
+        # 'd' is now length 4
+        raises(RuntimeError, it.next)
+
+    def test_iter_dict_strategy_only_change(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d['foo'] = 'bar'
+        del d[1]
+        # 'd' is still length 3, but its strategy changed
+        raises(RuntimeError, it.next)
+
 
 class FakeString(str):
     hash_count = 0

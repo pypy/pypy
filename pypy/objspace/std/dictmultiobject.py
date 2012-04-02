@@ -247,7 +247,7 @@ class EmptyDictStrategy(DictStrategy):
         return 0
 
     def iter(self, w_dict):
-        return EmptyIteratorImplementation(self.space, w_dict)
+        return EmptyIteratorImplementation(self.space, self, w_dict)
 
     def clear(self, w_dict):
         return
@@ -263,8 +263,9 @@ registerimplementation(W_DictMultiObject)
 # Iterator Implementation base classes
 
 class IteratorImplementation(object):
-    def __init__(self, space, implementation):
+    def __init__(self, space, strategy, implementation):
         self.space = space
+        self.strategy = strategy
         self.dictimplementation = implementation
         self.len = implementation.length()
         self.pos = 0
@@ -272,7 +273,8 @@ class IteratorImplementation(object):
     def next(self):
         if self.dictimplementation is None:
             return None, None
-        if self.len != self.dictimplementation.length():
+        if (self.len != self.dictimplementation.length()
+              or self.strategy is not self.dictimplementation.strategy):
             self.len = -1   # Make this error state sticky
             raise OperationError(self.space.w_RuntimeError,
                      self.space.wrap("dictionary changed size during iteration"))
@@ -489,7 +491,7 @@ class _WrappedIteratorMixin(object):
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
@@ -503,7 +505,7 @@ class _UnwrappedIteratorMixin:
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
