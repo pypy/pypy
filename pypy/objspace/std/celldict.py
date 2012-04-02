@@ -163,7 +163,8 @@ class ModuleDictStrategy(DictStrategy):
 
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(
+            self, space, strategy, dictimplementation)
         dict_w = strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 
