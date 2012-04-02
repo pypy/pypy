@@ -673,6 +673,10 @@ class BaseArray(Wrappable):
     def compute_first_step(self, sig, frame):
         pass
 
+    @unwrap_spec(repeats=int)
+    def descr_repeat(self, space, repeats, w_axis=None):
+        return repeat(space, self, repeats, w_axis)
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -1411,6 +1415,7 @@ BaseArray.typedef = TypeDef(
     tolist = interp2app(BaseArray.descr_tolist),
     take = interp2app(BaseArray.descr_take),
     compress = interp2app(BaseArray.descr_compress),
+    repeat = interp2app(BaseArray.descr_repeat),
 )
 
 
