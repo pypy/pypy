@@ -1399,6 +1399,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (ones(1) + ones(1)).nbytes == 8
         assert array(3.0).nbytes == 8
 
+    def test_repeat(self):
+        from _numpypy import repeat
+        assert (repeat([[1, 2], [3, 4]], 3) == [1, 1, 1, 2, 2, 2,
+                                                3, 3, 3, 4, 4, 4]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=0) == [[1, 2], [1, 2], [3, 4],
+                                                        [3, 4]]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=1) == [[1, 1, 2, 2], [3, 3,
+                                                        4, 4]]).all()
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

@@ -1261,6 +1261,31 @@ def dot(space, w_obj, w_obj2):
         return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
     return w_arr.descr_dot(space, w_obj2)
 
+@unwrap_spec(repeats=int)
+def repeat(space, w_arr, repeats, w_axis=None):
+    arr = convert_to_array(space, w_arr)
+    if space.is_w(w_axis, space.w_None):
+        arr = arr.descr_flatten(space).get_concrete()
+        orig_size = arr.shape[0]
+        shape = [arr.shape[0] * repeats]
+        res = W_NDimArray(shape, arr.find_dtype())
+        for i in range(repeats):
+            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
+                          orig_size)]).apply(res).setslice(space, arr)
+    else:
+        arr = arr.get_concrete()
+        axis = space.int_w(w_axis)
+        shape = arr.shape[:]
+        chunks = [Chunk(0, i, 1, i) for i in shape]
+        orig_size = shape[axis]
+        shape[axis] *= repeats
+        res = W_NDimArray(shape, arr.find_dtype())
+        for i in range(repeats):
+            chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
+                                 orig_size)
+            Chunks(chunks).apply(res).setslice(space, arr)
+    return res
+
 @unwrap_spec(axis=int)
 def concatenate(space, w_args, axis=0):
     args_w = space.listview(w_args)
