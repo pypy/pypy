@@ -407,8 +407,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         for x in range(3):
             for y in range(2):
                 expected[x, y] = math.cos(a[x]) * math.cos(b[y])
-        print (cos(a)[:,newaxis] * cos(b).T)
-        print expected
         assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
 
     def test_newaxis_slice(self):

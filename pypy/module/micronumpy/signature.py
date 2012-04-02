@@ -211,7 +211,7 @@ class VirtualSliceSignature(Signature):
     def _create_iter(self, iterlist, arraylist, arr, transforms):
         from pypy.module.micronumpy.interp_numarray import VirtualSlice
         assert isinstance(arr, VirtualSlice)
-        transforms = transforms + [ViewTransform(arr.chunks)]
+        transforms = [ViewTransform(arr.chunks)] + transforms 
         self.child._create_iter(iterlist, arraylist, arr.child, transforms)
 
     def eval(self, frame, arr):
@@ -277,7 +277,7 @@ class BroadcastUfunc(Call1):
         from pypy.module.micronumpy.interp_numarray import Call1
 
         assert isinstance(arr, Call1)
-        vtransforms = transforms + [BroadcastTransform(arr.values.shape)]
+        vtransforms = [BroadcastTransform(arr.values.shape)] + transforms
         self.child._create_iter(iterlist, arraylist, arr.values, vtransforms)
         self.res._create_iter(iterlist, arraylist, arr.res, transforms)
 
@@ -355,7 +355,7 @@ class BroadcastResultSignature(ResultSignature):
         from pypy.module.micronumpy.interp_numarray import ResultArray
 
         assert isinstance(arr, ResultArray)
-        rtransforms = transforms + [BroadcastTransform(arr.left.shape)]
+        rtransforms = [BroadcastTransform(arr.left.shape)] + transforms
         self.left._create_iter(iterlist, arraylist, arr.left, transforms)
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
@@ -382,7 +382,7 @@ class BroadcastLeft(Call2):
         from pypy.module.micronumpy.interp_numarray import Call2
 
         assert isinstance(arr, Call2)
-        ltransforms = transforms + [BroadcastTransform(arr.shape)]
+        ltransforms = [BroadcastTransform(arr.shape)] + transforms
         self.left._create_iter(iterlist, arraylist, arr.left, ltransforms)
         self.right._create_iter(iterlist, arraylist, arr.right, transforms)
 
@@ -395,7 +395,7 @@ class BroadcastRight(Call2):
         from pypy.module.micronumpy.interp_numarray import Call2
 
         assert isinstance(arr, Call2)
-        rtransforms = transforms + [BroadcastTransform(arr.shape)]
+        rtransforms = [BroadcastTransform(arr.shape)] + transforms
         self.left._create_iter(iterlist, arraylist, arr.left, transforms)
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
@@ -408,8 +408,8 @@ class BroadcastBoth(Call2):
         from pypy.module.micronumpy.interp_numarray import Call2
 
         assert isinstance(arr, Call2)
-        rtransforms = transforms + [BroadcastTransform(arr.shape)]
-        ltransforms = transforms + [BroadcastTransform(arr.shape)]
+        rtransforms = [BroadcastTransform(arr.shape)] + transforms
+        ltransforms = [BroadcastTransform(arr.shape)] + transforms
         self.left._create_iter(iterlist, arraylist, arr.left, ltransforms)
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
@@ -455,7 +455,7 @@ class SliceloopBroadcastSignature(SliceloopSignature):
         from pypy.module.micronumpy.interp_numarray import SliceArray
 
         assert isinstance(arr, SliceArray)
-        rtransforms = transforms + [BroadcastTransform(arr.shape)]
+        rtransforms = [BroadcastTransform(arr.shape)] + transforms
         self.left._create_iter(iterlist, arraylist, arr.left, transforms)
         self.right._create_iter(iterlist, arraylist, arr.right, rtransforms)
 
