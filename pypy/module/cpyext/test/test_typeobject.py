@@ -432,6 +432,34 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = obj.__setitem__('foo', None)
         assert res is None
 
+    def test_sq_contains(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_contains = sq_contains;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static int
+            sq_contains(PyObject *self, PyObject *value)
+            {
+                return 42;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.new_obj()
+        res = "foo" in obj
+        assert res is True
+
     def test_tp_iter(self):
         module = self.import_extension('foo', [
            ("tp_iter", "METH_O",
