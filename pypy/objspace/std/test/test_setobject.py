@@ -907,3 +907,30 @@ class AppTestAppSetTest:
                 return [5, 3, 4][i]
         s = set([10,3,2]).intersection(Obj())
         assert list(s) == [3]
+
+    def test_iter_set_length_change(self):
+        s = set([1, 3, 5])
+        it = iter(s)
+        s.add(7)
+        # 's' is now length 4
+        raises(RuntimeError, it.next)
+
+    def test_iter_set_strategy_only_change_1(self):
+        s = set([1, 3, 5])
+        it = iter(s)
+        class Foo(object):
+            def __eq__(self, other):
+                return False
+        assert Foo() not in s      # this changes the strategy of 'd'
+        lst = list(s)  # but iterating still works
+        assert sorted(lst) == [1, 3, 5]
+
+    def test_iter_set_strategy_only_change_2(self):
+        s = set([1, 3, 5])
+        it = iter(s)
+        s.add('foo')
+        s.remove(1)
+        # 's' is still length 3, but its strategy changed.  we are
+        # getting a RuntimeError because iterating over the old storage
+        # gives us 1, but 1 is not in the set any longer.
+        raises(RuntimeError, list, it)

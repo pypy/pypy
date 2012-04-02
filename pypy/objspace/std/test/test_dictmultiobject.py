@@ -817,7 +817,7 @@ class AppTestStrategies(object):
         class Foo(object):
             def __eq__(self, other):
                 return False
-        d.get(Foo())    # this changes the strategy of 'd'
+        assert d.get(Foo()) is None    # this changes the strategy of 'd'
         lst = list(it)  # but iterating still works
         assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
 
@@ -826,8 +826,10 @@ class AppTestStrategies(object):
         it = d.iteritems()
         d['foo'] = 'bar'
         del d[1]
-        # 'd' is still length 3, but its strategy changed
-        raises(RuntimeError, it.next)
+        # 'd' is still length 3, but its strategy changed.  we are
+        # getting a RuntimeError because iterating over the old storage
+        # gives us (1, 2), but 1 is not in the dict any longer.
+        raises(RuntimeError, list, it)
 
 
 class FakeString(str):
