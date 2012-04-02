@@ -4,6 +4,8 @@ from pypy.module.cpyext.api import (
     PyObjectFields, PyObject)
 from pypy.module.cpyext.pyobject import make_typedescr, Py_DecRef
 from pypy.interpreter.buffer import Buffer, StringBuffer, SubBuffer
+from pypy.interpreter.error import OperationError
+from pypy.module.array.interp_array import ArrayBuffer
 
 
 PyBufferObjectStruct = lltype.ForwardReference()
@@ -43,10 +45,15 @@ def buffer_attach(space, py_obj, w_obj):
 
     if isinstance(w_obj, StringBuffer):
         py_buf.c_b_base = rffi.cast(PyObject, 0) # space.wrap(w_obj.value)
-        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(w_obj.as_str()))
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, rffi.str2charp(w_obj.value))
+        py_buf.c_b_size = w_obj.getlength()
+    elif isinstance(w_obj, ArrayBuffer):
+        py_buf.c_b_base = rffi.cast(PyObject, 0) # space.wrap(w_obj.value)
+        py_buf.c_b_ptr = rffi.cast(rffi.VOIDP, w_obj.data)
         py_buf.c_b_size = w_obj.getlength()
     else:
-        raise Exception("Fail fail fail fail fail")
+        raise OperationError(space.w_NotImplementedError, space.wrap(
+            "buffer flavor not supported"))
 
 
 def buffer_realize(space, py_obj):
