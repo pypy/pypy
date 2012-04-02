@@ -214,7 +214,7 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         loop.match_by_id('callone', '''
-            p114 = call(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr 4 r EF=3>)
+            p114 = call(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
             guard_no_exception(descr=...)
             ''')
         loop.match_by_id('calltwo', '')    # nothing
