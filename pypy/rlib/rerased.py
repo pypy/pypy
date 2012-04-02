@@ -111,10 +111,10 @@ def new_erasing_pair(name):
             return identity.leave_tunnel(self.bookkeeper)
 
         def specialize_call(self, hop):
+            hop.exception_cannot_occur()
             if hop.r_result.lowleveltype is lltype.Void:
                 return hop.inputconst(lltype.Void, None)
             [v] = hop.inputargs(hop.args_r[0])
-            hop.exception_cannot_occur()
             return hop.args_r[0].rtype_unerase(hop, v)
 
     return erase, unerase
@@ -216,6 +216,7 @@ class ErasedRepr(Repr):
         return hop.genop('cast_opaque_ptr', [v], resulttype=hop.r_result)
 
     def rtype_unerase_int(self, hop, v):
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_unerase_int, v)
 
     def rtype_erase_int(self, hop):
@@ -266,6 +267,7 @@ class OOErasedRepr(Repr):
 
     def rtype_unerase_int(self, hop, v):
         c_one = hop.inputconst(lltype.Signed, 1)
+        hop.exception_cannot_occur()
         v2 = hop.genop('oounbox_int', [v], resulttype=hop.r_result)
         return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
 

@@ -114,6 +114,7 @@ def test_register_value_with_specialization():
         _about_ = dummy_func
         s_result_annotation = annmodel.SomeInteger()
         def specialize_call(self, hop):
+            hop.exception_cannot_occur()
             return hop.inputconst(lltype.Signed, 42)
 
     def func():
