@@ -1,3 +1,20 @@
+"""
+Minimal example of usage:
+
+    for i in range(10):
+        transaction.add(do_stuff, i)
+    transaction.run()
+
+This schedules and runs all ten do_stuff(i), each in its own transaction.
+Each one can also add more transactions to run afterwards, and so on.
+The call to run() returns when all transactions have completed.
+
+From the API point of view it is as if the do_stuff(i) were run serially
+in some random order.  If you use a real implementation instead of this
+one (which is here for trying things out), then the transactions can
+actually run in parallel on multiple cores.
+"""
+
 import sys
 import random
 
