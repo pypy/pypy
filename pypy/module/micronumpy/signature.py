@@ -219,6 +219,9 @@ class VirtualSliceSignature(Signature):
         assert isinstance(arr, VirtualSlice)
         return self.child.eval(frame, arr.child)
 
+    def debug_repr(self):
+        return 'VirtualSlice(%s)' % self.child.debug_repr()
+
 class Call1(Signature):
     _immutable_fields_ = ['unfunc', 'name', 'child', 'res', 'dtype']
 

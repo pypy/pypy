@@ -1338,6 +1338,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
             "array dimensions must agree except for axis being concatenated"
+        a = array([1, 2, 3, 4, 5, 6])
+        a = (a + a)[::2]
+        b = concatenate((a[:3], a[-3:]))
+        assert (b == [2, 6, 10, 2, 6, 10]).all()
 
     def test_std(self):
         from _numpypy import array
