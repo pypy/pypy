@@ -288,6 +288,8 @@ class __extend__(AbstractStringRepr):
 
     def rtype_unicode(self, hop):
         if hop.args_s[0].is_constant():
+            # convertion errors occur during annotation, so cannot any more:
+            hop.exception_cannot_occur()
             return hop.inputconst(hop.r_result, hop.s_result.const)
         repr = hop.args_r[0].repr
         v_str = hop.inputarg(repr, 0)

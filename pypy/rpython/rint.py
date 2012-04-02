@@ -310,6 +310,8 @@ class __extend__(IntegerRepr):
         if hop.has_implicit_exception(ValueError):
             hop.exception_is_here()
             hop.gendirectcall(ll_check_chr, vlist[0])
+        else:
+            hop.exception_cannot_occur()
         return hop.genop('cast_int_to_char', vlist, resulttype=Char)
 
     def rtype_unichr(_, hop):
@@ -317,6 +319,8 @@ class __extend__(IntegerRepr):
         if hop.has_implicit_exception(ValueError):
             hop.exception_is_here()
             hop.gendirectcall(ll_check_unichr, vlist[0])
+        else:
+            hop.exception_cannot_occur()
         return hop.genop('cast_int_to_unichar', vlist, resulttype=UniChar)
 
     def rtype_is_true(self, hop):

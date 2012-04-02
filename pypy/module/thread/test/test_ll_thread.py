@@ -66,7 +66,6 @@ class AbstractThreadTests(AbstractGCTestClass):
     def test_gc_locking(self):
         import time
         from pypy.rlib.objectmodel import invoke_around_extcall
-        from pypy.rlib.objectmodel import we_are_translated
         from pypy.rlib.debug import ll_assert
 
         class State:
@@ -129,8 +128,6 @@ class AbstractThreadTests(AbstractGCTestClass):
             state.finished = 0
             # the next line installs before_extcall() and after_extcall()
             # to be called automatically around external function calls.
-            # When not translated it does not work around time.sleep(),
-            # so we have to call them manually for this test.
             invoke_around_extcall(before_extcall, after_extcall)
 
             g(10, 1)
@@ -142,13 +139,9 @@ class AbstractThreadTests(AbstractGCTestClass):
                 willing_to_wait_more -= 1
                 done = len(state.answers) == expected
 
-                if not we_are_translated(): before_extcall()
                 time.sleep(0.01)
-                if not we_are_translated(): after_extcall()
 
-            if not we_are_translated(): before_extcall()
             time.sleep(0.1)
-            if not we_are_translated(): after_extcall()
 
             return len(state.answers)
 
@@ -160,12 +153,11 @@ class AbstractThreadTests(AbstractGCTestClass):
         answers = fn()
         assert answers == expected
 
-class TestRunDirectly(AbstractThreadTests):
-    def getcompiled(self, f, argtypes):
-        return f
-
-    def test_start_new_thread(self):
-        py.test.skip("deadlocks occasionally -- why???")
+#class TestRunDirectly(AbstractThreadTests):
+#    def getcompiled(self, f, argtypes):
+#        return f
+# These are disabled because they crash occasionally for bad reasons
+# related to the fact that ll2ctypes is not at all thread-safe
 
 class TestUsingBoehm(AbstractThreadTests):
     gcpolicy = 'boehm'

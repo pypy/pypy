@@ -600,30 +600,33 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 class AppTestSysExcInfoDirect:
 
     def setup_method(self, meth):
-        self.seen = []
-        from pypy.module.sys import vm
-        def exc_info_with_tb(*args):
-            self.seen.append("n")     # not optimized
-            return self.old[0](*args)
-        def exc_info_without_tb(*args):
-            self.seen.append("y")     # optimized
-            return self.old[1](*args)
-        self.old = [vm.exc_info_with_tb, vm.exc_info_without_tb]
-        vm.exc_info_with_tb = exc_info_with_tb
-        vm.exc_info_without_tb = exc_info_without_tb
-        #
-        from pypy.rlib import jit
-        self.old2 = [jit.we_are_jitted]
-        jit.we_are_jitted = lambda: True
+        self.checking = not option.runappdirect
+        if self.checking:
+            self.seen = []
+            from pypy.module.sys import vm
+            def exc_info_with_tb(*args):
+                self.seen.append("n")     # not optimized
+                return self.old[0](*args)
+            def exc_info_without_tb(*args):
+                self.seen.append("y")     # optimized
+                return self.old[1](*args)
+            self.old = [vm.exc_info_with_tb, vm.exc_info_without_tb]
+            vm.exc_info_with_tb = exc_info_with_tb
+            vm.exc_info_without_tb = exc_info_without_tb
+            #
+            from pypy.rlib import jit
+            self.old2 = [jit.we_are_jitted]
+            jit.we_are_jitted = lambda: True
 
     def teardown_method(self, meth):
-        from pypy.module.sys import vm
-        from pypy.rlib import jit
-        vm.exc_info_with_tb = self.old[0]
-        vm.exc_info_without_tb = self.old[1]
-        jit.we_are_jitted = self.old2[0]
-        #
-        assert ''.join(self.seen) == meth.expected
+        if self.checking:
+            from pypy.module.sys import vm
+            from pypy.rlib import jit
+            vm.exc_info_with_tb = self.old[0]
+            vm.exc_info_without_tb = self.old[1]
+            jit.we_are_jitted = self.old2[0]
+            #
+            assert ''.join(self.seen) == meth.expected
 
     def test_returns_none(self):
         import sys

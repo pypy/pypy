@@ -167,6 +167,11 @@ class ExecutionContext(object):
             frame = self.getnextframe_nohidden(frame)
         return None
 
+    def set_sys_exc_info(self, operror):
+        frame = self.gettopframe_nohidden()
+        if frame:     # else, the exception goes nowhere and is lost
+            frame.last_exception = operror
+
     def settrace(self, w_func):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):

@@ -20,7 +20,17 @@ class DictProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
+        if (space.is_w(w_lookup_type, space.w_str) or  # Most common path first
+            space.abstract_issubclass_w(w_lookup_type, space.w_str)):
+            return self.getitem_str(w_dict, space.str_w(w_key))
+        elif space.abstract_issubclass_w(w_lookup_type, space.w_unicode):
+            try:
+                w_key = space.str(w_key)
+            except OperationError, e:
+                if not e.match(space, space.w_UnicodeEncodeError):
+                    raise
+                # non-ascii unicode is never equal to a byte string
+                return None
             return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None

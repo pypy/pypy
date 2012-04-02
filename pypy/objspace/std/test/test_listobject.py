@@ -1186,14 +1186,23 @@ class AppTestW_ListObject(object):
         # of dicts, because the OrderedDict in the stdlib relies on this.
         # we extend the use case to lists and sets, i.e. all types that have
         # strategies, to avoid surprizes depending on the strategy.
-        for base, arg in [(list, []), (list, [5]), (list, ['x']),
-                          (set, []),  (set,  [5]), (set,  ['x']),
-                          (dict, []), (dict, [(5,6)]), (dict, [('x',7)])]:
+        class X: pass
+        for base, arg in [
+                (list, []), (list, [5]), (list, ['x']), (list, [X]),
+                (set, []),  (set,  [5]), (set,  ['x']), (set, [X]),
+                (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
+                ]:
             print base, arg
             class SubClass(base):
                 def __iter__(self):
                     return iter("foobar")
             assert list(SubClass(arg)) == ['f', 'o', 'o', 'b', 'a', 'r']
+            class Sub2(base):
+                pass
+            assert list(Sub2(arg)) == list(base(arg))
+            s = set()
+            s.update(Sub2(arg))
+            assert s == set(base(arg))
 
 class AppTestForRangeLists(AppTestW_ListObject):
 
