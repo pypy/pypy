@@ -431,7 +431,7 @@ class ReduceSignature(Call2):
         frame.cur_value = self.binfunc(self.calc_dtype, frame.cur_value, rval)
 
     def debug_repr(self):
-        return 'ReduceSig(%s)' % (self.name, self.right.debug_repr())
+        return 'ReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
 
 class SliceloopSignature(Call2):
     def eval(self, frame, arr):
