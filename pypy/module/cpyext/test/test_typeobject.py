@@ -415,8 +415,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                PyErr_SetNone(PyExc_ZeroDivisionError);
-                return -1;
+                if (PyInt_Check(key)) {
+                    PyErr_SetNone(PyExc_ZeroDivisionError);
+                    return -1;
+                }
+                return 0;
             }
             PyMappingMethods tp_as_mapping;
             static PyTypeObject Foo_Type = {
@@ -426,6 +429,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         obj = module.new_obj()
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
+        res = obj.__setitem__('foo', None)
+        assert res is None
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [

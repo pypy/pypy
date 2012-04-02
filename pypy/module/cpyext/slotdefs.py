@@ -183,7 +183,7 @@ def wrap_objobjargproc(space, w_self, w_args, func):
     res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
     if rffi.cast(lltype.Signed, res) == -1:
         space.fromcache(State).check_and_raise_exception(always=True)
-    return space.wrap(res)
+    return space.w_None
 
 def wrap_delitem(space, w_self, w_args, func):
     func_target = rffi.cast(objobjargproc, func)
