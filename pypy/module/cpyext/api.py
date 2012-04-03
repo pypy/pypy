@@ -26,6 +26,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
+from pypy.rlib.rposix import validate_fd
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.exports import export_struct
@@ -80,14 +81,18 @@ assert CONST_WSTRING == rffi.CWCHARP
 # FILE* interface
 FILEP = rffi.COpaquePtr('FILE')
 
+if sys.platform == 'win32':
+    fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
+else:
+    fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
+
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
+
 _fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
-    try:
-        fd = fileno(fp)
-        return os.close(fd)
-    except:
+    if not validate_fd(fileno(fp)):
         return -1
+    return _fclose(fp)
 
 fwrite = rffi.llexternal('fwrite',
                          [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
@@ -96,10 +101,6 @@ fread = rffi.llexternal('fread',
                         [rffi.VOIDP, rffi.SIZE_T, rffi.SIZE_T, FILEP],
                         rffi.SIZE_T)
 feof = rffi.llexternal('feof', [FILEP], rffi.INT)
-if sys.platform == 'win32':
-    fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
-else:
-    fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
 
 
 constant_names = """
