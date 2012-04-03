@@ -2,8 +2,9 @@
 
 class StmGCSharedArea(object):
 
-    def __init__(self, gc, page_size, arena_size, small_request_threshold):
-        ...
+    def __init__(self, gc, ArenaCollectionClass,
+                 page_size, arena_size, small_request_threshold):
+        self.gc = gc
         # The ArenaCollection() handles the nonmovable objects allocation.
         # It contains all small GCFLAG_GLOBAL objects.  The non-small ones
         # are directly malloc'ed.
@@ -12,3 +13,6 @@ class StmGCSharedArea(object):
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
                                        small_request_threshold)
+
+    def setup(self):
+        pass

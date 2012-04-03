@@ -92,7 +92,7 @@ class StmGC(MovingGCBase):
         from pypy.rpython.memory.gc import stmshared
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
-        self.sharedarea = stmshared.StmGCSharedArea(self,
+        self.sharedarea = stmshared.StmGCSharedArea(self, ArenaCollectionClass,
                                                     page_size, arena_size,
                                                     small_request_threshold)
         #
@@ -118,7 +118,7 @@ class StmGC(MovingGCBase):
         #
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
         self.main_thread_tls = StmGCTLS(self, in_main_thread=True)
-        self.main_thread_tls.enter()
+        self.main_thread_tls.start_transaction()
 
     def get_tls(self):
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
@@ -234,7 +234,7 @@ class StmGC(MovingGCBase):
         debug_print("XXX collect() ignored")
 
     def start_transaction(self):
-        self.collector.start_transaction()
+        self.get_tls().start_transaction()
 
     def commit_transaction(self):
         self.collector.commit_transaction()
