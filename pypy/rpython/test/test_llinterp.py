@@ -139,7 +139,7 @@ def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
         got = interp.find_exception(info.value)
     except ValueError:
         got = None
-    assert got is exc, "wrong exception type"
+    assert got is exc, "wrong exception type, expected %r got %r"%(exc, got)
 
 #__________________________________________________________________
 # tests

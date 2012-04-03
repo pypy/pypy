@@ -201,6 +201,14 @@ class BaseTestRbuiltin(BaseRtypingTest):
         os.close(res)
         hello = open(tmpdir).read()
         assert hello == "hello world"
+        def throws(fname):
+            fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 777)
+            os.close(fd)
+            os.write(fd, "hello world")
+            return fd
+        def g():
+            return throws(tmpdir)
+        self.interpret_raises(OSError, g, [])
 
     def test_os_write_single_char(self):
         tmpdir = str(udir.udir.join("os_write_test_char"))

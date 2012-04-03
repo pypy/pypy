@@ -81,7 +81,7 @@ assert CONST_WSTRING == rffi.CWCHARP
 FILEP = rffi.COpaquePtr('FILE')
 
 fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
-#fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
+_fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
     try:
         fd = fileno(fp)

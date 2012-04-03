@@ -20,7 +20,7 @@ int main(int argc, char *argv[]);
 #endif
 
 #ifdef MS_WINDOWS
-#include "src/winstuff.c"
+/*#include "src/winstuff.c"*/
 #endif
 
 #ifdef __GNUC__

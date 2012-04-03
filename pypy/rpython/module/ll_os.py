@@ -916,6 +916,8 @@ class RegisterOs(BaseLazyRegistering):
 
         def os_write_llimpl(fd, data):
             count = len(data)
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             buf = rffi.get_nonmovingbuffer(data)
             try:
                 written = rffi.cast(lltype.Signed, os_write(
