@@ -497,7 +497,7 @@ class TestMarkCompactGC(DirectGCTest):
 
 class TestMiniMarkGCSimple(DirectGCTest):
     from pypy.rpython.memory.gc.minimark import MiniMarkGC as GCClass
-    from pypy.rpython.memory.gc.minimark import SimpleArenaCollection
+    from pypy.rpython.memory.gc.minimarktest import SimpleArenaCollection
     # test the GC itself, providing a simple class for ArenaCollection
     GC_PARAMS = {'ArenaCollectionClass': SimpleArenaCollection}
 

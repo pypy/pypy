@@ -1,7 +1,7 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
-from pypy.rpython.memory.gc.base import GCBase
+from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.support import mangle_hash
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import LONG_BIT
@@ -15,6 +15,26 @@ NULL = llmemory.NULL
 
 first_gcflag = 1 << (LONG_BIT//2)
 
+# Terminology:
+#
+#   - Objects can be LOCAL or GLOBAL.  This is what STM is based on.
+#     Local objects are not visible to any other transaction, whereas
+#     global objects are, and need care.
+#
+#   - Each object lives either in the shared area, or in a thread-local
+#     nursery.  The shared area contains:
+#       - the prebuilt objects
+#       - the small objects allocated via minimarkpage.py
+#       - the non-small raw-malloced objects
+#
+#   - The GLOBAL objects are all located in the shared area.
+#     All global objects are non-movable.
+#
+#   - The LOCAL objects might be YOUNG or OLD depending on whether they
+#     already survived a collection.  YOUNG LOCAL objects are either in
+#     the nursery or, if they are big, raw-malloced.  OLD LOCAL objects
+#     are in the shared area.
+#
 GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_HAS_SHADOW = first_gcflag << 2
@@ -30,7 +50,7 @@ def dont_inline(fn):
     return fn
 
 
-class StmGC(GCBase):
+class StmGC(MovingGCBase):
     _alloc_flavor_ = "raw"
     inline_simple_malloc = True
     inline_simple_malloc_varsize = True
@@ -43,27 +63,24 @@ class StmGC(GCBase):
     typeid_is_in_field = 'tid'
     withhash_flag_is_in_field = 'tid', GCFLAG_FIXED_HASH
 
-    GCTLS = lltype.Struct('GCTLS', ('nursery_free', llmemory.Address),
-                                   ('nursery_top', llmemory.Address),
-                                   ('nursery_start', llmemory.Address),
-                                   ('nursery_size', lltype.Signed),
-                                   ('malloc_flags', lltype.Signed),
-                                   ('pending_list', llmemory.Address),
-                                   ('surviving_weakrefs', llmemory.Address),
-                                   ('global_free', llmemory.Address),
-                                   ('global_stop', llmemory.Address),
-                          )
-
     TRANSLATION_PARAMS = {
         'stm_operations': 'use_real_one',
-        'max_nursery_size': 400*1024*1024,      # XXX 400MB
-        'tls_page_size': 64*1024,               # 64KB
+        'nursery_size': 4*1024*1024,            # 4 MB
+
+        "page_size": 1024*WORD,                 # copied from minimark.py
+        "arena_size": 65536*WORD,               # copied from minimark.py
+        "small_request_threshold": 35*WORD,     # copied from minimark.py
     }
 
-    def __init__(self, config, stm_operations='use_emulator',
-                 max_nursery_size=1024, tls_page_size=64,
+    def __init__(self, config,
+                 stm_operations='use_emulator',
+                 nursery_size=1024,
+                 page_size=16*WORD,
+                 arena_size=64*WORD,
+                 small_request_threshold=5*WORD,
+                 ArenaCollectionClass=None,
                  **kwds):
-        GCBase.__init__(self, config, **kwds)
+        MovingGCBase.__init__(self, config, **kwds)
         #
         if isinstance(stm_operations, str):
             assert stm_operations == 'use_real_one', (
@@ -72,10 +89,12 @@ class StmGC(GCBase):
             from pypy.translator.stm.stmgcintf import StmOperations
             stm_operations = StmOperations()
         #
+        from pypy.rpython.memory.gc import stmshared
         self.stm_operations = stm_operations
-        self.collector = Collector(self)
-        self.max_nursery_size = max_nursery_size
-        self.tls_page_size = tls_page_size
+        self.nursery_size = nursery_size
+        self.sharedarea = stmshared.StmGCSharedArea(self,
+                                                    page_size, arena_size,
+                                                    small_request_threshold)
         #
         def _get_size(obj):     # indirection to hide 'self'
             return self.get_size(obj)
@@ -87,64 +106,30 @@ class StmGC(GCBase):
 
     def setup(self):
         """Called at run-time to initialize the GC."""
+        #
+        # Hack: MovingGCBase.setup() sets up stuff related to id(), which
+        # we implement differently anyway.  So directly call GCBase.setup().
         GCBase.setup(self)
+        #
         self.stm_operations.setup_size_getter(
                 llhelper(self.stm_operations.GETSIZE, self._getsize_fn))
-        self.main_thread_tls = self.setup_thread(True)
-        self.mutex_lock = ll_thread.allocate_ll_lock()
-
-    def _alloc_nursery(self):
-        nursery = llarena.arena_malloc(self.max_nursery_size, 1)
-        if not nursery:
-            raise MemoryError("cannot allocate nursery")
-        return nursery
-
-    def _free_nursery(self, nursery):
-        llarena.arena_free(nursery)
-
-    def setup_thread(self, in_main_thread=False):
-        """Setup a thread.  Allocates the thread-local data structures.
-        Must be called only once per OS-level thread."""
-        tls = lltype.malloc(self.GCTLS, zero=True, flavor='raw')
-        self.stm_operations.set_tls(llmemory.cast_ptr_to_adr(tls),
-                                    int(in_main_thread))
-        tls.nursery_start = self._alloc_nursery()
-        tls.nursery_size  = self.max_nursery_size
-        tls.nursery_free  = tls.nursery_start
-        tls.nursery_top   = tls.nursery_start + tls.nursery_size
         #
-        # XXX for now, we use as the "global area" the nursery of the
-        # main thread.  So allocation in the main thread is the same as
-        # allocation in another thread, except that the new objects
-        # should be immediately marked as GCFLAG_GLOBAL.
-        if in_main_thread:
-            tls.malloc_flags = GCFLAG_GLOBAL
-        else:
-            tls.malloc_flags = -1   # don't malloc outside a transaction!
-        return tls
+        self.sharedarea.setup()
+        #
+        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        self.main_thread_tls = StmGCTLS(self, in_main_thread=True)
+        self.main_thread_tls.enter()
 
-    @staticmethod
-    def reset_nursery(tls):
-        """Clear and forget all locally allocated objects."""
-        size = tls.nursery_free - tls.nursery_start
-        llarena.arena_reset(tls.nursery_start, size, 2)
-        tls.nursery_free = tls.nursery_start
-
-    def teardown_thread(self):
-        """Teardown a thread.  Call this just before the OS-level thread
-        disappears."""
-        tls = self.collector.get_tls()
-        self.stm_operations.del_tls()
-        self._free_nursery(tls.nursery_start)
-        lltype.free(tls, flavor='raw')
+    def get_tls(self):
+        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        tls = self.stm_operations.get_tls()
+        return StmGCTLS.cast_address_to_tls_object(tls)
 
     # ----------
 
-    def allocate_bump_pointer(self, size):
-        return self._allocate_bump_pointer(self.collector.get_tls(), size)
-
     @always_inline
-    def _allocate_bump_pointer(self, tls, size):
+    def allocate_bump_pointer(self, size):
+        tls = self.collector.get_tls()
         free = tls.nursery_free
         top  = tls.nursery_top
         if (top - free) < llmemory.raw_malloc_usage(size):
@@ -154,7 +139,11 @@ class StmGC(GCBase):
 
     @dont_inline
     def local_collection(self, size):
-        raise MemoryError("nursery exhausted")   # XXX for now
+        tls = self.collector.get_tls()
+        if not tls.nursery_free:
+            fatalerror("malloc in a non-main thread but outside a transaction")
+        #...
+        xxxxxxxxx
 
 
     def malloc_fixedsize_clear(self, typeid, size,
@@ -166,19 +155,16 @@ class StmGC(GCBase):
         # Check the mode: either in a transactional thread, or in
         # the main thread.  For now we do the same thing in both
         # modes, but set different flags.
-        tls = self.collector.get_tls()
-        flags = tls.malloc_flags
-        ll_assert(flags != -1, "malloc() in a transactional thread but "
-                               "outside a transaction")
         #
         # Get the memory from the nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
-        result = self._allocate_bump_pointer(tls, totalsize)
+        result = self.allocate_bump_pointer(totalsize)
         #
         # Build the object.
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
+        flags = 0
         if contains_weakptr:   # check constant-folded
             flags |= GCFLAG_WEAKREF
         self.init_gc_object(result, typeid, flags=flags)
@@ -190,18 +176,14 @@ class StmGC(GCBase):
                              offset_to_length):
         # XXX blindly copied from malloc_fixedsize_clear() for now.
         # XXX Be more subtle, e.g. detecting overflows, at least
-        tls = self.collector.get_tls()
-        flags = tls.malloc_flags
-        ll_assert(flags != -1, "malloc() in a transactional thread but "
-                               "outside a transaction")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         totalsize = nonvarsize + itemsize * length
         totalsize = llarena.round_up_for_allocation(totalsize)
-        result = self._allocate_bump_pointer(tls, totalsize)
+        result = self.allocate_bump_pointer(totalsize)
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
-        self.init_gc_object(result, typeid, flags=flags)
+        self.init_gc_object(result, typeid, flags=0)
         (obj + offset_to_length).signed[0] = length
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
@@ -209,6 +191,7 @@ class StmGC(GCBase):
     def _malloc_local_raw(self, tls, size):
         # for _stm_write_barrier_global(): a version of malloc that does
         # no initialization of the malloc'ed object
+        xxxxxxxx
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self._allocate_bump_pointer(tls, totalsize)
@@ -235,6 +218,7 @@ class StmGC(GCBase):
 
     @dont_inline
     def _malloc_global_more(self, tls, totalsize):
+        xxxxxxxxxxxxxxxxx
         if totalsize < self.tls_page_size:
             totalsize = self.tls_page_size
         main_tls = self.main_thread_tls
@@ -480,10 +464,6 @@ class Collector(object):
     def _freeze_(self):
         return True
 
-    def get_tls(self):
-        tls = self.stm_operations.get_tls()
-        return llmemory.cast_adr_to_ptr(tls, lltype.Ptr(StmGC.GCTLS))
-
     def is_in_nursery(self, tls, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
                   "odd-valued (i.e. tagged) pointer unexpected here")
@@ -497,7 +477,6 @@ class Collector(object):
         """Start a transaction, by clearing and resetting the tls nursery."""
         tls = self.get_tls()
         self.gc.reset_nursery(tls)
-        tls.malloc_flags = 0
 
 
     def commit_transaction(self):
@@ -508,7 +487,6 @@ class Collector(object):
         debug_start("gc-collect-commit")
         #
         tls = self.get_tls()
-        tls.malloc_flags = -1
         #
         # Do a mark-and-move minor collection out of the tls' nursery
         # into the main thread's global area (which is right now also
