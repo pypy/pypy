@@ -104,6 +104,7 @@ class Module(MixedModule):
         ("fmod", "fmod"),
         ("floor", "floor"),
         ("ceil", "ceil"),
+        ("trunc", "trunc"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),

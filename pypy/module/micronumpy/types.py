@@ -668,6 +668,15 @@ class Float(Primitive):
         return math.ceil(v)
 
     @simple_unary_op
+    def trunc(self, v):
+        try:
+            return int(v)
+        except OverflowError:
+            return rfloat.copysign(rfloat.INFINITY, v)
+        except ValueError:
+            return v
+
+    @simple_unary_op
     def exp(self, v):
         try:
             return math.exp(v)
