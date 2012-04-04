@@ -361,6 +361,8 @@ char* cppyy_method_signature(cppyy_scope_t handle, int method_index) {
     Reflex::Member m = s.FunctionMemberAt(method_index);
     Reflex::Type mt = m.TypeOf();
     std::ostringstream sig;
+    if (!m.IsConstructor())
+        sig << mt.ReturnType().Name() << " ";
     sig << s.Name(Reflex::SCOPED) << "::" << m.Name() << "(";
     int nArgs = m.FunctionParameterSize();
     for (int iarg = 0; iarg < nArgs; ++iarg) {
