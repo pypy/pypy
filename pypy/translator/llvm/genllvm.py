@@ -90,10 +90,10 @@ class IntegralType(Type):
         elif isinstance(value, llmemory.GCHeaderOffset):
             return '0'
         elif isinstance(value, llmemory.CompositeOffset):
-            assert len(value.offsets) == 2
-            offset1, offset2 = value.offsets
-            return 'add(i64 {}, i64 {})'.format(self.repr_value(offset1),
-                                                self.repr_value(offset2))
+            x = self.repr_value(value.offsets[0])
+            for offset in value.offsets[1:]:
+                x = 'add(i64 {}, i64 {})'.format(x, self.repr_value(offset))
+            return x
         elif isinstance(value, llmemory.AddressOffset):
             indices = []
             to = self.add_offset_indices(indices, value)
@@ -105,7 +105,7 @@ class IntegralType(Type):
                     ', '.join(indices))
         elif isinstance(value, llgroup.GroupMemberOffset):
             grpptr = get_repr(value.grpptr)
-            grpptr.V
+            grpptr.type_.to.write_group(grpptr.value._obj)
             member = get_repr(value.member)
             return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
                     'i64 0, i32 {value.index}) to i32)').format(**locals())
@@ -129,15 +129,22 @@ class IntegralType(Type):
         if not indices:
             indices.append('i64 0')
         if isinstance(offset, llmemory.FieldOffset):
+            type_ = database.get_type(offset.TYPE)
             indices.append('i32 {}'.format(
-                    offset.TYPE._names_without_voids().index(offset.fldname)))
+                    type_.fldnames_wo_voids.index(offset.fldname)))
             return offset.TYPE._flds[offset.fldname]
         if isinstance(offset, llmemory.ArrayLengthOffset):
-            indices.append('i32 0')
+            if offset.TYPE._gckind == 'gc':
+                indices.append('i32 1')
+            else:
+                indices.append('i32 0')
             return lltype.Signed
         if isinstance(offset, llmemory.ArrayItemsOffset):
             if not offset.TYPE._hints.get("nolength", False):
-                indices.append('i32 1')
+                if offset.TYPE._gckind == 'gc':
+                    indices.append('i32 2')
+                else:
+                    indices.append('i32 1')
             return lltype.FixedSizeArray(offset.TYPE.OF, 0)
         raise NotImplementedError
 
@@ -238,6 +245,7 @@ class AddressType(BasePtrType):
 LLVMVoid = VoidType()
 LLVMSigned = IntegralType(8, False)
 LLVMUnsigned = IntegralType(8, True)
+LLVMShort = IntegralType(4, False)
 LLVMChar = CharType(1)
 LLVMUniChar = CharType(4)
 LLVMBool = BoolType()
@@ -312,19 +320,20 @@ class PtrType(BasePtrType):
 
 
 class StructType(Type):
-    def setup(self, name, fields):
+    def setup(self, name, fields, is_gc=False):
         self.name = name
+        self.is_gc = is_gc
+        if is_gc:
+            fields = database.genllvm.gcpolicy.get_gc_fields() + fields
         self.fields = fields
-        self.fldnames_without_voids = zip(*fields)[1]
+        self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
         self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
     def setup_from_lltype(self, db, type_):
-        self.name = '%struct.' + type_._name
-        self.fields = [(db.get_type(type_._flds[f]), f) for f in type_._names]
-        self.fldnames_without_voids = type_._names_without_voids()
-        self.varsize = self.fields[-1][0].varsize
-        self.size_variants = {}
+        fields = [(db.get_type(type_._flds[f]), f) for f in type_._names]
+        is_gc = type_._gckind == 'gc' and type_._first_struct() == (None, None)
+        self.setup('%struct.' + type_._name, fields, is_gc)
 
     def repr_type(self, extra_len=None):
         if extra_len not in self.size_variants:
@@ -335,7 +344,7 @@ class StructType(Type):
             else:
                 name = self.name
             self.size_variants[extra_len] = name = database.unique_name(name)
-            lastname = self.fldnames_without_voids[-1]
+            lastname = self.fldnames_wo_voids[-1]
             tmp = ('    {semicolon}{fldtype}{comma} ; {fldname}\n'.format(
                            semicolon=';' if fldtype is LLVMVoid else '',
                            fldtype=fldtype.repr_type(extra_len),
@@ -346,6 +355,8 @@ class StructType(Type):
         return self.size_variants[extra_len]
 
     def is_zero(self, value):
+        if self.is_gc:
+            return False
         return all(ft.is_zero(getattr(value, fn)) for ft, fn in self.fields)
 
     def get_extra_len(self, value):
@@ -355,19 +366,24 @@ class StructType(Type):
     def repr_value(self, value, extra_len=None):
         if self.is_zero(value):
             return 'zeroinitializer'
-        lastname = self.fldnames_without_voids[-1]
+        if self.is_gc:
+            data = database.genllvm.gcpolicy.get_gc_field_values(value)
+            data.extend(getattr(value, fn) for _, fn in self.fields[1:])
+        else:
+            data = [getattr(value, fn) for _, fn in self.fields]
+        lastname = self.fldnames_wo_voids[-1]
         tmp = ('    {semicolon}{fldtype} {fldvalue}{comma} ; {fldname}'.format(
                        semicolon=';' if fldtype is LLVMVoid else '',
                        fldtype=fldtype.repr_type(extra_len),
-                       fldvalue=fldtype.repr_value(getattr(value, fldname),
-                               extra_len).replace('\n', '\n    '),
+                       fldvalue=fldtype.repr_value(fldvalue, extra_len)
+                               .replace('\n', '\n    '),
                        comma=',' if fldname is not lastname else '',
                        fldname=fldname)
-               for fldtype, fldname in self.fields)
+               for (fldtype, fldname), fldvalue in zip(self.fields, data))
         return '{{\n{}\n}}'.format('\n'.join(tmp))
 
     def add_indices(self, gep, attr):
-        index = self.fldnames_without_voids.index(attr.value)
+        index = self.fldnames_wo_voids.index(attr.value)
         gep.add_field_index(index)
         return self.fields[index][0]
 
@@ -466,10 +482,14 @@ class ArrayHelper(object):
         self.len = value.getlength()
         self.items = value
 
+    def _parentstructure(self):
+        return self.items
+
 class ArrayType(Type):
     varsize = True
 
-    def setup(self, of):
+    def setup(self, of, is_gc=False):
+        self.is_gc = is_gc
         tmp = '%array_of_' + of.repr_type().lstrip('%').replace('*', '_ptr')\
                                                        .replace('[', '_')\
                                                        .replace(']', '_')\
@@ -479,11 +499,11 @@ class ArrayType(Type):
         self.bare_array_type = BareArrayType()
         self.bare_array_type.setup(of, None)
         self.struct_type = StructType()
-        self.struct_type.setup(
-                tmp, [(LLVMSigned, 'len'), (self.bare_array_type, 'items')])
+        fields = [(LLVMSigned, 'len'), (self.bare_array_type, 'items')]
+        self.struct_type.setup(tmp, fields, is_gc)
 
     def setup_from_lltype(self, db, type_):
-        self.setup(db.get_type(type_.OF))
+        self.setup(db.get_type(type_.OF), type_._gckind == 'gc')
 
     def repr_type(self, extra_len=None):
         return self.struct_type.repr_type(extra_len)
@@ -501,7 +521,10 @@ class ArrayType(Type):
         return self.struct_type.repr_type_and_value(ArrayHelper(value))
 
     def add_indices(self, gep, index):
-        gep.add_field_index(1)
+        if self.is_gc:
+            gep.add_field_index(2)
+        else:
+            gep.add_field_index(1)
         return self.bare_array_type.add_indices(gep, index)
 
 
@@ -510,11 +533,21 @@ class Group(object):
 
 
 class GroupType(Type):
+    def __init__(self):
+        self.written = None
+
     def setup_from_lltype(self, db, type_):
         self.typestr = '%group_' + type_.name
 
     def repr_ref(self, ptr_type, obj):
-        groupname = ptr_type.refs[obj] = '@group_' + obj.name
+        ptr_type.refs[obj] = '@group_' + obj.name
+
+    def write_group(self, obj):
+        if self.written is not None:
+            assert self.written == obj.members
+            return
+        self.written = obj.members
+        groupname = '@group_' + obj.name
         group = Group()
         fields = []
         for i, member in enumerate(obj.members):
@@ -602,6 +635,10 @@ class Database(object):
             elif isinstance(type_, lltype.FixedSizeArray):
                 class_ = BareArrayType
             elif isinstance(type_, lltype.Struct):
+                if type_._hints.get('typeptr', False):
+                    self.types[type_] = ret = StructType()
+                    ret.setup('%struct.' + type_._name, [], True)
+                    return ret
                 if type_._hints.get("union", False):
                     class_ = UnionType
                 else:
@@ -966,7 +1003,10 @@ class FunctionWriter(object):
         if isinstance(type_, BareArrayType):
             self.w('{result.V} = add i64 0, {type_.length}'.format(**locals()))
         else:
-            gep.add_field_index(0)
+            if type_.is_gc:
+                gep.add_field_index(1)
+            else:
+                gep.add_field_index(0)
             t = self._tmp()
             gep.assign(t)
             self.w('{result.V} = load i64* {t.V}'.format(**locals()))
@@ -1089,9 +1129,13 @@ class FunctionWriter(object):
         self.w('{result.V} = inttoptr i64 {t3.V} to {result.T}'
                 .format(**locals()))
 
-    def op_gc_gettypeptr_group(self, result, v_obj, grpptr, skipoffset, vtableinfo):
-        # XXX
-        self.w('{result.V} = inttoptr i64 0 to {result.T}'.format(**locals()))
+    def op_gc_gettypeptr_group(self, result, obj, grpptr, skipoffset, vtinfo):
+        t1 = self._tmp(LLVMSigned)
+        t2 = self._tmp(LLVMShort)
+        self._get_element(t1, obj, ConstantRepr(LLVMVoid, '_gc_header'),
+                          ConstantRepr(LLVMVoid, vtinfo.value[2]))
+        self._cast(t2, t1)
+        self.op_get_next_group_member(result, grpptr, t2, skipoffset)
 
     def op_gc_reload_possibly_moved(self, result, v_newaddr, v_targetvar):
         pass
@@ -1142,11 +1186,69 @@ class RawGCPolicy(GCPolicy):
         self.genllvm = genllvm
         self.gctransformer = RawGCTransformer(genllvm.translator)
 
+    def transform_graph(self, graph):
+        self.gctransformer.transform_graph(graph)
+
 
 class FrameworkGCPolicy(GCPolicy):
     def __init__(self, genllvm):
         self.genllvm = genllvm
         self.gctransformer = FrameworkGCTransformer(genllvm.translator)
+        self._considered_constant = set()
+
+    def transform_graph(self, graph):
+        for block in graph.iterblocks():
+            for arg in block.inputargs:
+                if isinstance(arg, Constant):
+                    self._consider_constant(arg.concretetype, arg.value)
+            for link in block.exits:
+                for arg in link.args:
+                    if isinstance(arg, Constant):
+                        self._consider_constant(arg.concretetype, arg.value)
+            for op in block.operations:
+                for arg in op.args:
+                    if isinstance(arg, Constant):
+                        self._consider_constant(arg.concretetype, arg.value)
+        self.gctransformer.transform_graph(graph)
+
+    def _consider_constant(self, type_, value):
+        if isinstance(type_, lltype.Ptr):
+            type_ = type_.TO
+            value = value._obj
+            if value is None:
+                return
+        if isinstance(type_, lltype.ContainerType):
+            if value in self._considered_constant:
+                return
+            self._considered_constant.add(value)
+            value = lltype.top_container(value)
+            type_ = lltype.typeOf(value)
+            if isinstance(type_, lltype.Struct):
+                for f in type_._names:
+                    self._consider_constant(type_._flds[f], getattr(value, f))
+            self.gctransformer.consider_constant(type_, value)
+
+    def get_gc_fields(self):
+        return [(database.get_type(self.gctransformer.HDR), '_gc_header')]
+
+    def get_gc_field_values(self, obj):
+        obj = lltype.top_container(obj)
+        needs_hash = self.get_prebuilt_hash(obj) is not None
+        hdr = self.gctransformer.gc_header_for(obj, needs_hash)
+        return [hdr._obj]
+
+    # from c backend
+    def get_prebuilt_hash(self, obj):
+        # for prebuilt objects that need to have their hash stored and
+        # restored.  Note that only structures that are StructNodes all
+        # the way have their hash stored (and not e.g. structs with var-
+        # sized arrays at the end).  'obj' must be the top_container.
+        TYPE = lltype.typeOf(obj)
+        if not isinstance(TYPE, lltype.GcStruct):
+            return None
+        if TYPE._is_varsize():
+            return None
+        return getattr(obj, '_hash_cache_', None)
 
 
 class CTypesFuncWrapper(object):
@@ -1208,7 +1310,7 @@ class CTypesFuncWrapper(object):
 
     def _to_ctype_StringRepr(self, repr_, ctype, value):
         llvm_type = database.get_type(repr_.lowleveltype)
-        arr = self._get_ctype(llvm_type.to, len(value))(0, (len(value), value))
+        arr = self._get_ctype(llvm_type.to, len(value))((0,), 0, (len(value), value))
         return ctypes.cast(ctypes.pointer(arr), ctype)
 
     def _to_ctype(self, repr_, ctype, value):
@@ -1272,7 +1374,7 @@ class GenLLVM(object):
             hasattr(graph.returnblock.inputargs[0], 'concretetype')):
             self.transformed_graphs.add(graph)
             self.exctransformer.create_exception_handling(graph)
-            self.gcpolicy.gctransformer.transform_graph(graph)
+            self.gcpolicy.transform_graph(graph)
             remove_double_links(self.translator.annotator, graph)
 
     def gen_source(self, entry_point):
@@ -1280,9 +1382,6 @@ class GenLLVM(object):
 
         self.entry_point = entry_point
         self.base_path = udir.join(uniquemodulename('main'))
-
-        for graph in self.translator.graphs:
-            self.transform_graph(graph)
 
         bk = self.translator.annotator.bookkeeper
         ep_ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
@@ -1299,6 +1398,14 @@ class GenLLVM(object):
             f.write('declare i8* @llvm.frameaddress(i32)\n')
 
             database = Database(self, f)
+            for graph in self.translator.graphs:
+                self.transform_graph(graph)
+
+            f.write('%ctor = type { i32, void ()* }\n')
+            sr = get_repr(self.gcpolicy.gctransformer.frameworkgc_setup_ptr)
+            f.write('@llvm.global_ctors = appending global [1 x %ctor] '
+                    '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
+
             if self.standalone:
                 raise NotImplementedError
             else:
@@ -1310,7 +1417,7 @@ class GenLLVM(object):
 
     def compile_module(self):
         eci = ExternalCompilationInfo().merge(*self.ecis)
-        eci = eci.convert_sources_to_files()
+        eci = eci.convert_sources_to_files(being_main=True)
         cmdexec('clang -O2 -shared -fPIC {0}{1}{2}.ll -o {2}.so'.format(
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
                 ''.join(smf + ' ' for smf in eci.separate_module_files),

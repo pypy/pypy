@@ -21,9 +21,8 @@ from pypy.tool.autopath import pypydir
 
 compilation_info = ExternalCompilationInfo(
     include_dirs=[local(pypydir) / 'translator' / 'c'],
-    # XXX functions from src/stack.h should be defined in a .c file
     includes=['src/stack.h'],
-    separate_module_sources=[''] # include src/stack.h
+    separate_module_files=[str(local(pypydir) / 'translator' / 'c' / 'src' / 'stack.c')]
 )
 
 def llexternal(name, args, res, _callable=None):

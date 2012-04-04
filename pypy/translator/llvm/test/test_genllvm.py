@@ -211,7 +211,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.backendopt.raisingop2direct_call = True
-        config.translation.gc = 'none'
+        config.translation.gc = 'minimark'
         config.translation.simplifying = True
         t = TranslationContext(config=config)
         if argtypes is None:
@@ -225,6 +225,7 @@ class _LLVMMixin(test_typed.CompilationTestCase):
         gen_llvm = genllvm.GenLLVM(t, False)
         if hasattr(self, 'include_also_eci'):
             gen_llvm.ecis.append(self.include_also_eci)
+            del self.include_also_eci
         gen_llvm.gen_source(func)
         return gen_llvm.compile_module()
 
