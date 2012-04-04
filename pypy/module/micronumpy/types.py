@@ -669,12 +669,10 @@ class Float(Primitive):
 
     @simple_unary_op
     def trunc(self, v):
-        try:
-            return int(v)
-        except OverflowError:
-            return rfloat.copysign(rfloat.INFINITY, v)
-        except ValueError:
-            return v
+        if v < 0:
+            return math.ceil(v)
+        else:
+            return math.floor(v)
 
     @simple_unary_op
     def exp(self, v):
