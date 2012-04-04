@@ -43,6 +43,13 @@ def type_eq(space):
     return w_eq
 type_eq._annspecialcase_ = 'specialize:memo'
 
+def list_iter(space):
+    "Utility that returns the app-level descriptor list.__iter__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_list,
+                                               '__iter__')
+    return w_iter
+list_iter._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)

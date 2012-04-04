@@ -108,7 +108,8 @@ class DictProxyStrategy(DictStrategy):
 
 class DictProxyIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(
+            self, space, strategy, dictimplementation)
         w_type = strategy.unerase(dictimplementation.dstorage)
         self.iterator = w_type.dict_w.iteritems()
 

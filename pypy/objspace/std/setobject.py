@@ -359,7 +359,7 @@ class EmptySetStrategy(SetStrategy):
         w_set.sstorage = w_other.get_storage_copy()
 
     def iter(self, w_set):
-        return EmptyIteratorImplementation(self.space, w_set)
+        return EmptyIteratorImplementation(self.space, self, w_set)
 
     def popitem(self, w_set):
         raise OperationError(self.space.w_KeyError,
@@ -784,8 +784,9 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
             d_obj[w_item] = None
 
 class IteratorImplementation(object):
-    def __init__(self, space, implementation):
+    def __init__(self, space, strategy, implementation):
         self.space = space
+        self.strategy = strategy
         self.setimplementation = implementation
         self.len = implementation.length()
         self.pos = 0
@@ -801,7 +802,17 @@ class IteratorImplementation(object):
         if self.pos < self.len:
             result = self.next_entry()
             self.pos += 1
-            return result
+            if self.strategy is self.setimplementation.strategy:
+                return result      # common case
+            else:
+                # waaa, obscure case: the strategy changed, but not the
+                # length of the set.  The 'result' might be out-of-date.
+                # We try to explicitly look it up in the set.
+                if not self.setimplementation.has_key(result):
+                    self.len = -1   # Make this error state sticky
+                    raise OperationError(self.space.w_RuntimeError,
+                        self.space.wrap("dictionary changed during iteration"))
+                return result
         # no more entries
         self.setimplementation = None
         return None
@@ -823,7 +834,7 @@ class EmptyIteratorImplementation(IteratorImplementation):
 
 class StringIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, w_set):
-        IteratorImplementation.__init__(self, space, w_set)
+        IteratorImplementation.__init__(self, space, strategy, w_set)
         d = strategy.unerase(w_set.sstorage)
         self.iterator = d.iterkeys()
 
@@ -835,9 +846,9 @@ class StringIteratorImplementation(IteratorImplementation):
 
 class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        d = strategy.unerase(dictimplementation.sstorage)
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
         self.iterator = d.iterkeys()
 
     def next_entry(self):
@@ -848,9 +859,9 @@ class IntegerIteratorImplementation(IteratorImplementation):
             return None
 
 class RDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        d = strategy.unerase(dictimplementation.sstorage)
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
         self.iterator = d.iterkeys()
 
     def next_entry(self):

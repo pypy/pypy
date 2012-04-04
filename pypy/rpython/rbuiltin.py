@@ -111,25 +111,32 @@ class BuiltinFunctionRepr(Repr):
         raise TyperError("don't know about built-in function %r" % (
             self.builtinfunc,))
 
+    def _call(self, hop2, **kwds_i):
+        bltintyper = self.findbltintyper(hop2.rtyper)
+        hop2.llops._called_exception_is_here_or_cannot_occur = False
+        v_result = bltintyper(hop2, **kwds_i)
+        if not hop2.llops._called_exception_is_here_or_cannot_occur:
+            raise TyperError("missing hop.exception_cannot_occur() or "
+                             "hop.exception_is_here() in %s" % bltintyper)
+        return v_result
+
     def rtype_simple_call(self, hop):
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
-        return bltintyper(hop2)
+        return self._call(hop2)
 
     def rtype_call_args(self, hop):
         # calling a built-in function with keyword arguments:
         # mostly for rpython.objectmodel.hint()
         hop, kwds_i = call_args_expand(hop)
 
-        bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()
         hop2.r_s_popfirstarg()
         hop2.r_s_popfirstarg()
         # the RPython-level keyword args are passed with an 'i_' prefix and
         # the corresponding value is an *index* in the hop2 arguments,
         # to be used with hop.inputarg(arg=..)
-        return bltintyper(hop2, **kwds_i)
+        return self._call(hop2, **kwds_i)
 
 
 class BuiltinMethodRepr(Repr):
@@ -198,6 +205,7 @@ def get_builtin_method_self(x):
 # ____________________________________________________________
 
 def rtype_builtin_bool(hop):
+    # not called any more?
     assert hop.nb_args == 1
     return hop.args_r[0].rtype_is_true(hop)
 
@@ -241,6 +249,7 @@ def rtype_intmask(hop):
 
 def rtype_builtin_min(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_min, v1, v2)
 
 def ll_min(i1, i2):
@@ -250,6 +259,7 @@ def ll_min(i1, i2):
 
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
+    hop.exception_cannot_occur()
     return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):
@@ -264,6 +274,7 @@ def rtype_object__init__(hop):
     pass
 
 def rtype_OSError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("OSError() should not be called with "
                          "a single argument")
@@ -274,6 +285,7 @@ def rtype_OSError__init__(hop):
         r_self.setfield(v_self, 'errno', v_errno, hop.llops)
 
 def rtype_WindowsError__init__(hop):
+    hop.exception_cannot_occur()
     if hop.nb_args == 2:
         raise TyperError("WindowsError() should not be called with "
                          "a single argument")
@@ -442,6 +454,7 @@ def rtype_cast_primitive(hop):
     assert hop.args_s[0].is_constant()
     TGT = hop.args_s[0].const
     v_type, v_value = hop.inputargs(lltype.Void, hop.args_r[1])
+    hop.exception_cannot_occur()
     return gen_cast(hop.llops, TGT, v_value)
 
 _cast_to_Signed = {
@@ -523,11 +536,13 @@ def rtype_cast_int_to_ptr(hop):
 
 def rtype_identity_hash(hop):
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('gc_identityhash', vlist, resulttype=lltype.Signed)
 
 def rtype_runtime_type_info(hop):
     assert isinstance(hop.args_r[0], rptr.PtrRepr)
     vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
     return hop.genop('runtime_type_info', vlist,
                      resulttype = hop.r_result.lowleveltype)
 
@@ -558,6 +573,7 @@ BUILTIN_TYPER[objectmodel.hlinvoke] = rtype_hlinvoke
 
 def rtype_raw_malloc(hop):
     v_size, = hop.inputargs(lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_malloc', [v_size], resulttype=llmemory.Address)
 
 def rtype_raw_malloc_usage(hop):
@@ -586,6 +602,7 @@ def rtype_raw_memclear(hop):
     if s_addr.is_null_address():
         raise TyperError("raw_memclear(x, n) where x is the constant NULL")
     v_list = hop.inputargs(llmemory.Address, lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_memclear', v_list)
 
 BUILTIN_TYPER[llmemory.raw_malloc] = rtype_raw_malloc
@@ -596,6 +613,7 @@ BUILTIN_TYPER[llmemory.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
+    hop.exception_cannot_occur()
     return hop.inputconst(lltype.Signed,
                           llmemory.offsetof(TYPE.value, field.value))
 
@@ -605,6 +623,7 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 # non-gc objects
 
 def rtype_free_non_gc_object(hop):
+    hop.exception_cannot_occur()
     vinst, = hop.inputargs(hop.args_r[0])
     flavor = hop.args_r[0].gcflavor
     assert flavor != 'gc'
@@ -617,6 +636,7 @@ BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 # keepalive_until_here
 
 def rtype_keepalive_until_here(hop):
+    hop.exception_cannot_occur()
     for v in hop.args_v:
         hop.genop('keepalive', [v], resulttype=lltype.Void)
     return hop.inputconst(lltype.Void, None)

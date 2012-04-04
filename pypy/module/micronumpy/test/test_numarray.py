@@ -395,11 +395,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3] == 0.
 
     def test_newaxis(self):
-        from _numpypy import array
+        import math
+        from _numpypy import array, cos, zeros
         from numpypy.core.numeric import newaxis
         a = array(range(5))
         b = array([range(5)])
         assert (a[newaxis] == b).all()
+        a = array(range(3))
+        b = array([1, 3])
+        expected = zeros((3, 2))
+        for x in range(3):
+            for y in range(2):
+                expected[x, y] = math.cos(a[x]) * math.cos(b[y])
+        assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
 
     def test_newaxis_slice(self):
         from _numpypy import array
@@ -1338,6 +1346,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
             "array dimensions must agree except for axis being concatenated"
+        a = array([1, 2, 3, 4, 5, 6])
+        a = (a + a)[::2]
+        b = concatenate((a[:3], a[-3:]))
+        assert (b == [2, 6, 10, 2, 6, 10]).all()
 
     def test_std(self):
         from _numpypy import array
@@ -1386,6 +1398,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ones((2, 2))[1:,].nbytes == 16
         assert (ones(1) + ones(1)).nbytes == 8
         assert array(3.0).nbytes == 8
+
+    def test_repeat(self):
+        from _numpypy import repeat, array
+        assert (repeat([[1, 2], [3, 4]], 3) == [1, 1, 1, 2, 2, 2,
+                                                3, 3, 3, 4, 4, 4]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=0) == [[1, 2], [1, 2], [3, 4],
+                                                        [3, 4]]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=1) == [[1, 1, 2, 2], [3, 3,
+                                                        4, 4]]).all()
+        assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
 
 class AppTestMultiDim(BaseNumpyAppTest):
