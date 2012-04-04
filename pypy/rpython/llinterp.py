@@ -152,7 +152,7 @@ class LLInterpreter(object):
             etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
             if etype == klass:
                 return cls
-        raise ValueError, "couldn't match exception"
+        raise ValueError, "couldn't match exception, maybe it has RPython attributes like OSError?"
 
     def get_transformed_exc_data(self, graph):
         if hasattr(graph, 'exceptiontransformed'):
