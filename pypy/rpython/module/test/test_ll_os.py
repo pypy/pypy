@@ -84,8 +84,10 @@ def test_chdir():
         if (len == 0) and "WINGDB_PYTHON" in os.environ:
             # the ctypes call seems not to work in the Wing debugger
             return
-        assert str(buf.value).lower() == pwd
-        # ctypes returns the drive letter in uppercase, os.getcwd does not
+        assert str(buf.value).lower() == pwd.lower()
+        # ctypes returns the drive letter in uppercase, 
+        # os.getcwd does not, 
+        # but there may be uppercase in os.getcwd path
 
     pwd = os.getcwd()
     try:
@@ -187,7 +189,18 @@ def test_execve():
         OSError, ll_execve, "/etc/passwd", [], {})
     assert info.value.errno == errno.EACCES
 
-
+def test_os_write():
+    #Same as test in rpython/test/test_rbuiltin
+    fname = str(udir.join('os_write_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    os.close(fd)
+    hello = open(fname).read()
+    assert hello == "Hello world"
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    os.close(fd)
+    raises(OSError, os.write, fd, 'Hello world')
 
 class ExpectTestOs:
     def setup_class(cls):
