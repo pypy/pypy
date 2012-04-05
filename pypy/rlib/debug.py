@@ -1,5 +1,6 @@
 import sys, time
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import is_valid_int
 
 
@@ -21,8 +22,13 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop('debug_assert', vlist)
 
+class FatalError(Exception):
+    pass
+
 def fatalerror(msg):
     # print the RPython traceback and abort with a fatal error
+    if not we_are_translated():
+        raise FatalError(msg)
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_print_traceback(lltype.Void)
@@ -33,6 +39,8 @@ fatalerror._annenforceargs_ = [str]
 
 def fatalerror_notb(msg):
     # a variant of fatalerror() that doesn't print the RPython traceback
+    if not we_are_translated():
+        raise FatalError(msg)
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
     llop.debug_fatalerror(lltype.Void, msg)
