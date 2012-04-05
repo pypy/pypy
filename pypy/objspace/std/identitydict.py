@@ -80,8 +80,8 @@ class IdentityDictStrategy(AbstractTypedStrategy, DictStrategy):
     def iter(self, w_dict):
         return IdentityDictIteratorImplementation(self.space, self, w_dict)
 
-    def keys(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
+    def w_keys(self, w_dict):
+        return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
 
 class IdentityDictIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
