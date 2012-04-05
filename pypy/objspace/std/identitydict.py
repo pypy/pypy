@@ -1,5 +1,5 @@
 ## ----------------------------------------------------------------------------
-## dict strategy (see dict_multiobject.py)
+## dict strategy (see dictmultiobject.py)
 
 from pypy.rlib import rerased
 from pypy.rlib.debug import mark_dict_non_null
