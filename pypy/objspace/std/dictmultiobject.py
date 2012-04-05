@@ -563,10 +563,7 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     def listview_int(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
-    def w_keys(self, w_dict):
-        # XXX there is no space.newlist_int yet
-        space = self.space
-        return space.call_function(space.w_list, w_dict)
+    # XXX there is no space.newlist_int yet to implement w_keys more efficiently
 
 class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
     pass
