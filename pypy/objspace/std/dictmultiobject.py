@@ -33,8 +33,7 @@ class W_DictMultiObject(W_Object):
 
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
-                                   instance=False, classofinstance=None,
-                                   strdict=False):
+                                   instance=False, strdict=False):
 
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
