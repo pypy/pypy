@@ -455,6 +455,6 @@ def FILE_TIME_to_time_t_nsec(filetime):
     return intmask(time), intmask(nsec)
 
 def time_t_to_FILE_TIME(time, filetime):
-    ft = rffi.r_longlong(time * 10000000) + secs_between_epochs * 10000000
+    ft = rffi.r_longlong((time + secs_between_epochs) * 10000000)
     filetime.c_dwHighDateTime = rffi.r_uint(ft >> 32)
     filetime.c_dwLowDateTime = rffi.r_uint(ft)    # masking off high bits
