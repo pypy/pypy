@@ -17,7 +17,7 @@ class FunctionExecutor(object):
     _immutable_ = True
     libffitype = NULL
 
-    def __init__(self, space, cpptype):
+    def __init__(self, space, extra):
         pass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
@@ -251,20 +251,22 @@ class InstancePtrExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
 
-    def __init__(self, space, cpptype):
-        FunctionExecutor.__init__(self, space, cpptype)
-        self.cpptype = cpptype
+    def __init__(self, space, cppclass):
+        FunctionExecutor.__init__(self, space, cppclass)
+        self.cppclass = cppclass
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
         long_result = capi.c_call_l(cppmethod, cppthis, num_args, args)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(space, None, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(
+            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy import interp_cppyy
         ptr_result = rffi.cast(capi.C_OBJECT, libffifunc.call(argchain, rffi.VOIDP))
-        return interp_cppyy.wrap_cppobject(space, None, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(
+            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
 class InstancePtrPtrExecutor(InstancePtrExecutor):
     _immutable_ = True
@@ -274,7 +276,8 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
         voidp_result = capi.c_call_r(cppmethod, cppthis, num_args, args)
         ref_address = rffi.cast(rffi.VOIDPP, voidp_result)
         ptr_result = rffi.cast(capi.C_OBJECT, ref_address[0])
-        return interp_cppyy.wrap_cppobject(space, None, self.cpptype, ptr_result, False, False)
+        return interp_cppyy.wrap_cppobject(
+            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=False)
 
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -285,9 +288,10 @@ class InstanceExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         from pypy.module.cppyy import interp_cppyy
-        long_result = capi.c_call_o(cppmethod, cppthis, num_args, args, self.cpptype.handle)
+        long_result = capi.c_call_o(cppmethod, cppthis, num_args, args, self.cppclass)
         ptr_result = rffi.cast(capi.C_OBJECT, long_result)
-        return interp_cppyy.wrap_cppobject(space, None, self.cpptype, ptr_result, False, True)
+        return interp_cppyy.wrap_cppobject(
+            space, space.w_None, self.cppclass, ptr_result, isref=False, python_owns=True)
 
     def execute_libffi(self, space, libffifunc, argchain):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
@@ -343,17 +347,17 @@ def get_executor(space, name):
 
     #   3) types/classes, either by ref/ptr or by value
     from pypy.module.cppyy import interp_cppyy
-    cpptype = interp_cppyy.type_byname(space, clean_name)
-    if cpptype:
+    cppclass = interp_cppyy.scope_byname(space, clean_name)
+    if cppclass:
         # type check for the benefit of the annotator
-        from pypy.module.cppyy.interp_cppyy import W_CPPType
-        cpptype = space.interp_w(W_CPPType, cpptype, can_be_None=False)
+        from pypy.module.cppyy.interp_cppyy import W_CPPClass
+        cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
         if compound == "":
-            return InstanceExecutor(space, cpptype)
+            return InstanceExecutor(space, cppclass)
         elif compound == "*" or compound == "&":
-            return InstancePtrExecutor(space, cpptype)
+            return InstancePtrExecutor(space, cppclass)
         elif compound == "**" or compound == "*&":
-            return InstancePtrPtrExecutor(space, cpptype)
+            return InstancePtrPtrExecutor(space, cppclass)
     elif capi.c_is_enum(clean_name):
         return UnsignedIntExecutor(space, None)
 

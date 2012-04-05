@@ -9,8 +9,8 @@ import cppyy
 class CppyyScopeMeta(type):
     def __getattr__(self, name):
         try:
-            return get_cppitem(self, name)  # will cache on self
-        except TypeError:
+            return get_pycppitem(self, name)  # will cache on self
+        except TypeError, t:
             raise AttributeError("%s object has no attribute '%s'" % (self, name))
 
 class CppyyNamespaceMeta(CppyyScopeMeta):
@@ -44,10 +44,10 @@ class CppyyTemplateType(object):
 
 
 def clgen_callback(name):
-    return get_cppclass(name)
+    return get_pycppclass(name)
 cppyy._set_class_generator(clgen_callback)
 
-def make_static_function(cpptype, func_name, cppol):
+def make_static_function(func_name, cppol):
     def function(*args):
         return cppol.call(None, *args)
     function.__name__ = func_name
@@ -61,13 +61,13 @@ def make_method(meth_name, cppol):
     return method
 
 
-def make_data_member(cppdm):
+def make_datamember(cppdm):
     rettype = cppdm.get_returntype()
     if not rettype:                              # return builtin type
         cppclass = None
     else:                                        # return instance
         try:
-            cppclass = get_cppclass(rettype)
+            cppclass = get_pycppclass(rettype)
         except AttributeError:
             import warnings
             warnings.warn("class %s unknown: no data member access" % rettype,
@@ -96,7 +96,7 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
     else:
         d = dict()
         def cpp_proxy_loader(cls):
-            cpp_proxy = cppyy._type_byname(cls.__name__ != '::' and cls.__name__ or '')
+            cpp_proxy = cppyy._scope_byname(cls.__name__ != '::' and cls.__name__ or '')
             del cls.__class__._cpp_proxy
             cls._cpp_proxy = cpp_proxy
             return cpp_proxy
@@ -111,14 +111,14 @@ def make_cppnamespace(scope, namespace_name, cppns, build_in_full=True):
         # insert static methods into the "namespace" dictionary
         for func_name in cppns.get_method_names():
             cppol = cppns.get_overload(func_name)
-            pyfunc = make_static_function(cppns, func_name, cppol)
+            pyfunc = make_static_function(func_name, cppol)
             setattr(pycppns, func_name, pyfunc)
 
         # add all data members to the dictionary of the class to be created, and
         # static ones also to the meta class (needed for property setters)
-        for dm in cppns.get_data_member_names():
-            cppdm = cppns.get_data_member(dm)
-            pydm = make_data_member(cppdm)
+        for dm in cppns.get_datamember_names():
+            cppdm = cppns.get_datamember(dm)
+            pydm = make_datamember(cppdm)
             setattr(pycppns, dm, pydm)
             setattr(metans, dm, pydm)
 
@@ -133,9 +133,9 @@ def _drop_cycles(bases):
                 break
     return tuple(bases)
 
-def make_new(class_name, cpptype):
+def make_new(class_name, cppclass):
     try:
-        constructor_overload = cpptype.get_overload(cpptype.type_name)
+        constructor_overload = cppclass.get_overload(cppclass.type_name)
     except AttributeError:
         msg = "cannot instantiate abstract class '%s'" % class_name
         def __new__(cls, *args):
@@ -145,10 +145,10 @@ def make_new(class_name, cpptype):
             return constructor_overload.call(None, *args)
     return __new__
 
-def make_cppclass(scope, class_name, final_class_name, cpptype):
+def make_pycppclass(scope, class_name, final_class_name, cppclass):
 
     # get a list of base classes for class creation
-    bases = [get_cppclass(base) for base in cpptype.get_base_names()]
+    bases = [get_pycppclass(base) for base in cppclass.get_base_names()]
     if not bases:
         bases = [CPPObject,]
     else:
@@ -164,57 +164,57 @@ def make_cppclass(scope, class_name, final_class_name, cpptype):
     metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
     # create the python-side C++ class representation
-    d = {"_cpp_proxy" : cpptype,
-         "__new__"    : make_new(class_name, cpptype),
+    d = {"_cpp_proxy" : cppclass,
+         "__new__"    : make_new(class_name, cppclass),
          }
-    pycpptype = metacpp(class_name, _drop_cycles(bases), d)
+    pycppclass = metacpp(class_name, _drop_cycles(bases), d)
  
     # cache result early so that the class methods can find the class itself
-    setattr(scope, final_class_name, pycpptype)
+    setattr(scope, final_class_name, pycppclass)
 
     # insert (static) methods into the class dictionary
-    for meth_name in cpptype.get_method_names():
-        cppol = cpptype.get_overload(meth_name)
+    for meth_name in cppclass.get_method_names():
+        cppol = cppclass.get_overload(meth_name)
         if cppol.is_static():
-            setattr(pycpptype, meth_name, make_static_function(cpptype, meth_name, cppol))
+            setattr(pycppclass, meth_name, make_static_function(meth_name, cppol))
         else:
-            setattr(pycpptype, meth_name, make_method(meth_name, cppol))
+            setattr(pycppclass, meth_name, make_method(meth_name, cppol))
 
     # add all data members to the dictionary of the class to be created, and
     # static ones also to the meta class (needed for property setters)
-    for dm_name in cpptype.get_data_member_names():
-        cppdm = cpptype.get_data_member(dm_name)
-        pydm = make_data_member(cppdm)
+    for dm_name in cppclass.get_datamember_names():
+        cppdm = cppclass.get_datamember(dm_name)
+        pydm = make_datamember(cppdm)
 
-        setattr(pycpptype, dm_name, pydm)
+        setattr(pycppclass, dm_name, pydm)
         if cppdm.is_static():
             setattr(metacpp, dm_name, pydm)
 
-    _pythonize(pycpptype)
-    cppyy._register_class(pycpptype)
-    return pycpptype
+    _pythonize(pycppclass)
+    cppyy._register_class(pycppclass)
+    return pycppclass
 
 def make_cpptemplatetype(scope, template_name):
     return CppyyTemplateType(scope, template_name)
 
 
-def get_cppitem(scope, name):
+def get_pycppitem(scope, name):
     # resolve typedefs/aliases
     full_name = (scope == gbl) and name or (scope.__name__+'::'+name)
     true_name = cppyy._resolve_name(full_name)
     if true_name != full_name:
-        return get_cppclass(true_name)
+        return get_pycppclass(true_name)
 
     pycppitem = None
 
     # classes
-    cppitem = cppyy._type_byname(true_name)
+    cppitem = cppyy._scope_byname(true_name)
     if cppitem:
         if cppitem.is_namespace():
             pycppitem = make_cppnamespace(scope, true_name, cppitem)
             setattr(scope, name, pycppitem)
         else:
-            pycppitem = make_cppclass(scope, true_name, name, cppitem)
+            pycppitem = make_pycppclass(scope, true_name, name, cppitem)
 
     # templates
     if not cppitem:
@@ -227,7 +227,7 @@ def get_cppitem(scope, name):
     if not cppitem:
         try:
             cppitem = scope._cpp_proxy.get_overload(name)
-            pycppitem = make_static_function(scope._cpp_proxy, name, cppitem)
+            pycppitem = make_static_function(name, cppitem)
             setattr(scope.__class__, name, pycppitem)
             pycppitem = getattr(scope, name)      # binds function as needed
         except AttributeError:
@@ -236,8 +236,8 @@ def get_cppitem(scope, name):
     # data
     if not cppitem:
         try:
-            cppitem = scope._cpp_proxy.get_data_member(name)
-            pycppitem = make_data_member(cppitem)
+            cppitem = scope._cpp_proxy.get_datamember(name)
+            pycppitem = make_datamember(cppitem)
             setattr(scope, name, pycppitem)
             if cppitem.is_static():
                 setattr(scope.__class__, name, pycppitem)
@@ -266,7 +266,7 @@ def scope_splitter(name):
         scope += c
     yield scope
 
-def get_cppclass(name):
+def get_pycppclass(name):
     # break up the name, to walk the scopes and get the class recursively
     scope = gbl
     for part in scope_splitter(name):
@@ -367,7 +367,7 @@ def load_reflection_info(name):
         return dct
     
 
-# user interface objects (note the two-step of not calling type_byname here:
+# user interface objects (note the two-step of not calling scope_byname here:
 # creation of global functions may cause the creation of classes in the global
 # namespace, so gbl must exist at that point to cache them)
 gbl = make_cppnamespace(None, "::", None, False)   # global C++ namespace

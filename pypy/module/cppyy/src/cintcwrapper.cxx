@@ -231,7 +231,7 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
     return (cppyy_type_t)sz;
 }
 
-cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj) {
+cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
     TClassRef cr = type_from_handle(klass);
     TClass* clActual = cr->GetActualClass( (void*)obj );
     if (clActual && clActual != cr.GetClass()) {
@@ -605,7 +605,7 @@ int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
 
 
 /* data member reflection information ------------------------------------- */
-int cppyy_num_data_members(cppyy_scope_t handle) {
+int cppyy_num_datamembers(cppyy_scope_t handle) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfDataMembers())
         return cr->GetListOfDataMembers()->GetSize();
@@ -627,20 +627,20 @@ int cppyy_num_data_members(cppyy_scope_t handle) {
     return 0;
 }
 
-char* cppyy_data_member_name(cppyy_scope_t handle, int data_member_index) {
+char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
-        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return cppstring_to_cstring(m->GetName());
     }
-    TGlobal& gbl = g_globalvars[data_member_index];
+    TGlobal& gbl = g_globalvars[datamember_index];
     return cppstring_to_cstring(gbl.GetName());
 }
 
-char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
+char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass())  {
-        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         std::string fullType = m->GetFullTypeName();
         if ((int)m->GetArrayDim() > 1 || (!m->IsBasic() && m->IsaPointer()))
             fullType.append("*");
@@ -651,21 +651,21 @@ char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
         }
         return cppstring_to_cstring(fullType);
     }
-    TGlobal& gbl = g_globalvars[data_member_index];
+    TGlobal& gbl = g_globalvars[datamember_index];
     return cppstring_to_cstring(gbl.GetFullTypeName());
 }
 
-size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
+size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
-        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return (size_t)m->GetOffsetCint();
     }
-    TGlobal& gbl = g_globalvars[data_member_index];
+    TGlobal& gbl = g_globalvars[datamember_index];
     return (size_t)gbl.GetAddress();
 }
 
-int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
+int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
         // called from updates; add a hard reset as the code itself caches in
@@ -700,19 +700,19 @@ int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
 
 
 /* data member properties ------------------------------------------------  */
-int cppyy_is_publicdata(cppyy_scope_t handle, int data_member_index) {
+int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
-        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISPUBLIC;
     }
     return 1;  // global data is always public
 }
 
-int cppyy_is_staticdata(cppyy_scope_t handle, int data_member_index) {
+int cppyy_is_staticdata(cppyy_scope_t handle, int datamember_index) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass()) {
-        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+        TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(datamember_index);
         return m->Property() & G__BIT_ISSTATIC;
     }
     return 1;  // global data is always static

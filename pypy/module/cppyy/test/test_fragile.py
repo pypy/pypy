@@ -137,7 +137,7 @@ class AppTestFRAGILE:
 
         g = fragile.G()
 
-    def test08_unhandled_scoped_data_member(self):
+    def test08_unhandled_scoped_datamember(self):
         """Test that an unhandled scoped data member does not cause infinite recursion"""
 
         import cppyy
@@ -190,4 +190,4 @@ class AppTestFRAGILE:
 
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__
-        assert j.method1.__doc__ == "fragile::J::method1(int, double)"
+        assert j.method1.__doc__ == "int fragile::J::method1(int, double)"

@@ -39,9 +39,9 @@ _c_resolve_name = rffi.llexternal(
     [rffi.CCHARP], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-def c_resolve_name(cppitem_name):
-    return charp2str_free(_c_resolve_name(cppitem_name))
-c_get_scope = rffi.llexternal(
+def c_resolve_name(name):
+    return charp2str_free(_c_resolve_name(name))
+c_get_scope_opaque = rffi.llexternal(
     "cppyy_get_scope",
     [rffi.CCHARP], C_SCOPE,
     threadsafe=threadsafe,
@@ -51,28 +51,36 @@ c_get_template = rffi.llexternal(
     [rffi.CCHARP], C_TYPE,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_get_object_type = rffi.llexternal(
-    "cppyy_get_object_type",
+_c_actual_class = rffi.llexternal(
+    "cppyy_actual_class",
     [C_TYPE, C_OBJECT], C_TYPE,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_actual_class(cppclass, cppobj):
+    return _c_actual_class(cppclass.handle, cppobj)
 
 # memory management ----------------------------------------------------------
-c_allocate = rffi.llexternal(
+_c_allocate = rffi.llexternal(
     "cppyy_allocate",
     [C_TYPE], C_OBJECT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_deallocate = rffi.llexternal(
+def c_allocate(cppclass):
+    return _c_allocate(cppclass.handle)
+_c_deallocate = rffi.llexternal(
     "cppyy_deallocate",
     [C_TYPE, C_OBJECT], lltype.Void,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_destruct = rffi.llexternal(
+def c_deallocate(cppclass, cppobject):
+    _c_deallocate(cppclass.handle, cppobject)
+_c_destruct = rffi.llexternal(
     "cppyy_destruct",
     [C_TYPE, C_OBJECT], lltype.Void,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_destruct(cppclass, cppobject):
+    _c_destruct(cppclass.handle, cppobject)
 
 # method/function dispatching ------------------------------------------------
 c_call_v = rffi.llexternal(
@@ -133,18 +141,22 @@ c_constructor = rffi.llexternal(
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 
-c_call_o = rffi.llexternal(
+_c_call_o = rffi.llexternal(
     "cppyy_call_o",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP, C_TYPE], rffi.LONG,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_call_o(method_index, cppobj, nargs, args, cppclass):
+    return _c_call_o(method_index, cppobj, nargs, args, cppclass.handle)
 
-c_get_methptr_getter = rffi.llexternal(
+_c_get_methptr_getter = rffi.llexternal(
     "cppyy_get_methptr_getter",
     [C_SCOPE, rffi.INT], C_METHPTRGETTER_PTR,
     threadsafe=threadsafe,
     compilation_info=backend.eci,
     elidable_function=True)
+def c_get_methptr_getter(cppscope, method_index):
+    return _c_get_methptr_getter(cppscope.handle, method_index)
 
 # handling of function argument buffer ---------------------------------------
 c_allocate_function_args = rffi.llexternal(
@@ -202,18 +214,20 @@ c_has_complex_hierarchy = rffi.llexternal(
     [C_TYPE], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_num_bases = rffi.llexternal(
+_c_num_bases = rffi.llexternal(
     "cppyy_num_bases",
     [C_TYPE], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_num_bases(cppclass):
+    return _c_num_bases(cppclass.handle)
 _c_base_name = rffi.llexternal(
     "cppyy_base_name",
     [C_TYPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-def c_base_name(cpptype, base_index):
-    return charp2str_free(_c_base_name(cpptype, base_index))
+def c_base_name(cppclass, base_index):
+    return charp2str_free(_c_base_name(cppclass.handle, base_index))
 
 _c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
@@ -221,12 +235,11 @@ _c_is_subtype = rffi.llexternal(
     threadsafe=threadsafe,
     compilation_info=backend.eci,
     elidable_function=True)
-
 @jit.elidable_promote()
 def c_is_subtype(derived, base):
     if derived == base:
         return 1
-    return _c_is_subtype(derived, base)
+    return _c_is_subtype(derived.handle, base.handle)
 
 _c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
@@ -234,132 +247,155 @@ _c_base_offset = rffi.llexternal(
     threadsafe=threadsafe,
     compilation_info=backend.eci,
     elidable_function=True)
-
 @jit.elidable_promote()
 def c_base_offset(derived, base, address):
     if derived == base:
         return 0
-    return _c_base_offset(derived, base, address)
+    return _c_base_offset(derived.handle, base.handle, address)
 
 # method/function reflection information -------------------------------------
-c_num_methods = rffi.llexternal(
+_c_num_methods = rffi.llexternal(
     "cppyy_num_methods",
     [C_SCOPE], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_num_methods(cppscope):
+    return _c_num_methods(cppscope.handle)
 _c_method_name = rffi.llexternal(
     "cppyy_method_name",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 def c_method_name(cppscope, method_index):
-    return charp2str_free(_c_method_name(cppscope, method_index))
+    return charp2str_free(_c_method_name(cppscope.handle, method_index))
 _c_method_result_type = rffi.llexternal(
     "cppyy_method_result_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 def c_method_result_type(cppscope, method_index):
-    return charp2str_free(_c_method_result_type(cppscope, method_index))
-c_method_num_args = rffi.llexternal(
+    return charp2str_free(_c_method_result_type(cppscope.handle, method_index))
+_c_method_num_args = rffi.llexternal(
     "cppyy_method_num_args",
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_method_req_args = rffi.llexternal(
+def c_method_num_args(cppscope, method_index):
+    return _c_method_num_args(cppscope.handle, method_index)
+_c_method_req_args = rffi.llexternal(
     "cppyy_method_req_args",
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_method_req_args(cppscope, method_index):
+    return _c_method_req_args(cppscope.handle, method_index)
 _c_method_arg_type = rffi.llexternal(
     "cppyy_method_arg_type",
     [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 def c_method_arg_type(cppscope, method_index, arg_index):
-    return charp2str_free(_c_method_arg_type(cppscope, method_index, arg_index))
+    return charp2str_free(_c_method_arg_type(cppscope.handle, method_index, arg_index))
 _c_method_arg_default = rffi.llexternal(
     "cppyy_method_arg_default",
     [C_SCOPE, rffi.INT, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 def c_method_arg_default(cppscope, method_index, arg_index):
-    return charp2str_free(_c_method_arg_default(cppscope, method_index, arg_index))
+    return charp2str_free(_c_method_arg_default(cppscope.handle, method_index, arg_index))
 _c_method_signature = rffi.llexternal(
     "cppyy_method_signature",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
 def c_method_signature(cppscope, method_index):
-    return charp2str_free(_c_method_signature(cppscope, method_index))
+    return charp2str_free(_c_method_signature(cppscope.handle, method_index))
 
-c_method_index = rffi.llexternal(
+_c_method_index = rffi.llexternal(
     "cppyy_method_index",
     [C_SCOPE, rffi.CCHARP], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_method_index(cppscope, name):
+    return _c_method_index(cppscope.handle, name)
 
-c_get_method = rffi.llexternal(
+_c_get_method = rffi.llexternal(
     "cppyy_get_method",
     [C_SCOPE, rffi.INT], C_METHOD,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_get_method(cppscope, method_index):
+    return _c_get_method(cppscope.handle, method_index)
 
 # method properties ----------------------------------------------------------
-c_is_constructor = rffi.llexternal(
+_c_is_constructor = rffi.llexternal(
     "cppyy_is_constructor",
     [C_TYPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_is_staticmethod = rffi.llexternal(
+def c_is_constructor(cppclass, method_index):
+    return _c_is_constructor(cppclass.handle, method_index)
+_c_is_staticmethod = rffi.llexternal(
     "cppyy_is_staticmethod",
     [C_TYPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_is_staticmethod(cppclass, method_index):
+    return _c_is_staticmethod(cppclass.handle, method_index)
 
 # data member reflection information -----------------------------------------
-c_num_data_members = rffi.llexternal(
-    "cppyy_num_data_members",
+_c_num_datamembers = rffi.llexternal(
+    "cppyy_num_datamembers",
     [C_SCOPE], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-_c_data_member_name = rffi.llexternal(
-    "cppyy_data_member_name",
+def c_num_datamembers(cppscope):
+    return _c_num_datamembers(cppscope.handle)
+_c_datamember_name = rffi.llexternal(
+    "cppyy_datamember_name",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-def c_data_member_name(cppscope, data_member_index):
-    return charp2str_free(_c_data_member_name(cppscope, data_member_index))
-_c_data_member_type = rffi.llexternal(
-    "cppyy_data_member_type",
+def c_datamember_name(cppscope, datamember_index):
+    return charp2str_free(_c_datamember_name(cppscope.handle, datamember_index))
+_c_datamember_type = rffi.llexternal(
+    "cppyy_datamember_type",
     [C_SCOPE, rffi.INT], rffi.CCHARP,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-def c_data_member_type(cppscope, data_member_index):
-    return charp2str_free(_c_data_member_type(cppscope, data_member_index))
-c_data_member_offset = rffi.llexternal(
-    "cppyy_data_member_offset",
+def c_datamember_type(cppscope, datamember_index):
+    return charp2str_free(_c_datamember_type(cppscope.handle, datamember_index))
+_c_datamember_offset = rffi.llexternal(
+    "cppyy_datamember_offset",
     [C_SCOPE, rffi.INT], rffi.SIZE_T,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_datamember_offset(cppscope, datamember_index):
+    return _c_datamember_offset(cppscope.handle, datamember_index)
 
-c_data_member_index = rffi.llexternal(
-    "cppyy_data_member_index",
+_c_datamember_index = rffi.llexternal(
+    "cppyy_datamember_index",
     [C_SCOPE, rffi.CCHARP], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_datamember_index(cppscope, name):
+    return _c_datamember_index(cppscope.handle, name)
 
 # data member properties -----------------------------------------------------
-c_is_publicdata = rffi.llexternal(
+_c_is_publicdata = rffi.llexternal(
     "cppyy_is_publicdata",
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
-c_is_staticdata = rffi.llexternal(
+def c_is_publicdata(cppscope, datamember_index):
+    return _c_is_publicdata(cppscope.handle, datamember_index)
+_c_is_staticdata = rffi.llexternal(
     "cppyy_is_staticdata",
     [C_SCOPE, rffi.INT], rffi.INT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+def c_is_staticdata(cppscope, datamember_index):
+    return _c_is_staticdata(cppscope.handle, datamember_index)
 
 # misc helpers ---------------------------------------------------------------
 c_strtoll = rffi.llexternal(

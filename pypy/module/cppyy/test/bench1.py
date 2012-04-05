@@ -54,7 +54,7 @@ class CppyyInterpBench1(object):
         import cppyy
         self.lib = cppyy.load_reflection_info("./example01Dict.so")
 
-        self.cls  = cppyy._type_byname("example01")
+        self.cls  = cppyy._scope_byname("example01")
         self.inst = self.cls.get_overload(self.cls.type_name).call(None, 0)
 
     def __call__(self):

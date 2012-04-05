@@ -71,7 +71,7 @@ cppyy_type_t cppyy_get_template(const char* template_name) {
    return (cppyy_type_t)tt.Id();
 }
 
-cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj) {
+cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj) {
     Reflex::Type t = type_from_handle(klass);
     Reflex::Type tActual = t.DynamicType(Reflex::Object(t, (void*)obj));
     if (tActual && tActual != t) {
@@ -414,7 +414,7 @@ int cppyy_is_staticmethod(cppyy_type_t handle, int method_index) {
 
 
 /* data member reflection information ------------------------------------- */
-int cppyy_num_data_members(cppyy_scope_t handle) {
+int cppyy_num_datamembers(cppyy_scope_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
     // fix enum representation by adding them to the containing scope as per C++
     // TODO: this (relatively harmlessly) dupes data members when updating in the
@@ -433,34 +433,34 @@ int cppyy_num_data_members(cppyy_scope_t handle) {
     return s.DataMemberSize();
 }
 
-char* cppyy_data_member_name(cppyy_scope_t handle, int data_member_index) {
+char* cppyy_datamember_name(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(datamember_index);
     std::string name = m.Name();
     return cppstring_to_cstring(name);
 }
 
-char* cppyy_data_member_type(cppyy_scope_t handle, int data_member_index) {
+char* cppyy_datamember_type(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(datamember_index);
     std::string name = m.TypeOf().Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);
 }
 
-size_t cppyy_data_member_offset(cppyy_scope_t handle, int data_member_index) {
+size_t cppyy_datamember_offset(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(datamember_index);
     if (m.IsArtificial() && m.TypeOf().IsEnum())
         return (size_t)&m.InterpreterOffset();
     return m.Offset();
 }
 
-int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
+int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
     Reflex::Scope s = scope_from_handle(handle);
     // the following appears dumb, but the internal storage for Reflex is an
     // unsorted std::vector anyway, so there's no gain to be had in using the
     // Scope::DataMemberByName() function (which returns Member, not an index)
-    int num_dm = cppyy_num_data_members(handle);
+    int num_dm = cppyy_num_datamembers(handle);
     for (int idm = 0; idm < num_dm; ++idm) {
         Reflex::Member m = s.DataMemberAt(idm);
         if (m.Name() == name || m.Name(Reflex::FINAL) == name) {
@@ -474,15 +474,15 @@ int cppyy_data_member_index(cppyy_scope_t handle, const char* name) {
 
 
 /* data member properties ------------------------------------------------  */
-int cppyy_is_publicdata(cppyy_scope_t handle, int data_member_index) {
+int cppyy_is_publicdata(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(datamember_index);
     return m.IsPublic();
 }
 
-int cppyy_is_staticdata(cppyy_scope_t handle, int data_member_index) {
+int cppyy_is_staticdata(cppyy_scope_t handle, int datamember_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index);
+    Reflex::Member m = s.DataMemberAt(datamember_index);
     return m.IsStatic();
 }
 

@@ -160,7 +160,7 @@ class TestFastPathJIT(LLJitMixin):
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
             lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
-            cls  = interp_cppyy.type_byname(space, "example01")
+            cls  = interp_cppyy.scope_byname(space, "example01")
             inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)
@@ -185,7 +185,7 @@ class TestFastPathJIT(LLJitMixin):
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
             lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
-            cls  = interp_cppyy.type_byname(space, "example01")
+            cls  = interp_cppyy.scope_byname(space, "example01")
             inst = cls.get_overload("example01").call(None, [FakeInt(0)])
             addDataToInt = cls.get_overload("overloadedAddDataToInt")
             assert isinstance(inst, interp_cppyy.W_CPPInstance)

@@ -17,7 +17,7 @@ extern "C" {
     char* cppyy_resolve_name(const char* cppitem_name);
     cppyy_scope_t cppyy_get_scope(const char* scope_name);
     cppyy_type_t cppyy_get_template(const char* template_name);
-    cppyy_type_t cppyy_get_object_type(cppyy_type_t klass, cppyy_object_t obj);
+    cppyy_type_t cppyy_actual_class(cppyy_type_t klass, cppyy_object_t obj);
 
     /* memory management ------------------------------------------------------ */
     cppyy_object_t cppyy_allocate(cppyy_type_t type);
@@ -80,16 +80,16 @@ extern "C" {
     int cppyy_is_staticmethod(cppyy_type_t type, int method_index);
 
     /* data member reflection information ------------------------------------  */
-    int cppyy_num_data_members(cppyy_scope_t scope);
-    char* cppyy_data_member_name(cppyy_scope_t scope, int data_member_index);
-    char* cppyy_data_member_type(cppyy_scope_t scope, int data_member_index);
-    size_t cppyy_data_member_offset(cppyy_scope_t scope, int data_member_index);
+    int cppyy_num_datamembers(cppyy_scope_t scope);
+    char* cppyy_datamember_name(cppyy_scope_t scope, int datamember_index);
+    char* cppyy_datamember_type(cppyy_scope_t scope, int datamember_index);
+    size_t cppyy_datamember_offset(cppyy_scope_t scope, int datamember_index);
 
-    int cppyy_data_member_index(cppyy_scope_t scope, const char* name);
+    int cppyy_datamember_index(cppyy_scope_t scope, const char* name);
 
     /* data member properties ------------------------------------------------  */
-    int cppyy_is_publicdata(cppyy_type_t type, int data_member_index);
-    int cppyy_is_staticdata(cppyy_type_t type, int data_member_index);
+    int cppyy_is_publicdata(cppyy_type_t type, int datamember_index);
+    int cppyy_is_staticdata(cppyy_type_t type, int datamember_index);
 
     /* misc helpers ----------------------------------------------------------- */
     void cppyy_free(void* ptr);

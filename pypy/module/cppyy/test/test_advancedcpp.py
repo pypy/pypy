@@ -228,7 +228,7 @@ class AppTestADVANCEDCPP:
         assert isinstance(c, gbl.some_concrete_class)
         assert isinstance(c, gbl.some_abstract_class)
 
-    def test06_data_members(self):
+    def test06_datamembers(self):
         """Test data member access when using virtual inheritence"""
 
         import cppyy
