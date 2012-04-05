@@ -804,6 +804,33 @@ class AppTestStrategies(object):
         assert "IntDictStrategy" in self.get_strategy(d)
         assert d[1L] == "hi"
 
+    def test_iter_dict_length_change(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d[7] = 8
+        # 'd' is now length 4
+        raises(RuntimeError, it.next)
+
+    def test_iter_dict_strategy_only_change_1(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        class Foo(object):
+            def __eq__(self, other):
+                return False
+        assert d.get(Foo()) is None    # this changes the strategy of 'd'
+        lst = list(it)  # but iterating still works
+        assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
+
+    def test_iter_dict_strategy_only_change_2(self):
+        d = {1: 2, 3: 4, 5: 6}
+        it = d.iteritems()
+        d['foo'] = 'bar'
+        del d[1]
+        # 'd' is still length 3, but its strategy changed.  we are
+        # getting a RuntimeError because iterating over the old storage
+        # gives us (1, 2), but 1 is not in the dict any longer.
+        raises(RuntimeError, list, it)
+
 
 class FakeString(str):
     hash_count = 0

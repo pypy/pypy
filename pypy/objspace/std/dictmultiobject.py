@@ -247,7 +247,7 @@ class EmptyDictStrategy(DictStrategy):
         return 0
 
     def iter(self, w_dict):
-        return EmptyIteratorImplementation(self.space, w_dict)
+        return EmptyIteratorImplementation(self.space, self, w_dict)
 
     def clear(self, w_dict):
         return
@@ -263,8 +263,9 @@ registerimplementation(W_DictMultiObject)
 # Iterator Implementation base classes
 
 class IteratorImplementation(object):
-    def __init__(self, space, implementation):
+    def __init__(self, space, strategy, implementation):
         self.space = space
+        self.strategy = strategy
         self.dictimplementation = implementation
         self.len = implementation.length()
         self.pos = 0
@@ -280,7 +281,20 @@ class IteratorImplementation(object):
         if self.pos < self.len:
             result = self.next_entry()
             self.pos += 1
-            return result
+            if self.strategy is self.dictimplementation.strategy:
+                return result      # common case
+            else:
+                # waaa, obscure case: the strategy changed, but not the
+                # length of the dict.  The (key, value) pair in 'result'
+                # might be out-of-date.  We try to explicitly look up
+                # the key in the dict.
+                w_key = result[0]
+                w_value = self.dictimplementation.getitem(w_key)
+                if w_value is None:
+                    self.len = -1   # Make this error state sticky
+                    raise OperationError(self.space.w_RuntimeError,
+                        self.space.wrap("dictionary changed during iteration"))
+                return (w_key, w_value)
         # no more entries
         self.dictimplementation = None
         return None, None
@@ -489,7 +503,7 @@ class _WrappedIteratorMixin(object):
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
@@ -503,7 +517,7 @@ class _UnwrappedIteratorMixin:
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):

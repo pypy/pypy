@@ -115,6 +115,7 @@ class AbstractBaseListRepr(Repr):
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
 
     def rtype_len(self, hop):

@@ -382,7 +382,7 @@ class Entry(ExtRegistryEntry):
         pass
 
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 
 vref_None = non_virtual_ref(None)
 
