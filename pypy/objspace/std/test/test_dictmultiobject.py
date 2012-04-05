@@ -967,6 +967,20 @@ class BaseTestRDictImplementation:
         assert type(self.impl.strategy) is self.StrategyClass
         #assert self.impl.r_dict_content is None
 
+    def test_popitem(self):
+        self.fill_impl()
+        assert self.impl.length() == 2
+        a, b = self.impl.popitem()
+        assert self.impl.length() == 1
+        if a == self.string:
+            assert b == 1000
+            assert self.impl.getitem(self.string2) == 2000
+        else:
+            assert a == self.string2
+            assert b == 2000
+            assert self.impl.getitem_str(self.string) == 1000
+        self.check_not_devolved()
+
     def test_setitem(self):
         self.impl.setitem(self.string, 1000)
         assert self.impl.length() == 1
