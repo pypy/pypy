@@ -33,7 +33,7 @@ class W_DictMultiObject(W_Object):
 
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
-                                   instance=False, strdict=False):
+                                   instance=False, strdict=False, kwargs=False):
 
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
@@ -46,11 +46,15 @@ class W_DictMultiObject(W_Object):
             assert w_type is None
             strategy = space.fromcache(StringDictStrategy)
 
+        elif kwargs:
+            assert w_type is None
+            from pypy.objspace.std.kwargsdict import KwargsDictStrategy
+            strategy = space.fromcache(KwargsDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
-
         if w_type is None:
             w_type = space.w_dict
+
         storage = strategy.get_empty_storage()
         w_self = space.allocate_instance(W_DictMultiObject, w_type)
         W_DictMultiObject.__init__(w_self, space, strategy, storage)

@@ -385,7 +385,7 @@ class Arguments(object):
 
         # collect extra keyword arguments into the **kwarg
         if has_kwarg:
-            w_kwds = self.space.newdict()
+            w_kwds = self.space.newdict(kwargs=True)
             if num_remainingkwds:
                 #
                 limit = len(keywords)

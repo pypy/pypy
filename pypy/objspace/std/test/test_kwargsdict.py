@@ -82,3 +82,20 @@ class TestDevolvedKwargsDictImplementation(BaseTestDevolvedDictImplementation):
     get_impl = get_impl
     StrategyClass = KwargsDictStrategy
 
+
+class AppTestKwargsDictStrategy(object):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+
+    def w_get_strategy(self, obj):
+        import __pypy__
+        r = __pypy__.internal_repr(obj)
+        return r[r.find("(") + 1: r.find(")")]
+
+    def test_create(self):
+        def f(**args):
+            return args
+        d = f(a=1)
+        assert "KwargsDictStrategy" in self.get_strategy(d)
+
