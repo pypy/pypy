@@ -826,19 +826,12 @@ class ObjSpace(object):
         # contains a loop (made explicit with the decorator above).
         #
         # If we can guess the expected length we can preallocate.
+        from pypy.objspace.std.iterobject import length_hint
         try:
-            lgt_estimate = self.len_w(w_iterable)
-        except OperationError, o:
-            if (not o.match(self, self.w_AttributeError) and
-                not o.match(self, self.w_TypeError)):
-                raise
-            items = []
-        else:
-            try:
-                items = newlist_hint(lgt_estimate)
-            except MemoryError:
-                items = [] # it might have lied
-        #
+            items = newlist_hint(length_hint(self, w_iterable, 0))
+        except MemoryError:
+            items = [] # it might have lied
+
         while True:
             try:
                 w_item = self.next(w_iterator)
