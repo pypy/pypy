@@ -9,7 +9,8 @@ from pypy.jit.backend.arm.arch import FORCE_INDEX_OFS
 class ArmCPU(AbstractLLCPU):
 
     supports_floats = True
-    supports_longlong = True
+    supports_longlong = False # XXX requires an implementation of
+                              # read_timestamp that works in user mode
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
