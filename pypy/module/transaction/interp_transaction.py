@@ -269,10 +269,14 @@ def _run_thread():
 @rgc.no_collect
 def _run():
     # --- start the threads --- don't use the GC here any more! ---
+    rstm.enter_transactional_mode()
+    #
     for i in range(state.num_threads):
         threadintf.start_new_thread(_run_thread)
     #
     state.lock_unfinished()  # wait for all threads to finish
+    #
+    rstm.leave_transactional_mode()
     # --- done, we can use the GC again ---
 
 

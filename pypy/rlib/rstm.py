@@ -50,6 +50,12 @@ def perform_transaction(func, argcls, arg):
     if not we_are_translated():
         _global_lock.release()
 
+def enter_transactional_mode():
+    llop.stm_enter_transactional_mode(lltype.Void)
+
+def leave_transactional_mode():
+    llop.stm_leave_transactional_mode(lltype.Void)
+
 def descriptor_init():
     if not we_are_translated(): _global_lock.acquire()
     llop.stm_descriptor_init(lltype.Void)

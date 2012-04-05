@@ -32,6 +32,12 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_normalize_global_ptr = getfn(
             self.gcdata.gc.stm_normalize_global,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
+        self.stm_enter_transactional_mode_ptr = getfn(
+            self.gcdata.gc.enter_transactional_mode.im_func
+            [s_sc], annmodel.s_None)
+        self.stm_leave_transactional_mode_ptr = getfn(
+            self.gcdata.gc.leave_transactional_mode.im_func
+            [s_sc], annmodel.s_None)
         self.stm_start_ptr = getfn(
             self.gcdata.gc.start_transaction.im_func,
             [s_gc], annmodel.s_None)
