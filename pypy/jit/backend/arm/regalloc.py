@@ -1207,6 +1207,11 @@ class Regalloc(object):
     prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
 			    name='prepare_op_convert_float_bytes_to_longlong')
 
+    def prepare_op_read_timestamp(self, op, fcond):
+        loc = self.get_scratch_reg(INT)
+        res = self.vfprm.force_allocate_reg(op.result)
+        return [loc, res]
+
 
 def add_none_argument(fn):
     return lambda self, op, fcond: fn(self, op, None, fcond)

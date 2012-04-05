@@ -93,6 +93,7 @@ data_proc_imm = {
 
 supervisor_and_coproc = {
     'MCR': {'op1': 0x20, 'op': 1, 'rn':0, 'coproc':0},
+    'MRC': {'op1': 0x21, 'op': 1, 'rn':0, 'coproc':0},
 }
 
 block_data = {

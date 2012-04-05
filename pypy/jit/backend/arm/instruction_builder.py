@@ -223,6 +223,7 @@ def define_supervisor_and_coproc_func(name, table):
     n = (0x3 << 26 | (table['op1'] & 0x3F) << 20 | (table['op'] & 0x1) << 4)
 
     def f(self, coproc, opc1, rt, crn, crm, opc2=0, cond=cond.AL):
+        assert coproc & 0xE != 0xA
         self.write32(n
                     | cond << 28
                     | (opc1 & 0x7) << 21
