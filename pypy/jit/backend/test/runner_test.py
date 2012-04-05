@@ -1777,8 +1777,6 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res == -19
 
     def test_convert_float_bytes(self):
-        if not self.cpu.supports_longlong:
-            py.test.skip("longlong test")
         t = 'int' if longlong.is_64_bit else 'float'
         res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
                                      [boxfloat(2.5)], t).value
