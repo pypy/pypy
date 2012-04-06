@@ -45,9 +45,12 @@ class KwargsDictStrategy(DictStrategy):
             self.switch_to_object_strategy(w_dict)
             w_dict.setitem(w_key, w_value)
 
+    def setitem_str(self, w_dict, key, w_value):
+        self._setitem_str_indirection(w_dict, key, w_value)
+
     @jit.look_inside_iff(lambda self, w_dict, key, w_value:
             jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
-    def setitem_str(self, w_dict, key, w_value):
+    def _setitem_str_indirection(self, w_dict, key, w_value):
         keys, values_w = self.unerase(w_dict.dstorage)
         result = []
         for i in range(len(keys)):
@@ -76,8 +79,11 @@ class KwargsDictStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage)[0])
 
-    @jit.look_inside_iff(lambda self, w_dict, key: jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def getitem_str(self, w_dict, key):
+        return self._getitem_str_indirection(w_dict, key)
+
+    @jit.look_inside_iff(lambda self, w_dict, key: jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
+    def _getitem_str_indirection(self, w_dict, key):
         keys, values_w = self.unerase(w_dict.dstorage)
         result = []
         for i in range(len(keys)):
