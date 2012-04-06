@@ -37,10 +37,13 @@ CLOCK_PROCESS_CPUTIME_ID = cconfig["CLOCK_PROCESS_CPUTIME_ID"]
 CLOCK_THREAD_CPUTIME_ID = cconfig["CLOCK_THREAD_CPUTIME_ID"]
 
 if HAS_CLOCK_GETTIME:
-    TIMESPEC = lltype.Struct("struct timespec", 
+    #redo it for timespec
+    CConfig.TIMESPEC = rffi_platform.Struct("struct timespec", [
         ("tv_sec", rffi.TIME_T),
         ("tv_nsec", rffi.LONG),
-    )
+    ])
+    cconfig = rffi_platform.configure(CConfig)
+    TIMESPEC = cconfig['TIMESPEC']
 
     c_clock_gettime = rffi.llexternal("clock_gettime",
         [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
