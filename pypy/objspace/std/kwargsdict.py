@@ -138,6 +138,9 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
+    def view_as_kwargs(self, w_dict):
+        return self.unerase(w_dict.dstorage)
+
 
 class KwargsDictIterator(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):

@@ -472,6 +472,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.getitems_int()
         return None
 
+    def view_as_kwargs(self, w_dict):
+        return (None, None)
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.view_as_kwargs()
+        return (None, None)
+
     def _uses_list_iter(self, w_obj):
         from pypy.objspace.descroperation import list_iter
         return self.lookup(w_obj, '__iter__') is list_iter(self)

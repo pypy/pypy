@@ -95,7 +95,8 @@ def _add_indirections():
                     getitem_str delitem length \
                     clear w_keys values \
                     items iter setdefault \
-                    popitem listview_str listview_int".split()
+                    popitem listview_str listview_int \
+                    view_as_kwargs".split()
 
     def make_method(method):
         def f(self, *args):
@@ -168,6 +169,9 @@ class DictStrategy(object):
 
     def listview_int(self, w_dict):
         return None
+
+    def view_as_kwargs(self, w_dict):
+        return (None, None)
 
 class EmptyDictStrategy(DictStrategy):
 

@@ -169,6 +169,10 @@ class Arguments(object):
     def _combine_starstarargs_wrapped(self, w_starstararg):
         # unpack the ** arguments
         space = self.space
+        keywords, values_w = space.view_as_kwargs(w_starstararg)
+        if keywords is not None:
+            self._add_keywordargs_no_unwrapping(keywords, values_w)
+            return jit.isconstant(len(self.keywords))
         if space.isinstance_w(w_starstararg, space.w_dict):
             if not space.is_true(w_starstararg):
                 return False # don't call unpackiterable - it's jit-opaque
@@ -226,6 +230,26 @@ class Arguments(object):
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
         self.keyword_names_w = keys_w
+
+    @jit.look_inside_iff(lambda self, keywords, keywords_w:
+            jit.isconstant(len(keywords) and
+            jit.isconstant(self.keywords)))
+    def _add_keywordargs_no_unwrapping(self, keywords, keywords_w):
+        if self.keywords is None:
+            self.keywords = keywords
+            self.keywords_w = keywords_w
+        else:
+            # looks quadratic, but the JIT should remove all of it nicely.
+            # Also, all the lists should be small
+            for key in keywords:
+                for otherkey in self.keywords:
+                    if otherkey == key:
+                        raise operationerrfmt(self.space.w_TypeError,
+                                              "got multiple values "
+                                              "for keyword argument "
+                                              "'%s'", key)
+            self.keywords = self.keywords + keywords
+            self.keywords_w = self.keywords_w + keywords_w
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
