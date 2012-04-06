@@ -46,7 +46,7 @@ class KwargsDictStrategy(DictStrategy):
             w_dict.setitem(w_key, w_value)
 
     @jit.look_inside_iff(lambda self, w_dict, key, w_value:
-            jit.is_constant(self.length(w_dict)) and jit.is_constant(key))
+            jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def setitem_str(self, w_dict, key, w_value):
         keys, values_w = self.unerase(w_dict.dstorage)
         result = []
@@ -76,7 +76,7 @@ class KwargsDictStrategy(DictStrategy):
     def length(self, w_dict):
         return len(self.unerase(w_dict.dstorage)[0])
 
-    @jit.look_inside_iff(lambda self, w_dict, key: jit.is_constant(self.length(w_dict)) and jit.is_constant(key))
+    @jit.look_inside_iff(lambda self, w_dict, key: jit.isconstant(self.length(w_dict)) and jit.isconstant(key))
     def getitem_str(self, w_dict, key):
         keys, values_w = self.unerase(w_dict.dstorage)
         result = []
@@ -145,12 +145,15 @@ class KwargsDictStrategy(DictStrategy):
 class KwargsDictIterator(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, strategy, dictimplementation)
-        self.iterator = iter(range(len(strategy.unerase(dictimplementation.dstorage)[0])))
+        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
+        self.iterator = iter(range(len(keys)))
+        # XXX this potentially leaks
+        self.keys = keys
+        self.values_w = values_w
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        keys, values_w = self.strategy.unerase(self.dictimplementation.dstorage)
         for i in self.iterator:
-            return self.space.wrap(keys[i]), values_w[i]
+            return self.space.wrap(self.keys[i]), self.values_w[i]
         else:
             return None, None
