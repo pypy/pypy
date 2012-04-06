@@ -262,6 +262,9 @@ class EmptyDictStrategy(DictStrategy):
     def popitem(self, w_dict):
         raise KeyError
 
+    def view_as_kwargs(self, w_dict):
+        return ([], [])
+
 registerimplementation(W_DictMultiObject)
 
 # DictImplementation lattice

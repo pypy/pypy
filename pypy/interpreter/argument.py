@@ -170,12 +170,10 @@ class Arguments(object):
         # unpack the ** arguments
         space = self.space
         keywords, values_w = space.view_as_kwargs(w_starstararg)
-        if keywords is not None:
+        if keywords is not None: # this path also taken for empty dicts
             self._add_keywordargs_no_unwrapping(keywords, values_w)
             return jit.isconstant(len(self.keywords))
         if space.isinstance_w(w_starstararg, space.w_dict):
-            if not space.is_true(w_starstararg):
-                return False # don't call unpackiterable - it's jit-opaque
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
@@ -190,11 +188,8 @@ class Arguments(object):
                                    "a mapping, not %s" % (typename,)))
                 raise
             keys_w = space.unpackiterable(w_keys)
-        if keys_w:
-            self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
-            return True
-        else:
-            return False    # empty dict; don't disable the JIT
+        self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
+        return True
 
     def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
         space = self.space
