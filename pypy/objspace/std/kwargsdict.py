@@ -4,7 +4,8 @@
 from pypy.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
                                                IteratorImplementation,
-                                               ObjectDictStrategy)
+                                               ObjectDictStrategy,
+                                               StringDictStrategy)
 
 
 class KwargsDictStrategy(DictStrategy):
@@ -54,8 +55,13 @@ class KwargsDictStrategy(DictStrategy):
                 values_w[i] = w_value
                 break
         else:
-            keys.append(key)
-            values_w.append(w_value)
+            # limit the size so that the linear searches don't become too long
+            if len(keys) >= 16:
+                self.switch_to_string_strategy(w_dict)
+                w_dict.setitem_str(key, w_value)
+            else:
+                keys.append(key)
+                values_w.append(w_value)
 
     def setdefault(self, w_dict, w_key, w_default):
         # XXX could do better, but is it worth it?
@@ -121,6 +127,17 @@ class KwargsDictStrategy(DictStrategy):
             d_new[self.wrap(keys[i])] = values_w[i]
         w_dict.strategy = strategy
         w_dict.dstorage = strategy.erase(d_new)
+
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(StringDictStrategy)
+        keys, values_w = self.unerase(w_dict.dstorage)
+        storage = strategy.get_empty_storage()
+        d_new = strategy.unerase(storage)
+        for i in range(len(keys)):
+            d_new[keys[i]] = values_w[i]
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
 
 class KwargsDictIterator(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):

@@ -67,6 +67,13 @@ def test_set_new():
     assert keys == ["a", "b", "c", "d"]
     assert values == [1, 2, 3, 4]
 
+def test_limit_size():
+    storage = strategy.get_empty_storage()
+    d = W_DictMultiObject(space, strategy, storage)
+    for i in range(100):
+        assert d.setitem_str("d%s" % i, 4) is None
+    assert d.strategy is not strategy
+    assert "StringDictStrategy" == d.strategy.__class__.__name__
 
 from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 def get_impl(self):
