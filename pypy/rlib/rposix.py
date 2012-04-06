@@ -20,8 +20,9 @@ class CConstantErrno(CConstant):
         assert index == 0
         ll2ctypes.TLS.errno = value
 if os.name == 'nt':
-    post_include_bits =['''
+    separate_module_sources =['''
         /* Lifted completely from CPython 3.3 Modules/posix_module.c */
+        #include <malloc.h> /* for _msize */
         typedef struct {
             intptr_t osfhnd;
             char osfile;
@@ -72,12 +73,15 @@ if os.name == 'nt':
             errno = EBADF;
             return 0;
         }
-    ''']
+    ''',]
+    export_symbols = ['_PyVerify_fd']
 else:
-    post_include_bits = []
+    separate_module_sources = []
+    export_symbols = []
 eci = ExternalCompilationInfo(
     includes=['errno.h','stdio.h'],
-    post_include_bits = post_include_bits,
+    separate_module_sources = separate_module_sources,
+    export_symbols = export_symbols,
 )
 
 _get_errno, _set_errno = CExternVariable(INT, 'errno', eci,
