@@ -10,6 +10,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 
 import sys
+import os
 import weakref
 import py
 
@@ -677,8 +678,12 @@ information passed to the ExternalEntityRefHandler."""
 
     def set_error(self, space, code):
         err = rffi.charp2strn(XML_ErrorString(code), 200)
-        lineno = XML_GetCurrentLineNumber(self.itself)
-        colno = XML_GetCurrentColumnNumber(self.itself)
+        if os.name == 'nt':
+            lineno = -1
+            colno = -1
+        else:
+            lineno = XML_GetCurrentLineNumber(self.itself)
+            colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_errorcls = space.fromcache(Cache).w_error
         w_error = space.call_function(w_errorcls, space.wrap(msg))
