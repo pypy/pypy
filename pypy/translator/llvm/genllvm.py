@@ -807,9 +807,10 @@ class FunctionWriter(object):
                 if len(self.entrymap[block]) == 1:
                     self.var_aliases[arg] = get_repr(
                         self.entrymap[block][0].args[i], self.var_aliases)
-            self.var_aliases.update(
-                    (op.result, get_repr(op.args[0], self.var_aliases))
-                    for op in block.operations if op.opname == 'same_as')
+            for op in block.operations:
+                if op.opname == 'same_as':
+                    self.var_aliases[op.result] = get_repr(
+                            op.args[0], self.var_aliases)
 
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
@@ -1337,6 +1338,8 @@ class CTypesFuncWrapper(object):
 
     def _from_ctype(self, repr_, result):
         if repr_.lowleveltype in PRIMITIVES:
+            if repr_.lowleveltype is lltype.Bool:
+                return bool(result)
             return result
         convert = getattr(self, '_from_ctype_' + repr_.__class__.__name__)
         return convert(repr_, result)
@@ -1353,7 +1356,7 @@ class CTypesFuncWrapper(object):
             array_type.setup(LLVMChar)
             type_ = self._get_ctype(array_type, name_arr.contents.len)
             name = ctypes.cast(name_arr, ctypes.POINTER(type_)).contents.items
-            raise __builtins__.get(name, RuntimeError)
+            raise getattr(__builtins__, name, RuntimeError)
         return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
 
 
