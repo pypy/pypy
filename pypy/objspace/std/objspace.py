@@ -313,11 +313,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlist_str(self, list_s):
         return W_ListObject.newlist_str(self, list_s)
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                classofinstance=classofinstance,
                 strdict=strdict)
 
     def newset(self):
