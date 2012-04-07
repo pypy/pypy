@@ -27,7 +27,7 @@ InvalidParameterHandler(
 
 void pypy_Windows_startup(void)
 {
-#if 0 && defined _MSC_VER && _MSC_VER >= 1400 && defined(__STDC_SECURE_LIB__)
+#if defined _MSC_VER && _MSC_VER >= 1400 && defined(__STDC_SECURE_LIB__)
     /* Set CRT argument error handler */
     _set_invalid_parameter_handler(InvalidParameterHandler);
     /* turn off assertions within CRT in debug mode;
