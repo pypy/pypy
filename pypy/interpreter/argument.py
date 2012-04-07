@@ -172,7 +172,7 @@ class Arguments(object):
         keywords, values_w = space.view_as_kwargs(w_starstararg)
         if keywords is not None: # this path also taken for empty dicts
             self._add_keywordargs_no_unwrapping(keywords, values_w)
-            return jit.isconstant(len(self.keywords))
+            return not jit.isconstant(len(self.keywords))
         if space.isinstance_w(w_starstararg, space.w_dict):
             keys_w = space.unpackiterable(w_starstararg)
         else:
@@ -231,8 +231,8 @@ class Arguments(object):
             jit.isconstant(self.keywords)))
     def _add_keywordargs_no_unwrapping(self, keywords, keywords_w):
         if self.keywords is None:
-            self.keywords = keywords
-            self.keywords_w = keywords_w
+            self.keywords = keywords[:] # copy to make non-resizable
+            self.keywords_w = keywords_w[:]
         else:
             # looks quadratic, but the JIT should remove all of it nicely.
             # Also, all the lists should be small
