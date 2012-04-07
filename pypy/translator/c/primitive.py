@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
      GCHeaderOffset, GCREF, AddressAsInt
 from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
+from pypy.translator.platform import platform as target_platform
 
 # ____________________________________________________________
 #
@@ -98,11 +99,19 @@ def name_signedlonglong(value, db):
     else:
         return '%dLL' % value
 
-def is_positive_nan(value):
-    # bah.  we don't have math.copysign() if we're running Python 2.5
-    import struct
-    c = struct.pack("!d", value)[0]
-    return {'\x7f': True, '\xff': False}[c]
+if target_platform.name == 'msvc':
+    def is_positive_nan(value):
+        # Microsoft decided that NAN should have the sign bit set,
+        # so the values are reversed!
+        import struct
+        c = struct.pack("!d", value)[0]
+        return {'\x7f': False, '\xff': True}[c]
+else:
+    def is_positive_nan(value):
+        # bah.  we don't have math.copysign() if we're running Python 2.5
+        import struct
+        c = struct.pack("!d", value)[0]
+        return {'\x7f': True, '\xff': False}[c]
 
 def name_float(value, db):
     if isinf(value):
