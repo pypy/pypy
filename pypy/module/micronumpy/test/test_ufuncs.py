@@ -149,7 +149,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(fmax(0, nan))
         assert math.isnan(fmax(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
-        assert math.copysign(1.0, fmax(nnan, nan)) == -1.0
+        try:
+            import struct
+        except:
+            skip('no struct available, and copysign is unreliable. How to compare?')
+        assert struct.pack('d', fmax(nnan, nan)) == struct.pack('d', nnan)
 
     def test_fmin(self):
         from _numpypy import fmin
@@ -165,7 +169,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(fmin(0, nan))
         assert math.isnan(fmin(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
-        assert math.copysign(1.0, fmin(nnan, nan)) == -1.0
+        try:
+            import struct
+        except:
+            skip('no struct available, and copysign is unreliable. How to compare?')
+        assert struct.pack('d', fmin(nan, nnan)) == struct.pack('d', nan)
 
     def test_fmod(self):
         from _numpypy import fmod
