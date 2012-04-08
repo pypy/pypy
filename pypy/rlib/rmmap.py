@@ -747,6 +747,25 @@ elif _MS_WINDOWS:
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
 
+        # check file size
+        try:
+            st = os.fstat(fileno)
+        except OSError:
+            pass     # ignore errors and trust map_size
+        else:
+            mode = st[stat.ST_MODE]
+            size = st[stat.ST_SIZE]
+            if stat.S_ISREG(mode):
+                if map_size == 0:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
+                    raise RValueError("mmap length is greater than file size")
+
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
         m.map_handle = INVALID_HANDLE
