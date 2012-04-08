@@ -108,7 +108,10 @@ class AppTestRCTime:
         assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
-
+        try:
+            rctime.localtime(-1)
+        except:
+            skip('localtime cannot be negative on this platform')
         assert rctime.mktime(rctime.localtime(-1)) == -1
 
     def test_asctime(self):

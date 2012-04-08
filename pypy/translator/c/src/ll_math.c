@@ -20,7 +20,7 @@
 #define PyPy_IS_INFINITY(X) ((X) &&                                   \
                              (Py_FORCE_DOUBLE(X)*0.5 == Py_FORCE_DOUBLE(X)))
 #endif
-#define PyPy_NAN (HUGE_VAL * 0.)
+#define PyPy_NAN fabs(HUGE_VAL * 0.)
 
 /* The following copyright notice applies to the original
    implementations of acosh, asinh and atanh. */
