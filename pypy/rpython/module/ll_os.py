@@ -942,6 +942,8 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
             if error == -1:
                 raise OSError(rposix.get_errno(), "close failed")
@@ -977,6 +979,8 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.LONGLONG)
 
         def lseek_llimpl(fd, pos, how):
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             how = fix_seek_arg(how)
             res = os_lseek(rffi.cast(rffi.INT,      fd),
                            rffi.cast(rffi.LONGLONG, pos),
@@ -1002,6 +1006,8 @@ class RegisterOs(BaseLazyRegistering):
                                        [rffi.INT, rffi.LONGLONG], rffi.INT)
 
         def ftruncate_llimpl(fd, length):
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             res = rffi.cast(rffi.LONG,
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
@@ -1020,6 +1026,8 @@ class RegisterOs(BaseLazyRegistering):
             os_fsync = self.llexternal('_commit', [rffi.INT], rffi.INT)
 
         def fsync_llimpl(fd):
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             res = rffi.cast(rffi.SIGNED, os_fsync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fsync failed")
@@ -1032,6 +1040,8 @@ class RegisterOs(BaseLazyRegistering):
         os_fdatasync = self.llexternal('fdatasync', [rffi.INT], rffi.INT)
 
         def fdatasync_llimpl(fd):
+            if not rposix.validate_fd(fd):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             res = rffi.cast(rffi.SIGNED, os_fdatasync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fdatasync failed")

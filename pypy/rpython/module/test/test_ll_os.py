@@ -191,7 +191,7 @@ def test_execve():
 
 def test_os_write():
     #Same as test in rpython/test/test_rbuiltin
-    fname = str(udir.join('os_write_test.txt'))
+    fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
@@ -201,6 +201,46 @@ def test_os_write():
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     os.close(fd)
     raises(OSError, os.write, fd, 'Hello world')
+
+def test_os_close():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    os.close(fd)
+    raises(OSError, os.close, fd)
+
+def test_os_lseek():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    os.lseek(fd,0,0)
+    assert os.tell(fd) == 0
+    os.close(fd)
+    raises(OSError, os.lseek, fd, 0, 0)
+
+def test_os_fsync():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    os.fsync(fd)
+    fid = open(fname)
+    assert fid.read() == 'Hello world'
+    os.close(fd)
+    raises(OSError, os.fsync, fd)
+
+def test_os_fdatasync():
+    fname = str(udir.join('os_test.txt'))
+    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    assert fd >= 0
+    os.write(fd, 'Hello world')
+    os.fdatasync(fd)
+    fid = open(fname)
+    assert fid.read() == 'Hello world'
+    os.close(fd)
+    raises(OSError, os.fdatasync, fd)
 
 class ExpectTestOs:
     def setup_class(cls):
