@@ -597,9 +597,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_shift(self):
         from _numpypy import left_shift, right_shift
-        import sys
 
-        assert (left_shift([5, 1], [2, 31]) == [20, 2**31]).all()
+        assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
         assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
 
     def test_comparisons(self):
