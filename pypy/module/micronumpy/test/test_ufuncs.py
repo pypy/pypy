@@ -270,8 +270,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0, inf] == ceil(a)).all()
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == trunc(a)).all()
         assert all([math.isnan(f(float("nan"))) for f in floor, ceil, trunc])
-        assert all([math.copysign(1, f(float("nan"))) == 1 for f in floor, ceil, trunc])
-        assert all([math.copysign(1, f(float("-nan"))) == -1 for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_copysign(self):
         from _numpypy import array, copysign
