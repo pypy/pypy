@@ -619,7 +619,7 @@ class AppTestSocketTCP:
         # test sendall() timeout
         try:
             cli.sendall('foobar'*70)
-        except:
+        except timeout:
             pass
         # done
         cli.close()
