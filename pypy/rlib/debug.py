@@ -1,5 +1,7 @@
 import sys, time
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 def ll_assert(x, msg):
     """After translation to C, this becomes an RPyAssert."""
@@ -335,7 +337,7 @@ def check_regular_int(x):
     """Give a translation-time error if 'x' is not a plain int
     (e.g. if it's a r_longlong or an r_uint).
     """
-    assert type(x) is int
+    assert is_valid_int(x)
     return x
 
 class Entry(ExtRegistryEntry):

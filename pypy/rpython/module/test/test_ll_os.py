@@ -80,8 +80,12 @@ def test_chdir():
         pwd = os.getcwd()
         import ctypes
         buf = ctypes.create_string_buffer(1000)
-        ctypes.windll.kernel32.GetEnvironmentVariableA('=%c:' % pwd[0], buf, 1000)
-        assert str(buf.value) == pwd
+        len = ctypes.windll.kernel32.GetEnvironmentVariableA('=%c:' % pwd[0], buf, 1000)
+        if (len == 0) and "WINGDB_PYTHON" in os.environ:
+            # the ctypes call seems not to work in the Wing debugger
+            return
+        assert str(buf.value).lower() == pwd
+        # ctypes returns the drive letter in uppercase, os.getcwd does not
 
     pwd = os.getcwd()
     try:

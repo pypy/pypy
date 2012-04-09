@@ -85,6 +85,10 @@ class TestW_StringObject:
         w_slice = space.newslice(w(1), w_None, w(2))
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('el'))
 
+    def test_listview_str(self):
+        w_str = self.space.wrap('abcd')
+        assert self.space.listview_str(w_str) == list("abcd")
+
 class AppTestStringObject:
 
     def test_format_wrongchar(self):
@@ -500,6 +504,37 @@ class AppTestStringObject:
         raises(TypeError, ''.join, 1)
         raises(TypeError, ''.join, [1])
         raises(TypeError, ''.join, [[1]])
+
+    def test_unicode_join_str_arg_ascii(self):
+        raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
+
+    def test_unicode_join_str_arg_utf8(self):
+        # Need default encoding utf-8, but sys.setdefaultencoding
+        # is removed after startup.
+        import sys
+        if not hasattr(sys, 'setdefaultencoding'):
+            skip("sys.setdefaultencoding() not available")
+        old_encoding = sys.getdefaultencoding()
+        # Duplicate unittest.test_support.CleanImport logic because it won't
+        # import.
+        self.original_modules = sys.modules.copy()
+        try:
+            import sys as temp_sys
+            module_name = 'sys'
+            if module_name in sys.modules:
+                module = sys.modules[module_name]
+                # It is possible that module_name is just an alias for
+                # another module (e.g. stub for modules renamed in 3.x).
+                # In that case, we also need delete the real module to
+                # clear the import cache.
+                if module.__name__ != module_name:
+                    del sys.modules[module.__name__]
+                del sys.modules[module_name]
+            temp_sys.setdefaultencoding('utf-8')
+            assert u''.join(['\xc3\xa1']) == u'\xe1'
+        finally:
+            temp_sys.setdefaultencoding(old_encoding)
+            sys.modules.update(self.original_modules)
 
     def test_unicode_join_endcase(self):
         # This class inserts a Unicode object into its argument's natural

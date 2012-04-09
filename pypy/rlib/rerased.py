@@ -24,11 +24,11 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.error import TyperError
-
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 def erase_int(x):
-    assert isinstance(x, int)
+    assert is_valid_int(x)
     res = 2 * x + 1
     if res > sys.maxint or res < -sys.maxint - 1:
         raise OverflowError
@@ -36,7 +36,7 @@ def erase_int(x):
 
 def unerase_int(y):
     assert y._identity is _identity_for_ints
-    assert isinstance(y._x, int)
+    assert is_valid_int(y._x)
     return y._x
 
 
@@ -100,6 +100,7 @@ def new_erasing_pair(name):
         def specialize_call(self, hop):
             bk = hop.rtyper.annotator.bookkeeper
             s_obj = identity.get_input_annotation(bk)
+            hop.exception_cannot_occur()
             return hop.r_result.rtype_erase(hop, s_obj)
 
     class Entry(ExtRegistryEntry):
@@ -110,6 +111,7 @@ def new_erasing_pair(name):
             return identity.leave_tunnel(self.bookkeeper)
 
         def specialize_call(self, hop):
+            hop.exception_cannot_occur()
             if hop.r_result.lowleveltype is lltype.Void:
                 return hop.inputconst(lltype.Void, None)
             [v] = hop.inputargs(hop.args_r[0])
@@ -214,6 +216,7 @@ class ErasedRepr(Repr):
         return hop.genop('cast_opaque_ptr', [v], resulttype=hop.r_result)
 
     def rtype_unerase_int(self, hop, v):
+        hop.exception_cannot_occur()
         return hop.gendirectcall(ll_unerase_int, v)
 
     def rtype_erase_int(self, hop):
@@ -264,6 +267,7 @@ class OOErasedRepr(Repr):
 
     def rtype_unerase_int(self, hop, v):
         c_one = hop.inputconst(lltype.Signed, 1)
+        hop.exception_cannot_occur()
         v2 = hop.genop('oounbox_int', [v], resulttype=hop.r_result)
         return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
 

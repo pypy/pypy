@@ -35,6 +35,7 @@ class types(object):
         cls.ulong = clibffi.cast_type_to_ffitype(rffi.ULONG)
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
+        cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         del cls._import
 
@@ -79,16 +80,20 @@ class types(object):
 
 types._import()
 
+# this was '_fits_into_long', which is not adequate, because long is
+# not necessary the type where we compute with. Actually meant is
+# the type 'Signed'.
+
 @specialize.arg(0)
-def _fits_into_long(TYPE):
+def _fits_into_signed(TYPE):
     if isinstance(TYPE, lltype.Ptr):
-        return True # pointers always fits into longs
+        return True # pointers always fits into Signeds
     if not isinstance(TYPE, lltype.Primitive):
         return False
     if TYPE is lltype.Void or TYPE is rffi.FLOAT or TYPE is rffi.DOUBLE:
         return False
     sz = rffi.sizeof(TYPE)
-    return sz <= rffi.sizeof(rffi.LONG)
+    return sz <= rffi.sizeof(rffi.SIGNED)
 
 
 # ======================================================================
@@ -115,9 +120,9 @@ class ArgChain(object):
     def arg(self, val):
         TYPE = lltype.typeOf(val)
         _check_type(TYPE)
-        if _fits_into_long(TYPE):
+        if _fits_into_signed(TYPE):
             cls = IntArg
-            val = rffi.cast(rffi.LONG, val)
+            val = rffi.cast(rffi.SIGNED, val)
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
         elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
@@ -250,7 +255,7 @@ class Func(AbstractFuncPtr):
         if is_struct:
             assert types.is_struct(self.restype)
             res = self._do_call_raw(self.funcsym, ll_args)
-        elif _fits_into_long(RESULT):
+        elif _fits_into_signed(RESULT):
             assert not types.is_struct(self.restype)
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:
@@ -309,7 +314,7 @@ class Func(AbstractFuncPtr):
 
     @jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     def _do_call_int(self, funcsym, ll_args):
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     def _do_call_float(self, funcsym, ll_args):
@@ -322,7 +327,7 @@ class Func(AbstractFuncPtr):
     @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):
         # same as _do_call_int, but marked as jit.dont_look_inside
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_longlong(self, funcsym, ll_args)')
     def _do_call_longlong(self, funcsym, ll_args):
@@ -360,7 +365,7 @@ class Func(AbstractFuncPtr):
             TP = lltype.Ptr(rffi.CArray(RESULT))
             buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
-                assert RESULT == rffi.LONG
+                assert RESULT == rffi.SIGNED
                 # for structs, we directly return the buffer and transfer the
                 # ownership
                 res = rffi.cast(RESULT, buf)
@@ -424,6 +429,11 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
+def array_getitem_T(TYPE, width, addr, index, offset):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
+
 @specialize.call_location()
 @jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
@@ -434,3 +444,8 @@ def array_setitem(ffitype, width, addr, index, offset, value):
             rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value
             return
     assert False
+
+def array_setitem_T(TYPE, width, addr, index, offset, value):
+    addr = rffi.ptradd(addr, index * width)
+    addr = rffi.ptradd(addr, offset)
+    rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value

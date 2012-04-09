@@ -13,6 +13,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+#include "common_header.h"
 #include "src/profiling.h"
 #include "src/debug_print.h"
 

@@ -64,7 +64,7 @@ class TestW_IntObject:
                 f1 = wrapint(self.space, x)
                 f2 = wrapint(self.space, y)
                 result = self.space.unwrap(self.space.add(f1, f2))
-                assert result == x+y and type(result) == type(x+y)
+                assert result == x+y
 
     def test_sub(self):
         for x in [1, 100, sys.maxint // 2 - 50,
@@ -74,15 +74,16 @@ class TestW_IntObject:
                 f1 = wrapint(self.space, x)
                 f2 = wrapint(self.space, y)
                 result = self.space.unwrap(self.space.sub(f1, f2))
-                assert result == x-y and type(result) == type(x-y)
-
+                assert result == x-y
+                
     def test_mul(self):
         for x in [0, 1, 100, sys.maxint // 2 - 50, sys.maxint - 1000]:
             for y in [0, 1, 100, sys.maxint // 2 - 50, sys.maxint - 1000]:
                 f1 = wrapint(self.space, x)
                 f2 = wrapint(self.space, y)
                 result = self.space.unwrap(self.space.mul(f1, f2))
-                assert result == x*y and type(result) == type(x*y)
+                assert result == x*y
+                
 
     def test_div(self):
         for i in range(10):

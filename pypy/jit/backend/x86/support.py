@@ -36,15 +36,15 @@ memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
 
 # ____________________________________________________________
 
-if sys.platform == 'win32':
-    ensure_sse2_floats = lambda : None
-    # XXX check for SSE2 on win32 too
+if WORD == 4:
+    extra = ['-DPYPY_X86_CHECK_SSE2']
 else:
-    if WORD == 4:
-        extra = ['-DPYPY_X86_CHECK_SSE2']
-    else:
-        extra = []
-    ensure_sse2_floats = rffi.llexternal_use_eci(ExternalCompilationInfo(
-        compile_extra = ['-msse2', '-mfpmath=sse',
-                         '-DPYPY_CPU_HAS_STANDARD_PRECISION'] + extra,
-        ))
+    extra = []
+
+if sys.platform != 'win32':
+    extra = ['-msse2', '-mfpmath=sse',
+             '-DPYPY_CPU_HAS_STANDARD_PRECISION'] + extra
+
+ensure_sse2_floats = rffi.llexternal_use_eci(ExternalCompilationInfo(
+    compile_extra = extra,
+))

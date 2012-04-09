@@ -212,7 +212,7 @@ class TestMisc(BaseTestPyPyC):
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, 146982464, descr=...)
-            i21 = getfield_gc(p17, descr=<FieldS .*W_ArrayTypei.inst_len .*>)
+            i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
@@ -351,3 +351,23 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(log.loops_by_id("eval")) == 1
+
+    def test_sys_exc_info(self):
+        def main():
+            i = 1
+            lst = [i]
+            while i < 1000:
+                try:
+                    return lst[i]
+                except:
+                    e = sys.exc_info()[1]    # ID: exc_info
+                    if not isinstance(e, IndexError):
+                        raise
+                i += 1
+            return 42
+
+        log = self.run(main)
+        assert log.result == 42
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(log.loops_by_id("exc_info")) == 1

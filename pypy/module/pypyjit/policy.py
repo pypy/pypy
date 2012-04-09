@@ -127,7 +127,7 @@ class PyPyJitPolicy(JitPolicy):
                        'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
-                       'mmap', 'marshal', '_codecs']:
+                       'mmap', 'marshal', '_codecs', 'rctime']:
             if modname == 'pypyjit' and 'interp_resop' in rest:
                 return False
             return True
@@ -137,8 +137,6 @@ class PyPyJitPolicy(JitPolicy):
         mod = func.__module__ or '?'
 
         if mod == 'pypy.rlib.rbigint' or mod == 'pypy.rlib.rlocale' or mod == 'pypy.rlib.rsocket':
-            return False
-        if '_geninterp_' in func.func_globals: # skip all geninterped stuff
             return False
         if mod.startswith('pypy.interpreter.astcompiler.'):
             return False

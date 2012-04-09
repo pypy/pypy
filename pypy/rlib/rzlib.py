@@ -1,6 +1,7 @@
 from __future__ import with_statement
 import sys
 
+from pypy.rlib import rgc
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
@@ -236,6 +237,7 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
     compress data.
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
+    rgc.add_memory_pressure(rffi.sizeof(z_stream))
     err = _deflateInit2(stream, level, method, wbits, memLevel, strategy)
     if err == Z_OK:
         return stream
@@ -264,6 +266,7 @@ def inflateInit(wbits=MAX_WBITS):
     decompress data.
     """
     stream = lltype.malloc(z_stream, flavor='raw', zero=True)
+    rgc.add_memory_pressure(rffi.sizeof(z_stream))
     err = _inflateInit2(stream, wbits)
     if err == Z_OK:
         return stream

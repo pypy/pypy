@@ -1362,13 +1362,12 @@ class BaseTestRlist(BaseRtypingTest):
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):
-        from pypy.rlib.objectmodel import newlist
-        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib.objectmodel import newlist_hint
 
         strings = ['abc', 'def']
         def f(i):
             z = strings[i]
-            x = newlist(sizehint=13)
+            x = newlist_hint(sizehint=13)
             x += z
             return ''.join(x)
 

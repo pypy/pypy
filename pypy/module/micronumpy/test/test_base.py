@@ -4,6 +4,8 @@ from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 from pypy.module.micronumpy.interp_boxes import W_Float64Box
+from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
+     byteorder_prefix
 from pypy.conftest import option
 import sys
 
@@ -15,14 +17,16 @@ class BaseNumpyAppTest(object):
                 sys.modules['numpypy'] = numpy
                 sys.modules['_numpypy'] = numpy
         cls.space = gettestobjspace(usemodules=['micronumpy'])
+        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
+        cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
 
 class TestSignature(object):
     def test_binop_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
         bool_dtype = get_dtype_cache(space).w_booldtype
 
-        ar = W_NDimArray(10, [10], dtype=float64_dtype)
-        ar2 = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray([10], dtype=float64_dtype)
+        ar2 = W_NDimArray([10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, W_Float64Box(2.0)))
         sig1 = v1.find_sig()
@@ -40,7 +44,7 @@ class TestSignature(object):
         v4 = ar.descr_add(space, ar)
         assert v1.find_sig() is v4.find_sig()
 
-        bool_ar = W_NDimArray(10, [10], dtype=bool_dtype)
+        bool_ar = W_NDimArray([10], dtype=bool_dtype)
         v5 = ar.descr_add(space, bool_ar)
         assert v5.find_sig() is not v1.find_sig()
         assert v5.find_sig() is not v2.find_sig()
@@ -57,7 +61,7 @@ class TestSignature(object):
     def test_slice_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
 
-        ar = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray([10], dtype=float64_dtype)
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.find_sig() is v2.find_sig()

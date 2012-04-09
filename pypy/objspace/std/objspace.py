@@ -9,7 +9,7 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen
+from pypy.rlib.rarithmetic import base_int, widen, maxint, is_valid_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
 
@@ -195,6 +195,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         "NOT_RPYTHON"
         # _____ this code is here to support testing only _____
 
+        # we might get there in non-translated versions if 'x' is
+        # a long that fits the correct range.
+        if is_valid_int(x):
+            return self.newint(x)
+
         # wrap() of a container works on CPython, but the code is
         # not RPython.  Don't use -- it is kept around mostly for tests.
         # Use instead newdict(), newlist(), newtuple().
@@ -213,17 +218,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The following cases are even stranger.
         # Really really only for tests.
         if type(x) is long:
-            if self.config.objspace.std.withsmalllong:
-                from pypy.rlib.rarithmetic import r_longlong
-                try:
-                    rx = r_longlong(x)
-                except OverflowError:
-                    pass
-                else:
-                    from pypy.objspace.std.smalllongobject import \
-                                                   W_SmallLongObject
-                    return W_SmallLongObject(rx)
-            return W_LongObject.fromlong(x)
+            return self.wraplong(x)
         if isinstance(x, slice):
             return W_SliceObject(self.wrap(x.start),
                                  self.wrap(x.stop),
@@ -232,10 +227,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
-            rdict_w = r_dict(self.eq_w, self.hash_w)
-            for item in x:
-                rdict_w[self.wrap(item)] = None
-            res = W_SetObject(self, rdict_w)
+            res = W_SetObject(self, self.newlist([self.wrap(item) for item in x]))
             return res
 
         if isinstance(x, frozenset):
@@ -263,6 +255,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = getattr(self, 'w_' + x.__name__)
             return w_result
         return None
+
+    def wraplong(self, x):
+        "NOT_RPYTHON"
+        if self.config.objspace.std.withsmalllong:
+            from pypy.rlib.rarithmetic import r_longlong
+            try:
+                rx = r_longlong(x)
+            except OverflowError:
+                pass
+            else:
+                from pypy.objspace.std.smalllongobject import \
+                                               W_SmallLongObject
+                return W_SmallLongObject(rx)
+        return W_LongObject.fromlong(x)
 
     def unwrap(self, w_obj):
         """NOT_RPYTHON"""
@@ -300,22 +306,22 @@ class StdObjSpace(ObjSpace, DescrOperation):
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
 
-    def newlist(self, list_w):
-        return W_ListObject(self, list_w)
+    def newlist(self, list_w, sizehint=-1):
+        assert not list_w or sizehint == -1
+        return W_ListObject(self, list_w, sizehint)
 
     def newlist_str(self, list_s):
         return W_ListObject.newlist_str(self, list_s)
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                classofinstance=classofinstance,
                 strdict=strdict)
 
     def newset(self):
         from pypy.objspace.std.setobject import newset
-        return W_SetObject(self, newset(self))
+        return W_SetObject(self, None)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
@@ -393,7 +399,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
@@ -407,7 +413,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.tolist()
-        elif isinstance(w_obj, W_ListObject):
+        elif type(w_obj) is W_ListObject:
             if unroll:
                 t = w_obj.getitems_unroll()
             else:
@@ -428,10 +434,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_ListObject):
+        if type(w_obj) is W_ListObject:
             t = w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
+        elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            t = w_obj.getitems()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -439,9 +447,34 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return t
 
     def listview_str(self, w_obj):
-        if isinstance(w_obj, W_ListObject):
+        # note: uses exact type checking for objects with strategies,
+        # and isinstance() for others.  See test_listobject.test_uses_custom...
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_str()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_str()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_str()
+        if isinstance(w_obj, W_StringObject):
+            return w_obj.listview_str()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_str()
         return None
+
+    def listview_int(self, w_obj):
+        if type(w_obj) is W_ListObject:
+            return w_obj.getitems_int()
+        if type(w_obj) is W_DictMultiObject:
+            return w_obj.listview_int()
+        if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
+            return w_obj.listview_int()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_int()
+        return None
+
+    def _uses_list_iter(self, w_obj):
+        from pypy.objspace.descroperation import list_iter
+        return self.lookup(w_obj, '__iter__') is list_iter(self)
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):

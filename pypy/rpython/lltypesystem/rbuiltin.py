@@ -9,6 +9,7 @@ from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rbool import bool_repr
 
 def rtype_builtin_isinstance(hop):
+    hop.exception_cannot_occur()
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
     if hop.args_r[0] == pyobj_repr or hop.args_r[1] == pyobj_repr:
@@ -33,6 +34,7 @@ def ll_instantiate(typeptr):   # NB. used by rpbc.ClassesPBCRepr as well
     return my_instantiate()
 
 def rtype_instantiate(hop):
+    hop.exception_cannot_occur()
     s_class = hop.args_s[0]
     assert isinstance(s_class, annmodel.SomePBC)
     if len(s_class.descriptions) != 1:
@@ -46,6 +48,7 @@ def rtype_instantiate(hop):
     return rclass.rtype_new_instance(hop.rtyper, classdef, hop.llops)
 
 def rtype_builtin_hasattr(hop):
+    hop.exception_cannot_occur()
     if hop.s_result.is_constant():
         return hop.inputconst(lltype.Bool, hop.s_result.const)
     if hop.args_r[0] == pyobj_repr:
@@ -56,6 +59,7 @@ def rtype_builtin_hasattr(hop):
     raise TyperError("hasattr is only suported on a constant or on PyObject")
 
 def rtype_builtin___import__(hop):
+    xxx    # should not be used any more
     args_v = hop.inputargs(*[pyobj_repr for ign in hop.args_r])
     c = hop.inputconst(pyobj_repr, __import__)
     return hop.genop('simple_call', [c] + args_v, resulttype = pyobj_repr)

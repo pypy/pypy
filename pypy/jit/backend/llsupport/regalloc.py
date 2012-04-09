@@ -321,7 +321,7 @@ class RegisterManager(object):
         except KeyError:
             pass   # 'var' is already not in a register
 
-    def loc(self, box):
+    def loc(self, box, must_exist=False):
         """ Return the location of 'box'.
         """
         self._check_type(box)
@@ -332,6 +332,8 @@ class RegisterManager(object):
         except KeyError:
             if box in self.bindings_to_frame_reg:
                 return self.frame_reg
+            if must_exist:
+                return self.frame_manager.bindings[box]
             return self.frame_manager.loc(box)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
@@ -360,7 +362,7 @@ class RegisterManager(object):
         self._check_type(v)
         if isinstance(v, Const):
             return self.return_constant(v, forbidden_vars, selected_reg)
-        prev_loc = self.loc(v)
+        prev_loc = self.loc(v, must_exist=True)
         if prev_loc is self.frame_reg and selected_reg is None:
             return prev_loc
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,

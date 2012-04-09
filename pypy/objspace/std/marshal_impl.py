@@ -16,6 +16,7 @@ from pypy.interpreter.special import Ellipsis
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway, unicodehelper
 from pypy.rlib.rstruct import ieee
+from pypy.rlib.rstring import StringBuilder
 
 from pypy.objspace.std.boolobject    import W_BoolObject
 from pypy.objspace.std.complexobject import W_ComplexObject
@@ -153,9 +154,9 @@ def unmarshal_Int64(space, u, tc):
 register(TYPE_INT64, unmarshal_Int64)
 
 def pack_float(f):
-    result = []
+    result = StringBuilder(8)
     ieee.pack_float(result, f, 8, False)
-    return ''.join(result)
+    return result.build()
 
 def unpack_float(s):
     return ieee.unpack_float(s, False)

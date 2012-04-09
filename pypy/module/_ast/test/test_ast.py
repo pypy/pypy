@@ -1,9 +1,10 @@
 import py
-
+from pypy.conftest import gettestobjspace
 
 class AppTestAST:
 
     def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['struct'])
         cls.w_ast = cls.space.appexec([], """():
     import _ast
     return _ast""")

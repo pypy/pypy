@@ -58,9 +58,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
+        #Don't include a mscvrXX.dll, users should get their own.
+        #Instructions are provided on the website.
+
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll',
+                      'libexpat.dll', 'sqlite3.dll', 
                       'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():

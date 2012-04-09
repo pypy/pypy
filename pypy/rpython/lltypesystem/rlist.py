@@ -60,7 +60,6 @@ class BaseListRepr(AbstractBaseListRepr):
         ITEMARRAY = GcArray(ITEM,
                             adtmeths = ADTIFixedList({
                                  "ll_newlist": ll_fixed_newlist,
-                                 "ll_newlist_hint": ll_fixed_newlist,
                                  "ll_newemptylist": ll_fixed_newemptylist,
                                  "ll_length": ll_fixed_length,
                                  "ll_items": ll_fixed_items,
@@ -271,7 +270,7 @@ def ll_newlist_hint(LIST, lengthhint):
     l.items = malloc(LIST.items.TO, lengthhint)
     return l
 ll_newlist_hint = typeMethod(ll_newlist_hint)
-ll_newlist_hint.oopspec = 'newlist(lengthhint)'
+ll_newlist_hint.oopspec = 'newlist_hint(lengthhint)'
 
 # should empty lists start with no allocated memory, or with a preallocated
 # minimal number of entries?  XXX compare memory usage versus speed, and
@@ -315,16 +314,16 @@ ll_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
 # fixed size versions
 
+@typeMethod
 def ll_fixed_newlist(LIST, length):
     ll_assert(length >= 0, "negative fixed list length")
     l = malloc(LIST, length)
     return l
-ll_fixed_newlist = typeMethod(ll_fixed_newlist)
 ll_fixed_newlist.oopspec = 'newlist(length)'
 
+@typeMethod
 def ll_fixed_newemptylist(LIST):
     return ll_fixed_newlist(LIST, 0)
-ll_fixed_newemptylist = typeMethod(ll_fixed_newemptylist)
 
 def ll_fixed_length(l):
     return len(l)

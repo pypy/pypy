@@ -18,6 +18,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, assert_str0
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import maxint, LONG_BIT
 import os, sys
 
 class CConstant(Symbolic):
@@ -433,7 +434,8 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t', 'wchar_t']
+          'size_t', 'time_t', 'wchar_t',
+          'uintptr_t', 'intptr_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
@@ -617,8 +619,6 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
 
-INTPTR_T = SSIZE_T
-
 # double
 DOUBLE = lltype.Float
 LONGDOUBLE = lltype.LongFloat
@@ -649,6 +649,10 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
+
+# Signed, Signed *
+SIGNED = lltype.Signed
+SIGNEDP = lltype.Ptr(lltype.Array(SIGNED, hints={'nolength': True}))
 
 # various type mapping
 
@@ -898,7 +902,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = ULONG     # XXX!
+        tp = lltype.Signed
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -909,7 +913,7 @@ def sizeof(tp):
         return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
-        return ULONG._type.BITS/8
+        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 
@@ -929,11 +933,11 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert sys.maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
     "but the C compiler says that 'long' is %d bytes" % (
-    sys.maxint, sizeof(lltype.Signed)))
+    maxint, sizeof(lltype.Signed)))
 
 # ********************** some helpers *******************
 

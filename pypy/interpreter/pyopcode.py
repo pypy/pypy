@@ -15,9 +15,8 @@ from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
-from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
-                                     unrolling_all_opcode_descs, opmap,
-                                     host_opmap)
+from pypy.tool.stdlib_opcode import (bytecode_spec,
+                                     unrolling_all_opcode_descs)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -712,6 +711,19 @@ class __extend__(pyframe.PyFrame):
         items = self.popvalues_mutable(itemcount)
         w_list = self.space.newlist(items)
         self.pushvalue(w_list)
+
+    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        # this is a little dance, because list has to be before the
+        # value
+        last_val = self.popvalue()
+        try:
+            lgt = self.space.len_w(last_val)
+        except OperationError, e:
+            if e.async(self.space):
+                raise
+            lgt = 0 # oh well
+        self.pushvalue(self.space.newlist([], sizehint=lgt))
+        self.pushvalue(last_val)
 
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
@@ -1419,11 +1431,9 @@ app = gateway.applevel(r'''
             if lastchar.isspace() and lastchar != ' ':
                 return
         file_softspace(stream, True)
-    print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
     def print_item(x):
         print_item_to(x, sys_stdout())
-    print_item._annspecialcase_ = "flowspace:print_item"
 
     def print_newline_to(stream):
         stream.write("\n")
@@ -1431,7 +1441,6 @@ app = gateway.applevel(r'''
 
     def print_newline():
         print_newline_to(sys_stdout())
-    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:

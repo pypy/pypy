@@ -1,6 +1,9 @@
 # patches for the Boehm GC for PyPy under Windows
 
 """
+This file is obsolete now since gc-7.0 / gc-7.1 .
+Please use the instructions in pypy\doc\windows.rst .
+
 How to build a pypy compatible version of the Boehm collector
 for Windows and Visual Studio .net 2003.
 

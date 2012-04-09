@@ -178,7 +178,7 @@ def Py_UNICODE_TONUMERIC(space, ch):
 @cpython_api([], Py_UNICODE, error=CANNOT_FAIL)
 def PyUnicode_GetMax(space):
     """Get the maximum ordinal for a Unicode character."""
-    return unichr(runicode.MAXUNICODE)
+    return runicode.UNICHR(runicode.MAXUNICODE)
 
 @cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):

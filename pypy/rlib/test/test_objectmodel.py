@@ -442,7 +442,7 @@ def getgraph(f, argtypes):
 def test_newlist():
     from pypy.annotation.model import SomeInteger
     def f(z):
-        x = newlist(sizehint=38)
+        x = newlist_hint(sizehint=38)
         if z < 0:
             x.append(1)
         return len(x)
@@ -456,7 +456,7 @@ def test_newlist():
 def test_newlist_nonconst():
     from pypy.annotation.model import SomeInteger
     def f(z):
-        x = newlist(sizehint=z)
+        x = newlist_hint(sizehint=z)
         return len(x)
 
     graph = getgraph(f, [SomeInteger()])

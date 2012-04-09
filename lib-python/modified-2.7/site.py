@@ -550,9 +550,18 @@ def execusercustomize():
                 "'import usercustomize' failed; use -v for traceback"
 
 
+def import_builtin_stuff():
+    """PyPy specific: pre-import a few built-in modules, because
+    some programs actually rely on them to be in sys.modules :-("""
+    import exceptions
+    if 'zipimport' in sys.builtin_module_names:
+        import zipimport
+
+
 def main():
     global ENABLE_USER_SITE
 
+    import_builtin_stuff()
     abs__file__()
     known_paths = removeduppaths()
     if (os.name == "posix" and sys.path and

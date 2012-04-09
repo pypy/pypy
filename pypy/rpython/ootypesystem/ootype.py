@@ -1295,6 +1295,8 @@ class OverloadingResolver(object):
         for meth in self.overloadings:
             ARGS = meth._TYPE.ARGS
             if ARGS in signatures:
+                # XXX Conflict on 'Signed' vs 'SignedLongLong' on win64.
+                # XXX note that this partially works if this error is ignored.
                 raise TypeError, 'Bad overloading'
             signatures.add(ARGS)
 

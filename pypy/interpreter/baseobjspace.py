@@ -7,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -295,6 +296,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
+        self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -466,9 +468,9 @@ class ObjSpace(object):
                 if name not in modules:
                     modules.append(name)
 
-        # a bit of custom logic: time2 or rctime take precedence over time
+        # a bit of custom logic: rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
-        if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
+        if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
         if not self.config.objspace.nofaking:
@@ -833,7 +835,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #
@@ -1335,7 +1337,7 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
+        return self.str_w(w_obj)            
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)

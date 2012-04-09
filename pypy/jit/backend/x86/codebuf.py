@@ -19,8 +19,8 @@ elif IS_X86_64:
 
 
 class MachineCodeBlockWrapper(BlockBuilderMixin,
-                              codebuilder_cls,
-                              LocationCodeBuilder):
+                              LocationCodeBuilder,
+                              codebuilder_cls):
     def __init__(self):
         self.init_block_builder()
         # a list of relative positions; for each position p, the bytes

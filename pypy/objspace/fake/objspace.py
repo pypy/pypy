@@ -86,6 +86,7 @@ class Entry(ExtRegistryEntry):
         return s_None
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 # ____________________________________________________________
@@ -109,7 +110,7 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False,
                 strdict=False):
         return w_some_obj()
 
@@ -206,6 +207,11 @@ class FakeObjSpace(ObjSpace):
         is_root(w_func)
         is_arguments(args)
         return w_some_obj()
+
+    def get_and_call_function(space, w_descr, w_obj, *args_w):
+        args = argument.Arguments(space, list(args_w))
+        w_impl = space.get(w_descr, w_obj)
+        return space.call_args(w_impl, args)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)

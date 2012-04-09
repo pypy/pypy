@@ -11,11 +11,11 @@ import py
 import sys
 from pypy.tool import autopath
 from pypy.rlib import jit, rposix
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
-        if key.startswith('SIG') and isinstance(value, int):
+        if key.startswith('SIG') and is_valid_int(value):
             globals()[key] = value
             yield key
 

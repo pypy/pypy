@@ -433,7 +433,25 @@ class BaseArrayTests:
         a = self.array('h', 'Hi')
         buf = buffer(a)
         assert buf[1] == 'i'
-        #raises(TypeError, buf.__setitem__, 1, 'o')
+
+    def test_buffer_write(self):
+        a = self.array('c', 'hello')
+        buf = buffer(a)
+        print repr(buf)
+        try:
+            buf[3] = 'L'
+        except TypeError:
+            skip("buffer(array) returns a read-only buffer on CPython")
+        assert a.tostring() == 'helLo'
+
+    def test_buffer_keepalive(self):
+        buf = buffer(self.array('c', 'text'))
+        assert buf[2] == 'x'
+        #
+        a = self.array('c', 'foobarbaz')
+        buf = buffer(a)
+        a.fromstring('some extra text')
+        assert buf[:] == 'foobarbazsome extra text'
 
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"
@@ -845,8 +863,11 @@ class TestCPythonsOwnArray(BaseArrayTests):
         cls.maxint = sys.maxint
 
 class AppTestArray(BaseArrayTests):
+    OPTIONS = {}
+
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'))
+        cls.space = gettestobjspace(usemodules=('array', 'struct', '_rawffi'),
+                                    **cls.OPTIONS)
         cls.w_array = cls.space.appexec([], """():
             import array
             return array.array
@@ -868,3 +889,7 @@ class AppTestArray(BaseArrayTests):
         a = self.array('b', range(4))
         a[::-1] = a
         assert a == self.array('b', [3, 2, 1, 0])
+
+
+class AppTestArrayBuiltinShortcut(AppTestArray):
+    OPTIONS = {'objspace.std.builtinshortcut': True}

@@ -117,6 +117,20 @@ class AppTestCProfile(object):
             assert 0.9 < subentry.totaltime < 2.9
             #assert 0.9 < subentry.inlinetime < 2.9
 
+    def test_builtin_exception(self):
+        import math
+        import _lsprof
+
+        prof = _lsprof.Profiler()
+        prof.enable()
+        try:
+            math.sqrt("a")
+        except TypeError:
+            pass
+        prof.disable()
+        stats = prof.getstats()
+        assert len(stats) == 2
+
     def test_use_cprofile(self):
         import sys, os
         # XXX this is evil trickery to walk around the fact that we don't

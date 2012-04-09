@@ -22,6 +22,13 @@ class Module(MixedModule):
             if value is not None:
                 interpleveldefs[symbol] = "space.wrap(%r)" % value
 
+    if 'bsd' in sys.platform or sys.platform.startswith('darwin'):
+        interpleveldefs["kqueue"] = "interp_kqueue.W_Kqueue"
+        interpleveldefs["kevent"] = "interp_kqueue.W_Kevent"
+        from pypy.module.select.interp_kqueue import symbol_map
+        for symbol in symbol_map:
+            interpleveldefs[symbol] = "space.wrap(interp_kqueue.%s)" % symbol
+
     def buildloaders(cls):
         from pypy.rlib import rpoll
         for name in rpoll.eventnames:

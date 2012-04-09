@@ -71,31 +71,31 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
 	  switch ((*p_arg)->type)
 	    {
 	    case FFI_TYPE_SINT8:
-	      *(signed int *) argp = (signed int)*(SINT8 *)(* p_argv);
+	      *(signed int *) argp = (signed int)*(ffi_SINT8 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_UINT8:
-	      *(unsigned int *) argp = (unsigned int)*(UINT8 *)(* p_argv);
+	      *(unsigned int *) argp = (unsigned int)*(ffi_UINT8 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_SINT16:
-	      *(signed int *) argp = (signed int)*(SINT16 *)(* p_argv);
+	      *(signed int *) argp = (signed int)*(ffi_SINT16 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_UINT16:
-	      *(unsigned int *) argp = (unsigned int)*(UINT16 *)(* p_argv);
+	      *(unsigned int *) argp = (unsigned int)*(ffi_UINT16 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_SINT32:
-	      *(signed int *) argp = (signed int)*(SINT32 *)(* p_argv);
+	      *(signed int *) argp = (signed int)*(ffi_SINT32 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_UINT32:
-	      *(unsigned int *) argp = (unsigned int)*(UINT32 *)(* p_argv);
+	      *(unsigned int *) argp = (unsigned int)*(ffi_UINT32 *)(* p_argv);
 	      break;
 
 	    case FFI_TYPE_STRUCT:
-	      *(unsigned int *) argp = (unsigned int)*(UINT32 *)(* p_argv);
+	      *(unsigned int *) argp = (unsigned int)*(ffi_UINT32 *)(* p_argv);
 	      break;
 
 	    default:

@@ -29,7 +29,7 @@ def test_parse():
 def test_parse_non_code():
     ops = parse('''
     []
-    debug_merge_point(0, "SomeRandomStuff")
+    debug_merge_point(0, 0, "SomeRandomStuff")
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 1
@@ -39,10 +39,10 @@ def test_split():
     ops = parse('''
     [i0]
     label()
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i1 = int_add(i0, 1)
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 200> #11 SUB")
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage(), loopname='<loopname>')
@@ -57,12 +57,12 @@ def test_split():
 def test_inlined_call():
     ops = parse("""
     []
-    debug_merge_point(0, '<code object inlined_call. file 'source.py'. line 12> #28 CALL_FUNCTION')
+    debug_merge_point(0, 0, '<code object inlined_call. file 'source.py'. line 12> #28 CALL_FUNCTION')
     i18 = getfield_gc(p0, descr=<BoolFieldDescr pypy.interpreter.pyframe.PyFrame.inst_is_being_profiled 89>)
-    debug_merge_point(1, '<code object inner. file 'source.py'. line 9> #0 LOAD_FAST')
-    debug_merge_point(1, '<code object inner. file 'source.py'. line 9> #3 LOAD_CONST')
-    debug_merge_point(1, '<code object inner. file 'source.py'. line 9> #7 RETURN_VALUE')
-    debug_merge_point(0, '<code object inlined_call. file 'source.py'. line 12> #31 STORE_FAST')
+    debug_merge_point(1, 1, '<code object inner. file 'source.py'. line 9> #0 LOAD_FAST')
+    debug_merge_point(1, 1, '<code object inner. file 'source.py'. line 9> #3 LOAD_CONST')
+    debug_merge_point(1, 1, '<code object inner. file 'source.py'. line 9> #7 RETURN_VALUE')
+    debug_merge_point(0, 0, '<code object inlined_call. file 'source.py'. line 12> #31 STORE_FAST')
     """)
     res = Function.from_operations(ops.operations, LoopStorage())
     assert len(res.chunks) == 3 # two chunks + inlined call
@@ -75,10 +75,10 @@ def test_inlined_call():
 def test_name():
     ops = parse('''
     [i0]
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 201> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 201> #11 SUB")
     i1 = int_add(i0, 1)
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 202> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 202> #11 SUB")
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
@@ -92,10 +92,10 @@ def test_name_no_first():
     ops = parse('''
     [i0]
     i3 = int_add(i0, 1)
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 201> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 200> #10 ADD")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 201> #11 SUB")
     i1 = int_add(i0, 1)
-    debug_merge_point(0, "<code object stuff. file '/I/dont/exist.py'. line 202> #11 SUB")
+    debug_merge_point(0, 0, "<code object stuff. file '/I/dont/exist.py'. line 202> #11 SUB")
     i2 = int_add(i1, 1)
     ''')
     res = Function.from_operations(ops.operations, LoopStorage())
@@ -105,10 +105,10 @@ def test_lineno():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
-    debug_merge_point(0, "<code object f. file '%(fname)s'. line 2> #0 LOAD_FAST")
-    debug_merge_point(0, "<code object f. file '%(fname)s'. line 2> #3 LOAD_FAST")
-    debug_merge_point(0, "<code object f. file '%(fname)s'. line 2> #6 BINARY_ADD")
-    debug_merge_point(0, "<code object f. file '%(fname)s'. line 2> #7 RETURN_VALUE")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #0 LOAD_FAST")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #3 LOAD_FAST")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #6 BINARY_ADD")
+    debug_merge_point(0, 0, "<code object f. file '%(fname)s'. line 2> #7 RETURN_VALUE")
     ''' % locals())
     res = Function.from_operations(ops.operations, LoopStorage())
     assert res.chunks[1].lineno == 3
@@ -119,11 +119,11 @@ def test_linerange():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse('''
     [i0, i1]
-    debug_merge_point(0, "<code object g. file '%(fname)s'. line 5> #9 LOAD_FAST")
-    debug_merge_point(0, "<code object g. file '%(fname)s'. line 5> #12 LOAD_CONST")
-    debug_merge_point(0, "<code object g. file '%(fname)s'. line 5> #22 LOAD_CONST")
-    debug_merge_point(0, "<code object g. file '%(fname)s'. line 5> #28 LOAD_CONST")
-    debug_merge_point(0, "<code object g. file '%(fname)s'. line 5> #6 SETUP_LOOP")
+    debug_merge_point(0, 0, "<code object g. file '%(fname)s'. line 5> #9 LOAD_FAST")
+    debug_merge_point(0, 0, "<code object g. file '%(fname)s'. line 5> #12 LOAD_CONST")
+    debug_merge_point(0, 0, "<code object g. file '%(fname)s'. line 5> #22 LOAD_CONST")
+    debug_merge_point(0, 0, "<code object g. file '%(fname)s'. line 5> #28 LOAD_CONST")
+    debug_merge_point(0, 0, "<code object g. file '%(fname)s'. line 5> #6 SETUP_LOOP")
     ''' % locals())
     res = Function.from_operations(ops.operations, LoopStorage())
     assert res.linerange == (7, 9)
@@ -135,7 +135,7 @@ def test_linerange_notstarts():
     fname = str(py.path.local(__file__).join('..', 'x.py'))
     ops = parse("""
     [p6, p1]
-    debug_merge_point(0, '<code object h. file '%(fname)s'. line 11> #17 FOR_ITER')
+    debug_merge_point(0, 0, '<code object h. file '%(fname)s'. line 11> #17 FOR_ITER')
     guard_class(p6, 144264192, descr=<Guard2>)
     p12 = getfield_gc(p6, descr=<GcPtrFieldDescr pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_w_seq 12>)
     """ % locals())
@@ -181,7 +181,7 @@ def test_adjust_bridges():
 
 def test_parsing_strliteral():
     loop = parse("""
-    debug_merge_point(0, 'StrLiteralSearch at 11/51 [17, 8, 3, 1, 1, 1, 1, 51, 0, 19, 51, 1]')
+    debug_merge_point(0, 0, 'StrLiteralSearch at 11/51 [17, 8, 3, 1, 1, 1, 1, 51, 0, 19, 51, 1]')
     """)
     ops = Function.from_operations(loop.operations, LoopStorage())
     chunk = ops.chunks[0]
@@ -193,12 +193,12 @@ def test_parsing_assembler():
     loop = parse("""
     # Loop 0 : loop with 19 ops
     [p0, p1, p2, p3, i4]
-    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
+    debug_merge_point(0, 0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
     +166: i6 = int_lt(i4, 10000)
     guard_true(i6, descr=<Guard3>) [p1, p0, p2, p3, i4]
-    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #27 INPLACE_ADD')
+    debug_merge_point(0, 0, '<code object f. file 'x.py'. line 2> #27 INPLACE_ADD')
     +179: i8 = int_add(i4, 1)
-    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #31 JUMP_ABSOLUTE')
+    debug_merge_point(0, 0, '<code object f. file 'x.py'. line 2> #31 JUMP_ABSOLUTE')
     +183: i10 = getfield_raw(40564608, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
     +191: i12 = int_sub(i10, 1)
     +195: setfield_raw(40564608, i12, descr=<SignedFieldDescr pypysig_long_struct.c_value 0>)
@@ -287,8 +287,8 @@ def test_parse_log_counts():
 def test_parse_nonpython():
     loop = parse("""
     []
-    debug_merge_point(0, 'random')
-    debug_merge_point(0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
+    debug_merge_point(0, 0, 'random')
+    debug_merge_point(0, 0, '<code object f. file 'x.py'. line 2> #15 COMPARE_OP')
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert f.chunks[-1].filename == 'x.py'

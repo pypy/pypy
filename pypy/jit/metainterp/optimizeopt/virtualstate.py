@@ -681,13 +681,14 @@ class ShortBoxes(object):
             self.synthetic[op] = True
 
     def debug_print(self, logops):
-        debug_start('jit-short-boxes')
-        for box, op in self.short_boxes.items():
-            if op:
-                debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
-            else:
-                debug_print(logops.repr_of_arg(box) + ': None')
-        debug_stop('jit-short-boxes')
+        if 0:
+            debug_start('jit-short-boxes')
+            for box, op in self.short_boxes.items():
+                if op:
+                    debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
+                else:
+                    debug_print(logops.repr_of_arg(box) + ': None')
+            debug_stop('jit-short-boxes')
 
     def operations(self):
         if not we_are_translated(): # For tests

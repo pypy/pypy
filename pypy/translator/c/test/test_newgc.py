@@ -675,8 +675,8 @@ class TestUsingFramework(object):
             gc.collect()
             p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.LONGP, p_a1)[0]
-            a2 = rffi.cast(rffi.LONGP, p_a2)[0]
+            a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
+            a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = rffi.cast(rffi.INT, 1)
@@ -692,7 +692,7 @@ class TestUsingFramework(object):
             ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
-            TP = rffi.CArray(rffi.LONG)
+            TP = rffi.CArray(lltype.Signed)
             to_sort = lltype.malloc(TP, 4, flavor='raw')
             to_sort[0] = 4
             to_sort[1] = 3
@@ -700,7 +700,7 @@ class TestUsingFramework(object):
             to_sort[3] = 2
             qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, 4))
-            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(rffi.LONG)))
+            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(lltype.Signed)))
             qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.ll_closure))
             qsort.call(lltype.Void)
             result = [to_sort[i] for i in range(4)] == [1,2,3,4]
@@ -1202,7 +1202,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         def f():
             from pypy.rpython.lltypesystem import lltype, rffi
             alist = [A() for i in range(50000)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself

@@ -737,7 +737,7 @@ class GenericMovingGCTests(GenericGCTests):
         def f():
             from pypy.rpython.lltypesystem import rffi
             alist = [A() for i in range(50)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all the elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
