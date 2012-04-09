@@ -24,10 +24,9 @@ if _WIN:
     from pypy.module.thread import ll_thread as thread
 
     eci = ExternalCompilationInfo(
+        includes = ["windows.h"],
         post_include_bits = ["BOOL pypy_timemodule_setCtrlHandler(HANDLE event);"],
         separate_module_sources=['''
-            #include <windows.h>
-
             static HANDLE interrupt_event;
 
             static BOOL WINAPI CtrlHandlerRoutine(
