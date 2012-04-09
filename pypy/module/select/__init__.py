@@ -7,12 +7,17 @@ import sys
 class Module(MixedModule):
     appleveldefs = {
     }
-
-    interpleveldefs = {
-        'poll'  : 'interp_select.poll',
-        'select': 'interp_select.select',
-        'error' : 'space.fromcache(interp_select.Cache).w_error'
-    }
+    if sys.platform.startswith('win'):
+        interpleveldefs = {
+            'select': 'interp_select.select',
+            'error' : 'space.fromcache(interp_select.Cache).w_error'
+        }
+    else:    
+        interpleveldefs = {
+            'poll'  : 'interp_select.poll',
+            'select': 'interp_select.select',
+            'error' : 'space.fromcache(interp_select.Cache).w_error'
+        }
 
     if sys.platform.startswith('linux'):
         interpleveldefs['epoll'] = 'interp_epoll.W_Epoll'

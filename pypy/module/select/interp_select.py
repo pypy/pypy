@@ -53,7 +53,6 @@ class Poll(Wrappable):
             except (OverflowError, ValueError):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("math range error"))
-
         try:
             retval = rpoll.poll(self.fddict, timeout)
         except rpoll.PollError, e:

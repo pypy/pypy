@@ -214,6 +214,8 @@ class _AppTestSelect:
 
     def test_poll(self):
         import select
+        if 'poll' not in dir(select):
+            skip('select.poll not available')
         readend, writeend = self.getpair()
         try:
             class A(object):
