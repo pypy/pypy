@@ -155,7 +155,8 @@ static void tx_redo(struct tx_descriptor *d)
              ((char *)localobj) + sizeof(orec_t),
              size - sizeof(orec_t));
       /* but we must only unlock the orec if it's the last time it
-         appears in the redolog list.  If it's not, then p == -1. */
+         appears in the redolog list.  If it's not, then p == -1.
+         XXX I think that duplicate orecs are not possible any more. */
       if (p != -1)
         {
           volatile orec_t* o = get_orec(globalobj);
