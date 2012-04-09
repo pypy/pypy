@@ -12,7 +12,7 @@ if sys.version_info < (3,0):
     class TextIO(StringIO):
         def write(self, data):
             if not isinstance(data, unicode):
-                data = unicode(data, getattr(self, '_encoding', 'UTF-8'))
+                data = unicode(data, getattr(self, '_encoding', 'UTF-8'), 'replace')
             StringIO.write(self, data)
 else:
     TextIO = StringIO
@@ -260,7 +260,7 @@ class StdCaptureFD(Capture):
                 res = f.read()
                 enc = getattr(f, 'encoding', None)
                 if enc:
-                    res = py.builtin._totext(res, enc)
+                    res = py.builtin._totext(res, enc, 'replace')
                 f.truncate(0)
                 f.seek(0)
             l.append(res)

@@ -64,7 +64,10 @@ class Checkers:
                 else:
                     if bool(value) ^ bool(meth()) ^ invert:
                         return False
-            except (py.error.ENOENT, py.error.ENOTDIR):
+            except (py.error.ENOENT, py.error.ENOTDIR, py.error.EBUSY):
+                # EBUSY feels not entirely correct,
+                # but its kind of necessary since ENOMEDIUM
+                # is not accessible in python     
                 for name in self._depend_on_existence:
                     if name in kw:
                         if kw.get(name):

@@ -52,7 +52,7 @@ class Tag(list):
     def unicode(self, indent=2):
         l = []
         SimpleUnicodeVisitor(l.append, indent).visit(self)
-        return "".join(l)
+        return u("").join(l)
 
     def __repr__(self):
         name = self.__class__.__name__
@@ -122,11 +122,13 @@ class SimpleUnicodeVisitor(object):
                 if visitmethod is not None:
                     break
             else:
-                visitmethod = self.object
+                visitmethod = self.__object
             self.cache[cls] = visitmethod
         visitmethod(node)
 
-    def object(self, obj):
+    # the default fallback handler is marked private
+    # to avoid clashes with the tag name object
+    def __object(self, obj):
         #self.write(obj)
         self.write(escape(unicode(obj)))
 
@@ -182,7 +184,11 @@ class SimpleUnicodeVisitor(object):
             value = getattr(attrs, name)
             if name.endswith('_'):
                 name = name[:-1]
-            return ' %s="%s"' % (name, escape(unicode(value)))
+            if isinstance(value, raw):
+                insert = value.uniobj
+            else:
+                insert = escape(unicode(value))
+            return ' %s="%s"' % (name, insert)
 
     def getstyle(self, tag):
         """ return attribute list suitable for styling. """
