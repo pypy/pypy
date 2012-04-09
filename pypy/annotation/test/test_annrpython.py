@@ -3753,7 +3753,7 @@ class TestAnnotateTestCase:
                 raise NotImplementedError
 
         a = self.RPythonAnnotator()
-        s = a.build_types(f, [int])
+        s = a.build_types(main, [int])
         assert isinstance(s, SomeInteger)
 
 
