@@ -3754,7 +3754,7 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(main, [int])
-        assert isinstance(s, SomeInteger)
+        assert isinstance(s, annmodel.SomeInteger)
 
 
 def g(n):
