@@ -110,7 +110,10 @@ def execute_test(cwd, test, out, logfname, interp, test_driver,
                  do_dry_run=False, timeout=None,
                  _win32=(sys.platform=='win32')):
     args = interp + test_driver
-    args += ['-p', 'resultlog', '--resultlog=%s' % logfname, test]
+    args += ['-p', 'resultlog',
+             '--resultlog=%s' % logfname,
+             '--junitxml=%s.junit' % logfname,
+             test]
 
     args = map(str, args)
     interp0 = args[0]

@@ -108,6 +108,7 @@ class Source(object):
     def getstatementrange(self, lineno, assertion=False):
         """ return (start, end) tuple which spans the minimal
             statement region which containing the given lineno.
+            raise an IndexError if no such statementrange can be found.
         """
         # XXX there must be a better than these heuristic ways ...
         # XXX there may even be better heuristics :-)
@@ -116,6 +117,7 @@ class Source(object):
 
         # 1. find the start of the statement
         from codeop import compile_command
+        end = None
         for start in range(lineno, -1, -1):
             if assertion:
                 line = self.lines[start]
@@ -139,7 +141,9 @@ class Source(object):
                 trysource = self[start:end]
                 if trysource.isparseable():
                     return start, end
-        return start, len(self)
+        if end is None:
+            raise IndexError("no valid source range around line %d " % (lineno,))
+        return start, end
 
     def getblockend(self, lineno):
         # XXX
@@ -257,23 +261,29 @@ def compile_(source, filename=None, mode='exec', flags=
 
 
 def getfslineno(obj):
+    """ Return source location (path, lineno) for the given object.
+    If the source cannot be determined return ("", -1)
+    """
     try:
         code = py.code.Code(obj)
     except TypeError:
-        # fallback to
-        fn = (py.std.inspect.getsourcefile(obj) or
-              py.std.inspect.getfile(obj))
+        try:
+            fn = (py.std.inspect.getsourcefile(obj) or
+                  py.std.inspect.getfile(obj))
+        except TypeError:
+            return "", -1
+
         fspath = fn and py.path.local(fn) or None
+        lineno = -1
         if fspath:
             try:
                 _, lineno = findsource(obj)
             except IOError:
-                lineno = None
-        else:
-            lineno = None
+                pass
     else:
         fspath = code.path
         lineno = code.firstlineno
+    assert isinstance(lineno, int)
     return fspath, lineno
 
 #
@@ -286,7 +296,7 @@ def findsource(obj):
     except py.builtin._sysex:
         raise
     except:
-        return None, None
+        return None, -1
     source = Source()
     source.lines = [line.rstrip() for line in sourcelines]
     return source, lineno
