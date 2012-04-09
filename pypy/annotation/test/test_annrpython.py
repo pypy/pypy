@@ -483,7 +483,7 @@ class TestAnnotateTestCase:
                 return a_str.strip(' ')
             elif n == 1:
                 return a_str.rstrip(' ')
-            else: 
+            else:
                 return a_str.lstrip(' ')
         s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
         assert s.no_nul
@@ -3736,6 +3736,25 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
         assert s.listdef.listitem.range_step == 0
+
+    def test_specialize_arg_memo(self):
+        @objectmodel.specialize.memo()
+        def g(n):
+            return n
+        @objectmodel.specialize.arg(0)
+        def f(i):
+            return g(i)
+        def main(i):
+            if i == 2:
+                return f(i)
+            elif i == 3:
+                return f(i)
+            else:
+                raise NotImplementedError
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, SomeInteger)
 
 
 def g(n):
