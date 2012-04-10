@@ -27,6 +27,12 @@ def boxfloat(x):
 def constfloat(x):
     return ConstFloat(longlong.getfloatstorage(x))
 
+def boxlonglong(ll):
+    if longlong.is_64_bit:
+        return BoxInt(ll)
+    else:
+        return BoxFloat(ll)
+
 
 class Runner(object):
 
@@ -1781,6 +1787,11 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.execute_operation(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG,
                                      [boxfloat(2.5)], t).value
         assert res == longlong2float.float2longlong(2.5)
+
+        bytes = longlong2float.float2longlong(2.5)
+        res = self.execute_operation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT,
+                                     [boxlonglong(res)], 'float').value
+        assert longlong.getrealfloat(res) == 2.5
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')

@@ -172,8 +172,9 @@ class RSREMatch(object):
         self._ctx = ctx
 
     def span(self, groupnum=0):
-        if not isinstance(groupnum, (int, long)):
-            groupnum = self.re.groupindex[groupnum]
+#        if not isinstance(groupnum, (int, long)):
+#            groupnum = self.re.groupindex[groupnum]
+ 
         return self._ctx.span(groupnum)
 
     def start(self, groupnum=0):
@@ -182,19 +183,25 @@ class RSREMatch(object):
     def end(self, groupnum=0):
         return self.span(groupnum)[1]
 
-    def group(self, *groups):
-        groups = groups or (0,)
-        result = []
-        for group in groups:
-            frm, to = self.span(group)
-            if 0 <= frm <= to:
-                result.append(self._ctx._string[frm:to])
-            else:
-                result.append(None)
-        if len(result) > 1:
-            return tuple(result)
+    def group(self, group=0):
+        frm, to = self.span(group)
+        if 0 <= frm <= to:
+            return self._ctx._string[frm:to]
         else:
-            return result[0]
+            return None
+
+#    def group(self, *groups):
+#        groups = groups or (0,)
+#        result = []
+#        for group in groups:
+#            frm, to = self.span(group)
+#            if 0 <= frm <= to:
+#                result.append(self._ctx._string[frm:to])
+#            else:
+#                result.append(None)
+#        if len(result) > 1:
+#            return tuple(result)
+
 
     def groups(self, default=None):
         fmarks = self._ctx.flatten_marks()

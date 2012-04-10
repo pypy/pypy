@@ -34,6 +34,7 @@ class __extend__(BoolRepr):
 
     def rtype_float(_, hop):
         vlist = hop.inputargs(Float)
+        hop.exception_cannot_occur()
         return vlist[0]
 
 #

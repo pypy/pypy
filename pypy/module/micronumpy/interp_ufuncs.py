@@ -3,8 +3,10 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_boxes, interp_dtype, support, loop
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
+
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
@@ -28,7 +30,7 @@ class W_Ufunc(Wrappable):
         return self.identity
 
     def descr_call(self, space, __args__):
-	from interp_numarray import BaseArray
+        from interp_numarray import BaseArray
         args_w, kwds_w = __args__.unpack()
         # it occurs to me that we don't support any datatypes that
         # require casting, change it later when we do
@@ -179,7 +181,7 @@ class W_Ufunc(Wrappable):
                 elif out.shape != shape:
                     raise operationerrfmt(space.w_ValueError,
                         'output parameter shape mismatch, expecting [%s]' +
-                        ' , got [%s]', 
+                        ' , got [%s]',
                         ",".join([str(x) for x in shape]),
                         ",".join([str(x) for x in out.shape]),
                         )
@@ -204,7 +206,7 @@ class W_Ufunc(Wrappable):
         else:
             arr = ReduceArray(self.func, self.name, self.identity, obj, dtype)
             val = loop.compute(arr)
-        return val 
+        return val
 
     def do_axis_reduce(self, obj, dtype, axis, result):
         from pypy.module.micronumpy.interp_numarray import AxisReduce
@@ -253,7 +255,7 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             arr = self.func(calc_dtype, w_obj.value.convert_to(calc_dtype))
             if isinstance(out,Scalar):
-                out.value=arr
+                out.value = arr
             elif isinstance(out, BaseArray):
                 out.fill(space, arr)
             else:
@@ -265,7 +267,7 @@ class W_Ufunc1(W_Ufunc):
             if not broadcast_shape or broadcast_shape != out.shape:
                 raise operationerrfmt(space.w_ValueError,
                     'output parameter shape mismatch, could not broadcast [%s]' +
-                    ' to [%s]', 
+                    ' to [%s]',
                     ",".join([str(x) for x in w_obj.shape]),
                     ",".join([str(x) for x in out.shape]),
                     )
@@ -292,10 +294,11 @@ class W_Ufunc2(W_Ufunc):
         self.func = func
         self.comparison_func = comparison_func
 
+    @jit.unroll_safe
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement, BaseArray)
-        if len(args_w)>2:
+        if len(args_w) > 2:
             [w_lhs, w_rhs, w_out] = args_w
         else:
             [w_lhs, w_rhs] = args_w
@@ -326,7 +329,7 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
             if isinstance(out,Scalar):
-                out.value=arr
+                out.value = arr
             elif isinstance(out, BaseArray):
                 out.fill(space, arr)
             else:
@@ -337,7 +340,7 @@ class W_Ufunc2(W_Ufunc):
         if out and out.shape != shape_agreement(space, new_shape, out.shape):
             raise operationerrfmt(space.w_ValueError,
                 'output parameter shape mismatch, could not broadcast [%s]' +
-                ' to [%s]', 
+                ' to [%s]',
                 ",".join([str(x) for x in new_shape]),
                 ",".join([str(x) for x in out.shape]),
                 )
@@ -347,7 +350,6 @@ class W_Ufunc2(W_Ufunc):
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         if out:
-            #out.add_invalidates(w_res) #causes a recursion loop
             w_res.get_concrete()
         return w_res
 
@@ -539,14 +541,18 @@ class UfuncState(object):
             ("reciprocal", "reciprocal", 1),
 
             ("fabs", "fabs", 1, {"promote_to_float": True}),
+            ("fmax", "fmax", 2, {"promote_to_float": True}),
+            ("fmin", "fmin", 2, {"promote_to_float": True}),
             ("fmod", "fmod", 2, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("ceil", "ceil", 1, {"promote_to_float": True}),
+            ("trunc", "trunc", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
             ("exp2", "exp2", 1, {"promote_to_float": True}),
             ("expm1", "expm1", 1, {"promote_to_float": True}),
 
             ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
+            ('square', 'square', 1, {'promote_to_float': True}),
 
             ("sin", "sin", 1, {"promote_to_float": True}),
             ("cos", "cos", 1, {"promote_to_float": True}),

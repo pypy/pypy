@@ -543,11 +543,11 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
         else:
             assert False
 
+        hop.exception_cannot_occur()
         if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
             return hop.inputconst(PTR, null)
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, T)
-        hop.exception_cannot_occur()
         return hop.genop(opname, [v_arg], resulttype = PTR)
 
 

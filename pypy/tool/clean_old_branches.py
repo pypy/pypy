@@ -38,7 +38,7 @@ if not closed_heads:
 closed_heads.reverse()
 
 for head, branch in closed_heads:
-    print '\t', branch
+    print '\t', head, '\t', branch
 print
 print 'The branches listed above will be merged to "closed-branches".'
 print 'You need to run this script in a clean working copy where you'

@@ -63,6 +63,8 @@ class ResultLog(object):
         self.write_log_entry(testpath, lettercode, longrepr)
 
     def pytest_runtest_logreport(self, report):
+        if report.when != "call" and report.passed:
+            return
         res = self.config.hook.pytest_report_teststatus(report=report)
         code = res[1]
         if code == 'x':
@@ -89,5 +91,8 @@ class ResultLog(object):
             self.log_outcome(report, code, longrepr)
 
     def pytest_internalerror(self, excrepr):
-        path = excrepr.reprcrash.path
+        reprcrash = getattr(excrepr, 'reprcrash', None)
+        path = getattr(reprcrash, "path", None)
+        if path is None:
+            path = "cwd:%s" % py.path.local()
         self.write_log_entry(path, '!', str(excrepr))

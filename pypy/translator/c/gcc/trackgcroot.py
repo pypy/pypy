@@ -847,6 +847,10 @@ class FunctionGcRootTracker(object):
                 if sources:
                     target, = sources
 
+        if target.endswith('@PLT'):
+            # In -fPIC mode, all functions calls have this suffix
+            target = target[:-4]
+
         if target in self.FUNCTIONS_NOT_RETURNING:
             return [InsnStop(target)]
         if self.format == 'mingw32' and target == '__alloca':
@@ -1137,7 +1141,7 @@ class ElfFunctionGcRootTracker64(FunctionGcRootTracker64):
     r_jump_rel_label = re.compile(r"\tj\w+\s+"+"(\d+)f"+"\s*$")
 
     r_unaryinsn_star= re.compile(r"\t[a-z]\w*\s+[*]("+OPERAND+")\s*$")
-    r_jmptable_item = re.compile(r"\t.quad\t"+LABEL+"(-\"[A-Za-z0-9$]+\")?\s*$")
+    r_jmptable_item = re.compile(r"\t.(?:quad|long)\t"+LABEL+"(-\"[A-Za-z0-9$]+\"|-"+LABEL+")?\s*$")
     r_jmptable_end  = re.compile(r"\t.text|\t.section\s+.text|\t\.align|"+LABEL)
 
     r_gcroot_marker = re.compile(r"\t/[*] GCROOT ("+LOCALVARFP+") [*]/")

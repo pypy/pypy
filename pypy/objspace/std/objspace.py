@@ -313,11 +313,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlist_str(self, list_s):
         return W_ListObject.newlist_str(self, list_s)
 
-    def newdict(self, module=False, instance=False, classofinstance=None,
+    def newdict(self, module=False, instance=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                classofinstance=classofinstance,
                 strdict=strdict)
 
     def newset(self):
@@ -439,6 +438,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             t = w_obj.getitems()
         elif isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.getitems_copy()
+        elif isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            t = w_obj.getitems()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -456,6 +457,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.listview_str()
         if isinstance(w_obj, W_StringObject):
             return w_obj.listview_str()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_str()
         return None
 
     def listview_int(self, w_obj):
@@ -465,7 +468,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.listview_int()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
             return w_obj.listview_int()
+        if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
+            return w_obj.getitems_int()
         return None
+
+    def _uses_list_iter(self, w_obj):
+        from pypy.objspace.descroperation import list_iter
+        return self.lookup(w_obj, '__iter__') is list_iter(self)
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):

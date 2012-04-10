@@ -44,3 +44,9 @@ def test_utcnow_microsecond():
     assert type(dt.microsecond) is int
 
     copy.copy(dt)
+
+def test_radd():
+    class X(object):
+        def __radd__(self, other):
+            return "radd"
+    assert datetime.date(10, 10, 10) + X() == "radd"

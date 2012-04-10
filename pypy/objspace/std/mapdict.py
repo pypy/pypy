@@ -703,7 +703,8 @@ def materialize_r_dict(space, obj, dict_w):
 
 class MapDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(
+            self, space, strategy, dictimplementation)
         w_obj = strategy.unerase(dictimplementation.dstorage)
         self.w_obj = w_obj
         self.orig_map = self.curr_map = w_obj._get_mapdict_map()

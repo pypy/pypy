@@ -1809,6 +1809,7 @@ def setannotation(func, annotation, specialize_as_constant=False):
         if specialize_as_constant:
             def specialize_call(self, hop):
                 llvalue = func(hop.args_s[0].const)
+                hop.exception_cannot_occur()
                 return hop.inputconst(lltype.typeOf(llvalue), llvalue)
         else:
             # specialize as direct_call
@@ -1825,6 +1826,7 @@ def setannotation(func, annotation, specialize_as_constant=False):
                     sm = ootype._static_meth(FUNCTYPE, _name=func.__name__, _callable=func)
                     cfunc = hop.inputconst(FUNCTYPE, sm)
                 args_v = hop.inputargs(*hop.args_r)
+                hop.exception_is_here()
                 return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
 

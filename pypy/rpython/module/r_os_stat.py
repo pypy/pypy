@@ -65,4 +65,5 @@ def specialize_make_stat_result(hop):
     r_StatResult = hop.rtyper.getrepr(ll_os_stat.s_StatResult)
     [v_result] = hop.inputargs(r_StatResult.r_tuple)
     # no-op conversion from r_StatResult.r_tuple to r_StatResult
+    hop.exception_cannot_occur()
     return v_result
