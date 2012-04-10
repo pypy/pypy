@@ -460,6 +460,15 @@ class TestUnicode(BaseApiTest):
 
     def test_count(self, space, api):
         w_str = space.wrap(u"abcabdab")
-        assert api.PyUnicode_Count(w_str, space.wrap("ab"), 0, -1) == 2
-        assert api.PyUnicode_Count(w_str, space.wrap("ab"), 0, 2) == 1
-        assert api.PyUnicode_Count(w_str, space.wrap("ab"), -5, 30) == 2
+        assert api.PyUnicode_Count(w_str, space.wrap(u"ab"), 0, -1) == 2
+        assert api.PyUnicode_Count(w_str, space.wrap(u"ab"), 0, 2) == 1
+        assert api.PyUnicode_Count(w_str, space.wrap(u"ab"), -5, 30) == 2
+
+    def test_find(self, space, api):
+        w_str = space.wrap(u"abcabcd")
+        assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 0, 7, 1) == 2
+        assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 3, 7, 1) == 5
+        assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 0, 7, -1) == 5
+        assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 3, 7, -1) == 5
+        assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 0, 4, -1) == 2
+        assert api.PyUnicode_Find(w_str, space.wrap(u"z"), 0, 4, -1) == -1

@@ -605,3 +605,20 @@ def PyUnicode_Count(space, w_str, w_substr, start, end):
     w_count = space.call_method(w_str, "count", w_substr,
                                 space.wrap(start), space.wrap(end))
     return space.int_w(w_count)
+
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
+             Py_ssize_t, error=-2)
+def PyUnicode_Find(space, w_str, w_substr, start, end, direction):
+    """Return the first position of substr in str*[*start:end] using
+    the given direction (direction == 1 means to do a forward search,
+    direction == -1 a backward search).  The return value is the index
+    of the first match; a value of -1 indicates that no match was
+    found, and -2 indicates that an error occurred and an exception
+    has been set."""
+    if rffi.cast(lltype.Signed, direction) > 0:
+        w_pos = space.call_method(w_str, "find", w_substr,
+                                  space.wrap(start), space.wrap(end))
+    else:
+        w_pos = space.call_method(w_str, "rfind", w_substr,
+                                  space.wrap(start), space.wrap(end))
+    return space.int_w(w_pos)

@@ -2287,19 +2287,6 @@ def PyUnicode_Translate(space, str, table, errors):
     use the default error handling."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
-def PyUnicode_Find(space, str, substr, start, end, direction):
-    """Return the first position of substr in str*[*start:end] using the given
-    direction (direction == 1 means to do a forward search, direction == -1 a
-    backward search).  The return value is the index of the first match; a value of
-    -1 indicates that no match was found, and -2 indicates that an error
-    occurred and an exception has been set.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyUnicode_RichCompare(space, left, right, op):
     """Rich compare two unicode strings and return one of the following:
