@@ -457,3 +457,9 @@ class TestUnicode(BaseApiTest):
         assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 5, -1) == 1
         self.raises(space, api, TypeError,
                     api.PyUnicode_Tailmatch, w_str, space.wrap(3), 2, 10, 1)
+
+    def test_count(self, space, api):
+        w_str = space.wrap(u"abcabdab")
+        assert api.PyUnicode_Count(w_str, space.wrap("ab"), 0, -1) == 2
+        assert api.PyUnicode_Count(w_str, space.wrap("ab"), 0, 2) == 1
+        assert api.PyUnicode_Count(w_str, space.wrap("ab"), -5, 30) == 2

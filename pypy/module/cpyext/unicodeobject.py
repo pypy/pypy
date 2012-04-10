@@ -598,3 +598,10 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     else:
         return stringtype.stringendswith(str, substr, start, end)
 
+@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
+def PyUnicode_Count(space, w_str, w_substr, start, end):
+    """Return the number of non-overlapping occurrences of substr in
+    str[start:end].  Return -1 if an error occurred."""
+    w_count = space.call_method(w_str, "count", w_substr,
+                                space.wrap(start), space.wrap(end))
+    return space.int_w(w_count)

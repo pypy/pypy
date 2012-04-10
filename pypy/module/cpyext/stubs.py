@@ -2300,16 +2300,6 @@ def PyUnicode_Find(space, str, substr, start, end, direction):
     systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
-def PyUnicode_Count(space, str, substr, start, end):
-    """Return the number of non-overlapping occurrences of substr in
-    str[start:end].  Return -1 if an error occurred.
-
-    This function returned an int type and used an int
-    type for start and end. This might require changes in your code for
-    properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyUnicode_RichCompare(space, left, right, op):
     """Rich compare two unicode strings and return one of the following:
