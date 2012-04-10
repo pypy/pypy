@@ -37,9 +37,6 @@ Release Steps
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
 
-* create source tarball/zip. Make sure that the directory inside them is
-  pypy-1.x and not pypy-pypy-revision
-
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
