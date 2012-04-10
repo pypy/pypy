@@ -622,3 +622,20 @@ def PyUnicode_Find(space, w_str, w_substr, start, end, direction):
         w_pos = space.call_method(w_str, "rfind", w_substr,
                                   space.wrap(start), space.wrap(end))
     return space.int_w(w_pos)
+
+@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
+def PyUnicode_Split(space, w_str, w_sep, maxsplit):
+    """Split a string giving a list of Unicode strings.  If sep is
+    NULL, splitting will be done at all whitespace substrings.
+    Otherwise, splits occur at the given separator.  At most maxsplit
+    splits will be done.  If negative, no limit is set.  Separators
+    are not included in the resulting list."""
+    return space.call_method(w_str, "split", w_sep, space.wrap(maxsplit))
+
+@cpython_api([PyObject, rffi.INT_real], PyObject)
+def PyUnicode_Splitlines(space, w_str, keepend):
+    """Split a Unicode string at line breaks, returning a list of
+    Unicode strings.  CRLF is considered to be one line break.  If
+    keepend is 0, the Line break characters are not included in the
+    resulting strings."""
+    return space.call_method(w_str, "splitlines", space.wrap(keepend))

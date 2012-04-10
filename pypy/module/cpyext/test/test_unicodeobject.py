@@ -472,3 +472,14 @@ class TestUnicode(BaseApiTest):
         assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 3, 7, -1) == 5
         assert api.PyUnicode_Find(w_str, space.wrap(u"c"), 0, 4, -1) == 2
         assert api.PyUnicode_Find(w_str, space.wrap(u"z"), 0, 4, -1) == -1
+
+    def test_split(self, space, api):
+        w_str = space.wrap(u"a\nb\nc\nd")
+        assert "[u'a', u'b', u'c', u'd']" == space.unwrap(space.repr(
+                api.PyUnicode_Split(w_str, space.wrap('\n'), -1)))
+        assert r"[u'a', u'b', u'c\nd']" == space.unwrap(space.repr(
+                api.PyUnicode_Split(w_str, space.wrap('\n'), 2)))
+        assert "[u'a', u'b', u'c', u'd']" == space.unwrap(space.repr(
+                api.PyUnicode_Splitlines(w_str, 0)))
+        assert r"[u'a\n', u'b\n', u'c\n', u'd']" == space.unwrap(space.repr(
+                api.PyUnicode_Splitlines(w_str, 1)))

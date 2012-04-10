@@ -2253,24 +2253,6 @@ def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Split(space, s, sep, maxsplit):
-    """Split a string giving a list of Unicode strings.  If sep is NULL, splitting
-    will be done at all whitespace substrings.  Otherwise, splits occur at the given
-    separator.  At most maxsplit splits will be done.  If negative, no limit is
-    set.  Separators are not included in the resulting list.
-
-    This function used an int type for maxsplit. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyUnicode_Splitlines(space, s, keepend):
-    """Split a Unicode string at line breaks, returning a list of Unicode strings.
-    CRLF is considered to be one line break.  If keepend is 0, the Line break
-    characters are not included in the resulting strings."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
