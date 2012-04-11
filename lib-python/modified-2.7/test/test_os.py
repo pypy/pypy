@@ -74,7 +74,8 @@ class TemporaryFileTests(unittest.TestCase):
         self.assertFalse(os.path.exists(name),
                     "file already exists for temporary file")
         # make sure we can create the file
-        open(name, "w")
+        fid = open(name, "w")
+        fid.close()
         self.files.append(name)
 
     def test_tempnam(self):
