@@ -655,6 +655,13 @@ class RawCDLL(object):
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name),
                        flags=flags, keepalive=self)
 
+    def getpointer_byordinal(self, name, argtypes, restype, 
+            flags=FUNCFLAG_CDECL):
+        # these arguments are already casted to proper ffi
+        # structures!
+        return FuncPtr(name, argtypes, restype, dlsym_byordinal(self.lib, name),
+                       flags=flags, keepalive=self)
+
     def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
         # these arguments are already casted to proper ffi
         # structures!
