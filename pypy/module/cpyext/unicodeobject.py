@@ -630,6 +630,8 @@ def PyUnicode_Split(space, w_str, w_sep, maxsplit):
     Otherwise, splits occur at the given separator.  At most maxsplit
     splits will be done.  If negative, no limit is set.  Separators
     are not included in the resulting list."""
+    if w_sep is None:
+        w_sep = space.w_None
     return space.call_method(w_str, "split", w_sep, space.wrap(maxsplit))
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)

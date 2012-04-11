@@ -479,6 +479,8 @@ class TestUnicode(BaseApiTest):
                 api.PyUnicode_Split(w_str, space.wrap('\n'), -1)))
         assert r"[u'a', u'b', u'c\nd']" == space.unwrap(space.repr(
                 api.PyUnicode_Split(w_str, space.wrap('\n'), 2)))
+        assert r"[u'a', u'b', u'c d']" == space.unwrap(space.repr(
+                api.PyUnicode_Split(space.wrap(u'a\nb  c d'), None, 2)))
         assert "[u'a', u'b', u'c', u'd']" == space.unwrap(space.repr(
                 api.PyUnicode_Splitlines(w_str, 0)))
         assert r"[u'a\n', u'b\n', u'c\n', u'd']" == space.unwrap(space.repr(
