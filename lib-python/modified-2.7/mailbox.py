@@ -1818,6 +1818,10 @@ class _ProxyFile:
         else:
             self._pos = pos
 
+    def __del__(self):
+        if hasattr(self,'_file'):
+            self.close()
+
     def read(self, size=None):
         """Read bytes."""
         return self._read(size, self._file.read)
