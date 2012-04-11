@@ -211,7 +211,7 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
-
+        import os
         t = rctime.time()
         tt = rctime.gmtime(t)
         for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
@@ -225,6 +225,14 @@ class AppTestRCTime:
         raises(TypeError, rctime.strftime, range(8))
         exp = '2000 01 01 00 00 00 1 001'
         assert rctime.strftime("%Y %m %d %H %M %S %w %j", (0,)*9) == exp
+
+        # Guard against invalid/non-supported format string
+        # so that Python don't crash (Windows crashes when the format string
+        # input to [w]strftime is not kosher.
+        if os.name =='nt':
+            raises(ValueError, rctime.strftime, '%f')
+        else:
+            assert rctime.strftime('%f') == '%f'
 
     def test_strftime_ext(self):
         import time as rctime
