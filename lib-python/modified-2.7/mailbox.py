@@ -1854,6 +1854,7 @@ class _ProxyFile:
 
     def close(self):
         """Close the file."""
+        self._file.close()
         del self._file
 
     def _read(self, size, read_method):

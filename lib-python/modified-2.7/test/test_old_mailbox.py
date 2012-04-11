@@ -7,6 +7,15 @@ import time
 import unittest
 from test import test_support
 
+def myunlink(path):
+    try:
+        os._unlink(path)
+    except:
+        import pdb;pdb.set_trace()
+
+#os._unlink = os.unlink
+#os.unlink = myunlink
+
 # cleanup earlier tests
 try:
     os.unlink(test_support.TESTFN)
@@ -35,11 +44,14 @@ class MaildirTestCase(unittest.TestCase):
         self._msgfiles = []
 
     def tearDown(self):
-        map(os.unlink, self._msgfiles)
-        os.rmdir(os.path.join(self._dir, "cur"))
-        os.rmdir(os.path.join(self._dir, "tmp"))
-        os.rmdir(os.path.join(self._dir, "new"))
-        os.rmdir(self._dir)
+        try:  
+            map(os.unlink, self._msgfiles)
+            os.rmdir(os.path.join(self._dir, "cur"))
+            os.rmdir(os.path.join(self._dir, "tmp"))
+            os.rmdir(os.path.join(self._dir, "new"))
+            os.rmdir(self._dir)
+        except:
+            import pdb;pdb.set_trace()
 
     def createMessage(self, dir, mbox=False):
         t = int(time.time() % 1000000)
@@ -73,7 +85,9 @@ class MaildirTestCase(unittest.TestCase):
         self.createMessage("cur")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         self.assertTrue(len(self.mbox) == 1)
-        self.assertTrue(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assertTrue(msg is not None)
+        msg.fp.close()
         self.assertTrue(self.mbox.next() is None)
         self.assertTrue(self.mbox.next() is None)
 
@@ -81,7 +95,9 @@ class MaildirTestCase(unittest.TestCase):
         self.createMessage("new")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         self.assertTrue(len(self.mbox) == 1)
-        self.assertTrue(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assertTrue(msg is not None)
+        msg.fp.close()
         self.assertTrue(self.mbox.next() is None)
         self.assertTrue(self.mbox.next() is None)
 
@@ -90,8 +106,12 @@ class MaildirTestCase(unittest.TestCase):
         self.createMessage("new")
         self.mbox = mailbox.Maildir(test_support.TESTFN)
         self.assertTrue(len(self.mbox) == 2)
-        self.assertTrue(self.mbox.next() is not None)
-        self.assertTrue(self.mbox.next() is not None)
+        msg = self.mbox.next()
+        self.assertTrue(msg is not None)
+        msg.fp.close()
+        msg = self.mbox.next()
+        self.assertTrue(msg is not None)
+        msg.fp.close()
         self.assertTrue(self.mbox.next() is None)
         self.assertTrue(self.mbox.next() is None)
 
