@@ -44,7 +44,7 @@ class TestBase(unittest.TestCase):
                 for name in dirs:
                     os.rmdir(os.path.join(path, name))
             os.rmdir(target)
-        elif os.path.exists(target):
+        elif os.pathtexists(target):
             os.remove(target)
 
 
@@ -137,6 +137,7 @@ class TestMailbox(TestBase):
         msg = self._box.get(key1)
         self.assertEqual(msg['from'], 'foo')
         self.assertEqual(msg.fp.read(), '1')
+        msg.fp.close()
 
     def test_getitem(self):
         # Retrieve message using __getitem__()
@@ -169,10 +170,12 @@ class TestMailbox(TestBase):
         # Get file representations of messages
         key0 = self._box.add(self._template % 0)
         key1 = self._box.add(_sample_message)
-        self.assertEqual(self._box.get_file(key0).read().replace(os.linesep, '\n'),
-                         self._template % 0)
-        self.assertEqual(self._box.get_file(key1).read().replace(os.linesep, '\n'),
-                         _sample_message)
+        msg = self._box.get_file(key0)
+        self.assertEqual(msg.read().replace(os.linesep, '\n'), self._template % 0)
+        msg.close()
+        msg = self._box.get_file(key1)
+        self.assertEqual(msg.read().replace(os.linesep, '\n'), _sample_message)
+        msg.close()
 
     def test_iterkeys(self):
         # Get keys using iterkeys()

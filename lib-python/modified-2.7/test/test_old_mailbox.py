@@ -7,15 +7,6 @@ import time
 import unittest
 from test import test_support
 
-def myunlink(path):
-    try:
-        os._unlink(path)
-    except:
-        import pdb;pdb.set_trace()
-
-#os._unlink = os.unlink
-#os.unlink = myunlink
-
 # cleanup earlier tests
 try:
     os.unlink(test_support.TESTFN)
@@ -44,14 +35,11 @@ class MaildirTestCase(unittest.TestCase):
         self._msgfiles = []
 
     def tearDown(self):
-        try:  
-            map(os.unlink, self._msgfiles)
-            os.rmdir(os.path.join(self._dir, "cur"))
-            os.rmdir(os.path.join(self._dir, "tmp"))
-            os.rmdir(os.path.join(self._dir, "new"))
-            os.rmdir(self._dir)
-        except:
-            import pdb;pdb.set_trace()
+        map(os.unlink, self._msgfiles)
+        os.rmdir(os.path.join(self._dir, "cur"))
+        os.rmdir(os.path.join(self._dir, "tmp"))
+        os.rmdir(os.path.join(self._dir, "new"))
+        os.rmdir(self._dir)
 
     def createMessage(self, dir, mbox=False):
         t = int(time.time() % 1000000)
