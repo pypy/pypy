@@ -21,7 +21,7 @@ def compile_shared():
     # Compile .c file
     include_dir = os.path.join(thisdir, '..', 'include')
     if sys.platform == 'win32':
-        ccflags = []
+        ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
         ccflags = ['-fPIC']
     res = compiler.compile([os.path.join(thisdir, '_ctypes_test.c')],
