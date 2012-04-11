@@ -15,7 +15,8 @@ from pypy.rlib.rarithmetic import intmask, is_valid_int
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
-        if key.startswith('SIG') and is_valid_int(value):
+        if (key.startswith('SIG') or key.startswith('CTRL_')) and \
+                is_valid_int(value):
             globals()[key] = value
             yield key
 
@@ -242,9 +243,12 @@ def pause(space):
     return space.w_None
 
 def check_signum(space, signum):
-    if signum < 1 or signum >= NSIG:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("signal number out of range"))
+    for sig in signal_names:
+        if signum == globals()[sig]:
+            return
+    raise OperationError(space.w_ValueError,
+                         space.wrap("invalid signal value"))
+
 
 @jit.dont_look_inside
 @unwrap_spec(signum=int)

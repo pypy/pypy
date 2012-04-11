@@ -8,6 +8,8 @@ class TestCheckSignals:
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             py.test.skip("requires os.kill() and os.getpid()")
+        if not hasattr(cpy_signal, 'SIGUSR1'):    
+            py.test.skip("requires SIGUSR1 in signal")
         cls.space = gettestobjspace(usemodules=['signal'])
 
     def test_checksignals(self):
@@ -45,64 +47,72 @@ class AppTestSignal:
     def test_exported_names(self):
         self.signal.__dict__   # crashes if the interpleveldefs are invalid
 
-    def test_usr1(self):
-        import types, posix
+    def test_basics(self):
+        import types, os
+        if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
+            skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
+        try:
+            signum = signal.USR1
+        except:
+            signum = signal.CTRL_BREAK_EVENT
 
         received = []
         def myhandler(signum, frame):
             assert isinstance(frame, types.FrameType)
             received.append(signum)
-        signal.signal(signal.SIGUSR1, myhandler)
+        signal.signal(signum, myhandler)
 
-        posix.kill(posix.getpid(), signal.SIGUSR1)
+        print dir(os)
+
+        os.kill(os.getpid(), signum)
         # the signal should be delivered to the handler immediately
-        assert received == [signal.SIGUSR1]
+        assert received == [signum]
         del received[:]
 
-        posix.kill(posix.getpid(), signal.SIGUSR1)
+        os.kill(os.getpid(), signum)
         # the signal should be delivered to the handler immediately
-        assert received == [signal.SIGUSR1]
+        assert received == [signum]
         del received[:]
 
-        signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+        signal.signal(signum, signal.SIG_IGN)
 
-        posix.kill(posix.getpid(), signal.SIGUSR1)
+        os.kill(os.getpid(), signum)
         for i in range(10000):
             # wait a bit - signal should not arrive
             if received:
                 break
         assert received == []
 
-        signal.signal(signal.SIGUSR1, signal.SIG_DFL)
+        signal.signal(signum, signal.SIG_DFL)
 
 
     def test_default_return(self):
         """
         Test that signal.signal returns SIG_DFL if that is the current handler.
         """
-        from signal import signal, SIGUSR1, SIG_DFL, SIG_IGN
+        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
 
         try:
             for handler in SIG_DFL, SIG_IGN, lambda *a: None:
-                signal(SIGUSR1, SIG_DFL)
-                assert signal(SIGUSR1, handler) == SIG_DFL
+                signal(SIGINT, SIG_DFL)
+                assert signal(SIGINT, handler) == SIG_DFL
         finally:
-            signal(SIGUSR1, SIG_DFL)
+            signal(SIGINT, SIG_DFL)
 
 
     def test_ignore_return(self):
         """
         Test that signal.signal returns SIG_IGN if that is the current handler.
         """
-        from signal import signal, SIGUSR1, SIG_DFL, SIG_IGN
+        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
 
         try:
             for handler in SIG_DFL, SIG_IGN, lambda *a: None:
-                signal(SIGUSR1, SIG_IGN)
-                assert signal(SIGUSR1, handler) == SIG_IGN
+                signal(SIGINT, SIG_IGN)
+                assert signal(SIGINT, handler) == SIG_IGN
         finally:
-            signal(SIGUSR1, SIG_DFL)
+            signal(SIGINT, SIG_DFL)
 
 
     def test_obj_return(self):
@@ -110,43 +120,47 @@ class AppTestSignal:
         Test that signal.signal returns a Python object if one is the current
         handler.
         """
-        from signal import signal, SIGUSR1, SIG_DFL, SIG_IGN
+        from signal import signal, SIGINT, SIG_DFL, SIG_IGN
         def installed(*a):
             pass
 
         try:
             for handler in SIG_DFL, SIG_IGN, lambda *a: None:
-                signal(SIGUSR1, installed)
-                assert signal(SIGUSR1, handler) is installed
+                signal(SIGINT, installed)
+                assert signal(SIGINT, handler) is installed
         finally:
-            signal(SIGUSR1, SIG_DFL)
+            signal(SIGINT, SIG_DFL)
 
 
     def test_getsignal(self):
         """
         Test that signal.getsignal returns the currently installed handler.
         """
-        from signal import getsignal, signal, SIGUSR1, SIG_DFL, SIG_IGN
+        from signal import getsignal, signal, SIGINT, SIG_DFL, SIG_IGN
 
         def handler(*a):
             pass
 
         try:
-            assert getsignal(SIGUSR1) == SIG_DFL
-            signal(SIGUSR1, SIG_DFL)
-            assert getsignal(SIGUSR1) == SIG_DFL
-            signal(SIGUSR1, SIG_IGN)
-            assert getsignal(SIGUSR1) == SIG_IGN
-            signal(SIGUSR1, handler)
-            assert getsignal(SIGUSR1) is handler
+            assert getsignal(SIGINT) == SIG_DFL
+            signal(SIGINT, SIG_DFL)
+            assert getsignal(SIGINT) == SIG_DFL
+            signal(SIGINT, SIG_IGN)
+            assert getsignal(SIGINT) == SIG_IGN
+            signal(SIGINT, handler)
+            assert getsignal(SIGINT) is handler
         finally:
-            signal(SIGUSR1, SIG_DFL)
+            signal(SIGINT, SIG_DFL)
 
         raises(ValueError, getsignal, 4444)
         raises(ValueError, signal, 4444, lambda *args: None)
+        raises(ValueError, signal, 7, lambda *args: None)
 
     def test_alarm(self):
-        from signal import alarm, signal, SIG_DFL, SIGALRM
+        try:
+            from signal import alarm, signal, SIG_DFL, SIGALRM
+        except:
+            skip('no alarm on this platform')
         import time
         l = []
         def handler(*a):
@@ -163,10 +177,13 @@ class AppTestSignal:
             signal(SIGALRM, SIG_DFL)
 
     def test_set_wakeup_fd(self):
-        import signal, posix, fcntl
+        try:
+            import signal, posix, fcntl
+        except ImportError:
+            skip('cannot import posix or fcntl')
         def myhandler(signum, frame):
             pass
-        signal.signal(signal.SIGUSR1, myhandler)
+        signal.signal(signal.SIGINT, myhandler)
         #
         def cannot_read():
             try:
@@ -187,17 +204,19 @@ class AppTestSignal:
         old_wakeup = signal.set_wakeup_fd(fd_write)
         try:
             cannot_read()
-            posix.kill(posix.getpid(), signal.SIGUSR1)
+            posix.kill(posix.getpid(), signal.SIGINT)
             res = posix.read(fd_read, 1)
             assert res == '\x00'
             cannot_read()
         finally:
             old_wakeup = signal.set_wakeup_fd(old_wakeup)
         #
-        signal.signal(signal.SIGUSR1, signal.SIG_DFL)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     def test_siginterrupt(self):
         import signal, os, time
+        if not hasattr(signal, 'siginterrupt'):
+            skip('non siginterrupt in signal')
         signum = signal.SIGUSR1
         def readpipe_is_not_interrupted():
             # from CPython's test_signal.readpipe_interrupted()
