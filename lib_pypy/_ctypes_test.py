@@ -34,6 +34,13 @@ def compile_shared():
     if sys.platform == 'win32':
         # XXX libpypy-c.lib is currently not installed automatically
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
+        if not os.path.exists(library + '.lib'):
+            #For a nightly build
+            library = os.path.join(thisdir, '..', 'include', 'python27')
+        if not os.path.exists(library + '.lib'):
+            # For a local translation
+            library = os.path.join(thisdir, '..', 'pypy', 'translator',
+                    'goal', 'libpypy-c')
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST'] # needed for VC10
     else:
