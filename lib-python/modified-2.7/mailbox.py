@@ -619,7 +619,9 @@ class _singlefileMailbox(Mailbox):
         """Write any pending changes to disk."""
         if not self._pending:
             return
-
+        if self._file.closed:
+            self._pending = False
+            return
         # In order to be writing anything out at all, self._toc must
         # already have been generated (and presumably has been modified
         # by adding or deleting an item).
@@ -747,6 +749,7 @@ class _mboxMMDF(_singlefileMailbox):
         """Return a file-like representation or raise a KeyError."""
         start, stop = self._lookup(key)
         self._file.seek(start)
+            
         if not from_:
             self._file.readline()
         return _PartialFile(self._file, self._file.tell(), stop)
