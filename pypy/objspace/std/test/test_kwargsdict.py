@@ -76,6 +76,17 @@ def test_limit_size():
     assert d.strategy is not strategy
     assert "StringDictStrategy" == d.strategy.__class__.__name__
 
+def test_keys_doesnt_wrap():
+    space = FakeSpace()
+    space.newlist = None
+    strategy = KwargsDictStrategy(space)
+    keys = ["a", "b", "c"]
+    values = [1, 2, 3]
+    storage = strategy.erase((keys, values))
+    d = W_DictMultiObject(space, strategy, storage)
+    w_l = d.w_keys() # does not crash
+
+
 from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 def get_impl(self):
     storage = strategy.erase(([], []))
