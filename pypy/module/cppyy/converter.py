@@ -338,6 +338,13 @@ class LongConverter(IntTypeConverterMixin, TypeConverter):
 class ConstLongRefConverter(LongConverter):
     _immutable_ = True
     libffitype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    typecode = 'r'
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(self.rffiptype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = self.typecode
 
 class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -378,6 +385,7 @@ class FloatConverter(FloatTypeConverterMixin, TypeConverter):
 class ConstFloatRefConverter(FloatConverter):
     _immutable_ = True
     libffitype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    typecode = 'F'
 
 class DoubleConverter(FloatTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -397,6 +405,7 @@ class DoubleConverter(FloatTypeConverterMixin, TypeConverter):
 class ConstDoubleRefConverter(DoubleConverter):
     _immutable_ = True
     libffitype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    typecode = 'D'
 
 
 class CStringConverter(TypeConverter):

@@ -167,15 +167,33 @@ static inline void fixup_args(G__param* libp) {
     for (int i = 0; i < libp->paran; ++i) {
         libp->para[i].ref = libp->para[i].obj.i;
         const char partype = libp->para[i].type;
-        if (partype == 'p')
+        switch (partype) {
+        case 'p': {
             libp->para[i].obj.i = (long)&libp->para[i].ref;
-        else if (partype == 'r')
+            break;
+        }
+        case 'r': {
             libp->para[i].ref = (long)&libp->para[i].obj.i;
-        else if (partype == 'f') {
+            break;
+        }
+        case 'f': {
             assert(sizeof(float) <= sizeof(long));
             long val = libp->para[i].obj.i;
             void* pval = (void*)&val;
             libp->para[i].obj.d = *(float*)pval;
+            break;
+        }
+        case 'F': {
+            libp->para[i].ref = (long)&libp->para[i].obj.i;
+            libp->para[i].type = 'f';
+            break;
+        }
+        case 'D': {
+            libp->para[i].ref = (long)&libp->para[i].obj.i;
+            libp->para[i].type = 'd';
+            break;
+
+        }
         }
     }
 }
