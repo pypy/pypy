@@ -158,6 +158,12 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
 
+Note that this difference might show up indirectly in some cases.  For
+example, a generator left pending in the middle is --- again ---
+garbage-collected later in PyPy than in CPython.  You can see the
+difference if the ``yield`` keyword it is suspended at is itself
+enclosed in a ``try:`` or a ``with:`` block.
+
 Using the default GC called ``minimark``, the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
 are not real addresses (because an object can move around several times)
