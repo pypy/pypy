@@ -152,8 +152,12 @@ class AppTestDATATYPES:
             assert eval('c.get_%s()' % names[i]) == i
 
         for i in range(len(names)):
-            exec 'c.set_%s = %d' % (names[i],2*i)
-            assert eval('c.m_%s' % names[i]) == i
+            exec 'c.set_%s(%d)' % (names[i],2*i)
+            assert eval('c.m_%s' % names[i]) == 2*i
+
+        for i in range(len(names)):
+            exec 'c.set_%s_c(%d)' % (names[i],3*i)
+            assert eval('c.m_%s' % names[i]) == 3*i
 
         # float types through functions
         c.set_float( 0.123 );  assert round(c.get_float()  - 0.123, 5) == 0
@@ -161,9 +165,11 @@ class AppTestDATATYPES:
 
         # float types through data members
         c.m_float = 0.123;     assert round(c.get_float()  - 0.123, 5) == 0
-        c.set_float( 0.234 );  assert round(c.m_float      - 0.234, 5) == 0
-        c.m_double = 0.456;    assert round(c.get_double() - 0.456, 8) == 0
-        c.set_double( 0.567 ); assert round(c.m_double     - 0.567, 8) == 0
+        c.set_float(0.234);    assert round(c.m_float      - 0.234, 5) == 0
+        c.set_float_c(0.456);  assert round(c.m_float      - 0.456, 5) == 0
+        c.m_double = 0.678;    assert round(c.get_double() - 0.678, 8) == 0
+        c.set_double(0.890);   assert round(c.m_double     - 0.890, 8) == 0
+        c.set_double_c(0.012); assert round(c.m_double     - 0.012, 8) == 0
 
         # arrays; there will be pointer copies, so destroy the current ones
         c.destroy_arrays()

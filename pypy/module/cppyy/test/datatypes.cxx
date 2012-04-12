@@ -114,18 +114,26 @@ cppyy_test_pod& cppyy_test_data::get_pod_ref() { return m_pod; }
 cppyy_test_pod*& cppyy_test_data::get_pod_ptrref() { return m_ppod; }
 
 //- setters -----------------------------------------------------------------
-void cppyy_test_data::set_bool(bool b)              { m_bool   = b; }
-void cppyy_test_data::set_char(char c)              { m_char   = c; }
-void cppyy_test_data::set_uchar(unsigned char uc)   { m_uchar  = uc; }
-void cppyy_test_data::set_short(short s)            { m_short  = s; }
-void cppyy_test_data::set_ushort(unsigned short us) { m_ushort = us; }
-void cppyy_test_data::set_int(int i)                { m_int    = i; }
-void cppyy_test_data::set_uint(unsigned int ui)     { m_uint   = ui; }
-void cppyy_test_data::set_long(long l)              { m_long   = l; }
-void cppyy_test_data::set_ulong(unsigned long ul)   { m_ulong  = ul; }
-void cppyy_test_data::set_float(float f)            { m_float  = f; }
-void cppyy_test_data::set_double(double d)          { m_double = d; }
-void cppyy_test_data::set_enum(what w)              { m_enum   = w; }
+void cppyy_test_data::set_bool(bool b)                       { m_bool   = b; }
+void cppyy_test_data::set_char(char c)                       { m_char   = c; }
+void cppyy_test_data::set_uchar(unsigned char uc)            { m_uchar  = uc; }
+void cppyy_test_data::set_short(short s)                     { m_short  = s; }
+void cppyy_test_data::set_short_c(const short& s)            { m_short  = s; }
+void cppyy_test_data::set_ushort(unsigned short us)          { m_ushort = us; }
+void cppyy_test_data::set_ushort_c(const unsigned short& us) { m_ushort = us; }
+void cppyy_test_data::set_int(int i)                         { m_int    = i; }
+void cppyy_test_data::set_int_c(const int& i)                { m_int    = i; }
+void cppyy_test_data::set_uint(unsigned int ui)              { m_uint   = ui; }
+void cppyy_test_data::set_uint_c(const unsigned int& ui)     { m_uint   = ui; }
+void cppyy_test_data::set_long(long l)                       { m_long   = l; }
+void cppyy_test_data::set_long_c(const long& l)              { m_long   = l; }
+void cppyy_test_data::set_ulong(unsigned long ul)            { m_ulong  = ul; }
+void cppyy_test_data::set_ulong_c(const unsigned long& ul)   { m_ulong  = ul; }
+void cppyy_test_data::set_float(float f)                     { m_float  = f; }
+void cppyy_test_data::set_float_c(const float& f)            { m_float  = f; }
+void cppyy_test_data::set_double(double d)                   { m_double = d; }
+void cppyy_test_data::set_double_c(const double& d)          { m_double = d; }
+void cppyy_test_data::set_enum(what w)                       { m_enum   = w; }
 
 char           cppyy_test_data::s_char   = 's';
 unsigned char  cppyy_test_data::s_uchar  = 'u';

@@ -46,17 +46,9 @@ endif
 
 ifeq ($(CINT),)
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
-#stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
-#	$(genreflex) stltypes.h --selection=stltypes.xml
-#	g++ -o $@ stltypes_rflx.cpp stltypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
-
 std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
 	$(genreflex) std_streams.h --selection=std_streams.xml
 	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -lReflex $(cppflags) $(cppflags2)
-
-operatorsDict.so: operators.cxx operators.h operators.xml
-	$(genreflex) operators.h --selection=operators.xml
-	g++ -o $@ operators_rflx.cpp operators.cxx -shared -lReflex $(cppflags) $(cppflags2)
 endif
 
 .PHONY: clean

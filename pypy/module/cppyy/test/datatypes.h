@@ -62,13 +62,21 @@ public:
     void set_char(char c);
     void set_uchar(unsigned char uc);
     void set_short(short s);
+    void set_short_c(const short& s);
     void set_ushort(unsigned short us);
+    void set_ushort_c(const unsigned short& us);
     void set_int(int i);
+    void set_int_c(const int& i);
     void set_uint(unsigned int ui);
+    void set_uint_c(const unsigned int& ui);
     void set_long(long l);
+    void set_long_c(const long& l);
     void set_ulong(unsigned long ul);
+    void set_ulong_c(const unsigned long& ul);
     void set_float(float f);
+    void set_float_c(const float& f);
     void set_double(double d);
+    void set_double_c(const double& d);
     void set_enum(what w);
 
 public:
