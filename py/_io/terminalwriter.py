@@ -105,6 +105,8 @@ class TerminalWriter(object):
                      Blue=44, Purple=45, Cyan=46, White=47,
                      bold=1, light=2, blink=5, invert=7)
 
+    _newline = None   # the last line printed
+
     # XXX deprecate stringio argument
     def __init__(self, file=None, stringio=False, encoding=None):
         if file is None:
@@ -112,11 +114,9 @@ class TerminalWriter(object):
                 self.stringio = file = py.io.TextIO()
             else:
                 file = py.std.sys.stdout
-                if hasattr(file, 'encoding'):
-                    encoding = file.encoding
         elif hasattr(file, '__call__'):
             file = WriteFile(file, encoding=encoding)
-        self.encoding = encoding
+        self.encoding = encoding or getattr(file, 'encoding', "utf-8")
         self._file = file
         self.fullwidth = get_terminal_width()
         self.hasmarkup = should_do_markup(file)
@@ -182,8 +182,31 @@ class TerminalWriter(object):
         return s
 
     def line(self, s='', **kw):
+        if self._newline == False:
+            self.write("\n")
         self.write(s, **kw)
         self.write('\n')
+        self._newline = True
+
+    def reline(self, line, **opts):
+        if not self.hasmarkup:
+            raise ValueError("cannot use rewrite-line without terminal")
+        if not self._newline:
+            self.write("\r")
+        self.write(line, **opts)
+        # see if we need to fill up some spaces at the end
+        # xxx have a more exact lastlinelen working from self.write?
+        lenline = len(line)
+        try:
+            lastlen = self._lastlinelen
+        except AttributeError:
+            pass
+        else:
+            if lenline < lastlen:
+                self.write(" " * (lastlen - lenline + 1))
+        self._lastlinelen = lenline
+        self._newline = False
+
 
 class Win32ConsoleWriter(TerminalWriter):
     def write(self, s, **kw):
@@ -280,10 +303,10 @@ if win32_and_ctypes:
     SetConsoleTextAttribute = ctypes.windll.kernel32.SetConsoleTextAttribute
     SetConsoleTextAttribute.argtypes = [wintypes.HANDLE, wintypes.WORD]
     SetConsoleTextAttribute.restype = wintypes.BOOL
-        
+
     _GetConsoleScreenBufferInfo = \
         ctypes.windll.kernel32.GetConsoleScreenBufferInfo
-    _GetConsoleScreenBufferInfo.argtypes = [wintypes.HANDLE, 
+    _GetConsoleScreenBufferInfo.argtypes = [wintypes.HANDLE,
                                 ctypes.POINTER(CONSOLE_SCREEN_BUFFER_INFO)]
     _GetConsoleScreenBufferInfo.restype = wintypes.BOOL
     def GetConsoleInfo(handle):

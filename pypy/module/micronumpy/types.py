@@ -668,6 +668,13 @@ class Float(Primitive):
         return math.ceil(v)
 
     @simple_unary_op
+    def trunc(self, v):
+        if v < 0:
+            return math.ceil(v)
+        else:
+            return math.floor(v)
+
+    @simple_unary_op
     def exp(self, v):
         try:
             return math.exp(v)

@@ -65,14 +65,19 @@ class AppTestSTLVECTOR:
         #-----
         v = tv1()
         for i in range(self.N):
+            print i, 'before'
             v.push_back(i)
+            print i, 'after'
             assert v.size() == i+1
             assert v.at(i) == i
             assert v[i] == i
 
+        return
+
         assert v.size() == self.N
         assert len(v) == self.N
         v.destruct()
+
 
     def test02_user_type_vector_type(self):
         """Test access to an std::vector<just_a_class>"""
