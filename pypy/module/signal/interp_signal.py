@@ -244,7 +244,6 @@ def pause(space):
     return space.w_None
 
 def check_signum(space, signum):
-    xxx
     for sig in signal_values:
         if signum ==sig:
             return
