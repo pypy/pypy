@@ -119,7 +119,8 @@ class MmapTests(unittest.TestCase):
     def test_access_parameter(self):
         # Test for "access" keyword parameter
         mapsize = 10
-        open(TESTFN, "wb").write("a"*mapsize)
+        with open(TESTFN, "wb") as f:
+            f.write("a"*mapsize)
         f = open(TESTFN, "rb")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_READ)
         self.assertEqual(m[:], 'a'*mapsize, "Readonly memory map data incorrect.")
@@ -168,9 +169,11 @@ class MmapTests(unittest.TestCase):
         else:
             self.fail("Able to resize readonly memory map")
         f.close()
+        m.close()
         del m, f
-        self.assertEqual(open(TESTFN, "rb").read(), 'a'*mapsize,
-               "Readonly memory map data file was modified")
+        with open(TESTFN, "rb") as f:
+            self.assertEqual(f.read(), 'a'*mapsize,
+                "Readonly memory map data file was modified")
 
         # Opening mmap with size too big
         import sys
@@ -220,11 +223,13 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m[:], 'd' * mapsize,
                "Copy-on-write memory map data not written correctly.")
         m.flush()
-        self.assertEqual(open(TESTFN, "rb").read(), 'c'*mapsize,
-               "Copy-on-write test data file should not be modified.")
+        f.close()
+        with open(TESTFN, "rb") as f:
+            self.assertEqual(f.read(), 'c'*mapsize,
+                "Copy-on-write test data file should not be modified.")
         # Ensuring copy-on-write maps cannot be resized
         self.assertRaises(TypeError, m.resize, 2*mapsize)
-        f.close()
+        m.close()
         del m, f
 
         # Ensuring invalid access parameter raises exception
@@ -287,6 +292,7 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.find('one', 1), 8)
         self.assertEqual(m.find('one', 1, -1), 8)
         self.assertEqual(m.find('one', 1, -2), -1)
+        m.close()
 
 
     def test_rfind(self):
@@ -305,6 +311,7 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.rfind('one', 0, -2), 0)
         self.assertEqual(m.rfind('one', 1, -1), 8)
         self.assertEqual(m.rfind('one', 1, -2), -1)
+        m.close()
 
 
     def test_double_close(self):
@@ -533,7 +540,8 @@ class MmapTests(unittest.TestCase):
         if not hasattr(mmap, 'PROT_READ'):
             return
         mapsize = 10
-        open(TESTFN, "wb").write("a"*mapsize)
+        with open(TESTFN, "wb") as f:
+            f.write("a"*mapsize)
         f = open(TESTFN, "rb")
         m = mmap.mmap(f.fileno(), mapsize, prot=mmap.PROT_READ)
         self.assertRaises(TypeError, m.write, "foo")
@@ -545,7 +553,8 @@ class MmapTests(unittest.TestCase):
 
     def test_io_methods(self):
         data = "0123456789"
-        open(TESTFN, "wb").write("x"*len(data))
+        with open(TESTFN, "wb") as f:
+            f.write("x"*len(data))
         f = open(TESTFN, "r+b")
         m = mmap.mmap(f.fileno(), len(data))
         f.close()
@@ -574,6 +583,7 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m[:], "012bar6789")
         m.seek(8)
         self.assertRaises(ValueError, m.write, "bar")
+        m.close()
 
     if os.name == 'nt':
         def test_tagname(self):
@@ -611,7 +621,8 @@ class MmapTests(unittest.TestCase):
             m.close()
 
             # Should not crash (Issue 5385)
-            open(TESTFN, "wb").write("x"*10)
+            with open(TESTFN, "wb") as f:
+                f.write("x"*10)
             f = open(TESTFN, "r+b")
             m = mmap.mmap(f.fileno(), 0)
             f.close()

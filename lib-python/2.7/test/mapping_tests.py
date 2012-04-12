@@ -531,7 +531,10 @@ class TestMappingProtocol(BasicTestMappingProtocol):
                     self.assertEqual(va, int(ka))
                     kb, vb = tb = b.popitem()
                     self.assertEqual(vb, int(kb))
-                    self.assertTrue(not(copymode < 0 and ta != tb))
+                    if copymode < 0 and test_support.check_impl_detail():
+                        # popitem() is not guaranteed to be deterministic on
+                        # all implementations
+                        self.assertEqual(ta, tb)
                 self.assertTrue(not a)
                 self.assertTrue(not b)
 

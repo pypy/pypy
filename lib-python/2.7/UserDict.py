@@ -1,5 +1,10 @@
 """A more or less complete user-defined wrapper around dictionary objects."""
 
+# XXX This is a bit of a hack (as usual :-))
+# the actual content of the file is not changed, but we put it here to make
+# virtualenv happy (because its internal logic expects at least one of the
+# REQUIRED_MODULES to be in modified-*)
+
 class UserDict:
     def __init__(self, dict=None, **kwargs):
         self.data = {}
@@ -80,8 +85,12 @@ class IterableUserDict(UserDict):
     def __iter__(self):
         return iter(self.data)
 
-import _abcoll
-_abcoll.MutableMapping.register(IterableUserDict)
+try:
+    import _abcoll
+except ImportError:
+    pass    # e.g. no '_weakref' module on this pypy
+else:
+    _abcoll.MutableMapping.register(IterableUserDict)
 
 
 class DictMixin:

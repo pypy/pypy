@@ -26,6 +26,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
+    'pypy': {
+        'stdlib': '{base}/lib-python',
+        'platstdlib': '{base}/lib-python',
+        'purelib': '{base}/lib-python',
+        'platlib': '{base}/lib-python',
+        'include': '{base}/include',
+        'platinclude': '{base}/include',
+        'scripts': '{base}/bin',
+        'data'   : '{base}',
+        },
     'nt': {
         'stdlib': '{base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -158,7 +168,9 @@ def _expand_vars(scheme, vars):
     return res
 
 def _get_default_scheme():
-    if os.name == 'posix':
+    if '__pypy__' in sys.builtin_module_names:
+        return 'pypy'
+    elif os.name == 'posix':
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
     return os.name
@@ -182,126 +194,9 @@ def _getuserbase():
     return env_base if env_base else joinuser("~", ".local")
 
 
-def _parse_makefile(filename, vars=None):
-    """Parse a Makefile-style file.
-
-    A dictionary containing name/value pairs is returned.  If an
-    optional dictionary is passed in as the second argument, it is
-    used instead of a new dictionary.
-    """
-    import re
-    # Regexes needed for parsing Makefile (and similar syntaxes,
-    # like old-style Setup files).
-    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
-    _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
-    _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
-
-    if vars is None:
-        vars = {}
-    done = {}
-    notdone = {}
-
-    with open(filename) as f:
-        lines = f.readlines()
-
-    for line in lines:
-        if line.startswith('#') or line.strip() == '':
-            continue
-        m = _variable_rx.match(line)
-        if m:
-            n, v = m.group(1, 2)
-            v = v.strip()
-            # `$$' is a literal `$' in make
-            tmpv = v.replace('$$', '')
-
-            if "$" in tmpv:
-                notdone[n] = v
-            else:
-                try:
-                    v = int(v)
-                except ValueError:
-                    # insert literal `$'
-                    done[n] = v.replace('$$', '$')
-                else:
-                    done[n] = v
-
-    # do variable interpolation here
-    while notdone:
-        for name in notdone.keys():
-            value = notdone[name]
-            m = _findvar1_rx.search(value) or _findvar2_rx.search(value)
-            if m:
-                n = m.group(1)
-                found = True
-                if n in done:
-                    item = str(done[n])
-                elif n in notdone:
-                    # get it on a subsequent round
-                    found = False
-                elif n in os.environ:
-                    # do it like make: fall back to environment
-                    item = os.environ[n]
-                else:
-                    done[n] = item = ""
-                if found:
-                    after = value[m.end():]
-                    value = value[:m.start()] + item + after
-                    if "$" in after:
-                        notdone[name] = value
-                    else:
-                        try: value = int(value)
-                        except ValueError:
-                            done[name] = value.strip()
-                        else:
-                            done[name] = value
-                        del notdone[name]
-            else:
-                # bogus variable reference; just drop it since we can't deal
-                del notdone[name]
-    # strip spurious spaces
-    for k, v in done.items():
-        if isinstance(v, str):
-            done[k] = v.strip()
-
-    # save the results in the global dictionary
-    vars.update(done)
-    return vars
-
-
-def _get_makefile_filename():
-    if _PYTHON_BUILD:
-        return os.path.join(_PROJECT_BASE, "Makefile")
-    return os.path.join(get_path('platstdlib'), "config", "Makefile")
-
-
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # load the installed Makefile:
-    makefile = _get_makefile_filename()
-    try:
-        _parse_makefile(makefile, vars)
-    except IOError, e:
-        msg = "invalid Python installation: unable to open %s" % makefile
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise IOError(msg)
-
-    # load the installed pyconfig.h:
-    config_h = get_config_h_filename()
-    try:
-        with open(config_h) as f:
-            parse_config_h(f, vars)
-    except IOError, e:
-        msg = "invalid Python installation: unable to open %s" % config_h
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise IOError(msg)
-
-    # On AIX, there are wrong paths to the linker scripts in the Makefile
-    # -- these paths are relative to the Python source, but when installed
-    # the scripts are in another directory.
-    if _PYTHON_BUILD:
-        vars['LDSHARED'] = vars['BLDSHARED']
+    return
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
@@ -474,10 +369,11 @@ def get_config_vars(*args):
                         # patched up as well.
                         'CFLAGS', 'PY_CFLAGS', 'BLDSHARED'):
 
-                        flags = _CONFIG_VARS[key]
-                        flags = re.sub('-arch\s+\w+\s', ' ', flags)
-                        flags = flags + ' ' + arch
-                        _CONFIG_VARS[key] = flags
+                        if key in _CONFIG_VARS: 
+                            flags = _CONFIG_VARS[key]
+                            flags = re.sub('-arch\s+\w+\s', ' ', flags)
+                            flags = flags + ' ' + arch
+                            _CONFIG_VARS[key] = flags
 
                 # If we're on OSX 10.5 or later and the user tries to
                 # compiles an extension using an SDK that is not present

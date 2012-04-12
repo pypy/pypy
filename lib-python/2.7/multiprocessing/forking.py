@@ -73,15 +73,12 @@ def _reduce_method(m):
         return getattr, (m.im_self, m.im_func.func_name)
 ForkingPickler.register(type(ForkingPickler.save), _reduce_method)
 
-def _reduce_method_descriptor(m):
-    return getattr, (m.__objclass__, m.__name__)
-ForkingPickler.register(type(list.append), _reduce_method_descriptor)
-ForkingPickler.register(type(int.__add__), _reduce_method_descriptor)
-
-#def _reduce_builtin_function_or_method(m):
-#    return getattr, (m.__self__, m.__name__)
-#ForkingPickler.register(type(list().append), _reduce_builtin_function_or_method)
-#ForkingPickler.register(type(int().__add__), _reduce_builtin_function_or_method)
+if type(list.append) is not type(ForkingPickler.save):
+    # Some python implementations have unbound methods even for builtin types
+    def _reduce_method_descriptor(m):
+        return getattr, (m.__objclass__, m.__name__)
+    ForkingPickler.register(type(list.append), _reduce_method_descriptor)
+    ForkingPickler.register(type(int.__add__), _reduce_method_descriptor)
 
 try:
     from functools import partial

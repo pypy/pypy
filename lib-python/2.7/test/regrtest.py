@@ -680,8 +680,13 @@ NOTTESTS = {
 
 def findtests(testdir=None, stdtests=STDTESTS, nottests=NOTTESTS):
     """Return a list of all applicable test modules."""
-    testdir = findtestdir(testdir)
-    names = os.listdir(testdir)
+    if testdir:
+        testdirs = [testdir]
+    else:
+        testdirs = findtestdirs()
+    names = {}
+    for testdir in testdirs:
+        names.update(dict.fromkeys(os.listdir(testdir)))
     tests = []
     others = set(stdtests) | nottests
     for name in names:
@@ -1080,8 +1085,19 @@ def dash_R_cleanup(fs, ps, pic, zdc, abcs):
     # Collect cyclic trash.
     gc.collect()
 
-def findtestdir(path=None):
-    return path or os.path.dirname(__file__) or os.curdir
+def findtestdirs():
+    # XXX hacking: returns a list of both the '2.7.0/test' and the
+    # 'modified-2.7.0/test' directories, as full paths.
+    testdir = os.path.abspath(os.path.dirname(__file__) or os.curdir)
+    assert os.path.basename(testdir).lower() == 'test'
+    maindir = os.path.dirname(testdir)
+    libpythondir = os.path.dirname(maindir)
+    maindirname = os.path.basename(maindir).lower()
+    if maindirname.startswith('modified-'):
+        maindirname = maindirname[len('modified-'):]
+    testdir1 = os.path.join(libpythondir, maindirname, 'test')
+    testdir2 = os.path.join(libpythondir, 'modified-'+maindirname, 'test')
+    return [testdir1, testdir2]
 
 def removepy(names):
     if not names:
@@ -1388,7 +1404,26 @@ _expectations = {
         test_zipimport
         test_zlib
         """,
-    'openbsd3':
+    'openbsd4':
+        """
+        test_ascii_formatd
+        test_bsddb
+        test_bsddb3
+        test_ctypes
+        test_dl
+        test_epoll
+        test_gdbm
+        test_locale
+        test_normalization
+        test_ossaudiodev
+        test_pep277
+        test_tcl
+        test_tk
+        test_ttk_guionly
+        test_ttk_textonly
+        test_multiprocessing
+        """,
+    'openbsd5':
         """
         test_ascii_formatd
         test_bsddb
@@ -1503,13 +1538,7 @@ class _ExpectedSkips:
         return self.expected
 
 if __name__ == '__main__':
-    # findtestdir() gets the dirname out of __file__, so we have to make it
-    # absolute before changing the working directory.
-    # For example __file__ may be relative when running trace or profile.
-    # See issue #9323.
-    __file__ = os.path.abspath(__file__)
-
-    # sanity check
+    # Simplification for findtestdir().
     assert __file__ == os.path.abspath(sys.argv[0])
 
     # When tests are run from the Python build directory, it is best practice

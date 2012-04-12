@@ -16,11 +16,11 @@ mswindows = (sys.platform == "win32")
 # Depends on the following external programs: Python
 #
 
-if mswindows:
-    SETBINARY = ('import msvcrt; msvcrt.setmode(sys.stdout.fileno(), '
-                                                'os.O_BINARY);')
-else:
-    SETBINARY = ''
+#if mswindows:
+#    SETBINARY = ('import msvcrt; msvcrt.setmode(sys.stdout.fileno(), '
+#                                                'os.O_BINARY);')
+#else:
+#    SETBINARY = ''
 
 
 try:
@@ -420,8 +420,9 @@ class ProcessTestCase(BaseTestCase):
         self.assertStderrEqual(stderr, "")
 
     def test_universal_newlines(self):
-        p = subprocess.Popen([sys.executable, "-c",
-                          'import sys,os;' + SETBINARY +
+        # NB. replaced SETBINARY with the -u flag
+        p = subprocess.Popen([sys.executable, "-u", "-c",
+                          'import sys,os;' + #SETBINARY +
                           'sys.stdout.write("line1\\n");'
                           'sys.stdout.flush();'
                           'sys.stdout.write("line2\\r");'
@@ -448,8 +449,9 @@ class ProcessTestCase(BaseTestCase):
 
     def test_universal_newlines_communicate(self):
         # universal newlines through communicate()
-        p = subprocess.Popen([sys.executable, "-c",
-                          'import sys,os;' + SETBINARY +
+        # NB. replaced SETBINARY with the -u flag
+        p = subprocess.Popen([sys.executable, "-u", "-c",
+                          'import sys,os;' + #SETBINARY +
                           'sys.stdout.write("line1\\n");'
                           'sys.stdout.flush();'
                           'sys.stdout.write("line2\\r");'

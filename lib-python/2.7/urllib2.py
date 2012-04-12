@@ -1171,6 +1171,7 @@ class AbstractHTTPHandler(BaseHandler):
             except TypeError: #buffering kw not supported
                 r = h.getresponse()
         except socket.error, err: # XXX what error?
+            h.close()
             raise URLError(err)
 
         # Pick apart the HTTPResponse object to get the addinfourl

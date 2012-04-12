@@ -15,6 +15,10 @@ class ListTest(list_tests.CommonTest):
         self.assertEqual(list(''), [])
         self.assertEqual(list('spam'), ['s', 'p', 'a', 'm'])
 
+    # the following test also works with pypy, but eats all your address
+    # space's RAM before raising and takes too long.
+    @test_support.impl_detail("eats all your RAM before working", pypy=False)
+    def test_segfault_1(self):
         if sys.maxsize == 0x7fffffff:
             # This test can currently only work on 32-bit machines.
             # XXX If/when PySequence_Length() returns a ssize_t, it should be
@@ -32,6 +36,7 @@ class ListTest(list_tests.CommonTest):
             #     http://sources.redhat.com/ml/newlib/2002/msg00369.html
             self.assertRaises(MemoryError, list, xrange(sys.maxint // 2))
 
+    def test_segfault_2(self):
         # This code used to segfault in Py2.4a3
         x = []
         x.extend(-y for y in x)
