@@ -378,7 +378,7 @@ class Regalloc(object):
         return self.assembler.regalloc_emit_llong(op, args, fcond, self)
     
     def perform_math(self, op, args, fcond):
-	return self.assembler.regalloc_emit_math(op, args, self, fcond)
+        return self.assembler.regalloc_emit_math(op, args, self, fcond)
 
     def force_spill_var(self, var):
         if var.type == FLOAT:
@@ -548,16 +548,16 @@ class Regalloc(object):
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex in (EffectInfo.OS_LLONG_ADD,
-            		    EffectInfo.OS_LLONG_SUB,
-            		    EffectInfo.OS_LLONG_AND,
-            		    EffectInfo.OS_LLONG_OR,
-            		    EffectInfo.OS_LLONG_XOR):
+                            EffectInfo.OS_LLONG_SUB,
+                            EffectInfo.OS_LLONG_AND,
+                            EffectInfo.OS_LLONG_OR,
+                            EffectInfo.OS_LLONG_XOR):
                 args = self._prepare_llong_binop_xx(op, fcond)
-		self.perform_llong(op, args, fcond)
+                self.perform_llong(op, args, fcond)
                 return
             if oopspecindex == EffectInfo.OS_LLONG_TO_INT:
                 args = self._prepare_llong_to_int(op, fcond)
-		self.perform_llong(op, args, fcond)
+                self.perform_llong(op, args, fcond)
                 return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 args = self.prepare_op_math_sqrt(op, fcond)
@@ -587,9 +587,9 @@ class Regalloc(object):
         return self._prepare_call(op)
 
     def _prepare_llong_binop_xx(self, op, fcond):
-	# arg 0 is the address of the function
+        # arg 0 is the address of the function
         loc0 = self._ensure_value_is_boxed(op.getarg(1))
-	loc1 = self._ensure_value_is_boxed(op.getarg(2))
+        loc1 = self._ensure_value_is_boxed(op.getarg(2))
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.vfprm.force_allocate_reg(op.result)
@@ -1205,7 +1205,7 @@ class Regalloc(object):
         return []
 
     prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
-			    name='prepare_op_convert_float_bytes_to_longlong')
+                              name='prepare_op_convert_float_bytes_to_longlong')
 
     def prepare_op_read_timestamp(self, op, fcond):
         loc = self.get_scratch_reg(INT)

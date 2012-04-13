@@ -929,7 +929,7 @@ class AssemblerARM(ResOpAssembler):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         asm_llong_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
-	return fcond 
+        return fcond 
 
     def regalloc_emit_math(self, op, arglocs, fcond, regalloc):
         effectinfo = op.getdescr().get_extra_info()

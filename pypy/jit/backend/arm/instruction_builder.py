@@ -365,10 +365,10 @@ def define_simd_instructions_3regs_func(name, table):
         size = 0x3
         n |= size << 20
     def f(self, dd, dn, dm):
-	N = (dn >> 4) & 0x1
-	M = (dm >> 4) & 0x1
-	D = (dd >> 4) & 0x1
-	Q = 0 # we want doubleword regs
+        N = (dn >> 4) & 0x1
+        M = (dm >> 4) & 0x1
+        D = (dd >> 4) & 0x1
+        Q = 0 # we want doubleword regs
         instr = (n
                 | D << 22
                 | (dn & 0xf) << 16
@@ -377,7 +377,7 @@ def define_simd_instructions_3regs_func(name, table):
                 | Q << 6
                 | M << 5
                 | (dm & 0xf))
-	
+        
         self.write32(instr)
     return f
 

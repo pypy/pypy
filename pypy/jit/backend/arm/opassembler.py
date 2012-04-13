@@ -1272,14 +1272,14 @@ class ResOpAssembler(object):
         assert arg.is_vfp_reg()
         assert res.is_reg()
         self.mc.VCVT_float_to_int(r.vfp_ip.value, arg.value)
-	self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
+        self.mc.VMOV_rc(res.value, r.ip.value, r.vfp_ip.value)
         return fcond
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs
         assert res.is_vfp_reg()
         assert arg.is_reg()
-	self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, arg.value, r.ip.value)
         self.mc.VCVT_int_to_float(res.value, res.value)
         return fcond
@@ -1301,9 +1301,9 @@ class ResOpAssembler(object):
     emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op('float_bytes_to_longlong', 'VMOV_cc')
 
     def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
-	tmp = arglocs[0]
+        tmp = arglocs[0]
         res = arglocs[1]
         self.mc.MRC(15, 0, tmp.value, 15, 12, 1)
-	self.mc.MOV_ri(r.ip.value, 0)
+        self.mc.MOV_ri(r.ip.value, 0)
         self.mc.VMOV_cr(res.value, tmp.value, r.ip.value)
         return fcond
