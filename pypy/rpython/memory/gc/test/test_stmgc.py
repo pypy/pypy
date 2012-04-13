@@ -133,7 +133,7 @@ def fake_weakpointer_offset(tid):
     return llmemory.offsetof(WR, 'wadr')
 
 
-class TestBasic:
+class StmGCTests:
     GCClass = StmGC
 
     def setup_method(self, meth):
@@ -155,6 +155,7 @@ class TestBasic:
             if key != 0:
                 self.gc.stm_operations.threadnum = key
                 self.gc.teardown_thread()
+        self.gc.stm_operations.threadnum = 0
 
     # ----------
     # test helpers
@@ -187,14 +188,18 @@ class TestBasic:
         meth = getattr(self.gc, 'read_int%d' % WORD)
         return meth(obj, offset)
 
+
+class TestBasic(StmGCTests):
+
     def test_gc_creation_works(self):
         pass
 
     def test_allocate_bump_pointer(self):
-        a3 = self.gc.allocate_bump_pointer(3)
-        a4 = self.gc.allocate_bump_pointer(4)
-        a5 = self.gc.allocate_bump_pointer(5)
-        a6 = self.gc.allocate_bump_pointer(6)
+        tls = self.gc.main_thread_tls
+        a3 = tls.allocate_bump_pointer(3)
+        a4 = tls.allocate_bump_pointer(4)
+        a5 = tls.allocate_bump_pointer(5)
+        a6 = tls.allocate_bump_pointer(6)
         assert a4 - a3 == 3
         assert a5 - a4 == 4
         assert a6 - a5 == 5
@@ -210,7 +215,7 @@ class TestBasic:
     def test_malloc_main_vs_thread(self):
         gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
         obj = llmemory.cast_ptr_to_adr(gcref)
-        assert self.gc.header(obj).tid & GCFLAG_GLOBAL != 0
+        assert self.gc.header(obj).tid & GCFLAG_GLOBAL == 0
         #
         self.select_thread(1)
         gcref = self.gc.malloc_fixedsize_clear(123, llmemory.sizeof(S))
@@ -588,7 +593,3 @@ class TestBasic:
         assert a == sr1_adr
         a = self.gc.stm_normalize_global(tr1_adr)
         assert a == sr1_adr
-
-    def test_alloc_a_lot_from_main_thread(self):
-        for i in range(1000):
-            sr1, sr1_adr = self.malloc(SR)
