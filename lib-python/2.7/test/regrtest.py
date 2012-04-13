@@ -680,13 +680,8 @@ NOTTESTS = {
 
 def findtests(testdir=None, stdtests=STDTESTS, nottests=NOTTESTS):
     """Return a list of all applicable test modules."""
-    if testdir:
-        testdirs = [testdir]
-    else:
-        testdirs = findtestdirs()
-    names = {}
-    for testdir in testdirs:
-        names.update(dict.fromkeys(os.listdir(testdir)))
+    testdir = findtestdir(testdir)
+    names = os.listdir(testdir)
     tests = []
     others = set(stdtests) | nottests
     for name in names:
@@ -1085,19 +1080,8 @@ def dash_R_cleanup(fs, ps, pic, zdc, abcs):
     # Collect cyclic trash.
     gc.collect()
 
-def findtestdirs():
-    # XXX hacking: returns a list of both the '2.7.0/test' and the
-    # 'modified-2.7.0/test' directories, as full paths.
-    testdir = os.path.abspath(os.path.dirname(__file__) or os.curdir)
-    assert os.path.basename(testdir).lower() == 'test'
-    maindir = os.path.dirname(testdir)
-    libpythondir = os.path.dirname(maindir)
-    maindirname = os.path.basename(maindir).lower()
-    if maindirname.startswith('modified-'):
-        maindirname = maindirname[len('modified-'):]
-    testdir1 = os.path.join(libpythondir, maindirname, 'test')
-    testdir2 = os.path.join(libpythondir, 'modified-'+maindirname, 'test')
-    return [testdir1, testdir2]
+def findtestdir(path=None):
+    return path or os.path.dirname(__file__) or os.curdir
 
 def removepy(names):
     if not names:
