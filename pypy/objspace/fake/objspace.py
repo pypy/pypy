@@ -110,7 +110,7 @@ class FakeObjSpace(ObjSpace):
         "NOT_RPYTHON"
         raise NotImplementedError
 
-    def newdict(self, module=False, instance=False,
+    def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return w_some_obj()
 

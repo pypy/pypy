@@ -75,7 +75,10 @@ class DummySpace(object):
     def unpackiterable(self, it):
         return list(it)
 
-    def newdict(self):
+    def view_as_kwargs(self, x):
+        return None, None
+
+    def newdict(self, kwargs=False):
         return {}
 
     def newlist(self, l=[]):
@@ -487,6 +490,57 @@ class TestArgumentsNormal(object):
         args._match_signature(None, l, Signature(['abc']))
         assert len(l) == 1
         assert l[0] == space.wrap(5)
+
+    def test_starstarargs_special(self):
+        class kwargs(object):
+            def __init__(self, k, v):
+                self.k = k
+                self.v = v
+        class MyDummySpace(DummySpace):
+            def view_as_kwargs(self, kw):
+                if isinstance(kw, kwargs):
+                    return kw.k, kw.v
+                return None, None
+        space = MyDummySpace()
+        for i in range(3):
+            kwds = [("c", 3)]
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            rest = dict(kwds[i:])
+            w_kwds = kwargs(rest.keys(), rest.values())
+            if i == 2:
+                w_kwds = None
+            assert len(keywords) == len(keywords_w)
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"]), defaults_w=[4])
+            assert l == [1, 2, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "b1", "c"]), defaults_w=[4, 5])
+            assert l == [1, 2, 4, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c", "d"]), defaults_w=[4, 5])
+            assert l == [1, 2, 3, 5]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["c", "b", "a", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["a", "b", "c1", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b"], None, "**"))
+            assert l == [1, 2, {'c': 3}]
+        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
+                                 [1], w_starstararg=kwargs(["a"], [2]))
+        assert excinfo.value.w_type is TypeError
+
+
 
 class TestErrorHandling(object):
     def test_missing_args(self):
