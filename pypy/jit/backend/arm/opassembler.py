@@ -1299,6 +1299,7 @@ class ResOpAssembler(object):
         return fcond
 
     emit_op_convert_float_bytes_to_longlong = gen_emit_unary_float_op('float_bytes_to_longlong', 'VMOV_cc')
+    emit_op_convert_longlong_bytes_to_float = gen_emit_unary_float_op('longlong_bytes_to_float', 'VMOV_cc')
 
     def emit_op_read_timestamp(self, op, arglocs, regalloc, fcond):
         tmp = arglocs[0]

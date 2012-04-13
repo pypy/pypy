@@ -1206,6 +1206,8 @@ class Regalloc(object):
 
     prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
                               name='prepare_op_convert_float_bytes_to_longlong')
+    prepare_op_convert_longlong_bytes_to_float = prepare_float_op(base=False,
+                              name='prepare_op_convert_longlong_bytes_to_float')
 
     def prepare_op_read_timestamp(self, op, fcond):
         loc = self.get_scratch_reg(INT)
