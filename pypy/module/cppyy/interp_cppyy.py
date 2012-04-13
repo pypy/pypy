@@ -158,14 +158,21 @@ class CPPMethod(object):
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
         i = len(self.arg_defs)
-        for i in range(len(args_w)):
-            conv = self.arg_converters[i]
-            w_arg = args_w[i]
-            conv.convert_argument_libffi(self.space, w_arg, argchain)
-        for j in range(i+1, len(self.arg_defs)):
-            conv = self.arg_converters[j]
-            conv.default_argument_libffi(self.space, argchain)
-        return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
+        refbuffers = []
+        try:
+            for i in range(len(args_w)):
+                conv = self.arg_converters[i]
+                w_arg = args_w[i]
+                refbuf = conv.convert_argument_libffi(self.space, w_arg, argchain)
+                if refbuf:
+                    refbuffers.append(refbuf)
+            for j in range(i+1, len(self.arg_defs)):
+                conv = self.arg_converters[j]
+                conv.default_argument_libffi(self.space, argchain)
+            return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
+        finally:
+            for refbuf in refbuffers:
+                lltype.free(refbuf, flavor='raw')
 
     def _setup(self, cppthis):
         self.arg_converters = [converter.get_converter(self.space, arg_type, arg_dflt)

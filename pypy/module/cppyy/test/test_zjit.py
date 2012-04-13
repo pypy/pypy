@@ -1,3 +1,4 @@
+import py, os, sys
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib import rarithmetic, jit
@@ -5,6 +6,18 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy, capi
+
+
+currpath = py.path.local(__file__).dirpath()
+test_dct = str(currpath.join("example01Dict.so"))
+
+def setup_module(mod):
+    if sys.platform == 'win32':
+        py.test.skip("win32 not supported so far")
+    err = os.system("cd '%s' && make example01Dict.so" % currpath)
+    if err:
+        raise OSError("'make' failed (see stderr)")
+
 
 class FakeBase(W_Root):
     typename = None
@@ -150,52 +163,40 @@ class FakeSpace(object):
         return True
 
 class TestFastPathJIT(LLJitMixin):
-    def test_simple(self):
+    def _run_zjit(self, method_name):
+        if capi.identify() == 'CINT':   # CINT does not support fast path
+            return
+
+        space = FakeSpace()
+        drv = jit.JitDriver(greens=[], reds=["i", "inst", "cppmethod"])
+        def f():
+            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
+            cls  = interp_cppyy.scope_byname(space, "example01")
+            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
+            cppmethod = cls.get_overload(method_name)
+            assert isinstance(inst, interp_cppyy.W_CPPInstance)
+            i = 10
+            while i > 0:
+                drv.jit_merge_point(inst=inst, cppmethod=cppmethod, i=i)
+                cppmethod.call(inst, [FakeInt(i)])
+                i -= 1
+            return 7
+        f()
+        space = FakeSpace()
+        result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
+        self.check_jitcell_token_count(1)
+
+    def test01_simple(self):
         """Test fast path being taken for methods"""
 
-        if capi.identify() == 'CINT':   # CINT does not support fast path
-            return
+        self._run_zjit("addDataToInt")
 
-        space = FakeSpace()
-        drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
-        def f():
-            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
-            cls  = interp_cppyy.scope_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
-            addDataToInt = cls.get_overload("addDataToInt")
-            assert isinstance(inst, interp_cppyy.W_CPPInstance)
-            i = 10
-            while i > 0:
-                drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
-                addDataToInt.call(inst, [FakeInt(i)])
-                i -= 1
-            return 7
-        f()
-        space = FakeSpace()
-        result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_jitcell_token_count(1)
-
-    def test_overload(self):
+    def test02_overload(self):
         """Test fast path being taken for overloaded methods"""
 
-        if capi.identify() == 'CINT':   # CINT does not support fast path
-            return
+        self._run_zjit("overloadedAddDataToInt")
 
-        space = FakeSpace()
-        drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
-        def f():
-            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
-            cls  = interp_cppyy.scope_byname(space, "example01")
-            inst = cls.get_overload("example01").call(None, [FakeInt(0)])
-            addDataToInt = cls.get_overload("overloadedAddDataToInt")
-            assert isinstance(inst, interp_cppyy.W_CPPInstance)
-            i = 10
-            while i > 0:
-                drv.jit_merge_point(inst=inst, addDataToInt=addDataToInt, i=i)
-                addDataToInt.call(inst, [FakeInt(i)])
-                i -= 1
-            return 7
-        f()
-        space = FakeSpace()
-        result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_jitcell_token_count(1)
+    def test03_const_ref(self):
+        """Test fast path being taken for methods with const ref arguments"""
+
+        self._run_zjit("addDataToIntConstRef")

@@ -91,6 +91,10 @@ int example01::addDataToInt(int a) {
     return m_somedata + a;
 }
 
+int example01::addDataToIntConstRef(const int& a) {
+    return m_somedata + a;
+}
+
 int example01::overloadedAddDataToInt(int a, int b) {
    return m_somedata + a + b;
 }

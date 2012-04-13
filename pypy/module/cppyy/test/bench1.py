@@ -72,6 +72,14 @@ class CppyyInterpBench2(CppyyInterpBench1):
             addDataToInt.call(instance, i)
         return i
 
+class CppyyInterpBench3(CppyyInterpBench1):
+    def __call__(self):
+        addDataToInt = self.cls.get_overload("addDataToIntConstRef")
+        instance = self.inst
+        for i in range(NNN):
+            addDataToInt.call(instance, i)
+        return i
+
 class CppyyPythonBench1(object):
     scale = 1
     def __init__(self):
@@ -121,6 +129,7 @@ if __name__ == '__main__':
     print "warming up ... "
     interp_bench1 = CppyyInterpBench1()
     interp_bench2 = CppyyInterpBench2()
+    interp_bench3 = CppyyInterpBench3()
     python_bench1 = CppyyPythonBench1()
     interp_bench1(); interp_bench2(); python_bench1()
 
@@ -130,6 +139,7 @@ if __name__ == '__main__':
     # test runs ...
     print_bench("cppyy interp", run_bench(interp_bench1))
     print_bench("... overload", run_bench(interp_bench2))
+    print_bench("... constref", run_bench(interp_bench3))
     print_bench("cppyy python", run_bench(python_bench1))
     stat, t_cintex = commands.getstatusoutput("python bench1.py --pycintex")
     print_bench("pycintex    ", float(t_cintex))

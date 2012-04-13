@@ -39,6 +39,7 @@ public:        // class-level methods
 
 public:        // instance methods
     int addDataToInt(int a);
+    int addDataToIntConstRef(const int& a);
     int overloadedAddDataToInt(int a, int b);
     int overloadedAddDataToInt(int a);
     int overloadedAddDataToInt(int a, int b, int c);
