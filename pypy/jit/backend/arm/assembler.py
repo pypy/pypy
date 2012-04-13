@@ -934,7 +934,7 @@ class AssemblerARM(ResOpAssembler):
     def regalloc_emit_math(self, op, arglocs, fcond, regalloc):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
-        asm_math_operations[oopspecindex](self, op, arglocs, resloc)
+        asm_math_operations[oopspecindex](self, op, arglocs, regalloc, fcond)
         return fcond
 
 
