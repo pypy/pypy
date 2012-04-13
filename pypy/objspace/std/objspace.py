@@ -313,11 +313,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlist_str(self, list_s):
         return W_ListObject.newlist_str(self, list_s)
 
-    def newdict(self, module=False, instance=False,
+    def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
-                strdict=strdict)
+                strdict=strdict, kwargs=kwargs)
 
     def newset(self):
         from pypy.objspace.std.setobject import newset
@@ -471,6 +471,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
             return w_obj.getitems_int()
         return None
+
+    def view_as_kwargs(self, w_dict):
+        if type(w_dict) is W_DictMultiObject:
+            return w_dict.view_as_kwargs()
+        return (None, None)
 
     def _uses_list_iter(self, w_obj):
         from pypy.objspace.descroperation import list_iter

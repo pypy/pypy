@@ -3746,9 +3746,9 @@ class TestAnnotateTestCase:
             return g(i)
         def main(i):
             if i == 2:
-                return f(i)
+                return f(2)
             elif i == 3:
-                return f(i)
+                return f(3)
             else:
                 raise NotImplementedError
 
