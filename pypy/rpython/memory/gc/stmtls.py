@@ -7,7 +7,7 @@ from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
-from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL
+from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 
 
 class StmGCTLS(object):
@@ -19,6 +19,7 @@ class StmGCTLS(object):
     nontranslated_dict = {}
 
     def __init__(self, gc, in_main_thread):
+        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.gc = gc
         self.in_main_thread = in_main_thread
         self.stm_operations = self.gc.stm_operations
@@ -37,12 +38,15 @@ class StmGCTLS(object):
         self.nursery_start = self._alloc_nursery(self.nursery_size)
         #
         # --- the local raw-malloced objects (chained list via hdr.version)
-        self.rawmalloced_objects = NULL
+        #self.rawmalloced_objects = NULL
         # --- the local "normal" old objects (chained list via hdr.version)
         self.old_objects = NULL
         # --- the local objects with weakrefs (chained list via hdr.version)
         #self.young_objects_with_weakrefs = NULL
         #self.old_objects_with_weakrefs = NULL
+        #
+        # --- a thread-local allocator for the shared area
+        self.sharedarea_tls = StmGCThreadLocalAllocator(gc.sharedarea)
         #
         self._register_with_C_code()
 
@@ -137,70 +141,52 @@ class StmGCTLS(object):
     # ------------------------------------------------------------
 
     def local_collection(self, run_finalizers=True):
-        """Do a local collection.  Finds all surviving young objects
-        and make them old.  Also looks for roots from the stack.
-        The flag GCFLAG_WAS_COPIED is kept and the C tree is updated
-        if the local young object moves.
+        """Do a local collection.  This should be equivalent to a minor
+        collection only, but the GC is not generational so far, so it is
+        for now the same as a full collection --- but only on LOCAL
+        objects, not touching the GLOBAL objects.  More precisely, this
+        finds all YOUNG LOCAL objects, move them out of the nursery if
+        necessary, and make them OLD LOCAL objects.  This starts from
+        the roots from the stack.  The flag GCFLAG_WAS_COPIED is kept
+        and the C tree is updated if the local young objects move.
         """
         #
         debug_start("gc-local")
         #
-        # First, find the roots that point to young objects.  All nursery
-        # objects found are copied out of the nursery, and the occasional
-        # young raw-malloced object is flagged with GCFLAG_VISITED.
-        # Note that during this step, we ignore references to further
-        # young objects; only objects directly referenced by roots
-        # are copied out or flagged.  They are also added to the list
-        # 'old_objects_pointing_to_young'.
+        # Linked list of LOCAL objects pending a visit.  Note that no
+        # GLOBAL object can at any point contain a reference to a LOCAL
+        # object.
+        self.pending_list = NULL
+        #
+        # First, find the roots that point to LOCAL objects.  All YOUNG
+        # (i.e. nursery) objects found are copied out of the nursery.
+        # All OLD objects found are flagged with GCFLAG_VISITED.  At this
+        # point, the content of the objects is not modified; the objects
+        # are merely added to the chained list 'pending_list'.
         self.collect_roots_in_nursery()
         #
-        while True:
-            # If we are using card marking, do a partial trace of the arrays
-            # that are flagged with GCFLAG_CARDS_SET.
-            if self.card_page_indices > 0:
-                self.collect_cardrefs_to_nursery()
-            #
-            # Now trace objects from 'old_objects_pointing_to_young'.
-            # All nursery objects they reference are copied out of the
-            # nursery, and again added to 'old_objects_pointing_to_young'.
-            # All young raw-malloced object found are flagged GCFLAG_VISITED.
-            # We proceed until 'old_objects_pointing_to_young' is empty.
-            self.collect_oldrefs_to_nursery()
-            #
-            # We have to loop back if collect_oldrefs_to_nursery caused
-            # new objects to show up in old_objects_with_cards_set
-            if self.card_page_indices > 0:
-                if self.old_objects_with_cards_set.non_empty():
-                    continue
-            break
+        # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
+        # objects.
+        self.collect_roots_from_tldict()
         #
-        # Now all live nursery objects should be out.  Update the young
-        # weakrefs' targets.
-        if self.young_objects_with_weakrefs.non_empty():
-            self.invalidate_young_weakrefs()
-        if self.young_objects_with_light_finalizers.non_empty():
-            self.deal_with_young_objects_with_finalizers()
+        # Now repeat following objects until 'pending_list' is empty.
+        self.collect_oldrefs_to_nursery()
         #
-        # Clear this mapping.
-        if self.nursery_objects_shadows.length() > 0:
-            self.nursery_objects_shadows.clear()
+        # Walk the list of LOCAL raw-malloced objects, and free them if
+        # necessary.
+        #self.free_local_rawmalloced_objects()
         #
-        # Walk the list of young raw-malloced objects, and either free
-        # them or make them old.
-        if self.young_rawmalloced_objects:
-            self.free_young_rawmalloced_objects()
+        # Ask the ArenaCollection to visit all objects.  Free the ones
+        # that have not been visited above, and reset GCFLAG_VISITED on
+        # the others.
+        self.ac.mass_free(self._free_if_unvisited)
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
         llarena.arena_reset(self.nursery, self.nursery_size, 2)
-        self.debug_rotate_nursery()
-        self.nursery_free = self.nursery
+        self.nursery_free = self.nursery_start
         #
-        debug_print("minor collect, total memory used:",
-                    self.get_total_memory_used())
-        if self.DEBUG >= 2:
-            self.debug_check_consistency()     # expensive!
-        debug_stop("gc-minor")
+        debug_stop("gc-local")
 
     def end_of_transaction_collection(self):
         """Do an end-of-transaction collection.  Finds all surviving
@@ -229,7 +215,7 @@ class StmGCTLS(object):
     def allocate_object_of_size(self, size):
         if not self.nursery_free:
             fatalerror("malloc in a non-main thread but outside a transaction")
-        if size > self.nursery_size:
+        if size > self.nursery_size // 8 * 7:
             fatalerror("object too large to ever fit in the nursery")
         while True:
             self.local_collection()
@@ -251,12 +237,12 @@ class StmGCTLS(object):
             hdr.tid |= GCFLAG_GLOBAL
             obj = hdr.version
         #
-        obj = self.rawmalloced_objects
-        self.rawmalloced_objects = NULL
-        while obj:
-            hdr = self.header(obj)
-            hdr.tid |= GCFLAG_GLOBAL
-            obj = hdr.version
+##        obj = self.rawmalloced_objects
+##        self.rawmalloced_objects = NULL
+##        while obj:
+##            hdr = self.header(obj)
+##            hdr.tid |= GCFLAG_GLOBAL
+##            obj = hdr.version
 
     def _cleanup_state(self):
         if self.rawmalloced_objects:

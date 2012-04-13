@@ -1,3 +1,14 @@
+#if defined(RPY_STM)
+
+
+/* XXX no special malloc function, use the thread-safe system-provided one */
+#define PyObject_Malloc malloc
+#define PyObject_Realloc realloc
+#define PyObject_Free free
+
+
+#else
+
 
 /* allocation functions prototypes */
 void *PyObject_Malloc(size_t n);
@@ -28,4 +39,5 @@ void PyObject_Free(void *p);
 
 #endif
 
+#endif
 #endif

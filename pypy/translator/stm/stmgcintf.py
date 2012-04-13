@@ -11,7 +11,8 @@ cdir2 = py.path.local(pypydir) / 'translator' / 'c'
 eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],
     includes = ['src_stm/et.h', 'src_stm/et.c'],
-    pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT],
+    pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT,
+                        '#define RPY_STM 1'],
     separate_module_sources = ['\n'],    # hack for test_rffi_stm
 )
 

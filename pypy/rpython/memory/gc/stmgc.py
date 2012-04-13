@@ -43,6 +43,7 @@ GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_HAS_SHADOW = first_gcflag << 2
 GCFLAG_FIXED_HASH = first_gcflag << 3
 GCFLAG_WEAKREF    = first_gcflag << 4
+GCFLAG_VISITED    = first_gcflag << 5
 
 
 def always_inline(fn):
@@ -70,18 +71,18 @@ class StmGC(MovingGCBase):
         'stm_operations': 'use_real_one',
         'nursery_size': 32*1024*1024,           # 32 MB
 
-        "page_size": 1024*WORD,                 # copied from minimark.py
-        "arena_size": 65536*WORD,               # copied from minimark.py
-        "small_request_threshold": 35*WORD,     # copied from minimark.py
+        #"page_size": 1024*WORD,                 # copied from minimark.py
+        #"arena_size": 65536*WORD,               # copied from minimark.py
+        #"small_request_threshold": 35*WORD,     # copied from minimark.py
     }
 
     def __init__(self, config,
                  stm_operations='use_emulator',
                  nursery_size=1024,
-                 page_size=16*WORD,
-                 arena_size=64*WORD,
-                 small_request_threshold=5*WORD,
-                 ArenaCollectionClass=None,
+                 #page_size=16*WORD,
+                 #arena_size=64*WORD,
+                 #small_request_threshold=5*WORD,
+                 #ArenaCollectionClass=None,
                  **kwds):
         MovingGCBase.__init__(self, config, **kwds)
         #
@@ -95,9 +96,7 @@ class StmGC(MovingGCBase):
         from pypy.rpython.memory.gc import stmshared
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
-        self.sharedarea = stmshared.StmGCSharedArea(self, ArenaCollectionClass,
-                                                    page_size, arena_size,
-                                                    small_request_threshold)
+        self.sharedarea = stmshared.StmGCSharedArea(self)
         #
         def _get_size(obj):     # indirection to hide 'self'
             return self.get_size(obj)
