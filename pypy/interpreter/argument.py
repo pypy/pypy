@@ -478,7 +478,7 @@ class Arguments(object):
 @jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w:
         jit.isconstant(len(keywords) and
         jit.isconstant(existingkeywords)))
-def _check_not_duplicate_kwargs(space, existingkeywords, keywords_w):
+def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
     # looks quadratic, but the JIT should remove all of it nicely.
     # Also, all the lists should be small
     for key in keywords:
