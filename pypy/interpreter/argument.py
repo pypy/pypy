@@ -199,43 +199,17 @@ class Arguments(object):
                                    "a mapping, not %s" % (typename,)))
                 raise
             keys_w = space.unpackiterable(w_keys)
-        self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
-        return True
-
-    def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
-        space = self.space
         keywords_w = [None] * len(keys_w)
         keywords = [None] * len(keys_w)
-        i = 0
-        for w_key in keys_w:
-            try:
-                key = space.str_w(w_key)
-            except OperationError, e:
-                if e.match(space, space.w_TypeError):
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("keywords must be strings"))
-                if e.match(space, space.w_UnicodeEncodeError):
-                    # Allow this to pass through
-                    key = None
-                else:
-                    raise
-            else:
-                if self.keywords and key in self.keywords:
-                    raise operationerrfmt(self.space.w_TypeError,
-                                          "got multiple values "
-                                          "for keyword argument "
-                                          "'%s'", key)
-            keywords[i] = key
-            keywords_w[i] = space.getitem(w_starstararg, w_key)
-            i += 1
+        _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords, keywords_w, self.keywords)
+        self.keyword_names_w = keys_w
         if self.keywords is None:
             self.keywords = keywords
             self.keywords_w = keywords_w
         else:
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
-        self.keyword_names_w = keys_w
+        return True
 
 
     def fixedunpack(self, argcount):
@@ -460,6 +434,32 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
                                       "got multiple values "
                                       "for keyword argument "
                                       "'%s'", key)
+
+def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
+        keywords_w, existingkeywords):
+    i = 0
+    for w_key in keys_w:
+        try:
+            key = space.str_w(w_key)
+        except OperationError, e:
+            if e.match(space, space.w_TypeError):
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("keywords must be strings"))
+            if e.match(space, space.w_UnicodeEncodeError):
+                # Allow this to pass through
+                key = None
+            else:
+                raise
+        else:
+            if existingkeywords and key in existingkeywords:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+        keywords[i] = key
+        keywords_w[i] = space.getitem(w_starstararg, w_key)
+        i += 1
 
 @jit.look_inside_iff(
     lambda signature, blindargs, input_argcount, keywords, keywords_w,
