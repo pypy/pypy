@@ -243,13 +243,11 @@ class Arguments(object):
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
-        input_argcount =  0
 
         if w_firstarg is not None:
             upfront = 1
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
-                input_argcount = 1
         else:
             upfront = 0
 
@@ -263,6 +261,7 @@ class Arguments(object):
             num_kwds = len(keywords)
 
 
+        input_argcount = upfront
         if input_argcount < co_argcount:
             # put as many positional input arguments into place as available
             take = min(num_args, co_argcount - upfront)
