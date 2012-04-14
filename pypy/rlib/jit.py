@@ -206,7 +206,7 @@ isvirtual._annspecialcase_ = "specialize:call_location"
 
 LIST_CUTOFF = 2
 
-@specialize.argtype(0)
+@specialize.call_location()
 def loop_unrolling_heuristic(lst, size):
     """ In which cases iterating over items of lst can be unrolled
     """
