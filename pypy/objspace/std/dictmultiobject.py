@@ -508,6 +508,13 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
     def w_keys(self, w_dict):
         return self.space.newlist_str(self.listview_str(w_dict))
 
+    def view_as_kwargs(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        keys, values = [], []
+        for key, val in d.iteritems():
+            keys.append(key)
+            values.append(val)
+        return keys, values
 
 class _WrappedIteratorMixin(object):
     _mixin_ = True

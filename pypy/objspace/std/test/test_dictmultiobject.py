@@ -1108,6 +1108,10 @@ class TestStrDictImplementation(BaseTestRDictImplementation):
         assert self.impl.getitem(s) == 1000
         assert s.unwrapped
 
+    def test_view_as_kwargs(self):
+        self.fill_impl()
+        assert self.fakespace.view_as_kwargs(self.impl) == (["fish", "fish2"], [1000, 2000])
+
 ## class TestMeasuringDictImplementation(BaseTestRDictImplementation):
 ##     ImplementionClass = MeasuringDictImplementation
 ##     DevolvedClass = MeasuringDictImplementation
