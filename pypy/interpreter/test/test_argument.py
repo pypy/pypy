@@ -57,6 +57,9 @@ class dummy_wrapped_dict(dict):
     def __nonzero__(self):
         raise NotImplementedError
 
+class kwargsdict(dict):
+    pass
+
 class DummySpace(object):
     def newtuple(self, items):
         return tuple(items)
@@ -79,6 +82,8 @@ class DummySpace(object):
         return None, None
 
     def newdict(self, kwargs=False):
+        if kwargs:
+            return kwargsdict()
         return {}
 
     def newlist(self, l=[]):
@@ -298,6 +303,22 @@ class TestArgumentsNormal(object):
             l = [None, None, None, None]
             args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
             assert l == [1, 2, 3, {'d': 4}]
+
+    def test_match_kwds_creates_kwdict(self):
+        space = DummySpace()
+        kwds = [("c", 3), ('d', 4)]
+        for i in range(4):
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            w_kwds = dummy_wrapped_dict(kwds[i:])
+            if i == 3:
+                w_kwds = None
+            args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"], None, "**"))
+            assert l == [1, 2, 3, {'d': 4}]
+            assert isinstance(l[-1], kwargsdict)
 
     def test_duplicate_kwds(self):
         space = DummySpace()
