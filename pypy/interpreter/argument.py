@@ -299,9 +299,7 @@ class Arguments(object):
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
-            raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, 0)
+            raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
 
         # the code assumes that keywords can potentially be large, but that
         # argnames is typically not too large
@@ -324,9 +322,7 @@ class Arguments(object):
             scope_w[co_argcount + has_vararg] = w_kwds
         elif num_remainingkwds:
             if co_argcount == 0:
-                raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, 0)
+                raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
             raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                     used_keywords, self.keyword_names_w)
 
@@ -345,9 +341,7 @@ class Arguments(object):
                     # keyword arguments, which will be checked for below.
                     missing += 1
             if missing:
-                raise ArgErrCount(avail, num_kwds,
-                                  co_argcount, has_vararg, has_kwarg,
-                                  defaults_w, missing)
+                raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
 
         return co_argcount + has_vararg + has_kwarg
 
@@ -660,11 +654,9 @@ class ArgErr(Exception):
 
 class ArgErrCount(ArgErr):
 
-    def __init__(self, got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
+    def __init__(self, got_nargs, nkwds, signature,
                  defaults_w, missing_args):
-        self.expected_nargs = expected_nargs
-        self.has_vararg = has_vararg
-        self.has_kwarg = has_kwarg
+        self.signature = signature
 
         self.num_defaults = 0 if defaults_w is None else len(defaults_w)
         self.missing_args = missing_args
@@ -672,16 +664,16 @@ class ArgErrCount(ArgErr):
         self.num_kwds = nkwds
 
     def getmsg(self):
-        n = self.expected_nargs
+        n = self.signature.num_argnames()
         if n == 0:
             msg = "takes no arguments (%d given)" % (
                 self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
-            has_kwarg = self.has_kwarg
+            has_kwarg = self.signature.has_kwarg()
             num_args = self.num_args
             num_kwds = self.num_kwds
-            if defcount == 0 and not self.has_vararg:
+            if defcount == 0 and not self.signature.has_vararg():
                 msg1 = "exactly"
                 if not has_kwarg:
                     num_args += num_kwds

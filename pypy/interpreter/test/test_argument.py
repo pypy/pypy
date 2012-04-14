@@ -569,34 +569,47 @@ class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
-        err = ArgErrCount(1, 0, 0, False, False, None, 0)
+        sig = Signature([], None, None)
+        err = ArgErrCount(1, 0, sig, None, 0)
         s = err.getmsg()
         assert s == "takes no arguments (1 given)"
-        err = ArgErrCount(0, 0, 1, False, False, [], 1)
+
+        sig = Signature(['a'], None, None)
+        err = ArgErrCount(0, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 argument (0 given)"
-        err = ArgErrCount(3, 0, 2, False, False, [], 0)
+
+        sig = Signature(['a', 'b'], None, None)
+        err = ArgErrCount(3, 0, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 2 arguments (3 given)"
-        err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
+        err = ArgErrCount(3, 0, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 2 arguments (3 given)"
-        err = ArgErrCount(1, 0, 2, True, False, [], 1)
+
+        sig = Signature(['a', 'b'], '*', None)
+        err = ArgErrCount(1, 0, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 2 arguments (1 given)"
-        err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
+        err = ArgErrCount(0, 1, sig, ['a'], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, [], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, [], 0)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (2 given)"
-        err = ArgErrCount(0, 1, 1, False, True, [], 1)
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes exactly 1 non-keyword argument (0 given)"
-        err = ArgErrCount(0, 1, 1, True, True, [], 1)
+
+        sig = Signature(['a'], '*', '**')
+        err = ArgErrCount(0, 1, sig, [], 1)
         s = err.getmsg()
         assert s == "takes at least 1 non-keyword argument (0 given)"
-        err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
+
+        sig = Signature(['a'], None, '**')
+        err = ArgErrCount(2, 1, sig, ['a'], 0)
         s = err.getmsg()
         assert s == "takes at most 1 non-keyword argument (2 given)"
 
