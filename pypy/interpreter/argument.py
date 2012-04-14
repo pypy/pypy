@@ -244,6 +244,7 @@ class Arguments(object):
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
 
+        # put the special w_firstarg into the scope, if it exists
         if w_firstarg is not None:
             upfront = 1
             if co_argcount > 0:
@@ -261,9 +262,9 @@ class Arguments(object):
             num_kwds = len(keywords)
 
 
+        # put as many positional input arguments into place as available
         input_argcount = upfront
         if input_argcount < co_argcount:
-            # put as many positional input arguments into place as available
             take = min(num_args, co_argcount - upfront)
 
             # letting the JIT unroll this loop is safe, because take is always
@@ -287,32 +288,37 @@ class Arguments(object):
         elif avail > co_argcount:
             raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
 
-        # the code assumes that keywords can potentially be large, but that
-        # argnames is typically not too large
+        # if a **kwargs argument is needed, create the dict
+        w_kwds = None
+        if signature.has_kwarg():
+            w_kwds = self.space.newdict(kwargs=True)
+            scope_w[co_argcount + signature.has_vararg()] = w_kwds
+
+        # handle keyword arguments
         num_remainingkwds = 0
         used_keywords = None
         keywords_w = self.keywords_w
         if num_kwds:
             used_keywords = [False] * num_kwds
+            # match the keywords given at the call site to the argument names
+            # the called function takes
             num_remainingkwds = _match_keywords(
                     signature, blindargs, input_argcount, keywords,
                     keywords_w, scope_w, used_keywords,
                     self._jit_few_keywords)
-        if signature.has_kwarg():
-            w_kwds = self.space.newdict(kwargs=True)
-            # collect extra keyword arguments into the **kwarg
             if num_remainingkwds:
-                _collect_keyword_args(
-                        self.space, keywords, keywords_w, w_kwds,
-                        used_keywords, self.keyword_names_w, self._jit_few_keywords)
-                #
-            scope_w[co_argcount + signature.has_vararg()] = w_kwds
-        elif num_remainingkwds:
-            if co_argcount == 0:
-                raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
-            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                    used_keywords, self.keyword_names_w)
+                if w_kwds is not None:
+                    # collect extra keyword arguments into the **kwarg
+                    _collect_keyword_args(
+                            self.space, keywords, keywords_w, w_kwds,
+                            used_keywords, self.keyword_names_w, self._jit_few_keywords)
+                else:
+                    if co_argcount == 0:
+                        raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
+                    raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                            used_keywords, self.keyword_names_w)
 
+        # check for missing arguments and fill them with defaults, if available
         missing = 0
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
@@ -323,9 +329,6 @@ class Arguments(object):
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
                 else:
-                    # error: not enough arguments.  Don't signal it immediately
-                    # because it might be related to a problem with */** or
-                    # keyword arguments, which will be checked for below.
                     missing += 1
             if missing:
                 raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
