@@ -889,6 +889,9 @@ class FakeSpace:
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance)
 
+    def view_as_kwargs(self, w_d):
+        return w_d.view_as_kwargs() # assume it's a multidict
+
     def finditem_str(self, w_dict, s):
         return w_dict.getitem_str(s) # assume it's a multidict
 

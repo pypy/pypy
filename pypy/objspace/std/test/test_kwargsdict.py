@@ -86,6 +86,19 @@ def test_keys_doesnt_wrap():
     d = W_DictMultiObject(space, strategy, storage)
     w_l = d.w_keys() # does not crash
 
+def test_view_as_kwargs():
+    from pypy.objspace.std.dictmultiobject import EmptyDictStrategy
+    strategy = KwargsDictStrategy(space)
+    keys = ["a", "b", "c"]
+    values = [1, 2, 3]
+    storage = strategy.erase((keys, values))
+    d = W_DictMultiObject(space, strategy, storage)
+    assert (space.view_as_kwargs(d) == keys, values)
+
+    strategy = EmptyDictStrategy(space)
+    storage = strategy.get_empty_storage()
+    d = W_DictMultiObject(space, strategy, storage)
+    assert (space.view_as_kwargs(d) == [], [])
 
 from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 def get_impl(self):
