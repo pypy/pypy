@@ -179,7 +179,8 @@ class Arguments(object):
                 self.keywords = keywords[:] # copy to make non-resizable
                 self.keywords_w = values_w[:]
             else:
-                self._check_not_duplicate_kwargs(keywords, values_w)
+                _check_not_duplicate_kwargs(
+                    self.space, self.keywords, keywords, values_w)
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
             return not jit.isconstant(len(self.keywords))
@@ -236,19 +237,6 @@ class Arguments(object):
             self.keywords_w = self.keywords_w + keywords_w
         self.keyword_names_w = keys_w
 
-    @jit.look_inside_iff(lambda self, keywords, keywords_w:
-            jit.isconstant(len(keywords) and
-            jit.isconstant(self.keywords)))
-    def _check_not_duplicate_kwargs(self, keywords, keywords_w):
-        # looks quadratic, but the JIT should remove all of it nicely.
-        # Also, all the lists should be small
-        for key in keywords:
-            for otherkey in self.keywords:
-                if otherkey == key:
-                    raise operationerrfmt(self.space.w_TypeError,
-                                          "got multiple values "
-                                          "for keyword argument "
-                                          "'%s'", key)
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -481,6 +469,26 @@ class Arguments(object):
                     w_key = self.keyword_names_w[i - limit]
                 space.setitem(w_kwds, w_key, self.keywords_w[i])
         return w_args, w_kwds
+
+# JIT helper functions
+# these functions contain functionality that the JIT is not always supposed to
+# look at. They should not get a self arguments, which makes the amount of
+# arguments annoying :-(
+
+@jit.look_inside_iff(lambda space, existingkeywords, keywords, keywords_w:
+        jit.isconstant(len(keywords) and
+        jit.isconstant(existingkeywords)))
+def _check_not_duplicate_kwargs(space, existingkeywords, keywords_w):
+    # looks quadratic, but the JIT should remove all of it nicely.
+    # Also, all the lists should be small
+    for key in keywords:
+        for otherkey in existingkeywords:
+            if otherkey == key:
+                raise operationerrfmt(space.w_TypeError,
+                                      "got multiple values "
+                                      "for keyword argument "
+                                      "'%s'", key)
+
 
 class ArgumentsForTranslation(Arguments):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
