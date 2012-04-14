@@ -322,19 +322,6 @@ class TestArgumentsNormal(object):
             assert l == [1, 2, 3, {'d': 4}]
             assert isinstance(l[-1], kwargsdict)
 
-    def test_match_kwds_creates_kwdict(self):
-        space = DummySpace()
-        kwds = [("c", 3), ('d', 4)]
-        for i in range(4):
-            kwds_w = dict(kwds[:i])
-            keywords = kwds_w.keys()
-            keywords_w = kwds_w.values()
-            w_kwds = dummy_wrapped_dict(kwds[i:])
-            if i == 3:
-                w_kwds = None
-            args = Arguments(space, [1, 2], keywords, keywords_w, w_starstararg=w_kwds)
-            assert args._dont_jit == (i != 3)
-
     def test_duplicate_kwds(self):
         space = DummySpace()
         excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
