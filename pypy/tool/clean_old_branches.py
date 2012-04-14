@@ -4,30 +4,28 @@ in 'hg heads --topo --closed', force them to join with the branch
 called 'closed-branch'.  It reduces the number of heads.
 """
 
-import os, sys
+import os
+import sys
+import commands
 
-if not os.listdir('.hg'):
+if not os.path.isdir('.hg'):
     print 'Must run this script from the top-level directory.'
     sys.exit(1)
 
-def heads(args):
-    g = os.popen(r"hg heads --topo %s --template '{node|short}:{branches}\n'"
-                 % args, 'r')
-    result = g.read()
-    g.close()
+def heads():
+    result = commands.getoutput(
+        "hg heads --topo --closed --template '{node|short}:{branches}:{extras}\n'")
     result = result.splitlines(False)
+    result = [s.split(':', 2) for s in result]
     for line in result:
-        if len(line.split(':', 1)) != 2:
+        if len(line) != 3:
             raise ValueError("'result' contains: %r" % line)
-    result = [s.split(':', 1) for s in result]
-    result = [(head, branch) for (head, branch) in result
-                if branch not in ['', 'closed-branches']]
+    result = [(head, branch) for (head, branch, extra) in result
+                if branch not in ['', 'closed-branches'] and 'close' in extra]
     return result
 
-all_heads = heads("--closed")
-opened_heads = heads("")
 
-closed_heads = [s for s in all_heads if s not in opened_heads]
+closed_heads = heads()
 
 if not closed_heads:
     print >> sys.stderr, 'no dangling closed heads.'
@@ -61,11 +59,7 @@ for head, branch in closed_heads:
     print '***** %s ***** %s *****' % (branch, head)
     do("hg up --clean closed-branches")
     do("hg --config extensions.purge= purge --all")
-    do("hg merge -y %s" % head)
-    for fn in os.listdir('.'):
-        if fn.lower() != '.hg':
-            do("rm -fr -- '%s'" % fn)
-            do("hg rm --after -- '%s' || true" % fn)
+    do("hg debugsetparents closed-branches %s" % head)
     do("hg ci -m'Merge closed head %s on branch %s'" % (head, branch))
 
 print
