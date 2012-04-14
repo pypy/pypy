@@ -233,7 +233,6 @@ class Arguments(object):
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
-        Return the number of arguments filled in.
         """
         #
         #   args_w = list of the normal actual parameters, wrapped
@@ -246,9 +245,6 @@ class Arguments(object):
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
-        has_vararg = signature.has_vararg()
-        has_kwarg = signature.has_kwarg()
-        extravarargs = None
         input_argcount =  0
 
         if w_firstarg is not None:
@@ -256,28 +252,22 @@ class Arguments(object):
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
                 input_argcount = 1
-            else:
-                extravarargs = [w_firstarg]
         else:
             upfront = 0
 
         args_w = self.arguments_w
         num_args = len(args_w)
+        avail = num_args + upfront
 
         keywords = self.keywords
-        keywords_w = self.keywords_w
         num_kwds = 0
         if keywords is not None:
             num_kwds = len(keywords)
 
-        avail = num_args + upfront
 
         if input_argcount < co_argcount:
             # put as many positional input arguments into place as available
-            if avail > co_argcount:
-                take = co_argcount - input_argcount
-            else:
-                take = num_args
+            take = min(num_args, co_argcount - upfront)
 
             # letting the JIT unroll this loop is safe, because take is always
             # smaller than co_argcount
@@ -286,11 +276,10 @@ class Arguments(object):
             input_argcount += take
 
         # collect extra positional arguments into the *vararg
-        if has_vararg:
+        if signature.has_vararg():
             args_left = co_argcount - upfront
             if args_left < 0:  # check required by rpython
-                assert extravarargs is not None
-                starargs_w = extravarargs
+                starargs_w = [w_firstarg]
                 if num_args:
                     starargs_w = starargs_w + args_w
             elif num_args > args_left:
@@ -303,15 +292,16 @@ class Arguments(object):
 
         # the code assumes that keywords can potentially be large, but that
         # argnames is typically not too large
-        num_remainingkwds = num_kwds
+        num_remainingkwds = 0
         used_keywords = None
+        keywords_w = self.keywords_w
         if num_kwds:
             used_keywords = [False] * num_kwds
             num_remainingkwds = _match_keywords(
                     signature, blindargs, input_argcount, keywords,
                     keywords_w, scope_w, used_keywords,
                     self._jit_few_keywords)
-        if has_kwarg:
+        if signature.has_kwarg():
             w_kwds = self.space.newdict(kwargs=True)
             # collect extra keyword arguments into the **kwarg
             if num_remainingkwds:
@@ -319,7 +309,7 @@ class Arguments(object):
                         self.space, keywords, keywords_w, w_kwds,
                         used_keywords, self.keyword_names_w, self._jit_few_keywords)
                 #
-            scope_w[co_argcount + has_vararg] = w_kwds
+            scope_w[co_argcount + signature.has_vararg()] = w_kwds
         elif num_remainingkwds:
             if co_argcount == 0:
                 raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
@@ -343,8 +333,6 @@ class Arguments(object):
             if missing:
                 raise ArgErrCount(avail, num_kwds, signature, defaults_w, missing)
 
-        return co_argcount + has_vararg + has_kwarg
-
 
 
     def parse_into_scope(self, w_firstarg,
@@ -355,11 +343,12 @@ class Arguments(object):
         scope_w must be big enough for signature.
         """
         try:
-            return self._match_signature(w_firstarg,
-                                         scope_w, signature, defaults_w, 0)
+            self._match_signature(w_firstarg,
+                                  scope_w, signature, defaults_w, 0)
         except ArgErr, e:
             raise operationerrfmt(self.space.w_TypeError,
                                   "%s() %s", fnname, e.getmsg())
+        return signature.scope_length()
 
     def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
