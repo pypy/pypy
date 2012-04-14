@@ -85,6 +85,10 @@ class Arguments(object):
     Collects the arguments of a function call.
 
     Instances should be considered immutable.
+
+    Some parts of this class are written in a slightly convoluted style to help
+    the JIT. It is really crucial to get this right, because Python's argument
+    semantics are complex, but calls occur everywhere.
     """
 
     ###  Construction  ###
