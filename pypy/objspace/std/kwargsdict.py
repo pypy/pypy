@@ -145,7 +145,8 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):
-        return self.unerase(w_dict.dstorage)
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return keys[:], values_w[:] # copy to make non-resizable
 
 
 class KwargsDictIterator(IteratorImplementation):

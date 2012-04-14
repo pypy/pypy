@@ -174,8 +174,8 @@ class Arguments(object):
         keywords, values_w = space.view_as_kwargs(w_starstararg)
         if keywords is not None: # this path also taken for empty dicts
             if self.keywords is None:
-                self.keywords = keywords[:] # copy to make non-resizable
-                self.keywords_w = values_w[:]
+                self.keywords = keywords
+                self.keywords_w = values_w
             else:
                 _check_not_duplicate_kwargs(
                     self.space, self.keywords, keywords, values_w)

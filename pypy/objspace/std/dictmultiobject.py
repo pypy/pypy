@@ -510,10 +510,13 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def view_as_kwargs(self, w_dict):
         d = self.unerase(w_dict.dstorage)
-        keys, values = [], []
+        l = len(d)
+        keys, values = [None] * l, [None] * l
+        i = 0
         for key, val in d.iteritems():
-            keys.append(key)
-            values.append(val)
+            keys[i] = key
+            values[i] = val
+            i += 1
         return keys, values
 
 class _WrappedIteratorMixin(object):
