@@ -474,7 +474,7 @@ def _match_keywords(signature, blindargs, input_argcount,
 
 @jit.look_inside_iff(
     lambda space, keywords, keywords_w, w_kwds, used_keywords,
-        keyword_names_w, jifon: jiton)
+        keyword_names_w, jiton: jiton)
 def _collect_keyword_args(space, keywords, keywords_w, w_kwds, used_keywords,
                           keyword_names_w, _):
     limit = len(keywords)
