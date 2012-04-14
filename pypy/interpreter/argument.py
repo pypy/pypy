@@ -110,12 +110,10 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg)
-        # if we have a call where **args are used at the callsite
-        # we shouldn't let the JIT see the argument matching
-        self._dont_jit = (w_starstararg is not None and
-                          self._combine_starstarargs_wrapped(w_starstararg))
+        self._combine_wrapped(w_stararg, w_starstararg)
+        # a flag that specifies whether the JIT can unroll loops that operate
+        # on the keywords
+        self._jit_few_keywords = self.keywords is None or jit.isconstant(len(self.keywords))
 
     def __repr__(self):
         """ NOT_RPYTHON """
@@ -129,7 +127,7 @@ class Arguments(object):
 
     ###  Manipulation  ###
 
-    @jit.look_inside_iff(lambda self: not self._dont_jit)
+    @jit.look_inside_iff(lambda self: self._jit_few_keywords)
     def unpack(self): # slowish
         "Return a ([w1,w2...], {'kw':w3...}) pair."
         kwds_w = {}
@@ -183,7 +181,7 @@ class Arguments(object):
                     self.space, self.keywords, keywords, values_w)
                 self.keywords = self.keywords + keywords
                 self.keywords_w = self.keywords_w + values_w
-            return not jit.isconstant(len(self.keywords))
+            return
         if space.isinstance_w(w_starstararg, space.w_dict):
             keys_w = space.unpackiterable(w_starstararg)
         else:
@@ -209,7 +207,6 @@ class Arguments(object):
         else:
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
-        return True
 
 
     def fixedunpack(self, argcount):
@@ -315,14 +312,14 @@ class Arguments(object):
             num_remainingkwds = _match_keywords(
                     signature, blindargs, input_argcount, keywords,
                     keywords_w, scope_w, used_keywords,
-                    self._dont_jit)
+                    self._jit_few_keywords)
         if has_kwarg:
             w_kwds = self.space.newdict(kwargs=True)
             # collect extra keyword arguments into the **kwarg
             if num_remainingkwds:
                 _collect_keyword_args(
                         self.space, keywords, keywords_w, w_kwds,
-                        used_keywords, self.keyword_names_w, self._dont_jit)
+                        used_keywords, self.keyword_names_w, self._jit_few_keywords)
                 #
             scope_w[co_argcount + has_vararg] = w_kwds
         elif num_remainingkwds:
@@ -462,7 +459,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
 
 @jit.look_inside_iff(
     lambda signature, blindargs, input_argcount, keywords, keywords_w,
-           scope_w, used_keywords, jitoff: not jitoff)
+           scope_w, used_keywords, jiton: jiton)
 def _match_keywords(signature, blindargs, input_argcount,
                     keywords, keywords_w, scope_w, used_keywords, _):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
@@ -494,7 +491,7 @@ def _match_keywords(signature, blindargs, input_argcount,
 
 @jit.look_inside_iff(
     lambda space, keywords, keywords_w, w_kwds, used_keywords,
-           keyword_names_w, jitoff: not jitoff)
+        keyword_names_w, jifon: jiton)
 def _collect_keyword_args(space, keywords, keywords_w, w_kwds, used_keywords,
                           keyword_names_w, _):
     limit = len(keywords)
