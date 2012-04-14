@@ -54,11 +54,13 @@ def do(cmd):
         print '*** error %r' % (err,)
         sys.exit(1)
 
+print '*** switching to closed branches *** '
+do("hg up --clean closed-branches")
+do("hg --config extensions.purge= purge --all")
+
 for head, branch in closed_heads:
     print
     print '***** %s ***** %s *****' % (branch, head)
-    do("hg up --clean closed-branches")
-    do("hg --config extensions.purge= purge --all")
     do("hg debugsetparents closed-branches %s" % head)
     do("hg ci -m'Merge closed head %s on branch %s'" % (head, branch))
 
