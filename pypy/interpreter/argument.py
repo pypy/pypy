@@ -316,6 +316,23 @@ class Arguments(object):
                     signature, blindargs, input_argcount, keywords,
                     keywords_w, scope_w, used_keywords,
                     self._dont_jit)
+        if has_kwarg:
+            w_kwds = self.space.newdict(kwargs=True)
+            # collect extra keyword arguments into the **kwarg
+            if num_remainingkwds:
+                _collect_keyword_args(
+                        self.space, keywords, keywords_w, w_kwds,
+                        used_keywords, self.keyword_names_w, self._dont_jit)
+                #
+            scope_w[co_argcount + has_vararg] = w_kwds
+        elif num_remainingkwds:
+            if co_argcount == 0:
+                raise ArgErrCount(avail, num_kwds,
+                              co_argcount, has_vararg, has_kwarg,
+                              defaults_w, 0)
+            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                    used_keywords, self.keyword_names_w)
+
         missing = 0
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
@@ -330,28 +347,10 @@ class Arguments(object):
                     # because it might be related to a problem with */** or
                     # keyword arguments, which will be checked for below.
                     missing += 1
-
-        if has_kwarg:
-            w_kwds = self.space.newdict(kwargs=True)
-            # collect extra keyword arguments into the **kwarg
-            if num_remainingkwds:
-                _collect_keyword_args(
-                        self.space, keywords, keywords_w, w_kwds,
-                        used_keywords, self.keyword_names_w, self._dont_jit)
-                #
-            scope_w[co_argcount + has_vararg] = w_kwds
-        elif num_remainingkwds:
-            if co_argcount == 0:
+            if missing:
                 raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
-            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                    used_keywords, self.keyword_names_w)
-
-        if missing:
-            raise ArgErrCount(avail, num_kwds,
-                              co_argcount, has_vararg, has_kwarg,
-                              defaults_w, missing)
+                                  co_argcount, has_vararg, has_kwarg,
+                                  defaults_w, missing)
 
         return co_argcount + has_vararg + has_kwarg
 
