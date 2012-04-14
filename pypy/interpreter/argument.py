@@ -234,10 +234,8 @@ class Arguments(object):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         """
-        #
+        #   w_firstarg = a first argument to be inserted (e.g. self) or None
         #   args_w = list of the normal actual parameters, wrapped
-        #   kwds_w = real dictionary {'keyword': wrapped parameter}
-        #   argnames = list of formal parameter names
         #   scope_w = resulting list of wrapped values
         #
 
