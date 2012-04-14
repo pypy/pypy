@@ -269,30 +269,13 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
-    # XXX: this should be @jit.look_inside_iff, but we need key word arguments,
-    # and it doesn't support them for now.
+    @jit.unroll_safe
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
         or raise an ArgErr in case of failure.
         Return the number of arguments filled in.
         """
-        if jit.we_are_jitted() and self._dont_jit:
-            return self._match_signature_jit_opaque(w_firstarg, scope_w,
-                                                    signature, defaults_w,
-                                                    blindargs)
-        return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
-
-    @jit.dont_look_inside
-    def _match_signature_jit_opaque(self, w_firstarg, scope_w, signature,
-                                    defaults_w, blindargs):
-        return self._really_match_signature(w_firstarg, scope_w, signature,
-                                            defaults_w, blindargs)
-
-    @jit.unroll_safe
-    def _really_match_signature(self, w_firstarg, scope_w, signature,
-                                defaults_w=None, blindargs=0):
         #
         #   args_w = list of the normal actual parameters, wrapped
         #   kwds_w = real dictionary {'keyword': wrapped parameter}
