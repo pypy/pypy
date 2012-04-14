@@ -1,3 +1,0 @@
-An experimental module providing very low-level interface to
-C-level libraries, for use when implementing ctypes, not
-intended for a direct use at all.

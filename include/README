@@ -1,7 +1,0 @@
-This directory contains all the include files needed to build cpython
-extensions with PyPy.  Note that these are just copies of the original headers
-that are in pypy/module/cpyext/include: they are automatically copied from
-there during translation.
-
-Moreover, pypy_decl.h and pypy_macros.h are automatically generated, also
-during translation.

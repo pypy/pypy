@@ -1,1 +1,0 @@
-Use the pyexpat module, written in RPython.
