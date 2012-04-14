@@ -336,32 +336,12 @@ class Arguments(object):
         # argnames is typically not too large
         num_remainingkwds = num_kwds
         used_keywords = None
-        if keywords:
-            # letting JIT unroll the loop is *only* safe if the callsite didn't
-            # use **args because num_kwds can be arbitrarily large otherwise.
+        if num_kwds:
             used_keywords = [False] * num_kwds
-            for i in range(num_kwds):
-                name = keywords[i]
-                # If name was not encoded as a string, it could be None. In that
-                # case, it's definitely not going to be in the signature.
-                if name is None:
-                    continue
-                j = signature.find_argname(name)
-                if j < 0:
-                    continue
-                elif j < input_argcount:
-                    # check that no keyword argument conflicts with these. note
-                    # that for this purpose we ignore the first blindargs,
-                    # which were put into place by prepend().  This way,
-                    # keywords do not conflict with the hidden extra argument
-                    # bound by methods.
-                    if blindargs <= j:
-                        raise ArgErrMultipleValues(name)
-                else:
-                    assert scope_w[j] is None
-                    scope_w[j] = keywords_w[i]
-                    used_keywords[i] = True # mark as used
-                    num_remainingkwds -= 1
+            num_remainingkwds = _match_keywords(
+                    signature, blindargs, input_argcount, keywords,
+                    keywords_w, scope_w, used_keywords,
+                    self._dont_jit)
         missing = 0
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
@@ -377,21 +357,13 @@ class Arguments(object):
                     # keyword arguments, which will be checked for below.
                     missing += 1
 
-        # collect extra keyword arguments into the **kwarg
         if has_kwarg:
             w_kwds = self.space.newdict(kwargs=True)
+            # collect extra keyword arguments into the **kwarg
             if num_remainingkwds:
-                #
-                limit = len(keywords)
-                if self.keyword_names_w is not None:
-                    limit -= len(self.keyword_names_w)
-                for i in range(len(keywords)):
-                    if not used_keywords[i]:
-                        if i < limit:
-                            w_key = self.space.wrap(keywords[i])
-                        else:
-                            w_key = self.keyword_names_w[i - limit]
-                        self.space.setitem(w_kwds, w_key, keywords_w[i])
+                _collect_keyword_args(
+                        self.space, keywords, keywords_w, w_kwds,
+                        used_keywords, self.keyword_names_w, self._dont_jit)
                 #
             scope_w[co_argcount + has_vararg] = w_kwds
         elif num_remainingkwds:
@@ -489,6 +461,53 @@ def _check_not_duplicate_kwargs(space, existingkeywords, keywords, keywords_w):
                                       "for keyword argument "
                                       "'%s'", key)
 
+@jit.look_inside_iff(
+    lambda signature, blindargs, input_argcount, keywords, keywords_w,
+           scope_w, used_keywords, jitoff: not jitoff)
+def _match_keywords(signature, blindargs, input_argcount,
+                    keywords, keywords_w, scope_w, used_keywords, _):
+    # letting JIT unroll the loop is *only* safe if the callsite didn't
+    # use **args because num_kwds can be arbitrarily large otherwise.
+    num_kwds = num_remainingkwds = len(keywords)
+    for i in range(num_kwds):
+        name = keywords[i]
+        # If name was not encoded as a string, it could be None. In that
+        # case, it's definitely not going to be in the signature.
+        if name is None:
+            continue
+        j = signature.find_argname(name)
+        if j < 0:
+            continue
+        elif j < input_argcount:
+            # check that no keyword argument conflicts with these. note
+            # that for this purpose we ignore the first blindargs,
+            # which were put into place by prepend().  This way,
+            # keywords do not conflict with the hidden extra argument
+            # bound by methods.
+            if blindargs <= j:
+                raise ArgErrMultipleValues(name)
+        else:
+            assert scope_w[j] is None
+            scope_w[j] = keywords_w[i]
+            used_keywords[i] = True # mark as used
+            num_remainingkwds -= 1
+    return num_remainingkwds
+
+@jit.look_inside_iff(
+    lambda space, keywords, keywords_w, w_kwds, used_keywords,
+           keyword_names_w, jitoff: not jitoff)
+def _collect_keyword_args(space, keywords, keywords_w, w_kwds, used_keywords,
+                          keyword_names_w, _):
+    limit = len(keywords)
+    if keyword_names_w is not None:
+        limit -= len(keyword_names_w)
+    for i in range(len(keywords)):
+        if not used_keywords[i]:
+            if i < limit:
+                w_key = space.wrap(keywords[i])
+            else:
+                w_key = keyword_names_w[i - limit]
+            space.setitem(w_kwds, w_key, keywords_w[i])
 
 class ArgumentsForTranslation(Arguments):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
