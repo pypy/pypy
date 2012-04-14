@@ -455,9 +455,9 @@ def _match_keywords(signature, blindargs, input_argcount,
         if name is None:
             continue
         j = signature.find_argname(name)
-        if j < 0:
-            continue
-        elif j < input_argcount:
+        # if j == -1 nothing happens, because j < input_argcount and
+        # blindargs > j
+        if j < input_argcount:
             # check that no keyword argument conflicts with these. note
             # that for this purpose we ignore the first blindargs,
             # which were put into place by prepend().  This way,
