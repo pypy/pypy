@@ -8,7 +8,6 @@ from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_MOVED
 
 
 class StmGCTLS(object):
@@ -290,7 +289,7 @@ class StmGCTLS(object):
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
-        if hdr.tid & GCFLAG_MOVED:
+        if hdr.tid & GCFLAG_VISITED:
             root.address[0] = hdr.version
             return
         #
@@ -308,9 +307,9 @@ class StmGCTLS(object):
                              newobj - size_gc_header,
                              totalsize)
         #
-        # Set the YOUNG copy's GCFLAG_MOVED and set its version to
+        # Set the YOUNG copy's GCFLAG_VISITED and set its version to
         # point to the OLD copy.
-        hdr.tid |= GCFLAG_MOVED
+        hdr.tid |= GCFLAG_VISITED
         hdr.version = newobj
         #
         # Change the original pointer to this object.

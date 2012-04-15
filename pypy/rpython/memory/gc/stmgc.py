@@ -44,7 +44,6 @@ GCFLAG_HAS_SHADOW = first_gcflag << 2
 GCFLAG_FIXED_HASH = first_gcflag << 3
 GCFLAG_WEAKREF    = first_gcflag << 4
 GCFLAG_VISITED    = first_gcflag << 5
-GCFLAG_MOVED      = first_gcflag << 6
 
 
 def always_inline(fn):
