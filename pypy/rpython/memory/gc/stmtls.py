@@ -39,13 +39,14 @@ class StmGCTLS(object):
         # --- the local raw-malloced objects (chained list via hdr.version)
         #self.rawmalloced_objects = NULL
         # --- the local "normal" old objects (chained list via hdr.version)
-        self.old_objects = NULL
+        #self.old_objects = NULL
         # --- the local objects with weakrefs (chained list via hdr.version)
         #self.young_objects_with_weakrefs = NULL
         #self.old_objects_with_weakrefs = NULL
         #
         # --- a thread-local allocator for the shared area
-        self.sharedarea_tls = None
+        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
         #
         self._register_with_C_code()
 
@@ -155,7 +156,7 @@ class StmGCTLS(object):
         #
         # Move away the previous sharedarea_tls and start a new one.
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
-        previous_sharedarea_tls = self.sharedarea_tls    # may be None
+        previous_sharedarea_tls = self.sharedarea_tls
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
         #
         # List of LOCAL objects pending a visit.  Note that no GLOBAL
@@ -182,8 +183,7 @@ class StmGCTLS(object):
         #
         # Visit all previous OLD objects.  Free the ones that have not been
         # visited above, and reset GCFLAG_VISITED on the others.
-        if previous_sharedarea_tls is not None:
-            self.mass_free_old_local(previous_sharedarea_tls)
+        self.mass_free_old_local(previous_sharedarea_tls)
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
@@ -234,24 +234,30 @@ class StmGCTLS(object):
                   "odd-valued (i.e. tagged) pointer unexpected here")
         return self.nursery_start <= addr < self.nursery_top
 
+    def malloc_local_copy(self, totalsize):
+        """Allocate an object that will be used as a LOCAL copy of
+        some GLOBAL object."""
+        localobj = self.sharedarea_tls.malloc_object(totalsize)
+        self.sharedarea_tls.add_special(localobj)
+        return localobj
+
     # ------------------------------------------------------------
 
     def _promote_locals_to_globals(self):
         ll_assert(self.local_nursery_is_empty(), "nursery must be empty [1]")
+        ll_assert(not self.sharedarea_tls.special_stack.non_empty(),
+                  "special_stack should be empty here [1]")
         #
-        obj = self.old_objects
-        self.old_objects = NULL
+        # Promote all objects in sharedarea_tls to global
+        obj = self.sharedarea_tls.chained_list
+        self.sharedarea_tls.chained_list = NULL
+        #
         while obj:
             hdr = self.gc.header(obj)
-            hdr.tid |= GCFLAG_GLOBAL
             obj = hdr.version
-        #
-##        obj = self.rawmalloced_objects
-##        self.rawmalloced_objects = NULL
-##        while obj:
-##            hdr = self.header(obj)
-##            hdr.tid |= GCFLAG_GLOBAL
-##            obj = hdr.version
+            ll_assert(not (hdr.tid & GCFLAG_GLOBAL), "already GLOBAL [1]")
+            hdr.version = NULL
+            hdr.tid |= GCFLAG_GLOBAL
 
     def _cleanup_state(self):
         #if self.rawmalloced_objects:
@@ -259,10 +265,7 @@ class StmGCTLS(object):
 
         # if we still have a StmGCThreadLocalAllocator, free the old unused
         # local objects it still contains
-        if self.sharedarea_tls is not None:
-            self.sharedarea_tls.clear()
-            self.sharedarea_tls.delete()
-            self.sharedarea_tls = None
+        self.sharedarea_tls.clear()
 
 
     def collect_roots_from_stack(self):

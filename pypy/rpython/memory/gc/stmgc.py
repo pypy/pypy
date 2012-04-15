@@ -97,6 +97,7 @@ class StmGC(MovingGCBase):
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
         self.sharedarea = stmshared.StmGCSharedArea(self)
+        self.transactional_mode = False
         #
         def _get_size(obj):     # indirection to hide 'self'
             return self.get_size(obj)
@@ -136,9 +137,13 @@ class StmGC(MovingGCBase):
         return StmGCTLS.cast_address_to_tls_object(tls)
 
     def enter_transactional_mode(self):
+        ll_assert(not self.transactional_mode, "already in transactional mode")
         self.main_thread_tls.enter_transactional_mode()
+        self.transactional_mode = True
 
     def leave_transactional_mode(self):
+        ll_assert(self.transactional_mode, "already in non-transactional mode")
+        self.transactional_mode = False
         self.main_thread_tls.leave_transactional_mode()
 
     # ----------
@@ -226,9 +231,10 @@ class StmGC(MovingGCBase):
         tls.global_stop = result + totalsize
 
 
-    def collect(self, gen=0):
-        #raise NotImplementedError
-        debug_print("XXX collect() ignored")
+    def collect(self, gen=1):
+        self.get_tls().local_collection()
+        if gen > 0:
+            debug_print("XXX not doing a global collect()")
 
     def start_transaction(self):
         self.get_tls().start_transaction()
@@ -311,11 +317,10 @@ class StmGC(MovingGCBase):
         #
         @dont_inline
         def _stm_write_barrier_global(obj):
-            if not stm_operations.in_transaction():
-                return obj
             # we need to find or make a local copy
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_WAS_COPIED == 0:
+                #
                 # in this case, we are sure that we don't have a copy
                 hdr.tid |= GCFLAG_WAS_COPIED
                 # ^^^ non-protected write, but concurrent writes should
@@ -332,11 +337,11 @@ class StmGC(MovingGCBase):
                     return localobj
             #
             # Here, we need to really make a local copy
-            raise NotImplementedError
             size = self.get_size(obj)
-            tls = self.collector.get_tls()
+            totalsize = self.gcheaderbuilder.size_gc_header + size
+            tls = self.get_tls()
             try:
-                localobj = self._malloc_local_raw(tls, size)
+                localobj = tls.malloc_local_copy(totalsize)
             except MemoryError:
                 # XXX
                 fatalerror("MemoryError in _stm_write_barrier_global -- sorry")
