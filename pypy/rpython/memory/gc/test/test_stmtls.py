@@ -25,22 +25,19 @@ class FakeSharedArea:
     pass
 
 class FakeRootWalker:
-    def walk_roots(self, f1, f2, f3, arg):
-        if f1 is not None:
-            A = lltype.Array(llmemory.Address)
-            roots = lltype.malloc(A, len(self.current_stack), flavor='raw')
-            for i in range(len(self.current_stack)):
-                roots[i] = llmemory.cast_ptr_to_adr(self.current_stack[i])
-            for i in range(len(self.current_stack)):
-                root = lltype.direct_ptradd(lltype.direct_arrayitems(roots), i)
-                root = llmemory.cast_ptr_to_adr(root)
-                f1(arg, root)
-            for i in range(len(self.current_stack)):
-                P = lltype.typeOf(self.current_stack[i])
-                self.current_stack[i] = llmemory.cast_adr_to_ptr(roots[i], P)
-            lltype.free(roots, flavor='raw')
-        assert f2 is None
-        assert f3 is None
+    def walk_current_stack_roots(self, callback, arg):
+        A = lltype.Array(llmemory.Address)
+        roots = lltype.malloc(A, len(self.current_stack), flavor='raw')
+        for i in range(len(self.current_stack)):
+            roots[i] = llmemory.cast_ptr_to_adr(self.current_stack[i])
+        for i in range(len(self.current_stack)):
+            root = lltype.direct_ptradd(lltype.direct_arrayitems(roots), i)
+            root = llmemory.cast_ptr_to_adr(root)
+            callback(arg, root)
+        for i in range(len(self.current_stack)):
+            P = lltype.typeOf(self.current_stack[i])
+            self.current_stack[i] = llmemory.cast_adr_to_ptr(roots[i], P)
+        lltype.free(roots, flavor='raw')
 
 class FakeGC:
     from pypy.rpython.memory.support import AddressDict, null_address_dict
