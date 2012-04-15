@@ -9,6 +9,10 @@ from pypy.rpython.memory.gcheader import GCHeaderBuilder
 NULL = llmemory.NULL
 S = lltype.GcStruct('S', ('a', lltype.Signed), ('b', lltype.Signed),
                          ('c', lltype.Signed))
+SR = lltype.GcForwardReference()
+SR.become(lltype.GcStruct('SR', ('s1', lltype.Ptr(S)),
+                                ('sr2', lltype.Ptr(SR)),
+                                ('sr3', lltype.Ptr(SR))))
 
 
 class FakeStmOperations:
@@ -61,6 +65,10 @@ class FakeGC:
         TYPE = obj.ptr._TYPE.TO
         if TYPE == S:
             ofslist = []     # no pointers in S
+        elif TYPE == SR:
+            ofslist = [llmemory.offsetof(SR, 's1'),
+                       llmemory.offsetof(SR, 'sr2'),
+                       llmemory.offsetof(SR, 'sr3')]
         else:
             assert 0
         for ofs in ofslist:
@@ -132,4 +140,22 @@ class TestStmGCTLS(object):
 
     def test_alloc_a_lot_kept(self):
         for i in range(100):
-            self.stack_add(self.malloc(S))
+            s1 = self.malloc(S)
+            s1.a = i
+            self.stack_add(s1)
+        for i in range(100)[::-1]:
+            s2 = self.stack_pop()
+            assert s2.a == i
+
+    def test_alloc_chain(self):
+        srlist = lltype.nullptr(SR)
+        for i in range(100):
+            self.stack_add(srlist)
+            sr1 = self.malloc(SR)
+            srlist = self.stack_pop()
+            sr1.sr2 = srlist
+            srlist = sr1
+        for i in range(100)[::-1]:
+            assert srlist
+            srlist = srlist.sr2
+        assert not srlist
