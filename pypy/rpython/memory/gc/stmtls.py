@@ -8,6 +8,7 @@ from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_MOVED
 
 
 class StmGCTLS(object):
@@ -19,7 +20,6 @@ class StmGCTLS(object):
     nontranslated_dict = {}
 
     def __init__(self, gc, in_main_thread):
-        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.gc = gc
         self.in_main_thread = in_main_thread
         self.stm_operations = self.gc.stm_operations
@@ -46,7 +46,7 @@ class StmGCTLS(object):
         #self.old_objects_with_weakrefs = NULL
         #
         # --- a thread-local allocator for the shared area
-        self.sharedarea_tls = StmGCThreadLocalAllocator(gc.sharedarea)
+        self.sharedarea_tls = None
         #
         self._register_with_C_code()
 
@@ -153,37 +153,41 @@ class StmGCTLS(object):
         #
         debug_start("gc-local")
         #
-        # Linked list of LOCAL objects pending a visit.  Note that no
-        # GLOBAL object can at any point contain a reference to a LOCAL
-        # object.
-        self.pending_list = NULL
+        # Move away the previous sharedarea_tls and start a new one.
+        from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
+        previous_sharedarea_tls = self.sharedarea_tls    # may be None
+        self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
+        #
+        # List of LOCAL objects pending a visit.  Note that no GLOBAL
+        # object can at any point contain a reference to a LOCAL object.
+        self.pending = self.AddressStack()
         #
         # First, find the roots that point to LOCAL objects.  All YOUNG
         # (i.e. nursery) objects found are copied out of the nursery.
-        # All OLD objects found are flagged with GCFLAG_VISITED.  At this
-        # point, the content of the objects is not modified; the objects
-        # are merely added to the chained list 'pending_list'.
-        self.collect_roots_in_nursery()
+        # All OLD objects found are flagged with GCFLAG_VISITED.
+        # At this point, the content of the objects is not modified;
+        # they are simply added to 'pending'.
+        self.collect_roots_from_stack()
         #
         # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
         # objects.
         self.collect_roots_from_tldict()
         #
-        # Now repeat following objects until 'pending_list' is empty.
-        self.collect_oldrefs_to_nursery()
+        # Now repeatedly follow objects until 'pending' is empty.
+        self.collect_flush_pending()
         #
         # Walk the list of LOCAL raw-malloced objects, and free them if
         # necessary.
         #self.free_local_rawmalloced_objects()
         #
-        # Ask the ArenaCollection to visit all objects.  Free the ones
-        # that have not been visited above, and reset GCFLAG_VISITED on
-        # the others.
-        self.ac.mass_free(self._free_if_unvisited)
+        # Visit all previous OLD objects.  Free the ones that have not been
+        # visited above, and reset GCFLAG_VISITED on the others.
+        if previous_sharedarea_tls is not None:
+            self.mass_free_old_local(previous_sharedarea_tls)
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
-        llarena.arena_reset(self.nursery, self.nursery_size, 2)
+        llarena.arena_reset(self.nursery_start, self.nursery_size, 2)
         self.nursery_free = self.nursery_start
         #
         debug_stop("gc-local")
@@ -215,7 +219,7 @@ class StmGCTLS(object):
     def allocate_object_of_size(self, size):
         if not self.nursery_free:
             fatalerror("malloc in a non-main thread but outside a transaction")
-        if size > self.nursery_size // 8 * 7:
+        if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
             fatalerror("object too large to ever fit in the nursery")
         while True:
             self.local_collection()
@@ -224,6 +228,11 @@ class StmGCTLS(object):
             if (top - free) < llmemory.raw_malloc_usage(size):
                 continue         # try again
             return free
+
+    def is_in_nursery(self, addr):
+        ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
+                  "odd-valued (i.e. tagged) pointer unexpected here")
+        return self.nursery_start <= addr < self.nursery_top
 
     # ------------------------------------------------------------
 
@@ -245,5 +254,102 @@ class StmGCTLS(object):
 ##            obj = hdr.version
 
     def _cleanup_state(self):
-        if self.rawmalloced_objects:
-            xxx     # free the rawmalloced_objects still around
+        #if self.rawmalloced_objects:
+        #    xxx     # free the rawmalloced_objects still around
+
+        # if we still have a StmGCThreadLocalAllocator, free the old unused
+        # local objects it still contains
+        if self.sharedarea_tls is not None:
+            self.sharedarea_tls.clear()
+            self.sharedarea_tls.delete()
+            self.sharedarea_tls = None
+
+
+    def collect_roots_from_stack(self):
+        self.gc.root_walker.walk_roots(
+            StmGCTLS._trace_drag_out1,  # stack roots of the current thread
+            None,                       # static in prebuilt non-gc
+            None,                       # static in prebuilt gc
+            self)
+
+    def _trace_drag_out1(self, root):
+        self._trace_drag_out(root, None)
+
+    def _trace_drag_out(self, root, ignored):
+        """Trace callback: 'root' is the address of some pointer.  If that
+        pointer points to a YOUNG object, allocate an OLD copy of it and
+        fix the pointer.  Also, add the object to 'pending_list', if it was
+        not done so far.
+        """
+        obj = root.address[0]
+        hdr = self.gc.header(obj)
+        #
+        # If 'obj' is not in the nursery, we set GCFLAG_VISITED
+        if not self.is_in_nursery(obj):
+            if hdr.tid & GCFLAG_VISITED == 0:
+                hdr.tid |= GCFLAG_VISITED
+                self.pending.append(obj)
+            return
+        #
+        # If 'obj' was already forwarded, change it to its forwarding address.
+        if hdr.tid & GCFLAG_MOVED:
+            root.address[0] = hdr.version
+            return
+        #
+        # First visit to 'obj': we must move this YOUNG obj out of the nursery.
+        size_gc_header = self.gc.gcheaderbuilder.size_gc_header
+        size = self.gc.get_size(obj)
+        totalsize = size_gc_header + size
+        #
+        # Common case: allocate a new nonmovable location for it.
+        newobj = self._malloc_out_of_nursery(totalsize)
+        #
+        # Copy it.  Note that references to other objects in the
+        # nursery are kept unchanged in this step.
+        llmemory.raw_memcopy(obj - size_gc_header,
+                             newobj - size_gc_header,
+                             totalsize)
+        #
+        # Set the YOUNG copy's GCFLAG_MOVED and set its version to
+        # point to the OLD copy.
+        hdr.tid |= GCFLAG_MOVED
+        hdr.version = newobj
+        #
+        # Change the original pointer to this object.
+        root.address[0] = newobj
+        #
+        # Add the newobj to the list 'pending', because it can contain
+        # further pointers to other young objects.  We will fix such
+        # references to point to the copy of the young objects when we
+        # walk 'pending_list'.
+        self.pending.append(newobj)
+
+    def _malloc_out_of_nursery(self, totalsize):
+        obj = self.sharedarea_tls.malloc_object(totalsize)
+        self.sharedarea_tls.add_regular(obj)
+        return obj
+
+    def collect_roots_from_tldict(self):
+        pass  # XXX
+
+    def collect_flush_pending(self):
+        # Follow the objects in the 'pending' stack and move the
+        # young objects they point to out of the nursery.
+        while self.pending.non_empty():
+            obj = self.pending.pop()
+            self.gc.trace(obj, self._trace_drag_out, None)
+
+    def mass_free_old_local(self, previous_sharedarea_tls):
+        obj = previous_sharedarea_tls.chained_list
+        previous_sharedarea_tls.delete()
+        while obj != NULL:
+            hdr = self.gc.header(obj)
+            next = hdr.version
+            if hdr.tid & GCFLAG_VISITED:
+                # survives: relink in the new sharedarea_tls
+                self.sharedarea_tls.add_regular(obj)
+            else:
+                # dies
+                self.sharedarea_tls.free_object(obj)
+            #
+            obj = next

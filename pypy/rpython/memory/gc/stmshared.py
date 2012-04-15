@@ -27,27 +27,22 @@ class StmGCThreadLocalAllocator(object):
         self.chained_list = NULL
         self.special_stack = self.gc.AddressStack()
 
-    def delete(self):
-        self.special_stack.delete()
-        free_non_gc_object(self)
+    def malloc_object(self, totalsize):
+        """Malloc.  You must also call add_regular() or add_special() later."""
+        adr1 = llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize), 0)
+        llarena.arena_reserve(adr1, totalsize)
+        return adr1 + self.gc.gcheaderbuilder.size_gc_header
 
-    def malloc_regular(self, size):
-        """Malloc for an object where the 'version' field can be used
-        internally for a chained list."""
-        adr1 = llarena.arena_malloc(size, 0)
-        adr2 = adr1 + self.gc.gcheaderbuilder
-        hdr = llmemory.cast_adr_to_ptr(adr1, lltype.Ptr(self.gc.HDR))
+    def add_regular(self, obj):
+        """After malloc_object(), register the object in the internal chained
+        list.  For objects whose 'version' field is not otherwise needed."""
+        hdr = self.gc.header(obj)
         hdr.version = self.chained_list
-        self.chained_list = adr2
-        return adr2
+        self.chained_list = obj
 
-    def malloc_special(self, size):
-        """Malloc for an object where the 'version' field cannot be
-        used internally.  It's the rare case here."""
-        adr1 = llarena.arena_malloc(size, 0)
-        adr2 = adr1 + self.gc.gcheaderbuilder.size_gc_header
-        self.special_stack.append(adr2)
-        return adr2
+    def add_special(self, obj):
+        """After malloc_object(), register the object in a separate stack."""
+        self.special_stack.append(obj)
 
     def free_object(self, adr2):
         adr1 = adr2 - self.gc.gcheaderbuilder.size_gc_header
@@ -56,3 +51,18 @@ class StmGCThreadLocalAllocator(object):
     def replace_special_stack(self, new_special_stack):
         self.special_stack.delete()
         self.special_stack = new_special_stack
+
+    def clear(self):
+        obj = self.chained_list
+        self.chained_list = NULL
+        while obj:
+            next = self.gc.header(obj).version
+            self.free_object(obj)
+            obj = next
+        s = self.special_stack
+        while s.non_empty():
+            self.free_object(s.pop())
+
+    def delete(self):
+        self.special_stack.delete()
+        free_non_gc_object(self)

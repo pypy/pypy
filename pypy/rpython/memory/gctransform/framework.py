@@ -1374,16 +1374,19 @@ class BaseRootWalker(object):
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   arg=None):
         gcdata = self.gcdata
         gc = self.gc
+        if arg is None:
+            arg = gc
         if collect_static_in_prebuilt_nongc:
             addr = gcdata.static_root_start
             end = gcdata.static_root_nongcend
             while addr != end:
                 result = addr.address[0]
                 if gc.points_to_valid_gc_object(result):
-                    collect_static_in_prebuilt_nongc(gc, result)
+                    collect_static_in_prebuilt_nongc(arg, result)
                 addr += sizeofaddr
         if collect_static_in_prebuilt_gc:
             addr = gcdata.static_root_nongcend
@@ -1391,10 +1394,10 @@ class BaseRootWalker(object):
             while addr != end:
                 result = addr.address[0]
                 if gc.points_to_valid_gc_object(result):
-                    collect_static_in_prebuilt_gc(gc, result)
+                    collect_static_in_prebuilt_gc(arg, result)
                 addr += sizeofaddr
         if collect_stack_root:
-            self.walk_stack_roots(collect_stack_root)     # abstract
+            self.walk_stack_roots(collect_stack_root, arg)     # abstract
 
     def need_stacklet_support(self):
         raise Exception("%s does not support stacklets" % (
