@@ -41,6 +41,7 @@ def make_udir(dir=None, basename=None):
                 basename = basename.encode(sys.getdefaultencoding())
         else:
             basename = ''
+    basename = basename.replace('/', '--')
     if not basename.startswith('-'):
         basename = '-' + basename
     if not basename.endswith('-'):

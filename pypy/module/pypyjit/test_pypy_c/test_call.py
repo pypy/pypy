@@ -244,6 +244,7 @@ class TestCall(BaseTestPyPyC):
         print guards
         assert len(guards) <= 20
 
+
     def test_stararg_virtual(self):
         def main(x):
             def g(*args):
@@ -486,3 +487,38 @@ class TestCall(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
+
+    def test_kwargs_virtual2(self):
+        log = self.run("""
+        def f(*args, **kwargs):
+            kwargs['a'] = kwargs['z'] * 0
+            return g(1, *args, **kwargs)
+
+        def g(x, y, z=2, a=1):
+            return x - y + z + a
+
+        def main(stop):
+            res = 0
+            i = 0
+            while i < stop:
+                res = f(res, z=i) # ID: call
+                i += 1
+            return res""", [1000])
+        assert log.result == 500
+        loop, = log.loops_by_id('call')
+        print loop.ops_by_id('call')
+        assert loop.match("""
+            i65 = int_lt(i58, i29)
+            guard_true(i65, descr=...)
+            guard_not_invalidated(..., descr=...)
+            i66 = force_token()
+            i67 = force_token()
+            i69 = int_sub_ovf(1, i56)
+            guard_no_overflow(..., descr=...)
+            i70 = int_add_ovf(i69, i58)
+            guard_no_overflow(..., descr=...)
+            i71 = int_add(i58, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)
+

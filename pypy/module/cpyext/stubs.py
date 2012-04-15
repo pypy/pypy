@@ -2253,24 +2253,6 @@ def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
-def PyUnicode_Split(space, s, sep, maxsplit):
-    """Split a string giving a list of Unicode strings.  If sep is NULL, splitting
-    will be done at all whitespace substrings.  Otherwise, splits occur at the given
-    separator.  At most maxsplit splits will be done.  If negative, no limit is
-    set.  Separators are not included in the resulting list.
-
-    This function used an int type for maxsplit. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyUnicode_Splitlines(space, s, keepend):
-    """Split a Unicode string at line breaks, returning a list of Unicode strings.
-    CRLF is considered to be one line break.  If keepend is 0, the Line break
-    characters are not included in the resulting strings."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the
@@ -2285,29 +2267,6 @@ def PyUnicode_Translate(space, str, table, errors):
 
     errors has the usual meaning for codecs. It may be NULL which indicates to
     use the default error handling."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], Py_ssize_t, error=-2)
-def PyUnicode_Find(space, str, substr, start, end, direction):
-    """Return the first position of substr in str*[*start:end] using the given
-    direction (direction == 1 means to do a forward search, direction == -1 a
-    backward search).  The return value is the index of the first match; a value of
-    -1 indicates that no match was found, and -2 indicates that an error
-    occurred and an exception has been set.
-
-    This function used an int type for start and end. This
-    might require changes in your code for properly supporting 64-bit
-    systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t], Py_ssize_t, error=-1)
-def PyUnicode_Count(space, str, substr, start, end):
-    """Return the number of non-overlapping occurrences of substr in
-    str[start:end].  Return -1 if an error occurred.
-
-    This function returned an int type and used an int
-    type for start and end. This might require changes in your code for
-    properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
