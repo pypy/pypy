@@ -433,7 +433,11 @@ class TypeLayoutBuilder(object):
             # local data structure.  We assume that objects are stored
             # only temporarily there, so it is always cleared at the point
             # where we collect the roots.
-            assert TYPE._name == 'ExcData'
+            if TYPE._name == 'ExcData':
+                return
+            # Some other thread-local data don't have any GC pointers
+            # themselves.  These are fine.
+            assert list(gc_pointers_inside(value, adr)) == []
             return
         else:
             appendto = self.addresses_of_static_ptrs_in_nongc

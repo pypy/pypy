@@ -6,6 +6,7 @@ from pypy.rlib.rarithmetic import is_valid_int
 
 def ll_assert(x, msg):
     """After translation to C, this becomes an RPyAssert."""
+    assert type(x) is bool, "bad type! got %r" % (type(x),)
     assert x, msg
 
 class Entry(ExtRegistryEntry):

@@ -85,7 +85,7 @@ class StmGCTLS(object):
     def cast_address_to_tls_object(tlsaddr):
         if we_are_translated():
             tls = llmemory.cast_adr_to_ptr(tlsaddr, base_ptr_lltype())
-            return cast_base_ptr_to_instance(tls)
+            return cast_base_ptr_to_instance(StmGCTLS, tls)
         else:
             n = rffi.cast(lltype.Signed, tlsaddr)
             return StmGCTLS.nontranslated_dict[n]
@@ -135,7 +135,8 @@ class StmGCTLS(object):
         self.nursery_top  = self.nursery_start + self.nursery_size
 
     def local_nursery_is_empty(self):
-        ll_assert(self.nursery_free, "local_nursery_is_empty: gc not running")
+        ll_assert(bool(self.nursery_free),
+                  "local_nursery_is_empty: gc not running")
         return self.nursery_free == self.nursery_start
 
     # ------------------------------------------------------------
@@ -202,7 +203,7 @@ class StmGCTLS(object):
 
         No more mallocs are allowed after this is called.
         """
-        xxx
+        raise NotImplementedError
 
     # ------------------------------------------------------------
 
@@ -242,7 +243,7 @@ class StmGCTLS(object):
         obj = self.old_objects
         self.old_objects = NULL
         while obj:
-            hdr = self.header(obj)
+            hdr = self.gc.header(obj)
             hdr.tid |= GCFLAG_GLOBAL
             obj = hdr.version
         #
@@ -266,11 +267,8 @@ class StmGCTLS(object):
 
 
     def collect_roots_from_stack(self):
-        self.gc.root_walker.walk_roots(
-            StmGCTLS._trace_drag_out1,  # stack roots of the current thread
-            None,                       # static in prebuilt non-gc
-            None,                       # static in prebuilt gc
-            self)
+        self.gc.root_walker.walk_current_stack_roots(
+            StmGCTLS._trace_drag_out1, self)
 
     def _trace_drag_out1(self, root):
         self._trace_drag_out(root, None)

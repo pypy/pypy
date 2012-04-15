@@ -1,9 +1,11 @@
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.memory.gctransform.framework import sizeofaddr
-from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.annotation import model as annmodel
 from pypy.rlib.debug import fatalerror_notb
+from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.objectmodel import specialize
 
 
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
@@ -33,11 +35,11 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
             self.gcdata.gc.stm_normalize_global,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
         self.stm_enter_transactional_mode_ptr = getfn(
-            self.gcdata.gc.enter_transactional_mode.im_func
-            [s_sc], annmodel.s_None)
+            self.gcdata.gc.enter_transactional_mode.im_func,
+            [s_gc], annmodel.s_None)
         self.stm_leave_transactional_mode_ptr = getfn(
-            self.gcdata.gc.leave_transactional_mode.im_func
-            [s_sc], annmodel.s_None)
+            self.gcdata.gc.leave_transactional_mode.im_func,
+            [s_gc], annmodel.s_None)
         self.stm_start_ptr = getfn(
             self.gcdata.gc.start_transaction.im_func,
             [s_gc], annmodel.s_None)
@@ -110,7 +112,8 @@ class StmShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         root_iterator = shadowstack.get_root_iterator(gctransformer)
-        def walk_stack_root(callback, start, end):
+        @specialize.argtype(1)
+        def walk_stack_root(callback, arg, start, end):
             root_iterator.setcontext(NonConstant(llmemory.NULL))
             gc = self.gc
             addr = end
@@ -118,7 +121,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
                 addr = root_iterator.nextleft(gc, start, addr)
                 if addr == llmemory.NULL:
                     return
-                callback(gc, addr)
+                callback(arg, addr)
         self.rootstackhook = walk_stack_root
 
         rsd = gctransformer.root_stack_depth
@@ -143,10 +146,18 @@ class StmShadowStackRootWalker(BaseRootWalker):
         llmemory.raw_free(base)
 
     def walk_stack_roots(self, collect_stack_root):
+        raise NotImplementedError
         # XXX only to walk the main thread's shadow stack, so far
         stackgcdata = self.stackgcdata
         if self.gcdata.main_thread_stack_base != stackgcdata.root_stack_base:
             fatalerror_notb("XXX not implemented: walk_stack_roots in thread")
-        self.rootstackhook(collect_stack_root,
+        self.rootstackhook(collect_stack_root, self.gcdata.gc,
+                           stackgcdata.root_stack_base,
+                           stackgcdata.root_stack_top)
+
+    @specialize.argtype(2)
+    def walk_current_stack_roots(self, collect_stack_root, arg):
+        stackgcdata = self.stackgcdata
+        self.rootstackhook(collect_stack_root, arg,
                            stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)

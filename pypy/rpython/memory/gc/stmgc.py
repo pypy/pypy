@@ -123,6 +123,13 @@ class StmGC(MovingGCBase):
         self.main_thread_tls = StmGCTLS(self, in_main_thread=True)
         self.main_thread_tls.start_transaction()
 
+    def setup_thread(self):
+        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        StmGCTLS(self, in_main_thread=False)
+
+    def teardown_thread(self):
+        self.get_tls().teardown_thread()
+
     @always_inline
     def get_tls(self):
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
@@ -228,6 +235,7 @@ class StmGC(MovingGCBase):
         self.get_tls().start_transaction()
 
     def commit_transaction(self):
+        raise NotImplementedError
         self.collector.commit_transaction()
 
 
@@ -325,6 +333,7 @@ class StmGC(MovingGCBase):
                     return localobj
             #
             # Here, we need to really make a local copy
+            raise NotImplementedError
             size = self.get_size(obj)
             tls = self.collector.get_tls()
             try:
@@ -390,6 +399,7 @@ class StmGC(MovingGCBase):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
+        raise NotImplementedError
         obj = llmemory.cast_ptr_to_adr(gcobj)
         hdr = self.header(obj)
         #
