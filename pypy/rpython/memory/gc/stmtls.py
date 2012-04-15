@@ -307,6 +307,10 @@ class StmGCTLS(object):
                              newobj - size_gc_header,
                              totalsize)
         #
+        # Register the object here, not before the memcopy() that would
+        # overwrite its 'version' field
+        self._register_newly_malloced_obj(newobj)
+        #
         # Set the YOUNG copy's GCFLAG_VISITED and set its version to
         # point to the OLD copy.
         hdr.tid |= GCFLAG_VISITED
@@ -322,9 +326,10 @@ class StmGCTLS(object):
         self.pending.append(newobj)
 
     def _malloc_out_of_nursery(self, totalsize):
-        obj = self.sharedarea_tls.malloc_object(totalsize)
+        return self.sharedarea_tls.malloc_object(totalsize)
+
+    def _register_newly_malloced_obj(self, obj):
         self.sharedarea_tls.add_regular(obj)
-        return obj
 
     def collect_roots_from_tldict(self):
         pass  # XXX
@@ -335,6 +340,7 @@ class StmGCTLS(object):
         while self.pending.non_empty():
             obj = self.pending.pop()
             self.gc.trace(obj, self._trace_drag_out, None)
+        self.pending.delete()
 
     def mass_free_old_local(self, previous_sharedarea_tls):
         obj = previous_sharedarea_tls.chained_list
@@ -344,6 +350,7 @@ class StmGCTLS(object):
             next = hdr.version
             if hdr.tid & GCFLAG_VISITED:
                 # survives: relink in the new sharedarea_tls
+                hdr.tid -= GCFLAG_VISITED
                 self.sharedarea_tls.add_regular(obj)
             else:
                 # dies

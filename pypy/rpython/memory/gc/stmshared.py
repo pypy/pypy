@@ -46,7 +46,7 @@ class StmGCThreadLocalAllocator(object):
 
     def free_object(self, adr2):
         adr1 = adr2 - self.gc.gcheaderbuilder.size_gc_header
-        llarena.arena_free(adr1)
+        llarena.arena_free(llarena.getfakearenaaddress(adr1))
 
     def replace_special_stack(self, new_special_stack):
         self.special_stack.delete()

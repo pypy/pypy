@@ -152,7 +152,8 @@ class TestStmGCTLS(object):
             srlist = self.stack_pop()
             sr1.sr2 = srlist
             srlist = sr1
-        for i in range(100)[::-1]:
-            assert srlist
-            srlist = srlist.sr2
-        assert not srlist
+            #
+            for j in range(i, -1, -1):
+                assert sr1
+                sr1 = sr1.sr2
+            assert not sr1
