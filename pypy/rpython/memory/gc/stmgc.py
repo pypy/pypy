@@ -319,8 +319,8 @@ class StmGC(MovingGCBase):
             ll_assert(hdr.tid & GCFLAGS == GCFLAGS,
                       "stm_write: bogus flags on source object")
             #
-            # Remove the GCFLAG_GLOBAL from the copy
-            localhdr.tid = hdr.tid & ~GCFLAG_GLOBAL
+            # Remove the GCFLAG_GLOBAL from the copy, and add GCFLAG_VISITED
+            localhdr.tid = hdr.tid + (GCFLAG_VISITED - GCFLAG_GLOBAL)
             #
             # Set the 'version' field of the local copy to be a pointer
             # to the global obj.  (The field is called 'version' because
@@ -357,35 +357,43 @@ class StmGC(MovingGCBase):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
-        raise NotImplementedError
         obj = llmemory.cast_ptr_to_adr(gcobj)
         hdr = self.header(obj)
-        #
-        if hdr.tid & GCFLAG_GLOBAL == 0:
+        tls = self.get_tls()
+        if tls.is_in_nursery(obj):
             #
-            # The object is a local object.  Find or allocate a corresponding
-            # global object.
-            if hdr.tid & (GCFLAG_WAS_COPIED | GCFLAG_HAS_SHADOW) == 0:
+            # The object is still in the nursery of the current TLS.
+            # (It cannot be in the nursery of a different thread, because
+            # such objects are not visible to different threads at all.)
+            #
+            ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0, "id: WAS_COPIED?")
+            #
+            if hdr.tid & GCFLAG_HAS_SHADOW == 0:
                 #
                 # We need to allocate a global object here.  We only allocate
                 # it for now; it is left completely uninitialized.
+                size_gc_header = self.gcheaderbuilder.size_gc_header
                 size = self.get_size(obj)
-                tls = self.collector.get_tls()
-                globalobj = self._malloc_global_raw(tls, size)
-                self.header(globalobj).tid = GCFLAG_GLOBAL
+                totalsize = size_gc_header + size
+                fixedobj = tls.sharedarea_tls.malloc_object(totalsize)
+                tls.sharedarea_tls.add_regular(fixedobj)
+                self.header(fixedobj).tid = 0     # GCFLAG_VISITED is off
                 #
                 # Update the header of the local 'obj'
                 hdr.tid |= GCFLAG_HAS_SHADOW
-                hdr.version = globalobj
+                hdr.version = fixedobj
                 #
             else:
-                # There is already a corresponding globalobj
-                globalobj = hdr.version
+                # There is already a corresponding fixedobj
+                fixedobj = hdr.version
             #
-            obj = globalobj
+            obj = fixedobj
+            #
+        elif hdr.tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) == GCFLAG_WAS_COPIED:
+            #
+            # The object is the local copy of a LOCAL-GLOBAL pair.
+            obj = hdr.version
         #
-        ll_assert(self.header(obj).tid & GCFLAG_GLOBAL != 0,
-                  "id_or_identityhash: unexpected local object")
         i = llmemory.cast_adr_to_int(obj)
         if is_hash:
             # For identityhash(), we need a special case for some

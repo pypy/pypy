@@ -167,14 +167,21 @@ class StmGCTests:
     def malloc(self, STRUCT, weakref=False, globl='auto'):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
         tid = lltype.cast_primitive(llgroup.HALFWORD, 123)
-        gcref = self.gc.malloc_fixedsize_clear(tid, size,
-                                               contains_weakptr=weakref)
-        realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
-        addr = llmemory.cast_ptr_to_adr(realobj)
         if globl == 'auto':
             globl = (self.gc.stm_operations.threadnum == 0)
         if globl:
-            self.gc.header(addr).tid |= GCFLAG_GLOBAL
+            totalsize = self.gc.gcheaderbuilder.size_gc_header + size
+            adr1 = llarena.arena_malloc(llmemory.raw_malloc_usage(totalsize),
+                                        1)
+            llarena.arena_reserve(adr1, totalsize)
+            addr = adr1 + self.gc.gcheaderbuilder.size_gc_header
+            self.gc.header(addr).tid = GCFLAG_GLOBAL
+            realobj = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(STRUCT))
+        else:
+            gcref = self.gc.malloc_fixedsize_clear(tid, size,
+                                                   contains_weakptr=weakref)
+            realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
+            addr = llmemory.cast_ptr_to_adr(realobj)
         return realobj, addr
     def select_thread(self, threadnum):
         self.gc.stm_operations.threadnum = threadnum
@@ -340,6 +347,7 @@ class TestBasic(StmGCTests):
         assert main_tls.nursery_free == main_tls.nursery_start   # empty
 
     def test_commit_transaction_no_references(self):
+        py.test.skip("rewrite me")
         s, s_adr = self.malloc(S)
         s.b = 12345
         self.select_thread(1)
@@ -448,6 +456,7 @@ class TestBasic(StmGCTests):
         s, s_adr = self.malloc(S)
         self.select_thread(1)
         t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
+        assert t_adr != s_adr
         t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
         i = self.gc.id(t)
         assert i == llmemory.cast_adr_to_int(s_adr)
@@ -465,8 +474,11 @@ class TestBasic(StmGCTests):
 
     def test_id_of_local_surviving(self):
         sr1, sr1_adr = self.malloc(SR)
+        assert sr1.s1 == lltype.nullptr(S)
+        assert sr1.sr2 == lltype.nullptr(SR)
         self.select_thread(1)
         t2, t2_adr = self.malloc(S)
+        t2.a = 423
         tr1_adr = self.gc.stm_writebarrier(sr1_adr)
         assert tr1_adr != sr1_adr
         tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
@@ -478,7 +490,7 @@ class TestBasic(StmGCTests):
         assert i == self.gc.id(t2)
         self.gc.commit_transaction()
         s2 = tr1.s1       # tr1 is a root, so not copied yet
-        assert s2 and s2 != t2
+        assert s2 and s2.a == 423 and s2._obj0 != t2._obj0
         assert self.gc.id(s2) == i
 
     def test_hash_of_global(self):
@@ -509,6 +521,7 @@ class TestBasic(StmGCTests):
         sr1, sr1_adr = self.malloc(SR)
         self.select_thread(1)
         t2, t2_adr = self.malloc(S)
+        t2.a = 424
         tr1_adr = self.gc.stm_writebarrier(sr1_adr)
         assert tr1_adr != sr1_adr
         tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
@@ -521,7 +534,7 @@ class TestBasic(StmGCTests):
         assert i == self.gc.identityhash(t2)
         self.gc.commit_transaction()
         s2 = tr1.s1       # tr1 is a root, so not copied yet
-        assert s2 and s2 != t2
+        assert s2 and s2.a == 424 and s2._obj0 != t2._obj0
         assert self.gc.identityhash(s2) == i
 
     def test_weakref_to_global(self):

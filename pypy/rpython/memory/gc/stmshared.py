@@ -25,7 +25,6 @@ class StmGCThreadLocalAllocator(object):
         self.gc = sharedarea.gc
         self.sharedarea = sharedarea
         self.chained_list = NULL
-        self.special_stack = self.gc.AddressStack()
 
     def malloc_object(self, totalsize):
         """Malloc.  You must also call add_regular() or add_special() later."""
@@ -40,10 +39,6 @@ class StmGCThreadLocalAllocator(object):
         hdr.version = self.chained_list
         self.chained_list = obj
 
-    def add_special(self, obj):
-        """After malloc_object(), register the object in a separate stack."""
-        self.special_stack.append(obj)
-
     def free_object(self, adr2):
         adr1 = adr2 - self.gc.gcheaderbuilder.size_gc_header
         llarena.arena_free(llarena.getfakearenaaddress(adr1))
@@ -55,10 +50,6 @@ class StmGCThreadLocalAllocator(object):
             next = self.gc.header(obj).version
             self.free_object(obj)
             obj = next
-        s = self.special_stack
-        while s.non_empty():
-            self.free_object(s.pop())
 
     def delete(self):
-        self.special_stack.delete()
         free_non_gc_object(self)

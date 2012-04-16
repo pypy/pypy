@@ -9,7 +9,7 @@ from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
-from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED, GCFLAG_HAS_SHADOW
 
 
 class StmGCTLS(object):
@@ -49,12 +49,16 @@ class StmGCTLS(object):
         # --- a thread-local allocator for the shared area
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
+        # --- the LOCAL objects with GCFLAG_WAS_COPIED
+        self.copied_local_objects = self.AddressStack()
         #
         self._register_with_C_code()
 
     def teardown_thread(self):
         self._cleanup_state()
         self._unregister_with_C_code()
+        self.copied_local_objects.delete()
+        self.sharedarea_tls.delete()
         self._free_nursery(self.nursery_start)
         free_non_gc_object(self)
 
@@ -241,7 +245,7 @@ class StmGCTLS(object):
         """Allocate an object that will be used as a LOCAL copy of
         some GLOBAL object."""
         localobj = self.sharedarea_tls.malloc_object(totalsize)
-        self.sharedarea_tls.add_special(localobj)
+        self.copied_local_objects.append(localobj)
         return localobj
 
     # ------------------------------------------------------------
@@ -264,9 +268,18 @@ class StmGCTLS(object):
         #if self.rawmalloced_objects:
         #    xxx     # free the rawmalloced_objects still around
 
-        # if we still have a StmGCThreadLocalAllocator, free the old unused
-        # local objects it still contains
+        # free the old unused local objects still allocated in the
+        # StmGCThreadLocalAllocator
         self.sharedarea_tls.clear()
+        # free the local copies.  Note that commonly, they are leftovers
+        # from the previous transaction running in this thread.  The C code
+        # has just copied them over the corresponding GLOBAL objects at the
+        # very end of that transaction.
+        self._free_and_clear_list(self.copied_local_objects)
+
+    def _free_and_clear_list(self, lst):
+        while lst.non_empty():
+            self.sharedarea_tls.free_object(lst.pop())
 
 
     def collect_roots_from_stack(self):
@@ -293,40 +306,58 @@ class StmGCTLS(object):
         obj = root.address[0]
         hdr = self.gc.header(obj)
         #
-        # If 'obj' is a LOCAL copy of a GLOBAL object, skip it
-        # (this case is handled differently in collect_roots_from_tldict)
-        if hdr.tid & GCFLAG_WAS_COPIED:
-            return
-        #
         # If 'obj' is not in the nursery, we set GCFLAG_VISITED
         if not self.is_in_nursery(obj):
             if hdr.tid & GCFLAG_VISITED == 0:
+                ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
+                          "local GCFLAG_WAS_COPIED without GCFLAG_VISITED")
                 hdr.tid |= GCFLAG_VISITED
                 self.pending.append(obj)
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
-        if hdr.tid & GCFLAG_VISITED:
-            root.address[0] = hdr.version
-            return
-        #
-        # First visit to 'obj': we must move this YOUNG obj out of the nursery.
-        size_gc_header = self.gc.gcheaderbuilder.size_gc_header
-        size = self.gc.get_size(obj)
-        totalsize = size_gc_header + size
-        #
-        # Common case: allocate a new nonmovable location for it.
-        newobj = self._malloc_out_of_nursery(totalsize)
-        #
-        # Copy it.  Note that references to other objects in the
-        # nursery are kept unchanged in this step.
-        llmemory.raw_memcopy(obj - size_gc_header,
-                             newobj - size_gc_header,
-                             totalsize)
-        #
-        # Register the object here, not before the memcopy() that would
-        # overwrite its 'version' field
-        self._register_newly_malloced_obj(newobj)
+        # If 'obj' has already a shadow but isn't forwarded so far, use it.
+        if hdr.tid & (GCFLAG_VISITED | GCFLAG_HAS_SHADOW):
+            #
+            if hdr.tid & GCFLAG_VISITED:
+                root.address[0] = hdr.version
+                return
+            #
+            # Case of GCFLAG_HAS_SHADOW.  See comments below.
+            size_gc_header = self.gc.gcheaderbuilder.size_gc_header
+            size = self.gc.get_size(obj)
+            totalsize = size_gc_header + size
+            hdr.tid &= ~GCFLAG_HAS_SHADOW
+            newobj = hdr.version
+            newhdr = self.gc.header(newobj)
+            #
+            saved_version = newhdr.version
+            llmemory.raw_memcopy(obj - size_gc_header,
+                                 newobj - size_gc_header,
+                                 totalsize)
+            newhdr.version = saved_version
+            newhdr.tid = hdr.tid | GCFLAG_VISITED
+            #
+        else:
+            #
+            # First visit to 'obj': we must move this YOUNG obj out of the
+            # nursery.
+            size_gc_header = self.gc.gcheaderbuilder.size_gc_header
+            size = self.gc.get_size(obj)
+            totalsize = size_gc_header + size
+            #
+            # Common case: allocate a new nonmovable location for it.
+            newobj = self._malloc_out_of_nursery(totalsize)
+            #
+            # Copy it.  Note that references to other objects in the
+            # nursery are kept unchanged in this step.
+            llmemory.raw_memcopy(obj - size_gc_header,
+                                 newobj - size_gc_header,
+                                 totalsize)
+            #
+            # Register the object here, not before the memcopy() that would
+            # overwrite its 'version' field
+            self._register_newly_malloced_obj(newobj)
         #
         # Set the YOUNG copy's GCFLAG_VISITED and set its version to
         # point to the OLD copy.
@@ -366,6 +397,8 @@ class StmGCTLS(object):
                   "in a root: unexpected GCFLAG_GLOBAL")
         ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
                   "in a root: missing GCFLAG_WAS_COPIED")
+        ll_assert(localhdr.tid & GCFLAG_VISITED != 0,
+                  "in a root: missing GCFLAG_VISITED")
         #
         self.trace_and_drag_out_of_nursery(localobj)
 
