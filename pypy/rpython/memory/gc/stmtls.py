@@ -297,6 +297,14 @@ class StmGCTLS(object):
     def _trace_drag_out1(self, root):
         self._trace_drag_out(root, None)
 
+    def _trace_drag_out_if_not_global(self, root, ignored):
+        # like _trace_drag_out(), but ignores references to GLOBAL objects.
+        # used only for the LOCAL copy of a GLOBAL object, which may still
+        # have further GLOBAL pointers.
+        obj = root.address[0]
+        if self.gc.header(obj).tid & GCFLAG_GLOBAL == 0:
+            self._trace_drag_out(root, ignored)
+
     def _trace_drag_out(self, root, ignored):
         """Trace callback: 'root' is the address of some pointer.  If that
         pointer points to a YOUNG object, allocate an OLD copy of it and
@@ -412,7 +420,7 @@ class StmGCTLS(object):
                                    self.gc.get_type_id(globalobj))
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
-        self.trace_and_drag_out_of_nursery(localobj)
+        self.gc.trace(localobj, self._trace_drag_out_if_not_global, None)
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the
