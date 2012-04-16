@@ -175,7 +175,7 @@ class StmGCTests:
                                         1)
             llarena.arena_reserve(adr1, totalsize)
             addr = adr1 + self.gc.gcheaderbuilder.size_gc_header
-            self.gc.header(addr).tid = GCFLAG_GLOBAL
+            self.gc.header(addr).tid = self.gc.combine(tid, GCFLAG_GLOBAL)
             realobj = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(STRUCT))
         else:
             gcref = self.gc.malloc_fixedsize_clear(tid, size,
@@ -345,6 +345,17 @@ class TestBasic(StmGCTests):
         self.gc.commit_transaction()    # no roots
         main_tls = self.gc.main_thread_tls
         assert main_tls.nursery_free == main_tls.nursery_start   # empty
+
+    def test_commit_tldict_entry_with_global_references(self):
+        t, t_adr = self.malloc(S)
+        tr, tr_adr = self.malloc(SR)
+        tr.s1 = t
+        self.select_thread(1)
+        sr_adr = self.gc.stm_writebarrier(tr_adr)
+        assert sr_adr != tr_adr
+        s_adr = self.gc.stm_writebarrier(t_adr)
+        assert s_adr != t_adr
+        self.gc.commit_transaction()
 
     def test_commit_transaction_no_references(self):
         py.test.skip("rewrite me")
