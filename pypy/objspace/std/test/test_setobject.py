@@ -124,6 +124,7 @@ class TestW_SetObject:
         intstr.get_storage_from_list = tmp_func
 
     def test_listview_str_int_on_set(self):
+        py.test.skip("listview_str not supported for py3k strings (i.e., unicode)")
         w = self.space.wrap
 
         w_a = W_SetObject(self.space)
@@ -259,7 +260,7 @@ class AppTestAppSetTest:
         raises(KeyError, "b.pop()")
 
         a = set([1,2,3,4,5])
-        for i in xrange(5):
+        for i in range(5):
             a.pop()
         assert a == set()
         raises(KeyError, "a.pop()")
@@ -911,7 +912,7 @@ class AppTestAppSetTest:
         it = iter(s)
         s.add(7)
         # 's' is now length 4
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, it.__next__)
 
     def test_iter_set_strategy_only_change_1(self):
         s = set([1, 3, 5])
@@ -919,6 +920,8 @@ class AppTestAppSetTest:
         class Foo(object):
             def __eq__(self, other):
                 return False
+            def __hash__(self):
+                return 0
         assert Foo() not in s      # this changes the strategy of 'd'
         lst = list(s)  # but iterating still works
         assert sorted(lst) == [1, 3, 5]
