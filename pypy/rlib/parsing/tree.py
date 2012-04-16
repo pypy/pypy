@@ -23,6 +23,9 @@ class Symbol(Node):
         self.symbol = symbol
         self.additional_info = additional_info
         self.token = token
+
+    def getsourcepos(self):
+        return self.token.source_pos
     
     def __repr__(self):
         return "Symbol(%r, %r)" % (self.symbol, self.additional_info)
@@ -48,6 +51,9 @@ class Nonterminal(Node):
     def __init__(self, symbol, children):
         self.children = children
         self.symbol = symbol
+
+    def getsourcepos(self):
+        return self.children[0].getsourcepos()
 
     def __str__(self):
         return "%s(%s)" % (self.symbol, ", ".join([str(c) for c in self.children]))
