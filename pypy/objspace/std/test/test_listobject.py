@@ -1134,6 +1134,10 @@ class AppTestW_ListObject(object):
         assert l == []
         assert list(g) == []
 
+    def test_list_from_bytes(self):
+        b = list(b'abc')
+        assert b == [97, 98, 99]
+
     def test_uses_custom_iterator(self):
         # obscure corner case: space.listview*() must not shortcut subclasses
         # of dicts, because the OrderedDict in the stdlib relies on this.
@@ -1156,7 +1160,6 @@ class AppTestW_ListObject(object):
             s = set()
             s.update(Sub2(arg))
             assert s == set(base(arg))
-
 
 
 class AppTestWithoutStrategies(object):

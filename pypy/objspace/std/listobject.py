@@ -1084,12 +1084,15 @@ def init__List(space, w_list, __args__):
             w_list.lstorage = strategy.erase(intlist[:])
             return
 
-        strlist = space.listview_str(w_iterable)
-        if strlist is not None:
-            w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
-             # need to copy because intlist can share with w_iterable
-            w_list.lstorage = strategy.erase(strlist[:])
-            return
+        # XXX: listview_str works for bytes but not for strings, and the
+        # strategy works for strings but not for bytes. Disable it for now,
+        # but we'll need to fix it
+        ## strlist = space.listview_str(w_iterable)
+        ## if strlist is not None:
+        ##     w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
+        ##      # need to copy because intlist can share with w_iterable
+        ##     w_list.lstorage = strategy.erase(strlist[:])
+        ##     return
 
         # xxx special hack for speed
         from pypy.interpreter.generator import GeneratorIterator
