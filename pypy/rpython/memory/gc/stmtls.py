@@ -399,6 +399,18 @@ class StmGCTLS(object):
                   "in a root: missing GCFLAG_WAS_COPIED")
         ll_assert(localhdr.tid & GCFLAG_VISITED != 0,
                   "in a root: missing GCFLAG_VISITED")
+        globalhdr = self.gc.header(globalobj)
+        ll_assert(globalhdr.tid & GCFLAG_GLOBAL != 0,
+                  "in a root: GLOBAL: missing GCFLAG_GLOBAL")
+        ll_assert(globalhdr.tid & GCFLAG_WAS_COPIED != 0,
+                  "in a root: GLOBAL: missing GCFLAG_WAS_COPIED")
+        ll_assert(globalhdr.tid & GCFLAG_VISITED == 0,
+                  "in a root: GLOBAL: unexpected GCFLAG_VISITED")
+        TL = lltype.cast_primitive(lltype.Signed,
+                                   self.gc.get_type_id(localobj))
+        TG = lltype.cast_primitive(lltype.Signed,
+                                   self.gc.get_type_id(globalobj))
+        ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
         self.trace_and_drag_out_of_nursery(localobj)
 
