@@ -8,6 +8,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rposix import validate_fd
 from pypy.rlib import jit
 import os, sys, errno
 
@@ -125,6 +126,11 @@ if WIN32:
         DWORD)
 
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
+
+    def get_osfhandle(fd):
+        if not validate_fd(fileno):
+            raise OSError(GetLastError(), 'Bad file descriptor')
+        return _get_osfhandle(fd)
 
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.

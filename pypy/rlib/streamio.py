@@ -181,8 +181,6 @@ if sys.platform == "win32":
     import errno
 
     _eci = ExternalCompilationInfo()
-    _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.LONG,
-                                     compilation_info=_eci)
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
     SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
@@ -200,7 +198,7 @@ if sys.platform == "win32":
             # move to the position to be truncated
             os.lseek(fd, size, 0)
             # Truncate.  Note that this may grow the file!
-            handle = _get_osfhandle(fd)
+            handle = rwin32.get_osfhandle(fd)
             if handle == -1:
                 raise OSError(errno.EBADF, "Invalid file handle")
             if not SetEndOfFile(handle):

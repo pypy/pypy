@@ -739,9 +739,7 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            if not rposix.validate_fd(fileno):
-                raise OSError(rposix.get_errno(), 'Bad file descriptor')
-            fh = rwin32._get_osfhandle(fileno)
+            fh = rwin32.get_osfhandle(fileno)
             if fh == INVALID_HANDLE:
                 errno = rposix.get_errno()
                 raise OSError(errno, os.strerror(errno))

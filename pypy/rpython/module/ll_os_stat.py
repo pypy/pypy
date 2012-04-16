@@ -402,7 +402,7 @@ def make_win32_stat_impl(name, traits):
             lltype.free(data, flavor='raw')
 
     def win32_fstat_llimpl(fd):
-        handle = rwin32._get_osfhandle(fd)
+        handle = rwin32.get_osfhandle(fd)
 
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
