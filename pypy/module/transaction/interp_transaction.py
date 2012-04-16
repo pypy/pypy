@@ -220,8 +220,8 @@ def _run_thread():
     """The main function running one of the threads."""
     # Note that we cannot allocate any object here outside a transaction,
     # so we need to be very careful.
-    state.lock()
     rstm.descriptor_init()
+    state.lock()
     #
     rstm.perform_transaction(_setup_thread, AbstractPending, None)
     my_transactions_pending = state.getvalue()._transaction_pending
@@ -260,10 +260,10 @@ def _run_thread():
             state.lock()
             _add_list(my_transactions_pending)
     #
-    rstm.descriptor_done()
     if state.num_waiting_threads == 0:    # only the last thread to leave
         state.unlock_unfinished()
     state.unlock()
+    rstm.descriptor_done()
 
 
 @rgc.no_collect

@@ -40,6 +40,8 @@ float     stm_read_int4f(void *, long);
 
 
 void* stm_perform_transaction(void*(*)(void*, long), void*);
+void stm_enter_transactional_mode(void);
+void stm_leave_transactional_mode(void);
 void stm_try_inevitable(STM_CCHARP1(why));
 void stm_abort_and_retry(void);
 long stm_debug_get_state(void);  /* -1: descriptor_init() was not called

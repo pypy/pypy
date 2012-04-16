@@ -143,26 +143,18 @@ static void tx_redo(struct tx_descriptor *d)
 {
   owner_version_t newver = d->end_time;
   wlog_t *item;
-  /* loop in "forward" order: in this order, if there are duplicate orecs
-     then only the last one has p != -1. */
   REDOLOG_LOOP_FORWARD(d->redolog, item)
     {
       void *globalobj = item->addr;
       void *localobj = item->val;
-      owner_version_t p = item->p;
       long size = rpython_get_size(localobj);
       memcpy(((char *)globalobj) + sizeof(orec_t),
              ((char *)localobj) + sizeof(orec_t),
              size - sizeof(orec_t));
-      /* but we must only unlock the orec if it's the last time it
-         appears in the redolog list.  If it's not, then p == -1.
-         XXX I think that duplicate orecs are not possible any more. */
-      if (p != -1)
-        {
-          volatile orec_t* o = get_orec(globalobj);
-          CFENCE;
-          o->version = newver;
-        }
+      /* unlock the orec */
+      volatile orec_t* o = get_orec(globalobj);
+      CFENCE;
+      o->version = newver;
     } REDOLOG_LOOP_END;
 }
 
@@ -186,12 +178,10 @@ static void releaseLocksForRetry(struct tx_descriptor *d)
   wlog_t *item;
   REDOLOG_LOOP_FORWARD(d->redolog, item)
     {
-      if (item->p != -1)
-        {
-          volatile orec_t* o = get_orec(item->addr);
-          o->version = item->p;
-          item->p = -1;
-        }
+      volatile orec_t* o = get_orec(item->addr);
+      assert(item->p != -1);
+      o->version = item->p;
+      item->p = -1;
     } REDOLOG_LOOP_END;
 }
 
@@ -218,14 +208,14 @@ static void acquireLocks(struct tx_descriptor *d)
         if (!bool_cas(&o->version, ovt, d->my_lock_word))
           goto retry;
         // save old version to item->p.  Now we hold the lock.
-        // in case of duplicate orecs, only the last one has p != -1.
         item->p = ovt;
       }
       // else if the location is too recent...
       else if (!IS_LOCKED(ovt))
         tx_abort(0);
-      // else it is locked: if we don't hold the lock...
-      else if (ovt != d->my_lock_word) {
+      // else it is locked: check it's not by me
+      else {
+        assert(ovt != d->my_lock_word);
         // we can either abort or spinloop.  Because we are at the end of
         // the transaction we might try to spinloop, even though after the
         // lock is released the ovt will be very recent, possibly
@@ -534,7 +524,10 @@ static struct tx_descriptor *descriptor_init(long in_main_thread)
       /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
 
       thread_descriptor = d;
-      /* active_thread_descriptor stays NULL */
+      if (in_main_thread)
+        stm_leave_transactional_mode();
+      else
+        ;   /* active_thread_descriptor stays NULL */
 
 #ifdef RPY_STM_DEBUG_PRINT
       if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx starting\n",
@@ -681,6 +674,33 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
   return result;
 }
 
+void stm_enter_transactional_mode(void)
+{
+  struct tx_descriptor *d = active_thread_descriptor;
+  assert(d != NULL);
+  assert(is_inevitable(d));
+  /* we only need a subset of a full commit */
+  acquireLocks(d);
+  commitInevitableTransaction(d);
+  common_cleanup(d);
+  active_thread_descriptor = NULL;
+}
+
+void stm_leave_transactional_mode(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  assert(active_thread_descriptor == NULL);
+
+  mutex_lock();
+  d->setjmp_buf = NULL;
+  d->start_time = get_global_timestamp(d);
+  assert(!(d->start_time & 1));
+  set_global_timestamp(d, d->start_time | 1);
+
+  assert(is_inevitable(d));
+  active_thread_descriptor = d;
+}
+
 void stm_try_inevitable(STM_CCHARP1(why))
 {
   /* when a transaction is inevitable, its start_time is equal to
@@ -745,13 +765,12 @@ long stm_debug_get_state(void)
     return -2;
   if (active_thread_descriptor == NULL)
     {
-      if (d->my_lock_word == 0)
-        return -1;
-      else
-        return 0;
+      assert(d->my_lock_word != 0);
+      return 0;
     }
   assert(d == active_thread_descriptor);
-  assert(d->my_lock_word != 0);
+  if (d->my_lock_word == 0)
+    return -1;
   if (!is_inevitable(d))
     return 1;
   else

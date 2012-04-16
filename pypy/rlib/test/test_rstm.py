@@ -1,12 +1,14 @@
 import os, thread, time
-from pypy.rlib.debug import debug_print, ll_assert
+from pypy.rlib.debug import debug_print, ll_assert, fatalerror
 from pypy.rlib import rstm
+from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.stm.test.support import CompiledSTMTests
+from pypy.module.thread import ll_thread
 
 
 class Arg(object):
     pass
-arg = Arg()
+arg_list = [Arg() for i in range(10)]
 
 def setx(arg, retry_counter):
     debug_print(arg.x)
@@ -17,22 +19,29 @@ def setx(arg, retry_counter):
         assert rstm._debug_get_state() == 2
     arg.x = 42
 
-def stm_perform_transaction(initial_x=202):
-    arg.x = initial_x
+def stm_perform_transaction(done=None, i=0):
     ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (1)")
     rstm.descriptor_init()
+    arg = arg_list[i]
+    if done is None:
+        arg.x = 202
+    else:
+        arg.x = done.initial_x
     ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (2)")
     rstm.perform_transaction(setx, Arg, arg)
     ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (3)")
+    ll_assert(arg.x == 42, "bad arg.x")
+    if done is not None:
+        ll_thread.release_NOAUTO(done.finished_lock)
     rstm.descriptor_done()
     ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (4)")
-    ll_assert(arg.x == 42, "bad arg.x")
 
 def test_stm_multiple_threads():
     ok = []
     def f(i):
-        stm_perform_transaction()
+        stm_perform_transaction(i=i)
         ok.append(i)
+    rstm.enter_transactional_mode()
     for i in range(10):
         thread.start_new_thread(f, (i,))
     timeout = 10
@@ -40,6 +49,7 @@ def test_stm_multiple_threads():
         time.sleep(0.1)
         timeout -= 0.1
         assert timeout >= 0.0, "timeout!"
+    rstm.leave_transactional_mode()
     assert sorted(ok) == range(10)
 
 
@@ -58,22 +68,23 @@ class TestTransformSingleThread(CompiledSTMTests):
         assert '102' in dataerr.splitlines()
 
     def build_perform_transaction(self):
-        from pypy.module.thread import ll_thread
         class Done: done = False
         done = Done()
         def g():
-            stm_perform_transaction(done.initial_x)
-            done.done = True
+            stm_perform_transaction(done)
         def f(argv):
             done.initial_x = int(argv[1])
             assert rstm._debug_get_state() == -1    # main thread
-            ll_thread.start_new_thread(g, ())
-            for i in range(20):
-                if done.done: break
-                time.sleep(0.1)
-            else:
-                print "timeout!"
-                raise Exception
+            done.finished_lock = ll_thread.allocate_ll_lock()
+            ll_thread.acquire_NOAUTO(done.finished_lock, True)
+            #
+            rstm.enter_transactional_mode()
+            #
+            llcallback = llhelper(ll_thread.CALLBACK, g)
+            ident = ll_thread.c_thread_start_NOGIL(llcallback)
+            ll_thread.acquire_NOAUTO(done.finished_lock, True)
+            #
+            rstm.leave_transactional_mode()
             return 0
         t, cbuilder = self.compile(f)
         return cbuilder

@@ -57,6 +57,14 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
     def gct_stm_descriptor_done(self, hop):
         hop.genop("direct_call", [self.teardown_thread_ptr, self.c_const_gc])
 
+    def gct_stm_enter_transactional_mode(self, hop):
+        hop.genop("direct_call", [self.stm_enter_transactional_mode_ptr,
+                                  self.c_const_gc])
+
+    def gct_stm_leave_transactional_mode(self, hop):
+        hop.genop("direct_call", [self.stm_leave_transactional_mode_ptr,
+                                  self.c_const_gc])
+
     def gct_stm_writebarrier(self, hop):
         op = hop.spaceop
         v_adr = hop.genop('cast_ptr_to_adr',

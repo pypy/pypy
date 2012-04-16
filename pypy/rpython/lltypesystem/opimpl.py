@@ -630,6 +630,12 @@ def op_stm_start_transaction():
 def op_stm_commit_transaction():
     pass
 
+def op_stm_enter_transactional_mode():
+    pass
+
+def op_stm_leave_transactional_mode():
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

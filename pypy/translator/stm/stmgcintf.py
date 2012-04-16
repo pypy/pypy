@@ -56,6 +56,11 @@ class StmOperations(object):
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
 
+    enter_transactional_mode = smexternal('stm_enter_transactional_mode',
+                                          [], lltype.Void)
+    leave_transactional_mode = smexternal('stm_leave_transactional_mode',
+                                          [], lltype.Void)
+
     tldict_lookup = smexternal('stm_tldict_lookup', [llmemory.Address],
                                llmemory.Address)
     tldict_add = smexternal('stm_tldict_add', [llmemory.Address] * 2,

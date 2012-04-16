@@ -1,13 +1,15 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
-from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr, llhelper
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
 from pypy.rlib.objectmodel import we_are_translated, free_non_gc_object
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib.debug import ll_assert, debug_start, debug_stop, fatalerror
 
 from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED
 
 
 class StmGCTLS(object):
@@ -101,11 +103,8 @@ class StmGCTLS(object):
     def enter_transactional_mode(self):
         """Called on the main thread, just before spawning the other
         threads."""
-        self.local_collection()
-        if not self.local_nursery_is_empty():
-            self.local_collection(run_finalizers=False)
-        self._promote_locals_to_globals()
-        self._disable_mallocs()
+        self.stop_transaction()
+        self.stm_operations.enter_transactional_mode()
 
     def leave_transactional_mode(self):
         """Restart using the main thread for mallocs."""
@@ -113,10 +112,11 @@ class StmGCTLS(object):
             for key, value in StmGCTLS.nontranslated_dict.items():
                 if value is not self:
                     del StmGCTLS.nontranslated_dict[key]
+        self.stm_operations.leave_transactional_mode()
         self.start_transaction()
 
     def start_transaction(self):
-        """Enter a thread: performs any pending cleanups, and set
+        """Start a transaction: performs any pending cleanups, and set
         up a fresh state for allocating.  Called at the start of
         each transaction, and at the start of the main thread."""
         # Note that the calls to enter() and
@@ -134,10 +134,23 @@ class StmGCTLS(object):
         self.nursery_free = self.nursery_start
         self.nursery_top  = self.nursery_start + self.nursery_size
 
+    def stop_transaction(self):
+        """Stop a transaction: do a local collection to empty the
+        nursery and track which objects are still alive now, and
+        then mark all these objects as global."""
+        self.local_collection()
+        if not self.local_nursery_is_empty():
+            self.local_collection(run_finalizers=False)
+        self._promote_locals_to_globals()
+        self._disable_mallocs()
+
     def local_nursery_is_empty(self):
         ll_assert(bool(self.nursery_free),
                   "local_nursery_is_empty: gc not running")
         return self.nursery_free == self.nursery_start
+
+    def in_transaction(self):
+        return bool(self.nursery_free)
 
     # ------------------------------------------------------------
 
@@ -192,18 +205,6 @@ class StmGCTLS(object):
         #
         debug_stop("gc-local")
 
-    def end_of_transaction_collection(self):
-        """Do an end-of-transaction collection.  Finds all surviving
-        non-GCFLAG_WAS_COPIED young objects and make them old.  Assumes
-        that there are no roots from the stack.  This guarantees that the
-        nursery will end up empty, apart from GCFLAG_WAS_COPIED objects.
-        To finish the commit, the C code will need to copy them over the
-        global objects (or abort in case of conflict, which is still ok).
-
-        No more mallocs are allowed after this is called.
-        """
-        raise NotImplementedError
-
     # ------------------------------------------------------------
 
     @always_inline
@@ -245,8 +246,6 @@ class StmGCTLS(object):
 
     def _promote_locals_to_globals(self):
         ll_assert(self.local_nursery_is_empty(), "nursery must be empty [1]")
-        ll_assert(not self.sharedarea_tls.special_stack.non_empty(),
-                  "special_stack should be empty here [1]")
         #
         # Promote all objects in sharedarea_tls to global
         obj = self.sharedarea_tls.chained_list
@@ -272,17 +271,30 @@ class StmGCTLS(object):
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._trace_drag_out1, self)
 
+    def trace_and_drag_out_of_nursery(self, obj):
+        # This is called to fix the references inside 'obj', to ensure that
+        # they are global.  If necessary, the referenced objects are copied
+        # into the global area first.  This is called on the LOCAL copy of
+        # the roots, and on the freshly OLD copy of all other reached LOCAL
+        # objects.
+        self.gc.trace(obj, self._trace_drag_out, None)
+
     def _trace_drag_out1(self, root):
         self._trace_drag_out(root, None)
 
     def _trace_drag_out(self, root, ignored):
         """Trace callback: 'root' is the address of some pointer.  If that
         pointer points to a YOUNG object, allocate an OLD copy of it and
-        fix the pointer.  Also, add the object to 'pending_list', if it was
-        not done so far.
+        fix the pointer.  Also, add the object to the 'pending' stack, if
+        it was not done so far.
         """
         obj = root.address[0]
         hdr = self.gc.header(obj)
+        #
+        # If 'obj' is a LOCAL copy of a GLOBAL object, skip it
+        # (this case is handled differently in collect_roots_from_tldict)
+        if hdr.tid & GCFLAG_WAS_COPIED:
+            return
         #
         # If 'obj' is not in the nursery, we set GCFLAG_VISITED
         if not self.is_in_nursery(obj):
@@ -335,14 +347,32 @@ class StmGCTLS(object):
         self.sharedarea_tls.add_regular(obj)
 
     def collect_roots_from_tldict(self):
-        pass  # XXX
+        if not we_are_translated():
+            if not hasattr(self.stm_operations, 'tldict_enum'):
+                return
+        CALLBACK = self.stm_operations.CALLBACK_ENUM
+        callback = llhelper(CALLBACK, StmGCTLS._enum_entries)
+        self.stm_operations.tldict_enum(callback)
+
+    @staticmethod
+    def _enum_entries(tlsaddr, globalobj, localobj):
+        self = StmGCTLS.cast_address_to_tls_object(tlsaddr)
+        localhdr = self.gc.header(localobj)
+        ll_assert(localhdr.version == globalobj,
+                  "in a root: localobj.version != globalobj")
+        ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
+                  "in a root: unexpected GCFLAG_GLOBAL")
+        ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
+                  "in a root: missing GCFLAG_WAS_COPIED")
+        #
+        self.trace_and_drag_out_of_nursery(localobj)
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the
         # young objects they point to out of the nursery.
         while self.pending.non_empty():
             obj = self.pending.pop()
-            self.gc.trace(obj, self._trace_drag_out, None)
+            self.trace_and_drag_out_of_nursery(obj)
         self.pending.delete()
 
     def mass_free_old_local(self, previous_sharedarea_tls):

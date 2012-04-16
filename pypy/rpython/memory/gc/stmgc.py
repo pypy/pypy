@@ -240,8 +240,7 @@ class StmGC(MovingGCBase):
         self.get_tls().start_transaction()
 
     def commit_transaction(self):
-        raise NotImplementedError
-        self.collector.commit_transaction()
+        self.get_tls().stop_transaction()
 
 
     @always_inline
@@ -317,6 +316,11 @@ class StmGC(MovingGCBase):
         #
         @dont_inline
         def _stm_write_barrier_global(obj):
+            tls = self.get_tls()
+            if not tls.in_transaction():
+                return obj # not in transaction: only when running the code
+                           # in _run_thread(), i.e. in sub-threads outside
+                           # transactions.  xxx statically detect this case?
             # we need to find or make a local copy
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_WAS_COPIED == 0:
@@ -339,7 +343,6 @@ class StmGC(MovingGCBase):
             # Here, we need to really make a local copy
             size = self.get_size(obj)
             totalsize = self.gcheaderbuilder.size_gc_header + size
-            tls = self.get_tls()
             try:
                 localobj = tls.malloc_local_copy(totalsize)
             except MemoryError:
@@ -453,230 +456,3 @@ class StmGC(MovingGCBase):
 
     def identityhash(self, gcobj):
         return self.id_or_identityhash(gcobj, True)
-
-# ------------------------------------------------------------
-
-
-class Collector(object):
-    """A separate frozen class.  Useful to prevent any buggy concurrent
-    access to GC data.  The methods here use the GCTLS instead for
-    storing things in a thread-local way."""
-
-    def __init__(self, gc):
-        self.gc = gc
-        self.stm_operations = gc.stm_operations
-
-    def _freeze_(self):
-        return True
-
-    def is_in_nursery(self, tls, addr):
-        ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
-                  "odd-valued (i.e. tagged) pointer unexpected here")
-        return tls.nursery_start <= addr < tls.nursery_top
-
-    def header(self, obj):
-        return self.gc.header(obj)
-
-
-    def start_transaction(self):
-        """Start a transaction, by clearing and resetting the tls nursery."""
-        tls = self.get_tls()
-        self.gc.reset_nursery(tls)
-
-
-    def commit_transaction(self):
-        """End of a transaction, just before its end.  No more GC
-        operations should occur afterwards!  Note that the C code that
-        does the commit runs afterwards, and may still abort."""
-        #
-        debug_start("gc-collect-commit")
-        #
-        tls = self.get_tls()
-        #
-        # Do a mark-and-move minor collection out of the tls' nursery
-        # into the main thread's global area (which is right now also
-        # called a nursery).
-        debug_print("local arena:", tls.nursery_free - tls.nursery_start,
-                    "bytes")
-        #
-        # We are starting from the tldict's local objects as roots.  At
-        # this point, these objects have GCFLAG_WAS_COPIED, and the other
-        # local objects don't.  We want to move all reachable local objects
-        # to the global area.
-        #
-        # Start from tracing the root objects
-        self.collect_roots_from_tldict(tls)
-        #
-        # Continue iteratively until we have reached all the reachable
-        # local objects
-        self.collect_from_pending_list(tls)
-        #
-        # Fix up the weakrefs that used to point to local objects
-        self.fixup_weakrefs(tls)
-        #
-        # Now, all indirectly reachable local objects have been copied into
-        # the global area, and all pointers have been fixed to point to the
-        # global copies, including in the local copy of the roots.  What
-        # remains is only overwriting of the global copy of the roots.
-        # This is done by the C code.
-        debug_stop("gc-collect-commit")
-
-
-    def collect_roots_from_tldict(self, tls):
-        tls.pending_list = NULL
-        tls.surviving_weakrefs = NULL
-        # Enumerate the roots, which are the local copies of global objects.
-        # For each root, trace it.
-        CALLBACK = self.stm_operations.CALLBACK_ENUM
-        callback = llhelper(CALLBACK, self._enum_entries)
-        # xxx hack hack hack!  Stores 'self' in a global place... but it's
-        # pointless after translation because 'self' is a Void.
-        _global_collector.collector = self
-        self.stm_operations.tldict_enum(callback)
-
-
-    @staticmethod
-    def _enum_entries(tls_addr, globalobj, localobj):
-        self = _global_collector.collector
-        tls = llmemory.cast_adr_to_ptr(tls_addr, lltype.Ptr(StmGC.GCTLS))
-        #
-        localhdr = self.header(localobj)
-        ll_assert(localhdr.version == globalobj,
-                  "in a root: localobj.version != globalobj")
-        ll_assert(localhdr.tid & GCFLAG_GLOBAL == 0,
-                  "in a root: unexpected GCFLAG_GLOBAL")
-        ll_assert(localhdr.tid & GCFLAG_WAS_COPIED != 0,
-                  "in a root: missing GCFLAG_WAS_COPIED")
-        #
-        self.trace_and_drag_out_of_nursery(tls, localobj)
-
-
-    def collect_from_pending_list(self, tls):
-        while tls.pending_list != NULL:
-            pending_obj = tls.pending_list
-            pending_hdr = self.header(pending_obj)
-            #
-            # 'pending_list' is a chained list of fresh global objects,
-            # linked together via their 'version' field.  The 'version'
-            # must be replaced with NULL after we pop the object from
-            # the linked list.
-            tls.pending_list = pending_hdr.version
-            pending_hdr.version = NULL
-            #
-            # Check the flags of pending_obj: it should be a fresh global
-            # object, without GCFLAG_WAS_COPIED
-            ll_assert(pending_hdr.tid & GCFLAG_GLOBAL != 0,
-                      "from pending list: missing GCFLAG_GLOBAL")
-            ll_assert(pending_hdr.tid & GCFLAG_WAS_COPIED == 0,
-                      "from pending list: unexpected GCFLAG_WAS_COPIED")
-            #
-            self.trace_and_drag_out_of_nursery(tls, pending_obj)
-
-
-    def trace_and_drag_out_of_nursery(self, tls, obj):
-        # This is called to fix the references inside 'obj', to ensure that
-        # they are global.  If necessary, the referenced objects are copied
-        # into the global area first.  This is called on the *local* copy of
-        # the roots, and on the fresh *global* copy of all other reached
-        # objects.
-        self.gc.trace(obj, self._trace_drag_out, tls)
-
-    def _trace_drag_out(self, root, tls):
-        obj = root.address[0]
-        hdr = self.header(obj)
-        #
-        # Figure out if the object is GLOBAL or not by looking at its
-        # address, not at its header --- to avoid cache misses and
-        # pollution for all global objects
-        if not self.is_in_nursery(tls, obj):
-            ll_assert(hdr.tid & GCFLAG_GLOBAL != 0,
-                      "trace_and_mark: non-GLOBAL obj is not in nursery")
-            return        # ignore global objects
-        #
-        ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                  "trace_and_mark: GLOBAL obj in nursery")
-        #
-        if hdr.tid & (GCFLAG_WAS_COPIED | GCFLAG_HAS_SHADOW) == 0:
-            # First visit to a local-only 'obj': allocate a corresponding
-            # global object
-            size = self.gc.get_size(obj)
-            globalobj = self.gc._malloc_global_raw(tls, size)
-            need_to_copy = True
-            #
-        else:
-            globalobj = hdr.version
-            if hdr.tid & GCFLAG_WAS_COPIED != 0:
-                # this local object is a root or was already marked.  Either
-                # way, its 'version' field should point to the corresponding
-                # global object. 
-                size = 0
-                need_to_copy = False
-            else:
-                # this local object has a shadow made by id_or_identityhash();
-                # and the 'version' field points to the global shadow.
-                ll_assert(hdr.tid & GCFLAG_HAS_SHADOW != 0, "uh?")
-                size = self.gc.get_size(obj)
-                need_to_copy = True
-        #
-        if need_to_copy:
-            # Copy the data of the object from the local to the global
-            llmemory.raw_memcopy(obj, globalobj, size)
-            #
-            # Initialize the header of the 'globalobj'
-            globalhdr = self.header(globalobj)
-            globalhdr.tid = hdr.tid | GCFLAG_GLOBAL
-            #
-            # Add the flags to 'localobj' to say 'has been copied now'
-            hdr.tid |= GCFLAG_WAS_COPIED
-            hdr.version = globalobj
-            #
-            # Set a temporary linked list through the globalobj's version
-            # numbers.  This is normally not allowed, but it works here
-            # because these new globalobjs are not visible to any other
-            # thread before the commit is really complete.
-            globalhdr.version = tls.pending_list
-            tls.pending_list = globalobj
-            #
-            if hdr.tid & GCFLAG_WEAKREF != 0:
-                # this was a weakref object that survives.
-                self.young_weakref_survives(tls, obj)
-        #
-        # Fix the original root.address[0] to point to the globalobj
-        root.address[0] = globalobj
-
-
-    @dont_inline
-    def young_weakref_survives(self, tls, obj):
-        # Relink it in the tls.surviving_weakrefs chained list,
-        # via the weakpointer_offset in the local copy of the object.
-        # Do it only if the weakref points to a local object.
-        offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
-        if self.is_in_nursery(tls, (obj + offset).address[0]):
-            (obj + offset).address[0] = tls.surviving_weakrefs
-            tls.surviving_weakrefs = obj
-
-    def fixup_weakrefs(self, tls):
-        obj = tls.surviving_weakrefs
-        while obj:
-            offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
-            #
-            hdr = self.header(obj)
-            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                      "weakref: unexpectedly global")
-            globalobj = hdr.version
-            obj2 = (globalobj + offset).address[0]
-            hdr2 = self.header(obj2)
-            ll_assert(hdr2.tid & GCFLAG_GLOBAL == 0,
-                      "weakref: points to a global")
-            if hdr2.tid & GCFLAG_WAS_COPIED:
-                obj2g = hdr2.version    # obj2 survives, going there
-            else:
-                obj2g = llmemory.NULL   # obj2 dies
-            (globalobj + offset).address[0] = obj2g
-            #
-            obj = (obj + offset).address[0]
-
-
-class _GlobalCollector(object):
-    pass
-_global_collector = _GlobalCollector()
