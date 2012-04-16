@@ -128,9 +128,12 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
     def get_osfhandle(fd):
-        if not validate_fd(fileno):
-            raise OSError(GetLastError(), 'Bad file descriptor')
-        return _get_osfhandle(fd)
+        if not validate_fd(fd):
+            raise WindowsError(errno.EBADF, 'Bad file descriptor')
+        handle = _get_osfhandle(fd)
+        if handle == INVALID_HANDLE_VALUE:
+            raise WindowsError(errno.EBADF, "Invalid file handle")
+        return handle
 
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.

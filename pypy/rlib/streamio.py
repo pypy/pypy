@@ -175,15 +175,14 @@ StreamErrors = (OSError, StreamError)     # errors that can generally be raised
 
 
 if sys.platform == "win32":
-    from pypy.rlib import rwin32
+    from pypy.rlib.rwin32 import BOOL, HANDLE, get_osfhandle, GetLastError
     from pypy.translator.tool.cbuild import ExternalCompilationInfo
     from pypy.rpython.lltypesystem import rffi
-    import errno
 
     _eci = ExternalCompilationInfo()
     _setmode = rffi.llexternal('_setmode', [rffi.INT, rffi.INT], rffi.INT,
                                compilation_info=_eci)
-    SetEndOfFile = rffi.llexternal('SetEndOfFile', [rffi.LONG], rwin32.BOOL,
+    SetEndOfFile = rffi.llexternal('SetEndOfFile', [HANDLE], BOOL,
                                    compilation_info=_eci)
 
     # HACK: These implementations are specific to MSVCRT and the C backend.
@@ -198,11 +197,9 @@ if sys.platform == "win32":
             # move to the position to be truncated
             os.lseek(fd, size, 0)
             # Truncate.  Note that this may grow the file!
-            handle = rwin32.get_osfhandle(fd)
-            if handle == -1:
-                raise OSError(errno.EBADF, "Invalid file handle")
+            handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
-                raise WindowsError(rwin32.GetLastError(),
+                raise WindowsError(GetLastError(),
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
