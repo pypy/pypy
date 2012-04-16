@@ -658,4 +658,3 @@ class AppTestSysExcInfoDirect:
 class AppTestSysExcInfoDirectCallMethod(AppTestSysExcInfoDirect):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.opcodes.CALL_METHOD": True})
->>>>>>> other
