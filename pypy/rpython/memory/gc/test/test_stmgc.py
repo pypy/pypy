@@ -132,6 +132,10 @@ def fake_trace(obj, callback, arg):
 def fake_weakpointer_offset(tid):
     return llmemory.offsetof(WR, 'wadr')
 
+class FakeRootWalker:
+    def walk_current_stack_roots(self, *args):
+        pass     # no stack roots in this test file
+
 
 class StmGCTests:
     GCClass = StmGC
@@ -146,6 +150,7 @@ class StmGCTests:
         self.gc.get_size = fake_get_size
         self.gc.trace = fake_trace
         self.gc.weakpointer_offset = fake_weakpointer_offset
+        self.gc.root_walker = FakeRootWalker()
         self.gc.setup()
 
     def teardown_method(self, meth):
@@ -159,18 +164,22 @@ class StmGCTests:
 
     # ----------
     # test helpers
-    def malloc(self, STRUCT, weakref=False):
+    def malloc(self, STRUCT, weakref=False, globl='auto'):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
         tid = lltype.cast_primitive(llgroup.HALFWORD, 123)
         gcref = self.gc.malloc_fixedsize_clear(tid, size,
                                                contains_weakptr=weakref)
         realobj = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), gcref)
         addr = llmemory.cast_ptr_to_adr(realobj)
+        if globl == 'auto':
+            globl = (self.gc.stm_operations.threadnum == 0)
+        if globl:
+            self.gc.header(addr).tid |= GCFLAG_GLOBAL
         return realobj, addr
     def select_thread(self, threadnum):
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
-            self.gc.setup_thread(False)
+            self.gc.setup_thread()
             self.gc.start_transaction()
     def gcsize(self, S):
         return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
@@ -313,15 +322,20 @@ class TestBasic(StmGCTests):
         assert u_adr == t_adr
 
     def test_write_barrier_main_thread(self):
-        t, t_adr = self.malloc(S)
-        obj = self.gc.stm_writebarrier(t_adr)     # main thread
+        t, t_adr = self.malloc(S, globl=False)
+        obj = self.gc.stm_writebarrier(t_adr)     # main thread, but not global
         assert obj == t_adr
+
+    def test_write_barrier_global(self):
+        t, t_adr = self.malloc(S, globl=True)
+        obj = self.gc.stm_writebarrier(t_adr)     # global, even if main thread
+        assert obj != t_adr
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)
         s, s_adr = self.malloc(S)
         t, t_adr = self.malloc(S)
-        self.gc.collector.commit_transaction()    # no roots
+        self.gc.commit_transaction()    # no roots
         main_tls = self.gc.main_thread_tls
         assert main_tls.nursery_free == main_tls.nursery_start   # empty
 
@@ -339,15 +353,14 @@ class TestBasic(StmGCTests):
         assert main_tls.nursery_free != main_tls.nursery_start  # contains s
         old_value = main_tls.nursery_free
         #
-        self.gc.collector.commit_transaction()
+        self.gc.commit_transaction()
         #
         assert main_tls.nursery_free == old_value    # no new object
         assert s.b == 12345     # not updated by the GC code
         assert t.b == 67890     # still valid
 
-    def _commit_transaction_with_one_reference(self, tls_page_size):
-        self.gc.tls_page_size = tls_page_size
-        #
+    def test_commit_transaction_with_one_reference(self):
+        py.test.skip("rewrite me")
         sr, sr_adr = self.malloc(SR)
         assert sr.s1 == lltype.nullptr(S)
         assert sr.sr2 == lltype.nullptr(SR)
@@ -361,27 +374,18 @@ class TestBasic(StmGCTests):
         assert tr.sr2 == lltype.nullptr(SR)
         tr.s1 = t
         #
-        main_tls = self.gc.main_thread_tls
-        old_value = main_tls.nursery_free
+        tls = self.gc.get_tls()
+        old_value = tls.nursery_free
         #
-        self.gc.collector.commit_transaction()
+        tls.stop_transaction()
         #
-        consumed = main_tls.nursery_free - old_value
+        consumed = tls.nursery_free - old_value
         expected = self.gcsize(S)        # round this value up to tls_page_size
         if expected < tls_page_size: expected = tls_page_size
         assert consumed == expected
 
-    def test_commit_transaction_with_one_reference_1(self):
-        self._commit_transaction_with_one_reference(1)
-
-    def test_commit_transaction_with_one_reference_N1(self):
-        N1 = self.gcsize(S)-1
-        self._commit_transaction_with_one_reference(N1)
-
-    def test_commit_transaction_with_one_reference_128(self):
-        self._commit_transaction_with_one_reference(128)
-
     def test_commit_transaction_with_graph(self):
+        py.test.skip("rewrite me")
         self.gc.tls_page_size = 1
         sr1, sr1_adr = self.malloc(SR)
         sr2, sr2_adr = self.malloc(SR)

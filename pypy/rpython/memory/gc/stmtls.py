@@ -138,9 +138,9 @@ class StmGCTLS(object):
         """Stop a transaction: do a local collection to empty the
         nursery and track which objects are still alive now, and
         then mark all these objects as global."""
-        self.local_collection()
+        self.local_collection(end_of_transaction=1)
         if not self.local_nursery_is_empty():
-            self.local_collection(run_finalizers=False)
+            self.local_collection(end_of_transaction=2)
         self._promote_locals_to_globals()
         self._disable_mallocs()
 
@@ -154,7 +154,7 @@ class StmGCTLS(object):
 
     # ------------------------------------------------------------
 
-    def local_collection(self, run_finalizers=True):
+    def local_collection(self, end_of_transaction=0):
         """Do a local collection.  This should be equivalent to a minor
         collection only, but the GC is not generational so far, so it is
         for now the same as a full collection --- but only on LOCAL

@@ -190,47 +190,6 @@ class StmGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
-    def _malloc_local_raw(self, tls, size):
-        # for _stm_write_barrier_global(): a version of malloc that does
-        # no initialization of the malloc'ed object
-        xxxxxxxx
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        totalsize = size_gc_header + size
-        result = self._allocate_bump_pointer(tls, totalsize)
-        llarena.arena_reserve(result, totalsize)
-        obj = result + size_gc_header
-        return obj
-
-
-    def _malloc_global_raw(self, tls, size):
-        # For collection: allocates enough space for a global object from
-        # the main_tls.  The argument 'tls' is the current (local) GCTLS.
-        # We try to do it by reserving "pages" of memory from the global
-        # area at once, and subdividing here.
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        totalsize = size_gc_header + size
-        freespace = tls.global_stop - tls.global_free
-        if freespace < llmemory.raw_malloc_usage(totalsize):
-            self._malloc_global_more(tls, llmemory.raw_malloc_usage(totalsize))
-        result = tls.global_free
-        tls.global_free = result + totalsize
-        llarena.arena_reserve(result, totalsize)
-        obj = result + size_gc_header
-        return obj
-
-    @dont_inline
-    def _malloc_global_more(self, tls, totalsize):
-        xxxxxxxxxxxxxxxxx
-        if totalsize < self.tls_page_size:
-            totalsize = self.tls_page_size
-        main_tls = self.main_thread_tls
-        self.acquire(self.mutex_lock)
-        result = self._allocate_bump_pointer(main_tls, totalsize)
-        self.release(self.mutex_lock)
-        tls.global_free = result
-        tls.global_stop = result + totalsize
-
-
     def collect(self, gen=1):
         self.get_tls().local_collection()
         if gen > 0:
@@ -390,14 +349,6 @@ class StmGC(MovingGCBase):
             # the only relevant case: it's the local copy of a global object
             return self.header(obj).version
         self.stm_normalize_global = stm_normalize_global
-
-    # ----------
-
-    def acquire(self, lock):
-        ll_thread.acquire_NOAUTO(lock, True)
-
-    def release(self, lock):
-        ll_thread.release_NOAUTO(lock)
 
     # ----------
     # id() and identityhash() support
