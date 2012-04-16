@@ -927,10 +927,12 @@ class AppTestAppSetTest:
         assert sorted(lst) == [1, 3, 5]
 
     def test_iter_set_strategy_only_change_2(self):
-        s = set([1, 3, 5])
+        # on py3k the IntStrategy doesn't work yet. So, we use the
+        # StringSetStrategy for this test
+        s = set(['1', '3', '5'])
         it = iter(s)
-        s.add('foo')
-        s.remove(1)
+        s.add(42) # change the strategy
+        s.remove('1')
         # 's' is still length 3, but its strategy changed.  we are
         # getting a RuntimeError because iterating over the old storage
         # gives us 1, but 1 is not in the set any longer.
