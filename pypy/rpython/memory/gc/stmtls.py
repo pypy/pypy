@@ -128,6 +128,8 @@ class StmGCTLS(object):
         # transaction is aborted, the latter might never be called.
         # Be ready here to clean up any state.
         self._cleanup_state()
+        if self is not self.gc.main_thread_tls:
+            self.gc.root_walker.clear_current_stack_roots()
         if self.nursery_free:
             clear_size = self.nursery_free - self.nursery_start
         else:
@@ -284,7 +286,7 @@ class StmGCTLS(object):
 
     def collect_roots_from_stack(self):
         self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._trace_drag_out1, self)
+            StmGCTLS._trace_drag_out_if_not_global1, self)
 
     def trace_and_drag_out_of_nursery(self, obj):
         # This is called to fix the references inside 'obj', to ensure that
@@ -294,8 +296,8 @@ class StmGCTLS(object):
         # objects.
         self.gc.trace(obj, self._trace_drag_out, None)
 
-    def _trace_drag_out1(self, root):
-        self._trace_drag_out(root, None)
+    def _trace_drag_out_if_not_global1(self, root):
+        self._trace_drag_out_if_not_global(root, None)
 
     def _trace_drag_out_if_not_global(self, root, ignored):
         # like _trace_drag_out(), but ignores references to GLOBAL objects.
@@ -313,6 +315,7 @@ class StmGCTLS(object):
         """
         obj = root.address[0]
         hdr = self.gc.header(obj)
+        ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "unexpected GLOBAL obj")
         #
         # If 'obj' is not in the nursery, we set GCFLAG_VISITED
         if not self.is_in_nursery(obj):

@@ -169,3 +169,9 @@ class StmShadowStackRootWalker(BaseRootWalker):
         self.rootstackhook(collect_stack_root, arg,
                            stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)
+
+    def clear_current_stack_roots(self):
+        """Used when we start a transaction: there might be garbage left
+        behind by the previous aborted transaction."""
+        stackgcdata = self.stackgcdata
+        stackgcdata.root_stack_top = stackgcdata.root_stack_base
