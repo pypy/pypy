@@ -533,7 +533,7 @@ def make_array(mytype):
         cbuf = self._charbuf_start()
         s = rffi.charpsize2str(cbuf, self.len * mytype.bytes)
         self._charbuf_stop()
-        return self.space.wrap(s)
+        return self.space.wrapbytes(s)
 
     def array_tostring__Array(space, self):
         space.warn("tostring() is deprecated. Use tobytes() instead.",
