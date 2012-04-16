@@ -1086,7 +1086,7 @@ def init__List(space, w_list, __args__):
 
         strlist = space.listview_str(w_iterable)
         if strlist is not None:
-            w_list.strategy = strategy = space.fromcache(StringListStrategy)
+            w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
              # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(strlist[:])
             return

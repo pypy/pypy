@@ -1145,7 +1145,7 @@ class AppTestW_ListObject(object):
                 (set, []),  (set,  [5]), (set,  ['x']), (set, [X]),
                 (dict, []), (dict, [(5,6)]), (dict, [('x',7)]), (dict, [(X,8)]),
                 ]:
-            print base, arg
+            print(base, arg)
             class SubClass(base):
                 def __iter__(self):
                     return iter("foobar")
@@ -1159,9 +1159,9 @@ class AppTestW_ListObject(object):
 
 class AppTestForRangeLists(AppTestW_ListObject):
 
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withrangelist" :
-                                       True})
+    ## def setup_class(cls):
+    ##     cls.space = gettestobjspace(**{"objspace.std.withrangelist" :
+    ##                                    True})
 
     def test_range_simple_backwards(self):
         x = range(5,1)
