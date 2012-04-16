@@ -320,10 +320,14 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
         BoolOption("getattributeshortcut",
                    "track types that override __getattribute__",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
         BoolOption("newshortcut",
                    "cache and shortcut calling __new__ from builtin types",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
@@ -337,7 +341,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    requires=[("objspace.std.builtinshortcut", True)]),
         BoolOption("withidentitydict",
                    "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
-                   default=False),
+                   default=False,
+                   # weakrefs needed, because of get_subclasses()
+                   requires=[("translation.rweakref", True)]),
      ]),
 ])
 
