@@ -249,7 +249,7 @@ def pre_insert_stm_writebarrier(graph):
     # one variable on which we do 'stm_writebarrier', but there are
     # also other variables that contain the same pointer, e.g. casted
     # to a different precise type.
-    from pypy.translator.stm.gcsource import COPIES_POINTER
+    from pypy.translator.stm.gcsource import COPIES_POINTER, _is_gc
     #
     def emit(op):
         for v1 in op.args:
@@ -275,7 +275,8 @@ def pre_insert_stm_writebarrier(graph):
         for op in block.operations:
             if op.opname in COPIES_POINTER:
                 assert len(op.args) == 1
-                copies[op.result] = op
+                if _is_gc(op.result) and _is_gc(op.args[0]):
+                    copies[op.result] = op
             elif (op.opname in ('getfield', 'getarrayitem',
                                 'getinteriorfield') and
                   op.result.concretetype is not lltype.Void and
