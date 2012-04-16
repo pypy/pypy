@@ -107,7 +107,7 @@ if os.name == 'nt':
     validate_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         _callable=validate_fd_emulator, compilation_info=eci,
-        _nowrapper=True, elidable_function=True, sandboxsafe=True,
+        _nowrapper=True, elidable_function=False, sandboxsafe=False,
         )
 else:
     def validate_fd(fd):
