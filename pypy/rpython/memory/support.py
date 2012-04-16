@@ -16,9 +16,10 @@ def mangle_hash(i):
 DEFAULT_CHUNK_SIZE = 1019
 
 
-def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
+def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
+                      cache={}):
     try:
-        return cache[chunk_size]
+        return cache[chunk_size, multithread]
     except KeyError:
         pass
 
@@ -33,10 +34,11 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
         _alloc_flavor_ = "raw"
 
         def __init__(self):
-            self.free_list = null_chunk
+            if not multithread:
+                self.free_list = null_chunk
 
         def get(self):
-            if not self.free_list:
+            if multithread or not self.free_list:
                 # we zero-initialize the chunks to make the translation
                 # backends happy, but we don't need to do it at run-time.
                 zero = not we_are_translated()
@@ -48,7 +50,7 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
             return result
 
         def put(self, chunk):
-            if we_are_translated():
+            if not multithread and we_are_translated():
                 chunk.next = self.free_list
                 self.free_list = chunk
             else:
@@ -58,17 +60,18 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 lltype.free(chunk, flavor="raw", track_allocation=False)
 
     unused_chunks = FreeList()
-    cache[chunk_size] = unused_chunks, null_chunk
+    cache[chunk_size, multithread] = unused_chunks, null_chunk
     return unused_chunks, null_chunk
 
 
-def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
+def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
+                      cache={}):
     try:
-        return cache[chunk_size]
+        return cache[chunk_size, multithread]
     except KeyError:
         pass
 
-    unused_chunks, null_chunk = get_chunk_manager(chunk_size)
+    unused_chunks, null_chunk = get_chunk_manager(chunk_size, multithread)
 
     class AddressStack(object):
         _alloc_flavor_ = "raw"
@@ -173,20 +176,21 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 chunk.items[count] = got
                 got = next
 
-    cache[chunk_size] = AddressStack
+    cache[chunk_size, multithread] = AddressStack
     return AddressStack
 
 def _add_in_dict(item, d):
     d.add(item)
 
 
-def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
+def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
+                      cache={}):
     try:
-        return cache[chunk_size]
+        return cache[chunk_size, multithread]
     except KeyError:
         pass
 
-    unused_chunks, null_chunk = get_chunk_manager(chunk_size)
+    unused_chunks, null_chunk = get_chunk_manager(chunk_size, multithread)
 
     class AddressDeque(object):
         _alloc_flavor_ = "raw"
@@ -261,7 +265,7 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 cur = next
             free_non_gc_object(self)
 
-    cache[chunk_size] = AddressDeque
+    cache[chunk_size, multithread] = AddressDeque
     return AddressDeque
 
 # ____________________________________________________________

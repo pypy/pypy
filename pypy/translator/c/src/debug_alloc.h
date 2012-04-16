@@ -1,10 +1,11 @@
 /**************************************************************/
 /***  tracking raw mallocs and frees for debugging          ***/
 
-#ifndef RPY_ASSERT
+#if !defined(RPY_ASSERT) || defined(RPY_STM)   /* <= not thread-safe */
 
 #  define OP_TRACK_ALLOC_START(addr, r)   /* nothing */
 #  define OP_TRACK_ALLOC_STOP(addr, r)    /* nothing */
+#  define pypy_debug_alloc_results()      /* nothing */
 
 #else   /* ifdef RPY_ASSERT */
 

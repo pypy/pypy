@@ -200,7 +200,9 @@ class StmGCTLS(object):
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
-        llarena.arena_reset(self.nursery_start, self.nursery_size, 2)
+        ll_assert(bool(self.nursery_free), "nursery_free is NULL")
+        size_used = self.nursery_free - self.nursery_start
+        llarena.arena_reset(self.nursery_start, size_used, 2)
         self.nursery_free = self.nursery_start
         #
         debug_stop("gc-local")

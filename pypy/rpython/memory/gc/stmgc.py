@@ -84,7 +84,7 @@ class StmGC(MovingGCBase):
                  #small_request_threshold=5*WORD,
                  #ArenaCollectionClass=None,
                  **kwds):
-        MovingGCBase.__init__(self, config, **kwds)
+        MovingGCBase.__init__(self, config, multithread=True, **kwds)
         #
         if isinstance(stm_operations, str):
             assert stm_operations == 'use_real_one', (

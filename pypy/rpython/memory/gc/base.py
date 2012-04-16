@@ -22,10 +22,10 @@ class GCBase(object):
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
     def __init__(self, config, chunk_size=DEFAULT_CHUNK_SIZE,
-                 translated_to_c=True):
+                 multithread=False, translated_to_c=True):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
-        self.AddressStack = get_address_stack(chunk_size)
-        self.AddressDeque = get_address_deque(chunk_size)
+        self.AddressStack = get_address_stack(chunk_size, multithread)
+        self.AddressDeque = get_address_deque(chunk_size, multithread)
         self.AddressDict = AddressDict
         self.null_address_dict = null_address_dict
         self.config = config
