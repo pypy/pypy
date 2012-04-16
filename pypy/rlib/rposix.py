@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib import jit
 
 class CConstantErrno(CConstant):
     # these accessors are used when calling get_errno() or set_errno()
@@ -97,10 +98,14 @@ def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':
-    validate_fd = rffi.llexternal(
+    _validate_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=eci,
         )
+    @jit.dont_look_inside
+    def validate_fd(fd):
+        if not _validate_fd(fd):
+            raise OSError(get_errno(), 'Bad file descriptor')
 else:
     def validate_fd(fd):
         return 1
@@ -109,7 +114,7 @@ def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
         try:
-            if validate_fd(fd):
+            if _validate_fd(fd):
                 os.close(fd)
         except OSError:
             pass

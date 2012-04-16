@@ -133,11 +133,11 @@ class TestPosixUnicode:
                 pass
 
     def test_validate_fd(self):
-        assert rposix.validate_fd(0) == 1
+        assert rposix._validate_fd(0) == 1
         fid = open(str(udir.join('validate_test.txt')), 'w')
         fd = fid.fileno()
-        assert rposix.validate_fd(fd) == 1
+        assert rposix._validate_fd(fd) == 1
         fid.close()
-        assert rposix.validate_fd(fd) == 0
+        assert rposix._validate_fd(fd) == 0
 
 

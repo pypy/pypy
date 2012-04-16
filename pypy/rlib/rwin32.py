@@ -128,8 +128,7 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], HANDLE)
 
     def get_osfhandle(fd):
-        if not validate_fd(fd):
-            raise WindowsError(errno.EBADF, 'Bad file descriptor')
+        validate_fd(fd)
         handle = _get_osfhandle(fd)
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(errno.EBADF, "Invalid file handle")
