@@ -10,16 +10,6 @@ from pypy.interpreter.astcompiler.astbuilder import ast_from_node
 from pypy.interpreter.astcompiler import ast, consts
 
 
-try:
-    all
-except NameError:
-    def all(iterable):
-        for x in iterable:
-            if not x:
-                return False
-        return True
-
-
 class TestAstBuilder:
 
     def setup_class(cls):

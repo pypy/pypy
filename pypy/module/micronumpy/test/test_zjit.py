@@ -131,7 +131,7 @@ class TestNumpyJIt(LLJitMixin):
         #            bogus. We need to improve the situation somehow.
         self.check_simple_loop({'getinteriorfield_raw': 2,
                                 'setinteriorfield_raw': 1,
-                                'arraylen_gc': 1,
+                                'arraylen_gc': 2,
                                 'guard_true': 1,
                                 'int_lt': 1,
                                 'jump': 1,

@@ -141,4 +141,11 @@ class AppTestFromNumeric(BaseNumpyAppTest):
         raises(NotImplementedError, "transpose(x, axes=(1, 0, 2))")
         # x = ones((1, 2, 3))
         # assert transpose(x, (1, 0, 2)).shape == (2, 1, 3)
-        
+    
+    def test_fromnumeric(self):
+        from numpypy import array, swapaxes
+        x = array([[1,2,3]])
+        assert (swapaxes(x,0,1) == array([[1], [2], [3]])).all()
+        x = array([[[0,1],[2,3]],[[4,5],[6,7]]])
+        assert (swapaxes(x,0,2) == array([[[0, 4], [2, 6]], 
+                                          [[1, 5], [3, 7]]])).all()

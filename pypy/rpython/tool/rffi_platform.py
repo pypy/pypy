@@ -660,8 +660,8 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
     if isinstance(fieldtype, lltype.FixedSizeArray):
         size, _ = expected_size_and_sign
         return lltype.FixedSizeArray(fieldtype.OF, size/_sizeof(fieldtype.OF))
-    raise TypeError("conflicting field type %r for %r" % (fieldtype,
-                                                          fieldname))
+    raise TypeError("conflict between translating python and compiler field"
+                    " type %r for %r" % (fieldtype, fieldname))
 
 def expose_value_as_rpython(value):
     if intmask(value) == value:

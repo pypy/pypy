@@ -85,7 +85,7 @@ class Entry(extregistry.ExtRegistryEntry):
         s_DIGIT = self.bookkeeper.valueoftype(type(NULLDIGIT))
         assert s_DIGIT.contains(s_list.listdef.listitem.s_value)
     def specialize_call(self, hop):
-        pass
+        hop.exception_cannot_occur()
 
 
 class rbigint(object):

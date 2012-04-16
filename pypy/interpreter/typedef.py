@@ -321,7 +321,7 @@ def _builduserclswithfeature(config, supercls, *features):
             
             def user_setup(self, space, w_subtype):
                 self.w__dict__ = space.newdict(
-                    instance=True, classofinstance=w_subtype)
+                    instance=True)
                 base_user_setup(self, space, w_subtype)
 
             def setclass(self, space, w_subtype):

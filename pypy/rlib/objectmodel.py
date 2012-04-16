@@ -215,6 +215,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
@@ -401,6 +402,7 @@ class Entry(ExtRegistryEntry):
         r_obj, = hop.args_r
         v_obj, = hop.inputargs(r_obj)
         ll_fn = r_obj.get_ll_hash_function()
+        hop.exception_is_here()
         return hop.gendirectcall(ll_fn, v_obj)
 
 class Entry(ExtRegistryEntry):
@@ -423,6 +425,7 @@ class Entry(ExtRegistryEntry):
             from pypy.rpython.error import TyperError
             raise TyperError("compute_identity_hash() cannot be applied to"
                              " %r" % (vobj.concretetype,))
+        hop.exception_cannot_occur()
         return hop.genop('gc_identityhash', [vobj], resulttype=lltype.Signed)
 
 class Entry(ExtRegistryEntry):
@@ -445,6 +448,7 @@ class Entry(ExtRegistryEntry):
             from pypy.rpython.error import TyperError
             raise TyperError("compute_unique_id() cannot be applied to"
                              " %r" % (vobj.concretetype,))
+        hop.exception_cannot_occur()
         return hop.genop('gc_id', [vobj], resulttype=lltype.Signed)
 
 class Entry(ExtRegistryEntry):
@@ -456,6 +460,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         vobj, = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         if hop.rtyper.type_system.name == 'lltypesystem':
             from pypy.rpython.lltypesystem import lltype
             if isinstance(vobj.concretetype, lltype.Ptr):

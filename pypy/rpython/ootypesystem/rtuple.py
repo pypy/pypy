@@ -39,6 +39,7 @@ class TupleRepr(AbstractTupleRepr):
         RESULT = hop.r_result.lowleveltype
         c_resulttype = inputconst(ootype.Void, RESULT)
         c_length = inputconst(ootype.Signed, len(self.items_r))
+        hop.exception_is_here()
         if isinstance(RESULT, ootype.Array):
             v_list = hop.genop('oonewarray', [c_resulttype, c_length], resulttype=RESULT)
         else:

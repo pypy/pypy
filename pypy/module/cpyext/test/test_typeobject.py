@@ -20,6 +20,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is module.fooType
         print "type of obj has type", type(type(obj))
         print "type of type of obj has type", type(type(type(obj)))
+        assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
         module = self.import_module(name='foo')
@@ -414,8 +415,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static int
             mp_ass_subscript(PyObject *self, PyObject *key, PyObject *value)
             {
-                PyErr_SetNone(PyExc_ZeroDivisionError);
-                return -1;
+                if (PyInt_Check(key)) {
+                    PyErr_SetNone(PyExc_ZeroDivisionError);
+                    return -1;
+                }
+                return 0;
             }
             PyMappingMethods tp_as_mapping;
             static PyTypeObject Foo_Type = {
@@ -425,6 +429,36 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         obj = module.new_obj()
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
+        res = obj.__setitem__('foo', None)
+        assert res is None
+
+    def test_sq_contains(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                tp_as_sequence.sq_contains = sq_contains;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )],
+            '''
+            static int
+            sq_contains(PyObject *self, PyObject *value)
+            {
+                return 42;
+            }
+            PySequenceMethods tp_as_sequence;
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''')
+        obj = module.new_obj()
+        res = "foo" in obj
+        assert res is True
 
     def test_tp_iter(self):
         module = self.import_extension('foo', [

@@ -83,8 +83,9 @@ class BaseArray(Wrappable):
         return space.wrap(W_NDimArray(shape[:], dtype=dtype))
 
     def _unaryop_impl(ufunc_name):
-        def impl(self, space):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
+        def impl(self, space, w_out=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                                [self, w_out])
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_pos = _unaryop_impl("positive")
@@ -93,8 +94,9 @@ class BaseArray(Wrappable):
     descr_invert = _unaryop_impl("invert")
 
     def _binop_impl(ufunc_name):
-        def impl(self, space, w_other):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
+        def impl(self, space, w_other, w_out=None):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                        [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -124,12 +126,12 @@ class BaseArray(Wrappable):
         return space.newtuple([w_quotient, w_remainder])
 
     def _binop_right_impl(ufunc_name):
-        def impl(self, space, w_other):
+        def impl(self, space, w_other, w_out=None):
             w_other = scalar_w(space,
                 interp_ufuncs.find_dtype_for_scalar(space, w_other, self.find_dtype()),
                 w_other
             )
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self])
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     descr_radd = _binop_right_impl("add")
@@ -152,13 +154,21 @@ class BaseArray(Wrappable):
         return space.newtuple([w_quotient, w_remainder])
 
     def _reduce_ufunc_impl(ufunc_name, promote_to_largest=False):
-        def impl(self, space, w_axis=None):
+        def impl(self, space, w_axis=None, w_out=None):
             if space.is_w(w_axis, space.w_None):
                 axis = -1
             else:
                 axis = space.int_w(w_axis)
+            if space.is_w(w_out, space.w_None) or not w_out:
+                out = None
+            elif not isinstance(w_out, BaseArray):
+                raise OperationError(space.w_TypeError, space.wrap( 
+                        'output must be an array'))
+            else:
+                out = w_out
             return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
-                                        self, True, promote_to_largest, axis)
+                                        self, True, promote_to_largest, axis,
+                                                                   False, out)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")
@@ -213,6 +223,7 @@ class BaseArray(Wrappable):
     def descr_dot(self, space, w_other):
         other = convert_to_array(space, w_other)
         if isinstance(other, Scalar):
+            #Note: w_out is not modified, this is numpy compliant.
             return self.descr_mul(space, other)
         elif len(self.shape) < 2 and len(other.shape) < 2:
             w_res = self.descr_mul(space, other)
@@ -502,7 +513,30 @@ class BaseArray(Wrappable):
             arr = concrete.copy(space)
             arr.setshape(space, new_shape)
         return arr
-
+       
+    @unwrap_spec(axis1=int, axis2=int)
+    def descr_swapaxes(self, space, axis1, axis2):
+        """a.swapaxes(axis1, axis2)
+    
+        Return a view of the array with `axis1` and `axis2` interchanged.
+    
+        Refer to `numpy.swapaxes` for full documentation.
+    
+        See Also
+        --------
+        numpy.swapaxes : equivalent function
+        """
+        concrete = self.get_concrete()
+        shape = concrete.shape[:]
+        strides = concrete.strides[:]
+        backstrides = concrete.backstrides[:]
+        shape[axis1], shape[axis2] = shape[axis2], shape[axis1]   
+        strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
+        backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
+        arr = W_NDimSlice(concrete.start, strides, 
+                           backstrides, shape, concrete)
+        return space.wrap(arr)   
+                                      
     def descr_tolist(self, space):
         if len(self.shape) == 0:
             assert isinstance(self, Scalar)
@@ -514,14 +548,14 @@ class BaseArray(Wrappable):
             )
         return w_result
 
-    def descr_mean(self, space, w_axis=None):
+    def descr_mean(self, space, w_axis=None, w_out=None):
         if space.is_w(w_axis, space.w_None):
             w_axis = space.wrap(-1)
             w_denom = space.wrap(support.product(self.shape))
         else:
             dim = space.int_w(w_axis)
             w_denom = space.wrap(self.shape[dim])
-        return space.div(self.descr_sum_promote(space, w_axis), w_denom)
+        return space.div(self.descr_sum_promote(space, w_axis, w_out), w_denom)
 
     def descr_var(self, space, w_axis=None):
         return get_appbridge_cache(space).call_method(space, '_var', self,
@@ -662,6 +696,10 @@ class BaseArray(Wrappable):
     def compute_first_step(self, sig, frame):
         pass
 
+    @unwrap_spec(repeats=int)
+    def descr_repeat(self, space, repeats, w_axis=None):
+        return repeat(space, self, repeats, w_axis)
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -714,11 +752,12 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, name, shape, res_dtype):
+    def __init__(self, name, shape, res_dtype, out_arg=None):
         BaseArray.__init__(self, shape)
         self.forced_result = None
         self.res_dtype = res_dtype
         self.name = name
+        self.res = out_arg
         self.size = support.product(self.shape) * res_dtype.get_size()
 
     def _del_sources(self):
@@ -727,13 +766,18 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        ra = ResultArray(self, self.shape, self.res_dtype)
+        ra = ResultArray(self, self.shape, self.res_dtype, self.res)
         loop.compute(ra)
+        if self.res:
+            broadcast_dims = len(self.res.shape) - len(self.shape)
+            chunks = [Chunk(0,0,0,0)] * broadcast_dims + \
+                     [Chunk(0, i, 1, i) for i in self.shape]
+            return Chunks(chunks).apply(self.res)
         return ra.left
 
     def force_if_needed(self):
         if self.forced_result is None:
-            self.forced_result = self.compute()
+            self.forced_result = self.compute().get_concrete()
             self._del_sources()
 
     def get_concrete(self):
@@ -773,8 +817,9 @@ class VirtualSlice(VirtualArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values):
-        VirtualArray.__init__(self, name, shape, res_dtype)
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, values,
+                                                            out_arg=None):
+        VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.values = values
         self.size = values.size
         self.ufunc = ufunc
@@ -786,6 +831,12 @@ class Call1(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
+        if self.shape != self.values.shape:
+            #This happens if out arg is used
+            return signature.BroadcastUfunc(self.ufunc, self.name,
+                                            self.calc_dtype,
+                                            self.values.create_sig(),
+                                            self.res.create_sig())
         return signature.Call1(self.ufunc, self.name, self.calc_dtype,
                                self.values.create_sig())
 
@@ -793,8 +844,9 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, name, shape, res_dtype)
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right,
+            out_arg=None):
+        VirtualArray.__init__(self, name, shape, res_dtype, out_arg)
         self.ufunc = ufunc
         self.left = left
         self.right = right
@@ -832,8 +884,13 @@ class ResultArray(Call2):
         Call2.__init__(self, None, 'assign', shape, dtype, dtype, res, child)
 
     def create_sig(self):
-        return signature.ResultSignature(self.res_dtype, self.left.create_sig(),
-                                         self.right.create_sig())
+        if self.left.shape != self.right.shape:
+            sig = signature.BroadcastResultSignature(self.res_dtype,
+                        self.left.create_sig(), self.right.create_sig())
+        else:
+            sig = signature.ResultSignature(self.res_dtype, 
+                        self.left.create_sig(), self.right.create_sig())
+        return sig
 
 class ToStringArray(Call1):
     def __init__(self, child):
@@ -842,9 +899,9 @@ class ToStringArray(Call1):
         self.s = StringBuilder(child.size * self.item_size)
         Call1.__init__(self, None, 'tostring', child.shape, dtype, dtype,
                        child)
-        self.res = W_NDimArray([1], dtype, 'C')
-        self.res_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
-                                    self.res.storage)
+        self.res_str = W_NDimArray([1], dtype, order='C')
+        self.res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
+                                    self.res_str.storage)
 
     def create_sig(self):
         return signature.ToStringSignature(self.calc_dtype,
@@ -950,7 +1007,7 @@ class ConcreteArray(BaseArray):
 
     def setitem(self, item, value):
         self.invalidated()
-        self.dtype.setitem(self, item, value)
+        self.dtype.setitem(self, item, value.convert_to(self.dtype))
 
     def calc_strides(self, shape):
         dtype = self.find_dtype()
@@ -1231,6 +1288,31 @@ def dot(space, w_obj, w_obj2):
         return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
     return w_arr.descr_dot(space, w_obj2)
 
+@unwrap_spec(repeats=int)
+def repeat(space, w_arr, repeats, w_axis=None):
+    arr = convert_to_array(space, w_arr)
+    if space.is_w(w_axis, space.w_None):
+        arr = arr.descr_flatten(space).get_concrete()
+        orig_size = arr.shape[0]
+        shape = [arr.shape[0] * repeats]
+        res = W_NDimArray(shape, arr.find_dtype())
+        for i in range(repeats):
+            Chunks([Chunk(i, shape[0] - repeats + i, repeats,
+                          orig_size)]).apply(res).setslice(space, arr)
+    else:
+        arr = arr.get_concrete()
+        axis = space.int_w(w_axis)
+        shape = arr.shape[:]
+        chunks = [Chunk(0, i, 1, i) for i in shape]
+        orig_size = shape[axis]
+        shape[axis] *= repeats
+        res = W_NDimArray(shape, arr.find_dtype())
+        for i in range(repeats):
+            chunks[axis] = Chunk(i, shape[axis] - repeats + i, repeats,
+                                 orig_size)
+            Chunks(chunks).apply(res).setslice(space, arr)
+    return res
+
 @unwrap_spec(axis=int)
 def concatenate(space, w_args, axis=0):
     args_w = space.listview(w_args)
@@ -1353,9 +1435,11 @@ BaseArray.typedef = TypeDef(
     copy = interp2app(BaseArray.descr_copy),
     flatten = interp2app(BaseArray.descr_flatten),
     reshape = interp2app(BaseArray.descr_reshape),
+    swapaxes = interp2app(BaseArray.descr_swapaxes),
     tolist = interp2app(BaseArray.descr_tolist),
     take = interp2app(BaseArray.descr_take),
     compress = interp2app(BaseArray.descr_compress),
+    repeat = interp2app(BaseArray.descr_repeat),
 )
 
 

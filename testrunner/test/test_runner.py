@@ -53,49 +53,44 @@ def test_should_report_failure():
     assert not should_report_failure("F Def\n. Ghi\n. Jkl\n")
 
 
+
 class TestRunHelper(object):
+    def pytest_funcarg__out(self, request):
+        tmpdir = request.getfuncargvalue('tmpdir')
+        return tmpdir.ensure('out')
 
-    def setup_method(self, meth):
-        h, self.fn = tempfile.mkstemp()
-        os.close(h)
-
-    def teardown_method(self, meth):
-        os.unlink(self.fn)
-
-    def test_run(self):
-        res = runner.run([sys.executable, "-c", "print 42"], '.',
-                         py.path.local(self.fn))
+    def test_run(self, out):
+        res = runner.run([sys.executable, "-c", "print 42"], '.', out)
         assert res == 0
-        out = py.path.local(self.fn).read('r')
-        assert out == "42\n"
+        assert out.read() == "42\n"
 
-    def test_error(self):
-        res = runner.run([sys.executable, "-c", "import sys; sys.exit(3)"], '.', py.path.local(self.fn))
+    def test_error(self, out):
+        res = runner.run([sys.executable, "-c", "import sys; sys.exit(3)"], '.', out)
         assert res == 3
 
-    def test_signal(self):
+    def test_signal(self, out):
         if sys.platform == 'win32':
             py.test.skip("no death by signal on windows")
-        res = runner.run([sys.executable, "-c", "import os; os.kill(os.getpid(), 9)"], '.', py.path.local(self.fn))
+        res = runner.run([sys.executable, "-c", "import os; os.kill(os.getpid(), 9)"], '.', out)
         assert res == -9
 
-    def test_timeout(self):
-        res = runner.run([sys.executable, "-c", "while True: pass"], '.', py.path.local(self.fn), timeout=3)
+    def test_timeout(self, out):
+        res = runner.run([sys.executable, "-c", "while True: pass"], '.', out, timeout=3)
         assert res == -999
 
-    def test_timeout_lock(self):
-        res = runner.run([sys.executable, "-c", "import threading; l=threading.Lock(); l.acquire(); l.acquire()"], '.', py.path.local(self.fn), timeout=3)
+    def test_timeout_lock(self, out):
+        res = runner.run([sys.executable, "-c", "import threading; l=threading.Lock(); l.acquire(); l.acquire()"], '.', out, timeout=3)
         assert res == -999
 
-    def test_timeout_syscall(self):
-        res = runner.run([sys.executable, "-c", "import socket; s=s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(('', 0)); s.recv(1000)"], '.', py.path.local(self.fn), timeout=3)
+    def test_timeout_syscall(self, out):
+        res = runner.run([sys.executable, "-c", "import socket; s=s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(('', 0)); s.recv(1000)"], '.', out, timeout=3)
         assert res == -999        
 
-    def test_timeout_success(self):
+    def test_timeout_success(self, out):
         res = runner.run([sys.executable, "-c", "print 42"], '.',
-                         py.path.local(self.fn), timeout=2)
+                         out, timeout=2)
         assert res == 0
-        out = py.path.local(self.fn).read('r')
+        out = out.read()
         assert out == "42\n"        
 
 
@@ -122,7 +117,10 @@ class TestExecuteTest(object):
 
         expected = ['INTERP', 'IARG',
                     'driver', 'darg',
+                    '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--junitxml=LOGFILE.junit',
+
                     'test_one']
 
         assert self.called == (expected, '/wd', 'out', 'secs')        
@@ -138,9 +136,11 @@ class TestExecuteTest(object):
 
         expected = ['/wd' + os.sep + './INTERP', 'IARG',
                     'driver', 'darg',
+                    '-p', 'resultlog',
                     '--resultlog=LOGFILE',
+                    '--junitxml=LOGFILE.junit',
                     'test_one']
-
+        assert self.called[0] == expected
         assert self.called == (expected, '/wd', 'out', 'secs')        
         assert res == 0
 
@@ -251,7 +251,7 @@ class RunnerTests(object):
         assert '\n' in log        
         log_lines = log.splitlines()
 
-        assert log_lines[0] == ". test_normal/test_example.py:test_one"
+        assert ". test_normal/test_example.py::test_one" in log_lines
         nfailures = 0
         noutcomes = 0
         for line in log_lines:

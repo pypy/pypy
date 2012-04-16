@@ -15,6 +15,7 @@ from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib import jit
 
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
@@ -146,6 +147,8 @@ def unicode_join__Unicode_ANY(space, w_self, w_list):
 
     return _unicode_join_many_items(space, w_self, list_w, size)
 
+@jit.look_inside_iff(lambda space, w_self, list_w, size:
+                     jit.loop_unrolling_heuristic(list_w, size))
 def _unicode_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     prealloc_size = len(self) * (size - 1)

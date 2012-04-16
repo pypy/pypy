@@ -243,4 +243,5 @@ opcodes = _proc_dict({
     'force_cast':               [PushAllArgs, CastPrimitive, StoreResult],
 
     'convert_float_bytes_to_longlong': jvm.PYPYDOUBLEBYTESTOLONG,
+    'convert_longlong_bytes_to_float': jvm.PYPYLONGBYTESTODOUBLE,
 })

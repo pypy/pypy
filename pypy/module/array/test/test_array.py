@@ -402,7 +402,25 @@ class BaseArrayTests:
         a = self.array('h', b'Hi')
         buf = memoryview(a)
         assert buf[1] == b'i'
-        #raises(TypeError, buf.__setitem__, 1, 'o')
+
+    def test_buffer_write(self):
+        a = self.array('b', b'hello')
+        buf = memoryview(a)
+        print(repr(buf))
+        try:
+            buf[3] = b'L'
+        except TypeError:
+            skip("memoryview(array) returns a read-only buffer on CPython")
+        assert a.tostring() == 'helLo'
+
+    def test_buffer_keepalive(self):
+        buf = memoryview(self.array('b', b'text'))
+        assert buf[2] == b'x'
+        #
+        a = self.array('b', b'foobarbaz')
+        buf = memoryview(a)
+        a.fromstring(b'some extra text')
+        assert buf[:] == b'foobarbazsome extra text'
 
     def test_list_methods(self):
         assert repr(self.array('i')) == "array('i')"

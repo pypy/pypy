@@ -434,6 +434,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
+    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        # This opcode was added with pypy-1.8.  Here is a simpler
+        # version, enough for annotation.
+        last_val = self.popvalue()
+        self.pushvalue(self.space.newlist([]))
+        self.pushvalue(last_val)
+
     # XXX Unimplemented 2.7 opcodes ----------------
 
     # Set literals, set comprehensions

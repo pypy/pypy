@@ -33,8 +33,7 @@ class W_DictMultiObject(W_Object):
 
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
-                                   instance=False, classofinstance=None,
-                                   strdict=False):
+                                   instance=False, strdict=False, kwargs=False):
 
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
@@ -47,11 +46,15 @@ class W_DictMultiObject(W_Object):
             assert w_type is None
             strategy = space.fromcache(StringDictStrategy)
 
+        elif kwargs:
+            assert w_type is None
+            from pypy.objspace.std.kwargsdict import KwargsDictStrategy
+            strategy = space.fromcache(KwargsDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
-
         if w_type is None:
             w_type = space.w_dict
+
         storage = strategy.get_empty_storage()
         w_self = space.allocate_instance(W_DictMultiObject, w_type)
         W_DictMultiObject.__init__(w_self, space, strategy, storage)
@@ -90,9 +93,10 @@ class W_DictMultiObject(W_Object):
 def _add_indirections():
     dict_methods = "setitem setitem_str getitem \
                     getitem_str delitem length \
-                    clear keys values \
+                    clear w_keys values \
                     items iter setdefault \
-                    popitem".split()
+                    popitem listview_str listview_int \
+                    view_as_kwargs".split()
 
     def make_method(method):
         def f(self, *args):
@@ -113,7 +117,7 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         iterator = self.iter(w_dict)
         result = []
         while 1:
@@ -121,7 +125,7 @@ class DictStrategy(object):
             if w_key is not None:
                 result.append(w_key)
             else:
-                return result
+                return self.space.newlist(result)
 
     def values(self, w_dict):
         iterator = self.iter(w_dict)
@@ -160,6 +164,14 @@ class DictStrategy(object):
         w_dict.strategy = strategy
         w_dict.dstorage = storage
 
+    def listview_str(self, w_dict):
+        return None
+
+    def listview_int(self, w_dict):
+        return None
+
+    def view_as_kwargs(self, w_dict):
+        return (None, None)
 
 class EmptyDictStrategy(DictStrategy):
 
@@ -244,13 +256,16 @@ class EmptyDictStrategy(DictStrategy):
         return 0
 
     def iter(self, w_dict):
-        return EmptyIteratorImplementation(self.space, w_dict)
+        return EmptyIteratorImplementation(self.space, self, w_dict)
 
     def clear(self, w_dict):
         return
 
     def popitem(self, w_dict):
         raise KeyError
+
+    def view_as_kwargs(self, w_dict):
+        return ([], [])
 
 registerimplementation(W_DictMultiObject)
 
@@ -260,8 +275,9 @@ registerimplementation(W_DictMultiObject)
 # Iterator Implementation base classes
 
 class IteratorImplementation(object):
-    def __init__(self, space, implementation):
+    def __init__(self, space, strategy, implementation):
         self.space = space
+        self.strategy = strategy
         self.dictimplementation = implementation
         self.len = implementation.length()
         self.pos = 0
@@ -277,7 +293,20 @@ class IteratorImplementation(object):
         if self.pos < self.len:
             result = self.next_entry()
             self.pos += 1
-            return result
+            if self.strategy is self.dictimplementation.strategy:
+                return result      # common case
+            else:
+                # waaa, obscure case: the strategy changed, but not the
+                # length of the dict.  The (key, value) pair in 'result'
+                # might be out-of-date.  We try to explicitly look up
+                # the key in the dict.
+                w_key = result[0]
+                w_value = self.dictimplementation.getitem(w_key)
+                if w_value is None:
+                    self.len = -1   # Make this error state sticky
+                    raise OperationError(self.space.w_RuntimeError,
+                        self.space.wrap("dictionary changed during iteration"))
+                return (w_key, w_value)
         # no more entries
         self.dictimplementation = None
         return None, None
@@ -373,8 +402,9 @@ class AbstractTypedStrategy(object):
             self.switch_to_object_strategy(w_dict)
             return w_dict.getitem(w_key)
 
-    def keys(self, w_dict):
-        return [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+    def w_keys(self, w_dict):
+        l = [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+        return self.space.newlist(l)
 
     def values(self, w_dict):
         return self.unerase(w_dict.dstorage).values()
@@ -427,8 +457,8 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
     def iter(self, w_dict):
         return ObjectIteratorImplementation(self.space, self, w_dict)
 
-    def keys(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
+    def w_keys(self, w_dict):
+        return self.space.newlist(self.unerase(w_dict.dstorage).keys())
 
 
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -471,15 +501,21 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         assert key is not None
         return self.unerase(w_dict.dstorage).get(key, None)
 
+    def listview_str(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
     def iter(self, w_dict):
         return StrIteratorImplementation(self.space, self, w_dict)
+
+    def w_keys(self, w_dict):
+        return self.space.newlist_str(self.listview_str(w_dict))
 
 
 class _WrappedIteratorMixin(object):
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
@@ -493,7 +529,7 @@ class _UnwrappedIteratorMixin:
     _mixin_ = True
 
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(self, space, strategy, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
@@ -535,6 +571,11 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     def iter(self, w_dict):
         return IntIteratorImplementation(self.space, self, w_dict)
+
+    def listview_int(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
+    # XXX there is no space.newlist_int yet to implement w_keys more efficiently
 
 class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
     pass
@@ -690,6 +731,9 @@ def dict_items__DictMulti(space, w_self):
 
 def dict_keys__DictMulti(space, w_self):
     return W_DictViewKeysObject(space, w_self)
+    # XXX on default this is a fast path when keys are string, do we want to
+    # port it to py3k?
+    # return w_self.w_keys()
 
 def dict_values__DictMulti(space, w_self):
     return W_DictViewValuesObject(space, w_self)

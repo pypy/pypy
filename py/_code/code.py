@@ -145,6 +145,17 @@ class TracebackEntry(object):
         return self.frame.f_locals
     locals = property(getlocals, None, None, "locals of underlaying frame")
 
+    def reinterpret(self):
+        """Reinterpret the failing statement and returns a detailed information
+           about what operations are performed."""
+        if self.exprinfo is None:
+            source = str(self.statement).strip()
+            x = py.code._reinterpret(source, self.frame, should_fail=True)
+            if not isinstance(x, str):
+                raise TypeError("interpret returned non-string %r" % (x,))
+            self.exprinfo = x
+        return self.exprinfo
+
     def getfirstlinesource(self):
         # on Jython this firstlineno can be -1 apparently
         return max(self.frame.code.firstlineno, 0)
@@ -158,13 +169,12 @@ class TracebackEntry(object):
         end = self.lineno
         try:
             _, end = source.getstatementrange(end)
-        except IndexError:
+        except (IndexError, ValueError):
             end = self.lineno + 1
         # heuristic to stop displaying source on e.g.
         #   if something:  # assume this causes a NameError
         #      # _this_ lines and the one
                #        below we don't want from entry.getsource()
-        end = min(end, len(source))
         for i in range(self.lineno, end):
             if source[i].rstrip().endswith(':'):
                 end = i + 1
@@ -273,7 +283,11 @@ class Traceback(list):
         """
         cache = {}
         for i, entry in enumerate(self):
-            key = entry.frame.code.path, entry.lineno
+            # id for the code.raw is needed to work around
+            # the strange metaprogramming in the decorator lib from pypi
+            # which generates code objects that have hash/value equality
+            #XXX needs a test
+            key = entry.frame.code.path, id(entry.frame.code.raw), entry.lineno
             #print "checking for recursion at", key
             l = cache.setdefault(key, [])
             if l:
@@ -308,7 +322,7 @@ class ExceptionInfo(object):
                     self._striptext = 'AssertionError: '
         self._excinfo = tup
         self.type, self.value, tb = self._excinfo
-        self.typename = getattr(self.type, "__name__", "???")
+        self.typename = self.type.__name__
         self.traceback = py.code.Traceback(tb)
 
     def __repr__(self):
@@ -347,14 +361,16 @@ class ExceptionInfo(object):
             showlocals: show locals per traceback entry
             style: long|short|no|native traceback style
             tbfilter: hide entries (where __tracebackhide__ is true)
+
+            in case of style==native, tbfilter and showlocals is ignored.
         """
         if style == 'native':
-            import traceback
-            return ''.join(traceback.format_exception(
-                self.type,
-                self.value,
-                self.traceback[0]._rawentry,
-                ))
+            return ReprExceptionInfo(ReprTracebackNative(
+                py.std.traceback.format_exception(
+                    self.type,
+                    self.value,
+                    self.traceback[0]._rawentry,
+                )), self._getreprcrash())
 
         fmt = FormattedExcinfo(showlocals=showlocals, style=style,
             abspath=abspath, tbfilter=tbfilter, funcargs=funcargs)
@@ -452,7 +468,7 @@ class FormattedExcinfo(object):
     def repr_locals(self, locals):
         if self.showlocals:
             lines = []
-            keys = list(locals)
+            keys = [loc for loc in locals if loc[0] != "@"]
             keys.sort()
             for name in keys:
                 value = locals[name]
@@ -506,7 +522,10 @@ class FormattedExcinfo(object):
 
     def _makepath(self, path):
         if not self.abspath:
-            np = py.path.local().bestrelpath(path)
+            try:
+                np = py.path.local().bestrelpath(path)
+            except OSError:
+                return path
             if len(np) < len(str(path)):
                 path = np
         return path
@@ -595,6 +614,19 @@ class ReprTraceback(TerminalRepr):
         if self.extraline:
             tw.line(self.extraline)
 
+class ReprTracebackNative(ReprTraceback):
+    def __init__(self, tblines):
+        self.style = "native"
+        self.reprentries = [ReprEntryNative(tblines)]
+        self.extraline = None
+
+class ReprEntryNative(TerminalRepr):
+    def __init__(self, tblines):
+        self.lines = tblines
+
+    def toterminal(self, tw):
+        tw.write("".join(self.lines))
+
 class ReprEntry(TerminalRepr):
     localssep = "_ "
 
@@ -680,19 +712,26 @@ class ReprFuncArgs(TerminalRepr):
 
 oldbuiltins = {}
 
-def patch_builtins(compile=True):
-    """ put compile builtins to Python's builtins. """
+def patch_builtins(assertion=True, compile=True):
+    """ put compile and AssertionError builtins to Python's builtins. """
+    if assertion:
+        from py._code import assertion
+        l = oldbuiltins.setdefault('AssertionError', [])
+        l.append(py.builtin.builtins.AssertionError)
+        py.builtin.builtins.AssertionError = assertion.AssertionError
     if compile:
         l = oldbuiltins.setdefault('compile', [])
         l.append(py.builtin.builtins.compile)
         py.builtin.builtins.compile = py.code.compile
 
-def unpatch_builtins(compile=True):
+def unpatch_builtins(assertion=True, compile=True):
     """ remove compile and AssertionError builtins from Python builtins. """
+    if assertion:
+        py.builtin.builtins.AssertionError = oldbuiltins['AssertionError'].pop()
     if compile:
         py.builtin.builtins.compile = oldbuiltins['compile'].pop()
 
-def getrawcode(obj):
+def getrawcode(obj, trycall=True):
     """ return code object for given function. """
     try:
         return obj.__code__
@@ -701,5 +740,10 @@ def getrawcode(obj):
         obj = getattr(obj, 'func_code', obj)
         obj = getattr(obj, 'f_code', obj)
         obj = getattr(obj, '__code__', obj)
+        if trycall and not hasattr(obj, 'co_firstlineno'):
+            if hasattr(obj, '__call__') and not py.std.inspect.isclass(obj):
+                x = getrawcode(obj.__call__, trycall=False)
+                if hasattr(x, 'co_firstlineno'):
+                    return x
         return obj
 

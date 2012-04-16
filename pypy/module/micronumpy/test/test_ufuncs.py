@@ -135,6 +135,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert fabs(float('-inf')) == float('inf')
         assert isnan(fabs(float('nan')))
 
+    def test_fmax(self):
+        from _numpypy import fmax
+        import math
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        a = [ninf, -5, 0, 5, inf]
+        assert (fmax(a, [ninf]*5) == a).all()
+        assert (fmax(a, [inf]*5) == [inf]*5).all()
+        assert (fmax(a, [1]*5) == [1, 1, 1, 5, inf]).all()
+        assert math.isnan(fmax(nan, 0))
+        assert math.isnan(fmax(0, nan))
+        assert math.isnan(fmax(nan, nan))
+        # The numpy docs specify that the FIRST NaN should be used if both are NaN
+        assert math.copysign(1.0, fmax(nnan, nan)) == -1.0
+
+    def test_fmin(self):
+        from _numpypy import fmin
+        import math
+
+        nnan, nan, inf, ninf = float('-nan'), float('nan'), float('inf'), float('-inf')
+
+        a = [ninf, -5, 0, 5, inf]
+        assert (fmin(a, [ninf]*5) == [ninf]*5).all()
+        assert (fmin(a, [inf]*5) == a).all()
+        assert (fmin(a, [1]*5) == [ninf, -5, 0, 1, 1]).all()
+        assert math.isnan(fmin(nan, 0))
+        assert math.isnan(fmin(0, nan))
+        assert math.isnan(fmin(nan, nan))
+        # The numpy docs specify that the FIRST NaN should be used if both are NaN
+        assert math.copysign(1.0, fmin(nnan, nan)) == -1.0
+
     def test_fmod(self):
         from _numpypy import fmod
         import math
@@ -221,24 +253,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] - b[i]
 
-    def test_floorceil(self):
-        from _numpypy import array, floor, ceil
+    def test_floorceiltrunc(self):
+        from _numpypy import array, floor, ceil, trunc
         import math
-        reference = [-2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0]
-        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
-        b = floor(a)
-        for i in range(5):
-            assert b[i] == reference[i]
-        reference = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0]
-        a = array([-1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5])
-        b = ceil(a)
-        assert (reference == b).all()
-        inf = float("inf")
-        data = [1.5, 2.9999, -1.999, inf]
-        results = [math.floor(x) for x in data]
-        assert (floor(data) == results).all()
-        results = [math.ceil(x) for x in data]
-        assert (ceil(data) == results).all()
+        ninf, inf = float("-inf"), float("inf")
+        a = array([ninf, -1.4, -1.5, -1.0, 0.0, 1.0, 1.4, 0.5, inf])
+        assert ([ninf, -2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == floor(a)).all()
+        assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0, inf] == ceil(a)).all()
+        assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == trunc(a)).all()
+        assert all([math.isnan(f(float("nan"))) for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(float("nan"))) == 1 for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(float("-nan"))) == -1 for f in floor, ceil, trunc])
 
     def test_copysign(self):
         from _numpypy import array, copysign
@@ -455,6 +480,19 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(sqrt(-1))
         assert math.isnan(sqrt(nan))
 
+    def test_square(self):
+        import math
+        from _numpypy import square
+
+        nan, inf, ninf = float("nan"), float("inf"), float("-inf")
+
+        assert math.isnan(square(nan))
+        assert math.isinf(square(inf))
+        assert math.isinf(square(ninf))
+        assert square(ninf) > 0
+        assert [square(x) for x in range(-5, 5)] == [x*x for x in range(-5, 5)]
+        assert math.isinf(square(1e300))
+
     def test_radians(self):
         import math
         from _numpypy import radians, array
@@ -546,10 +584,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, 'array([1.0]) & 1')
 
     def test_unary_bitops(self):
-        from _numpypy import bitwise_not, array
+        from _numpypy import bitwise_not, invert, array
         a = array([1, 2, 3, 4])
         assert (~a == [-2, -3, -4, -5]).all()
         assert (bitwise_not(a) == ~a).all()
+        assert (invert(a) == ~a).all()
+
+    def test_shift(self):
+        from _numpypy import left_shift, right_shift
+
+        assert (left_shift([5, 1], [2, 13]) == [20, 2**13]).all()
+        assert (right_shift(10, range(5)) == [10, 5, 2, 1, 0]).all()
 
     def test_comparisons(self):
         import operator

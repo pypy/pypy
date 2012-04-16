@@ -16,13 +16,15 @@ class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
     if sys.platform.startswith("linux"):
+        from pypy.module.__pypy__ import interp_time
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
         for name in [
             "CLOCK_REALTIME", "CLOCK_MONOTONIC", "CLOCK_MONOTONIC_RAW",
             "CLOCK_PROCESS_CPUTIME_ID", "CLOCK_THREAD_CPUTIME_ID"
         ]:
-            interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
+            if getattr(interp_time, name) is not None:
+                interpleveldefs[name] = "space.wrap(interp_time.%s)" % name
 
 
 class Module(MixedModule):
