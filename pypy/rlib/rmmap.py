@@ -739,6 +739,8 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
+            if not rposix.validate_fd(fileno):
+                raise OSError(rposix.get_errno(), 'Bad file descriptor')
             fh = rwin32._get_osfhandle(fileno)
             if fh == INVALID_HANDLE:
                 errno = rposix.get_errno()
@@ -747,24 +749,24 @@ elif _MS_WINDOWS:
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
 
-        # check file size
-        try:
-            st = os.fstat(fileno)
-        except OSError:
-            pass     # ignore errors and trust map_size
-        else:
-            mode = st[stat.ST_MODE]
-            size = st[stat.ST_SIZE]
-            if stat.S_ISREG(mode):
-                if map_size == 0:
-                    if offset > size:
-                        raise RValueError(
-                            "mmap offset is greater than file size")
-                    map_size = int(size - offset)
-                    if map_size != size - offset:
-                        raise RValueError("mmap length is too large")
-                elif offset + map_size > size:
-                    raise RValueError("mmap length is greater than file size")
+            # check file size
+            try:
+                st = os.fstat(fileno)
+            except OSError:
+                pass     # ignore errors and trust map_size
+            else:
+                mode = st[stat.ST_MODE]
+                size = st[stat.ST_SIZE]
+                if stat.S_ISREG(mode):
+                    if map_size == 0:
+                        if offset > size:
+                            raise RValueError(
+                                "mmap offset is greater than file size")
+                        map_size = int(size - offset)
+                        if map_size != size - offset:
+                            raise RValueError("mmap length is too large")
+                    elif offset + map_size > size:
+                        raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
