@@ -1,3 +1,4 @@
+import py
 from pypy.conftest import gettestobjspace
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
@@ -11,6 +12,7 @@ import sys
 
 class BaseNumpyAppTest(object):
     def setup_class(cls):
+        py.test.py3k_skip("micronumpy not supported on py3k")
         if option.runappdirect:
             if '__pypy__' not in sys.builtin_module_names:
                 import numpy
