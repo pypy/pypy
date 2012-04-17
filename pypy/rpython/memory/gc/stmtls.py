@@ -304,6 +304,8 @@ class StmGCTLS(object):
         it was not done so far.
         """
         obj = root.address[0]
+        size = self.gc.get_size(obj)
+        # ^^^ moved here in order to crash early if 'obj' is invalid
         hdr = self.gc.header(obj)
         #
         # If 'obj' is not in the nursery, we set GCFLAG_VISITED
@@ -327,7 +329,6 @@ class StmGCTLS(object):
             #
             # Case of GCFLAG_HAS_SHADOW.  See comments below.
             size_gc_header = self.gc.gcheaderbuilder.size_gc_header
-            size = self.gc.get_size(obj)
             totalsize = size_gc_header + size
             hdr.tid &= ~GCFLAG_HAS_SHADOW
             newobj = hdr.version
@@ -345,7 +346,6 @@ class StmGCTLS(object):
             # First visit to 'obj': we must move this YOUNG obj out of the
             # nursery.
             size_gc_header = self.gc.gcheaderbuilder.size_gc_header
-            size = self.gc.get_size(obj)
             totalsize = size_gc_header + size
             #
             # Common case: allocate a new nonmovable location for it.
