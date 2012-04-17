@@ -42,7 +42,7 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
             [s_gc], annmodel.s_None)
         self.stm_start_ptr = getfn(
             self.gcdata.gc.start_transaction.im_func,
-            [s_gc], annmodel.s_None)
+            [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.stm_commit_ptr = getfn(
             self.gcdata.gc.commit_transaction.im_func,
             [s_gc], annmodel.s_None)
@@ -84,7 +84,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop('cast_adr_to_ptr', [v_globaladr], resultvar=op.result)
 
     def gct_stm_start_transaction(self, hop):
-        hop.genop("direct_call", [self.stm_start_ptr, self.c_const_gc])
+        v_int = hop.spaceop.args[0]
+        hop.genop("direct_call", [self.stm_start_ptr,
+                                  self.c_const_gc, v_int])
 
     def gct_stm_commit_transaction(self, hop):
         hop.genop("direct_call", [self.stm_commit_ptr, self.c_const_gc])
@@ -170,8 +172,10 @@ class StmShadowStackRootWalker(BaseRootWalker):
                            stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)
 
-    def clear_current_stack_roots(self):
+    def get_current_stack_roots_limit(self):
+        return self.stackgcdata.root_stack_top
+
+    def set_current_stack_roots_limit(self, limit):
         """Used when we start a transaction: there might be garbage left
         behind by the previous aborted transaction."""
-        stackgcdata = self.stackgcdata
-        stackgcdata.root_stack_top = stackgcdata.root_stack_base
+        self.stackgcdata.root_stack_top = limit

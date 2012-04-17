@@ -117,19 +117,24 @@ class StmGCTLS(object):
                 if value is not self:
                     del StmGCTLS.nontranslated_dict[key]
         self.stm_operations.leave_transactional_mode()
-        self.start_transaction()
+        self.start_transaction(-1)
 
-    def start_transaction(self):
+    def start_transaction(self, retry_counter):
         """Start a transaction: performs any pending cleanups, and set
         up a fresh state for allocating.  Called at the start of
         each transaction, and at the start of the main thread."""
         # Note that the calls to enter() and
         # end_of_transaction_collection() are not balanced: if a
-        # transaction is aborted, the latter might never be called.
+        # transaction is aborted, the latter might never be called
+        # and we get back to here with retry_counter > 0.
         # Be ready here to clean up any state.
         self._cleanup_state()
-        if self is not self.gc.main_thread_tls:
-            self.gc.root_walker.clear_current_stack_roots()
+        rw = self.gc.root_walker
+        if retry_counter > 0:
+            rw.set_current_stack_roots_limit(self.stack_root_limit)
+        else:
+            self.stack_root_limit = rw.get_current_stack_roots_limit()
+        #
         if self.nursery_free:
             clear_size = self.nursery_free - self.nursery_start
         else:

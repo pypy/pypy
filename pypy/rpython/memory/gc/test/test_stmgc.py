@@ -135,8 +135,8 @@ def fake_weakpointer_offset(tid):
 class FakeRootWalker:
     def walk_current_stack_roots(self, *args):
         pass     # no stack roots in this test file
-    def clear_current_stack_roots(self):
-        pass
+    def get_current_stack_roots_limit(self):
+        return "some limit"
 
 
 class StmGCTests:
@@ -189,7 +189,7 @@ class StmGCTests:
         self.gc.stm_operations.threadnum = threadnum
         if threadnum not in self.gc.stm_operations._tls_dict:
             self.gc.setup_thread()
-            self.gc.start_transaction()
+            self.gc.start_transaction(0)
     def gcsize(self, S):
         return (llmemory.raw_malloc_usage(llmemory.sizeof(self.gc.HDR)) +
                 llmemory.raw_malloc_usage(llmemory.sizeof(S)))
