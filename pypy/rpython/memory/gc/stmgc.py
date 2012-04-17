@@ -121,7 +121,7 @@ class StmGC(MovingGCBase):
         #
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
         self.main_thread_tls = StmGCTLS(self, in_main_thread=True)
-        self.main_thread_tls.start_transaction(-1)
+        self.main_thread_tls.start_transaction()
 
     def setup_thread(self):
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
@@ -195,8 +195,8 @@ class StmGC(MovingGCBase):
         if gen > 0:
             debug_print("XXX not doing a global collect()")
 
-    def start_transaction(self, retry_counter):
-        self.get_tls().start_transaction(retry_counter)
+    def start_transaction(self):
+        self.get_tls().start_transaction()
 
     def commit_transaction(self):
         self.get_tls().stop_transaction()

@@ -14,7 +14,7 @@ _global_lock = threading.RLock()
 @specialize.memo()
 def _get_stm_callback(func, argcls):
     def _stm_callback(llarg, retry_counter):
-        llop.stm_start_transaction(lltype.Void, retry_counter)
+        llop.stm_start_transaction(lltype.Void)
         if we_are_translated():
             llarg = rffi.cast(rclass.OBJECTPTR, llarg)
             arg = cast_base_ptr_to_instance(argcls, llarg)

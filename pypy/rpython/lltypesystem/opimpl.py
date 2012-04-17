@@ -632,7 +632,7 @@ def op_stm_descriptor_done():
     from pypy.translator.stm import stmgcintf
     stmgcintf.StmOperations.del_tls()
 
-def op_stm_start_transaction(retry_counter):
+def op_stm_start_transaction():
     pass
 
 def op_stm_commit_transaction():

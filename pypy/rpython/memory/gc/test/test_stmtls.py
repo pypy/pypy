@@ -38,8 +38,6 @@ class FakeRootWalker:
             P = lltype.typeOf(self.current_stack[i])
             self.current_stack[i] = llmemory.cast_adr_to_ptr(roots[i], P)
         lltype.free(roots, flavor='raw')
-    def get_current_stack_roots_limit(self):
-        return "some limit"
 
 class FakeGC:
     from pypy.rpython.memory.support import AddressDict, null_address_dict
@@ -85,7 +83,7 @@ class TestStmGCTLS(object):
         self.gctls_main = StmGCTLS(self.gc, in_main_thread=True)
         self.gctls_thrd = StmGCTLS(self.gc, in_main_thread=False)
         self.gc.main_thread_tls = self.gctls_main
-        self.gctls_main.start_transaction(-1)
+        self.gctls_main.start_transaction()
         self.gc.root_walker.current_stack = self.current_stack
 
     def stack_add(self, p):
