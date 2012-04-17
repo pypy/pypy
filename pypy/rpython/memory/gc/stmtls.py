@@ -286,7 +286,7 @@ class StmGCTLS(object):
 
     def collect_roots_from_stack(self):
         self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._trace_drag_out_if_not_global1, self)
+            StmGCTLS._trace_drag_out1, self)
 
     def trace_and_drag_out_of_nursery(self, obj):
         # This is called to fix the references inside 'obj', to ensure that
@@ -296,16 +296,8 @@ class StmGCTLS(object):
         # objects.
         self.gc.trace(obj, self._trace_drag_out, None)
 
-    def _trace_drag_out_if_not_global1(self, root):
-        self._trace_drag_out_if_not_global(root, None)
-
-    def _trace_drag_out_if_not_global(self, root, ignored):
-        # like _trace_drag_out(), but ignores references to GLOBAL objects.
-        # used only for the LOCAL copy of a GLOBAL object, which may still
-        # have further GLOBAL pointers.
-        obj = root.address[0]
-        if self.gc.header(obj).tid & GCFLAG_GLOBAL == 0:
-            self._trace_drag_out(root, ignored)
+    def _trace_drag_out1(self, root):
+        self._trace_drag_out(root, None)
 
     def _trace_drag_out(self, root, ignored):
         """Trace callback: 'root' is the address of some pointer.  If that
@@ -315,11 +307,12 @@ class StmGCTLS(object):
         """
         obj = root.address[0]
         hdr = self.gc.header(obj)
-        ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "unexpected GLOBAL obj")
         #
         # If 'obj' is not in the nursery, we set GCFLAG_VISITED
         if not self.is_in_nursery(obj):
-            if hdr.tid & GCFLAG_VISITED == 0:
+            # we ignore both GLOBAL objects and objects which have already
+            # been VISITED
+            if hdr.tid & (GCFLAG_GLOBAL|GCFLAG_VISITED) == 0:
                 ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
                           "local GCFLAG_WAS_COPIED without GCFLAG_VISITED")
                 hdr.tid |= GCFLAG_VISITED
@@ -423,7 +416,7 @@ class StmGCTLS(object):
                                    self.gc.get_type_id(globalobj))
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
-        self.gc.trace(localobj, self._trace_drag_out_if_not_global, None)
+        self.trace_and_drag_out_of_nursery(localobj)
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the
