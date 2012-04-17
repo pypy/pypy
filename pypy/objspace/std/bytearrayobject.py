@@ -76,7 +76,7 @@ def getitem__Bytearray_Slice(space, w_bytearray, w_slice):
 def _getitem_slice_multistep(data, start, step, slicelength):
     return [data[start + i*step] for i in range(slicelength)]
 
-def contains__Bytearray_Int(space, w_bytearray, w_char):
+def contains__Bytearray_Long(space, w_bytearray, w_char):
     char = space.int_w(w_char)
     if not 0 <= char < 256:
         raise OperationError(space.w_ValueError,
@@ -229,7 +229,7 @@ def repr__Bytearray(space, w_bytearray):
 def _to_bytes(space, w_bytearray):
     return space.wrapbytes(''.join(w_bytearray.data))
 
-def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
+def str_count__Bytearray_Long_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     char = w_char.intval
     bytearray = w_bytearray.data
     length = len(bytearray)
@@ -358,7 +358,7 @@ def bytearray_insert__Bytearray_Long_ANY(space, w_bytearray, w_idx, w_other):
     w_bytearray.data.insert(index, val)
     return space.w_None
 
-def bytearray_pop__Bytearray_Int(space, w_bytearray, w_idx):
+def bytearray_pop__Bytearray_Long(space, w_bytearray, w_idx):
     index = space.int_w(w_idx)
     try:
         result = w_bytearray.data.pop(index)
