@@ -665,7 +665,7 @@ void* stm_perform_transaction(void*(*callback)(void*, long), void *arg,
   jmp_buf _jmpbuf;
   volatile long v_counter = 0;
   long counter;
-  volatile void *saved_value;
+  void *volatile saved_value;
   assert(active_thread_descriptor == NULL);
   if (save_and_restore)
     saved_value = *(void**)save_and_restore;

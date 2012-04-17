@@ -1,7 +1,12 @@
-#if defined(RPY_STM)
+#if defined(RPY_STM) && defined(RPY_STM_ASSERT)
+#  define TRIVIAL_MALLOC_DEBUG
+#endif
 
 
-/* XXX no special malloc function, use the thread-safe system-provided one */
+#if defined(NO_OBMALLOC) || (defined(RPY_STM)&&!defined(TRIVIAL_MALLOC_DEBUG))
+
+
+/* no special malloc function, use the thread-safe system-provided one */
 #define PyObject_Malloc malloc
 #define PyObject_Realloc realloc
 #define PyObject_Free free
@@ -25,11 +30,6 @@ void PyObject_Free(void *p);
 
 #elif defined(LINUXMEMCHK)
 #  include "linuxmemchk.c"
-
-#elif defined(NO_OBMALLOC)
-  void *PyObject_Malloc(size_t n) { return malloc(n); }
-  void *PyObject_Realloc(void *p, size_t n) { return realloc(p, n); }
-  void PyObject_Free(void *p) { free(p); }
 
 #else
 #  ifndef WITH_PYMALLOC
