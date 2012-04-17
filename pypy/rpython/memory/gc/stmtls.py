@@ -170,7 +170,11 @@ class StmGCTLS(object):
         """
         #
         debug_start("gc-local")
-        self.ending_transaction = end_of_transaction
+        #
+        if end_of_transaction:
+            self.detect_flag_combination = GCFLAG_WAS_COPIED | GCFLAG_VISITED
+        else:
+            self.detect_flag_combination = -1
         #
         # Move away the previous sharedarea_tls and start a new one.
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
@@ -313,19 +317,19 @@ class StmGCTLS(object):
         if not self.is_in_nursery(obj):
             # we ignore both GLOBAL objects and objects which have already
             # been VISITED
-            if hdr.tid & (GCFLAG_GLOBAL | GCFLAG_VISITED) == 0:
-                ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
-                          "local GCFLAG_WAS_COPIED without GCFLAG_VISITED")
+            flag_combination = hdr.tid & (GCFLAG_GLOBAL |
+                                          GCFLAG_WAS_COPIED |
+                                          GCFLAG_VISITED)
+            if flag_combination == 0:
                 hdr.tid |= GCFLAG_VISITED
                 self.pending.append(obj)
-            else:
-                # xxx optimize this case: at the end of transactions,
-                # replace references to the local copy with references
+            elif flag_combination == self.detect_flag_combination:
+                # At a normal time, self.detect_flag_combination is -1
+                # and this case is never seen.  At end of transactions,
+                # detect_flag_combination is GCFLAG_WAS_COPIED|GCFLAG_VISITED.
+                # Replace references to the local copy with references
                 # to the global copy
-                if (self.ending_transaction > 0 and
-                    hdr.tid & GCFLAG_GLOBAL == 0 and
-                    hdr.tid & GCFLAG_WAS_COPIED != 0):
-                    root.address[0] = hdr.version
+                root.address[0] = hdr.version
             return
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
