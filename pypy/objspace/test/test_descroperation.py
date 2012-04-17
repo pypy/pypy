@@ -707,14 +707,16 @@ class AppTest_Descroperation:
         res = 'bar' in x
         assert res is True
         #
+        class MyError(Exception):
+            pass
         class CannotConvertToBool(object):
             def __nonzero__(self):
-                raise TypeError
+                raise MyError
         class X(object):
             def __contains__(self, item):
                 return CannotConvertToBool()
         x = X()
-        raises(TypeError, "'foo' in x")
+        raises(MyError, "'foo' in x")
         
             
 
