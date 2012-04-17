@@ -804,7 +804,7 @@ class AppTestStrategies(object):
         it = d.iteritems()
         d[7] = 8
         # 'd' is now length 4
-        raises(RuntimeError, it.next)
+        raises(RuntimeError, it.__next__)
 
     def test_iter_dict_strategy_only_change_1(self):
         d = {1: 2, 3: 4, 5: 6}
@@ -812,6 +812,8 @@ class AppTestStrategies(object):
         class Foo(object):
             def __eq__(self, other):
                 return False
+            def __hash__(self):
+                return 0
         assert d.get(Foo()) is None    # this changes the strategy of 'd'
         lst = list(it)  # but iterating still works
         assert sorted(lst) == [(1, 2), (3, 4), (5, 6)]
@@ -821,10 +823,15 @@ class AppTestStrategies(object):
         it = d.iteritems()
         d['foo'] = 'bar'
         del d[1]
+        # on default the strategy changes and thus we get the RuntimeError
+        # (commented below). On py3k, we Int and String strategies don't work
+        # yet, and thus we get the "correct" behavior
+        items = list(it)
+        assert set(items) == set([(3, 4), (5, 6), ('foo', 'bar')])
         # 'd' is still length 3, but its strategy changed.  we are
         # getting a RuntimeError because iterating over the old storage
         # gives us (1, 2), but 1 is not in the dict any longer.
-        raises(RuntimeError, list, it)
+        #raises(RuntimeError, list, it)
 
 
 class FakeString(str):
