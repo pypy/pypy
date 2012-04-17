@@ -93,6 +93,7 @@ def fdopen_as_stream(fd, mode, buffering=-1):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
+    rposix.validate_fd(fd)
     _setfd_binary(fd)
     stream = DiskFile(fd)
     return construct_stream_tower(stream, buffering, universal, reading,
