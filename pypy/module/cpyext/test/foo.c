@@ -176,6 +176,8 @@ static PyMemberDef foo_members[] = {
     {NULL}  /* Sentinel */
 };
 
+PyDoc_STRVAR(foo_doc, "foo is for testing.");
+
 static PyTypeObject footype = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "foo.foo",               /*tp_name*/
@@ -198,7 +200,7 @@ static PyTypeObject footype = {
     (setattrofunc)foo_setattro, /*tp_setattro*/
     0,                       /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT,      /*tp_flags*/
-    0,                       /*tp_doc*/
+    foo_doc,                 /*tp_doc*/
     0,                       /*tp_traverse*/
     0,                       /*tp_clear*/
     0,                       /*tp_richcompare*/

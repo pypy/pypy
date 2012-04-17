@@ -6,7 +6,7 @@ from pypy.module.math.test import test_direct
 
 class AppTestMath:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['math'])
+        cls.space = gettestobjspace(usemodules=['math', 'struct'])
         cls.w_cases = cls.space.wrap(test_direct.MathTests.TESTCASES)
         cls.w_consistent_host = cls.space.wrap(test_direct.consistent_host)
 

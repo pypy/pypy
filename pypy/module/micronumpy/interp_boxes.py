@@ -62,21 +62,24 @@ class W_GenericBox(Wrappable):
         return space.wrap(dtype.itemtype.bool(self))
 
     def _binop_impl(ufunc_name):
-        def impl(self, space, w_other):
+        def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                            [self, w_other, w_out])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     def _binop_right_impl(ufunc_name):
-        def impl(self, space, w_other):
+        def impl(self, space, w_other, w_out=None):
             from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self])
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, 
+                                                            [w_other, self, w_out])
         return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
     def _unaryop_impl(ufunc_name):
-        def impl(self, space):
+        def impl(self, space, w_out=None):
             from pypy.module.micronumpy import interp_ufuncs
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space,
+                                                                    [self, w_out])
         return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")

@@ -399,6 +399,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_roots', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
@@ -409,6 +410,7 @@ class Entry(ExtRegistryEntry):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_referents', vlist,
                          resulttype = hop.r_result)
 
@@ -419,6 +421,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_memory_usage', vlist,
                          resulttype = hop.r_result)
 
@@ -429,6 +432,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
@@ -447,6 +451,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeBool()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_is_rpy_instance', vlist,
                          resulttype = hop.r_result)
 
@@ -466,6 +471,7 @@ class Entry(ExtRegistryEntry):
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
         assert lltype.typeOf(vtable) == rclass.CLASSTYPE
+        hop.exception_cannot_occur()
         return Constant(vtable, concretetype=rclass.CLASSTYPE)
 
 class Entry(ExtRegistryEntry):

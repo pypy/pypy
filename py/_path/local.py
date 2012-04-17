@@ -157,14 +157,16 @@ class LocalPath(FSBase):
         return str(self) < str(other)
 
     def samefile(self, other):
-        """ return True if 'other' references the same file as 'self'. """
-        if not iswin32:
-            return py.error.checked_call(
-                    os.path.samefile, str(self), str(other))
+        """ return True if 'other' references the same file as 'self'.
+        """
+        if not isinstance(other, py.path.local):
+            other = os.path.abspath(str(other))
         if self == other:
             return True
-        other = os.path.abspath(str(other))
-        return self == other
+        if iswin32:
+            return False # ther is no samefile
+        return py.error.checked_call(
+                os.path.samefile, str(self), str(other))
 
     def remove(self, rec=1, ignore_errors=False):
         """ remove a file or directory (or a directory tree if rec=1).
@@ -539,7 +541,11 @@ class LocalPath(FSBase):
                 if self.basename != "__init__.py":
                     modfile = modfile[:-12]
 
-            if not self.samefile(modfile):
+            try:
+                issame = self.samefile(modfile)
+            except py.error.ENOENT:
+                issame = False
+            if not issame:
                 raise self.ImportMismatchError(modname, modfile, self)
             return mod
         else:

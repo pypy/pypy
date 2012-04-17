@@ -17,6 +17,7 @@ VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
                                                 'render_as_void': True})
 degToRad = math.pi / 180.0
 log2 = math.log(2)
+log2e = 1./log2
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -500,6 +501,19 @@ class NonNativeULong(BaseType, NonNativeInteger):
     BoxType = interp_boxes.W_ULongBox
     format_code = "L"
 
+def _int64_coerce(self, space, w_item):
+    try:
+        return self._base_coerce(space, w_item)
+    except OperationError, e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    bigint = space.bigint_w(w_item)
+    try:
+        value = bigint.tolonglong()
+    except OverflowError:
+        raise OperationError(space.w_OverflowError, space.w_None)
+    return self.box(value)
+
 class Int64(BaseType, Integer):
     _attrs_ = ()
 
@@ -507,12 +521,16 @@ class Int64(BaseType, Integer):
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"
 
+    _coerce = func_with_new_name(_int64_coerce, '_coerce')
+
 class NonNativeInt64(BaseType, NonNativeInteger):
     _attrs_ = ()
 
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
     format_code = "q"    
+
+    _coerce = func_with_new_name(_int64_coerce, '_coerce')
 
 def _uint64_coerce(self, space, w_item):
     try:
@@ -614,6 +632,22 @@ class Float(Primitive):
         return math.fabs(v)
 
     @simple_binary_op
+    def fmax(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return max(v1, v2)
+
+    @simple_binary_op
+    def fmin(self, v1, v2):
+        if math.isnan(v1):
+            return v1
+        elif math.isnan(v2):
+            return v2
+        return min(v1, v2)
+
+    @simple_binary_op
     def fmod(self, v1, v2):
         try:
             return math.fmod(v1, v2)
@@ -633,6 +667,13 @@ class Float(Primitive):
     @simple_unary_op
     def ceil(self, v):
         return math.ceil(v)
+
+    @simple_unary_op
+    def trunc(self, v):
+        if v < 0:
+            return math.ceil(v)
+        else:
+            return math.floor(v)
 
     @simple_unary_op
     def exp(self, v):
@@ -724,6 +765,10 @@ class Float(Primitive):
         except ValueError:
             return rfloat.NAN
 
+    @simple_unary_op
+    def square(self, v):
+        return v*v
+
     @raw_unary_op
     def isnan(self, v):
         return rfloat.isnan(v)
@@ -797,45 +842,26 @@ class Float(Primitive):
 
     @simple_binary_op
     def logaddexp(self, v1, v2):
-        try:
-            v1e = math.exp(v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.exp(v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + rfloat.log1p(math.exp(-tmp))
+        elif tmp <= 0:
+            return v2 + rfloat.log1p(math.exp(tmp))
+        else:
+            return v1 + v2
 
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e)
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+    def npy_log2_1p(self, v):
+        return log2e * rfloat.log1p(v)
 
     @simple_binary_op
     def logaddexp2(self, v1, v2):
-        try:
-            v1e = math.pow(2, v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.pow(2, v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
-
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e) / log2
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + self.npy_log2_1p(math.pow(2, -tmp))
+        if tmp <= 0:
+            return v2 + self.npy_log2_1p(math.pow(2, tmp))
+        else:
+            return v1 + v2
 
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True

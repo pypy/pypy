@@ -715,7 +715,8 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @enforceargs(int, None)
-    @jit.look_inside_iff(lambda length, items: jit.isconstant(length) and length <= 2)
+    @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
+        items, length))
     def ll_join_strs(length, items):
         # Special case for length 1 items, helps both the JIT and other code
         if length == 1:
@@ -771,7 +772,11 @@ class LLHelpers(AbstractLLHelpers):
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
         assert start >= 0
-        assert lgt >= 0
+        # If start > stop, return a empty string. This can happen if the start
+        # is greater than the length of the string. Use < instead of <= to avoid
+        # creating another path for the JIT when start == stop.
+        if lgt < 0:
+            return s1.empty()
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr

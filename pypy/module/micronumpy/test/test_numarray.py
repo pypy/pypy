@@ -211,6 +211,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (3,)
         assert a.dtype is dtype(int)
 
+    def test_ndmin(self):
+        from _numpypy import array
+
+        arr = array([[[1]]], ndmin=1)
+        assert arr.shape == (1, 1, 1)
+
+    def test_noop_ndmin(self):
+        from _numpypy import array
+
+        arr = array([1], ndmin=3)
+        assert arr.shape == (1, 1, 1)
+
     def test_type(self):
         from _numpypy import array
         ar = array(range(5))
@@ -383,11 +395,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3] == 0.
 
     def test_newaxis(self):
-        from _numpypy import array
+        import math
+        from _numpypy import array, cos, zeros
         from numpypy.core.numeric import newaxis
         a = array(range(5))
         b = array([range(5)])
         assert (a[newaxis] == b).all()
+        a = array(range(3))
+        b = array([1, 3])
+        expected = zeros((3, 2))
+        for x in range(3):
+            for y in range(2):
+                expected[x, y] = math.cos(a[x]) * math.cos(b[y])
+        assert ((cos(a)[:,newaxis] * cos(b).T) == expected).all()
 
     def test_newaxis_slice(self):
         from _numpypy import array
@@ -983,6 +1003,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 5
 
         raises(TypeError, 'a.sum(2, 3)')
+        d = array(0.)
+        b = a.sum(out=d)
+        assert b == d
+        assert isinstance(b, float)
 
     def test_reduce_nd(self):
         from numpypy import arange, array, multiply
@@ -1322,6 +1346,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
         assert str(dims_disagree.value) == \
             "array dimensions must agree except for axis being concatenated"
+        a = array([1, 2, 3, 4, 5, 6])
+        a = (a + a)[::2]
+        b = concatenate((a[:3], a[-3:]))
+        assert (b == [2, 6, 10, 2, 6, 10]).all()
 
     def test_std(self):
         from _numpypy import array
@@ -1371,7 +1399,46 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (ones(1) + ones(1)).nbytes == 8
         assert array(3.0).nbytes == 8
 
+    def test_repeat(self):
+        from _numpypy import repeat, array
+        assert (repeat([[1, 2], [3, 4]], 3) == [1, 1, 1, 2, 2, 2,
+                                                3, 3, 3, 4, 4, 4]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=0) == [[1, 2], [1, 2], [3, 4],
+                                                        [3, 4]]).all()
+        assert (repeat([[1, 2], [3, 4]], 2, axis=1) == [[1, 1, 2, 2], [3, 3,
+                                                        4, 4]]).all()
+        assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
+
+    def test_swapaxes(self):
+        from _numpypy import array
+        # testcases from numpy docstring
+        x = array([[1, 2, 3]])
+        assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all() 
+        x = array([[[0,1],[2,3]],[[4,5],[6,7]]]) # shape = (2, 2, 2)
+        assert (x.swapaxes(0, 2) == array([[[0, 4], [2, 6]], 
+                                           [[1, 5], [3, 7]]])).all() 
+        assert (x.swapaxes(0, 1) == array([[[0, 1], [4, 5]], 
+                                           [[2, 3], [6, 7]]])).all()
+        assert (x.swapaxes(1, 2) == array([[[0, 2], [1, 3]], 
+                                           [[4, 6],[5, 7]]])).all()
+
+        # more complex shape i.e. (2, 2, 3)
+        x = array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]) 
+        assert (x.swapaxes(0, 1) == array([[[1, 2, 3], [7, 8, 9]], 
+                                           [[4, 5, 6], [10, 11, 12]]])).all() 
+        assert (x.swapaxes(0, 2) == array([[[1, 7], [4, 10]], [[2, 8], [5, 11]], 
+                                           [[3, 9], [6, 12]]])).all() 
+        assert (x.swapaxes(1, 2) == array([[[1, 4], [2, 5], [3, 6]], 
+                                           [[7, 10], [8, 11],[9, 12]]])).all() 
+        
+        # test slice
+        assert (x[0:1,0:2].swapaxes(0,2) == array([[[1], [4]], [[2], [5]], 
+                                                   [[3], [6]]])).all()
+        # test virtual
+        assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
+                                         [[ 8, 10, 12], [20, 22, 24]]])).all()
+                        
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
@@ -1483,8 +1550,6 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4], [5, 6], [7, 8],
                    [9, 10], [11, 12], [13, 14]])
         b = a[::2]
-        print a
-        print b
         assert (b == [[1, 2], [5, 6], [9, 10], [13, 14]]).all()
         c = b + b
         assert c[1][1] == 12

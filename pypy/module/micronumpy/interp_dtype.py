@@ -359,6 +359,7 @@ class DtypeCache(object):
             name="int64",
             char="q",
             w_box_type=space.gettypefor(interp_boxes.W_Int64Box),
+            alternate_constructors=[space.w_long],
         )
         self.w_uint64dtype = W_Dtype(
             types.UInt64(),
@@ -385,23 +386,6 @@ class DtypeCache(object):
             w_box_type = space.gettypefor(interp_boxes.W_Float64Box),
             alternate_constructors=[space.w_float],
             aliases=["float"],
-        )
-        self.w_longlongdtype = W_Dtype(
-            types.Int64(),
-            num=9,
-            kind=SIGNEDLTR,
-            name='int64',
-            char='q',
-            w_box_type = space.gettypefor(interp_boxes.W_LongLongBox),
-            alternate_constructors=[space.w_long],
-        )
-        self.w_ulonglongdtype = W_Dtype(
-            types.UInt64(),
-            num=10,
-            kind=UNSIGNEDLTR,
-            name='uint64',
-            char='Q',
-            w_box_type = space.gettypefor(interp_boxes.W_ULongLongBox),
         )
         self.w_stringdtype = W_Dtype(
             types.StringType(1),
@@ -435,17 +419,19 @@ class DtypeCache(object):
             self.w_booldtype, self.w_int8dtype, self.w_uint8dtype,
             self.w_int16dtype, self.w_uint16dtype, self.w_int32dtype,
             self.w_uint32dtype, self.w_longdtype, self.w_ulongdtype,
-            self.w_longlongdtype, self.w_ulonglongdtype,
+            self.w_int64dtype, self.w_uint64dtype,
             self.w_float32dtype,
             self.w_float64dtype, self.w_stringdtype, self.w_unicodedtype,
             self.w_voiddtype,
         ]
-        self.dtypes_by_num_bytes = sorted(
+        self.float_dtypes_by_num_bytes = sorted(
             (dtype.itemtype.get_element_size(), dtype)
-            for dtype in self.builtin_dtypes
+            for dtype in [self.w_float32dtype, self.w_float64dtype]
         )
         self.dtypes_by_name = {}
-        for dtype in self.builtin_dtypes:
+        # we reverse, so the stuff with lower numbers override stuff with
+        # higher numbers
+        for dtype in reversed(self.builtin_dtypes):
             self.dtypes_by_name[dtype.name] = dtype
             can_name = dtype.kind + str(dtype.itemtype.get_element_size())
             self.dtypes_by_name[can_name] = dtype
@@ -473,7 +459,7 @@ class DtypeCache(object):
             'LONG': self.w_longdtype,
             'UNICODE': self.w_unicodedtype,
             #'OBJECT',
-            'ULONGLONG': self.w_ulonglongdtype,
+            'ULONGLONG': self.w_uint64dtype,
             'STRING': self.w_stringdtype,
             #'CDOUBLE',
             #'DATETIME',

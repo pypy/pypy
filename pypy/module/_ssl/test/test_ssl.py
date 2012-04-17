@@ -90,7 +90,7 @@ class AppTestSSL:
 
 class AppTestConnectedSSL:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
         cls.space = space
 
     def setup_method(self, method):
@@ -179,7 +179,7 @@ class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
     # to exercise the poll() calls
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_ssl', '_socket'))
+        space = gettestobjspace(usemodules=('_ssl', '_socket', 'struct'))
         cls.space = space
         cls.space.appexec([], """():
             import socket; socket.setdefaulttimeout(1)

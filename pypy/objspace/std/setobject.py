@@ -7,6 +7,12 @@ from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
+from pypy.rlib import rerased
+from pypy.rlib.objectmodel import instantiate
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.stringobject import W_StringObject
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -20,68 +26,859 @@ class W_BaseSetObject(W_Object):
             return True
         return False
 
-
-    def __init__(w_self, space, setdata):
+    def __init__(w_self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
-        assert setdata is not None
-        w_self.setdata = setdata
+        w_self.space = space
+        set_strategy_and_setdata(space, w_self, w_iterable)
 
     def __repr__(w_self):
         """representation for debugging purposes"""
-        reprlist = [repr(w_item) for w_item in w_self.setdata.keys()]
+        reprlist = [repr(w_item) for w_item in w_self.getkeys()]
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
+
+    def from_storage_and_strategy(w_self, storage, strategy):
+        obj = w_self._newobj(w_self.space, None)
+        assert isinstance(obj, W_BaseSetObject)
+        obj.strategy = strategy
+        obj.sstorage = storage
+        return obj
 
     _lifeline_ = None
     def getweakref(self):
         return self._lifeline_
+
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
     def delweakref(self):
         self._lifeline_ = None
 
+    def switch_to_object_strategy(self, space):
+        d = self.strategy.getdict_w(self)
+        self.strategy = strategy = space.fromcache(ObjectSetStrategy)
+        self.sstorage = strategy.erase(d)
+
+    def switch_to_empty_strategy(self):
+        self.strategy = strategy = self.space.fromcache(EmptySetStrategy)
+        self.sstorage = strategy.get_empty_storage()
+
+    # _____________ strategy methods ________________
+
+
+    def clear(self):
+        """ Removes all elements from the set. """
+        self.strategy.clear(self)
+
+    def copy_real(self):
+        """ Returns a clone of the set. Frozensets storages are also copied."""
+        return self.strategy.copy_real(self)
+
+    def length(self):
+        """ Returns the number of items inside the set. """
+        return self.strategy.length(self)
+
+    def add(self, w_key):
+        """ Adds an element to the set. The element must be wrapped. """
+        self.strategy.add(self, w_key)
+
+    def remove(self, w_item):
+        """ Removes the given element from the set. Element must be wrapped. """
+        return self.strategy.remove(self, w_item)
+
+    def getdict_w(self):
+        """ Returns a dict with all elements of the set. Needed only for switching to ObjectSetStrategy. """
+        return self.strategy.getdict_w(self)
+
+    def listview_str(self):
+        """ If this is a string set return its contents as a list of uwnrapped strings. Otherwise return None. """
+        return self.strategy.listview_str(self)
+
+    def listview_int(self):
+        """ If this is an int set return its contents as a list of uwnrapped ints. Otherwise return None. """
+        return self.strategy.listview_int(self)
+
+    def get_storage_copy(self):
+        """ Returns a copy of the storage. Needed when we want to clone all elements from one set and
+        put them into another. """
+        return self.strategy.get_storage_copy(self)
+
+    def getkeys(self):
+        """ Returns a list of all elements inside the set. Only used in __repr__. Use as less as possible."""
+        return self.strategy.getkeys(self)
+
+    def difference(self, w_other):
+        """ Returns a set with all items that are in this set, but not in w_other. W_other must be a set."""
+        return self.strategy.difference(self, w_other)
+
+    def difference_update(self, w_other):
+        """ As difference but overwrites the sets content with the result. W_other must be a set."""
+        self.strategy.difference_update(self, w_other)
+
+    def symmetric_difference(self, w_other):
+        """ Returns a set with all items that are either in this set or in w_other, but not in both. W_other must be a set. """
+        return self.strategy.symmetric_difference(self, w_other)
+
+    def symmetric_difference_update(self, w_other):
+        """ As symmetric_difference but overwrites the content of the set with the result. W_other must be a set."""
+        self.strategy.symmetric_difference_update(self, w_other)
+
+    def intersect(self, w_other):
+        """ Returns a set with all items that exists in both sets, this set and in w_other. W_other must be a set. """
+        return self.strategy.intersect(self, w_other)
+
+    def intersect_update(self, w_other):
+        """ Keeps only those elements found in both sets, removing all other elements. W_other must be a set."""
+        self.strategy.intersect_update(self, w_other)
+
+    def issubset(self, w_other):
+        """ Checks wether this set is a subset of w_other. W_other must be a set. """
+        return self.strategy.issubset(self, w_other)
+
+    def isdisjoint(self, w_other):
+        """ Checks wether this set and the w_other are completly different, i.e. have no equal elements. W_other must be a set."""
+        return self.strategy.isdisjoint(self, w_other)
+
+    def update(self, w_other):
+        """ Appends all elements from the given set to this set. W_other must be a set."""
+        self.strategy.update(self, w_other)
+
+    def has_key(self, w_key):
+        """ Checks wether this set contains the given wrapped key."""
+        return self.strategy.has_key(self, w_key)
+
+    def equals(self, w_other):
+        """ Checks wether this set and the given set are equal, i.e. contain the same elements. W_other must be a set."""
+        return self.strategy.equals(self, w_other)
+
+    def iter(self):
+        """ Returns an iterator of the elements from this set. """
+        return self.strategy.iter(self)
+
+    def popitem(self):
+        """ Removes an arbitrary element from the set. May raise KeyError if set is empty."""
+        return self.strategy.popitem(self)
+
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
-    def _newobj(w_self, space, rdict_w):
-        """Make a new set by taking ownership of 'rdict_w'."""
+    def _newobj(w_self, space, w_iterable):
+        """Make a new set by taking ownership of 'w_iterable'."""
         if type(w_self) is W_SetObject:
-            return W_SetObject(space, rdict_w)
+            return W_SetObject(space, w_iterable)
         w_type = space.type(w_self)
         w_obj = space.allocate_instance(W_SetObject, w_type)
-        W_SetObject.__init__(w_obj, space, rdict_w)
+        W_SetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
     hash = 0
 
-    def _newobj(w_self, space, rdict_w):
-        """Make a new frozenset by taking ownership of 'rdict_w'."""
+    def _newobj(w_self, space, w_iterable):
+        """Make a new frozenset by taking ownership of 'w_iterable'."""
         if type(w_self) is W_FrozensetObject:
-            return W_FrozensetObject(space, rdict_w)
+            return W_FrozensetObject(space, w_iterable)
         w_type = space.type(w_self)
         w_obj = space.allocate_instance(W_FrozensetObject, w_type)
-        W_FrozensetObject.__init__(w_obj, space, rdict_w)
+        W_FrozensetObject.__init__(w_obj, space, w_iterable)
         return w_obj
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
 registerimplementation(W_FrozensetObject)
 
-class W_SetIterObject(W_Object):
-    from pypy.objspace.std.settype import setiter_typedef as typedef
+class SetStrategy(object):
+    def __init__(self, space):
+        self.space = space
 
-    def __init__(w_self, setdata):
-        w_self.content = content = setdata
-        w_self.len = len(content)
-        w_self.pos = 0
-        w_self.iterator = w_self.content.iterkeys()
+    def get_empty_dict(self):
+        """ Returns an empty dictionary depending on the strategy. Used to initalize a new storage. """
+        raise NotImplementedError
 
-    def next_entry(w_self):
-        for w_key in w_self.iterator:
+    def get_empty_storage(self):
+        """ Returns an empty storage (erased) object. Used to initialize an empty set."""
+        raise NotImplementedError
+
+    def listview_str(self, w_set):
+        return None
+
+    def listview_int(self, w_set):
+        return None
+
+    #def erase(self, storage):
+    #    raise NotImplementedError
+
+    #def unerase(self, storage):
+    #    raise NotImplementedError
+
+    # __________________ methods called on W_SetObject _________________
+
+    def clear(self, w_set):
+        raise NotImplementedError
+
+    def copy_real(self, w_set):
+        raise NotImplementedError
+
+    def length(self, w_set):
+        raise NotImplementedError
+
+    def add(self, w_set, w_key):
+        raise NotImplementedError
+
+    def remove(self, w_set, w_item):
+        raise NotImplementedError
+
+    def getdict_w(self, w_set):
+        raise NotImplementedError
+
+    def get_storage_copy(self, w_set):
+        raise NotImplementedError
+
+    def getkeys(self, w_set):
+        raise NotImplementedError
+
+    def difference(self, w_set, w_other):
+        raise NotImplementedError
+
+    def difference_update(self, w_set, w_other):
+        raise NotImplementedError
+
+    def symmetric_difference(self, w_set, w_other):
+        raise NotImplementedError
+
+    def symmetric_difference_update(self, w_set, w_other):
+        raise NotImplementedError
+
+    def intersect(self, w_set, w_other):
+        raise NotImplementedError
+
+    def intersect_update(self, w_set, w_other):
+        raise NotImplementedError
+
+    def issubset(self, w_set, w_other):
+        raise NotImplementedError
+
+    def isdisjoint(self, w_set, w_other):
+        raise NotImplementedError
+
+    def update(self, w_set, w_other):
+        raise NotImplementedError
+
+    def has_key(self, w_set, w_key):
+        raise NotImplementedError
+
+    def equals(self, w_set, w_other):
+        raise NotImplementedError
+
+    def iter(self, w_set):
+        raise NotImplementedError
+
+    def popitem(self, w_set):
+        raise NotImplementedError
+
+class EmptySetStrategy(SetStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase(None)
+
+    def is_correct_type(self, w_key):
+        return False
+
+    def length(self, w_set):
+        return 0
+
+    def clear(self, w_set):
+        pass
+
+    def copy_real(self, w_set):
+        storage = self.erase(None)
+        clone = w_set.from_storage_and_strategy(storage, self)
+        return clone
+
+    def add(self, w_set, w_key):
+        if type(w_key) is W_IntObject:
+            strategy = self.space.fromcache(IntegerSetStrategy)
+        elif type(w_key) is W_StringObject:
+            strategy = self.space.fromcache(StringSetStrategy)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_empty_storage()
+        w_set.add(w_key)
+
+    def remove(self, w_set, w_item):
+        return False
+
+    def getdict_w(self, w_set):
+        return newset(self.space)
+
+    def get_storage_copy(self, w_set):
+        return w_set.sstorage
+
+    def getkeys(self, w_set):
+        return []
+
+    def has_key(self, w_set, w_key):
+        return False
+
+    def equals(self, w_set, w_other):
+        if w_other.strategy is self or w_other.length() == 0:
+            return True
+        return False
+
+    def difference(self, w_set, w_other):
+        return w_set.copy_real()
+
+    def difference_update(self, w_set, w_other):
+        pass
+
+    def intersect(self, w_set, w_other):
+        return w_set.copy_real()
+
+    def intersect_update(self, w_set, w_other):
+        pass
+
+    def isdisjoint(self, w_set, w_other):
+        return True
+
+    def issubset(self, w_set, w_other):
+        return True
+
+    def symmetric_difference(self, w_set, w_other):
+        return w_other.copy_real()
+
+    def symmetric_difference_update(self, w_set, w_other):
+        w_set.strategy = w_other.strategy
+        w_set.sstorage = w_other.get_storage_copy()
+
+    def update(self, w_set, w_other):
+        w_set.strategy = w_other.strategy
+        w_set.sstorage = w_other.get_storage_copy()
+
+    def iter(self, w_set):
+        return EmptyIteratorImplementation(self.space, self, w_set)
+
+    def popitem(self, w_set):
+        raise OperationError(self.space.w_KeyError,
+                                self.space.wrap('pop from an empty set'))
+
+class AbstractUnwrappedSetStrategy(object):
+    _mixin_ = True
+
+    def is_correct_type(self, w_key):
+        """ Checks wether the given wrapped key fits this strategy."""
+        raise NotImplementedError
+
+    def unwrap(self, w_item):
+        """ Returns the unwrapped value of the given wrapped item."""
+        raise NotImplementedError
+
+    def wrap(self, item):
+        """ Returns a wrapped version of the given unwrapped item. """
+        raise NotImplementedError
+
+    def get_storage_from_list(self, list_w):
+        setdata = self.get_empty_dict()
+        for w_item in list_w:
+            setdata[self.unwrap(w_item)] = None
+        return self.erase(setdata)
+
+    def get_storage_from_unwrapped_list(self, items):
+        setdata = self.get_empty_dict()
+        for item in items:
+            setdata[item] = None
+        return self.erase(setdata)
+
+    def length(self, w_set):
+        return len(self.unerase(w_set.sstorage))
+
+    def clear(self, w_set):
+        w_set.switch_to_empty_strategy()
+
+    def copy_real(self, w_set):
+        # may be used internally on frozen sets, although frozenset().copy()
+        # returns self in frozenset_copy__Frozenset.
+        strategy = w_set.strategy
+        d = self.unerase(w_set.sstorage)
+        storage = self.erase(d.copy())
+        clone = w_set.from_storage_and_strategy(storage, strategy)
+        return clone
+
+    def add(self, w_set, w_key):
+        if self.is_correct_type(w_key):
+            d = self.unerase(w_set.sstorage)
+            d[self.unwrap(w_key)] = None
+        else:
+            w_set.switch_to_object_strategy(self.space)
+            w_set.add(w_key)
+
+    def remove(self, w_set, w_item):
+        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
+        d = self.unerase(w_set.sstorage)
+        if not self.is_correct_type(w_item):
+            #XXX check type of w_item and immediately return False in some cases
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.remove(w_item)
+
+        key = self.unwrap(w_item)
+        try:
+            del d[key]
+            return True
+        except KeyError:
+            return False
+
+    def getdict_w(self, w_set):
+        result = newset(self.space)
+        keys = self.unerase(w_set.sstorage).keys()
+        for key in keys:
+            result[self.wrap(key)] = None
+        return result
+
+    def get_storage_copy(self, w_set):
+        d = self.unerase(w_set.sstorage)
+        copy = self.erase(d.copy())
+        return copy
+
+    def getkeys(self, w_set):
+        keys = self.unerase(w_set.sstorage).keys()
+        keys_w = [self.wrap(key) for key in keys]
+        return keys_w
+
+    def has_key(self, w_set, w_key):
+        from pypy.objspace.std.dictmultiobject import _never_equal_to_string
+        if not self.is_correct_type(w_key):
+            #XXX check type of w_item and immediately return False in some cases
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.has_key(w_key)
+        d = self.unerase(w_set.sstorage)
+        return self.unwrap(w_key) in d
+
+    def equals(self, w_set, w_other):
+        if w_set.length() != w_other.length():
+            return False
+        items = self.unerase(w_set.sstorage).keys()
+        for key in items:
+            if not w_other.has_key(self.wrap(key)):
+                return False
+        return True
+
+    def _difference_wrapped(self, w_set, w_other):
+        strategy = self.space.fromcache(ObjectSetStrategy)
+
+        d_new = strategy.get_empty_dict()
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                d_new[w_item] = None
+
+        return strategy.erase(d_new)
+
+    def _difference_unwrapped(self, w_set, w_other):
+        iterator = self.unerase(w_set.sstorage).iterkeys()
+        other_dict = self.unerase(w_other.sstorage)
+        result_dict = self.get_empty_dict()
+        for key in iterator:
+            if key not in other_dict:
+                result_dict[key] = None
+        return self.erase(result_dict)
+
+    def _difference_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._difference_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            strategy = w_set.strategy
+            storage = w_set.sstorage
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._difference_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def difference(self, w_set, w_other):
+        storage, strategy = self._difference_base(w_set, w_other)
+        w_newset = w_set.from_storage_and_strategy(storage, strategy)
+        return w_newset
+
+    def difference_update(self, w_set, w_other):
+        storage, strategy = self._difference_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
+
+    def _symmetric_difference_unwrapped(self, w_set, w_other):
+        d_new = self.get_empty_dict()
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key in d_other.keys():
+            if not key in d_this:
+                d_new[key] = None
+        for key in d_this.keys():
+            if not key in d_other:
+                d_new[key] = None
+
+        storage = self.erase(d_new)
+        return storage
+
+    def _symmetric_difference_wrapped(self, w_set, w_other):
+        newsetdata = newset(self.space)
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                newsetdata[w_item] = None
+
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            if not w_set.has_key(w_item):
+                newsetdata[w_item] = None
+
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.erase(newsetdata)
+
+    def _symmetric_difference_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._symmetric_difference_unwrapped(w_set, w_other)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._symmetric_difference_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def symmetric_difference(self, w_set, w_other):
+        storage, strategy = self._symmetric_difference_base(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
+
+    def symmetric_difference_update(self, w_set, w_other):
+        storage, strategy = self._symmetric_difference_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
+
+    def _intersect_base(self, w_set, w_other):
+        if self is w_other.strategy:
+            strategy = w_set.strategy
+            storage = strategy._intersect_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            strategy = self.space.fromcache(EmptySetStrategy)
+            storage = strategy.get_empty_storage()
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._intersect_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def _intersect_wrapped(self, w_set, w_other):
+        result = newset(self.space)
+        for key in self.unerase(w_set.sstorage):
+            w_key = self.wrap(key)
+            if w_other.has_key(w_key):
+                result[w_key] = None
+
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.erase(result)
+
+    def _intersect_unwrapped(self, w_set, w_other):
+        result = self.get_empty_dict()
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key in d_this:
+            if key in d_other:
+                result[key] = None
+        return self.erase(result)
+
+    def intersect(self, w_set, w_other):
+        if w_set.length() > w_other.length():
+            return w_other.intersect(w_set)
+
+        storage, strategy = self._intersect_base(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
+
+    def intersect_update(self, w_set, w_other):
+        if w_set.length() > w_other.length():
+            w_intersection = w_other.intersect(w_set)
+            strategy = w_intersection.strategy
+            storage = w_intersection.sstorage
+        else:
+            storage, strategy = self._intersect_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
+
+    def _issubset_unwrapped(self, w_set, w_other):
+        d_other = self.unerase(w_other.sstorage)
+        for item in self.unerase(w_set.sstorage):
+            if not item in d_other:
+                return False
+        return True
+
+    def _issubset_wrapped(self, w_set, w_other):
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                return False
+        return True
+
+    def issubset(self, w_set, w_other):
+        if w_set.length() == 0:
+            return True
+
+        if w_set.strategy is w_other.strategy:
+            return self._issubset_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return False
+        else:
+            return self._issubset_wrapped(w_set, w_other)
+
+    def _isdisjoint_unwrapped(self, w_set, w_other):
+        d_set = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
+        for key in d_set:
+            if key in d_other:
+                return False
+        return True
+
+    def _isdisjoint_wrapped(self, w_set, w_other):
+        d = self.unerase(w_set.sstorage)
+        for key in d:
+            if w_other.has_key(self.wrap(key)):
+                return False
+        return True
+
+    def isdisjoint(self, w_set, w_other):
+        if w_other.length() == 0:
+            return True
+        if w_set.length() > w_other.length():
+            return w_other.isdisjoint(w_set)
+
+        if w_set.strategy is w_other.strategy:
+            return self._isdisjoint_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return True
+        else:
+            return self._isdisjoint_wrapped(w_set, w_other)
+
+    def update(self, w_set, w_other):
+        if self is w_other.strategy:
+            d_set = self.unerase(w_set.sstorage)
+            d_other = self.unerase(w_other.sstorage)
+            d_set.update(d_other)
+            return
+
+        w_set.switch_to_object_strategy(self.space)
+        w_set.update(w_other)
+
+    def popitem(self, w_set):
+        storage = self.unerase(w_set.sstorage)
+        try:
+            # this returns a tuple because internally sets are dicts
+            result = storage.popitem()
+        except KeyError:
+            # strategy may still be the same even if dict is empty
+            raise OperationError(self.space.w_KeyError,
+                            self.space.wrap('pop from an empty set'))
+        return self.wrap(result[0])
+
+class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    def listview_str(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
+
+    def is_correct_type(self, w_key):
+        return type(w_key) is W_StringObject
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(IntegerSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return self.space.str_w(w_item)
+
+    def wrap(self, item):
+        return self.space.wrap(item)
+
+    def iter(self, w_set):
+        return StringIteratorImplementation(self.space, self, w_set)
+
+class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("integer")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    def listview_int(self, w_set):
+        return self.unerase(w_set.sstorage).keys()
+
+    def is_correct_type(self, w_key):
+        from pypy.objspace.std.intobject import W_IntObject
+        return type(w_key) is W_IntObject
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(StringSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return self.space.int_w(w_item)
+
+    def wrap(self, item):
+        return self.space.wrap(item)
+
+    def iter(self, w_set):
+        return IntegerIteratorImplementation(self.space, self, w_set)
+
+class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase(self.get_empty_dict())
+
+    def get_empty_dict(self):
+        return newset(self.space)
+
+    def is_correct_type(self, w_key):
+        return True
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
+    def unwrap(self, w_item):
+        return w_item
+
+    def wrap(self, item):
+        return item
+
+    def iter(self, w_set):
+        return RDictIteratorImplementation(self.space, self, w_set)
+
+    def update(self, w_set, w_other):
+        d_obj = self.unerase(w_set.sstorage)
+        w_iterator = w_other.iter()
+        while True:
+            w_item = w_iterator.next_entry()
+            if w_item is None:
+                break
+            d_obj[w_item] = None
+
+class IteratorImplementation(object):
+    def __init__(self, space, strategy, implementation):
+        self.space = space
+        self.strategy = strategy
+        self.setimplementation = implementation
+        self.len = implementation.length()
+        self.pos = 0
+
+    def next(self):
+        if self.setimplementation is None:
+            return None
+        if self.len != self.setimplementation.length():
+            self.len = -1   # Make this error state sticky
+            raise OperationError(self.space.w_RuntimeError,
+                     self.space.wrap("set changed size during iteration"))
+        # look for the next entry
+        if self.pos < self.len:
+            result = self.next_entry()
+            self.pos += 1
+            if self.strategy is self.setimplementation.strategy:
+                return result      # common case
+            else:
+                # waaa, obscure case: the strategy changed, but not the
+                # length of the set.  The 'result' might be out-of-date.
+                # We try to explicitly look it up in the set.
+                if not self.setimplementation.has_key(result):
+                    self.len = -1   # Make this error state sticky
+                    raise OperationError(self.space.w_RuntimeError,
+                        self.space.wrap("dictionary changed during iteration"))
+                return result
+        # no more entries
+        self.setimplementation = None
+        return None
+
+    def next_entry(self):
+        """ Purely abstract method
+        """
+        raise NotImplementedError
+
+    def length(self):
+        if self.setimplementation is not None:
+            return self.len - self.pos
+        return 0
+
+class EmptyIteratorImplementation(IteratorImplementation):
+    def next_entry(self):
+        return None
+
+
+class StringIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
+
+class IntegerIteratorImplementation(IteratorImplementation):
+    #XXX same implementation in dictmultiobject on dictstrategy-branch
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        # note that this 'for' loop only runs once, at most
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
+
+class RDictIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, strategy, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        # note that this 'for' loop only runs once, at most
+        for w_key in self.iterator:
             return w_key
         else:
             return None
+
+class W_SetIterObject(W_Object):
+    from pypy.objspace.std.settype import setiter_typedef as typedef
+    # XXX this class should be killed, and the various
+    # iterimplementations should be W_Objects directly.
+
+    def __init__(w_self, space, iterimplementation):
+        w_self.space = space
+        w_self.iterimplementation = iterimplementation
 
 registerimplementation(W_SetIterObject)
 
@@ -89,19 +886,10 @@ def iter__SetIterObject(space, w_setiter):
     return w_setiter
 
 def next__SetIterObject(space, w_setiter):
-    content = w_setiter.content
-    if content is not None:
-        if w_setiter.len != len(content):
-            w_setiter.len = -1   # Make this error state sticky
-            raise OperationError(space.w_RuntimeError,
-                     space.wrap("Set changed size during iteration"))
-        # look for the next entry
-        w_result = w_setiter.next_entry()
-        if w_result is not None:
-            w_setiter.pos += 1
-            return w_result
-        # no more entries
-        w_setiter.content = None
+    iterimplementation = w_setiter.iterimplementation
+    w_key = iterimplementation.next()
+    if w_key is not None:
+        return w_key
     raise OperationError(space.w_StopIteration, space.w_None)
 
 # XXX __length_hint__()
@@ -116,107 +904,91 @@ def next__SetIterObject(space, w_setiter):
 def newset(space):
     return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
-def make_setdata_from_w_iterable(space, w_iterable=None):
-    """Return a new r_dict with the content of w_iterable."""
+def set_strategy_and_setdata(space, w_set, w_iterable):
+    from pypy.objspace.std.intobject import W_IntObject
+    if w_iterable is None :
+        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = strategy.get_empty_storage()
+        return
+
     if isinstance(w_iterable, W_BaseSetObject):
-        return w_iterable.setdata.copy()
-    data = newset(space)
-    if w_iterable is not None:
-        for w_item in space.listview(w_iterable):
-            data[w_item] = None
-    return data
+        w_set.strategy = w_iterable.strategy
+        w_set.sstorage = w_iterable.get_storage_copy()
+        return
+
+    stringlist = space.listview_str(w_iterable)
+    if stringlist is not None:
+        strategy = space.fromcache(StringSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(stringlist)
+        return
+
+    intlist = space.listview_int(w_iterable)
+    if intlist is not None:
+        strategy = space.fromcache(IntegerSetStrategy)
+        w_set.strategy = strategy
+        w_set.sstorage = strategy.get_storage_from_unwrapped_list(intlist)
+        return
+
+    iterable_w = space.listview(w_iterable)
+
+    if len(iterable_w) == 0:
+        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = strategy.get_empty_storage()
+        return
+
+    _pick_correct_strategy(space, w_set, iterable_w)
+
+def _pick_correct_strategy(space, w_set, iterable_w):
+    # check for integers
+    for w_item in iterable_w:
+        if type(w_item) is not W_IntObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(IntegerSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    # check for strings
+    for w_item in iterable_w:
+        if type(w_item) is not W_StringObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(StringSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    w_set.strategy = space.fromcache(ObjectSetStrategy)
+    w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 def _initialize_set(space, w_obj, w_iterable=None):
-    w_obj.setdata.clear()
-    if w_iterable is not None:
-        w_obj.setdata = make_setdata_from_w_iterable(space, w_iterable)
+    w_obj.clear()
+    set_strategy_and_setdata(space, w_obj, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
-    if space.isinstance_w(w_obj, space.w_set):
-        return W_FrozensetObject(space,
-                                 make_setdata_from_w_iterable(space, w_obj))
+    if isinstance(w_obj, W_SetObject):
+        w_frozen = W_FrozensetObject(space, None)
+        w_frozen.strategy = w_obj.strategy
+        w_frozen.sstorage = w_obj.sstorage
+        return w_frozen
+    elif space.isinstance_w(w_obj, space.w_set):
+        w_frz = space.allocate_instance(W_FrozensetObject, space.w_frozenset)
+        W_FrozensetObject.__init__(w_frz, space, w_obj)
+        return w_frz
     else:
         return None
 
-# helper functions for set operation on dicts
-
-def _is_eq(ld, rd):
-    if len(ld) != len(rd):
-        return False
-    for w_key in ld:
-        if w_key not in rd:
-            return False
-    return True
-
-def _difference_dict(space, ld, rd):
-    result = newset(space)
-    for w_key in ld:
-        if w_key not in rd:
-            result[w_key] = None
-    return result
-
-def _difference_dict_update(space, ld, rd):
-    if ld is rd:
-        ld.clear()     # for the case 'a.difference_update(a)'
-    else:
-        for w_key in rd:
-            try:
-                del ld[w_key]
-            except KeyError:
-                pass
-
-def _intersection_dict(space, ld, rd):
-    result = newset(space)
-    if len(ld) > len(rd):
-        ld, rd = rd, ld     # loop over the smaller dict
-    for w_key in ld:
-        if w_key in rd:
-            result[w_key] = None
-    return result
-
-def _isdisjoint_dict(ld, rd):
-    if len(ld) > len(rd):
-        ld, rd = rd, ld     # loop over the smaller dict
-    for w_key in ld:
-        if w_key in rd:
-            return False
-    return True
-
-def _symmetric_difference_dict(space, ld, rd):
-    result = newset(space)
-    for w_key in ld:
-        if w_key not in rd:
-            result[w_key] = None
-    for w_key in rd:
-        if w_key not in ld:
-            result[w_key] = None
-    return result
-
-def _issubset_dict(ldict, rdict):
-    if len(ldict) > len(rdict):
-        return False
-
-    for w_key in ldict:
-        if w_key not in rdict:
-            return False
-    return True
-
-
-#end helper functions
-
 def set_update__Set(space, w_left, others_w):
     """Update a set with the union of itself and another."""
-    ld = w_left.setdata
     for w_other in others_w:
         if isinstance(w_other, W_BaseSetObject):
-            ld.update(w_other.setdata)     # optimization only
+            w_left.update(w_other)     # optimization only
         else:
             for w_key in space.listview(w_other):
-                ld[w_key] = None
+                w_left.add(w_key)
 
 def inplace_or__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    ld.update(rd)
+    w_left.update(w_other)
     return w_left
 
 inplace_or__Set_Frozenset = inplace_or__Set_Set
@@ -226,10 +998,10 @@ def set_add__Set_ANY(space, w_left, w_other):
 
     This has no effect if the element is already present.
     """
-    w_left.setdata[w_other] = None
+    w_left.add(w_other)
 
 def set_copy__Set(space, w_set):
-    return w_set._newobj(space, w_set.setdata.copy())
+    return w_set.copy_real()
 
 def frozenset_copy__Frozenset(space, w_left):
     if type(w_left) is W_FrozensetObject:
@@ -238,63 +1010,51 @@ def frozenset_copy__Frozenset(space, w_left):
         return set_copy__Set(space, w_left)
 
 def set_clear__Set(space, w_left):
-    w_left.setdata.clear()
+    w_left.clear()
 
 def sub__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    return w_left.difference(w_other)
 
 sub__Set_Frozenset = sub__Set_Set
 sub__Frozenset_Set = sub__Set_Set
 sub__Frozenset_Frozenset = sub__Set_Set
 
 def set_difference__Set(space, w_left, others_w):
-    result = w_left.setdata
-    if len(others_w) == 0:
-        result = result.copy()
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            rd = w_other.setdata     # optimization only
-        else:
-            rd = make_setdata_from_w_iterable(space, w_other)
-        result = _difference_dict(space, result, rd)
-    return w_left._newobj(space, result)
+    result = w_left.copy_real()
+    set_difference_update__Set(space, result, others_w)
+    return result
 
 frozenset_difference__Frozenset = set_difference__Set
 
 
 def set_difference_update__Set(space, w_left, others_w):
-    ld = w_left.setdata
     for w_other in others_w:
         if isinstance(w_other, W_BaseSetObject):
             # optimization only
-            _difference_dict_update(space, ld, w_other.setdata)
+            w_left.difference_update(w_other)
         else:
-            for w_key in space.listview(w_other):
-                try:
-                    del ld[w_key]
-                except KeyError:
-                    pass
+            w_other_as_set = w_left._newobj(space, w_other)
+            w_left.difference_update(w_other_as_set)
 
 def inplace_sub__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    _difference_dict_update(space, ld, rd)
+    w_left.difference_update(w_other)
     return w_left
 
 inplace_sub__Set_Frozenset = inplace_sub__Set_Set
 
 def eq__Set_Set(space, w_left, w_other):
     # optimization only (the general case is eq__Set_settypedef)
-    return space.wrap(_is_eq(w_left.setdata, w_other.setdata))
+    return space.wrap(w_left.equals(w_other))
 
 eq__Set_Frozenset = eq__Set_Set
 eq__Frozenset_Frozenset = eq__Set_Set
 eq__Frozenset_Set = eq__Set_Set
 
 def eq__Set_settypedef(space, w_left, w_other):
-    rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_is_eq(w_left.setdata, rd))
+    # tested in test_buildinshortcut.py
+    #XXX do not make new setobject here
+    w_other_as_set = w_left._newobj(space, w_other)
+    return space.wrap(w_left.equals(w_other_as_set))
 
 eq__Set_frozensettypedef = eq__Set_settypedef
 eq__Frozenset_settypedef = eq__Set_settypedef
@@ -308,15 +1068,16 @@ def eq__Set_ANY(space, w_left, w_other):
 eq__Frozenset_ANY = eq__Set_ANY
 
 def ne__Set_Set(space, w_left, w_other):
-    return space.wrap(not _is_eq(w_left.setdata, w_other.setdata))
+    return space.wrap(not w_left.equals(w_other))
 
 ne__Set_Frozenset = ne__Set_Set
 ne__Frozenset_Frozenset = ne__Set_Set
 ne__Frozenset_Set = ne__Set_Set
 
 def ne__Set_settypedef(space, w_left, w_other):
-    rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(not _is_eq(w_left.setdata, rd))
+    #XXX this is not tested
+    w_other_as_set = w_left._newobj(space, w_other)
+    return space.wrap(not w_left.equals(w_other_as_set))
 
 ne__Set_frozensettypedef = ne__Set_settypedef
 ne__Frozenset_settypedef = ne__Set_settypedef
@@ -331,12 +1092,12 @@ ne__Frozenset_ANY = ne__Set_ANY
 
 def contains__Set_ANY(space, w_left, w_other):
     try:
-        return space.newbool(w_other in w_left.setdata)
+        return space.newbool(w_left.has_key(w_other))
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             w_f = _convert_set_to_frozenset(space, w_other)
             if w_f is not None:
-                return space.newbool(w_f in w_left.setdata)
+                return space.newbool(w_left.has_key(w_f))
         raise
 
 contains__Frozenset_ANY = contains__Set_ANY
@@ -345,19 +1106,23 @@ def set_issubset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
-    ld, rd = w_left.setdata, w_other.setdata
-    return space.wrap(_issubset_dict(ld, rd))
+    if w_left.length() > w_other.length():
+        return space.w_False
+    return space.wrap(w_left.issubset(w_other))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Frozenset = set_issubset__Set_Set
 
 def set_issubset__Set_ANY(space, w_left, w_other):
-    if space.is_w(w_left, w_other):
-        return space.w_True
+    # not checking whether w_left is w_other here, because if that were the
+    # case the more precise multimethod would have applied.
 
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_issubset_dict(ld, rd))
+    w_other_as_set = w_left._newobj(space, w_other)
+
+    if w_left.length() > w_other_as_set.length():
+        return space.w_False
+    return space.wrap(w_left.issubset(w_other_as_set))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
@@ -370,9 +1135,9 @@ def set_issuperset__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
     if space.is_w(w_left, w_other):
         return space.w_True
-
-    ld, rd = w_left.setdata, w_other.setdata
-    return space.wrap(_issubset_dict(rd, ld))
+    if w_left.length() < w_other.length():
+        return space.w_False
+    return space.wrap(w_other.issubset(w_left))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set
 set_issuperset__Frozenset_Set = set_issuperset__Set_Set
@@ -382,8 +1147,11 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_issubset_dict(rd, ld))
+    w_other_as_set = w_left._newobj(space, w_other)
+
+    if w_left.length() < w_other_as_set.length():
+        return space.w_False
+    return space.wrap(w_other_as_set.issubset(w_left))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
@@ -395,7 +1163,7 @@ ge__Frozenset_Frozenset = set_issuperset__Set_Set
 # automatic registration of "lt(x, y)" as "not ge(y, x)" would not give the
 # correct answer here!
 def lt__Set_Set(space, w_left, w_other):
-    if len(w_left.setdata) >= len(w_other.setdata):
+    if w_left.length() >= w_other.length():
         return space.w_False
     else:
         return le__Set_Set(space, w_left, w_other)
@@ -405,7 +1173,7 @@ lt__Frozenset_Set = lt__Set_Set
 lt__Frozenset_Frozenset = lt__Set_Set
 
 def gt__Set_Set(space, w_left, w_other):
-    if len(w_left.setdata) <= len(w_other.setdata):
+    if w_left.length() <= w_other.length():
         return space.w_False
     else:
         return ge__Set_Set(space, w_left, w_other)
@@ -421,26 +1189,19 @@ def _discard_from_set(space, w_left, w_item):
     Returns True if successfully removed.
     """
     try:
-        del w_left.setdata[w_item]
-        return True
-    except KeyError:
-        return False
+        deleted = w_left.remove(w_item)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_f = _convert_set_to_frozenset(space, w_item)
-        if w_f is None:
-            raise
+        else:
+            w_f = _convert_set_to_frozenset(space, w_item)
+            if w_f is None:
+                raise
+            deleted = w_left.remove(w_f)
 
-    try:
-        del w_left.setdata[w_f]
-        return True
-    except KeyError:
-        return False
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        return False
+    if w_left.length() == 0:
+        w_left.switch_to_empty_strategy()
+    return deleted
 
 def set_discard__Set_ANY(space, w_left, w_item):
     _discard_from_set(space, w_left, w_item)
@@ -454,8 +1215,12 @@ def hash__Frozenset(space, w_set):
     if w_set.hash != 0:
         return space.wrap(w_set.hash)
     hash = r_uint(1927868237)
-    hash *= r_uint(len(w_set.setdata) + 1)
-    for w_item in w_set.setdata:
+    hash *= r_uint(w_set.length() + 1)
+    w_iterator = w_set.iter()
+    while True:
+        w_item = w_iterator.next_entry()
+        if w_item is None:
+            break
         h = space.hash_w(w_item)
         value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
         hash = hash ^ value
@@ -468,71 +1233,75 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    try:
-        w_key, _ = w_left.setdata.popitem()
-    except KeyError:
-        raise OperationError(space.w_KeyError,
-                                space.wrap('pop from an empty set'))
-    return w_key
+    return w_left.popitem()
 
 def and__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _intersection_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    new_set = w_left.intersect(w_other)
+    return new_set
 
 and__Set_Frozenset = and__Set_Set
 and__Frozenset_Set = and__Set_Set
 and__Frozenset_Frozenset = and__Set_Set
 
-def _intersection_multiple(space, w_left, others_w):
-    result = w_left.setdata
-    for w_other in others_w:
+def set_intersection__Set(space, w_left, others_w):
+    #XXX find smarter implementations
+    others_w = [w_left] + others_w
+
+    # find smallest set in others_w to reduce comparisons
+    startindex, startlength = 0, -1
+    for i in range(len(others_w)):
+        w_other = others_w[i]
+        try:
+            length = space.int_w(space.len(w_other))
+        except OperationError, e:
+            if (e.match(space, space.w_TypeError) or
+                e.match(space, space.w_AttributeError)):
+                continue
+            raise
+
+        if startlength == -1 or length < startlength:
+            startindex = i
+            startlength = length
+
+    others_w[startindex], others_w[0] = others_w[0], others_w[startindex]
+
+    result = w_left._newobj(space, others_w[0])
+    for i in range(1,len(others_w)):
+        w_other = others_w[i]
         if isinstance(w_other, W_BaseSetObject):
             # optimization only
-            result = _intersection_dict(space, result, w_other.setdata)
+            result.intersect_update(w_other)
         else:
-            result2 = newset(space)
-            for w_key in space.listview(w_other):
-                if w_key in result:
-                    result2[w_key] = None
-            result = result2
+            w_other_as_set = w_left._newobj(space, w_other)
+            result.intersect_update(w_other_as_set)
     return result
-
-def set_intersection__Set(space, w_left, others_w):
-    if len(others_w) == 0:
-        result = w_left.setdata.copy()
-    else:
-        result = _intersection_multiple(space, w_left, others_w)
-    return w_left._newobj(space, result)
 
 frozenset_intersection__Frozenset = set_intersection__Set
 
 def set_intersection_update__Set(space, w_left, others_w):
-    result = _intersection_multiple(space, w_left, others_w)
-    w_left.setdata = result
+    result = set_intersection__Set(space, w_left, others_w)
+    w_left.strategy = result.strategy
+    w_left.sstorage = result.sstorage
+    return
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _intersection_dict(space, ld, rd)
-    w_left.setdata = new_ld
+    w_left.intersect_update(w_other)
     return w_left
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
 
 def set_isdisjoint__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    disjoint = _isdisjoint_dict(ld, rd)
-    return space.newbool(disjoint)
+    return space.newbool(w_left.isdisjoint(w_other))
 
 set_isdisjoint__Set_Frozenset = set_isdisjoint__Set_Set
 set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
 set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
 
 def set_isdisjoint__Set_ANY(space, w_left, w_other):
-    ld = w_left.setdata
+    #XXX may be optimized when other strategies are added
     for w_key in space.listview(w_other):
-        if w_key in ld:
+        if w_left.has_key(w_key):
             return space.w_False
     return space.w_True
 
@@ -540,9 +1309,8 @@ frozenset_isdisjoint__Frozenset_ANY = set_isdisjoint__Set_ANY
 
 def set_symmetric_difference__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    w_result = w_left.symmetric_difference(w_other)
+    return w_result
 
 set_symmetric_difference__Set_Frozenset = set_symmetric_difference__Set_Set
 set_symmetric_difference__Frozenset_Set = set_symmetric_difference__Set_Set
@@ -556,26 +1324,23 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 
 
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    return w_left._newobj(space, new_ld)
+    w_other_as_set = w_left._newobj(space, w_other)
+    w_result = w_left.symmetric_difference(w_other_as_set)
+    return w_result
 
 frozenset_symmetric_difference__Frozenset_ANY = \
         set_symmetric_difference__Set_ANY
 
 def set_symmetric_difference_update__Set_Set(space, w_left, w_other):
     # optimization only (the general case works too)
-    ld, rd = w_left.setdata, w_other.setdata
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    w_left.setdata = new_ld
+    w_left.symmetric_difference_update(w_other)
 
 set_symmetric_difference_update__Set_Frozenset = \
                                     set_symmetric_difference_update__Set_Set
 
 def set_symmetric_difference_update__Set_ANY(space, w_left, w_other):
-    ld, rd = w_left.setdata, make_setdata_from_w_iterable(space, w_other)
-    new_ld = _symmetric_difference_dict(space, ld, rd)
-    w_left.setdata = new_ld
+    w_other_as_set = w_left._newobj(space, w_other)
+    w_left.symmetric_difference_update(w_other_as_set)
 
 def inplace_xor__Set_Set(space, w_left, w_other):
     set_symmetric_difference_update__Set_Set(space, w_left, w_other)
@@ -584,34 +1349,33 @@ def inplace_xor__Set_Set(space, w_left, w_other):
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
 def or__Set_Set(space, w_left, w_other):
-    ld, rd = w_left.setdata, w_other.setdata
-    result = ld.copy()
-    result.update(rd)
-    return w_left._newobj(space, result)
+    w_copy = w_left.copy_real()
+    w_copy.update(w_other)
+    return w_copy
 
 or__Set_Frozenset = or__Set_Set
 or__Frozenset_Set = or__Set_Set
 or__Frozenset_Frozenset = or__Set_Set
 
 def set_union__Set(space, w_left, others_w):
-    result = w_left.setdata.copy()
+    result = w_left.copy_real()
     for w_other in others_w:
         if isinstance(w_other, W_BaseSetObject):
-            result.update(w_other.setdata)     # optimization only
+            result.update(w_other)     # optimization only
         else:
             for w_key in space.listview(w_other):
-                result[w_key] = None
-    return w_left._newobj(space, result)
+                result.add(w_key)
+    return result
 
 frozenset_union__Frozenset = set_union__Set
 
 def len__Set(space, w_left):
-    return space.newint(len(w_left.setdata))
+    return space.newint(w_left.length())
 
 len__Frozenset = len__Set
 
 def iter__Set(space, w_left):
-    return W_SetIterObject(w_left.setdata)
+    return W_SetIterObject(space, w_left.iter())
 
 iter__Frozenset = iter__Set
 

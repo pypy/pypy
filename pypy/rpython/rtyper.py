@@ -859,6 +859,7 @@ class HighLevelOp(object):
         return result
 
     def exception_is_here(self):
+        self.llops._called_exception_is_here_or_cannot_occur = True
         if self.llops.llop_raising_exceptions is not None:
             raise TyperError("cannot catch an exception at more than one llop")
         if not self.exceptionlinks:
@@ -874,6 +875,7 @@ class HighLevelOp(object):
         self.llops.llop_raising_exceptions = len(self.llops)
 
     def exception_cannot_occur(self):
+        self.llops._called_exception_is_here_or_cannot_occur = True
         if self.llops.llop_raising_exceptions is not None:
             raise TyperError("cannot catch an exception at more than one llop")
         if not self.exceptionlinks:

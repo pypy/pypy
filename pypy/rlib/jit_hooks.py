@@ -22,6 +22,7 @@ def register_helper(s_result):
                 c_name = hop.inputconst(lltype.Void, 'access_helper')
                 args_v = [hop.inputarg(arg, arg=i)
                           for i, arg in enumerate(hop.args_r)]
+                hop.exception_cannot_occur()
                 return hop.genop('jit_marker', [c_name, c_func] + args_v,
                                  resulttype=hop.r_result)
         return helper

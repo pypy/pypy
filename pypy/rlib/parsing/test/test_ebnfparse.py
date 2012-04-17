@@ -103,6 +103,7 @@ expr: complexterm | ATOM | NUMBER | VAR;
 """)
     parse = make_parse_function(regexs, rules)
     tree = parse("prefix(\n\tlonger(and_nested(term(X))), Xya, _, X0, _).")
+    assert tree.children[0].children[0].children[2].children[0].getsourcepos().lineno == 1
     assert tree is not None
     tree = parse("""
 foo(X, Y) :- bar(Y, X), bar(Y, X) ; foobar(X, Y, 1234, atom).""")

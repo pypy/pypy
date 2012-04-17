@@ -14,6 +14,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
+from pypy.rlib import jit
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -37,6 +38,20 @@ class W_AbstractStringObject(W_Object):
             return None
         return space.wrap(compute_unique_id(space.str_w(self)))
 
+    def unicode_w(w_self, space):
+        # Use the default encoding.
+        from pypy.objspace.std.unicodetype import unicode_from_string, \
+                decode_object
+        w_defaultencoding = space.call_function(space.sys.get(
+                                                'getdefaultencoding'))
+        from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
+            unicode_from_string, decode_object
+        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
+                                                    space.w_None)
+        if encoding is None and errors is None:
+            return space.unicode_w(unicode_from_string(space, w_self))
+        return space.unicode_w(decode_object(space, w_self, encoding, errors))
+
 
 class W_StringObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -55,19 +70,13 @@ class W_StringObject(W_AbstractStringObject):
     def str_w(w_self, space):
         return w_self._value
 
-    def unicode_w(w_self, space):
-        # Use the default encoding.
-        from pypy.objspace.std.unicodetype import unicode_from_string, \
-                decode_object
-        w_defaultencoding = space.call_function(space.sys.get(
-                                                'getdefaultencoding'))
-        from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
-            unicode_from_string, decode_object
-        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
-                                                    space.w_None)
-        if encoding is None and errors is None:
-            return space.unicode_w(unicode_from_string(space, w_self))
-        return space.unicode_w(decode_object(space, w_self, encoding, errors))
+    def listview_str(w_self):
+        return _create_list_from_string(w_self._value)
+
+def _create_list_from_string(value):
+    # need this helper function to allow the jit to look inside and inline
+    # listview_str
+    return [s for s in value]
 
 registerimplementation(W_StringObject)
 
@@ -390,6 +399,8 @@ def str_join__String_ANY(space, w_self, w_list):
 
     return _str_join_many_items(space, w_self, list_w, size)
 
+@jit.look_inside_iff(lambda space, w_self, list_w, size:
+                     jit.loop_unrolling_heuristic(list_w, size))
 def _str_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     reslen = len(self) * (size - 1)

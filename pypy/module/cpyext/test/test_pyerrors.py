@@ -218,3 +218,51 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.filename == "blyf"
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
+
+    def test_GetSetExcInfo(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getset_exc_info", "METH_VARARGS",
+             r'''
+             PyObject *type, *val, *tb;
+             PyObject *new_type, *new_val, *new_tb;
+             PyObject *result;
+
+             if (!PyArg_ParseTuple(args, "OOO", &new_type, &new_val, &new_tb))
+                 return NULL;
+
+             PyErr_GetExcInfo(&type, &val, &tb);
+
+             Py_INCREF(new_type);
+             Py_INCREF(new_val);
+             Py_INCREF(new_tb);
+             PyErr_SetExcInfo(new_type, new_val, new_tb);
+
+             result = Py_BuildValue("OOO",
+                                    type ? type : Py_None,
+                                    val  ? val  : Py_None,
+                                    tb   ? tb   : Py_None);
+             Py_XDECREF(type);
+             Py_XDECREF(val);
+             Py_XDECREF(tb);
+             return result;
+             '''
+             ),
+            ])
+        try:
+            raise ValueError(5)
+        except ValueError, old_exc:
+            new_exc = TypeError("TEST")
+            orig_sys_exc_info = sys.exc_info()
+            orig_exc_info = module.getset_exc_info(new_exc.__class__,
+                                                   new_exc, None)
+            new_sys_exc_info = sys.exc_info()
+            new_exc_info = module.getset_exc_info(*orig_exc_info)
+            reset_sys_exc_info = sys.exc_info()
+
+            assert orig_exc_info[0] is old_exc.__class__
+            assert orig_exc_info[1] is old_exc
+            assert orig_exc_info == orig_sys_exc_info
+            assert orig_exc_info == reset_sys_exc_info
+            assert new_exc_info == (new_exc.__class__, new_exc, None)
+            assert new_exc_info == new_sys_exc_info

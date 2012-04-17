@@ -22,6 +22,7 @@ class Entry_oostring(ExtRegistryEntry):
                                          annmodel.SomeOOInstance,
                                          annmodel.SomeString))
         vlist = hop.inputargs(hop.args_r[0], ootype.Signed)
+        hop.exception_cannot_occur()
         return hop.genop('oostring', vlist, resulttype = ootype.String)
 
 class Entry_oounicode(ExtRegistryEntry):
@@ -38,6 +39,7 @@ class Entry_oounicode(ExtRegistryEntry):
         assert isinstance(hop.args_s[0], (annmodel.SomeUnicodeCodePoint,
                                           annmodel.SomeOOInstance))
         vlist = hop.inputargs(hop.args_r[0], ootype.Signed)
+        hop.exception_cannot_occur()
         return hop.genop('oounicode', vlist, resulttype = ootype.Unicode)
     
 

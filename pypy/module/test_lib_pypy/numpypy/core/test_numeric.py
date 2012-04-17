@@ -142,3 +142,39 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(b) == "[7 8 9]"
         b = a[2:1, ]
         assert str(b) == "[]"
+
+    def test_equal(self):
+        from _numpypy import array
+        from numpypy import array_equal
+        
+        a = [1, 2, 3]
+        b = [1, 2, 3]
+        
+        assert array_equal(a, b)
+        assert array_equal(a, array(b))
+        assert array_equal(array(a), b)
+        assert array_equal(array(a), array(b))
+
+    def test_not_equal(self):
+        from _numpypy import array
+        from numpypy import array_equal
+        
+        a = [1, 2, 3]
+        b = [1, 2, 4]
+        
+        assert not array_equal(a, b)
+        assert not array_equal(a, array(b))
+        assert not array_equal(array(a), b)
+        assert not array_equal(array(a), array(b))
+
+    def test_mismatched_shape(self):
+        from _numpypy import array
+        from numpypy import array_equal
+        
+        a = [1, 2, 3]
+        b = [[1, 2, 3], [1, 2, 3]]
+        
+        assert not array_equal(a, b)
+        assert not array_equal(a, array(b))
+        assert not array_equal(array(a), b)
+        assert not array_equal(array(a), array(b))
