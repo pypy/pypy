@@ -411,7 +411,7 @@ class BaseArrayTests:
             buf[3] = b'L'
         except TypeError:
             skip("memoryview(array) returns a read-only buffer on CPython")
-        assert a.tostring() == 'helLo'
+        assert a.tostring() == b'helLo'
 
     def test_buffer_keepalive(self):
         buf = memoryview(self.array('b', b'text'))
@@ -744,12 +744,12 @@ class BaseArrayTests:
                 self.append(8)
 
             def fromunicode(self, lst):
-                self.append(u'9')
+                self.append('9')
 
             def extend(self, lst):
                 self.append(10)
 
-        assert repr(mya('u', u'hi')) == "array('u', 'hi')"
+        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
@@ -762,7 +762,7 @@ class BaseArrayTests:
         assert repr(a) == "array('b', [8])"
 
         a = mya('u')
-        a.fromunicode(u'hi')
+        a.fromunicode('hi')
         assert repr(a) == "array('u', '9')"
 
         a = mya('i')
@@ -784,7 +784,7 @@ class BaseArrayTests:
         assert mya('u', 'hi').tobytes() == 'str'
         assert mya('u', 'hi').tounicode() == 'unicode'
 
-        assert repr(mya('u', u'hi')) == "array('u', 'hi')"
+        assert repr(mya('u', 'hi')) == "array('u', 'hi')"
         assert repr(mya('i', [1, 2, 3])) == "array('i', [1, 2, 3])"
         assert repr(mya('i', (1, 2, 3))) == "array('i', [1, 2, 3])"
 
