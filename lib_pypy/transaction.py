@@ -74,6 +74,10 @@ def add_epoll(ep, callback):
 def remove_epoll(ep):
     """Explicitly unregister the epoll object.  Note that raising an
     exception in a transaction to abort run() also unregisters all epolls.
+    However, an epoll that becomes empty (doesn't wait on any fd) is not
+    automatically removed; if there is only an empty epoll left and no
+    further transactions, and no-one raised an exception, then it will
+    basically deadlock.
     """
     for key, (f, args, kwds) in _pending.items():
         if getattr(f, '_reads_from_epoll_', None) is ep:
