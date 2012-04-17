@@ -114,13 +114,10 @@ def exc_info_direct(space, frame):
     #       BINARY_SUBSCR
     # or:
     #       CALL_FUNCTION/CALL_METHOD
+    #       LOAD_CONST any integer or None
     #       LOAD_CONST <=2
-    #       SLICE_2
-    # or:
-    #       CALL_FUNCTION/CALL_METHOD
-    #       LOAD_CONST any integer
-    #       LOAD_CONST <=2
-    #       SLICE_3
+    #       BUILD_SLICE 2
+    #       BINARY_SUBSCR
     need_all_three_args = True
     co = frame.getcode().co_code
     p = frame.last_instr
@@ -130,16 +127,16 @@ def exc_info_direct(space, frame):
             lo = ord(co[p+4])
             hi = ord(co[p+5])
             w_constant = frame.getconstant_w((hi * 256) | lo)
-            if space.isinstance_w(w_constant, space.w_int):
-                constant = space.int_w(w_constant)
-                if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+            if ord(co[p+6]) == stdlib_opcode.BINARY_SUBSCR:
+                if space.isinstance_w(w_constant, space.w_int):
+                    constant = space.int_w(w_constant)
                     if -3 <= constant <= 1 and constant != -1:
                         need_all_three_args = False
-                elif ord(co[p+6]) == stdlib_opcode.SLICE+2:
-                    if constant <= 2:
-                        need_all_three_args = False
-                elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
-                      ord(co[p+9]) == stdlib_opcode.SLICE+3):
+            elif (ord(co[p+6]) == stdlib_opcode.LOAD_CONST and
+                  ord(co[p+9]) == stdlib_opcode.BUILD_SLICE and
+                  ord(co[p+12]) == stdlib_opcode.BINARY_SUBSCR):
+                if (space.is_w(w_constant, space.w_None) or
+                    space.isinstance_w(w_constant, space.w_int)):
                     lo = ord(co[p+7])
                     hi = ord(co[p+8])
                     w_constant = frame.getconstant_w((hi * 256) | lo)
