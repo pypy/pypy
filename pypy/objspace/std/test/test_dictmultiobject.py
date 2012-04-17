@@ -158,6 +158,8 @@ class TestW_DictObject:
         assert self.space.listview_int(w_d) == [1, 2]
 
     def test_keys_on_string_int_dict(self):
+        py.test.py3k_skip("StringDictStrategy not supported yet")
+        
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])

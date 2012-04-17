@@ -29,6 +29,9 @@ def pytest_report_header():
 def pytest_configure(config):
     global option
     option = config.option
+    def py3k_skip(message):
+        py.test.skip('[py3k] %s' % message)
+    py.test.py3k_skip = py3k_skip
 
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
