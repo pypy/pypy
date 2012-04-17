@@ -9,6 +9,7 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.listobject import get_positive_index
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -349,7 +350,7 @@ def str_isspace__Bytearray(space, w_bytearray):
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_isspace__String(space, w_str)
 
-def bytearray_insert__Bytearray_Int_ANY(space, w_bytearray, w_idx, w_other):
+def bytearray_insert__Bytearray_Long_ANY(space, w_bytearray, w_idx, w_other):
     where = space.int_w(w_idx)
     length = len(w_bytearray.data)
     index = get_positive_index(where, length)
