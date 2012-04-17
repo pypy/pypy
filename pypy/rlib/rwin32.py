@@ -79,6 +79,7 @@ class CConfig:
         for name in """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH
                        WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
+                       ERROR_INVALID_HANDLE
                     """.split():
             locals()[name] = rffi_platform.ConstantInteger(name)
 
@@ -131,7 +132,7 @@ if WIN32:
         validate_fd(fd)
         handle = _get_osfhandle(fd)
         if handle == INVALID_HANDLE_VALUE:
-            raise WindowsError(errno.EBADF, "Invalid file handle")
+            raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
 
     def build_winerror_to_errno():
