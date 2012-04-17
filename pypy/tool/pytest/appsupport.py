@@ -261,6 +261,13 @@ def pypyskip(space, w_message):
 
 app_skip = gateway.interp2app_temp(pypyskip)
 
+def py3k_pypyskip(space, w_message): 
+    """skip a test at app-level. """ 
+    msg = space.unwrap(w_message) 
+    py.test.skip('[py3k] %s' % msg)
+
+app_py3k_skip = gateway.interp2app_temp(py3k_pypyskip)
+
 def raises_w(space, w_ExpectedException, *args, **kwds):
     try:
         excinfo = py.test.raises(OperationError, *args, **kwds)

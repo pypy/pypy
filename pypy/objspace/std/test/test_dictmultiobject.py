@@ -143,6 +143,7 @@ class TestW_DictObject:
         assert space.eq_w(w_d.getitem_str("b"), space.w_None)
 
     def test_listview_str_dict(self):
+        py.test.py3k_skip("StringDictStrategy not supported yet")
         w = self.space.wrap
 
         w_d = self.space.newdict()
@@ -151,6 +152,7 @@ class TestW_DictObject:
         assert self.space.listview_str(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
+        py.test.py3k_skip("IntDictStrategy not supported yet")
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(1), w("a")), (w(2), w("b"))])
@@ -781,6 +783,7 @@ class AppTestStrategies(object):
         return r[r.find("(") + 1: r.find(")")]
 
     def test_empty_to_string(self):
+        py3k_skip("StringDictStrategy not supported yet")
         d = {}
         assert "EmptyDictStrategy" in self.get_strategy(d)
         d["a"] = 1
