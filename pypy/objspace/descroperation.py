@@ -415,7 +415,7 @@ class DescrOperation(object):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
             w_result = space.get_and_call_function(w_descr, w_container, w_item)
-            return space.wrap(space.bool_w(w_result))
+            return space.nonzero(w_result)
         return space._contains(w_container, w_item)
 
     def _contains(space, w_container, w_item):

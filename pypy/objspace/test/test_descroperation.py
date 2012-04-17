@@ -697,9 +697,14 @@ class AppTest_Descroperation:
     def test_bool___contains__(self):
         class X(object):
             def __contains__(self, item):
-                return 42
+                if item == 'foo':
+                    return 42
+                else:
+                    return 'hello world'
         x = X()
         res = 'foo' in x
+        assert res is True
+        res = 'bar' in x
         assert res is True
         #
         class CannotConvertToBool(object):
