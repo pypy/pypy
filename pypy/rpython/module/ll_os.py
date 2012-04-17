@@ -397,6 +397,7 @@ class RegisterOs(BaseLazyRegistering):
         os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
 
         def dup_llimpl(fd):
+            rposix.validate_fd(fd)
             newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
             if newfd == -1:
                 raise OSError(rposix.get_errno(), "dup failed")
@@ -411,6 +412,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [rffi.INT, rffi.INT], rffi.INT)
 
         def dup2_llimpl(fd, newfd):
+            rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
             if error == -1:
@@ -891,6 +893,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
+            rposix.validate_fd(fd)
             raw_buf, gc_buf = rffi.alloc_buffer(count)
             try:
                 void_buf = rffi.cast(rffi.VOIDP, raw_buf)
@@ -1048,6 +1051,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
 
         def fchdir_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.SIGNED, os_fchdir(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fchdir failed")
@@ -1360,6 +1364,7 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
@@ -1537,6 +1542,7 @@ class RegisterOs(BaseLazyRegistering):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
 
         def umask_llimpl(fd):
+            rposix.validate_fd(fd)
             res = os_umask(rffi.cast(rffi.MODE_T, fd))
             return rffi.cast(lltype.Signed, res)
 
