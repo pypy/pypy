@@ -694,5 +694,24 @@ class AppTest_Descroperation:
         l = len(X(X(2)))
         assert l == 2 and type(l) is int
 
+    def test_bool___contains__(self):
+        class X(object):
+            def __contains__(self, item):
+                return 42
+        x = X()
+        res = 'foo' in x
+        assert res is True
+        #
+        class CannotConvertToBool(object):
+            def __nonzero__(self):
+                raise TypeError
+        class X(object):
+            def __contains__(self, item):
+                return CannotConvertToBool()
+        x = X()
+        raises(TypeError, "'foo' in x")
+        
+            
+
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}
