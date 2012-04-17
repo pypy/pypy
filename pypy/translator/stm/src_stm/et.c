@@ -658,14 +658,20 @@ static long commit_transaction(void)
   return d->end_time;
 }
 
-void* stm_perform_transaction(void*(*callback)(void*, long), void *arg)
+void* stm_perform_transaction(void*(*callback)(void*, long), void *arg,
+                              void *save_and_restore)
 {
   void *result;
   jmp_buf _jmpbuf;
   volatile long v_counter = 0;
   long counter;
+  volatile void *saved_value;
   assert(active_thread_descriptor == NULL);
+  if (save_and_restore)
+    saved_value = *(void**)save_and_restore;
   setjmp(_jmpbuf);
+  if (save_and_restore)
+    *(void**)save_and_restore = saved_value;
   begin_transaction(&_jmpbuf);
   counter = v_counter;
   v_counter = counter + 1;

@@ -2,6 +2,7 @@ from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython import rmodel
 from pypy.annotation import model as annmodel
 from pypy.rlib.debug import fatalerror_notb
 from pypy.rlib.nonconst import NonConstant
@@ -49,6 +50,17 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def build_root_walker(self):
         return StmShadowStackRootWalker(self)
+
+    def _gc_adr_of_gcdata_attr(self, hop, attrname):
+        x = self.root_walker.stackgcdata
+        c_const_stackgcdata = rmodel.inputconst(lltype.typeOf(x), x)
+        op = hop.spaceop
+        ofs = llmemory.offsetof(c_const_stackgcdata.concretetype.TO,
+                                attrname)
+        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        v_gcdata_adr = hop.genop('cast_ptr_to_adr', [c_const_stackgcdata],
+                                 resulttype=llmemory.Address)
+        hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
     def gct_stm_descriptor_init(self, hop):
         hop.genop("direct_call", [self.setup_secondary_thread_ptr,

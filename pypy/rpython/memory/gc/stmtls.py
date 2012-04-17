@@ -128,8 +128,6 @@ class StmGCTLS(object):
         # transaction is aborted, the latter might never be called.
         # Be ready here to clean up any state.
         self._cleanup_state()
-        if self is not self.gc.main_thread_tls:
-            self.gc.root_walker.clear_current_stack_roots()
         if self.nursery_free:
             clear_size = self.nursery_free - self.nursery_start
         else:

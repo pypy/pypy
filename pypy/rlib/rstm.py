@@ -2,7 +2,7 @@ import threading
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
-from pypy.rpython.lltypesystem import rffi, lltype, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       cast_instance_to_base_ptr,
@@ -35,6 +35,7 @@ def perform_transaction(func, argcls, arg):
     if we_are_translated():
         llarg = cast_instance_to_base_ptr(arg)
         llarg = rffi.cast(rffi.VOIDP, llarg)
+        adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
     else:
         # only for tests: we want (1) to test the calls to the C library,
         # but also (2) to work with multiple Python threads, so we acquire
@@ -43,9 +44,11 @@ def perform_transaction(func, argcls, arg):
         _global_lock.acquire()
         lltype.TLS.stm_callback_arg = arg
         llarg = lltype.nullptr(rffi.VOIDP.TO)
+        adr_of_top = llmemory.NULL
+    #
     callback = _get_stm_callback(func, argcls)
     llcallback = llhelper(StmOperations.CALLBACK_TX, callback)
-    StmOperations.perform_transaction(llcallback, llarg)
+    StmOperations.perform_transaction(llcallback, llarg, adr_of_top)
     keepalive_until_here(arg)
     if not we_are_translated():
         _global_lock.release()

@@ -39,7 +39,7 @@ float     stm_read_int4f(void *, long);
 #endif
 
 
-void* stm_perform_transaction(void*(*)(void*, long), void*);
+void* stm_perform_transaction(void*(*)(void*, long), void*, void*);
 void stm_enter_transactional_mode(void);
 void stm_leave_transactional_mode(void);
 void stm_try_inevitable(STM_CCHARP1(why));

@@ -135,8 +135,6 @@ def fake_weakpointer_offset(tid):
 class FakeRootWalker:
     def walk_current_stack_roots(self, *args):
         pass     # no stack roots in this test file
-    def clear_current_stack_roots(self):
-        pass
 
 
 class StmGCTests:

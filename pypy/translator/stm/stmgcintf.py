@@ -80,7 +80,8 @@ class StmOperations(object):
 
     try_inevitable = smexternal('stm_try_inevitable', [], lltype.Void)
     perform_transaction = smexternal('stm_perform_transaction',
-                                     [CALLBACK_TX, rffi.VOIDP], rffi.VOIDP)
+                                     [CALLBACK_TX, rffi.VOIDP,
+                                      llmemory.Address], rffi.VOIDP)
     thread_id        = smexternal('stm_thread_id',       [], lltype.Signed)
     abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)
 
