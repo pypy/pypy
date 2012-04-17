@@ -1,3 +1,4 @@
+import py
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.conftest import gettestobjspace
@@ -88,6 +89,7 @@ class TestW_StringObject:
         assert self.space.eq_w(space.getitem(w_str, w_slice), wb('el'))
 
     def test_listview_str(self):
+        py.test.py3k_skip("listview_str not supported yet")
         w_str = self.space.wrap('abcd')
         assert self.space.listview_str(w_str) == list("abcd")
 
