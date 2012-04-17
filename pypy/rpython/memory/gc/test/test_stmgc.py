@@ -370,6 +370,16 @@ class TestBasic(StmGCTests):
         sr2.s1 = t
         self.gc.commit_transaction()
 
+    def test_commit_with_ref_to_local_copy(self):
+        tr, tr_adr = self.malloc(SR)
+        self.select_thread(1)
+        sr_adr = self.gc.stm_writebarrier(tr_adr)
+        assert sr_adr != tr_adr
+        sr = llmemory.cast_adr_to_ptr(sr_adr, lltype.Ptr(SR))
+        sr.sr2 = sr
+        self.gc.commit_transaction()
+        assert sr.sr2 == tr
+
     def test_commit_transaction_no_references(self):
         py.test.skip("rewrite me")
         s, s_adr = self.malloc(S)
