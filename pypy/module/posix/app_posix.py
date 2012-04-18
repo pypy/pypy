@@ -1,5 +1,4 @@
 # NOT_RPYTHON
-
 from _structseq import structseqtype, structseqfield
 
 # XXX we need a way to access the current module's globals more directly...
@@ -101,6 +100,19 @@ if osname == 'posix':
         """
         from _pypy_wait import wait4
         return wait4(pid, options)
+
+    def urandom(n):
+        """urandom(n) -> str
+
+        Return a string of n random bytes suitable for cryptographic use.
+
+        """
+        try:
+            with open('/dev/urandom', 'rb', buffering=0) as fd:
+                return fd.read(n)
+        except (OSError, IOError):
+            raise NotImplementedError("/dev/urandom (or equivalent) not found")
+
 
 else:
     # Windows implementations
