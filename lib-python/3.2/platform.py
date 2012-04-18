@@ -181,7 +181,7 @@ def libc_ver(executable=sys.executable,lib='',version='',
         elif so:
             if lib != 'glibc':
                 lib = 'libc'
-                if soversion > version:
+                if soversion and soversion > version:
                     version = soversion
                 if threads and version[-len(threads):] != threads:
                     version = version + threads
@@ -549,7 +549,7 @@ def win32_ver(release='',version='',csd='',ptype=''):
 
     """ Get additional version information from the Windows Registry
         and return a tuple (version,csd,ptype) referring to version
-        number, CSD level and OS type (multi/single
+        number, CSD level (service pack), and OS type (multi/single
         processor).
 
         As a hint: ptype returns 'Uniprocessor Free' on single

@@ -1502,6 +1502,8 @@ class WFile(object):
         return self.name == other.name
 
 
+@unittest.skipIf(hasattr(os, 'geteuid') and os.geteuid() == 0,
+                 "non-root user required")
 class TestFileTypeW(TempDirMixin, ParserTestCase):
     """Test the FileType option/argument type for writing files"""
 
@@ -2168,8 +2170,9 @@ class TestParentParsers(TestCase):
         parents = [self.abcd_parent, self.wxyz_parent]
         parser = ErrorRaisingArgumentParser(parents=parents)
         parser_help = parser.format_help()
+        progname = self.main_program
         self.assertEqual(parser_help, textwrap.dedent('''\
-            usage: {} [-h] [-b B] [--d D] [--w W] [-y Y] a z
+            usage: {}{}[-h] [-b B] [--d D] [--w W] [-y Y] a z
 
             positional arguments:
               a
@@ -2185,7 +2188,7 @@ class TestParentParsers(TestCase):
 
             x:
               -y Y
-        '''.format(self.main_program)))
+        '''.format(progname, ' ' if progname else '' )))
 
     def test_groups_parents(self):
         parent = ErrorRaisingArgumentParser(add_help=False)
@@ -2201,8 +2204,9 @@ class TestParentParsers(TestCase):
             ['-y', 'Y', '-z', 'Z'])
 
         parser_help = parser.format_help()
+        progname = self.main_program
         self.assertEqual(parser_help, textwrap.dedent('''\
-            usage: {} [-h] [-w W] [-x X] [-y Y | -z Z]
+            usage: {}{}[-h] [-w W] [-x X] [-y Y | -z Z]
 
             optional arguments:
               -h, --help  show this help message and exit
@@ -2214,7 +2218,7 @@ class TestParentParsers(TestCase):
 
               -w W
               -x X
-        '''.format(self.main_program)))
+        '''.format(progname, ' ' if progname else '' )))
 
 # ==============================
 # Mutually exclusive group tests

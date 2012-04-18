@@ -9,7 +9,7 @@ RFC2396_BASE = "http://a/b/c/d;p?q"
 RFC3986_BASE = 'http://a/b/c/d;p?q'
 SIMPLE_BASE  = 'http://a/b/c/d'
 
-# A list of test cases.  Each test case is a a two-tuple that contains
+# A list of test cases.  Each test case is a two-tuple that contains
 # a string with the query and a dictionary with the expected result.
 
 parse_qsl_test_cases = [
@@ -769,7 +769,8 @@ class UrlParseTestCase(unittest.TestCase):
         # Other tests incidentally urlencode things; test non-covered cases:
         # Sequence and object values.
         result = urllib.parse.urlencode({'a': [1, 2], 'b': (3, 4, 5)}, True)
-        self.assertEqual(result, 'a=1&a=2&b=3&b=4&b=5')
+        # we cannot rely on ordering here
+        assert set(result.split('&')) == {'a=1', 'a=2', 'b=3', 'b=4', 'b=5'}
 
         class Trivial:
             def __str__(self):

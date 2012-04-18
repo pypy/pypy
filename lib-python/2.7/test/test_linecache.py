@@ -54,13 +54,13 @@ class LineCacheTests(unittest.TestCase):
 
         # Check whether lines correspond to those from file iteration
         for entry in TESTS:
-            filename = os.path.join(TEST_PATH, entry) + '.py'
+            filename = support.findfile( entry + '.py')
             for index, line in enumerate(open(filename)):
                 self.assertEqual(line, getline(filename, index + 1))
 
         # Check module loading
         for entry in MODULES:
-            filename = os.path.join(MODULE_PATH, entry) + '.py'
+            filename = support.findfile( entry + '.py')
             for index, line in enumerate(open(filename)):
                 self.assertEqual(line, getline(filename, index + 1))
 
@@ -78,7 +78,7 @@ class LineCacheTests(unittest.TestCase):
     def test_clearcache(self):
         cached = []
         for entry in TESTS:
-            filename = os.path.join(TEST_PATH, entry) + '.py'
+            filename = support.findfile( entry + '.py')
             cached.append(filename)
             linecache.getline(filename, 1)
 

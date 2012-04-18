@@ -754,8 +754,15 @@ class HTMLDoc(Doc):
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self.document(getattr(object, name), name, mod,
-                                       funcs, classes, mdict, object))
+                    try:
+                        value = getattr(object, name)
+                    except Exception:
+                        # Some descriptors may meet a failure in their __get__.
+                        # (bug #1785)
+                        push(self._docdescriptor(name, value, mod))
+                    else:
+                        push(self.document(value, name, mod,
+                                        funcs, classes, mdict, object))
                     push('\n')
             return attrs
 
@@ -775,7 +782,7 @@ class HTMLDoc(Doc):
                 push(msg)
                 for name, kind, homecls, value in ok:
                     base = self.docother(getattr(object, name), name, mod)
-                    if hasattr(value, '__call__') or inspect.isdatadescriptor(value):
+                    if callable(value) or inspect.isdatadescriptor(value):
                         doc = getattr(value, "__doc__", None)
                     else:
                         doc = None
@@ -796,7 +803,12 @@ class HTMLDoc(Doc):
         mdict = {}
         for key, kind, homecls, value in attrs:
             mdict[key] = anchor = '#' + name + '-' + key
-            value = getattr(object, key)
+            try:
+                value = getattr(object, name)
+            except Exception:
+                # Some descriptors may meet a failure in their __get__.
+                # (bug #1785)
+                pass
             try:
                 # The value may not be hashable (e.g., a data attr with
                 # a dict or list value).
@@ -1044,10 +1056,11 @@ class TextDoc(Doc):
         if docloc is not None:
             result = result + self.section('MODULE REFERENCE', docloc + """
 
-The following documentation is automatically generated from the Python source
-files.  It may be incomplete, incorrect or include features that are considered
-implementation detail and may vary between Python implementations.  When in
-doubt, consult the module reference at the location listed above.
+The following documentation is automatically generated from the Python
+source files.  It may be incomplete, incorrect or include features that
+are considered implementation detail and may vary between Python
+implementations.  When in doubt, consult the module reference at the
+location listed above.
 """)
 
         if desc:
@@ -1179,8 +1192,15 @@ doubt, consult the module reference at the location listed above.
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    push(self.document(getattr(object, name),
-                                       name, mod, object))
+                    try:
+                        value = getattr(object, name)
+                    except Exception:
+                        # Some descriptors may meet a failure in their __get__.
+                        # (bug #1785)
+                        push(self._docdescriptor(name, value, mod))
+                    else:
+                        push(self.document(value,
+                                        name, mod, object))
             return attrs
 
         def spilldescriptors(msg, attrs, predicate):
@@ -1198,7 +1218,7 @@ doubt, consult the module reference at the location listed above.
                 hr.maybe()
                 push(msg)
                 for name, kind, homecls, value in ok:
-                    if hasattr(value, '__call__') or inspect.isdatadescriptor(value):
+                    if callable(value) or inspect.isdatadescriptor(value):
                         doc = getdoc(value)
                     else:
                         doc = None

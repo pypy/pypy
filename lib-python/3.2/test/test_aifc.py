@@ -1,6 +1,7 @@
 from test.support import findfile, run_unittest, TESTFN
 import unittest
 import os
+import io
 
 import aifc
 
@@ -109,9 +110,79 @@ class AIFCTest(unittest.TestCase):
         f.close()
         self.assertEqual(testfile.closed, True)
 
+    def test_write_header_comptype_sampwidth(self):
+        for comptype in (b'ULAW', b'ulaw', b'ALAW', b'alaw', b'G722'):
+            fout = self.fout = aifc.open(io.BytesIO(), 'wb')
+            fout.setnchannels(1)
+            fout.setframerate(1)
+            fout.setcomptype(comptype, b'')
+            fout.close()
+            self.assertEqual(fout.getsampwidth(), 2)
+            fout.initfp(None)
+
+    def test_write_markers_values(self):
+        fout = self.fout = aifc.open(io.BytesIO(), 'wb')
+        self.assertEqual(fout.getmarkers(), None)
+        fout.setmark(1, 0, b'foo1')
+        fout.setmark(1, 1, b'foo2')
+        self.assertEqual(fout.getmark(1), (1, 1, b'foo2'))
+        self.assertEqual(fout.getmarkers(), [(1, 1, b'foo2')])
+        fout.initfp(None)
+
+    def test_read_markers(self):
+        fout = self.fout = aifc.open(TESTFN, 'wb')
+        fout.aiff()
+        fout.setparams((1, 1, 1, 1, b'NONE', b''))
+        fout.setmark(1, 0, b'odd')
+        fout.setmark(2, 0, b'even')
+        fout.writeframes(b'\x00')
+        fout.close()
+        f = self.f = aifc.open(TESTFN, 'rb')
+        self.assertEqual(f.getmarkers(), [(1, 0, b'odd'), (2, 0, b'even')])
+        self.assertEqual(f.getmark(1), (1, 0, b'odd'))
+        self.assertEqual(f.getmark(2), (2, 0, b'even'))
+        self.assertRaises(aifc.Error, f.getmark, 3)
+
+
+class AIFCLowLevelTest(unittest.TestCase):
+
+    def test_read_written(self):
+        def read_written(self, what):
+            f = io.BytesIO()
+            getattr(aifc, '_write_' + what)(f, x)
+            f.seek(0)
+            return getattr(aifc, '_read_' + what)(f)
+        for x in (-1, 0, 0.1, 1):
+            self.assertEqual(read_written(x, 'float'), x)
+        for x in (float('NaN'), float('Inf')):
+            self.assertEqual(read_written(x, 'float'), aifc._HUGE_VAL)
+        for x in (b'', b'foo', b'a' * 255):
+            self.assertEqual(read_written(x, 'string'), x)
+        for x in (-0x7FFFFFFF, -1, 0, 1, 0x7FFFFFFF):
+            self.assertEqual(read_written(x, 'long'), x)
+        for x in (0, 1, 0xFFFFFFFF):
+            self.assertEqual(read_written(x, 'ulong'), x)
+        for x in (-0x7FFF, -1, 0, 1, 0x7FFF):
+            self.assertEqual(read_written(x, 'short'), x)
+        for x in (0, 1, 0xFFFF):
+            self.assertEqual(read_written(x, 'ushort'), x)
+
+    def test_read_raises(self):
+        f = io.BytesIO(b'\x00')
+        self.assertRaises(EOFError, aifc._read_ulong, f)
+        self.assertRaises(EOFError, aifc._read_long, f)
+        self.assertRaises(EOFError, aifc._read_ushort, f)
+        self.assertRaises(EOFError, aifc._read_short, f)
+
+    def test_write_long_string_raises(self):
+        f = io.BytesIO()
+        with self.assertRaises(ValueError):
+            aifc._write_string(f, b'too long' * 255)
+
 
 def test_main():
     run_unittest(AIFCTest)
+    run_unittest(AIFCLowLevelTest)
 
 
 if __name__ == "__main__":

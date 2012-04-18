@@ -272,6 +272,80 @@ class CmdLineTest(unittest.TestCase):
         self.assertRegex(err.decode('ascii', 'ignore'), 'SyntaxError')
         self.assertEqual(b'', out)
 
+    def test_stdout_flush_at_shutdown(self):
+        # Issue #5319: if stdout.flush() fails at shutdown, an error should
+        # be printed out.
+        code = """if 1:
+            import os, sys
+            sys.stdout.write('x')
+            os.close(sys.stdout.fileno())"""
+        rc, out, err = assert_python_ok('-c', code)
+        self.assertEqual(b'', out)
+        self.assertRegex(err.decode('ascii', 'ignore'),
+                         'Exception IOError: .* ignored')
+
+    def test_closed_stdout(self):
+        # Issue #13444: if stdout has been explicitly closed, we should
+        # not attempt to flush it at shutdown.
+        code = "import sys; sys.stdout.close()"
+        rc, out, err = assert_python_ok('-c', code)
+        self.assertEqual(b'', err)
+
+    # Issue #7111: Python should work without standard streams
+
+    @unittest.skipIf(os.name != 'posix', "test needs POSIX semantics")
+    def _test_no_stdio(self, streams):
+        code = """if 1:
+            import os, sys
+            for i, s in enumerate({streams}):
+                if getattr(sys, s) is not None:
+                    os._exit(i + 1)
+            os._exit(42)""".format(streams=streams)
+        def preexec():
+            if 'stdin' in streams:
+                os.close(0)
+            if 'stdout' in streams:
+                os.close(1)
+            if 'stderr' in streams:
+                os.close(2)
+        p = subprocess.Popen(
+            [sys.executable, "-E", "-c", code],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            preexec_fn=preexec)
+        out, err = p.communicate()
+        self.assertEqual(test.support.strip_python_stderr(err), b'')
+        self.assertEqual(p.returncode, 42)
+
+    def test_no_stdin(self):
+        self._test_no_stdio(['stdin'])
+
+    def test_no_stdout(self):
+        self._test_no_stdio(['stdout'])
+
+    def test_no_stderr(self):
+        self._test_no_stdio(['stderr'])
+
+    def test_no_std_streams(self):
+        self._test_no_stdio(['stdin', 'stdout', 'stderr'])
+
+    def test_hash_randomization(self):
+        # Verify that -R enables hash randomization:
+        self.verify_valid_flag('-R')
+        hashes = []
+        for i in range(2):
+            code = 'print(hash("spam"))'
+            rc, out, err = assert_python_ok('-R', '-c', code)
+            self.assertEqual(rc, 0)
+            hashes.append(out)
+        self.assertNotEqual(hashes[0], hashes[1])
+
+        # Verify that sys.flags contains hash_randomization
+        code = 'import sys; print("random is", sys.flags.hash_randomization)'
+        rc, out, err = assert_python_ok('-R', '-c', code)
+        self.assertEqual(rc, 0)
+        self.assertIn(b'random is 1', out)
 
 def test_main():
     test.support.run_unittest(CmdLineTest)

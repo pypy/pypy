@@ -552,12 +552,11 @@ class HTTPRedirectHandler(BaseHandler):
         # For security reasons we don't allow redirection to anything other
         # than http, https or ftp.
 
-        if not urlparts.scheme in ('http', 'https', 'ftp'):
-            raise HTTPError(newurl, code,
-                            msg +
-                            " - Redirection to url '%s' is not allowed" %
-                            newurl,
-                            headers, fp)
+        if urlparts.scheme not in ('http', 'https', 'ftp', ''):
+            raise HTTPError(
+                newurl, code,
+                "%s - Redirection to url '%s' is not allowed" % (msg, newurl),
+                headers, fp)
 
         if not urlparts.path:
             urlparts = list(urlparts)
@@ -722,7 +721,7 @@ class HTTPPasswordMgr:
         # uri could be a single URI or a sequence
         if isinstance(uri, str):
             uri = [uri]
-        if not realm in self.passwd:
+        if realm not in self.passwd:
             self.passwd[realm] = {}
         for default_port in True, False:
             reduced_uri = tuple(
@@ -1590,9 +1589,9 @@ class URLopener:
                 size = -1
                 read = 0
                 blocknum = 0
+                if "content-length" in headers:
+                    size = int(headers["Content-Length"])
                 if reporthook:
-                    if "content-length" in headers:
-                        size = int(headers["Content-Length"])
                     reporthook(blocknum, bs, size)
                 while 1:
                     block = fp.read(bs)
@@ -1662,13 +1661,13 @@ class URLopener:
         if not host: raise IOError('http error', 'no host given')
 
         if proxy_passwd:
-            import base64
+            proxy_passwd = unquote(proxy_passwd)
             proxy_auth = base64.b64encode(proxy_passwd.encode()).decode('ascii')
         else:
             proxy_auth = None
 
         if user_passwd:
-            import base64
+            user_passwd = unquote(user_passwd)
             auth = base64.b64encode(user_passwd.encode()).decode('ascii')
         else:
             auth = None
@@ -1733,7 +1732,6 @@ class URLopener:
 
     def http_error_default(self, url, fp, errcode, errmsg, headers):
         """Default error handler: close the connection and raise IOError."""
-        void = fp.read()
         fp.close()
         raise HTTPError(url, errcode, errmsg, headers, None)
 
@@ -1783,6 +1781,8 @@ class URLopener:
             urlfile = file
             if file[:1] == '/':
                 urlfile = 'file://' + file
+            elif file[:2] == './':
+                raise ValueError("local file url may start with / or file:. Unknown url of type: %s" % url)
             return addinfourl(open(localname, 'rb'), headers, urlfile)
         raise URLError('local file error', 'not on local host')
 
@@ -1823,7 +1823,7 @@ class URLopener:
                     del self.ftpcache[k]
                     v.close()
         try:
-            if not key in self.ftpcache:
+            if key not in self.ftpcache:
                 self.ftpcache[key] = \
                     ftpwrapper(user, passwd, host, port, dirs)
             if not file: type = 'D'
@@ -1873,7 +1873,6 @@ class URLopener:
                                             time.gmtime(time.time())))
         msg.append('Content-type: %s' % type)
         if encoding == 'base64':
-            import base64
             # XXX is this encoding/decoding ok?
             data = base64.decodebytes(data.encode('ascii')).decode('latin1')
         else:
@@ -1924,7 +1923,6 @@ class FancyURLopener(URLopener):
             newurl = headers['uri']
         else:
             return
-        void = fp.read()
         fp.close()
 
         # In case the server sent a relative URL, join with original:
@@ -1938,7 +1936,7 @@ class FancyURLopener(URLopener):
         # We are using newer HTTPError with older redirect_internal method
         # This older method will get deprecated in 3.3
 
-        if not urlparts.scheme in ('http', 'https', 'ftp'):
+        if urlparts.scheme not in ('http', 'https', 'ftp', ''):
             raise HTTPError(newurl, errcode,
                             errmsg +
                             " Redirection to url '%s' is not allowed." % newurl,
@@ -1965,7 +1963,7 @@ class FancyURLopener(URLopener):
             retry=False):
         """Error 401 -- authentication required.
         This function supports Basic authentication only."""
-        if not 'www-authenticate' in headers:
+        if 'www-authenticate' not in headers:
             URLopener.http_error_default(self, url, fp,
                                          errcode, errmsg, headers)
         stuff = headers['www-authenticate']
@@ -1991,7 +1989,7 @@ class FancyURLopener(URLopener):
             retry=False):
         """Error 407 -- proxy authentication required.
         This function supports Basic authentication only."""
-        if not 'proxy-authenticate' in headers:
+        if 'proxy-authenticate' not in headers:
             URLopener.http_error_default(self, url, fp,
                                          errcode, errmsg, headers)
         stuff = headers['proxy-authenticate']
@@ -2116,7 +2114,7 @@ def thishost():
     """Return the IP addresses of the current host."""
     global _thishost
     if _thishost is None:
-        _thishost = tuple(socket.gethostbyname_ex(socket.gethostname()[2]))
+        _thishost = tuple(socket.gethostbyname_ex(socket.gethostname())[2])
     return _thishost
 
 _ftperrors = None

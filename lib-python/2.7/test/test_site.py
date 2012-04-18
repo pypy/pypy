@@ -226,6 +226,10 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'Lib', 'site-packages')
             self.assertEqual(dirs[0], wanted)
+        elif '__pypy__' in sys.builtin_module_names:
+            self.assertEquals(len(dirs), 1)
+            wanted = os.path.join('xoxo', 'site-packages')
+            self.assertEquals(dirs[0], wanted)
         elif os.sep == '/':
             self.assertEqual(len(dirs), 2)
             wanted = os.path.join('xoxo', 'lib', 'python' + sys.version[:3],

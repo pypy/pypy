@@ -15,6 +15,7 @@ from test import support
 import contextlib
 import mmap
 import uuid
+from test.script_helper import assert_python_ok
 
 # Detect whether we're on a Linux system that uses the (now outdated
 # and unmaintained) linuxthreads threading library.  There's an issue
@@ -423,6 +424,20 @@ class EnvironTests(mapping_tests.BasicTestMappingProtocol):
         value_str = value.decode(sys.getfilesystemencoding(), 'surrogateescape')
         self.assertEqual(os.environ['bytes'], value_str)
 
+    # On FreeBSD < 7 and OS X < 10.6, unsetenv() doesn't return a value (issue
+    # #13415).
+    @unittest.skipIf(sys.platform.startswith(('freebsd', 'darwin')),
+                     "due to known OS bug: see issue #13415")
+    def test_unset_error(self):
+        if sys.platform == "win32":
+            # an environment variable is limited to 32,767 characters
+            key = 'x' * 50000
+            self.assertRaises(ValueError, os.environ.__delitem__, key)
+        else:
+            # "=" is not allowed in a variable name
+            key = 'key='
+            self.assertRaises(OSError, os.environ.__delitem__, key)
+
 class WalkTests(unittest.TestCase):
     """Tests for os.walk()."""
 
@@ -462,7 +477,12 @@ class WalkTests(unittest.TestCase):
             f.write("I'm " + path + " and proud of it.  Blame test_os.\n")
             f.close()
         if support.can_symlink():
-            os.symlink(os.path.abspath(t2_path), link_path)
+            if os.name == 'nt':
+                def symlink_to_dir(src, dest):
+                    os.symlink(src, dest, True)
+            else:
+                symlink_to_dir = os.symlink
+            symlink_to_dir(os.path.abspath(t2_path), link_path)
             sub2_tree = (sub2_path, ["link"], ["tmp3"])
         else:
             sub2_tree = (sub2_path, [], ["tmp3"])
@@ -592,14 +612,33 @@ class DevNullTests(unittest.TestCase):
             self.assertEqual(f.read(), b'')
 
 class URandomTests(unittest.TestCase):
-    def test_urandom(self):
-        try:
-            self.assertEqual(len(os.urandom(1)), 1)
-            self.assertEqual(len(os.urandom(10)), 10)
-            self.assertEqual(len(os.urandom(100)), 100)
-            self.assertEqual(len(os.urandom(1000)), 1000)
-        except NotImplementedError:
-            pass
+    def test_urandom_length(self):
+        self.assertEqual(len(os.urandom(0)), 0)
+        self.assertEqual(len(os.urandom(1)), 1)
+        self.assertEqual(len(os.urandom(10)), 10)
+        self.assertEqual(len(os.urandom(100)), 100)
+        self.assertEqual(len(os.urandom(1000)), 1000)
+
+    def test_urandom_value(self):
+        data1 = os.urandom(16)
+        data2 = os.urandom(16)
+        self.assertNotEqual(data1, data2)
+
+    def get_urandom_subprocess(self, count):
+        code = '\n'.join((
+            'import os, sys',
+            'data = os.urandom(%s)' % count,
+            'sys.stdout.buffer.write(data)',
+            'sys.stdout.buffer.flush()'))
+        out = assert_python_ok('-c', code)
+        stdout = out[1]
+        self.assertEqual(len(stdout), 16)
+        return stdout
+
+    def test_urandom_subprocess(self):
+        data1 = self.get_urandom_subprocess(16)
+        data2 = self.get_urandom_subprocess(16)
+        self.assertNotEqual(data1, data2)
 
 @contextlib.contextmanager
 def _execvpe_mockup(defpath=None):
@@ -1092,7 +1131,7 @@ class Win32SymlinkTests(unittest.TestCase):
             os.remove(self.missing_link)
 
     def test_directory_link(self):
-        os.symlink(self.dirlink_target, self.dirlink)
+        os.symlink(self.dirlink_target, self.dirlink, True)
         self.assertTrue(os.path.exists(self.dirlink))
         self.assertTrue(os.path.isdir(self.dirlink))
         self.assertTrue(os.path.islink(self.dirlink))

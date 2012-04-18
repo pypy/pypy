@@ -1,16 +1,17 @@
 #! /usr/bin/env python3
 
+import getopt
 import os
 import os.path
-import sys
-import getopt
 import re
 import socket
-import time
+import subprocess
+import sys
 import threading
+import time
+import tokenize
 import traceback
 import types
-import subprocess
 
 import linecache
 from code import InteractiveInterpreter
@@ -201,18 +202,26 @@ class PyShellEditorWindow(EditorWindow):
         breaks = self.breakpoints
         filename = self.io.filename
         try:
-            lines = open(self.breakpointPath,"r").readlines()
+            with open(self.breakpointPath, "r") as fp:
+                lines = fp.readlines()
         except IOError:
             lines = []
-        new_file = open(self.breakpointPath,"w")
-        for line in lines:
-            if not line.startswith(filename + '='):
-                new_file.write(line)
-        self.update_breakpoints()
-        breaks = self.breakpoints
-        if breaks:
-            new_file.write(filename + '=' + str(breaks) + '\n')
-        new_file.close()
+        try:
+            with open(self.breakpointPath, "w") as new_file:
+                for line in lines:
+                    if not line.startswith(filename + '='):
+                        new_file.write(line)
+                self.update_breakpoints()
+                breaks = self.breakpoints
+                if breaks:
+                    new_file.write(filename + '=' + str(breaks) + '\n')
+        except IOError as err:
+            if not getattr(self.root, "breakpoint_error_displayed", False):
+                self.root.breakpoint_error_displayed = True
+                tkMessageBox.showerror(title='IDLE Error',
+                    message='Unable to update breakpoint list:\n%s'
+                        % str(err),
+                    parent=self.text)
 
     def restore_file_breaks(self):
         self.text.update()   # this enables setting "BREAK" tags to be visible
@@ -220,7 +229,8 @@ class PyShellEditorWindow(EditorWindow):
         if filename is None:
             return
         if os.path.isfile(self.breakpointPath):
-            lines = open(self.breakpointPath,"r").readlines()
+            with open(self.breakpointPath, "r") as fp:
+                lines = fp.readlines()
             for line in lines:
                 if line.startswith(filename + '='):
                     breakpoint_linenumbers = eval(line[len(filename)+1:])
@@ -338,6 +348,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
         self.restarting = False
         self.subprocess_arglist = None
         self.port = PORT
+        self.original_compiler_flags = self.compile.compiler.flags
 
     rpcclt = None
     rpcsubproc = None
@@ -400,11 +411,11 @@ class ModifiedInterpreter(InteractiveInterpreter):
         self.rpcclt.register("flist", self.tkconsole.flist)
         self.rpcclt.register("linecache", linecache)
         self.rpcclt.register("interp", self)
-        self.transfer_path()
+        self.transfer_path(with_cwd=True)
         self.poll_subprocess()
         return self.rpcclt
 
-    def restart_subprocess(self):
+    def restart_subprocess(self, with_cwd=False):
         if self.restarting:
             return self.rpcclt
         self.restarting = True
@@ -428,7 +439,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
         except socket.timeout as err:
             self.display_no_subprocess_error()
             return None
-        self.transfer_path()
+        self.transfer_path(with_cwd=with_cwd)
         # annotate restart in shell window and mark it
         console.text.delete("iomark", "end-1c")
         if was_executing:
@@ -445,6 +456,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
             gui = RemoteDebugger.restart_subprocess_debugger(self.rpcclt)
             # reload remote debugger breakpoints for all PyShellEditWindows
             debug.load_breakpoints()
+        self.compile.compiler.flags = self.original_compiler_flags
         self.restarting = False
         return self.rpcclt
 
@@ -476,12 +488,18 @@ class ModifiedInterpreter(InteractiveInterpreter):
             except OSError:
                 return
 
-    def transfer_path(self):
+    def transfer_path(self, with_cwd=False):
+        if with_cwd:        # Issue 13506
+            path = ['']     # include Current Working Directory
+            path.extend(sys.path)
+        else:
+            path = sys.path
+
         self.runcommand("""if 1:
         import sys as _sys
         _sys.path = %r
         del _sys
-        \n""" % (sys.path,))
+        \n""" % (path,))
 
     active_seq = None
 
@@ -571,7 +589,8 @@ class ModifiedInterpreter(InteractiveInterpreter):
     def execfile(self, filename, source=None):
         "Execute an existing file"
         if source is None:
-            source = open(filename, "r").read()
+            with tokenize.open(filename) as fp:
+                source = fp.read()
         try:
             code = compile(source, filename, "exec")
         except (OverflowError, SyntaxError):
@@ -640,9 +659,9 @@ class ModifiedInterpreter(InteractiveInterpreter):
         text = tkconsole.text
         text.tag_remove("ERROR", "1.0", "end")
         type, value, tb = sys.exc_info()
-        msg = value.msg or "<no detail available>"
-        lineno = value.lineno or 1
-        offset = value.offset or 0
+        msg = getattr(value, 'msg', '') or value or "<no detail available>"
+        lineno = getattr(value, 'lineno', '') or 1
+        offset = getattr(value, 'offset', '') or 0
         if offset == 0:
             lineno += 1 #mark end of offending line
         if lineno == 1:
@@ -1174,7 +1193,8 @@ class PyShell(OutputWindow):
         self.text.see("restart")
 
     def restart_shell(self, event=None):
-        self.interp.restart_subprocess()
+        "Callback for Run/Restart Shell Cntl-F6"
+        self.interp.restart_subprocess(with_cwd=True)
 
     def showprompt(self):
         self.resetoutput()
