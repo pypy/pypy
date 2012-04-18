@@ -194,53 +194,62 @@ def test_os_write():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
-    os.write(fd, 'Hello world')
+    f = getllimpl(os.write)
+    f(fd, 'Hello world')
     os.close(fd)
-    hello = open(fname).read()
-    assert hello == "Hello world"
+    with open(fname) as fid:
+        assert fid.read() == "Hello world"
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     os.close(fd)
-    raises(OSError, os.write, fd, 'Hello world')
+    raises(OSError, f, fd, 'Hello world')
 
 def test_os_close():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    os.close(fd)
-    raises(OSError, os.close, fd)
+    f = getllimpl(os.close)
+    f(fd)
+    raises(OSError, f, fd)
 
 def test_os_lseek():
     fname = str(udir.join('os_test.txt'))
-    fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+    fd = os.open(fname, os.O_RDWR|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    os.lseek(fd,0,0)
-    assert os.tell(fd) == 0
+    f = getllimpl(os.lseek)
+    f(fd,0,0)
+    assert os.read(fd, 11) == 'Hello world'
     os.close(fd)
-    raises(OSError, os.lseek, fd, 0, 0)
+    raises(OSError, f, fd, 0, 0)
 
 def test_os_fsync():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    os.fsync(fd)
+    f = getllimpl(os.fsync)
+    f(fd)
+    os.close(fd)
     fid = open(fname)
     assert fid.read() == 'Hello world'
-    os.close(fd)
-    raises(OSError, os.fsync, fd)
+    fid.close()
+    raises(OSError, f, fd)
 
 def test_os_fdatasync():
+    try:
+        f = getllimpl(os.fdatasync)
+    except:
+        skip('No fdatasync in os')
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
     assert fd >= 0
     os.write(fd, 'Hello world')
-    os.fdatasync(fd)
+    f(fd)
     fid = open(fname)
     assert fid.read() == 'Hello world'
     os.close(fd)
-    raises(OSError, os.fdatasync, fd)
+    raises(OSError, f, fd)
 
 class ExpectTestOs:
     def setup_class(cls):
