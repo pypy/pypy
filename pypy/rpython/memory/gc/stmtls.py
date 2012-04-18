@@ -203,6 +203,13 @@ class StmGCTLS(object):
         # visited above, and reset GCFLAG_VISITED on the others.
         self.mass_free_old_local(previous_sharedarea_tls)
         #
+        # Note that the last step guarantees the invariant that between
+        # collections, all the objects linked within 'self.sharedarea_tls'
+        # don't have GCFLAG_VISITED.  As the newly allocated nursery
+        # objects don't have it either, at the start of the next
+        # collection, the only LOCAL objects that have it are the ones
+        # in 'copied_local_objects'.
+        #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
         ll_assert(bool(self.nursery_free), "nursery_free is NULL")
@@ -464,24 +471,27 @@ class StmGCTLS(object):
         while old.non_empty():
             obj = old.pop()
             hdr = self.gc.header(obj)
+            ll_assert(hdr.tid & (GCFLAG_GLOBAL|GCFLAG_WAS_COPIED) == 0,
+                      "local weakref: bad flags")
             if hdr.tid & GCFLAG_VISITED == 0:
                 continue # weakref itself dies
             #
             if self.is_in_nursery(obj):
                 obj = hdr.version
-                hdr = self.gc.header(obj)
+                #hdr = self.gc.header(obj) --- not needed any more
             offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
             pointing_to = (obj + offset).address[0]
+            ll_assert(bool(pointing_to), "weakref to NULL in local_weakrefs")
             cat = self.categorize_object(pointing_to, can_be_in_nursery=True)
             if cat == 0:
                 # the weakref points to a dying object; no need to rememeber it
                 (obj + offset).address[0] = llmemory.NULL
             else:
                 # the weakref points to an object that stays alive
-                if cat == 2:
+                if cat == 2:      # update the pointer if needed
                     pointing_hdr = self.gc.header(pointing_to)
                     (obj + offset).address[0] = pointing_hdr.version
-                new.append(obj)    # stays alive
+                new.append(obj)   # re-register in the new local_weakrefs list
         #
         self.local_weakrefs = new
         old.delete()
