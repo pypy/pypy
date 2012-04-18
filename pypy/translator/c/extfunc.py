@@ -5,7 +5,6 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_os
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
