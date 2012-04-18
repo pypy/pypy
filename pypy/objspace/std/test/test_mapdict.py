@@ -840,10 +840,11 @@ class AppTestWithMapDictAndCounters(object):
         class C(object):
             def m(*args):
                 return args
-        C.sm = staticmethod(C.m.im_func)
-        C.cm = classmethod(C.m.im_func)
+        C.sm = staticmethod(C.m)
+        C.cm = classmethod(C.m)
 
-        exec """if 1:
+        d = {'C': C}
+        exec("""if 1:
 
             def f():
                 c = C()
@@ -862,7 +863,10 @@ class AppTestWithMapDictAndCounters(object):
                 res = c.cm(1)
                 assert res == (C, 1)
                 return 42
-        """
+        """, d)
+        f = d['f']
+        g = d['g']
+        h = d['h']
         res = self.check(f, 'm')
         assert res == (1, 0, 0)
         res = self.check(f, 'm')
