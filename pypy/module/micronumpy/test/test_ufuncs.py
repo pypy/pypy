@@ -770,6 +770,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_logaddexp(self):
         import math
+        import sys
+        float_max, float_min = sys.float_info.max, sys.float_info.min
         from _numpypy import logaddexp
 
         # From the numpy documentation
@@ -780,7 +782,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert logaddexp(0, 0) == math.log(2)
         assert logaddexp(float('-inf'), 0) == 0
-        assert logaddexp(12345678, 12345678) == float('inf')
+        assert logaddexp(float_max, float_max) == float_max
+        assert logaddexp(float_min, float_min) == math.log(2)
 
         assert math.isnan(logaddexp(float('nan'), 1))
         assert math.isnan(logaddexp(1, float('nan')))
@@ -793,6 +796,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_logaddexp2(self):
         import math
+        import sys
+        float_max, float_min = sys.float_info.max, sys.float_info.min
         from _numpypy import logaddexp2
         log2 = math.log(2)
 
@@ -804,7 +809,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         assert logaddexp2(0, 0) == 1
         assert logaddexp2(float('-inf'), 0) == 0
-        assert logaddexp2(12345678, 12345678) == float('inf')
+        assert logaddexp2(float_max, float_max) == float_max
+        assert logaddexp2(float_min, float_min) == 1.0
 
         assert math.isnan(logaddexp2(float('nan'), 1))
         assert math.isnan(logaddexp2(1, float('nan')))

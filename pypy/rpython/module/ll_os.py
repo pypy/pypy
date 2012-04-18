@@ -1178,8 +1178,11 @@ class RegisterOs(BaseLazyRegistering):
             DIRENTP = lltype.Ptr(DIRENT)
             os_opendir = self.llexternal('opendir', [rffi.CCHARP], DIRP,
                                          compilation_info=compilation_info)
+            # XXX macro=True is hack to make sure we get the correct kind of
+            # dirent struct (which depends on defines)
             os_readdir = self.llexternal('readdir', [DIRP], DIRENTP,
-                                         compilation_info=compilation_info)
+                                         compilation_info=compilation_info,
+                                         macro=True)
             os_closedir = self.llexternal('closedir', [DIRP], rffi.INT,
                                           compilation_info=compilation_info)
 

@@ -914,6 +914,12 @@ class ObjSpace(object):
         """
         return None
 
+    def view_as_kwargs(self, w_dict):
+        """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
+        strings and one of wrapped values. otherwise return (None, None)
+        """
+        return (None, None)
+
     def newlist_str(self, list_s):
         return self.newlist([self.wrap(s) for s in list_s])
 
