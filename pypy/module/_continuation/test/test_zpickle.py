@@ -1,9 +1,10 @@
+import py
 from pypy.conftest import gettestobjspace
 
 
 class AppTestCopy:
     def setup_class(cls):
-        py3k_skip("_continuation not supported yet")
+        py.test.py3k_skip("_continuation not supported yet")
         cls.space = gettestobjspace(usemodules=('_continuation',),
                                     CALL_METHOD=True)
         cls.space.config.translation.continuation = True
@@ -107,6 +108,7 @@ class AppTestPickle:
     version = 0
 
     def setup_class(cls):
+        py.test.py3k_skip("_continuation not supported yet")
         cls.space = gettestobjspace(usemodules=('_continuation', 'struct'),
                                     CALL_METHOD=True)
         cls.space.config.translation.continuation = True
