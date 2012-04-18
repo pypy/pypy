@@ -12,6 +12,9 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'debug_print', 'debug_assert', 'cast_opaque_ptr', 'hint',
     'indirect_call', 'stack_current', 'gc_stack_bottom',
     'cast_current_ptr_to_int',   # this variant of 'cast_ptr_to_int' is ok
+    'jit_force_virtual', 'jit_force_virtualizable',
+    'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
+    'jit_record_known_class',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
