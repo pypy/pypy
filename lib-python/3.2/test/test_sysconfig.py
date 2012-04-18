@@ -1,5 +1,9 @@
-"""Tests for sysconfig."""
+"""Tests for 'site'.
 
+Tests assume the initial paths in sys.path once the interpreter has begun
+executing have not been removed.
+
+"""
 import unittest
 import sys
 import os
@@ -7,7 +11,7 @@ import subprocess
 import shutil
 from copy import copy, deepcopy
 
-from test.support import (run_unittest, TESTFN, unlink,
+from test.support import (run_unittest, TESTFN, unlink, get_attribute,
                           captured_stdout, skip_unless_symlink)
 
 import sysconfig
@@ -231,7 +235,7 @@ class TestSysConfig(unittest.TestCase):
 
     def test_get_scheme_names(self):
         wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user')
+                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
@@ -257,21 +261,14 @@ class TestSysConfig(unittest.TestCase):
             unlink(link)
 
     def test_user_similar(self):
-        # Issue #8759: make sure the posix scheme for the users
+        # Issue 8759 : make sure the posix scheme for the users
         # is similar to the global posix_prefix one
         base = get_config_var('base')
         user = get_config_var('userbase')
-        # the global scheme mirrors the distinction between prefix and
-        # exec-prefix but not the user scheme, so we have to adapt the paths
-        # before comparing (issue #9100)
-        adapt = sys.prefix != sys.exec_prefix
         for name in ('stdlib', 'platstdlib', 'purelib', 'platlib'):
             global_path = get_path(name, 'posix_prefix')
-            if adapt:
-                global_path = global_path.replace(sys.exec_prefix, sys.prefix)
-                base = base.replace(sys.exec_prefix, sys.prefix)
             user_path = get_path(name, 'posix_user')
-            self.assertEqual(user_path, global_path.replace(base, user, 1))
+            self.assertEqual(user_path, global_path.replace(base, user))
 
     def test_main(self):
         # just making sure _main() runs and returns things in the stdout
