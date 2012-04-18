@@ -1223,7 +1223,7 @@ class MIFrame(object):
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
-        # methods) returns True.  This is the case when the current frame
+        # methods) raises ChangeFrame.  This is the case when the current frame
         # changes, due to a call or a return.
         try:
             staticdata = self.metainterp.staticdata
