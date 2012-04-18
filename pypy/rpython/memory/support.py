@@ -117,6 +117,15 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, multithread=False,
                 self.shrink()
             return result
 
+        def clear(self):
+            cur = self.chunk
+            while cur.next:
+                next = cur.next
+                unused_chunks.put(cur)
+                cur = next
+            self.chunk = cur
+            self.used_in_last_chunk = 0
+
         def delete(self):
             cur = self.chunk
             while cur:
