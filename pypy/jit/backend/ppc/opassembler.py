@@ -990,7 +990,7 @@ class AllocOpAssembler(object):
                 #byteofs
                 s = 3 + descr.jit_wb_card_page_shift
 
-                # use r20 as temporay register, save it in FORCE INDEX slot
+                # use r20 as temporary register, save it in FORCE INDEX slot
                 temp_reg = r.r20
                 ENCODING_AREA = len(r.MANAGED_REGS) * WORD
                 self.mc.store(temp_reg.value, r.SPP.value, ENCODING_AREA)
@@ -1012,14 +1012,14 @@ class AllocOpAssembler(object):
                 self.mc.stbx(r.SCRATCH.value, loc_base.value, temp_reg.value)
                 # done
 
+                # restore temporary register r20
+                self.mc.load(temp_reg.value, r.SPP.value, ENCODING_AREA)
+
                 # patch the JMP above
                 offset = self.mc.currpos()
                 pmc = OverwritingBuilder(self.mc, jmp_location, 1)
                 pmc.b(offset - jmp_location)
                 pmc.overwrite()
-
-                # restore temporary register r20
-                self.mc.load(temp_reg.value, r.SPP.value, ENCODING_AREA)
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
