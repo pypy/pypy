@@ -38,25 +38,21 @@ class StmGCTLS(object):
         self.nursery_size  = self.gc.nursery_size
         self.nursery_start = self._alloc_nursery(self.nursery_size)
         #
-        # --- the local raw-malloced objects (chained list via hdr.version)
-        #self.rawmalloced_objects = NULL
-        # --- the local "normal" old objects (chained list via hdr.version)
-        #self.old_objects = NULL
-        # --- the local objects with weakrefs (chained list via hdr.version)
-        #self.young_objects_with_weakrefs = NULL
-        #self.old_objects_with_weakrefs = NULL
-        #
         # --- a thread-local allocator for the shared area
         from pypy.rpython.memory.gc.stmshared import StmGCThreadLocalAllocator
         self.sharedarea_tls = StmGCThreadLocalAllocator(self.gc.sharedarea)
         # --- the LOCAL objects with GCFLAG_WAS_COPIED
         self.copied_local_objects = self.AddressStack()
+        # --- the LOCAL objects which are weakrefs.  They are also listed
+        #     in the appropriate place, like sharedarea_tls, if needed.
+        self.local_weakrefs = self.AddressStack()
         #
         self._register_with_C_code()
 
     def teardown_thread(self):
         self._cleanup_state()
         self._unregister_with_C_code()
+        self.local_weakrefs.delete()
         self.copied_local_objects.delete()
         self.sharedarea_tls.delete()
         self._free_nursery(self.nursery_start)
@@ -199,9 +195,9 @@ class StmGCTLS(object):
         # Now repeatedly follow objects until 'pending' is empty.
         self.collect_flush_pending()
         #
-        # Walk the list of LOCAL raw-malloced objects, and free them if
-        # necessary.
-        #self.free_local_rawmalloced_objects()
+        # Walk the list of LOCAL weakrefs, and update it if necessary.
+        if self.local_weakrefs.non_empty():
+            self.update_local_weakrefs()
         #
         # Visit all previous OLD objects.  Free the ones that have not been
         # visited above, and reset GCFLAG_VISITED on the others.
@@ -253,6 +249,9 @@ class StmGCTLS(object):
         self.copied_local_objects.append(localobj)
         return localobj
 
+    def fresh_new_weakref(self, obj):
+        self.local_weakrefs.append(obj)
+
     # ------------------------------------------------------------
 
     def _promote_locals_to_globals(self):
@@ -275,12 +274,14 @@ class StmGCTLS(object):
 
         # free the old unused local objects still allocated in the
         # StmGCThreadLocalAllocator
-        self.sharedarea_tls.clear()
+        self.sharedarea_tls.free_and_clear()
         # free the local copies.  Note that commonly, they are leftovers
         # from the previous transaction running in this thread.  The C code
         # has just copied them over the corresponding GLOBAL objects at the
         # very end of that transaction.
         self._free_and_clear_list(self.copied_local_objects)
+        # forget the local weakrefs.
+        self.local_weakrefs.clear()
 
     def _free_and_clear_list(self, lst):
         while lst.non_empty():
@@ -302,6 +303,33 @@ class StmGCTLS(object):
     def _trace_drag_out1(self, root):
         self._trace_drag_out(root, None)
 
+    @always_inline
+    def categorize_object(self, obj, can_be_in_nursery):
+        """Return the current surviving state of the object:
+            0: not marked as surviving, so far
+            1: survives and does not move
+            2: survives, but moves to 'hdr.version'
+        """
+        hdr = self.gc.header(obj)
+        flag_combination = hdr.tid & (GCFLAG_GLOBAL |
+                                      GCFLAG_WAS_COPIED |
+                                      GCFLAG_VISITED)
+        if flag_combination == 0:
+            return 0    # not marked as surviving, so far
+
+        if flag_combination == self.detect_flag_combination:
+            # At a normal time, self.detect_flag_combination is -1
+            # and this case is never seen.  At end of transactions,
+            # detect_flag_combination is GCFLAG_WAS_COPIED|GCFLAG_VISITED.
+            # This case is to force pointers to the LOCAL copy to be
+            # replaced with pointers to the GLOBAL copy.
+            return 2
+
+        if can_be_in_nursery and self.is_in_nursery(obj):
+            return 2
+        else:
+            return 1
+
     def _trace_drag_out(self, root, ignored):
         """Trace callback: 'root' is the address of some pointer.  If that
         pointer points to a YOUNG object, allocate an OLD copy of it and
@@ -317,18 +345,11 @@ class StmGCTLS(object):
         if not self.is_in_nursery(obj):
             # we ignore both GLOBAL objects and objects which have already
             # been VISITED
-            flag_combination = hdr.tid & (GCFLAG_GLOBAL |
-                                          GCFLAG_WAS_COPIED |
-                                          GCFLAG_VISITED)
-            if flag_combination == 0:
+            cat = self.categorize_object(obj, can_be_in_nursery=False)
+            if cat == 0:
                 hdr.tid |= GCFLAG_VISITED
                 self.pending.append(obj)
-            elif flag_combination == self.detect_flag_combination:
-                # At a normal time, self.detect_flag_combination is -1
-                # and this case is never seen.  At end of transactions,
-                # detect_flag_combination is GCFLAG_WAS_COPIED|GCFLAG_VISITED.
-                # Replace references to the local copy with references
-                # to the global copy
+            elif cat == 2:
                 root.address[0] = hdr.version
             return
         #
@@ -436,6 +457,34 @@ class StmGCTLS(object):
             obj = self.pending.pop()
             self.trace_and_drag_out_of_nursery(obj)
         self.pending.delete()
+
+    def update_local_weakrefs(self):
+        old = self.local_weakrefs
+        new = self.AddressStack()
+        while old.non_empty():
+            obj = old.pop()
+            hdr = self.gc.header(obj)
+            if hdr.tid & GCFLAG_VISITED == 0:
+                continue # weakref itself dies
+            #
+            if self.is_in_nursery(obj):
+                obj = hdr.version
+                hdr = self.gc.header(obj)
+            offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
+            pointing_to = (obj + offset).address[0]
+            cat = self.categorize_object(pointing_to, can_be_in_nursery=True)
+            if cat == 0:
+                # the weakref points to a dying object; no need to rememeber it
+                (obj + offset).address[0] = llmemory.NULL
+            else:
+                # the weakref points to an object that stays alive
+                if cat == 2:
+                    pointing_hdr = self.gc.header(pointing_to)
+                    (obj + offset).address[0] = pointing_hdr.version
+                new.append(obj)    # stays alive
+        #
+        self.local_weakrefs = new
+        old.delete()
 
     def mass_free_old_local(self, previous_sharedarea_tls):
         obj = previous_sharedarea_tls.chained_list

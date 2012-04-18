@@ -582,7 +582,7 @@ class TestBasic(StmGCTests):
         twr1.wr = wr1
         self.gc.commit_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
-        assert wr2 and wr2 != wr1
+        assert wr2 and wr2._obj0 != wr1._obj0
         assert wr2.wadr == s2_adr   # survives
 
     def test_weakref_to_local_dying(self):
@@ -596,7 +596,7 @@ class TestBasic(StmGCTests):
         twr1.wr = wr1
         self.gc.commit_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
-        assert wr2 and wr2 != wr1
+        assert wr2 and wr2._obj0 != wr1._obj0
         assert wr2.wadr == llmemory.NULL   # dies
 
     def test_weakref_to_local_surviving(self):
@@ -615,8 +615,8 @@ class TestBasic(StmGCTests):
         t2.a = 4242
         self.gc.commit_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
-        assert wr2 and wr2 != wr1
-        assert wr2.wadr and wr2.wadr != t2_adr       # survives
+        assert wr2 and wr2._obj0 != wr1._obj0
+        assert wr2.wadr and wr2.wadr.ptr._obj0 != t2_adr.ptr._obj0   # survives
         s2 = llmemory.cast_adr_to_ptr(wr2.wadr, lltype.Ptr(S))
         assert s2.a == 4242
         assert s2 == tr1.s1   # tr1 is a root, so not copied yet

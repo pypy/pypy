@@ -42,8 +42,7 @@ GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_HAS_SHADOW = first_gcflag << 2
 GCFLAG_FIXED_HASH = first_gcflag << 3
-GCFLAG_WEAKREF    = first_gcflag << 4
-GCFLAG_VISITED    = first_gcflag << 5
+GCFLAG_VISITED    = first_gcflag << 4
 
 
 def always_inline(fn):
@@ -161,15 +160,15 @@ class StmGC(MovingGCBase):
         # Get the memory from the nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
-        result = self.get_tls().allocate_bump_pointer(totalsize)
+        tls = self.get_tls()
+        result = tls.allocate_bump_pointer(totalsize)
         #
         # Build the object.
         llarena.arena_reserve(result, totalsize)
         obj = result + size_gc_header
-        flags = 0
+        self.init_gc_object(result, typeid, flags=0)
         if contains_weakptr:   # check constant-folded
-            flags |= GCFLAG_WEAKREF
-        self.init_gc_object(result, typeid, flags=flags)
+            tls.fresh_new_weakref(obj)
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
