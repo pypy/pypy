@@ -1014,9 +1014,10 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             l = [A(), B(), C()] * 10
             __pypy__.reset_method_cache_counter()
             # 'exec' to make sure that a.f() is compiled with CALL_METHOD
-            exec """for i, a in enumerate(l):
+            d = {'l': l}
+            exec("""for i, a in enumerate(l):
                         assert a.f() == 42 + i % 3
-            """ in locals()
+            """, d)
             cache_counter = __pypy__.mapdict_cache_counter("f")
             if cache_counter == (27, 3):
                 break
