@@ -268,7 +268,7 @@ class AppTest_OverflowTestCase:
         assert self.neg.__index__() == self.neg
 
     def test_getitem(self):
-        from sys import maxint
+        from sys import maxsize as maxint
         class GetItem(object):
             def __len__(self):
                 return maxint
@@ -277,7 +277,7 @@ class AppTest_OverflowTestCase:
         x = GetItem()
         assert x[self.pos] == self.pos
         assert x[self.neg] == self.neg
-        assert x[self.neg:self.pos] == (-1, maxint)
+        assert x[self.neg:self.pos] == slice(self.neg, self.pos)
         assert x[self.neg:self.pos:1].indices(maxint) == (0, maxint, 1)
 
     def test_getslice_nolength(self):
