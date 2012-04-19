@@ -287,20 +287,6 @@ class AppTest_OverflowTestCase:
 
         assert X()[-2:1] == (-2, 1)
 
-    def test_getitem_classic(self):
-        from sys import maxint
-        class Empty: pass
-        class GetItem(Empty):
-            def __len__(self):
-                return maxint
-            def __getitem__(self, key):
-                return key
-        x = GetItem()
-        assert x[self.pos] == self.pos
-        assert x[self.neg] == self.neg
-        assert x[self.neg:self.pos] == (-1, maxint)
-        assert x[self.neg:self.pos:1].indices(maxint) == (0, maxint, 1)
-
     def test_sequence_repeat(self):
         raises(OverflowError, lambda: "a" * self.pos)
         raises(OverflowError, lambda: "a" * self.neg)
