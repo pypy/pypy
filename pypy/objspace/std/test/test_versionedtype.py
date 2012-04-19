@@ -29,7 +29,9 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         btag = w_B.version_tag()
         assert atag is not None
         assert btag is not None
-        assert w_C.version_tag() is None
+        # the following assert is true only in py2 because C is an old-style
+        #class
+        # assert w_C.version_tag() is None
         assert atag is not btag
         w_types = space.appexec([w_A, w_B], """(A, B):
             B.g = lambda self: None
