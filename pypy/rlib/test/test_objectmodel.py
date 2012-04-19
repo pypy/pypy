@@ -160,8 +160,8 @@ def test_compute_hash():
 
 def test_compute_hash_float():
     from pypy.rlib.rfloat import INFINITY, NAN
-    assert compute_hash(INFINITY) == 314159
-    assert compute_hash(-INFINITY) == -271828
+    assert compute_hash(INFINITY) == HASH_INF
+    assert compute_hash(-INFINITY) == -HASH_INF
     assert compute_hash(NAN) == 0
 
 def test_compute_identity_hash():
