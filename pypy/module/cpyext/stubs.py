@@ -1405,17 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyList_GetSlice(space, list, low, high):
-    """Return a list of the objects in list containing the objects between low
-    and high.  Return NULL and set an exception if unsuccessful.  Analogous
-    to list[low:high].  Negative indices, as when slicing from Python, are not
-    supported.
-
-    This function used an int for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([Py_ssize_t], PyObject)
 def PyLong_FromSsize_t(space, v):
     """Return a new PyLongObject object from a C Py_ssize_t, or
