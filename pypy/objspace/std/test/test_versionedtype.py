@@ -147,39 +147,6 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         assert w_MODULE.version_tag() is not None
         assert w_OBJECT.version_tag() is not None
 
-    def test_version_tag_mixes_oldnew(self):
-        space = self.space
-        w_types = space.appexec([], """():
-        class A:
-            pass
-
-        class B(A, object):
-            pass
-
-        return A, B
-        """)
-        w_A, w_B = space.unpackiterable(w_types)
-        oldtag = w_B.version_tag()
-        space.setattr(w_A, space.wrap("x"), space.w_None)
-        newtag = w_B.version_tag()
-        if oldtag is not None:
-            assert newtag != oldtag
-
-        w_types = space.appexec([], """():
-        class A:
-            pass
-        class B(object):
-            pass
-
-        return A, B
-        """)
-        w_A, w_B = space.unpackiterable(w_types)
-        oldtag = w_B.version_tag()
-        assert oldtag is not None
-        space.setattr(w_B, space.wrap("__bases__"), space.newtuple([w_A, space.w_object]))
-        newtag = w_B.version_tag()
-        assert newtag is None
-
     def test_version_tag_of_modules(self):
         space = self.space
         w_mod = space.appexec([], """():
