@@ -117,8 +117,8 @@ class BaseTest(BaseRtypingTest):
         TYPE = self.gettype(v_inst)
         accessor = TYPE._hints['virtualizable2_accessor']
         assert accessor.TYPE == TYPE
-        assert accessor.fields == {self.prefix + 'v1': IR_IMMUTABLE,
-                                   self.prefix + 'v2': IR_IMMUTABLE_ARRAY}
+        assert accessor._fields == {self.prefix + 'v1': IR_IMMUTABLE,
+                                    self.prefix + 'v2': IR_IMMUTABLE_ARRAY}
         #
         def fn2(n):
             Base().base1 = 42
