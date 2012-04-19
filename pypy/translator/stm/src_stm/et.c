@@ -412,14 +412,21 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
 
 /* lazy/lazy read instrumentation */
 #define STM_DO_READ(READ_OPERATION)                                     \
+  if (is_inevitable(d)) {                                               \
+    /* if is_inevitable(), then we don't need to do the checking of  */ \
+    /* o->version done below --- but more importantly, we don't need */ \
+    /* to insert o in the OrecList                                   */ \
+    READ_OPERATION;                                                     \
+  }                                                                     \
+  else {                                                                \
  retry:                                                                 \
   /* read the orec BEFORE we read anything else */                      \
   ovt = o->version;                                                     \
   CFENCE;                                                               \
                                                                         \
-  /* this tx doesn't hold any locks, so if the lock for this addr is    \
-     held, there is contention.  A lock is never hold for too long,     \
-     so spinloop until it is released. */                               \
+  /* this tx doesn't hold any locks, so if the lock for this addr is */ \
+  /* held, there is contention.  A lock is never hold for too long,  */ \
+  /* so spinloop until it is released.                               */ \
   if (IS_LOCKED_OR_NEWER(ovt, d->start_time))                           \
     {                                                                   \
       if (IS_LOCKED(ovt)) {                                             \
@@ -440,7 +447,8 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
   if (__builtin_expect(o->version != ovt, 0))                           \
     goto retry;       /* oups, try again */                             \
                                                                         \
-  oreclist_insert(&d->reads, (orec_t*)o);
+  oreclist_insert(&d->reads, (orec_t*)o);                               \
+  }
 
 
 #define STM_READ_WORD(SIZE, SUFFIX, TYPE)                               \
@@ -451,8 +459,9 @@ TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
   owner_version_t ovt;                                                  \
                                                                         \
   assert(sizeof(TYPE) == SIZE);                                         \
-                                                                        \
-  /* XXX try to remove this check from the main path */                 \
+  /* XXX try to remove this check from the main path:           */      \
+  /*     d is NULL only when in non-main threads but            */      \
+  /*     outside a transaction.                                 */      \
   if (d == NULL)                                                        \
     return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
@@ -468,7 +477,8 @@ TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
     not_found:;                                                         \
     }                                                                   \
                                                                         \
-  STM_DO_READ(TYPE tmp = *(TYPE *)(((char *)addr) + offset));           \
+  TYPE tmp;                                                             \
+  STM_DO_READ(tmp = *(TYPE *)(((char *)addr) + offset));                \
   return tmp;                                                           \
 }
 
