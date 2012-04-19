@@ -289,8 +289,7 @@ class AppTestUnicodeObject:
         assert "%x" % big == "1234567890987654321"
 
     def test_missing_cases(self):
-        big = -123456789012345678901234567890L
-        print '%032d' % big
+        big = -123456789012345678901234567890
         assert '%032d' % big == '-0123456789012345678901234567890'
 
     def test_invalid_char(self):
