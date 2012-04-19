@@ -117,7 +117,7 @@ def float__Long(space, w_longobj):
                              space.wrap("long int too large to convert to float"))
 
 def repr__Long(space, w_long):
-    return space.wrap(w_long.num.repr())
+    return space.wrap(w_long.num.str())
 
 def str__Long(space, w_long):
     return space.wrap(w_long.num.str())
