@@ -121,6 +121,7 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        py3k_skip('missing support for longs')
         import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -202,6 +203,7 @@ class AppTestFfi:
                 return len;
             }
         """
+        py3k_skip('missing support for unicode')
         from _ffi import CDLL, types
         import _rawffi
         libfoo = CDLL(self.libfoo_name)
@@ -252,6 +254,7 @@ class AppTestFfi:
                 return s;
             }
         """
+        py3k_skip('missing support for unicode')
         from _ffi import CDLL, types
         import _rawffi
         libfoo = CDLL(self.libfoo_name)
@@ -323,6 +326,7 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        py3k_skip('missing support for longs')
         import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
@@ -449,6 +453,7 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        py3k_skip('missing support for ulonglong')
         from _ffi import CDLL, types
         maxint64 = 9223372036854775807 # maxint64+1 does not fit into a
                                        # longlong, but it does into a
