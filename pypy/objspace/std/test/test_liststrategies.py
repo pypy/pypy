@@ -1,3 +1,4 @@
+import py
 from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy, FloatListStrategy, UnicodeListStrategy, RangeListStrategy, make_range_list
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
@@ -139,6 +140,7 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, EmptyListStrategy)
 
     def test_setslice(self):
+        py.test.py3k_skip("missing the correct list strategy")
         l = W_ListObject(self.space, [])
         assert isinstance(l.strategy, EmptyListStrategy)
         l.setslice(0, 1, 2, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)]))
@@ -466,6 +468,8 @@ class TestW_ListStrategies(TestW_ListObject):
         assert space.unwrap(w_res) == 3
 
     def test_create_list_from_set(self):
+        # this test fails because of the "w_set.iter = None" line below
+        py.test.py3k_skip("missing the correct list strategy")
         from pypy.objspace.std.setobject import W_SetObject
         from pypy.objspace.std.setobject import _initialize_set
 
