@@ -183,8 +183,6 @@ class AppTestStringObject:
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
     
-    def test_broken_unicode(self):
-        raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
 
 class AppTestWidthPrec:
     def test_width(self):
