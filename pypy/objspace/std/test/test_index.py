@@ -285,7 +285,7 @@ class AppTest_OverflowTestCase:
             def __getitem__(self, slice):
                 return slice
 
-        assert X()[-2:1] == (-2, 1)
+        assert X()[-2:1] == slice(-2, 1)
 
     def test_sequence_repeat(self):
         raises(OverflowError, lambda: "a" * self.pos)
