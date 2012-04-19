@@ -176,9 +176,10 @@ class AppTestStringObject:
         e = 'e'
         assert '%c' % A == 'A'
         assert '%c' % e == 'e'
-        raises(OverflowError, '%c'.__mod__, (256,))
+        #raises(OverflowError, '%c'.__mod__, (256,)) # py2
+        assert '%c' % 256 == '\u0100'                # py3k
         raises(OverflowError, '%c'.__mod__, (-1,))
-        raises(OverflowError, u'%c'.__mod__, (sys.maxunicode+1,))
+        raises(OverflowError, '%c'.__mod__, (sys.maxunicode+1,))
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
