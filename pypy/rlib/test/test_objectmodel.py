@@ -332,8 +332,8 @@ class BaseTestObjectModel(BaseRtypingTest):
             q = Foo()
             assert compute_hash(q) == compute_identity_hash(q)
             from pypy.rlib.rfloat import INFINITY, NAN
-            assert compute_hash(INFINITY) == 314159
-            assert compute_hash(-INFINITY) == -271828
+            assert compute_hash(INFINITY) == HASH_INF
+            assert compute_hash(-INFINITY) == -HASH_INF
             assert compute_hash(NAN) == 0
             return i*2
         res = self.interpret(f, [42])
