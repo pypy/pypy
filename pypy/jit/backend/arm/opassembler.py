@@ -357,6 +357,7 @@ class ResOpAssembler(object):
         cond = self._emit_call(force_index, adr, arglist, fcond, resloc)
         descr = op.getdescr()
         #XXX Hack, Hack, Hack
+        # XXX NEEDS TO BE FIXED
         if (op.result and not we_are_translated()):
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
@@ -657,11 +658,16 @@ class ResOpAssembler(object):
             else:
                 self.mc.LDR_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
                 self.mc.LDRH_ri(res.value, base_loc.value, ofs.value)
             else:
                 self.mc.LDRH_rr(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             if ofs.is_imm():
                 self.mc.LDRB_ri(res.value, base_loc.value, ofs.value)
             else:
@@ -700,8 +706,13 @@ class ResOpAssembler(object):
         elif fieldsize.value == 4:
             self.mc.LDR_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 2:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
         elif fieldsize.value == 1:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
         else:
             assert 0
@@ -804,9 +815,14 @@ class ResOpAssembler(object):
             self.mc.LDR_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         elif scale.value == 1:
+            # XXX NEEDS TO BE FIXED
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRH_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         elif scale.value == 0:
+            # XXX this doesn't get the correct result: it needs to know
+            # XXX if we want a signed or unsigned result
             self.mc.LDRB_rr(res.value, base_loc.value, scale_loc.value,
                                                                 cond=fcond)
         else:
