@@ -757,6 +757,8 @@ class LLFrame(object):
         checkptr(ptr1)
         return lltype.cast_ptr_to_int(ptr1)
 
+    op_cast_current_ptr_to_int = op_cast_ptr_to_int
+
     def op_cast_opaque_ptr(self, RESTYPE, obj):
         checkptr(obj)
         return lltype.cast_opaque_ptr(RESTYPE, obj)
