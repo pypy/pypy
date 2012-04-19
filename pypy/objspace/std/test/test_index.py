@@ -76,7 +76,7 @@ class AppTest_IndexProtocol:
         assert self.n.__index__() == 5
 
     def test_subclasses(self):
-        r = range(10)
+        r = list(range(10))
         assert r[self.TrapInt(5):self.TrapInt(10)] == r[5:10]
         assert slice(self.TrapInt()).indices(0) == (0,0,1)
 
