@@ -127,15 +127,6 @@ class AppTestStringObject:
         assert '27' == '%.2o' % n
         assert '027' == '%#.2o' % n
 
-    def test_format_long(self):
-        l = 4800000000L
-        assert '%d' % l == '4800000000'
-        #
-        class SubLong(long):
-            pass
-        sl = SubLong(l)
-        assert '%d' % sl == '4800000000'
-
     def test_format_list(self):
         l = [1,2]
         assert '<[1, 2]>' == '<%s>' % l
