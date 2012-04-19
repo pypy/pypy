@@ -259,14 +259,22 @@ class GuardOpAssembler(object):
     def _cmp_guard_class(self, op, locs, regalloc):
         offset = locs[2]
         if offset is not None:
-            #self.mc.LDR_ri(r.ip.value, locs[0].value, offset.value, cond=fcond)
-            #self.mc.CMP_rr(r.ip.value, locs[1].value, cond=fcond)
             with scratch_reg(self.mc):
                 self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
                 self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
         else:
-            raise NotImplementedError
-            # XXX port from x86 backend once gc support is in place
+            typeid = locs[1]
+            # here, we have to go back from 'classptr' to the value expected
+            # from reading the half-word in the object header.  Note that
+            # this half-word is at offset 0 on a little-endian machine;
+            # it would be at offset 2 (32 bit) or 4 (64 bit) on a
+            # big-endian machine.
+            with scratch_reg(self.mc):
+                if IS_PPC_32:
+                    self.mc.lhz(r.SCRATCH.value, locs[0].value, 2)
+                else:
+                    self.mc.lwz(r.SCRATCH.value, locs[0].value, 4)
+                self.mc.cmp_op(0, r.SCRATCH.value, typeid.value, imm=typeid.is_imm())
 
     def emit_guard_not_invalidated(self, op, locs, regalloc):
         return self._emit_guard(op, locs, c.EQ, is_guard_not_invalidated=True)

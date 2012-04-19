@@ -1,6 +1,6 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
-from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS)
+from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
@@ -15,7 +15,8 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc import locations
-from pypy.rpython.lltypesystem import rffi, lltype, rstr
+from pypy.rpython.lltypesystem import rffi, lltype, rstr, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.descr import ArrayDescr
 import pypy.jit.backend.ppc.register as r
@@ -452,17 +453,45 @@ class Regalloc(object):
         boxes = op.getarglist()
 
         x = self._ensure_value_is_boxed(boxes[0], boxes)
-        y = self.get_scratch_reg(INT, forbidden_vars=boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
-        self.assembler.load(y, imm(y_val))
+
+        arglocs = [x, None, None]
 
         offset = self.cpu.vtable_offset
-        assert offset is not None
-        assert _check_imm_arg(offset)
-        offset_loc = imm(offset)
-        arglocs = self._prepare_guard(op, [x, y, offset_loc])
+        if offset is not None:
+            y = self.get_scratch_reg(INT, forbidden_vars=boxes)
+            self.assembler.load(y, imm(y_val))
 
-        return arglocs
+            assert _check_imm_arg(offset)
+            offset_loc = imm(offset)
+
+            arglocs[1] = y
+            arglocs[2] = offset_loc
+
+        else:
+            # XXX hard-coded assumption: to go from an object to its class
+            # we use the following algorithm:
+            #   - read the typeid from mem(locs[0]), i.e. at offset 0
+            #   - keep the lower half-word read there
+            #   - multiply by 4 (on 32-bits only) and use it as an
+            #     offset in type_info_group
+            #   - add 16/32 bytes, to go past the TYPE_INFO structure
+            classptr = y_val
+            from pypy.rpython.memory.gctypelayout import GCData
+            sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+            type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+            type_info_group = rffi.cast(lltype.Signed, type_info_group)
+            expected_typeid = classptr - sizeof_ti - type_info_group
+            if IS_PPC_32:
+                expected_typeid >>= 2
+            if _check_imm_arg(expected_typeid):
+                arglocs[1] = imm(expected_typeid)
+            else:
+                y = self.get_scratch_reg(INT, forbidden_vars=boxes)
+                self.assembler.load(y, imm(expected_typeid))
+                arglocs[1] = y
+
+        return self._prepare_guard(op, arglocs)
 
     prepare_guard_nonnull_class = prepare_guard_class
 
