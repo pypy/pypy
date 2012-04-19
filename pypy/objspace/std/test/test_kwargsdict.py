@@ -113,6 +113,7 @@ class AppTestKwargsDictStrategy(object):
         return r[r.find("(") + 1: r.find(")")]
 
     def test_create(self):
+        py3k_skip("need UnicodeDictStrategy to work in py3k")
         def f(**args):
             return args
         d = f(a=1)
