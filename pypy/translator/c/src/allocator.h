@@ -24,7 +24,7 @@ void PyObject_Free(void *p);
 #ifndef PYPY_NOT_MAIN_FILE
 
 #if defined(TRIVIAL_MALLOC_DEBUG)
-  void *PyObject_Malloc(size_t n) { return malloc(n<4?4:n)); }
+  void *PyObject_Malloc(size_t n) { return malloc(n<4?4:n); }
   void *PyObject_Realloc(void *p, size_t n) { return realloc(p, n<4?4:n); }
   void PyObject_Free(void *p) { if (p) { *((int*)p) = 0xDDDDDDDD; } free(p); }
 
