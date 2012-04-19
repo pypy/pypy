@@ -256,21 +256,7 @@ class AppTestWidthPrec:
         assert "%G" % (nan,) == 'NAN'
 
 class AppTestUnicodeObject:
-    def test_unicode_convert(self):
-        u = u"x"
-        assert isinstance("%s" % u, unicode)
-
-    def test_unicode_nonascii(self):
-        """
-        Interpolating a unicode string with non-ascii characters in it into
-        a string format should decode the format string as ascii and return
-        unicode.
-        """
-        u = u'\x80'
-        result = "%s" % u
-        assert isinstance(result, unicode)
-        assert result == u
-
+    
     def test_unicode_d(self):
         t = 3
         assert u"%.1d" % t == '3'
