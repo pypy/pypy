@@ -259,7 +259,7 @@ class AppTestUnicodeObject:
     
     def test_unicode_d(self):
         t = 3
-        assert u"%.1d" % t == '3'
+        assert "%.1d" % t == '3'
 
     def test_unicode_overflow(self):
         skip("nicely passes on top of CPython but requires > 2GB of RAM")
@@ -267,8 +267,8 @@ class AppTestUnicodeObject:
         raises((OverflowError, MemoryError), 'u"%.*d" % (sys.maxint, 1)')
 
     def test_unicode_format_a(self):
-        ten = 10L
-        assert u'%x' % ten == 'a'
+        ten = 10
+        assert '%x' % ten == 'a'
 
     def test_long_no_overflow(self):
         big = 0x1234567890987654321
