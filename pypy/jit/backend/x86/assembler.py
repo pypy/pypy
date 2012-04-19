@@ -1656,8 +1656,11 @@ class Assembler386(object):
         else:
             # XXX hard-coded assumption: to go from an object to its class
             # we use the following algorithm:
-            #   - read the typeid from mem(locs[0]), i.e. at offset 0
-            #   - keep the lower half-word read there
+            #   - read the typeid from mem(locs[0]), i.e. at offset 0;
+            #     this is a complete word (N=4 bytes on 32-bit, N=8 on
+            #     64-bits)
+            #   - keep the lower half of what is read there (i.e.
+            #     truncate to an unsigned 'N / 2' bytes value)
             #   - multiply by 4 (on 32-bits only) and use it as an
             #     offset in type_info_group
             #   - add 16/32 bytes, to go past the TYPE_INFO structure
