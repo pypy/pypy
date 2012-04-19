@@ -295,4 +295,4 @@ class AppTestUnicodeObject:
 
     def test_invalid_char(self):
         f = 4
-        raises(ValueError, 'u"%\u1234" % (f,)')
+        raises(ValueError, '"%\u1234" % (f,)')
