@@ -378,7 +378,10 @@ class W_Object(W_Root):
     __slots__ = ()
 
     def __repr__(self):
-        s = '%s(%s)' % (self.__class__.__name__, getattr(self, 'name', ''))
+        name = getattr(self, 'name', '')
+        if not isinstance(name, str):
+            name = ''
+        s = '%s(%s)' % (self.__class__.__name__, name)
         w_cls = getattr(self, 'w__class__', None)
         if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__
