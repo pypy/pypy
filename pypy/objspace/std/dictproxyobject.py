@@ -20,7 +20,7 @@ class DictProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_unicode):
+        if space.is_true(space.issubtype(w_lookup_type, space.w_unicode)):
             return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
