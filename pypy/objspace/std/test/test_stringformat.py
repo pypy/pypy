@@ -44,7 +44,7 @@ class AppTestStringObjectWithDict:
             def __getitem__(self, key):
                 return key
         assert '%(key)s'%MyMapping2() == 'key'
-        assert u'%(key)s'%MyMapping2() == u'key'
+        #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
 class AppTestStringObject:
 
