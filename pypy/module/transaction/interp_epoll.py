@@ -45,8 +45,8 @@ class EPollPending(interp_transaction.AbstractPending):
 
     def run(self):
         # This code is run non-transactionally.  Careful, no GC available.
-        state = interp_transaction.state
-        if state.has_exception() or self.force_quit:
+        ts = interp_transaction.state.transactionalstate
+        if ts.has_exception() or self.force_quit:
             return
         fd = rffi.cast(rffi.INT, self.epoller.epfd)
         maxevents = rffi.cast(rffi.INT, self.maxevents)
@@ -60,9 +60,9 @@ class EPollPending(interp_transaction.AbstractPending):
                 nfds = 0    # ignore, just wait for more later
             else:
                 # unsure how to trigger this case
-                state = interp_transaction.state
-                state.got_exception_errno = errno
-                state.must_reraise_exception(_reraise_from_errno)
+                ts = interp_transaction.state.transactionalstate
+                ts.got_exception_errno = errno
+                ts.must_reraise_exception(_reraise_from_errno)
                 return
         # We have to allocate new PendingCallback objects, but we can't
         # allocate anything here because we are not running transactionally.
@@ -96,10 +96,9 @@ class PendingCallback(interp_transaction.AbstractPending):
                                              space.wrap(self.events))
 
 
-def _reraise_from_errno():
-    state = interp_transaction.state
-    space = state.space
-    errno = state.got_exception_errno
+def _reraise_from_errno(transactionalstate):
+    space = interp_transaction.state.space
+    errno = transactionalstate.got_exception_errno
     msg = os.strerror(errno)
     w_type = space.w_IOError
     w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
@@ -109,9 +108,7 @@ def _reraise_from_errno():
 @unwrap_spec(epoller=W_Epoll)
 def add_epoll(space, epoller, w_callback):
     state = interp_transaction.state
-    if state.epolls is None:
-        state.epolls = {}
-    elif epoller in state.epolls:
+    if epoller in state.epolls:
         raise OperationError(state.w_error,
             space.wrap("add_epoll(ep): ep is already registered"))
     pending = EPollPending(space, epoller, w_callback)
@@ -121,10 +118,7 @@ def add_epoll(space, epoller, w_callback):
 @unwrap_spec(epoller=W_Epoll)
 def remove_epoll(space, epoller):
     state = interp_transaction.state
-    if state.epolls is None:
-        pending = None
-    else:
-        pending = state.epolls.get(epoller, None)
+    pending = state.epolls.get(epoller, None)
     if pending is None:
         raise OperationError(state.w_error,
             space.wrap("remove_epoll(ep): ep is not registered"))

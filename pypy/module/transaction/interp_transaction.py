@@ -34,6 +34,7 @@ class State(object):
         self.ll_not_ready_to_start_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
         self.threadnums = {}      # empty during translation
+        self.epolls = {}
         self.pending = Fifo()
 
     def _freeze_(self):
@@ -95,6 +96,7 @@ class State(object):
             if id != MAIN_THREAD_ID:
                 del self.threadobjs[id]
         self.threadnums = {MAIN_THREAD_ID: 0}
+        self.epolls.clear()
 
     def get_thread_number(self):
         id = rstm.thread_id()
@@ -163,7 +165,6 @@ class TransactionalState(object):
 
     def __init__(self):
         self._reraise_exception = None
-        self.epolls = None
 
     def has_exception(self):
         return self._reraise_exception is not None
