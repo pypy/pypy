@@ -223,6 +223,7 @@ def _add_list(new_pending_list):
 
 def _setup_thread(_, retry_counter):
     """Setup a thread.  Run as a transaction because it allocates."""
+    assert state.running
     my_thread_id = rstm.thread_id()
     my_ec = state.space.createexecutioncontext()
     state.add_thread(my_thread_id, my_ec)
