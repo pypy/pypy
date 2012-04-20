@@ -28,18 +28,21 @@ class State(object):
         self.transactionalstate = None
         #
         self.w_error = None
-        self.ll_lock = threadintf.null_ll_lock
-        self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
-        self.ll_unfinished_lock = threadintf.null_ll_lock
-        self.ll_not_ready_to_start_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
         self.threadnums = {}      # empty during translation
         self.epolls = {}
         self.pending = Fifo()
+        self._freeze_()
 
     def _freeze_(self):
+        self.ll_lock = threadintf.null_ll_lock
+        self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
+        self.ll_unfinished_lock = threadintf.null_ll_lock
+        self.ll_not_ready_to_start_lock = threadintf.null_ll_lock
         self.threadobjs.clear()
         self.threadnums.clear()
+        self.epolls.clear()
+        self.pending.clear()
         return False
 
     def startup(self, space, w_module):

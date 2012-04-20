@@ -4,6 +4,8 @@ class Fifo(object):
         self.first = None
         self.last = None
 
+    clear = __init__
+
     def append(self, newitem):
         newitem.next = None
         if self.last is None:
