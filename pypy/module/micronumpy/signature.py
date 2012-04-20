@@ -555,5 +555,6 @@ class WhereSignature(Signature):
             return rhs
 
     def debug_repr(self):
-        return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
-                                      self.right.debug_repr())
+        return 'Where(%s, %s, %s)' % (self.arrsig.debug_repr(),
+                                      self.xsig.debug_repr(),
+                                      self.ysig.debug_repr())
