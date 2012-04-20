@@ -519,8 +519,8 @@ class WhereSignature(Signature):
             return False
         assert isinstance(other, WhereSignature)
         return (self.arrsig.eq(other.arrsig, compare_array_no) and
-                self.x.eq(other.x, compare_array_no) and
-                self.y.eq(other.y, compare_array_no))
+                self.xsig.eq(other.xsig, compare_array_no) and
+                self.ysig.eq(other.ysig, compare_array_no))
 
     def _invent_array_numbering(self, arr, cache):
         from pypy.module.micronumpy.interp_arrayops import WhereArray
