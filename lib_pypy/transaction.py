@@ -106,3 +106,17 @@ def run():
     finally:
         _in_transaction = False
         pending.clear()   # this is the behavior we get with interp_transaction
+
+
+class local(object):
+    """Thread-local data.  Behaves like a regular object, but its content
+    is not shared between multiple concurrently-running transactions.
+    It can be accessed without conflicts.
+
+    It can be used for purely transaction-local data.
+
+    It can also be used for long-living caches that store values that
+    are (1) not too costly to compute and (2) not too memory-hungry,
+    because they will end up being computed and stored once per actual
+    thread.
+    """
