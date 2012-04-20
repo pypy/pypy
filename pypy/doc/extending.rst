@@ -28,7 +28,6 @@ for the PyPy python interpreter (in order of usefulness):
 .. _ctypes: #CTypes
 .. _\_ffi: #LibFFI
 .. _mixedmodule: #Mixed Modules
-.. _Reflex: #Reflex
 
 CTypes
 ======
