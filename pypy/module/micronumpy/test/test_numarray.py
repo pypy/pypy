@@ -1,9 +1,8 @@
 
 import py
 
-from pypy.conftest import gettestobjspace, option
+from pypy.conftest import option
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import signature
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement

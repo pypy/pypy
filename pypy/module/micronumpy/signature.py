@@ -498,3 +498,62 @@ class AxisReduceSignature(Call2):
         arr.left.setitem(iterator.offset, value)
     def debug_repr(self):
         return 'AxisReduceSig(%s, %s)' % (self.name, self.right.debug_repr())
+
+class WhereSignature(Signature):
+    _immutable_fields_ = ['dtype', 'arrdtype', 'arrsig', 'xsig', 'ysig']
+    
+    def __init__(self, dtype, arrdtype, arrsig, xsig, ysig):
+        self.dtype = dtype
+        self.arrdtype = arrdtype
+        self.arrsig = arrsig
+        self.xsig = xsig
+        self.ysig = ysig
+
+    def hash(self):
+        return (intmask(self.arrsig.hash() << 1) ^
+                intmask(self.xsig.hash() << 2) ^
+                intmask(self.ysig.hash() << 3))
+
+    def eq(self, other, compare_array_no=True):
+        if type(self) is not type(other):
+            return False
+        assert isinstance(other, WhereSignature)
+        return (self.arrsig.eq(other.arrsig, compare_array_no) and
+                self.x.eq(other.x, compare_array_no) and
+                self.y.eq(other.y, compare_array_no))
+
+    def _invent_array_numbering(self, arr, cache):
+        from pypy.module.micronumpy.interp_arrayops import WhereArray
+        assert isinstance(arr, WhereArray)
+        self.arrsig._invent_array_numbering(arr.arr, cache)
+        self.xsig._invent_array_numbering(arr.x, cache)
+        self.ysig._invent_array_numbering(arr.y, cache)
+
+    def _invent_numbering(self, cache, allnumbers):
+        self.arrsig._invent_numbering(cache, allnumbers)
+        self.xsig._invent_numbering(cache, allnumbers)
+        self.ysig._invent_numbering(cache, allnumbers)
+
+    def _create_iter(self, iterlist, arraylist, arr, transforms):
+        from pypy.module.micronumpy.interp_arrayops import WhereArray
+
+        assert isinstance(arr, WhereArray)
+        # XXX this does not support broadcasting correctly
+        self.arrsig._create_iter(iterlist, arraylist, arr.arr, transforms)
+        self.xsig._create_iter(iterlist, arraylist, arr.x, transforms)
+        self.ysig._create_iter(iterlist, arraylist, arr.y, transforms)
+ 
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_arrayops import WhereArray
+        assert isinstance(arr, WhereArray)
+        lhs = self.xsig.eval(frame, arr.x).convert_to(self.dtype)
+        rhs = self.ysig.eval(frame, arr.y).convert_to(self.dtype)
+        w_val = self.arrsig.eval(frame, arr.arr)
+        if self.arrdtype.itemtype.bool(w_val):
+            return lhs
+        else:
+            return rhs
+
+    def debug_repr(self):
+        return 'Call2(%s, %s, %s)' % (self.name, self.left.debug_repr(),
+                                      self.right.debug_repr())
