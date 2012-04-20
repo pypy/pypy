@@ -266,18 +266,18 @@ start with "lib" in their name.
 The basic example above, rewritten for PyCintex thus goes like this::
 
     $ python
-    >>>> import PyCintex
-    >>>> PyCintex.loadDictionary("libMyClassDict.so")
-    >>>> myinst = PyCintex.gbl.MyClass(42)
-    >>>> print myinst.GetMyInt()
+    >>> import PyCintex
+    >>> PyCintex.loadDictionary("libMyClassDict.so")
+    >>> myinst = PyCintex.gbl.MyClass(42)
+    >>> print myinst.GetMyInt()
     42
-    >>>> myinst.SetMyInt(33)
-    >>>> print myinst.m_myint
+    >>> myinst.SetMyInt(33)
+    >>> print myinst.m_myint
     33
-    >>>> myinst.m_myint = 77
-    >>>> print myinst.GetMyInt()
+    >>> myinst.m_myint = 77
+    >>> print myinst.GetMyInt()
     77
-    >>>> help(PyCintex.gbl.MyClass)   # shows that normal python introspection works
+    >>> help(PyCintex.gbl.MyClass)   # shows that normal python introspection works
 
 Other naming differences are such things as taking an address of an object.
 In PyCintex, this is done with ``AddressOf`` whereas in cppyy the choice was
@@ -290,4 +290,4 @@ you have to do is provide a wrapper script that you import instead of
 importing the ``cppyy`` or ``PyCintex`` modules directly.
 In that wrapper script you can rename methods exactly the way you need it.
 
-In the Cling world, all these differences will be resolved.
+In the cling world, all these differences will be resolved.
