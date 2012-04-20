@@ -23,9 +23,12 @@ for the PyPy python interpreter (in order of usefulness):
 
 * Write them in RPython as mixedmodule_, using *rffi* as bindings.
 
+* Write them in C++ and bind them through Reflex_ (EXPERIMENTAL)
+
 .. _ctypes: #CTypes
 .. _\_ffi: #LibFFI
 .. _mixedmodule: #Mixed Modules
+.. _Reflex: #Reflex
 
 CTypes
 ======
@@ -110,3 +113,34 @@ Some documentation is available `here`_
 
 XXX we should provide detailed docs about lltype and rffi, especially if we
     want people to follow that way.
+
+Reflex
+======
+
+This method is only experimental for now, and is being exercised on a branch,
+`reflex-support`_, so you will have to build PyPy yourself.
+The method works by using the `Reflex package`_ to provide reflection
+information of the C++ code, which is then used to automatically generate
+bindings at runtime, which can then be used from python.
+Full details are `available here`_.
+
+.. _`reflex-support`: cppyy.html
+.. _`Reflex package`: http://root.cern.ch/drupal/content/reflex
+.. _`available here`: cppyy.html
+
+Pros
+----
+
+If it works, it is mostly automatic, and hence easy in use.
+The bindings can make use of direct pointers, in which case the calls are
+very fast.
+
+Cons
+----
+
+C++ is a large language, and these bindings are not yet feature-complete.
+Although missing features should do no harm if you don't use them, if you do
+need a particular feature, it may be necessary to work around it in python
+or with a C++ helper function.
+Although Reflex works on various platforms, the bindings with PyPy have only
+been tested on Linux.
