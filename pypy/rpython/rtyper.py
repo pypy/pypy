@@ -276,6 +276,7 @@ class RPythonTyper(object):
                 self.log.event('specializing transactionally %d blocks' %
                                (len(pending),))
                 transaction.run()
+                self.log.event('left transactional mode')
                 blockcount += len(pending)
                 self.already_seen.update(dict.fromkeys(pending, True))
 
