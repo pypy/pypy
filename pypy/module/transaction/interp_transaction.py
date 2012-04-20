@@ -100,7 +100,7 @@ class State(object):
         id = rstm.thread_id()
         return self.threadnums[id]
 
-    def get_number_of_threads(self):
+    def get_total_number_of_threads(self):
         return 1 + self.num_threads
 
     # ----------

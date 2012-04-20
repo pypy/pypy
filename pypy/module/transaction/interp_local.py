@@ -26,7 +26,7 @@ class W_Local(Wrappable):
         # called in a transaction.
 
     def _update_dicts(self, space):
-        new = state.get_number_of_threads() - len(self.dicts)
+        new = state.get_total_number_of_threads() - len(self.dicts)
         if new <= 0:
             return
         # update the list without appending to it (to keep it non-resizable)
