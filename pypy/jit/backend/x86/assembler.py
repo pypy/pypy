@@ -1656,15 +1656,21 @@ class Assembler386(object):
         else:
             # XXX hard-coded assumption: to go from an object to its class
             # we use the following algorithm:
-            #   - read the typeid from mem(locs[0]), i.e. at offset 0
-            #   - keep the lower 16 bits read there
-            #   - multiply by 4 and use it as an offset in type_info_group
-            #   - add 16 bytes, to go past the TYPE_INFO structure
+            #   - read the typeid from mem(locs[0]), i.e. at offset 0;
+            #     this is a complete word (N=4 bytes on 32-bit, N=8 on
+            #     64-bits)
+            #   - keep the lower half of what is read there (i.e.
+            #     truncate to an unsigned 'N / 2' bytes value)
+            #   - multiply by 4 (on 32-bits only) and use it as an
+            #     offset in type_info_group
+            #   - add 16/32 bytes, to go past the TYPE_INFO structure
             loc = locs[1]
             assert isinstance(loc, ImmedLoc)
             classptr = loc.value
             # here, we have to go back from 'classptr' to the value expected
-            # from reading the 16 bits in the object header
+            # from reading the half-word in the object header.  Note that
+            # this half-word is at offset 0 on a little-endian machine;
+            # it would be at offset 2 or 4 on a big-endian machine.
             from pypy.rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)

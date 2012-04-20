@@ -4,6 +4,7 @@ from py.path import local
 import pypy
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
+from pypy.rpython.module import ll_os #has side effect of registering functions
 
 from pypy.rpython import extregistry
 import errno
