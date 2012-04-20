@@ -4,7 +4,7 @@ from pypy.module.micronumpy.interp_numarray import convert_to_array,\
 from pypy.module.micronumpy import signature
 
 class WhereArray(VirtualArray):
-    def __init__(self, arr, x, y):
+    def __init__(self, space, arr, x, y):
         self.arr = arr
         self.x = x
         self.y = y
@@ -87,4 +87,4 @@ def where(space, w_arr, w_x, w_y):
     arr = convert_to_array(space, w_arr)
     x = convert_to_array(space, w_x)
     y = convert_to_array(space, w_y)
-    return WhereArray(arr, x, y)
+    return WhereArray(space, arr, x, y)
