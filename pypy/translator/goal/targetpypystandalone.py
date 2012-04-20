@@ -149,6 +149,14 @@ class PyPyTarget(object):
         # expose the following variables to ease debugging
         global space, entry_point
 
+        if config.translation.stm:
+            config.objspace.usemodules.transaction = True
+            config.objspace.usemodules.signal = False     # XXX! FIXME
+            config.objspace.usemodules.thread = False
+            config.translation.thread = False
+        elif config.objspace.usemodules.transaction:
+            raise Exception("use --stm, not --withmod-transaction alone")
+
         if config.objspace.allworkingmodules:
             from pypy.config.pypyoption import enable_allworkingmodules
             enable_allworkingmodules(config)
@@ -184,12 +192,6 @@ class PyPyTarget(object):
                 # Same as above: try to auto-disable the _continuation
                 # module if translation.continuation cannot be enabled
                 config.objspace.usemodules._continuation = False
-
-        if config.translation.stm:
-            config.objspace.usemodules.transaction = True
-            config.objspace.usemodules.signal = False     # XXX!
-        elif config.objspace.usemodules.transaction:
-            raise Exception("use --stm, not --withmod-transaction alone")
 
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False
