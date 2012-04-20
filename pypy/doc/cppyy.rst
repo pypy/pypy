@@ -180,7 +180,7 @@ That is a strong statement to make, but also a worthy goal.
   calling the method on the instance.
 
 * **namespaces**: Are represented as python classes.
-  Namespaces are open-ended than classes, so sometimes initial access may
+  Namespaces are more open-ended than classes, so sometimes initial access may
   result in updates as data and functions are looked up and constructed
   lazily.
   Thus the result of ``dir()`` on a namespace should not be relied upon: it
@@ -207,13 +207,13 @@ That is a strong statement to make, but also a worthy goal.
   For objects, a pointer to an object and an object looks the same, unless
   the pointer is a data member.
   In that case, assigning to the data member will cause a copy of the pointer
-  and care should be taken about the object's live time.
+  and care should be taken about the object's life time.
   If a pointer is a global variable, the C++ side can replace the underlying
   object and the python side will immediately reflect that.
 
 * **static data members**: Are represented as python property objects on the
   class and the meta-class.
-  Both reading and write access is as expected.
+  Both read and write access is as expected.
 
 * **static methods**: Are represented as python's ``staticmethod`` objects
   and can be called both from the class as well as from instances.
@@ -229,8 +229,9 @@ That is a strong statement to make, but also a worthy goal.
   be ``std.vector`` in python.
   Then, to get the instantiation on ``int``, do ``std.vector(int)`` and to
   create an instance of that class, do ``std.vector(int)()``.
-  Note that templates can be build up by handing actual classes to the class
-  instantiation, or by passing in the list of template arguments as a string.
+  Note that templates can be build up by handing actual types to the class
+  instantiation (as done in this vector example), or by passing in the list of
+  template arguments as a string.
   The former is a lot easier to work with if you have template instantiations
   using classes that themselves are templates (etc.) in the arguments.
   All classes must already exist in the loaded reflection info.
@@ -240,6 +241,16 @@ That is a strong statement to make, but also a worthy goal.
 
 You can always find more detailed examples and see the full of supported
 features by looking at the tests in pypy/module/cppyy/test.
+
+If a feature or reflection info is missing, this is supposed to be handled
+gracefully.
+In fact, there are unit tests explicitly for this purpose (even as their use
+becomes less interesting over time, as the number of missing features
+decreases).
+Only when a missing feature is used, should there be an exception.
+For example, if no reflection info is available for a return type, then a
+class that has a method with that return type can still be used.
+Only that one specific method can not be used.
 
 
 The fast lane
