@@ -5,6 +5,7 @@ import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rposix import validate_fd
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -270,6 +271,15 @@ class W_File(W_AbstractStream):
     # The 'file_' methods are the one exposed to app-level.
 
     def file_fdopen(self, fd, mode="r", buffering=-1):
+        try:
+            # Catch invalid fd early to get an OSError rather than an
+            # IOError from streamio
+            validate_fd(fd)
+        except OSError, e:
+            w_error = self.space.call_function(self.space.w_OSError,
+                    self.space.wrap(e.errno), self.space.wrap(e.strerror),
+                    self.space.wrap(e.filename))
+            raise OperationError(self.space.w_OSError, w_error)
         try:
             self.direct_fdopen(fd, mode, buffering)
         except StreamErrors, e:
