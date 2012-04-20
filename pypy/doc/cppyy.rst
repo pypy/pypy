@@ -37,7 +37,7 @@ Also, make sure you have a version of `gccxml`_ installed, which is most
 easily provided by the packager of your system.
 If you read up on gccxml, you'll probably notice that it is no longer being
 developed and hence will not provide C++11 support.
-That's why the medium plan is to move to `cling`_.
+That's why the medium term plan is to move to `cling`_.
 
 .. _`Download`: http://root.cern.ch/drupal/content/downloading-root
 .. _`source`: http://root.cern.ch/drupal/content/installing-root-source
@@ -240,6 +240,35 @@ That is a strong statement to make, but also a worthy goal.
 
 You can always find more detailed examples and see the full of supported
 features by looking at the tests in pypy/module/cppyy/test.
+
+
+The fast lane
+=============
+
+The following is an experimental feature of cppyy, and that makes it doubly
+experimental, so caveat emptor.
+With a slight modification of Reflex, it can provide function pointers for
+C++ methods, and hence allow PyPy to call those pointers directly, rather than
+calling C++ through a Reflex stub.
+This results in a rather significant speed-up.
+Mind you, the normal stub path is not exactly slow, so for now only use this
+out of curiosity or if you really need it.
+
+To install this patch of Reflex, locate the file genreflex-methptrgetter.patch
+in pypy/module/cppyy and apply it to the genreflex python scripts found in
+``$ROOTSYS/lib``::
+
+    $ cd $ROOTSYS/lib
+    $ patch -p2 < genreflex-methptrgetter.patch
+
+With this patch, ``genreflex`` will have grown the ``--with-methptrgetter``
+option.
+Use this option when running ``genreflex``, and add the
+``-Wno-pmf-conversions`` option to ``g++`` when compiling.
+The rest works the same way: the fast path will be used transparently (which
+also means that you can't actually find out whether it is in use, other than
+by running a micro-benchmark).
+
 
 CPython
 =======
