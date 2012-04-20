@@ -15,6 +15,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'jit_force_virtual', 'jit_force_virtualizable',
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
     'jit_record_known_class',
+    'gc_identityhash', 'gc_id',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
