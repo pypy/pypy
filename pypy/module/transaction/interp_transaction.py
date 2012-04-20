@@ -23,11 +23,13 @@ class State(object):
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
+        self.threadnums = {}      # empty during translation
         self.epolls = None
         self.pending = Fifo()
 
     def _freeze_(self):
         self.threadobjs.clear()
+        self.threadnums.clear()
         return False
 
     def startup(self, space, w_module):
@@ -52,6 +54,7 @@ class State(object):
         assert id not in self.threadobjs
         ec._transaction_pending = Fifo()
         self.threadobjs[id] = ec
+        self.threadnums[id] = len(self.threadnums)
 
     # ---------- interface for ThreadLocals ----------
     # This works really like a thread-local, which may have slightly
@@ -69,6 +72,7 @@ class State(object):
         id = rstm.thread_id()
         assert id == MAIN_THREAD_ID   # should not be used from a transaction
         self.threadobjs[id] = value
+        self.threadnums = {id: 0}
 
     def getmainthreadvalue(self):
         return self.threadobjs.get(MAIN_THREAD_ID, None)
@@ -80,6 +84,14 @@ class State(object):
         for id in self.threadobjs.keys():
             if id != MAIN_THREAD_ID:
                 del self.threadobjs[id]
+        self.threadnums = {MAIN_THREAD_ID: 0}
+
+    def get_thread_number(self):
+        id = rstm.thread_id()
+        return self.threadnums[id]
+
+    def get_number_of_threads(self):
+        return 1 + self.num_threads
 
     # ----------
 
