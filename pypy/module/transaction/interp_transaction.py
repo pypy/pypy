@@ -12,19 +12,28 @@ MAIN_THREAD_ID = 0
 
 
 class State(object):
+    # Warning: this is the class of a singleton.  It Must Not Be Used
+    # Inside Any Transaction!!!!  This code is written with the
+    # expectation that it is really a global singleton used for
+    # synchronization between transactions.  So if the STM logic kicks
+    # in and makes local copies of it, we loose.
+    #
+    # Instead, we have a TransactionalState instance that can be
+    # written to by transactions (possibly causing conflicts).
 
     def initialize(self, space):
         self.space = space
         self.running = False
         self.num_threads = NUM_THREADS_DEFAULT
+        self.transactionalstate = None
         #
         self.w_error = None
         self.ll_lock = threadintf.null_ll_lock
         self.ll_no_tasks_pending_lock = threadintf.null_ll_lock
         self.ll_unfinished_lock = threadintf.null_ll_lock
+        self.ll_not_ready_to_start_lock = threadintf.null_ll_lock
         self.threadobjs = {}      # empty during translation
         self.threadnums = {}      # empty during translation
-        self.epolls = None
         self.pending = Fifo()
 
     def _freeze_(self):
@@ -41,6 +50,7 @@ class State(object):
         self.ll_no_tasks_pending_lock = threadintf.allocate_lock()
         self.ll_unfinished_lock = threadintf.allocate_lock()
         self.lock_unfinished()
+        self.ll_not_ready_to_start_lock = threadintf.allocate_lock()
         self.startup_run()
 
     def startup_run(self):
@@ -139,8 +149,21 @@ class State(object):
         """Release ll_unfinished_lock."""
         threadintf.release(self.ll_unfinished_lock)
 
-    def init_exceptions(self):
+    def lock_not_ready_to_start(self):
+        """This lock is acquired when the threads are still starting.
+        It is released when all threads are past their initialization."""
+        threadintf.acquire(self.ll_not_ready_to_start_lock, True)
+
+    def unlock_not_ready_to_start(self):
+        """Release ll_not_ready_to_start_lock."""
+        threadintf.release(self.ll_not_ready_to_start_lock)
+
+
+class TransactionalState(object):
+
+    def __init__(self):
         self._reraise_exception = None
+        self.epolls = None
 
     def has_exception(self):
         return self._reraise_exception is not None
@@ -150,7 +173,7 @@ class State(object):
 
     def close_exceptions(self):
         if self._reraise_exception is not None:
-            self._reraise_exception()
+            self._reraise_exception(self)
 
 
 state = State()
@@ -184,13 +207,15 @@ class AbstractPending(object):
         if retry_counter > 0:
             pending.register() # retrying: will be done later, try others first
             return
-        if state.has_exception():
+        ts = state.transactionalstate
+        if ts.has_exception():
             return   # return early if there is already an exception to reraise
         try:
             pending.run_in_transaction(state.space)
         except Exception, e:
-            state.got_exception_applevel = e
-            state.must_reraise_exception(_reraise_from_applevel)
+            ts = state.transactionalstate
+            ts.got_exception_applevel = e
+            ts.must_reraise_exception(_reraise_from_applevel)
 
 
 class Pending(AbstractPending):
@@ -202,9 +227,9 @@ class Pending(AbstractPending):
         space.call_args(self.w_callback, self.args)
 
 
-def _reraise_from_applevel():
-    e = state.got_exception_applevel
-    state.got_exception_applevel = None
+def _reraise_from_applevel(transactionalstate):
+    e = transactionalstate.got_exception_applevel
+    transactionalstate.got_exception_applevel = None
     raise e
 
 
@@ -235,8 +260,17 @@ def _run_thread():
     # so we need to be very careful.
     rstm.descriptor_init()
     state.lock()
-    #
     rstm.perform_transaction(_setup_thread, AbstractPending, None)
+    # wait until all threads reach this point to continue
+    if state.num_waiting_threads + 1 < state.num_threads:
+        state.num_waiting_threads += 1
+        state.unlock()
+        state.lock_not_ready_to_start()
+        state.lock()
+    else:
+        state.num_waiting_threads = 0
+    state.unlock_not_ready_to_start()
+    #
     my_transactions_pending = state.getvalue()._transaction_pending
     #
     while True:
@@ -312,8 +346,9 @@ def run(space):
     state.num_waiting_threads = 0
     state.finished = False
     #
+    state.transactionalstate = TransactionalState()
+    state.lock_not_ready_to_start()
     state.running = True
-    state.init_exceptions()
     #
     # start the threads and wait for all of them to finish
     _run()
@@ -323,7 +358,8 @@ def run(space):
     assert not state.is_locked_no_tasks_pending()
     state.clear_all_values_apart_from_main()
     state.running = False
-    state.epolls = None
+    ts = state.transactionalstate
+    state.transactionalstate = None
     #
     # now re-raise the exception that we got in a transaction
-    state.close_exceptions()
+    ts.close_exceptions()
