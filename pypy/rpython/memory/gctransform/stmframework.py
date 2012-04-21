@@ -70,12 +70,16 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop("direct_call", [self.teardown_thread_ptr, self.c_const_gc])
 
     def gct_stm_enter_transactional_mode(self, hop):
+        livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.stm_enter_transactional_mode_ptr,
                                   self.c_const_gc])
+        self.pop_roots(hop, livevars)
 
     def gct_stm_leave_transactional_mode(self, hop):
+        livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.stm_leave_transactional_mode_ptr,
                                   self.c_const_gc])
+        self.pop_roots(hop, livevars)
 
     def gct_stm_writebarrier(self, hop):
         op = hop.spaceop
@@ -96,10 +100,14 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop('cast_adr_to_ptr', [v_globaladr], resultvar=op.result)
 
     def gct_stm_start_transaction(self, hop):
+        livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.stm_start_ptr, self.c_const_gc])
+        self.pop_roots(hop, livevars)
 
     def gct_stm_commit_transaction(self, hop):
+        livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.stm_commit_ptr, self.c_const_gc])
+        self.pop_roots(hop, livevars)
 
 
 class StmShadowStackRootWalker(BaseRootWalker):
