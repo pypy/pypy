@@ -47,3 +47,30 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('a b c d')
         assert '< 5 1000 >' in data, "got: %r" % (data,)
+
+    def test_bug2(self):
+        from pypy.rlib import rstm
+        #
+        class X2:
+            pass
+        prebuilt2 = [X2(), X2()]
+        #
+        def bug2(count):
+            x = prebuilt2[count]
+            x.foobar = 2                    # 'x' becomes a local
+            #
+            rstm.enter_transactional_mode() # 'x' becomes the global again
+            rstm.leave_transactional_mode()
+            #
+            y = prebuilt2[count]            # same prebuilt obj
+            y.foobar += 10                  # 'y' becomes a local
+            return x.foobar                 # read from the global, thinking
+        bug2._dont_inline_ = True           #    that it is still a local
+        def entry_point(argv):
+            print bug2(0)
+            print bug2(1)
+            return 0
+        #
+        t, cbuilder = self.compile(entry_point, backendopt=True)
+        data = cbuilder.cmdexec('')
+        assert '12\n12\n' in data, "got: %r" % (data,)
