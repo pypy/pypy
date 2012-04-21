@@ -18,10 +18,13 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False):
+                stackcheck=False, backendopt=False):
         t = TranslationContext(self.config)
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+
+        if backendopt:
+            all.backend_optimizations(t)
 
         if stackcheck:
             from pypy.translator.transform import insert_ll_stackcheck
