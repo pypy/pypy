@@ -9,6 +9,9 @@ import weakref
 
 ref = weakref.ref    # basic regular weakrefs are supported in RPython
 
+def has_weakref_support():
+    return True      # returns False if --no-translation-rweakref
+
 
 class RWeakValueDictionary(object):
     """A dictionary containing weak values."""
@@ -67,6 +70,20 @@ from pypy.rpython import extregistry
 from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.tool.pairtype import pairtype
+
+class Entry(extregistry.ExtRegistryEntry):
+    _about_ = has_weakref_support
+
+    def compute_result_annotation(self):
+        translator = self.bookkeeper.annotator.translator
+        res = translator.config.translation.rweakref
+        return self.bookkeeper.immutablevalue(res)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
 
 class SomeWeakValueDict(annmodel.SomeObject):
     knowntype = RWeakValueDictionary

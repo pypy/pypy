@@ -5,6 +5,7 @@ class PyPyModule(MixedModule):
     interpleveldefs = {
         'debug_repr': 'interp_extras.debug_repr',
         'remove_invalidates': 'interp_extras.remove_invalidates',
+        'set_invalidation': 'interp_extras.set_invalidation',
     }
     appleveldefs = {}
 
@@ -30,6 +31,7 @@ class Module(MixedModule):
         'isna': 'interp_numarray.isna',
         'concatenate': 'interp_numarray.concatenate',
         'repeat': 'interp_numarray.repeat',
+        'where': 'interp_arrayops.where',
 
         'set_string_function': 'appbridge.set_string_function',
 
@@ -105,6 +107,7 @@ class Module(MixedModule):
         ("fmod", "fmod"),
         ("floor", "floor"),
         ("ceil", "ceil"),
+        ("trunc", "trunc"),
         ("greater", "greater"),
         ("greater_equal", "greater_equal"),
         ("less", "less"),
@@ -132,6 +135,8 @@ class Module(MixedModule):
         ('bitwise_or', 'bitwise_or'),
         ('bitwise_xor', 'bitwise_xor'),
         ('bitwise_not', 'invert'),
+        ('left_shift', 'left_shift'),
+        ('right_shift', 'right_shift'),
         ('invert', 'invert'),
         ('isnan', 'isnan'),
         ('isinf', 'isinf'),

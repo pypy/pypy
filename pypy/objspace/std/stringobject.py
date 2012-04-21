@@ -14,6 +14,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
+from pypy.rlib import jit
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
@@ -398,6 +399,8 @@ def str_join__String_ANY(space, w_self, w_list):
 
     return _str_join_many_items(space, w_self, list_w, size)
 
+@jit.look_inside_iff(lambda space, w_self, list_w, size:
+                     jit.loop_unrolling_heuristic(list_w, size))
 def _str_join_many_items(space, w_self, list_w, size):
     self = w_self._value
     reslen = len(self) * (size - 1)
