@@ -3,8 +3,10 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-import sys
+import sys, os
 
+link_files = []
+testonly_libraries = []
 if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
@@ -17,8 +19,18 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
         # so that openssl/ssl.h can repair this nonsense.
         'wincrypt.h']
 else:
-    libraries = ['ssl', 'crypto']
+    libraries = ['z']
     includes = []
+    if (sys.platform.startswith('linux') and
+        os.path.exists('/usr/lib/libssl.a') and
+        os.path.exists('/usr/lib/libcrypto.a')):
+        # use static linking to avoid the infinite
+        # amount of troubles due to symbol versions
+        # and 0.9.8/1.0.0
+        link_files += ['/usr/lib/libssl.a', '/usr/lib/libcrypto.a']
+        testonly_libraries += ['ssl', 'crypto']
+    else:
+        libraries += ['ssl', 'crypto']
 
 includes += [
     'openssl/ssl.h', 
@@ -30,6 +42,8 @@ includes += [
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
+    link_files = link_files,
+    testonly_libraries = testonly_libraries,
     includes = includes,
     export_symbols = [],
     post_include_bits = [

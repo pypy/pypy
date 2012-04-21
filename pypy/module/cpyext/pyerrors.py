@@ -314,7 +314,10 @@ def PyErr_SetInterrupt(space):
     """This function simulates the effect of a SIGINT signal arriving --- the
     next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
     It may be called without holding the interpreter lock."""
-    space.check_signal_action.set_interrupt()
+    if space.check_signal_action is not None:
+        space.check_signal_action.set_interrupt()
+    #else:
+    #   no 'signal' module present, ignore...  We can't return an error here
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
