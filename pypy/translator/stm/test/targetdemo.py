@@ -100,7 +100,6 @@ def run_me():
 
 @rgc.no_collect     # don't use the gc as long as other threads are running
 def _run():
-    rstm.enter_transactional_mode()
     i = 0
     while i < glob.NUM_THREADS:
         glob._arg = glob._arglist[i]
@@ -112,7 +111,6 @@ def _run():
     while glob.done < glob.NUM_THREADS:    # poor man's lock
         _sleep(rffi.cast(rffi.ULONG, 1))
     debug_print("done sleeping.")
-    rstm.leave_transactional_mode()
 
 
 # Posix only
@@ -135,7 +133,11 @@ def entry_point(argv):
     glob.lock = ll_thread.allocate_ll_lock()
     ll_thread.acquire_NOAUTO(glob.lock, True)
     glob._arglist = [Arg() for i in range(glob.NUM_THREADS)]
+    #
+    rstm.enter_transactional_mode()
     _run()
+    rstm.leave_transactional_mode()
+    #
     check_chained_list(glob.anchor.next)
     return 0
 
