@@ -93,7 +93,6 @@ def fdopen_as_stream(fd, mode, buffering=-1):
     # XXX XXX XXX you want do check whether the modes are compatible
     # otherwise you get funny results
     os_flags, universal, reading, writing, basemode, binary = decode_mode(mode)
-    rposix.validate_fd(fd)
     _setfd_binary(fd)
     stream = DiskFile(fd)
     return construct_stream_tower(stream, buffering, universal, reading,
@@ -190,7 +189,9 @@ if sys.platform == "win32":
     # When generating on CLI or JVM, these are patched out.
     # See PyPyTarget.target() in targetpypystandalone.py
     def _setfd_binary(fd):
-        _setmode(fd, os.O_BINARY)
+        #Allow this to succeed on invalid fd's
+        if rposix._validate_fd(fd):
+            _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):
         curpos = os.lseek(fd, 0, 1)
