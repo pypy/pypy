@@ -246,4 +246,5 @@ class Entry(ExtRegistryEntry):
         assert name not in hop.rtyper.annotator.translator._seen_locals, (
             "duplicate name %r" % (name,))
         hop.rtyper.annotator.translator._seen_locals[name] = v
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
