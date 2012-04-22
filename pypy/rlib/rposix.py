@@ -1,5 +1,5 @@
 import os
-from pypy.rpython.lltypesystem.rffi import (CConstant, CExternVariable, 
+from pypy.rpython.lltypesystem.rffi import (CConstant, CExternVariable,
         INT, CCHARPP)
 from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -107,9 +107,12 @@ if os.name == 'nt':
         if not _validate_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
 else:
+    def _validate_fd(fd):
+        return 1
+
     def validate_fd(fd):
         return 1
-    
+
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
