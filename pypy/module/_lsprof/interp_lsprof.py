@@ -185,6 +185,7 @@ class ProfilerContext(object):
             if subentry is not None:
                 subentry._stop(tt, it)
 
+@jit.elidable_promote()
 def create_spec(space, w_arg):
     if isinstance(w_arg, Method):
         w_function = w_arg.w_function

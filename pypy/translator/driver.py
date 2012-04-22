@@ -115,12 +115,10 @@ class TranslationDriver(SimpleTaskEngine):
         backend, ts = self.get_backend_and_type_system()
         for task in self.tasks:
             explicit_task = task
-            parts = task.split('_')
-            if len(parts) == 1:
-                if task in ('annotate',):
-                    expose_task(task)
+            if task == 'annotate':
+                expose_task(task)
             else:
-                task, postfix = parts
+                task, postfix = task.split('_')
                 if task in ('rtype', 'backendopt', 'llinterpret',
                             'pyjitpl'):
                     if ts:
