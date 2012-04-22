@@ -21,6 +21,10 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
             gc.teardown_thread()
             self.root_walker.free_shadow_stack()
         #
+        def start_transaction(gc):
+            self.root_walker.start_transaction()
+            gc.start_transaction()
+        #
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
         self.thread_starting_ptr = getfn(
@@ -42,7 +46,7 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
             self.gcdata.gc.leave_transactional_mode.im_func,
             [s_gc], annmodel.s_None)
         self.stm_start_ptr = getfn(
-            self.gcdata.gc.start_transaction.im_func,
+            start_transaction,
             [s_gc], annmodel.s_None)
         self.stm_stop_ptr = getfn(
             self.gcdata.gc.stop_transaction.im_func,
@@ -171,6 +175,12 @@ class StmShadowStackRootWalker(BaseRootWalker):
     def free_shadow_stack(self):
         base = self.stackgcdata.root_stack_base
         llmemory.raw_free(base)
+
+    def start_transaction(self):
+        # When a transaction is aborted, it leaves behind its shadow
+        # stack content.  We have to clear it here.
+        stackgcdata = self.stackgcdata
+        stackgcdata.root_stack_top = stackgcdata.root_stack_base
 
     def walk_stack_roots(self, collect_stack_root):
         raise NotImplementedError

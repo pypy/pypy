@@ -8,7 +8,6 @@ class TestSTMTranslated(CompiledSTMTests):
     def test_hello_world(self):
         t, cbuilder = self.compile(targetdemo.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)
-        assert 'done sleeping.' in dataerr
         assert 'check ok!' in data
 
     def test_bug1(self):
