@@ -4,6 +4,7 @@ from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import base_ptr_lltype, cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.nonconst import NonConstant
 from pypy.translator.stm.stmgcintf import StmOperations
 
 
@@ -171,7 +172,15 @@ def _run_really(transactionptr, retry_counter):
     # This logic is in a sub-function because we want to catch
     # the MemoryErrors that could occur.
     transaction = _cast_voidp_to_transaction(transactionptr)
-    transaction._next_transaction = None
+    #
+    # Sanity-check that C code cleared '_next_transaction' first.
+    # Also needs a bit of nonsensical code to make sure that
+    # '_next_transaction' is always created as a general field.
+    ll_assert(transaction._next_transaction is None,
+              "transaction._next_transaction should be cleared by the C code")
+    if NonConstant(False):
+        transaction._next_transaction = transaction
+    #
     transaction.retry_counter = retry_counter
     new_transactions = transaction.run()
     return _link_new_transactions(new_transactions)

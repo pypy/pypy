@@ -40,17 +40,14 @@ static bool_t fifo_is_empty(stm_fifo_t *fifo)
   return (fifo->first == NULL);
 }
 
-/* static bool_t fifo_is_of_length_1(stm_fifo_t *fifo) */
-/* { */
-/*   return (fifo->first != NULL && fifo->first == fifo->last); */
-/* } */
-
 static void *fifo_popleft(stm_fifo_t *fifo)
 {
   void *item = fifo->first;
   fifo->first = NEXT(item);
   if (fifo->first == NULL)
     fifo->last = NULL;
+  NEXT(item) = NULL;      /* ensure the NEXT is cleared,
+                             to avoid spurious keepalives */
   return item;
 }
 

@@ -93,7 +93,7 @@ static void *run_thread(void *ignored)
           while (1)
             {
               new_transaction_list = perform_transaction(transaction);
-              
+
               /* for now, always break out of this loop,
                  unless 'new_transaction_list' contains precisely one item */
               if (new_transaction_list == NULL)
