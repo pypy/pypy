@@ -2,7 +2,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import base_ptr_lltype, cast_base_ptr_to_instance
-from pypy.rlib.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
+from pypy.rlib.debug import ll_assert
 from pypy.translator.stm.stmgcintf import StmOperations
 
 
@@ -21,15 +22,28 @@ class Transaction(object):
         raise NotImplementedError
 
 
+def stm_operations():
+    if we_are_translated():
+        return StmOperations
+    else:
+        from pypy.rlib.test.test_rstm import fake_stm_operations
+        return fake_stm_operations
+
+
+def in_transaction():
+    return bool(stm_operations().in_transaction())
+
+
 def run_all_transactions(initial_transaction,
                          num_threads = NUM_THREADS_DEFAULT):
-    if StmOperations.in_transaction():
+    if in_transaction():
         raise TransactionError("nested call to rstm.run_all_transactions()")
     #
     _transactionalstate.initialize()
     #
     # Tell the GC we are entering transactional mode.  This makes
     # sure that 'initial_transaction' is flagged as GLOBAL.
+    # (Actually it flags all surviving objects as GLOBAL.)
     # No more GC operation afterwards!
     llop.stm_enter_transactional_mode(lltype.Void)
     #
@@ -39,31 +53,53 @@ def run_all_transactions(initial_transaction,
     # is no possibility of having a GC collection inbetween.
     keepalive_until_here(initial_transaction)
     #
+    # The following line causes the _run_transaction() function to be
+    # generated in the C source with a specific signature, where it
+    # can be called by the C code.
+    llhelper(StmOperations.RUN_TRANSACTION, _run_transaction)
+    #
     # Tell the C code to run all transactions.
-    callback = llhelper(_CALLBACK, _run_transaction)
     ptr = _cast_transaction_to_voidp(initial_transaction)
-    StmOperations.run_all_transactions(callback, ptr, num_threads)
+    stm_operations().run_all_transactions(ptr, num_threads)
     #
     # Tell the GC we are leaving transactional mode.
     llop.stm_leave_transactional_mode(lltype.Void)
+    #
+    # Hack
+    if not we_are_translated():
+        stm_operations().leaving()
     #
     # If an exception was raised, re-raise it here.
     _transactionalstate.close_exceptions()
 
 
-_CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
-                                       rffi.VOIDP))
-
 def _cast_transaction_to_voidp(transaction):
-    ptr = cast_instance_to_base_ptr(transaction)
-    return lltype.cast_pointer(rffi.VOIDP, ptr)
+    if we_are_translated():
+        ptr = cast_instance_to_base_ptr(transaction)
+        return rffi.cast(rffi.VOIDP, ptr)
+    else:
+        return stm_operations().cast_transaction_to_voidp(transaction)
 
 def _cast_voidp_to_transaction(transactionptr):
-    ptr = lltype.cast_pointer(base_ptr_lltype(), transactionptr)
-    return cast_base_ptr_to_instance(Transaction, ptr)
+    if we_are_translated():
+        ptr = rffi.cast(base_ptr_lltype(), transactionptr)
+        return cast_base_ptr_to_instance(Transaction, ptr)
+    else:
+        return stm_operations().cast_voidp_to_transaction(transactionptr)
 
 
 class _TransactionalState(object):
+    """This is the class of a global singleton, seen by every transaction.
+    Used for cross-transaction synchronization.  Of course writing to it
+    will likely cause conflicts.  Reserved for now for storing the
+    exception that must be re-raised by run_all_transactions().
+    """
+    # The logic ensures that once a transaction calls must_reraise_exception()
+    # and commits, all uncommitted transactions will abort (because they have
+    # read '_reraise_exception' when they started) and then, when they retry,
+    # do nothing.  This makes the transaction committing an exception the last
+    # one to commit, and it cleanly shuts down all other pending transactions.
+
     def initialize(self):
         self._reraise_exception = None
 
@@ -73,6 +109,8 @@ class _TransactionalState(object):
     def must_reraise_exception(self, got_exception):
         self._got_exception = got_exception
         self._reraise_exception = self.reraise_exception_callback
+        if not we_are_translated():
+            import sys; self._got_tb = sys.exc_info()[2]
 
     def close_exceptions(self):
         if self._reraise_exception is not None:
@@ -80,8 +118,11 @@ class _TransactionalState(object):
 
     @staticmethod
     def reraise_exception_callback():
-        exc = _transactionalstate._got_exception
+        self = _transactionalstate
+        exc = self._got_exception
         self._got_exception = None
+        if not we_are_translated() and hasattr(self, '_got_tb'):
+            raise exc.__class__, exc, self._got_tb
         raise exc
 
 _transactionalstate = _TransactionalState()

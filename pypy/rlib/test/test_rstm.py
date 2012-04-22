@@ -1,101 +1,90 @@
-import os, thread, time
-from pypy.rlib.debug import debug_print, ll_assert, fatalerror
+import random
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import rstm
-from pypy.rpython.annlowlevel import llhelper
-from pypy.translator.stm.test.support import CompiledSTMTests
-from pypy.module.thread import ll_thread
 
 
-class Arg(object):
-    pass
-arg_list = [Arg() for i in range(10)]
+class FakeStmOperations:
+    _in_transaction = 0
+    _mapping = {}
 
-def setx(arg, retry_counter):
-    debug_print(arg.x)
-    assert rstm._debug_get_state() == 1
-    if arg.x == 303:
-        # this will trigger stm_become_inevitable()
-        os.write(1, "hello\n")
-        assert rstm._debug_get_state() == 2
-    arg.x = 42
+    def in_transaction(self):
+        return self._in_transaction
 
-def stm_perform_transaction(done=None, i=0):
-    ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (1)")
-    rstm.descriptor_init()
-    arg = arg_list[i]
-    if done is None:
-        arg.x = 202
-    else:
-        arg.x = done.initial_x
-    ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (2)")
-    rstm.perform_transaction(setx, Arg, arg)
-    ll_assert(rstm._debug_get_state() == 0, "bad debug_get_state (3)")
-    ll_assert(arg.x == 42, "bad arg.x")
-    if done is not None:
-        ll_thread.release_NOAUTO(done.finished_lock)
-    rstm.descriptor_done()
-    ll_assert(rstm._debug_get_state() == -2, "bad debug_get_state (4)")
+    def _add(self, transactionptr):
+        r = random.random()
+        assert r not in self._pending    # very bad luck if it is
+        self._pending[r] = transactionptr
 
-def test_stm_multiple_threads():
-    ok = []
-    def f(i):
-        stm_perform_transaction(i=i)
-        ok.append(i)
-    rstm.enter_transactional_mode()
-    for i in range(10):
-        thread.start_new_thread(f, (i,))
-    timeout = 10
-    while len(ok) < 10:
-        time.sleep(0.1)
-        timeout -= 0.1
-        assert timeout >= 0.0, "timeout!"
-    rstm.leave_transactional_mode()
-    assert sorted(ok) == range(10)
+    def run_all_transactions(self, initial_transaction_ptr, num_threads=4):
+        self._pending = {}
+        self._add(initial_transaction_ptr)
+        while self._pending:
+            r, transactionptr = self._pending.popitem()
+            transaction = self.cast_voidp_to_transaction(transactionptr)
+            transaction._next_transaction = None
+            nextptr = rstm._run_transaction(transactionptr, 0)
+            next = self.cast_voidp_to_transaction(nextptr)
+            while next is not None:
+                self._add(self.cast_transaction_to_voidp(next))
+                next = next._next_transaction
+        del self._pending
+
+    def cast_transaction_to_voidp(self, transaction):
+        if transaction is None:
+            return lltype.nullptr(rffi.VOIDP.TO)
+        assert isinstance(transaction, rstm.Transaction)
+        num = 10000 + len(self._mapping)
+        self._mapping[num] = transaction
+        return rffi.cast(rffi.VOIDP, num)
+
+    def cast_voidp_to_transaction(self, transactionptr):
+        if not transactionptr:
+            return None
+        num = rffi.cast(lltype.Signed, transactionptr)
+        return self._mapping[num]
+
+    def leaving(self):
+        self._mapping.clear()
+
+fake_stm_operations = FakeStmOperations()
 
 
-class TestTransformSingleThread(CompiledSTMTests):
+def test_in_transaction():
+    res = rstm.in_transaction()
+    assert res is False
 
-    def test_no_pointer_operations(self):
-        def simplefunc(argv):
-            i = 0
-            while i < 100:
-                i += 3
-            debug_print(i)
-            return 0
-        t, cbuilder = self.compile(simplefunc)
-        dataout, dataerr = cbuilder.cmdexec('', err=True)
-        assert dataout == ''
-        assert '102' in dataerr.splitlines()
+def test_run_all_transactions_minimal():
+    seen = []
+    class Empty(rstm.Transaction):
+        def run(self):
+            seen.append(42)
+    rstm.run_all_transactions(Empty())
+    assert seen == [42]
 
-    def build_perform_transaction(self):
-        class Done: done = False
-        done = Done()
-        def g():
-            stm_perform_transaction(done)
-        def f(argv):
-            done.initial_x = int(argv[1])
-            assert rstm._debug_get_state() == -1    # main thread
-            done.finished_lock = ll_thread.allocate_ll_lock()
-            ll_thread.acquire_NOAUTO(done.finished_lock, True)
-            #
-            rstm.enter_transactional_mode()
-            #
-            llcallback = llhelper(ll_thread.CALLBACK, g)
-            ident = ll_thread.c_thread_start_NOGIL(llcallback)
-            ll_thread.acquire_NOAUTO(done.finished_lock, True)
-            #
-            rstm.leave_transactional_mode()
-            return 0
-        t, cbuilder = self.compile(f)
-        return cbuilder
+def test_run_all_transactions_recursive():
+    seen = []
+    class DoInOrder(rstm.Transaction):
+        def run(self):
+            assert self._next_transaction is None
+            if len(seen) < 10:
+                seen.append(len(seen))
+                return [self]
+    rstm.run_all_transactions(DoInOrder())
+    assert seen == range(10)
 
-    def test_perform_transaction(self):
-        cbuilder = self.build_perform_transaction()
-        #
-        dataout, dataerr = cbuilder.cmdexec('202', err=True)
-        assert dataout == ''
-        assert '202' in dataerr.splitlines()
-        #
-        dataout, dataerr = cbuilder.cmdexec('303', err=True)
-        assert 'hello' in dataout.splitlines()
-        assert '303' in dataerr.splitlines()
+def test_run_all_transactions_random_order():
+    seen = []
+    class AddToSeen(rstm.Transaction):
+        def run(self):
+            seen.append(self.value)
+    class DoInOrder(rstm.Transaction):
+        count = 0
+        def run(self):
+            assert self._next_transaction is None
+            if self.count < 50:
+                other = AddToSeen()
+                other.value = self.count
+                self.count += 1
+                return [self, other]
+    rstm.run_all_transactions(DoInOrder())
+    assert seen != range(50) and sorted(seen) == range(50)

@@ -12,6 +12,11 @@
 #include "src/commondefs.h"
 
 
+long stm_in_transaction(void);
+void stm_run_all_transactions(void*(*)(void*, long), void*, long);
+
+
+
 void stm_setup_size_getter(long(*)(void*));
 
 void stm_set_tls(void *, long);
@@ -40,8 +45,6 @@ float     stm_read_int4f(void *, long);
 
 
 void* stm_perform_transaction(void*(*)(void*, long), void*, void*);
-void stm_enter_transactional_mode(void);
-void stm_leave_transactional_mode(void);
 void stm_try_inevitable(STM_CCHARP1(why));
 void stm_abort_and_retry(void);
 long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
@@ -50,7 +53,6 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
                                      2: in an inevitable transaction */
 long stm_thread_id(void);  /* returns a unique thread id,
                               or 0 if descriptor_init() was not called */
-long stm_in_transaction(void);
 void _stm_activate_transaction(long);
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size);

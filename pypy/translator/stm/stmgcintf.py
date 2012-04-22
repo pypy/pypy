@@ -35,19 +35,22 @@ class StmOperations(object):
                          '8f': rffi.DOUBLE,
                          '4f': rffi.FLOAT}
 
-    CALLBACK_TX   = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
-                                               rffi.VOIDP))
-    CALLBACK_ENUM = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3,
-                                               lltype.Void))
-    GETSIZE  = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+    RUN_TRANSACTION = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
+                                                 rffi.VOIDP))
 
     def _freeze_(self):
         return True
 
-    setup_size_getter = smexternal('stm_setup_size_getter', [GETSIZE],
-                                   lltype.Void)
-
     in_transaction = smexternal('stm_in_transaction', [], lltype.Signed)
+    run_all_transactions = smexternal('stm_run_all_transactions',
+                                      [rffi.VOIDP, lltype.Signed],
+                                      lltype.Void)
+
+
+
+    # xxx review and delete xxx
+    CALLBACK_ENUM = lltype.Ptr(lltype.FuncType([llmemory.Address] * 3,
+                                               lltype.Void))
     _activate_transaction = smexternal('_stm_activate_transaction',
                                        [lltype.Signed], lltype.Void)
 
@@ -55,11 +58,6 @@ class StmOperations(object):
                          lltype.Void)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
-
-    enter_transactional_mode = smexternal('stm_enter_transactional_mode',
-                                          [], lltype.Void)
-    leave_transactional_mode = smexternal('stm_leave_transactional_mode',
-                                          [], lltype.Void)
 
     tldict_lookup = smexternal('stm_tldict_lookup', [llmemory.Address],
                                llmemory.Address)
@@ -79,15 +77,5 @@ class StmOperations(object):
                                                lltype.Void)
 
     try_inevitable = smexternal('stm_try_inevitable', [], lltype.Void)
-    perform_transaction = smexternal('stm_perform_transaction',
-                                     [CALLBACK_TX, rffi.VOIDP,
-                                      llmemory.Address], rffi.VOIDP)
     thread_id        = smexternal('stm_thread_id',       [], lltype.Signed)
     abort_and_retry  = smexternal('stm_abort_and_retry', [], lltype.Void)
-
-    _debug_get_state = smexternal('stm_debug_get_state', [], lltype.Signed)
-    STATE_NOT_INITIALIZED   = -2
-    STATE_MAIN_THREAD       = -1
-    STATE_INACTIVE          = 0
-    STATE_ACTIVE            = 1
-    STATE_ACTIVE_INEVITABLE = 2
