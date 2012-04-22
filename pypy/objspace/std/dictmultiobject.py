@@ -48,8 +48,8 @@ class W_DictMultiObject(W_Object):
 
         elif kwargs:
             assert w_type is None
-            from pypy.objspace.std.kwargsdict import KwargsDictStrategy
-            strategy = space.fromcache(KwargsDictStrategy)
+            from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
+            strategy = space.fromcache(EmptyKwargsDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
         if w_type is None:

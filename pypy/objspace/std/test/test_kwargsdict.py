@@ -100,6 +100,14 @@ def test_view_as_kwargs():
     d = W_DictMultiObject(space, strategy, storage)
     assert (space.view_as_kwargs(d) == [], [])
 
+def test_from_empty_to_kwargs():
+    strategy = EmptyKwargsDictStrategy(space)
+    storage = strategy.get_empty_storage()
+    d = W_DictMultiObject(space, strategy, storage)
+    d.setitem_str("a", 3)
+    assert isinstance(d.strategy, KwargsDictStrategy)
+
+
 from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 def get_impl(self):
     storage = strategy.erase(([], []))
@@ -130,4 +138,6 @@ class AppTestKwargsDictStrategy(object):
             return args
         d = f(a=1)
         assert "KwargsDictStrategy" in self.get_strategy(d)
+        d = f()
+        assert "EmptyKwargsDictStrategy" in self.get_strategy(d)
 

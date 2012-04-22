@@ -3,9 +3,18 @@
 
 from pypy.rlib import rerased, jit
 from pypy.objspace.std.dictmultiobject import (DictStrategy,
+                                               EmptyDictStrategy,
                                                IteratorImplementation,
                                                ObjectDictStrategy,
                                                StringDictStrategy)
+
+
+class EmptyKwargsDictStrategy(EmptyDictStrategy):
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(KwargsDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
 
 
 class KwargsDictStrategy(DictStrategy):
