@@ -1,8 +1,6 @@
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module.thread import ll_thread
-from pypy.rlib import rstm, rgc
-from pypy.rlib.debug import debug_print
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.lltypesystem import rffi
+from pypy.rlib import rstm
+from pypy.rlib.debug import debug_print, ll_assert
 
 
 class Node:
@@ -21,10 +19,7 @@ class Arg:
     pass
 
 
-def add_at_end_of_chained_list(arg, retry_counter):
-    assert arg.foobar == 42
-    node = arg.anchor
-    value = arg.value
+def add_at_end_of_chained_list(node, value):
     x = Node(value)
     while node.next:
         node = node.next
@@ -59,65 +54,40 @@ def check_chained_list(node):
     print "check ok!"
 
 
-def increment_done(arg, retry_counter):
-    print "thread done."
-    glob.done += 1
-
 def _check_pointer(arg1):
     arg1.foobar = 40    # now 'arg1' is local
     return arg1
 
-def check_pointer_equality(arg, retry_counter):
-    res = _check_pointer(arg)
-    if res is not arg:
-        debug_print("ERROR: bogus pointer equality")
-        raise AssertionError
-    raw1 = rffi.cast(rffi.CCHARP, retry_counter)
-    raw2 = rffi.cast(rffi.CCHARP, -1)
-    if raw1 == raw2:
-        debug_print("ERROR: retry_counter == -1")
-        raise AssertionError
+class CheckPointerEquality(rstm.Transaction):
+    def __init__(self, arg):
+        self.arg = arg
+    def run(self):
+        res = _check_pointer(self.arg)    # 'self.arg' reads a GLOBAL object
+        ll_assert(res is self.arg, "ERROR: bogus pointer equality")
+        raw1 = rffi.cast(rffi.CCHARP, self.retry_counter)
+        raw2 = rffi.cast(rffi.CCHARP, -1)
+        ll_assert(raw1 == raw2, "ERROR: retry_counter == -1")
 
-def run_me():
-    rstm.descriptor_init()
-    try:
-        debug_print("thread starting...")
-        arg = glob._arg
-        ll_thread.release_NOAUTO(glob.lock)
-        arg.foobar = 41
-        rstm.perform_transaction(check_pointer_equality, Arg, arg)
-        i = 0
-        while i < glob.LENGTH:
-            arg.anchor = glob.anchor
-            arg.value = i
-            arg.foobar = 42
-            rstm.perform_transaction(add_at_end_of_chained_list, Arg, arg)
-            i += 1
-        rstm.perform_transaction(increment_done, Arg, arg)
-    finally:
-        rstm.descriptor_done()
+class MakeChain(rstm.Transaction):
+    def __init__(self, anchor, value):
+        self.anchor = anchor
+        self.value = value
+    def run(self):
+        add_at_end_of_chained_list(self.anchor, self.value)
+        self.value += 1
+        if self.value < glob.LENGTH:
+            return [self]       # re-schedule the same Transaction object
 
-
-@rgc.no_collect     # don't use the gc as long as other threads are running
-def _run():
-    i = 0
-    while i < glob.NUM_THREADS:
-        glob._arg = glob._arglist[i]
-        ll_run_me = llhelper(ll_thread.CALLBACK, run_me)
-        ll_thread.c_thread_start_NOGIL(ll_run_me)
-        ll_thread.acquire_NOAUTO(glob.lock, True)
-        i += 1
-    debug_print("sleeping...")
-    while glob.done < glob.NUM_THREADS:    # poor man's lock
-        _sleep(rffi.cast(rffi.ULONG, 1))
-    debug_print("done sleeping.")
-
-
-# Posix only
-_sleep = rffi.llexternal('sleep', [rffi.ULONG], rffi.ULONG,
-                         _nowrapper=True,
-                         random_effects_on_gcobjs=False)
-
+class InitialTransaction(rstm.Transaction):
+    def run(self):
+        ll_assert(self.retry_counter == 0, "no reason to abort-and-retry here")
+        scheduled = []
+        for i in range(glob.NUM_THREADS):
+            arg = Arg()
+            arg.foobar = 41
+            scheduled.append(CheckPointerEquality(arg))
+            scheduled.append(MakeChain(glob.anchor, 0))
+        return scheduled
 
 # __________  Entry point  __________
 
@@ -129,14 +99,9 @@ def entry_point(argv):
             glob.LENGTH = int(argv[2])
             if len(argv) > 3:
                 glob.USE_MEMORY = bool(int(argv[3]))
-    glob.done = 0
-    glob.lock = ll_thread.allocate_ll_lock()
-    ll_thread.acquire_NOAUTO(glob.lock, True)
-    glob._arglist = [Arg() for i in range(glob.NUM_THREADS)]
     #
-    rstm.enter_transactional_mode()
-    _run()
-    rstm.leave_transactional_mode()
+    rstm.run_all_transactions(InitialTransaction(),
+                              num_threads=glob.NUM_THREADS)
     #
     check_chained_list(glob.anchor.next)
     return 0
@@ -145,3 +110,7 @@ def entry_point(argv):
 
 def target(*args):
     return entry_point, None
+
+if __name__ == '__main__':
+    import sys
+    entry_point(sys.argv)

@@ -1,79 +1,146 @@
-import threading
-from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib.debug import ll_assert
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
-                                      cast_instance_to_base_ptr,
-                                      llhelper)
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import base_ptr_lltype, cast_base_ptr_to_instance
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.translator.stm.stmgcintf import StmOperations
 
-_global_lock = threading.RLock()
 
-@specialize.memo()
-def _get_stm_callback(func, argcls):
-    def _stm_callback(llarg, retry_counter):
-        llop.stm_start_transaction(lltype.Void)
-        if we_are_translated():
-            llarg = rffi.cast(rclass.OBJECTPTR, llarg)
-            arg = cast_base_ptr_to_instance(argcls, llarg)
-        else:
-            arg = lltype.TLS.stm_callback_arg
-        try:
-            res = func(arg, retry_counter)
-            ll_assert(res is None, "stm_callback should return None")
-        finally:
-            llop.stm_commit_transaction(lltype.Void)
-        return lltype.nullptr(rffi.VOIDP.TO)
-    return _stm_callback
 
-@specialize.arg(0, 1)
-def perform_transaction(func, argcls, arg):
-    ll_assert(arg is None or isinstance(arg, argcls),
-              "perform_transaction: wrong class")
-    if we_are_translated():
-        llarg = cast_instance_to_base_ptr(arg)
-        llarg = rffi.cast(rffi.VOIDP, llarg)
-        adr_of_top = llop.gc_adr_of_root_stack_top(llmemory.Address)
-    else:
-        # only for tests: we want (1) to test the calls to the C library,
-        # but also (2) to work with multiple Python threads, so we acquire
-        # and release some custom GIL here --- even though it doesn't make
-        # sense from an STM point of view :-/
-        _global_lock.acquire()
-        lltype.TLS.stm_callback_arg = arg
-        llarg = lltype.nullptr(rffi.VOIDP.TO)
-        adr_of_top = llmemory.NULL
+NUM_THREADS_DEFAULT = 4     # XXX for now
+
+
+class TransactionError(Exception):
+    pass
+
+class Transaction(object):
+    _next_transaction = None
+    retry_counter = 0
+
+    def run(self):
+        raise NotImplementedError
+
+
+def run_all_transactions(initial_transaction,
+                         num_threads = NUM_THREADS_DEFAULT):
+    if StmOperations.in_transaction():
+        raise TransactionError("nested call to rstm.run_all_transactions()")
     #
-    callback = _get_stm_callback(func, argcls)
-    llcallback = llhelper(StmOperations.CALLBACK_TX, callback)
-    StmOperations.perform_transaction(llcallback, llarg, adr_of_top)
-    keepalive_until_here(arg)
-    if not we_are_translated():
-        _global_lock.release()
-
-def enter_transactional_mode():
+    _transactionalstate.initialize()
+    #
+    # Tell the GC we are entering transactional mode.  This makes
+    # sure that 'initial_transaction' is flagged as GLOBAL.
+    # No more GC operation afterwards!
     llop.stm_enter_transactional_mode(lltype.Void)
-
-def leave_transactional_mode():
+    #
+    # Keep alive 'initial_transaction'.  In truth we would like it to
+    # survive a little bit longer, for the beginning of the C code in
+    # run_all_transactions().  This should be equivalent because there
+    # is no possibility of having a GC collection inbetween.
+    keepalive_until_here(initial_transaction)
+    #
+    # Tell the C code to run all transactions.
+    callback = llhelper(_CALLBACK, _run_transaction)
+    ptr = _cast_transaction_to_voidp(initial_transaction)
+    StmOperations.run_all_transactions(callback, ptr, num_threads)
+    #
+    # Tell the GC we are leaving transactional mode.
     llop.stm_leave_transactional_mode(lltype.Void)
+    #
+    # If an exception was raised, re-raise it here.
+    _transactionalstate.close_exceptions()
 
-def descriptor_init():
-    if not we_are_translated(): _global_lock.acquire()
-    llop.stm_descriptor_init(lltype.Void)
-    if not we_are_translated(): _global_lock.release()
 
-def descriptor_done():
-    if not we_are_translated(): _global_lock.acquire()
-    llop.stm_descriptor_done(lltype.Void)
-    if not we_are_translated(): _global_lock.release()
+_CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
+                                       rffi.VOIDP))
 
-def _debug_get_state():
-    if not we_are_translated(): _global_lock.acquire()
-    res = StmOperations._debug_get_state()
-    if not we_are_translated(): _global_lock.release()
-    return res
+def _cast_transaction_to_voidp(transaction):
+    ptr = cast_instance_to_base_ptr(transaction)
+    return lltype.cast_pointer(rffi.VOIDP, ptr)
 
-def thread_id():
-    return StmOperations.thread_id()
+def _cast_voidp_to_transaction(transactionptr):
+    ptr = lltype.cast_pointer(base_ptr_lltype(), transactionptr)
+    return cast_base_ptr_to_instance(Transaction, ptr)
+
+
+class _TransactionalState(object):
+    def initialize(self):
+        self._reraise_exception = None
+
+    def has_exception(self):
+        return self._reraise_exception is not None
+
+    def must_reraise_exception(self, got_exception):
+        self._got_exception = got_exception
+        self._reraise_exception = self.reraise_exception_callback
+
+    def close_exceptions(self):
+        if self._reraise_exception is not None:
+            self._reraise_exception()
+
+    @staticmethod
+    def reraise_exception_callback():
+        exc = _transactionalstate._got_exception
+        self._got_exception = None
+        raise exc
+
+_transactionalstate = _TransactionalState()
+
+
+def _run_transaction(transactionptr, retry_counter):
+    #
+    # Tell the GC we are starting a transaction
+    llop.stm_start_transaction(lltype.Void)
+    #
+    # Now we can use the GC
+    next = None
+    try:
+        if _transactionalstate.has_exception():
+            # a previously committed transaction raised: don't do anything
+            # more in this transaction
+            pass
+        else:
+            # run!
+            next = _run_really(transactionptr, retry_counter)
+        #
+    except Exception, e:
+        _transactionalstate.must_reraise_exception(e)
+    #
+    # Stop using the GC.  This will make 'next' and all transactions linked
+    # from there GLOBAL objects.
+    llop.stm_stop_transaction(lltype.Void)
+    #
+    # Mark 'next' as kept-alive-until-here.  In truth we would like to
+    # keep it alive after the return, for the C code.  This should be
+    # equivalent because there is no possibility of having a GC collection
+    # inbetween.
+    keepalive_until_here(next)
+    return _cast_transaction_to_voidp(next)
+
+
+def _run_really(transactionptr, retry_counter):
+    # Call the RPython method run() on the Transaction instance.
+    # This logic is in a sub-function because we want to catch
+    # the MemoryErrors that could occur.
+    transaction = _cast_voidp_to_transaction(transactionptr)
+    ll_assert(transaction._next_transaction is None,
+              "_next_transaction should be cleared by C code")
+    transaction.retry_counter = retry_counter
+    new_transactions = transaction.run()
+    return _link_new_transactions(new_transactions)
+_run_really._dont_inline_ = True
+
+def _link_new_transactions(new_transactions):
+    # in order to schedule the new transactions, we have to return a
+    # raw pointer to the first one, with their field '_next_transaction'
+    # making a linked list.  The C code reads directly from this
+    # field '_next_transaction'.
+    if new_transactions is None:
+        return None
+    n = len(new_transactions) - 1
+    next = None
+    while n >= 0:
+        new_transactions[n]._next_transaction = next
+        next = new_transactions[n]
+        n -= 1
+    return next
