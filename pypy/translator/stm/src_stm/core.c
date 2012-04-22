@@ -550,6 +550,7 @@ static void commit_transaction(void)
         }
       d->num_commits++;
       common_cleanup(d);
+      return;
     }
 
   // bring that variable over to this CPU core (optimization, maybe)

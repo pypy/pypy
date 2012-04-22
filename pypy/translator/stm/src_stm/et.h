@@ -49,14 +49,8 @@ float     stm_read_int4f(void *, long);
 #endif
 
 
-void* stm_perform_transaction(void*(*)(void*, long), void*, void*);
 void stm_try_inevitable(STM_CCHARP1(why));
 void stm_abort_and_retry(void);
-long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
-                                     0: not in a transaction
-                                     1: in a regular transaction
-                                     2: in an inevitable transaction */
-void _stm_activate_transaction(long);
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size);
 
