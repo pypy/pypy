@@ -66,7 +66,7 @@ def wrap_inquirypred(space, w_self, w_args, func):
     args_w = space.fixedview(w_args)
     res = generic_cpy_call(space, func_inquiry, w_self)
     if rffi.cast(lltype.Signed, res) == -1:
-        space.fromcache(State).check_and_raise_exception()
+        space.fromcache(State).check_and_raise_exception(always=True)
     return space.wrap(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
