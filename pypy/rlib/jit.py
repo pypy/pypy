@@ -148,6 +148,8 @@ def look_inside_iff(predicate):
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
+        predicateargs = _get_args(predicate)
+        assert len(args) == len(predicateargs), "%s and predicate %s need the same numbers of arguments" % (func, predicate)
         d = {
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
