@@ -51,30 +51,6 @@ void pypy_g__stm_enum_callback(void *a, void *b, void *c) {
 }
 
 
-void test_set_get_del(void)
-{
-    stm_set_tls((void *)42, 1);
-    assert(stm_get_tls() == (void *)42);
-    stm_del_tls();
-}
-
-void *rt1(void *t1, long retry_counter)
-{
-    struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
-    assert(retry_counter == 0);
-    assert(t->foobar == 42);
-    t->foobar = 143;
-    return NULL;
-}
-void test_run_all_transactions(void)
-{
-    struct pypy_pypy_rlib_rstm_Transaction0 t;
-    t.foobar = 42;
-    cb_run_transaction = rt1;
-    stm_run_all_transactions(&t, 1);
-    assert(t.foobar == 143);
-}
-
 void *rt2(void *t1, long retry_counter)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
@@ -95,6 +71,36 @@ void run_in_transaction(void(*cb)(void), int expected)
     assert(t.foobar == expected);
 }
 
+/************************************************************/
+
+void test_set_get_del(void)
+{
+    stm_set_tls((void *)42, 1);
+    assert(stm_get_tls() == (void *)42);
+    stm_del_tls();
+}
+
+/************************************************************/
+
+void *rt1(void *t1, long retry_counter)
+{
+    struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
+    assert(retry_counter == 0);
+    assert(t->foobar == 42);
+    t->foobar = 143;
+    return NULL;
+}
+void test_run_all_transactions(void)
+{
+    struct pypy_pypy_rlib_rstm_Transaction0 t;
+    t.foobar = 42;
+    cb_run_transaction = rt1;
+    stm_run_all_transactions(&t, 1);
+    assert(t.foobar == 143);
+}
+
+/************************************************************/
+
 void tldict(void)
 {
     void *a1 = (void *)0x4020;
@@ -112,10 +118,35 @@ void tldict(void)
     assert(stm_tldict_lookup(a1) == a2);
     stm_abort_and_retry();
 }
-void test_tldict(void)
+void test_tldict(void) { run_in_transaction(tldict, 1); }
+
+/************************************************************/
+
+void tldict_large(void)
 {
-    run_in_transaction(tldict, 1);
+    void *content[1024] = { 0 };
+    int i;
+    for (i=0; i<120000; i++) {
+        long key_index = rand() & 1023;
+        void *a1 = (void *)(10000 + key_index * 8);
+        void *a2 = stm_tldict_lookup(a1);
+
+        if (content[key_index] != NULL) {
+            assert(a2 == content[key_index]);
+        }
+        else {
+            assert(a2 == NULL);
+            while (a2 == NULL)
+                a2 = (void *)rand();
+            stm_tldict_add(a1, a2);
+            content[key_index] = a2;
+        }
+    }
+    stm_abort_and_retry();
 }
+void test_tldict_large(void) { run_in_transaction(tldict_large, 1); }
+
+/************************************************************/
 
 
 #define XTEST(name)  if (!strcmp(argv[1], #name)) { test_##name(); return 0; }
@@ -125,6 +156,7 @@ int main(int argc, char **argv)
     XTEST(set_get_del);
     XTEST(run_all_transactions);
     XTEST(tldict);
+    XTEST(tldict_large);
     printf("bad test name\n");
     return 1;
 }
