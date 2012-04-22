@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
-    getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc,
+    getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc)
@@ -59,6 +59,15 @@ def wrap_binaryfunc(space, w_self, w_args, func):
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
+
+def wrap_inquirypred(space, w_self, w_args, func):
+    func_inquiry = rffi.cast(inquiry, func)
+    check_num_args(space, w_args, 0)
+    args_w = space.fixedview(w_args)
+    res = generic_cpy_call(space, func_inquiry, w_self)
+    if res == -1:
+        space.fromcache(State).check_and_raise_exception()
+    return space.wrap(bool(res))
 
 def wrap_getattr(space, w_self, w_args, func):
     func_target = rffi.cast(getattrfunc, func)
