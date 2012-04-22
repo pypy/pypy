@@ -451,8 +451,8 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         i += 1
 
 @jit.look_inside_iff(
-    lambda signature, blindargs, input_argcount, keywords,
-           scope_w, kwds_mapping, jiton: jiton)
+    lambda signature, blindargs, input_argcount,
+           keywords, kwds_mapping, jiton: jiton)
 def _match_keywords(signature, blindargs, input_argcount,
                     keywords, kwds_mapping, _):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
