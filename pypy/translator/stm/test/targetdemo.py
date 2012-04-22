@@ -66,7 +66,7 @@ class CheckPointerEquality(rstm.Transaction):
         ll_assert(res is self.arg, "ERROR: bogus pointer equality")
         raw1 = rffi.cast(rffi.CCHARP, self.retry_counter)
         raw2 = rffi.cast(rffi.CCHARP, -1)
-        ll_assert(raw1 == raw2, "ERROR: retry_counter == -1")
+        ll_assert(raw1 != raw2, "ERROR: retry_counter == -1")
 
 class MakeChain(rstm.Transaction):
     def __init__(self, anchor, value):

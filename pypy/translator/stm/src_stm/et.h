@@ -25,7 +25,11 @@ void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
 void stm_tldict_enum(void);
 
-/* these functions are declared by generated C code from the GC */
+/* these functions are declared by generated C code from pypy.rlib.rstm
+   and from the GC (see llop.nop(...)) */
+extern void pypy_g__stm_thread_starting(void);
+extern void pypy_g__stm_thread_stopping(void);
+extern void *_stm_run_transaction(void *, long);
 extern long pypy_g__stm_getsize(void *);
 extern void pypy_g__stm_enum_callback(void *, void *, void *);
 

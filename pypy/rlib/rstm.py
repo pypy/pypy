@@ -171,8 +171,7 @@ def _run_really(transactionptr, retry_counter):
     # This logic is in a sub-function because we want to catch
     # the MemoryErrors that could occur.
     transaction = _cast_voidp_to_transaction(transactionptr)
-    ll_assert(transaction._next_transaction is None,
-              "_next_transaction should be cleared by C code")
+    transaction._next_transaction = None
     transaction.retry_counter = retry_counter
     new_transactions = transaction.run()
     return _link_new_transactions(new_transactions)

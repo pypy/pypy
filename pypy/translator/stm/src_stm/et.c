@@ -1,7 +1,5 @@
 /* -*- c-basic-offset: 2 -*- */
 
-#ifndef PYPY_NOT_MAIN_FILE
-
 /* XXX assumes that time never wraps around (in a 'long'), which may be
  * correct on 64-bit machines but not on 32-bit machines if the process
  * runs for long enough.
@@ -40,10 +38,7 @@
 /* This is the same as the object header structure HDR
  * declared in stmgc.py */
 
-typedef struct {
-  long tid;
-  long version;
-} orec_t;
+typedef struct pypy_header0 orec_t;
 
 /************************************************************/
 
@@ -62,5 +57,3 @@ typedef long owner_version_t;
 #include "src_stm/rpyintf.c"
 
 /************************************************************/
-
-#endif  /* PYPY_NOT_MAIN_FILE */

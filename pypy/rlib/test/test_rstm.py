@@ -21,8 +21,6 @@ class FakeStmOperations:
         self._add(initial_transaction_ptr)
         while self._pending:
             r, transactionptr = self._pending.popitem()
-            transaction = self.cast_voidp_to_transaction(transactionptr)
-            transaction._next_transaction = None
             nextptr = rstm._stm_run_transaction(transactionptr, 0)
             next = self.cast_voidp_to_transaction(nextptr)
             while next is not None:

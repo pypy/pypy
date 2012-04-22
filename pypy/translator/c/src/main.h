@@ -15,6 +15,10 @@ int main(int argc, char *argv[]);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+#ifdef RPY_STM
+#include "src_stm/et.c"
+#endif
+
 #ifndef PYPY_MAIN_FUNCTION
 #define PYPY_MAIN_FUNCTION main
 #endif

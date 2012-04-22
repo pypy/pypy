@@ -26,6 +26,11 @@ static __thread struct tx_descriptor *thread_descriptor = NULL;
 
 /************************************************************/
 
+#define GETVERSION(o)     ((owner_version_t)((o)->h_version))
+#define GETVERSIONREF(o)  ((volatile owner_version_t *)(&(o)->h_version))
+#define SETVERSION(o, v)  (o)->h_version = (void *)(v)
+#define GETTID(o)         ((o)->h_tid)
+
 static unsigned long get_global_timestamp(struct tx_descriptor *d)
 {
   return (/*d->last_known_global_timestamp =*/ global_timestamp);
@@ -94,7 +99,7 @@ static void tx_redo(struct tx_descriptor *d)
       /* unlock the orec */
       volatile orec_t* o = get_orec(globalobj);
       CFENCE;
-      o->version = newver;
+      SETVERSION(o, newver);
     } REDOLOG_LOOP_END;
 }
 
@@ -107,7 +112,7 @@ static void releaseAndRevertLocks(struct tx_descriptor *d)
       if (item->p != -1)
         {
           volatile orec_t* o = get_orec(item->addr);
-          o->version = item->p;
+          SETVERSION(o, item->p);
         }
     } REDOLOG_LOOP_END;
 }
@@ -120,7 +125,7 @@ static void releaseLocksForRetry(struct tx_descriptor *d)
     {
       volatile orec_t* o = get_orec(item->addr);
       assert(item->p != -1);
-      o->version = item->p;
+      SETVERSION(o, item->p);
       item->p = -1;
     } REDOLOG_LOOP_END;
 }
@@ -137,7 +142,7 @@ static void acquireLocks(struct tx_descriptor *d)
       owner_version_t ovt;
 
     retry:
-      ovt = o->version;
+      ovt = GETVERSION(o);
 
       // if orec not locked, lock it
       //
@@ -145,7 +150,7 @@ static void acquireLocks(struct tx_descriptor *d)
       // reads.  Since most writes are also reads, we'll just abort under this
       // condition.  This can introduce false conflicts
       if (!IS_LOCKED_OR_NEWER(ovt, d->start_time)) {
-        if (!bool_cas(&o->version, ovt, d->my_lock_word))
+        if (!bool_cas(GETVERSIONREF(o), ovt, d->my_lock_word))
           goto retry;
         // save old version to item->p.  Now we hold the lock.
         item->p = ovt;
@@ -219,7 +224,7 @@ static void validate_fast(struct tx_descriptor *d, int lognum)
   for (i=0; i<d->reads.size; i++)
     {
     retry:
-      ovt = d->reads.items[i]->version;
+      ovt = GETVERSION(d->reads.items[i]);
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           // If locked, we wait until it becomes unlocked.  The chances are
@@ -249,7 +254,7 @@ static void validate(struct tx_descriptor *d)
   assert(!is_inevitable(d));
   for (i=0; i<d->reads.size; i++)
     {
-      ovt = d->reads.items[i]->version;      // read this orec
+      ovt = GETVERSION(d->reads.items[i]);      // read this orec
       if (IS_LOCKED_OR_NEWER(ovt, d->start_time))
         {
           if (!IS_LOCKED(ovt))
@@ -361,7 +366,7 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
   else {                                                                \
  retry:                                                                 \
   /* read the orec BEFORE we read anything else */                      \
-  ovt = o->version;                                                     \
+  ovt = GETVERSION(o);                                                  \
   CFENCE;                                                               \
                                                                         \
   /* this tx doesn't hold any locks, so if the lock for this addr is */ \
@@ -384,7 +389,7 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
                                                                         \
   /* postvalidate AFTER reading addr: */                                \
   CFENCE;                                                               \
-  if (__builtin_expect(o->version != ovt, 0))                           \
+  if (__builtin_expect(GETVERSION(o) != ovt, 0))                        \
     goto retry;       /* oups, try again */                             \
                                                                         \
   oreclist_insert(&d->reads, (orec_t*)o);                               \
@@ -404,13 +409,13 @@ TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
   if (d == NULL)                                                        \
     return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
-  if ((o->tid & GCFLAG_WAS_COPIED) != 0)                                \
+  if ((GETTID(o) & GCFLAG_WAS_COPIED) != 0)                             \
     {                                                                   \
       /* Look up in the thread-local dictionary. */                     \
       wlog_t *found;                                                    \
       REDOLOG_FIND(d->redolog, addr, found, goto not_found);            \
       orec_t *localobj = (orec_t *)found->val;                          \
-      assert((localobj->tid & GCFLAG_GLOBAL) == 0);                     \
+      assert((GETTID(localobj) & GCFLAG_GLOBAL) == 0);                  \
       return *(TYPE *)(((char *)localobj) + offset);                    \
                                                                         \
     not_found:;                                                         \
@@ -644,3 +649,72 @@ void stm_abort_and_retry(void)
 {
   tx_abort(7);     /* manual abort */
 }
+
+/************************************************************/
+
+long stm_thread_id(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  if (d == NULL)
+    return 0;    /* no thread_descriptor: it's the main thread */
+  return d->my_lock_word;
+}
+
+static __thread void *rpython_tls_object;
+
+void stm_set_tls(void *newtls, long in_main_thread)
+{
+  descriptor_init(in_main_thread);
+  rpython_tls_object = newtls;
+}
+
+void *stm_get_tls(void)
+{
+  return rpython_tls_object;
+}
+
+void stm_del_tls(void)
+{
+  descriptor_done();
+}
+
+void *stm_tldict_lookup(void *key)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t* found;
+  REDOLOG_FIND(d->redolog, key, found, goto not_found);
+  return found->val;
+
+ not_found:
+  return NULL;
+}
+
+void stm_tldict_add(void *key, void *value)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  assert(d != NULL);
+  redolog_insert(&d->redolog, key, value);
+}
+
+void stm_tldict_enum(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  wlog_t *item;
+  void *tls = stm_get_tls();
+
+  REDOLOG_LOOP_FORWARD(d->redolog, item)
+    {
+      pypy_g__stm_enum_callback(tls, item->addr, item->val);
+    } REDOLOG_LOOP_END;
+}
+
+long stm_in_transaction(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return d != NULL;
+}
+
+#undef GETVERSION
+#undef GETVERSIONREF
+#undef SETVERSION
+#undef GETTID
