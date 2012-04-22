@@ -6,7 +6,6 @@
 #define SPINLOOP_REASONS 10
 
 struct tx_descriptor {
-  void *rpython_tls_object;
   jmp_buf *setjmp_buf;
   owner_version_t start_time;
   owner_version_t end_time;
@@ -24,8 +23,6 @@ struct tx_descriptor {
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
 static __thread struct tx_descriptor *thread_descriptor = NULL;
-static __thread struct tx_descriptor *active_thread_descriptor = NULL;
-static long (*rpython_get_size)(void*);
 
 /************************************************************/
 
@@ -58,7 +55,7 @@ static void tx_spinloop(int num)
 {
   unsigned int c;
   int i;
-  struct tx_descriptor *d = active_thread_descriptor;
+  struct tx_descriptor *d = thread_descriptor;
   d->num_spinloops[num]++;
 
   //printf("tx_spinloop(%d)\n", num);
@@ -90,7 +87,7 @@ static void tx_redo(struct tx_descriptor *d)
     {
       void *globalobj = item->addr;
       void *localobj = item->val;
-      long size = rpython_get_size(localobj);
+      long size = pypy_g__stm_getsize(localobj);
       memcpy(((char *)globalobj) + sizeof(orec_t),
              ((char *)localobj) + sizeof(orec_t),
              size - sizeof(orec_t));
@@ -198,7 +195,7 @@ static void tx_restart(struct tx_descriptor *d)
 /*** increase the abort count and restart the transaction */
 static void tx_abort(int reason)
 {
-  struct tx_descriptor *d = active_thread_descriptor;
+  struct tx_descriptor *d = thread_descriptor;
   assert(!is_inevitable(d));
   d->num_aborts[reason]++;
 #ifdef RPY_STM_DEBUG_PRINT
@@ -397,14 +394,13 @@ static void commitInevitableTransaction(struct tx_descriptor *d)
 #define STM_READ_WORD(SIZE, SUFFIX, TYPE)                               \
 TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
 {                                                                       \
-  struct tx_descriptor *d = active_thread_descriptor;                   \
+  struct tx_descriptor *d = thread_descriptor;                          \
   volatile orec_t *o = get_orec(addr);                                  \
   owner_version_t ovt;                                                  \
                                                                         \
   assert(sizeof(TYPE) == SIZE);                                         \
   /* XXX try to remove this check from the main path:           */      \
-  /*     d is NULL only when in non-main threads but            */      \
-  /*     outside a transaction.                                 */      \
+  /*     d is NULL when running in the main thread              */      \
   if (d == NULL)                                                        \
     return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
@@ -434,7 +430,7 @@ STM_READ_WORD(4,f, float)
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size)
 {
-  struct tx_descriptor *d = active_thread_descriptor;
+  struct tx_descriptor *d = thread_descriptor;
   volatile orec_t *o = get_orec(src);
   owner_version_t ovt;
 
@@ -448,11 +444,14 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
   STM_DO_READ(memcpy(dst, src, size));
 }
 
-static struct tx_descriptor *descriptor_init(long in_main_thread)
+static void descriptor_init(long in_main_thread)
 {
   assert(thread_descriptor == NULL);
-  assert(active_thread_descriptor == NULL);
-  if (1)  /* for hg diff */
+  if (in_main_thread)
+    {
+      /* the main thread doesn't have a thread_descriptor at all */
+    }
+  else
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
@@ -461,40 +460,28 @@ static struct tx_descriptor *descriptor_init(long in_main_thread)
       PYPY_DEBUG_START("stm-init");
 #endif
 
-      if (in_main_thread)
-        {
-          d->my_lock_word = 0;   /* special value for the main thread */
-        }
-      else
-        {
-          /* initialize 'my_lock_word' to be a unique negative number */
-          d->my_lock_word = (owner_version_t)d;
-          if (!IS_LOCKED(d->my_lock_word))
-            d->my_lock_word = ~d->my_lock_word;
-          assert(IS_LOCKED(d->my_lock_word));
-        }
-      /*d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);*/
+      /* initialize 'my_lock_word' to be a unique negative number */
+      d->my_lock_word = (owner_version_t)d;
+      if (!IS_LOCKED(d->my_lock_word))
+        d->my_lock_word = ~d->my_lock_word;
+      assert(IS_LOCKED(d->my_lock_word));
 
       thread_descriptor = d;
-      if (in_main_thread)
-        ; //stm_leave_transactional_mode();
-      else
-        ;   /* active_thread_descriptor stays NULL */
 
 #ifdef RPY_STM_DEBUG_PRINT
-      if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx starting\n",
-                                          (long)pthread_self());
+      if (PYPY_HAVE_DEBUG_PRINTS)
+        fprintf(PYPY_DEBUG_FILE, "thread %lx starting with id %lx\n",
+                (long)pthread_self(), (long)d->my_lock_word);
       PYPY_DEBUG_STOP("stm-init");
 #endif
-      return d;
     }
 }
 
 static void descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(d != NULL);
-  assert(active_thread_descriptor == NULL);
+  if (d == NULL)
+    return;
 
   thread_descriptor = NULL;
 
@@ -535,17 +522,15 @@ static void descriptor_done(void)
 static void begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
-  /* you need to call descriptor_init() before calling
-     stm_perform_transaction() */
+  /* you need to call descriptor_init() before calling this */
   assert(d != NULL);
   d->setjmp_buf = buf;
   d->start_time = (/*d->last_known_global_timestamp*/ global_timestamp) & ~1;
-  active_thread_descriptor = d;
 }
 
-static long commit_transaction(void)
+static void commit_transaction(void)
 {
-  struct tx_descriptor *d = active_thread_descriptor;
+  struct tx_descriptor *d = thread_descriptor;
   assert(d != NULL);
 
   // if I don't have writes, I'm committed
@@ -560,12 +545,10 @@ static long commit_transaction(void)
         }
       d->num_commits++;
       common_cleanup(d);
-      active_thread_descriptor = NULL;
-      return d->start_time;
     }
 
   // bring that variable over to this CPU core (optimization, maybe)
-  global_timestamp;
+  /* global_timestamp; */
 
   // acquire locks
   acquireLocks(d);
@@ -606,8 +589,6 @@ static long commit_transaction(void)
 
   // reset all lists
   common_cleanup(d);
-  active_thread_descriptor = NULL;
-  return d->end_time;
 }
 
 void stm_try_inevitable(STM_CCHARP1(why))
@@ -616,14 +597,11 @@ void stm_try_inevitable(STM_CCHARP1(why))
      global_timestamp and global_timestamp cannot be incremented
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
-  struct tx_descriptor *d = active_thread_descriptor;
+  struct tx_descriptor *d = thread_descriptor;
   if (d == NULL)
-    return;
-
-  if (is_inevitable(d))   /* also when the transaction is inactive */
-    {
-      return;  /* I am already inevitable */
-    }
+    return;  /* I am running in the main thread */
+  if (is_inevitable(d))
+    return;  /* I am already inevitable */
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-inevitable");

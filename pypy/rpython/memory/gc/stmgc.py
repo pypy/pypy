@@ -98,9 +98,9 @@ class StmGC(MovingGCBase):
         self.sharedarea = stmshared.StmGCSharedArea(self)
         self.transactional_mode = False
         #
-        def _get_size(obj):     # indirection to hide 'self'
+        def _stm_getsize(obj):     # indirection to hide 'self'
             return self.get_size(obj)
-        self._getsize_fn = _get_size
+        self._stm_getsize = _stm_getsize
         #
         ##for size, TYPE in PRIMITIVE_SIZES.items():
         ##    self.declare_reader(size, TYPE)
@@ -113,8 +113,11 @@ class StmGC(MovingGCBase):
         # we implement differently anyway.  So directly call GCBase.setup().
         GCBase.setup(self)
         #
-        self.stm_operations.setup_size_getter(
-                llhelper(self.stm_operations.GETSIZE, self._getsize_fn))
+        # The following line causes the _stm_getsize() function to be
+        # generated in the C source with a specific signature, where it
+        # can be called by the C code.
+        llop.nop(lltype.Void, llhelper(self.stm_operations.GETSIZE,
+                                       self._stm_getsize))
         #
         self.sharedarea.setup()
         #
@@ -197,7 +200,7 @@ class StmGC(MovingGCBase):
     def start_transaction(self):
         self.get_tls().start_transaction()
 
-    def commit_transaction(self):
+    def stop_transaction(self):
         self.get_tls().stop_transaction()
 
 
@@ -275,10 +278,9 @@ class StmGC(MovingGCBase):
         @dont_inline
         def _stm_write_barrier_global(obj):
             tls = self.get_tls()
-            if not tls.in_transaction():
-                return obj # not in transaction: only when running the code
-                           # in _run_thread(), i.e. in sub-threads outside
-                           # transactions.  xxx statically detect this case?
+            if tls is self.main_thread_tls:
+                return obj        # not in transaction
+            #
             # we need to find or make a local copy
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_WAS_COPIED == 0:

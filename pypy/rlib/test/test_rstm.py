@@ -23,7 +23,7 @@ class FakeStmOperations:
             r, transactionptr = self._pending.popitem()
             transaction = self.cast_voidp_to_transaction(transactionptr)
             transaction._next_transaction = None
-            nextptr = rstm._run_transaction(transactionptr, 0)
+            nextptr = rstm._stm_run_transaction(transactionptr, 0)
             next = self.cast_voidp_to_transaction(nextptr)
             while next is not None:
                 self._add(self.cast_transaction_to_voidp(next))

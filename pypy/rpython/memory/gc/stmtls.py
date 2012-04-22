@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr, llhelper
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance, base_ptr_lltype
 from pypy.rlib.objectmodel import we_are_translated, free_non_gc_object
@@ -104,7 +105,6 @@ class StmGCTLS(object):
         """Called on the main thread, just before spawning the other
         threads."""
         self.stop_transaction()
-        self.stm_operations.enter_transactional_mode()
 
     def leave_transactional_mode(self):
         """Restart using the main thread for mallocs."""
@@ -112,7 +112,6 @@ class StmGCTLS(object):
             for key, value in StmGCTLS.nontranslated_dict.items():
                 if value is not self:
                     del StmGCTLS.nontranslated_dict[key]
-        self.stm_operations.leave_transactional_mode()
         self.start_transaction()
 
     def start_transaction(self):
@@ -148,9 +147,6 @@ class StmGCTLS(object):
         ll_assert(bool(self.nursery_free),
                   "local_nursery_is_empty: gc not running")
         return self.nursery_free == self.nursery_start
-
-    def in_transaction(self):
-        return bool(self.nursery_free)
 
     # ------------------------------------------------------------
 
@@ -190,7 +186,8 @@ class StmGCTLS(object):
         #
         # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
         # objects.
-        self.collect_roots_from_tldict()
+        if not self.in_main_thread:
+            self.collect_roots_from_tldict()
         #
         # Now repeatedly follow objects until 'pending' is empty.
         self.collect_flush_pending()
@@ -427,11 +424,14 @@ class StmGCTLS(object):
             if not hasattr(self.stm_operations, 'tldict_enum'):
                 return
         CALLBACK = self.stm_operations.CALLBACK_ENUM
-        callback = llhelper(CALLBACK, StmGCTLS._enum_entries)
-        self.stm_operations.tldict_enum(callback)
+        llop.nop(lltype.Void, llhelper(CALLBACK, StmGCTLS._stm_enum_callback))
+        # The previous line causes the _stm_enum_callback() function to be
+        # generated in the C source with a specific signature, where it
+        # can be called by the C code.
+        self.stm_operations.tldict_enum()
 
     @staticmethod
-    def _enum_entries(tlsaddr, globalobj, localobj):
+    def _stm_enum_callback(tlsaddr, globalobj, localobj):
         self = StmGCTLS.cast_address_to_tls_object(tlsaddr)
         localhdr = self.gc.header(localobj)
         ll_assert(localhdr.version == globalobj,

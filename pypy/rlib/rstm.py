@@ -53,10 +53,17 @@ def run_all_transactions(initial_transaction,
     # is no possibility of having a GC collection inbetween.
     keepalive_until_here(initial_transaction)
     #
-    # The following line causes the _run_transaction() function to be
+    # The following line causes the _stm_run_transaction() function to be
     # generated in the C source with a specific signature, where it
     # can be called by the C code.
-    llhelper(StmOperations.RUN_TRANSACTION, _run_transaction)
+    llop.nop(lltype.Void, llhelper(StmOperations.RUN_TRANSACTION,
+                                   _stm_run_transaction))
+    #
+    # The same about the _stm_thread_starting() and _stm_thread_stopping()
+    llop.nop(lltype.Void, llhelper(StmOperations.INIT_DONE,
+                                   _stm_thread_starting))
+    llop.nop(lltype.Void, llhelper(StmOperations.INIT_DONE,
+                                   _stm_thread_stopping))
     #
     # Tell the C code to run all transactions.
     ptr = _cast_transaction_to_voidp(initial_transaction)
@@ -128,7 +135,7 @@ class _TransactionalState(object):
 _transactionalstate = _TransactionalState()
 
 
-def _run_transaction(transactionptr, retry_counter):
+def _stm_run_transaction(transactionptr, retry_counter):
     #
     # Tell the GC we are starting a transaction
     llop.stm_start_transaction(lltype.Void)
@@ -185,3 +192,10 @@ def _link_new_transactions(new_transactions):
         next = new_transactions[n]
         n -= 1
     return next
+
+
+def _stm_thread_starting():
+    llop.stm_thread_starting(lltype.Void)
+
+def _stm_thread_stopping():
+    llop.stm_thread_stopping(lltype.Void)

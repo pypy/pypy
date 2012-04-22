@@ -91,6 +91,9 @@ static __declspec(noinline) void pypy_asm_stack_bottom() { }
 #endif
 
 
+#define OP_NOP(r, x)         /* nothing */
+
+
 /* used by pypy.rlib.rstack, but also by asmgcc */
 #define OP_STACK_CURRENT(r)  r = (Signed)&r
 

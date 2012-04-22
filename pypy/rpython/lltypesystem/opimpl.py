@@ -646,6 +646,9 @@ def op_stm_enter_transactional_mode():
 def op_stm_leave_transactional_mode():
     pass
 
+def op_nop(x):
+    pass
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

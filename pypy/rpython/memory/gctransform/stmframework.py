@@ -13,21 +13,21 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
         #
-        def setup_thread(gc):
+        def thread_starting(gc):
             self.root_walker.allocate_shadow_stack()
             gc.setup_thread()
         #
-        def teardown_thread(gc):
+        def thread_stopping(gc):
             gc.teardown_thread()
             self.root_walker.free_shadow_stack()
         #
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
-        self.setup_secondary_thread_ptr = getfn(
-            setup_thread,
+        self.thread_starting_ptr = getfn(
+            thread_starting,
             [s_gc], annmodel.s_None)
-        self.teardown_thread_ptr = getfn(
-            teardown_thread,
+        self.thread_stopping_ptr = getfn(
+            thread_stopping,
             [s_gc], annmodel.s_None)
         self.stm_writebarrier_ptr = getfn(
             self.gcdata.gc.stm_writebarrier,
@@ -44,8 +44,8 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         self.stm_start_ptr = getfn(
             self.gcdata.gc.start_transaction.im_func,
             [s_gc], annmodel.s_None)
-        self.stm_commit_ptr = getfn(
-            self.gcdata.gc.commit_transaction.im_func,
+        self.stm_stop_ptr = getfn(
+            self.gcdata.gc.stop_transaction.im_func,
             [s_gc], annmodel.s_None)
 
     def build_root_walker(self):
@@ -62,12 +62,11 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
-    def gct_stm_descriptor_init(self, hop):
-        hop.genop("direct_call", [self.setup_secondary_thread_ptr,
-                                  self.c_const_gc])
+    def gct_stm_thread_starting(self, hop):
+        hop.genop("direct_call", [self.thread_starting_ptr, self.c_const_gc])
 
-    def gct_stm_descriptor_done(self, hop):
-        hop.genop("direct_call", [self.teardown_thread_ptr, self.c_const_gc])
+    def gct_stm_thread_stopping(self, hop):
+        hop.genop("direct_call", [self.thread_stopping_ptr, self.c_const_gc])
 
     def gct_stm_enter_transactional_mode(self, hop):
         livevars = self.push_roots(hop)
@@ -104,9 +103,9 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         hop.genop("direct_call", [self.stm_start_ptr, self.c_const_gc])
         self.pop_roots(hop, livevars)
 
-    def gct_stm_commit_transaction(self, hop):
+    def gct_stm_stop_transaction(self, hop):
         livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.stm_commit_ptr, self.c_const_gc])
+        hop.genop("direct_call", [self.stm_stop_ptr, self.c_const_gc])
         self.pop_roots(hop, livevars)
 
 

@@ -409,6 +409,8 @@ LL_OPERATIONS = {
     'stm_normalize_global':   LLOp(),
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
+    'stm_thread_starting':    LLOp(),
+    'stm_thread_stopping':    LLOp(),
 
     # __________ address operations __________
 
@@ -540,6 +542,7 @@ LL_OPERATIONS = {
 
     'stack_current':        LLOp(sideeffects=False),
     'keepalive':            LLOp(),
+    'nop':                  LLOp(canrun=True),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
     'check_no_more_arg':    LLOp(canraise=(Exception,)),

@@ -1,6 +1,6 @@
 /*** Extendable Timestamps
  *
- * This is a C version of rstm_r5/stm/et.hpp.
+ * This is a (heavily modified) C version of rstm_r5/stm/et.hpp.
  * See http://www.cs.rochester.edu/research/synchronization/rstm/api.shtml
  *
  */
@@ -12,20 +12,22 @@
 #include "src/commondefs.h"
 
 
+/* see comments in ../stmgcintf.py */
 long stm_in_transaction(void);
-void stm_run_all_transactions(void*(*)(void*, long), void*, long);
-
-
-
-void stm_setup_size_getter(long(*)(void*));
+void stm_run_all_transactions(void*, long);
 
 void stm_set_tls(void *, long);
 void *stm_get_tls(void);
 void stm_del_tls(void);
+long stm_thread_id(void);
 
 void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
-void stm_tldict_enum(void(*)(void*, void*, void*));
+void stm_tldict_enum(void);
+
+/* these functions are declared by generated C code from the GC */
+extern long pypy_g__stm_getsize(void *);
+extern void pypy_g__stm_enum_callback(void *, void *, void *);
 
 char      stm_read_int1(void *, long);
 short     stm_read_int2(void *, long);
@@ -51,8 +53,6 @@ long stm_debug_get_state(void);  /* -1: descriptor_init() was not called
                                      0: not in a transaction
                                      1: in a regular transaction
                                      2: in an inevitable transaction */
-long stm_thread_id(void);  /* returns a unique thread id,
-                              or 0 if descriptor_init() was not called */
 void _stm_activate_transaction(long);
 
 void stm_copy_transactional_to_raw(void *src, void *dst, long size);
