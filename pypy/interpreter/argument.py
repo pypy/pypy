@@ -301,7 +301,10 @@ class Arguments(object):
         if num_kwds:
             # kwds_mapping maps target indexes in the scope (minus input_argcount)
             # to positions in the keywords_w list
-            kwds_mapping = [-1] * (co_argcount - input_argcount)
+            kwds_mapping = [0] * (co_argcount - input_argcount)
+            # initialize manually, for the JIT :-(
+            for i in range(len(kwds_mapping)):
+                kwds_mapping[i] = -1
             # match the keywords given at the call site to the argument names
             # the called function takes
             # this function must not take a scope_w, to make the scope not
@@ -332,7 +335,7 @@ class Arguments(object):
                 if kwds_mapping is not None:
                     kwds_index = kwds_mapping[j]
                     j += 1
-                    if kwds_index != -1:
+                    if kwds_index >= 0:
                         scope_w[i] = keywords_w[kwds_index]
                         continue
                 defnum = i - def_first
