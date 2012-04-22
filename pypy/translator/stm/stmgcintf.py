@@ -13,7 +13,6 @@ eci = ExternalCompilationInfo(
     includes = ['src_stm/et.h'],
     pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT,
                         '#define RPY_STM 1'],
-    separate_module_sources = ['\n'],    # hack for test_rffi_stm
 )
 
 def _llexternal(name, args, result, **kwds):

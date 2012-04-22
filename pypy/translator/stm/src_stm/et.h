@@ -9,7 +9,6 @@
 #define _ET_H
 
 #include <setjmp.h>
-#include "src/commondefs.h"
 
 
 /* see comments in ../stmgcintf.py */
@@ -29,7 +28,7 @@ void stm_tldict_enum(void);
    and from the GC (see llop.nop(...)) */
 extern void pypy_g__stm_thread_starting(void);
 extern void pypy_g__stm_thread_stopping(void);
-extern void *_stm_run_transaction(void *, long);
+extern void *pypy_g__stm_run_transaction(void *, long);
 extern long pypy_g__stm_getsize(void *);
 extern void pypy_g__stm_enum_callback(void *, void *, void *);
 

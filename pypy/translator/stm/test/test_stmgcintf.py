@@ -2,6 +2,7 @@ import py, random
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.stm.stmgcintf import StmOperations
+from pypy.translator.stm.test import getlib    # for the side-effects
 from pypy.rpython.memory.gc import stmgc
 
 WORD = stmgc.WORD
