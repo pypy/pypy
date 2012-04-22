@@ -1,4 +1,5 @@
 import random
+import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import rstm
 
@@ -88,3 +89,14 @@ def test_run_all_transactions_random_order():
                 return [self, other]
     rstm.run_all_transactions(DoInOrder())
     assert seen != range(50) and sorted(seen) == range(50)
+
+def test_raise():
+    class MyException(Exception):
+        pass
+    class FooBar(rstm.Transaction):
+        def run(self):
+            raise MyException
+    class DoInOrder(rstm.Transaction):
+        def run(self):
+            return [FooBar() for i in range(10)]
+    py.test.raises(MyException, rstm.run_all_transactions, DoInOrder())
