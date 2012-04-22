@@ -632,11 +632,14 @@ class TestErrorHandling(object):
 
     def test_unknown_keywords(self):
         space = DummySpace()
-        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [0], None)
         s = err.getmsg()
         assert s == "got an unexpected keyword argument 'b'"
+        err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [1], None)
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument 'a'"
         err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
-                                [True, False, False], None)
+                                [0], None)
         s = err.getmsg()
         assert s == "got 2 unexpected keyword arguments"
 
@@ -646,7 +649,7 @@ class TestErrorHandling(object):
                 defaultencoding = 'utf-8'
         space = DummySpaceUnicode()
         err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
-                                [True, False, True, True],
+                                [0, 3, 2],
                                 [unichr(0x1234), u'b', u'c'])
         s = err.getmsg()
         assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"

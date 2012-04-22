@@ -296,35 +296,45 @@ class Arguments(object):
 
         # handle keyword arguments
         num_remainingkwds = 0
-        used_keywords = None
         keywords_w = self.keywords_w
+        kwds_mapping = None
         if num_kwds:
-            used_keywords = [False] * num_kwds
+            # kwds_mapping maps target indexes in the scope (minus input_argcount)
+            # to positions in the keywords_w list
+            kwds_mapping = [-1] * (co_argcount - input_argcount)
             # match the keywords given at the call site to the argument names
             # the called function takes
+            # this function must not take a scope_w, to make the scope not
+            # escape
             num_remainingkwds = _match_keywords(
                     signature, blindargs, input_argcount, keywords,
-                    keywords_w, scope_w, used_keywords,
-                    self._jit_few_keywords)
+                    kwds_mapping, self._jit_few_keywords)
             if num_remainingkwds:
                 if w_kwds is not None:
                     # collect extra keyword arguments into the **kwarg
                     _collect_keyword_args(
                             self.space, keywords, keywords_w, w_kwds,
-                            used_keywords, self.keyword_names_w, self._jit_few_keywords)
+                            kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
                 else:
                     if co_argcount == 0:
                         raise ArgErrCount(avail, num_kwds, signature, defaults_w, 0)
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
-                                            used_keywords, self.keyword_names_w)
+                                            kwds_mapping, self.keyword_names_w)
 
-        # check for missing arguments and fill them with defaults, if available
+        # check for missing arguments and fill them from the kwds,
+        # or with defaults, if available
         missing = 0
         if input_argcount < co_argcount:
             def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
+            j = 0
+            kwds_index = -1
             for i in range(input_argcount, co_argcount):
-                if scope_w[i] is not None:
-                    continue
+                if kwds_mapping is not None:
+                    kwds_index = kwds_mapping[j]
+                    j += 1
+                    if kwds_index != -1:
+                        scope_w[i] = keywords_w[kwds_index]
+                        continue
                 defnum = i - def_first
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
@@ -441,10 +451,10 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         i += 1
 
 @jit.look_inside_iff(
-    lambda signature, blindargs, input_argcount, keywords, keywords_w,
-           scope_w, used_keywords, jiton: jiton)
+    lambda signature, blindargs, input_argcount, keywords,
+           scope_w, kwds_mapping, jiton: jiton)
 def _match_keywords(signature, blindargs, input_argcount,
-                    keywords, keywords_w, scope_w, used_keywords, _):
+                    keywords, kwds_mapping, _):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
     num_kwds = num_remainingkwds = len(keywords)
@@ -466,22 +476,25 @@ def _match_keywords(signature, blindargs, input_argcount,
             if blindargs <= j:
                 raise ArgErrMultipleValues(name)
         else:
-            assert scope_w[j] is None
-            scope_w[j] = keywords_w[i]
-            used_keywords[i] = True # mark as used
+            kwds_mapping[j - input_argcount] = i # map to the right index
             num_remainingkwds -= 1
     return num_remainingkwds
 
 @jit.look_inside_iff(
-    lambda space, keywords, keywords_w, w_kwds, used_keywords,
+    lambda space, keywords, keywords_w, w_kwds, kwds_mapping,
         keyword_names_w, jiton: jiton)
-def _collect_keyword_args(space, keywords, keywords_w, w_kwds, used_keywords,
+def _collect_keyword_args(space, keywords, keywords_w, w_kwds, kwds_mapping,
                           keyword_names_w, _):
     limit = len(keywords)
     if keyword_names_w is not None:
         limit -= len(keyword_names_w)
     for i in range(len(keywords)):
-        if not used_keywords[i]:
+        # again a dangerous-looking loop that either the JIT unrolls
+        # or that is not too bad, because len(kwds_mapping) is small
+        for j in kwds_mapping:
+            if i == j:
+                break
+        else:
             if i < limit:
                 w_key = space.wrap(keywords[i])
             else:
@@ -701,13 +714,13 @@ class ArgErrMultipleValues(ArgErr):
 
 class ArgErrUnknownKwds(ArgErr):
 
-    def __init__(self, space, num_remainingkwds, keywords, used_keywords,
+    def __init__(self, space, num_remainingkwds, keywords, kwds_mapping,
                  keyword_names_w):
         name = ''
         self.num_kwds = num_remainingkwds
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
-                if not used_keywords[i]:
+                if i not in kwds_mapping:
                     name = keywords[i]
                     if name is None:
                         # We'll assume it's unicode. Encode it.
