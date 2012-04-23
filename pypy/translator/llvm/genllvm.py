@@ -1393,7 +1393,7 @@ class GenLLVM(object):
         ep_ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
 
         with self.base_path.new(ext='.ll').open('w') as f:
-            f.write(cmdexec('clang -emit-llvm -S -x c - -o -'))
+            f.write(cmdexec('clang -emit-llvm -S -x c /dev/null -o -'))
             # XXX
             f.write('declare i8* @malloc(i64)\n')
             f.write('declare void @free(i8*)\n')
