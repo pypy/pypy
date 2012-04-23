@@ -11,6 +11,8 @@ from pypy.translator.stm.stmgcintf import StmOperations
 
 NUM_THREADS_DEFAULT = 4     # XXX for now
 
+MAIN_THREAD_ID = 0
+
 
 class TransactionError(Exception):
     pass
@@ -33,6 +35,9 @@ def stm_operations():
 
 def in_transaction():
     return bool(stm_operations().in_transaction())
+
+def thread_id():
+    return stm_operations().thread_id()
 
 
 def run_all_transactions(initial_transaction,

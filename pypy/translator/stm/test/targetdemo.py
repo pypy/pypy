@@ -81,6 +81,7 @@ class MakeChain(rstm.Transaction):
 class InitialTransaction(rstm.Transaction):
     def run(self):
         ll_assert(self.retry_counter == 0, "no reason to abort-and-retry here")
+        ll_assert(rstm.thread_id() != 0, "thread_id == 0")
         scheduled = []
         for i in range(glob.NUM_THREADS):
             arg = Arg()
@@ -99,6 +100,7 @@ def entry_point(argv):
             glob.LENGTH = int(argv[2])
             if len(argv) > 3:
                 glob.USE_MEMORY = bool(int(argv[3]))
+    ll_assert(rstm.thread_id() == 0, "thread_id != 0")
     #
     rstm.run_all_transactions(InitialTransaction(),
                               num_threads=glob.NUM_THREADS)
