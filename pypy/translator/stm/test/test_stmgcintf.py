@@ -1,14 +1,22 @@
 import os
+from pypy.tool import autopath
 from pypy.tool.udir import udir
 
 
 def test_all():
     executable = str(udir.join('test_stmgcintf'))
-    exitcode = os.system("gcc -g -o '%s' -pthread -I.. test_stmgcintf.c" % (
-        executable,))
-    assert exitcode == 0
+    prevdir = os.getcwd()
+    thisdir = os.path.join(autopath.pypydir, 'translator', 'stm', 'test')
+    try:
+        os.chdir(thisdir)
+        exitcode = os.system(
+            "gcc -g -o '%s' -pthread -I.. test_stmgcintf.c" % (
+            executable,))
+        assert exitcode == 0
+    finally:
+        os.chdir(prevdir)
     #
-    for line in open('test_stmgcintf.c'):
+    for line in open(os.path.join(thisdir, 'test_stmgcintf.c')):
         line = line.strip()
         if line.startswith('XTEST('):
             assert line.endswith(');')
