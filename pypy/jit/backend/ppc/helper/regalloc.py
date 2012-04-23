@@ -1,5 +1,4 @@
-from pypy.jit.metainterp.history import ConstInt
-from pypy.jit.metainterp.history import Box
+from pypy.jit.metainterp.history import ConstInt, Box, FLOAT
 
 IMM_SIZE = 2 ** 15 - 1
 
@@ -84,3 +83,41 @@ def prepare_binary_int_op():
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
     return f
+
+def prepare_float_op(name=None, base=True, float_result=True, guard=False):
+    if guard:
+        def f(self, op, guard_op):
+            locs = []
+            loc1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            if guard_op is None:
+                res = self.force_allocate_reg(op.result)
+                assert float_result == (op.result.type == FLOAT)
+                locs.append(res)
+                return locs
+            else:
+                args = self._prepare_guard(guard_op, locs)
+                return args
+    else:
+        def f(self, op):
+            locs = []
+            loc1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op.result)
+            assert float_result == (op.result.type == FLOAT)
+            locs.append(res)
+            return locs
+    if name:
+        f.__name__ = name
+    return f
+

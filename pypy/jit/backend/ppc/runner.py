@@ -27,7 +27,7 @@ class PPC_CPU(AbstractLLCPU):
                                translate_support_code, gcdescr)
 
         # floats are not supported yet
-        self.supports_floats = False
+        self.supports_floats = True
 
     def setup(self):
         self.asm = AssemblerPPC(self)

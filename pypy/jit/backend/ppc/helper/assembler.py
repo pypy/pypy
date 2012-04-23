@@ -6,12 +6,15 @@ from pypy.jit.metainterp.history import FLOAT
 import pypy.jit.backend.ppc.register as r
 from pypy.rpython.lltypesystem import rffi, lltype
 
-def gen_emit_cmp_op(condition, signed=True):
+def gen_emit_cmp_op(condition, signed=True, fp=False):
     def f(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         # do the comparison
-        self.mc.cmp_op(0, l0.value, l1.value,
-                       imm=l1.is_imm(), signed=signed)
+        if fp == True:
+            self.mc.fcmpu(0, l0.value, l1.value)
+        else:
+            self.mc.cmp_op(0, l0.value, l1.value,
+                           imm=l1.is_imm(), signed=signed)
         # After the comparison, place the result
         # in the first bit of the CR
         if condition == c.LT or condition == c.U_LT:

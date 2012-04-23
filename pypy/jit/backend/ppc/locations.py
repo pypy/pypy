@@ -4,8 +4,10 @@ import sys
 # XXX import from arch.py, currently we have a circular import
 if sys.maxint == (2**31 - 1):
     WORD = 4
+    FWORD = 8
 else:
     WORD = 8
+    FWORD = 8
 DWORD = 2 * WORD
 
 class AssemblerLocation(object):
@@ -49,7 +51,7 @@ class RegisterLocation(AssemblerLocation):
 class FPRegisterLocation(RegisterLocation):
     _immutable_ = True
     type = FLOAT 
-    width = DWORD
+    width = FWORD
 
     def __repr__(self):
         return 'fp%d' % self.value
@@ -82,6 +84,28 @@ class ImmLocation(AssemblerLocation):
 
     def as_key(self):
         return self.value + 40
+
+class ConstFloatLoc(AssemblerLocation):
+    """This class represents an imm float value which is stored in memory at
+    the address stored in the field value"""
+    _immutable_ = True
+    width = FWORD
+    type = FLOAT
+
+    def __init__(self, value):
+        self.value = value
+
+    def getint(self):
+        return self.value
+
+    def __repr__(self):
+        return "imm_float(stored at %d)" % (self.value)
+
+    def is_imm_float(self):
+        return True
+
+    def as_key(self):
+        return self.value
 
 class StackLocation(AssemblerLocation):
     _immutable_ = True

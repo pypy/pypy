@@ -174,6 +174,53 @@ class IntOpAssembler(object):
         l0, res = arglocs
         self.mc.not_(res.value, l0.value)
 
+class FloatOpAssembler(object):
+    _mixin_ = True
+
+    def emit_float_add(self, op, argsloc, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fadd(res.value, l0.value, l1.value)
+
+    def emit_float_sub(self, op, argsloc, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fsub(res.value, l0.value, l1.value)
+
+    def emit_float_mul(self, op, argsloc, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fmul(res.value, l0.value, l1.value)
+
+    def emit_float_truediv(self, op, argsloc, regalloc):
+        l0, l1, res = arglocs
+        self.mc.fdiv(res.value, l0.value, l1.value)
+
+    def emit_float_neg(self, op, argsloc, regalloc):
+        l0, res = arglocs
+        self.mc.fneg(res.value, l0.value)
+
+    def emit_float_abs(self, op, argsloc, regalloc):
+        l0, res = arglocs
+        self.mc.fabs(res.value, l0.value)
+
+    def emit_float_sqrt(self, op, argsloc, regalloc):
+        l0, res = arglocs
+        self.mc.fsqrt(res.value, l0.value)
+
+    emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
+    emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
+    emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
+    emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
+    emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
+    emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
+
+    def emit_op_cast_float_to_int(self, op, arglocs, regalloc):
+        l0, temp_loc, res = arglocs
+        self.mc.fctidz(temp_loc.value, l0.value)
+        self.mc.mfprgpr(res.value, temp_loc.value)
+
+    def emit_op_cast_int_to_float(self, op, arglocs, regalloc):
+        l0, temp_loc, res = arglocs
+        self.mc.mgprfpr(temp_loc.value, l0.value)
+        self.mc.fcfid(res.value, temp_loc.value)
 
 class GuardOpAssembler(object):
 
@@ -1254,7 +1301,7 @@ class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
                   ArrayOpAssembler, StrOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
-                  AllocOpAssembler):
+                  AllocOpAssembler, FloatOpAssembler):
 
     def nop(self):
         self.mc.ori(0, 0, 0)
