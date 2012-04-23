@@ -33,12 +33,6 @@ class FakeStmOperations:
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
-    def setup_size_getter(self, getsize_fn):
-        self._getsize_fn = getsize_fn
-
-    def in_transaction(self):
-        return self.threadnum != 0
-
     def set_tls(self, tls, in_main_thread):
         assert lltype.typeOf(tls) == llmemory.Address
         assert tls
@@ -73,8 +67,9 @@ class FakeStmOperations:
         assert obj not in tldict
         tldict[obj] = localobj
 
-    def tldict_enum(self, callback):
-        assert lltype.typeOf(callback) == self.CALLBACK_ENUM
+    def tldict_enum(self):
+        from pypy.rpython.memory.gc.stmtls import StmGCTLS
+        callback = StmGCTLS._stm_enum_callback
         tls = self.get_tls()
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
@@ -330,19 +325,24 @@ class TestBasic(StmGCTests):
 
     def test_write_barrier_main_thread(self):
         t, t_adr = self.malloc(S, globl=False)
+        self.checkflags(t_adr, False, False)
         obj = self.gc.stm_writebarrier(t_adr)     # main thread, but not global
         assert obj == t_adr
+        self.checkflags(obj, False, False)
 
     def test_write_barrier_global(self):
+        # check that the main thread never makes a local copy of a global obj
         t, t_adr = self.malloc(S, globl=True)
-        obj = self.gc.stm_writebarrier(t_adr)     # global, even if main thread
-        assert obj != t_adr
+        self.checkflags(t_adr, True, False)
+        obj = self.gc.stm_writebarrier(t_adr)     # main thread, global:
+        assert obj == t_adr                       # doesn't make a copy
+        #self.checkflags(obj, False, False) -- LATER check that it becomes local
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)
         s, s_adr = self.malloc(S)
         t, t_adr = self.malloc(S)
-        self.gc.commit_transaction()    # no roots
+        self.gc.stop_transaction()    # no roots
         main_tls = self.gc.main_thread_tls
         assert main_tls.nursery_free == main_tls.nursery_start   # empty
 
@@ -355,7 +355,7 @@ class TestBasic(StmGCTests):
         assert sr_adr != tr_adr
         s_adr = self.gc.stm_writebarrier(t_adr)
         assert s_adr != t_adr
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
 
     def test_commit_local_obj_with_global_references(self):
         t, t_adr = self.malloc(S)
@@ -368,7 +368,7 @@ class TestBasic(StmGCTests):
         sr2, sr2_adr = self.malloc(SR)
         sr.sr2 = sr2
         sr2.s1 = t
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
 
     def test_commit_with_ref_to_local_copy(self):
         tr, tr_adr = self.malloc(SR)
@@ -377,7 +377,7 @@ class TestBasic(StmGCTests):
         assert sr_adr != tr_adr
         sr = llmemory.cast_adr_to_ptr(sr_adr, lltype.Ptr(SR))
         sr.sr2 = sr
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         assert sr.sr2 == tr
 
     def test_commit_transaction_no_references(self):
@@ -395,7 +395,7 @@ class TestBasic(StmGCTests):
         assert main_tls.nursery_free != main_tls.nursery_start  # contains s
         old_value = main_tls.nursery_free
         #
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         #
         assert main_tls.nursery_free == old_value    # no new object
         assert s.b == 12345     # not updated by the GC code
@@ -451,7 +451,7 @@ class TestBasic(StmGCTests):
         main_tls = self.gc.main_thread_tls
         old_value = main_tls.nursery_free
         #
-        self.gc.collector.commit_transaction()
+        self.gc.collector.stop_transaction()
         #
         assert main_tls.nursery_free - old_value == (
             self.gcsize(SR) + self.gcsize(SR) + self.gcsize(S))
@@ -478,7 +478,7 @@ class TestBasic(StmGCTests):
 
     def test_do_get_size(self):
         s1, s1_adr = self.malloc(S)
-        assert (repr(self.gc.stm_operations._getsize_fn(s1_adr)) ==
+        assert (repr(self.gc._stm_getsize(s1_adr)) ==
                 repr(fake_get_size(s1_adr)))
 
     def test_id_of_global(self):
@@ -495,7 +495,7 @@ class TestBasic(StmGCTests):
         i = self.gc.id(t)
         assert i == llmemory.cast_adr_to_int(s_adr)
         assert i == self.gc.id(s)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         assert i == self.gc.id(s)
 
     def test_id_of_local_nonsurviving(self):
@@ -504,7 +504,7 @@ class TestBasic(StmGCTests):
         i = self.gc.id(s)
         assert i != llmemory.cast_adr_to_int(s_adr)
         assert i == self.gc.id(s)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
 
     def test_id_of_local_surviving(self):
         sr1, sr1_adr = self.malloc(SR)
@@ -522,7 +522,7 @@ class TestBasic(StmGCTests):
                          llmemory.cast_adr_to_int(t2_adr),
                          llmemory.cast_adr_to_int(tr1_adr))
         assert i == self.gc.id(t2)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         s2 = tr1.s1       # tr1 is a root, so not copied yet
         assert s2 and s2.a == 423 and s2._obj0 != t2._obj0
         assert self.gc.id(s2) == i
@@ -540,7 +540,7 @@ class TestBasic(StmGCTests):
         i = self.gc.identityhash(t)
         assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))
         assert i == self.gc.identityhash(s)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         assert i == self.gc.identityhash(s)
 
     def test_hash_of_local_nonsurviving(self):
@@ -549,7 +549,7 @@ class TestBasic(StmGCTests):
         i = self.gc.identityhash(s)
         assert i != mangle_hash(llmemory.cast_adr_to_int(s_adr))
         assert i == self.gc.identityhash(s)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
 
     def test_hash_of_local_surviving(self):
         sr1, sr1_adr = self.malloc(SR)
@@ -566,7 +566,7 @@ class TestBasic(StmGCTests):
                          llmemory.cast_adr_to_int(t2_adr),
                          llmemory.cast_adr_to_int(tr1_adr)))
         assert i == self.gc.identityhash(t2)
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         s2 = tr1.s1       # tr1 is a root, so not copied yet
         assert s2 and s2.a == 424 and s2._obj0 != t2._obj0
         assert self.gc.identityhash(s2) == i
@@ -580,7 +580,7 @@ class TestBasic(StmGCTests):
         twr1_adr = self.gc.stm_writebarrier(swr1_adr)
         twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
         twr1.wr = wr1
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
         assert wr2 and wr2._obj0 != wr1._obj0
         assert wr2.wadr == s2_adr   # survives
@@ -594,7 +594,7 @@ class TestBasic(StmGCTests):
         twr1_adr = self.gc.stm_writebarrier(swr1_adr)
         twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
         twr1.wr = wr1
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
         assert wr2 and wr2._obj0 != wr1._obj0
         assert wr2.wadr == llmemory.NULL   # dies
@@ -613,7 +613,7 @@ class TestBasic(StmGCTests):
         tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
         tr1.s1 = t2
         t2.a = 4242
-        self.gc.commit_transaction()
+        self.gc.stop_transaction()
         wr2 = twr1.wr      # twr1 is a root, so not copied yet
         assert wr2 and wr2._obj0 != wr1._obj0
         assert wr2.wadr and wr2.wadr.ptr._obj0 != t2_adr.ptr._obj0   # survives
