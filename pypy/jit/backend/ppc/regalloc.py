@@ -1,6 +1,7 @@
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity)
 from pypy.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
+from pypy.jit.codewriter import longlong
 from pypy.jit.backend.ppc.jump import remap_frame_layout
 from pypy.jit.backend.ppc.locations import imm
 from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
@@ -10,7 +11,7 @@ from pypy.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                   prepare_binary_int_op_with_imm,
                                                   prepare_unary_cmp,
                                                   prepare_float_op)
-from pypy.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                          Box, BoxPtr,
                                          INT, REF, FLOAT)
 from pypy.jit.metainterp.history import JitCellToken, TargetToken
@@ -57,7 +58,7 @@ class FPRegisterManager(RegisterManager):
     def convert_to_imm(self, c):
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
         x = c.getfloatstorage()
-        rffi.cast(rffi.CArrayPtr(long.FLOATSTORAGE), adr)[0] = x
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         return locations.ConstFloatLoc(adr)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):

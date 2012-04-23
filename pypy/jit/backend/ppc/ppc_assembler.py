@@ -1168,6 +1168,17 @@ class AssemblerPPC(OpAssembler):
                     self.mc.load(r.SCRATCH.value, r.SPP.value, offset)
                     self.mc.store(r.SCRATCH.value, r.SPP.value, target_offset)
                 return
+            elif loc.is_fp_reg():
+                assert prev_loc.type == FLOAT, 'source not float location'
+                with scratch_reg(self.mc):
+                    offset = prev_loc.value
+                    if not _check_imm_arg(offset):
+                        self.mc.load_imm(r.SCRATCH, offset)
+                        self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRATCH.value)
+                    else:
+                        self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRARTCH.value)
+                    self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
+                return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
             reg = prev_loc.as_key()
@@ -1180,6 +1191,35 @@ class AssemblerPPC(OpAssembler):
             elif loc.is_stack():
                 offset = loc.value
                 self.mc.store(reg, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_imm_float():
+            if loc.is_fp_reg():
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.lfdx(loc, 0, r.SCRATCH)
+                return
+            elif loc.is_stack():
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_fp_reg():
+            if loc.is_fp_reg():
+                self.mc.fmr(loc.value, prev_loc.value)
+                return
+            elif loc.is_stack():
+                assert loc.type == FLOAT, "target not float location"
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    if not _check_imm_arg(offset):
+                        self.mc.load_imm(r.SCRATCH, offset)
+                        self.mc.sub(r.SCRATCH.value, r.SPP.value, offset)
+                    else:
+                        self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRATCH.value)
+                    self.mc.stfdx(prev_loc.value, 0, r.SCRATCH.value)
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"

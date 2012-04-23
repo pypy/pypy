@@ -61,7 +61,8 @@ def count_reg_args(args):
     count = 0
     for x in range(min(len(args), MAX_REG_PARAMS)):
         if args[x].type == FLOAT:
-            assert 0, "not implemented yet"
+            count += 1
+            words += 1
         else:
             count += 1
             words += 1

@@ -177,31 +177,31 @@ class IntOpAssembler(object):
 class FloatOpAssembler(object):
     _mixin_ = True
 
-    def emit_float_add(self, op, argsloc, regalloc):
+    def emit_float_add(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.fadd(res.value, l0.value, l1.value)
 
-    def emit_float_sub(self, op, argsloc, regalloc):
+    def emit_float_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.fsub(res.value, l0.value, l1.value)
 
-    def emit_float_mul(self, op, argsloc, regalloc):
+    def emit_float_mul(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.fmul(res.value, l0.value, l1.value)
 
-    def emit_float_truediv(self, op, argsloc, regalloc):
+    def emit_float_truediv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.fdiv(res.value, l0.value, l1.value)
 
-    def emit_float_neg(self, op, argsloc, regalloc):
+    def emit_float_neg(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.fneg(res.value, l0.value)
 
-    def emit_float_abs(self, op, argsloc, regalloc):
+    def emit_float_abs(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.fabs(res.value, l0.value)
 
-    def emit_float_sqrt(self, op, argsloc, regalloc):
+    def emit_float_sqrt(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.fsqrt(res.value, l0.value)
 
