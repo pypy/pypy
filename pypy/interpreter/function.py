@@ -49,7 +49,9 @@ class Function(Wrappable):
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
         # maybe we want this shorter:
-        name = getattr(self, 'name', '?')
+        name = getattr(self, 'name', None)
+        if not isinstance(name, str):
+            name = '?'
         return "<%s %s>" % (self.__class__.__name__, name)
 
     def call_args(self, args):

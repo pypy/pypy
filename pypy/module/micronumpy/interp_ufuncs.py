@@ -278,7 +278,7 @@ class W_Ufunc1(W_Ufunc):
         else:
             w_res = Call1(self.func, self.name, w_obj.shape, calc_dtype,
                                          res_dtype, w_obj)
-        w_obj.add_invalidates(w_res)
+        w_obj.add_invalidates(space, w_res)
         return w_res
 
 
@@ -347,8 +347,8 @@ class W_Ufunc2(W_Ufunc):
         w_res = Call2(self.func, self.name,
                       new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs, out)
-        w_lhs.add_invalidates(w_res)
-        w_rhs.add_invalidates(w_res)
+        w_lhs.add_invalidates(space, w_res)
+        w_rhs.add_invalidates(space, w_res)
         if out:
             w_res.get_concrete()
         return w_res

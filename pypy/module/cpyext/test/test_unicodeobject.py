@@ -453,10 +453,22 @@ class TestUnicode(BaseApiTest):
 
     def test_tailmatch(self, space, api):
         w_str = space.wrap(u"abcdef")
-        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 2, 10, 1) == 1
-        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 5, -1) == 1
+        # prefix match
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 2, 9, -1) == 1
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 2, 4, -1) == 0 # ends at 'd'
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 6, -1) == 0 # starts at 'b'
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cdf"), 2, 6, -1) == 0
+        # suffix match
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 5,  1) == 1
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 3, 5,  1) == 0 # starts at 'd'
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("cde"), 1, 6,  1) == 0 # ends at 'f'
+        assert api.PyUnicode_Tailmatch(w_str, space.wrap("bde"), 1, 5,  1) == 0
+        # type checks
         self.raises(space, api, TypeError,
                     api.PyUnicode_Tailmatch, w_str, space.wrap(3), 2, 10, 1)
+        self.raises(space, api, TypeError,
+                    api.PyUnicode_Tailmatch, space.wrap(3), space.wrap("abc"),
+                    2, 10, 1)
 
     def test_count(self, space, api):
         w_str = space.wrap(u"abcabdab")
