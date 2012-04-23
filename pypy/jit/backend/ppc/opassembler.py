@@ -346,12 +346,20 @@ class MiscOpAssembler(object):
                 with scratch_reg(self.mc):
                     self.mc.load_imm(r.SCRATCH, adr)
                     self.mc.storex(loc.value, 0, r.SCRATCH.value)
-            elif loc.is_vfp_reg():
+            elif loc.is_fp_reg():
                 assert box.type == FLOAT
-                assert 0, "not implemented yet"
+                adr = self.fail_boxes_float.get_addr_for_num(i)
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.stfdx(loc.value, 0, r.SCRATCH.value)
             elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
                 if box.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    adr = self.fail_boxes_float.get_addr_for_num(i)
+                    self.mc.stfd(r.f0.value, r.SPP.value, 0)
+                    self.mov_loc_loc(loc, r.f0.value)
+                    self.mc.load_imm(r.SCRATCH, adr)
+                    self.mc.stfdx(r.f0.value, 0, r.SCRATCH.value)
+                    self.mc.lfd(r.f0.value, r.SPP.value, 0)
                 elif box.type == REF or box.type == INT:
                     if box.type == REF:
                         adr = self.fail_boxes_ptr.get_addr_for_num(i)
@@ -459,7 +467,8 @@ class MiscOpAssembler(object):
             for i in range(reg_args, n_args):
                 arg = arglocs[i]
                 if arg.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    count += 1
+                    n += WORD
                 else:
                     count += 1
                     n += WORD

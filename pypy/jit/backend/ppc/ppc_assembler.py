@@ -20,6 +20,7 @@ from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.backend.model import CompiledLoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import (INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
@@ -83,6 +84,8 @@ class AssemblerPPC(OpAssembler):
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_float = values_array(longlong.FLOATSTORAGE,
+                                                            failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.datablockwrapper = None
@@ -1371,11 +1374,14 @@ class AssemblerPPC(OpAssembler):
             self.mc.store(r.SCRATCH.value, r.SPP.value, self.FORCE_INDEX_AREA)
             
     def load(self, loc, value):
-        assert loc.is_reg() and value.is_imm()
+        assert (loc.is_reg() and value.is_imm()
+                or loc.is_fp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.load_imm(loc, value.getint())
         elif value.is_imm_float():
-            assert 0, "not implemented yet"
+            with scratch_reg(self.mc):
+                self.mc.load_imm(r.SCRATCH, value.getint())
+                self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
 
 def notimplemented_op(self, op, arglocs, regalloc):
     print "[PPC/asm] %s not implemented" % op.getopname()
