@@ -56,8 +56,9 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     in transactional mode only; see below.
 #
 #   - GCFLAG_VISITED: used during collections to flag objects found to be
-#     surviving.  Between collections, it must be set on LOCAL COPY objects
-#     and only on them.
+#     surviving.  Between collections, it must be set on the LOCAL COPY
+#     objects or the ones from 'mt_global_turned_local' (see below), and
+#     only on them.
 #
 #   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
 #     was taken.  Means that we already have a corresponding object allocated

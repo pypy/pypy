@@ -113,7 +113,13 @@ class StmGCTLS(object):
         # We must also mark the following objects as GLOBAL again
         obj = self.mt_global_turned_local
         self.mt_global_turned_local = NULL
-        self._promote_list_to_globals(obj)
+        while obj:
+            hdr = self.gc.header(obj)
+            obj = hdr.version
+            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [2]")
+            ll_assert(hdr.tid & GCFLAG_VISITED != 0, "missing VISITED [2]")
+            hdr.version = NULL
+            hdr.tid += GCFLAG_GLOBAL - GCFLAG_VISITED
         if not we_are_translated():
             del self.mt_global_turned_local   # don't use any more
 
@@ -232,7 +238,7 @@ class StmGCTLS(object):
         # don't have GCFLAG_VISITED.  As the newly allocated nursery
         # objects don't have it either, at the start of the next
         # collection, the only LOCAL objects that have it are the ones
-        # in 'copied_local_objects'.
+        # in 'mt_global_turned_local' or the C tldict with GCFLAG_WAS_COPIED.
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
@@ -291,9 +297,11 @@ class StmGCTLS(object):
 
     def main_thread_writes_to_global_obj(self, obj):
         hdr = self.gc.header(obj)
-        ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
-                  "write in main thread: unexpected GCFLAG_WAS_COPIED")
-        hdr.tid &= ~GCFLAG_GLOBAL
+        ll_assert(hdr.tid & (GCFLAG_WAS_COPIED|GCFLAG_VISITED) == 0,
+                  "write in main thread: unexpected GCFLAG_WAS_COPIED"
+                  " or GCFLAG_VISITED")
+        # remove GCFLAG_GLOBAL, and add GCFLAG_VISITED
+        hdr.tid += (GCFLAG_VISITED - GCFLAG_GLOBAL)
         # add the object into this linked list
         hdr.version = self.mt_global_turned_local
         self.mt_global_turned_local = obj
@@ -307,13 +315,11 @@ class StmGCTLS(object):
         obj = self.sharedarea_tls.chained_list
         self.sharedarea_tls.chained_list = NULL
         #
-        self._promote_list_to_globals(obj)
-
-    def _promote_list_to_globals(self, obj):
         while obj:
             hdr = self.gc.header(obj)
             obj = hdr.version
-            ll_assert(not (hdr.tid & GCFLAG_GLOBAL), "already GLOBAL [1]")
+            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [1]")
+            ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
             hdr.version = NULL
             hdr.tid |= GCFLAG_GLOBAL
 
@@ -509,10 +515,10 @@ class StmGCTLS(object):
         while obj:
             hdr = self.gc.header(obj)
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                      "unexpected GLOBAL in mt_global_turned_local")
-            if hdr.tid & GCFLAG_VISITED == 0:
-                hdr.tid |= GCFLAG_VISITED
-                self.pending.append(obj)
+                      "unexpected GCFLAG_GLOBAL in mt_global_turned_local")
+            ll_assert(hdr.tid & GCFLAG_VISITED != 0,
+                      "missing GCFLAG_VISIBLE in mt_global_turned_local")
+            self.trace_and_drag_out_of_nursery(obj)
             obj = hdr.version
 
     def collect_flush_pending(self):
