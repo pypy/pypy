@@ -23,7 +23,7 @@ class AssemblerLocation(object):
     def is_reg(self):
         return False
 
-    def is_vfp_reg(self):
+    def is_fp_reg(self):
         return False
 
     def is_imm_float(self):

@@ -503,17 +503,18 @@ class MiscOpAssembler(object):
         for i in range(reg_args):
             arg = arglocs[i]
             if arg.type == FLOAT and count % 2 != 0:
-                assert 0, "not implemented yet"
+                num += 1
+                count = 0
             reg = r.PARAM_REGS[num]
 
             if arg.type == FLOAT:
-                assert 0, "not implemented yet"
+                float_locs.append((arg, reg))
             else:
                 non_float_locs.append(arg)
                 non_float_regs.append(reg)
 
             if arg.type == FLOAT:
-                assert 0, "not implemented yet"
+                num += 1
             else:
                 num += 1
                 count += 1
