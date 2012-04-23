@@ -28,7 +28,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #       - the non-small raw-malloced objects
 #
 #   - The GLOBAL objects are all located in the shared area.
-#     All global objects are non-movable.
+#     All GLOBAL objects are non-movable.
 #
 #   - The LOCAL objects might be YOUNG or OLD depending on whether they
 #     already survived a collection.  YOUNG LOCAL objects are either in
@@ -38,11 +38,112 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     is not actually generational (slow when running long transactions
 #     or before running transactions at all).
 #
+#   - A few details are different depending on the running mode:
+#     either "transactional" or "non-transactional".  The transactional
+#     mode is where we have multiple threads, in a transaction.run()
+#     call.  The non-transactional mode has got only the main thread.
+#
+# GC Flags on objects:
+#
+#   - GCFLAG_GLOBAL: identifies GLOBAL objects.  All prebuilt objects
+#     start as GLOBAL; conversely, all freshly allocated objects start
+#     as LOCAL.  But they may switch between the two; see below.
+#     All objects that are or have been GLOBAL are immortal for now
+#     (global_collect() will be done later).
+#
+#   - GCFLAG_WAS_COPIED: means that the object is either a LOCAL COPY
+#     or, if GLOBAL, then it has or had at least one LOCAL COPY.  Used
+#     in transactional mode only; see below.
+#
+#   - GCFLAG_VISITED: used during collections to flag objects found to be
+#     surviving.  Between collections, it must be set on LOCAL COPY objects
+#     and only on them.
+#
+#   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
+#     was taken.  Means that we already have a corresponding object allocated
+#     outside the nursery.
+#
+#   - GCFLAG_FIXED_HASH: only on some prebuilt objects.  For identityhash().
+#
+# When the mutator (= the program outside the GC) wants to write to an
+# object, stm_writebarrier() does something special on GLOBAL objects:
+#
+#   - In non-transactional mode, the write barrier turns the object LOCAL
+#     and add it in the list 'main_thread_tls.mt_global_turned_local'.
+#     This list contains all previously-GLOBAL objects that have been
+#     modified.  Objects turned LOCAL are changed back to GLOBAL and
+#     removed from 'mt_global_turned_local' by the next collection,
+#     unless they are also found in the stack (the reason being that if
+#     they are in the stack and stm_writebarrier() has already been
+#     called, then it might not be called a second time if they are
+#     changed again after collection).
+#
+#   - In transactional mode, the write barrier creates a LOCAL COPY of
+#     the object and returns it (or, if already created by the same
+#     transaction, finds it again).  The list of LOCAL COPY objects has
+#     a role similar to 'mt_global_turned_local', but is maintained by C
+#     code (see tldict_lookup()).
+#
+# Invariant: between two transactions, all objects visible from the current
+# thread are always GLOBAL.  In particular:
+#
+#   - The LOCAL object of a thread are not visible at all from other threads.
+#     This means that in transactional mode there is *no* pointer from a
+#     GLOBAL object directly to a LOCAL object.
+#
+#   - At the end of enter_transactional_mode(), and at the beginning of
+#     leave_transactional_mode(), *all* objects everywhere are GLOBAL.
+#
+# Collection: for now we have only local_collection(), which ignores all
+# GLOBAL objects.
+#
+#   - In non-transactional mode, we use 'mt_global_turned_local' as a list
+#     of roots, together with the stack.  By construction, all objects that
+#     are still GLOBAL can be ignored, because they cannot point to a LOCAL
+#     object (except to a 'mt_global_turned_local' object).
+#
+#   - In transactional mode, we similarly use the list maintained by C code
+#     of the LOCAL COPY objects of the current transaction, together with
+#     the stack.  Again, GLOBAL objects can be ignored because they have no
+#     pointer to any LOCAL object at all in that mode.
+#
+#   - A special case is the end-of-transaction collection, done by the same
+#     local_collection() with a twist: all pointers to a LOCAL COPY object
+#     are replaced with copies to the corresponding GLOBAL original.  When
+#     it is done, we mark all surviving LOCAL objects as GLOBAL too, and we
+#     are back to the situation where this thread sees only GLOBAL objects.
+#     What we leave to the C code to do "as a finishing touch" is to copy
+#     transactionally the content of the LOCAL COPY objects back over the
+#     GLOBAL originals; before this is done, the transaction can be aborted
+#     at any point with no visible side-effect on any object that other
+#     threads can see.
+#
+# All objects have an address-sized 'version' field in their header.  On
+# GLOBAL objects, it is used as a version by C code to handle STM (it must
+# be set to 0 when the object first turns GLOBAL).   On the LOCAL objects,
+# though, it is abused here in the GC:
+#
+#   - if GCFLAG_WAS_COPIED, it points to the GLOBAL original.
+#
+#   - if GCFLAG_HAS_SHADOW, to the shadow object outside the nursery.
+#     (It is not used on any other nursery object.)
+#
+#   - it contains the 'next' object of the 'mt_global_turned_local' list.
+#
+#   - it contains the 'next' object of the 'sharedarea_tls.chained_list'
+#     list, which describes all LOCAL objects malloced outside the nursery
+#     (excluding the ones that were GLOBAL at some point).
+#
+#   - for nursery objects, during collection, if they are copied outside
+#     the nursery, they grow GCFLAG_VISITED and their 'version' points
+#     to the fresh copy.
+#
+
 GCFLAG_GLOBAL     = first_gcflag << 0     # keep in sync with et.c
 GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
-GCFLAG_HAS_SHADOW = first_gcflag << 2
-GCFLAG_FIXED_HASH = first_gcflag << 3
-GCFLAG_VISITED    = first_gcflag << 4
+GCFLAG_VISITED    = first_gcflag << 2
+GCFLAG_HAS_SHADOW = first_gcflag << 3
+GCFLAG_FIXED_HASH = first_gcflag << 4
 
 
 def always_inline(fn):
@@ -320,8 +421,8 @@ class StmGC(MovingGCBase):
             # The raw copy done above does not include the header fields.
             hdr = self.header(obj)
             localhdr = self.header(localobj)
-            GCFLAGS = (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED)
-            ll_assert(hdr.tid & GCFLAGS == GCFLAGS,
+            GCFLAGS = (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED | GCFLAG_VISITED)
+            ll_assert(hdr.tid & GCFLAGS == (GCFLAG_GLOBAL | GCFLAG_WAS_COPIED),
                       "stm_write: bogus flags on source object")
             #
             # Remove the GCFLAG_GLOBAL from the copy, and add GCFLAG_VISITED

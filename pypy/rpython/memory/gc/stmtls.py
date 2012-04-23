@@ -50,7 +50,7 @@ class StmGCTLS(object):
         # --- main thread only: this is the list of GLOBAL objects that
         #     have been turned into LOCAL objects
         if in_main_thread:
-            self.main_thread_was_global_objects = NULL
+            self.mt_global_turned_local = NULL
         #
         self._register_with_C_code()
 
@@ -111,11 +111,11 @@ class StmGCTLS(object):
         self.stop_transaction()
         #
         # We must also mark the following objects as GLOBAL again
-        obj = self.main_thread_was_global_objects
-        self.main_thread_was_global_objects = NULL
+        obj = self.mt_global_turned_local
+        self.mt_global_turned_local = NULL
         self._promote_list_to_globals(obj)
         if not we_are_translated():
-            del self.main_thread_was_global_objects   # don't use any more
+            del self.mt_global_turned_local   # don't use any more
 
     def leave_transactional_mode(self):
         """Restart using the main thread for mallocs."""
@@ -133,7 +133,7 @@ class StmGCTLS(object):
         # and will not be called again before writing.  But such objects
         # are right now directly in the stack.  So to fix this issue, we
         # conservatively mark as local all objects directly from the stack.
-        self.main_thread_was_global_objects = NULL
+        self.mt_global_turned_local = NULL
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._remark_object_as_local, self)
 
@@ -212,7 +212,7 @@ class StmGCTLS(object):
         if not self.in_main_thread:
             self.collect_roots_from_tldict()
         else:
-            self.collect_from_main_thread_was_global_objects()
+            self.collect_from_mt_global_turned_local()
         #
         # Now repeatedly follow objects until 'pending' is empty.
         self.collect_flush_pending()
@@ -293,8 +293,8 @@ class StmGCTLS(object):
                   "write in main thread: unexpected GCFLAG_WAS_COPIED")
         hdr.tid &= ~GCFLAG_GLOBAL
         # add the object into this linked list
-        hdr.version = self.main_thread_was_global_objects
-        self.main_thread_was_global_objects = obj
+        hdr.version = self.mt_global_turned_local
+        self.mt_global_turned_local = obj
 
     # ------------------------------------------------------------
 
@@ -500,14 +500,14 @@ class StmGCTLS(object):
         #
         self.trace_and_drag_out_of_nursery(localobj)
 
-    def collect_from_main_thread_was_global_objects(self):
-        # NB. all objects in the 'main_thread_was_global_objects' list are
+    def collect_from_mt_global_turned_local(self):
+        # NB. all objects in the 'mt_global_turned_local' list are
         # currently immortal (because they were once GLOBAL)
-        obj = self.main_thread_was_global_objects
+        obj = self.mt_global_turned_local
         while obj:
             hdr = self.gc.header(obj)
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                      "unexpected GLOBAL in main_thread_was_global_objects")
+                      "unexpected GLOBAL in mt_global_turned_local")
             if hdr.tid & GCFLAG_VISITED == 0:
                 hdr.tid |= GCFLAG_VISITED
                 self.pending.append(obj)
