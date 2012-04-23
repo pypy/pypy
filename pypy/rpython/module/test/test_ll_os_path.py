@@ -2,13 +2,14 @@ import py
 
 import sys, os
 
-from pypy.tool.pytest.modcheck import skipimporterror
-skipimporterror("ctypes")
-
 from pypy.rpython.lltypesystem.module.ll_os_path import Implementation as impl
 from pypy.rpython.module.support import ll_strcpy
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.tool.udir import udir
+
+
+def setup_module(mod):
+    py.test.importorskip('ctypes')
 
 def test_exists():
     filename = impl.to_rstr(str(py.path.local(__file__)))
