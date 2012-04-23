@@ -336,7 +336,28 @@ class TestBasic(StmGCTests):
         self.checkflags(t_adr, True, False)
         obj = self.gc.stm_writebarrier(t_adr)     # main thread, global:
         assert obj == t_adr                       # doesn't make a copy
-        #self.checkflags(obj, False, False) -- LATER check that it becomes local
+        self.checkflags(obj, False, False)        # but it becomes local
+
+    def test_relocalize_objects_after_transactional_mode(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        tr1, tr1_adr = self.malloc(SR, globl=True)
+        tr2, tr2_adr = self.malloc(SR, globl=True)
+        tr1.sr2 = tr2
+        self.gc.root_walker.current_stack = [tr1]
+        obj = self.gc.stm_writebarrier(tr1_adr)
+        assert obj == tr1_adr
+        obj = self.gc.stm_writebarrier(tr2_adr)
+        assert obj == tr2_adr
+        self.checkflags(tr1_adr, False, False)    # tr1 has become local
+        self.checkflags(tr2_adr, False, False)    # tr2 has become local
+        #
+        self.gc.enter_transactional_mode()
+        self.gc.leave_transactional_mode()
+        self.checkflags(tr2_adr, True, False)     # tr2 has become global again
+        # but tr1 is still local, because it is directly referenced from stack
+        self.checkflags(tr1_adr, False, False)
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)

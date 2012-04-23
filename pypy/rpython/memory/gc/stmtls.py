@@ -113,6 +113,13 @@ class StmGCTLS(object):
                 if value is not self:
                     del StmGCTLS.nontranslated_dict[key]
         self.start_transaction()
+        # do something special here after we restarted the "transaction"
+        # in the main thread: we have to make sure that the write_barrier
+        # calls done in the main thread before enter/leave_transactional_mode
+        # are still pointing to local objects.  Conservatively, we mark as
+        # local all objects directly referenced from the stack.
+        self.gc.root_walker.walk_current_stack_roots(
+            StmGCTLS._remark_object_as_local, self)
 
     def start_transaction(self):
         """Start a transaction: performs any pending cleanups, and set
@@ -255,6 +262,16 @@ class StmGCTLS(object):
 
     def fresh_new_weakref(self, obj):
         self.local_weakrefs.append(obj)
+
+    def _remark_object_as_local(self, root):
+        self.main_thread_writes_to_global_obj(root.address[0])
+
+    def main_thread_writes_to_global_obj(self, obj):
+        hdr = self.gc.header(obj)
+        ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
+                  "write in main thread: unexpected GCFLAG_WAS_COPIED")
+        hdr.tid &= ~GCFLAG_GLOBAL
+        self.sharedarea_tls.add_regular(obj)
 
     # ------------------------------------------------------------
 

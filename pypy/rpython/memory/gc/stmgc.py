@@ -279,9 +279,13 @@ class StmGC(MovingGCBase):
         def _stm_write_barrier_global(obj):
             tls = self.get_tls()
             if tls is self.main_thread_tls:
-                return obj        # not in transaction
+                # not in a transaction: the main thread writes to a global obj.
+                # In this case we turn the object local.
+                tls.main_thread_writes_to_global_obj(obj)
+                return obj
             #
-            # we need to find or make a local copy
+            # else, in a transaction: we find or make a local copy of the
+            # global object
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_WAS_COPIED == 0:
                 #
