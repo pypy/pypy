@@ -3,32 +3,28 @@ from pypy.module.transaction import interp_transaction
 
 
 class FakeSpace:
-    def getbuiltinmodule(self, name):
-        assert name == 'transaction'
-        return 'transaction module'
-    def getattr(self, w_obj, w_name):
-        assert w_obj == 'transaction module'
-        return 'some stuff from the transaction module'
-    def wrap(self, x):
-        return 'wrapped stuff'
+    def __init__(self):
+        self._spacecache = {}
     def getexecutioncontext(self):
-        ec = interp_transaction.state.getvalue()
+        state = interp_transaction.getstate(self)
+        ec = state.getvalue()
         if ec is None:
-            ec = self.createexecutioncontext()
-            interp_transaction.state.setvalue(ec)
+            ec = FakeEC()
+            state.setvalue(ec)
         return ec
-    def createexecutioncontext(self):
-        return FakeEC()
     def call_args(self, w_callback, args):
         w_callback(*args)
+    def fromcache(self, Cls):
+        if Cls not in self._spacecache:
+            self._spacecache[Cls] = Cls(self)
+        return self._spacecache[Cls]
 
 class FakeEC:
     pass
 
 def make_fake_space():
     space = FakeSpace()
-    interp_transaction.state.initialize(space)
-    interp_transaction.state.startup(space, None)
+    interp_transaction.getstate(space).startup(None)
     return space
 
 
