@@ -6,16 +6,14 @@ from pypy.rlib import rstm
 
 class FakeStmOperations:
     _in_transaction = 0
+    _thread_id = 0
     _mapping = {}
 
     def in_transaction(self):
         return self._in_transaction
 
     def thread_id(self):
-        if self._in_transaction:
-            return -12345    # random number
-        else:
-            return 0
+        return self._thread_id
 
     def _add(self, transactionptr):
         r = random.random()
@@ -25,9 +23,12 @@ class FakeStmOperations:
     def run_all_transactions(self, initial_transaction_ptr, num_threads=4):
         self._pending = {}
         self._add(initial_transaction_ptr)
+        thread_ids = [-10000 - 123 * i for i in range(num_threads)]  # random
         self._in_transaction = True
         try:
             while self._pending:
+                self._thread_id = thread_ids.pop(0)
+                thread_ids.append(self._thread_id)
                 r, transactionptr = self._pending.popitem()
                 transaction = self.cast_voidp_to_transaction(transactionptr)
                 transaction._next_transaction = None
@@ -38,6 +39,7 @@ class FakeStmOperations:
                     next = next._next_transaction
         finally:
             self._in_transaction = False
+            self._thread_id = 0
             del self._pending
 
     def cast_transaction_to_voidp(self, transaction):
