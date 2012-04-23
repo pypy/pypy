@@ -133,6 +133,8 @@ class StmGCTLS(object):
         # and will not be called again before writing.  But such objects
         # are right now directly in the stack.  So to fix this issue, we
         # conservatively mark as local all objects directly from the stack.
+        # XXX TODO: do the same thing after each local_collection() by
+        # the main thread.
         self.mt_global_turned_local = NULL
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._remark_object_as_local, self)

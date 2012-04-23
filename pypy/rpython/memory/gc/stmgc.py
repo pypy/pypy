@@ -71,7 +71,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - In non-transactional mode, the write barrier turns the object LOCAL
 #     and add it in the list 'main_thread_tls.mt_global_turned_local'.
 #     This list contains all previously-GLOBAL objects that have been
-#     modified.  Objects turned LOCAL are changed back to GLOBAL and
+#     modified.  [XXX:TODO]Objects turned LOCAL are changed back to GLOBAL and
 #     removed from 'mt_global_turned_local' by the next collection,
 #     unless they are also found in the stack (the reason being that if
 #     they are in the stack and stm_writebarrier() has already been
