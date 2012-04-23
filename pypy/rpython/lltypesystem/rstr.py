@@ -709,7 +709,8 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @enforceargs(int, None)
-    @jit.look_inside_iff(lambda length, items: jit.isconstant(length) and length <= 2)
+    @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
+        items, length))
     def ll_join_strs(length, items):
         # Special case for length 1 items, helps both the JIT and other code
         if length == 1:

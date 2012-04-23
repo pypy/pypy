@@ -17,6 +17,7 @@ VOID_STORAGE = lltype.Array(lltype.Char, hints={'nolength': True,
                                                 'render_as_void': True})
 degToRad = math.pi / 180.0
 log2 = math.log(2)
+log2e = 1./log2
 
 def simple_unary_op(func):
     specialize.argtype(1)(func)
@@ -841,45 +842,26 @@ class Float(Primitive):
 
     @simple_binary_op
     def logaddexp(self, v1, v2):
-        try:
-            v1e = math.exp(v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.exp(v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + rfloat.log1p(math.exp(-tmp))
+        elif tmp <= 0:
+            return v2 + rfloat.log1p(math.exp(tmp))
+        else:
+            return v1 + v2
 
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e)
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+    def npy_log2_1p(self, v):
+        return log2e * rfloat.log1p(v)
 
     @simple_binary_op
     def logaddexp2(self, v1, v2):
-        try:
-            v1e = math.pow(2, v1)
-        except OverflowError:
-            v1e = rfloat.INFINITY
-        try:
-            v2e = math.pow(2, v2)
-        except OverflowError:
-            v2e = rfloat.INFINITY
-
-        v12e = v1e + v2e
-        try:
-            return math.log(v12e) / log2
-        except ValueError:
-            if v12e == 0.0:
-                # CPython raises ValueError here, so we have to check
-                # the value to find the correct numpy return value
-                return -rfloat.INFINITY
-            return rfloat.NAN
+        tmp = v1 - v2
+        if tmp > 0:
+            return v1 + self.npy_log2_1p(math.pow(2, -tmp))
+        if tmp <= 0:
+            return v2 + self.npy_log2_1p(math.pow(2, tmp))
+        else:
+            return v1 + v2
 
 class NonNativeFloat(NonNativePrimitive, Float):
     _mixin_ = True
