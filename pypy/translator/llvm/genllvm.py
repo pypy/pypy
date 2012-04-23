@@ -1235,6 +1235,8 @@ class FrameworkGCPolicy(GCPolicy):
     def get_gc_field_values(self, obj):
         obj = lltype.top_container(obj)
         needs_hash = self.get_prebuilt_hash(obj) is not None
+        # XXX HACK
+        self._consider_constant(lltype.typeOf(obj), obj)
         hdr = self.gctransformer.gc_header_for(obj, needs_hash)
         return [hdr._obj]
 
