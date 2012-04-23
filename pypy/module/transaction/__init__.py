@@ -9,8 +9,8 @@ class Module(MixedModule):
         'set_num_threads': 'interp_transaction.set_num_threads',
         'add': 'interp_transaction.add',
         'run': 'interp_transaction.run',
-        'add_epoll': 'interp_epoll.add_epoll',        # xxx linux only
-        'remove_epoll': 'interp_epoll.remove_epoll',  # xxx linux only
+        #'add_epoll': 'interp_epoll.add_epoll',        # xxx linux only
+        #'remove_epoll': 'interp_epoll.remove_epoll',  # xxx linux only
         'local': 'interp_local.W_Local',
     }
 
@@ -22,9 +22,9 @@ class Module(MixedModule):
         "NOT_RPYTHON: patches space.threadlocals to use real threadlocals"
         from pypy.module.transaction import interp_transaction
         MixedModule.__init__(self, space, *args)
-        interp_transaction.state.initialize(space)
-        space.threadlocals = interp_transaction.state
+        space.threadlocals = interp_transaction.getstate(space)
 
     def startup(self, space):
         from pypy.module.transaction import interp_transaction
-        interp_transaction.state.startup(space, space.wrap(self))
+        state = interp_transaction.getstate(space)
+        state.startup(space.wrap(self))

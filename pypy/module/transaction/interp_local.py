@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
-from pypy.module.transaction.interp_transaction import state
+#from pypy.module.transaction.interp_transaction import state
 
 
 class W_Local(Wrappable):
