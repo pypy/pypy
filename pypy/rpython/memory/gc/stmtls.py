@@ -47,6 +47,10 @@ class StmGCTLS(object):
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
+        # --- main thread only: this is the list of GLOBAL objects that
+        #     have been turned into LOCAL objects
+        if in_main_thread:
+            self.main_thread_was_global_objects = NULL
         #
         self._register_with_C_code()
 
@@ -105,6 +109,16 @@ class StmGCTLS(object):
         """Called on the main thread, just before spawning the other
         threads."""
         self.stop_transaction()
+        #
+        # We must also mark the following objects as GLOBAL again
+        obj = self.main_thread_was_global_objects
+        self.main_thread_was_global_objects = NULL
+        while obj:
+            hdr = self.gc.header(obj)
+            hdr.tid |= GCFLAG_GLOBAL
+            obj = hdr.version
+        if not we_are_translated():
+            del self.main_thread_was_global_objects   # don't use any more
 
     def leave_transactional_mode(self):
         """Restart using the main thread for mallocs."""
@@ -113,11 +127,16 @@ class StmGCTLS(object):
                 if value is not self:
                     del StmGCTLS.nontranslated_dict[key]
         self.start_transaction()
-        # do something special here after we restarted the "transaction"
-        # in the main thread: we have to make sure that the write_barrier
-        # calls done in the main thread before enter/leave_transactional_mode
-        # are still pointing to local objects.  Conservatively, we mark as
-        # local all objects directly referenced from the stack.
+        #
+        # Do something special here after we restarted the "transaction"
+        # in the main thread.  At this point, *all* objects are GLOBAL.
+        # The write_barrier will ensure that any write makes the written-to
+        # objects LOCAL again.  However, it is possible that the write
+        # barrier was called before the enter/leave_transactional_mode()
+        # and will not be called again before writing.  But such objects
+        # are right now directly in the stack.  So to fix this issue, we
+        # conservatively mark as local all objects directly from the stack.
+        self.main_thread_was_global_objects = NULL
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._remark_object_as_local, self)
 
@@ -195,6 +214,8 @@ class StmGCTLS(object):
         # objects.
         if not self.in_main_thread:
             self.collect_roots_from_tldict()
+        else:
+            self.collect_from_main_thread_was_global_objects()
         #
         # Now repeatedly follow objects until 'pending' is empty.
         self.collect_flush_pending()
@@ -264,14 +285,19 @@ class StmGCTLS(object):
         self.local_weakrefs.append(obj)
 
     def _remark_object_as_local(self, root):
-        self.main_thread_writes_to_global_obj(root.address[0])
+        obj = root.address[0]
+        hdr = self.gc.header(obj)
+        if hdr.tid & GCFLAG_GLOBAL:
+            self.main_thread_writes_to_global_obj(obj)
 
     def main_thread_writes_to_global_obj(self, obj):
         hdr = self.gc.header(obj)
         ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
                   "write in main thread: unexpected GCFLAG_WAS_COPIED")
         hdr.tid &= ~GCFLAG_GLOBAL
-        self.sharedarea_tls.add_regular(obj)
+        # add the object into this linked list
+        hdr.version = self.main_thread_was_global_objects
+        self.main_thread_was_global_objects = obj
 
     # ------------------------------------------------------------
 
@@ -473,6 +499,19 @@ class StmGCTLS(object):
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
         self.trace_and_drag_out_of_nursery(localobj)
+
+    def collect_from_main_thread_was_global_objects(self):
+        # NB. all objects in the 'main_thread_was_global_objects' list are
+        # currently immortal (because they were once GLOBAL)
+        obj = self.main_thread_was_global_objects
+        while obj:
+            hdr = self.gc.header(obj)
+            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
+                      "unexpected GLOBAL in main_thread_was_global_objects")
+            if hdr.tid & GCFLAG_VISITED == 0:
+                hdr.tid |= GCFLAG_VISITED
+                self.pending.append(obj)
+            obj = hdr.version
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the

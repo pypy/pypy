@@ -342,22 +342,55 @@ class TestBasic(StmGCTests):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
-        tr1, tr1_adr = self.malloc(SR, globl=True)
+        tr1, tr1_adr = self.malloc(SR, globl=True)   # three prebuilt objects
         tr2, tr2_adr = self.malloc(SR, globl=True)
+        tr3, tr3_adr = self.malloc(SR, globl=True)
         tr1.sr2 = tr2
         self.gc.root_walker.current_stack = [tr1]
         obj = self.gc.stm_writebarrier(tr1_adr)
         assert obj == tr1_adr
         obj = self.gc.stm_writebarrier(tr2_adr)
         assert obj == tr2_adr
+        obj = self.gc.stm_writebarrier(tr3_adr)
+        assert obj == tr3_adr
         self.checkflags(tr1_adr, False, False)    # tr1 has become local
         self.checkflags(tr2_adr, False, False)    # tr2 has become local
+        self.checkflags(tr3_adr, False, False)    # tr3 has become local
         #
         self.gc.enter_transactional_mode()
         self.gc.leave_transactional_mode()
         self.checkflags(tr2_adr, True, False)     # tr2 has become global again
+        self.checkflags(tr3_adr, True, False)     # tr3 has become global again
         # but tr1 is still local, because it is directly referenced from stack
         self.checkflags(tr1_adr, False, False)
+
+    def test_non_prebuilt_relocalize_after_transactional_mode(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        tr1, tr1_adr = self.malloc(SR)            # local
+        tr2, tr2_adr = self.malloc(SR)            # local
+        tr1.sr2 = tr2
+        self.gc.root_walker.current_stack = [tr1]
+        self.gc.enter_transactional_mode()
+        self.checkflags(tr1_adr, True, False)     # tr1 has become global
+        self.checkflags(tr2_adr, True, False)     # tr2 has become global
+        self.gc.leave_transactional_mode()
+        self.checkflags(tr2_adr, True, False)     # tr2 is still global
+        self.checkflags(tr1_adr, False, False)    # tr1 is back to a local
+
+    def test_collect_from_main_thread_was_global_objects(self):
+        tr1, tr1_adr = self.malloc(SR, globl=True)  # a global prebuilt object
+        tr2, tr2_adr = self.malloc(SR, globl=False) # tr2 is a local
+        self.checkflags(tr2_adr, False, False)      # check that tr2 is a local
+        obj = self.gc.stm_writebarrier(tr1_adr)
+        assert obj == tr1_adr                       # tr1 is now local
+        tr1.sr2 = tr2
+        self.gc.collect(0)
+        tr2 = tr1.sr2       # reload, because it moved
+        tr2_adr = llmemory.cast_ptr_to_adr(tr2)
+        self.checkflags(tr2_adr, False, False)  # tr2 is still alive and local
+        self.checkflags(tr1_adr, False, False)  # tr1 is still local
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)
