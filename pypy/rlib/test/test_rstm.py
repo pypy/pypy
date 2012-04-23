@@ -11,6 +11,12 @@ class FakeStmOperations:
     def in_transaction(self):
         return self._in_transaction
 
+    def thread_id(self):
+        if self._in_transaction:
+            return -12345    # random number
+        else:
+            return 0
+
     def _add(self, transactionptr):
         r = random.random()
         assert r not in self._pending    # very bad luck if it is
@@ -19,16 +25,20 @@ class FakeStmOperations:
     def run_all_transactions(self, initial_transaction_ptr, num_threads=4):
         self._pending = {}
         self._add(initial_transaction_ptr)
-        while self._pending:
-            r, transactionptr = self._pending.popitem()
-            transaction = self.cast_voidp_to_transaction(transactionptr)
-            transaction._next_transaction = None
-            nextptr = rstm._stm_run_transaction(transactionptr, 0)
-            next = self.cast_voidp_to_transaction(nextptr)
-            while next is not None:
-                self._add(self.cast_transaction_to_voidp(next))
-                next = next._next_transaction
-        del self._pending
+        self._in_transaction = True
+        try:
+            while self._pending:
+                r, transactionptr = self._pending.popitem()
+                transaction = self.cast_voidp_to_transaction(transactionptr)
+                transaction._next_transaction = None
+                nextptr = rstm._stm_run_transaction(transactionptr, 0)
+                next = self.cast_voidp_to_transaction(nextptr)
+                while next is not None:
+                    self._add(self.cast_transaction_to_voidp(next))
+                    next = next._next_transaction
+        finally:
+            self._in_transaction = False
+            del self._pending
 
     def cast_transaction_to_voidp(self, transaction):
         if transaction is None:
@@ -53,14 +63,19 @@ fake_stm_operations = FakeStmOperations()
 def test_in_transaction():
     res = rstm.in_transaction()
     assert res is False
+    res = rstm.thread_id()
+    assert res == 0
 
 def test_run_all_transactions_minimal():
     seen = []
     class Empty(rstm.Transaction):
         def run(self):
-            seen.append(42)
+            res = rstm.in_transaction()
+            seen.append(res is True)
+            res = rstm.thread_id()
+            seen.append(res != 0)
     rstm.run_all_transactions(Empty())
-    assert seen == [42]
+    assert seen == [True, True]
 
 def test_run_all_transactions_recursive():
     seen = []
