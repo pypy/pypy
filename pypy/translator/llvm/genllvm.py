@@ -1,3 +1,4 @@
+import __builtin__
 import ctypes
 from itertools import count
 
@@ -1358,7 +1359,7 @@ class CTypesFuncWrapper(object):
             array_type.setup(LLVMChar)
             type_ = self._get_ctype(array_type, name_arr.contents.len)
             name = ctypes.cast(name_arr, ctypes.POINTER(type_)).contents.items
-            raise getattr(__builtins__, name, RuntimeError)
+            raise getattr(__builtin__, name, RuntimeError)
         return self._from_ctype(bindingrepr(graph.getreturnvar()), ret)
 
 

@@ -243,11 +243,5 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
 
 
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
-    def test_memoryerror(self):
-        py.test.skip('not working yet')
-
     def test_hash_preservation(self):
-        py.test.skip('not working yet')
-
-    def test_r_dict_exceptions(self):
         py.test.skip('not working yet')
