@@ -113,10 +113,7 @@ class StmGCTLS(object):
         # We must also mark the following objects as GLOBAL again
         obj = self.main_thread_was_global_objects
         self.main_thread_was_global_objects = NULL
-        while obj:
-            hdr = self.gc.header(obj)
-            hdr.tid |= GCFLAG_GLOBAL
-            obj = hdr.version
+        self._promote_list_to_globals(obj)
         if not we_are_translated():
             del self.main_thread_was_global_objects   # don't use any more
 
@@ -308,6 +305,9 @@ class StmGCTLS(object):
         obj = self.sharedarea_tls.chained_list
         self.sharedarea_tls.chained_list = NULL
         #
+        self._promote_list_to_globals(obj)
+
+    def _promote_list_to_globals(self, obj):
         while obj:
             hdr = self.gc.header(obj)
             obj = hdr.version

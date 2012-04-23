@@ -80,6 +80,7 @@ class MakeChain(rstm.Transaction):
 
 class InitialTransaction(rstm.Transaction):
     def run(self):
+        debug_print("InitialTransaction.run", self.retry_counter)
         ll_assert(self.retry_counter == 0, "no reason to abort-and-retry here")
         ll_assert(rstm.thread_id() != 0, "thread_id == 0")
         scheduled = []
