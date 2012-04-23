@@ -52,9 +52,9 @@ class AppTestSignal:
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
             skip("requires os.kill() and os.getpid()")
         signal = self.signal   # the signal module to test
-        try:
-            signum = signal.USR1
-        except:
+        if hasattr(signal,'SIGUSR1'):
+            signum = signal.SIGUSR1
+        else:
             signum = signal.CTRL_BREAK_EVENT
 
         received = []
@@ -154,7 +154,7 @@ class AppTestSignal:
 
         raises(ValueError, getsignal, 4444)
         raises(ValueError, signal, 4444, lambda *args: None)
-        raises(ValueError, signal, 7, lambda *args: None)
+        raises(ValueError, signal, 42, lambda *args: None)
 
     def test_alarm(self):
         try:
