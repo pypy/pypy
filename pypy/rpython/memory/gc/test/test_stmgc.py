@@ -776,6 +776,40 @@ class TestBasic(StmGCTests):
         assert s2.a == 4242
         assert s2 == tr1.s1   # tr1 is a root, so not copied yet
 
+    def test_weakref_to_local_in_main_thread(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        sr1, sr1_adr = self.malloc(SR, globl=False)
+        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
+        wr1.wadr = sr1_adr
+        self.gc.root_walker.current_stack = [wr1]
+        self.gc.collect(0)
+        #
+        [wr1] = self.gc.root_walker.current_stack
+        assert not wr1.wadr        # weakref to dead object
+
+    def test_weakref_to_global_turned_local(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        sr1, sr1_adr = self.malloc(SR, globl=True)
+        sr2, sr2_adr = self.malloc(SR, globl=True)
+        self.gc.stm_writebarrier(sr1_adr)
+        self.gc.stm_writebarrier(sr2_adr)
+        self.checkflags(sr1_adr, False, False)    # turned local
+        self.checkflags(sr2_adr, False, False)    # turned local
+        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
+        wr2, wr2_adr = self.malloc(WR, globl=False, weakref=True)
+        wr1.wadr = sr1_adr
+        wr2.wadr = sr2_adr
+        self.gc.root_walker.current_stack = [wr1, wr2]
+        self.gc.collect(0)
+        #
+        [wr1, wr2] = self.gc.root_walker.current_stack
+        assert wr1.wadr == sr1_adr
+        assert wr2.wadr == sr2_adr
+
     def test_normalize_global_null(self):
         a = self.gc.stm_normalize_global(llmemory.NULL)
         assert a == llmemory.NULL
