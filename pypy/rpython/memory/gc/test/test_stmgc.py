@@ -368,16 +368,26 @@ class TestBasic(StmGCTests):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
-        tr1, tr1_adr = self.malloc(SR)            # local
-        tr2, tr2_adr = self.malloc(SR)            # local
+        tr1, tr1_adr = self.malloc(SR, globl=False)  # local
+        tr2, tr2_adr = self.malloc(SR, globl=False)  # local
+        self.checkflags(tr1_adr, False, False)    # check that it is local
+        self.checkflags(tr2_adr, False, False)    # check that it is local
         tr1.sr2 = tr2
         self.gc.root_walker.current_stack = [tr1]
         self.gc.enter_transactional_mode()
-        self.checkflags(tr1_adr, True, False)     # tr1 has become global
-        self.checkflags(tr2_adr, True, False)     # tr2 has become global
+        # tr1 and tr2 moved out of the nursery: check that
+        [sr1] = self.gc.root_walker.current_stack
+        assert sr1._obj0 != tr1._obj0
+        sr2 = sr1.sr2
+        assert sr2 and sr2 != sr1 and not sr2.sr2
+        assert sr2._obj0 != tr2._obj0
+        sr1_adr = llmemory.cast_ptr_to_adr(sr1)
+        sr2_adr = llmemory.cast_ptr_to_adr(sr2)
+        self.checkflags(sr1_adr, True, False)     # sr1 is a global
+        self.checkflags(sr2_adr, True, False)     # sr2 is a global
         self.gc.leave_transactional_mode()
-        self.checkflags(tr2_adr, True, False)     # tr2 is still global
-        self.checkflags(tr1_adr, False, False)    # tr1 is back to a local
+        self.checkflags(sr2_adr, True, False)     # sr2 is still global
+        self.checkflags(sr1_adr, False, False)    # sr1 is back to a local
 
     def test_collect_from_main_thread_was_global_objects(self):
         tr1, tr1_adr = self.malloc(SR, globl=True)  # a global prebuilt object
