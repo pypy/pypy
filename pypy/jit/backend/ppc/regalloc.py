@@ -263,7 +263,7 @@ class Regalloc(object):
             i += 1
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
-            elif loc.is_vfp_reg():
+            elif loc.is_fp_reg():
                 assert 0, "not supported"
             else:
                 assert loc.is_stack()
@@ -663,10 +663,13 @@ class Regalloc(object):
 
         # get temporary locs
         tmploc = r.SCRATCH
+        fptmploc = r.f0
 
         # Part about non-floats
         src_locations1 = []
         dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
 
         # Build the four lists
         for i in range(op.numargs()):
@@ -677,10 +680,12 @@ class Regalloc(object):
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
-                assert 0, "not implemented yet"
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
 
-        remap_frame_layout(self.assembler, src_locations1,
-                dst_locations1, tmploc)
+        remap_frame_layout(self.assembler,
+                           src_locations1, dst_locations1, tmploc,
+                           src_locations2, dst_locations2, fptmploc)
         return []
 
     def prepare_setfield_gc(self, op):
