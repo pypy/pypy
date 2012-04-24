@@ -918,7 +918,7 @@ class AssemblerPPC(OpAssembler):
                         pos = ~pos
                     n = self.CODE_FROMSTACK // 4 + pos
                 else:
-                    assert loc.is_reg() or loc.is_vfp_reg()
+                    assert loc.is_reg() or loc.is_fp_reg()
                     n = loc.value
                 n = kind + 4 * n
                 while n > 0x7F:
@@ -1222,9 +1222,9 @@ class AssemblerPPC(OpAssembler):
                     offset = loc.value
                     if not _check_imm_arg(offset):
                         self.mc.load_imm(r.SCRATCH, offset)
-                        self.mc.sub(r.SCRATCH.value, r.SPP.value, offset)
-                    else:
                         self.mc.sub(r.SCRATCH.value, r.SPP.value, r.SCRATCH.value)
+                    else:
+                        self.mc.subi(r.SCRATCH.value, r.SPP.value, offset)
                     self.mc.stfdx(prev_loc.value, 0, r.SCRATCH.value)
                 return
             assert 0, "not supported location"
