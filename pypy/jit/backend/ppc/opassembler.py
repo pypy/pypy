@@ -500,6 +500,7 @@ class MiscOpAssembler(object):
         count = 0
         non_float_locs = []
         non_float_regs = []
+        float_locs = []
         for i in range(reg_args):
             arg = arglocs[i]
             if arg.type == FLOAT and count % 2 != 0:
