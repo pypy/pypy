@@ -3022,6 +3022,27 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_elidable_vstring_const(self):
+        myjitdriver = JitDriver(greens = ["n"], reds = ["i", "c"])
+        @elidable
+        def g(s):
+            return s + "hello"
+        @unroll_safe
+        def make_str(n):
+            return "".join(["a" for _ in range(n)])
+        def f(n):
+            i = 0
+            c = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, c=c)
+                s = make_str(n // 5)
+                c += len(g(s))
+                i += 1
+            return c
+        res = self.meta_interp(f, [10])
+        assert res == 70
+        self.check_resops({"int_lt": 2, "int_add": 4, "guard_true": 2, "jump": 1})
+
 
 class TestOOtype(BasicTests, OOJitMixin):
 
