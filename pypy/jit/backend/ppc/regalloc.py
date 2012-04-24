@@ -280,7 +280,10 @@ class Regalloc(object):
         self.possibly_free_vars(list(inputargs))
 
     def possibly_free_var(self, var):
-        self.rm.possibly_free_var(var)
+        if var.type == FLOAT:
+            self.fprm.possibly_free_var(var)
+        else:
+            self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):
         for var in vars:
@@ -293,12 +296,19 @@ class Regalloc(object):
                 self.possibly_free_var(var)
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
-        return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
+        if v.type == FLOAT:
+            return self.fprm.try_allocate_reg(v, selected_reg, need_lower_byte)
+        else:
+            return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None, 
             need_lower_byte=False):
-        return self.rm.force_allocate_reg(var, forbidden_vars, selected_reg,
-                need_lower_byte)
+        if var.type == FLOAT:
+            return self.fprm.force_allocate_reg(var, forbidden_vars,
+                                                selected_reg, need_lower_byte)
+        else:
+            return self.rm.force_allocate_reg(var, forbidden_vars,
+                                              selected_reg, need_lower_byte)
 
     def allocate_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
         assert type == INT # XXX extend this once floats are supported
@@ -331,6 +341,7 @@ class Regalloc(object):
 
     def before_call(self, force_store=[], save_all_regs=False):
         self.rm.before_call(force_store, save_all_regs)
+        self.fprm.before_call(force_store, save_all_regs)
 
     def after_call(self, v):
         if v.type == FLOAT:
