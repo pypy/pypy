@@ -862,6 +862,15 @@ def test_typedef():
     assert F.RESULT == Signed
     assert F.ARGS == (Signed,)
 
+def test_make_field_uninitialized_again():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    s = lltype.malloc(S)
+    py.test.raises(UninitializedMemoryAccess, "s.x")
+    s.x = 42
+    assert s.x == 42
+    del s.x    # not RPython
+    py.test.raises(UninitializedMemoryAccess, "s.x")
+
 
 class TestTrackAllocation:
     def test_automatic_tracking(self):

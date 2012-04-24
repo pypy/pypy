@@ -118,8 +118,8 @@ class StmGCTLS(object):
             obj = hdr.version
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [2]")
             ll_assert(hdr.tid & GCFLAG_VISITED != 0, "missing VISITED [2]")
-            hdr.version = NULL
             hdr.tid += GCFLAG_GLOBAL - GCFLAG_VISITED
+            self._clear_version_for_global_object(hdr)
         if not we_are_translated():
             del self.mt_global_turned_local   # don't use any more
 
@@ -320,8 +320,18 @@ class StmGCTLS(object):
             obj = hdr.version
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [1]")
             ll_assert(hdr.tid & GCFLAG_VISITED == 0, "unexpected VISITED [1]")
-            hdr.version = NULL
             hdr.tid |= GCFLAG_GLOBAL
+            self._clear_version_for_global_object(hdr)
+
+    def _clear_version_for_global_object(self, hdr):
+        # Reset the 'version' to initialize a newly global object.
+        # When translated with C code, we set it to NULL (version 0).
+        # When non-translated, we reset it instead to '_uninitialized'
+        # to simulate the fact that the C code might change it.
+        if we_are_translated():
+            hdr.version = NULL
+        else:
+            del hdr.version
 
     def _cleanup_state(self):
         #if self.rawmalloced_objects:

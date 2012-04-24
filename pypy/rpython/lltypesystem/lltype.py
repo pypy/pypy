@@ -1198,6 +1198,15 @@ class _abstract_ptr(object):
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
+    def __delattr__(self, field_name):
+        if isinstance(self._T, Struct):
+            if field_name in self._T._flds:
+                T1 = self._T._flds[field_name]
+                setattr(self._obj, field_name, _uninitialized(T1))
+                return
+        raise AttributeError("cannot delete %r on %r instance" % (field_name,
+                                                                  self._T))
+
     def __getitem__(self, i): # ! can only return basic or ptr !
         if isinstance(self._T, (Array, FixedSizeArray)):
             start, stop = self._obj.getbounds()
