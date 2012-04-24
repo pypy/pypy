@@ -244,24 +244,26 @@ class AppTestSTLSTRING:
 
         raises(TypeError, c.get_string2, "temp string")
 
-    def test02_string_data_ccess(self):
+    def test02_string_data_access(self):
         """Test access to std::string object data members"""
 
         import cppyy
         std = cppyy.gbl.std
         stringy_class = cppyy.gbl.stringy_class
 
-        return
-
         c, s = stringy_class(""), std.string("test string")
-
-        c.m_string = s
-        assert c.m_string == s
-        assert c.get_string1() == s
 
         c.m_string = "another test"
         assert c.m_string == "another test"
+        assert str(c.m_string) == c.m_string
         assert c.get_string1() == "another test"
+
+        return
+        # TODO: assignment from object
+        c.m_string = s
+        assert str(c.m_string) == s
+        assert c.m_string == s
+        assert c.get_string1() == s
 
     def test03_string_with_null_character(self):
         """Test that strings with NULL do not get truncated"""

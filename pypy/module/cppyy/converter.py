@@ -643,6 +643,17 @@ class StdStringConverter(InstanceConverter):
            arg = InstanceConverter._unwrap_object(self, space, w_obj)
            return capi.c_stdstring2stdstring(arg)
 
+    def to_memory(self, space, w_obj, w_value, offset):
+        try:
+            address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+            charp = rffi.str2charp(space.str_w(w_value))
+            capi.c_assign2stdstring(address, charp)
+            rffi.free_charp(charp)
+            return
+        except Exception:
+            pass
+        return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
+
     def free_argument(self, arg):
         capi.c_free_stdstring(rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 

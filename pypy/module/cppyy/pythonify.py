@@ -354,6 +354,7 @@ def _pythonize(pyclass):
             else:
                 return self.c_str() == other
         pyclass.__eq__ = eq
+        pyclass.__str__ = pyclass.c_str
 
     # TODO: clean this up
     # fixup lack of __getitem__ if no const return

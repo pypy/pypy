@@ -430,6 +430,11 @@ c_stdstring2stdstring = rffi.llexternal(
     [C_OBJECT], C_OBJECT,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+c_assign2stdstring = rffi.llexternal(
+    "cppyy_assign2stdstring",
+    [C_OBJECT, rffi.CCHARP], lltype.Void,
+    threadsafe=threadsafe,
+    compilation_info=backend.eci)
 c_free_stdstring = rffi.llexternal(
     "cppyy_free_stdstring",
     [C_OBJECT], lltype.Void,

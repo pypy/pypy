@@ -100,6 +100,7 @@ extern "C" {
 
     cppyy_object_t cppyy_charp2stdstring(const char* str);
     cppyy_object_t cppyy_stdstring2stdstring(cppyy_object_t ptr);
+    void cppyy_assign2stdstring(cppyy_object_t ptr, const char* str);
     void cppyy_free_stdstring(cppyy_object_t ptr);
 
 #ifdef __cplusplus
