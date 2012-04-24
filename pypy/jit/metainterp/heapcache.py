@@ -20,6 +20,7 @@ class HeapCache(object):
         self.dependencies = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
+
         # heap cache
         # maps descrs to {from_box, to_box} dicts
         self.heap_cache = {}
@@ -28,6 +29,26 @@ class HeapCache(object):
         self.heap_array_cache = {}
         # cache the length of arrays
         self.length_cache = {}
+
+        # replace_box is called surprisingly often, therefore it's not efficient
+        # to go over all the dicts and fix them.
+        # instead, these two dicts are kept, and a replace_box adds an entry to
+        # each of them.
+        # every time one of the dicts heap_cache, heap_array_cache, length_cache
+        # is accessed, suitable indirections need to be performed
+
+        # this looks all very subtle, but in practice the patterns of
+        # replacements should not be that complex. Usually a box is replaced by
+        # a const, once. Also, if something goes wrong, the effect is that less
+        # caching than possible is done, which is not a huge problem.
+        self.input_indirections = {}
+        self.output_indirections = {}
+
+    def _input_indirection(self, box):
+        return self.input_indirections.get(box, box)
+
+    def _output_indirection(self, box):
+        return self.output_indirections.get(box, box)
 
     def invalidate_caches(self, opnum, descr, argboxes):
         self.mark_escaped(opnum, argboxes)
@@ -132,14 +153,16 @@ class HeapCache(object):
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
+        box = self._input_indirection(box)
         d = self.heap_cache.get(descr, None)
         if d:
             tobox = d.get(box, None)
-            if tobox:
-                return tobox
+            return self._output_indirection(tobox)
         return None
 
     def getfield_now_known(self, box, descr, fieldbox):
+        box = self._input_indirection(box)
+        fieldbox = self._input_indirection(fieldbox)
         self.heap_cache.setdefault(descr, {})[box] = fieldbox
 
     def setfield(self, box, descr, fieldbox):
@@ -148,6 +171,8 @@ class HeapCache(object):
         self.heap_cache[descr] = new_d
 
     def _do_write_with_aliasing(self, d, box, fieldbox):
+        box = self._input_indirection(box)
+        fieldbox = self._input_indirection(fieldbox)
         # slightly subtle logic here
         # a write to an arbitrary box, all other boxes can alias this one
         if not d or box not in self.new_boxes:
@@ -166,6 +191,7 @@ class HeapCache(object):
         return new_d
 
     def getarrayitem(self, box, descr, indexbox):
+        box = self._input_indirection(box)
         if not isinstance(indexbox, ConstInt):
             return
         index = indexbox.getint()
@@ -173,9 +199,11 @@ class HeapCache(object):
         if cache:
             indexcache = cache.get(index, None)
             if indexcache is not None:
-                return indexcache.get(box, None)
+                return self._output_indirection(indexcache.get(box, None))
 
     def getarrayitem_now_known(self, box, descr, indexbox, valuebox):
+        box = self._input_indirection(box)
+        valuebox = self._input_indirection(valuebox)
         if not isinstance(indexbox, ConstInt):
             return
         index = indexbox.getint()
@@ -198,25 +226,13 @@ class HeapCache(object):
         cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
 
     def arraylen(self, box):
-        return self.length_cache.get(box, None)
+        box = self._input_indirection(box)
+        return self._output_indirection(self.length_cache.get(box, None))
 
     def arraylen_now_known(self, box, lengthbox):
-        self.length_cache[box] = lengthbox
-
-    def _replace_box(self, d, oldbox, newbox):
-        new_d = {}
-        for frombox, tobox in d.iteritems():
-            if frombox is oldbox:
-                frombox = newbox
-            if tobox is oldbox:
-                tobox = newbox
-            new_d[frombox] = tobox
-        return new_d
+        box = self._input_indirection(box)
+        self.length_cache[box] = self._input_indirection(lengthbox)
 
     def replace_box(self, oldbox, newbox):
-        for descr, d in self.heap_cache.iteritems():
-            self.heap_cache[descr] = self._replace_box(d, oldbox, newbox)
-        for descr, d in self.heap_array_cache.iteritems():
-            for index, cache in d.iteritems():
-                d[index] = self._replace_box(cache, oldbox, newbox)
-        self.length_cache = self._replace_box(self.length_cache, oldbox, newbox)
+        self.input_indirections[self._output_indirection(newbox)] = self._input_indirection(oldbox)
+        self.output_indirections[self._input_indirection(oldbox)] = self._output_indirection(newbox)

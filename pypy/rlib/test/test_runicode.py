@@ -728,3 +728,18 @@ class TestTranslation(object):
 
         res = interpret(f, [0x10140])
         assert res == 0x10140
+
+    def test_encode_surrogate_pair(self):
+        u = runicode.UNICHR(0xD800) + runicode.UNICHR(0xDC00)
+        if runicode.MAXUNICODE < 65536:
+            # Narrow unicode build, consider utf16 surrogate pairs
+            assert runicode.unicode_encode_unicode_escape(
+                u, len(u), True) == r'\U00010000'
+            assert runicode.unicode_encode_raw_unicode_escape(
+                u, len(u), True) == r'\U00010000'
+        else:
+            # Wide unicode build, don't merge utf16 surrogate pairs
+            assert runicode.unicode_encode_unicode_escape(
+                u, len(u), True) == r'\ud800\udc00'
+            assert runicode.unicode_encode_raw_unicode_escape(
+                u, len(u), True) == r'\ud800\udc00'
