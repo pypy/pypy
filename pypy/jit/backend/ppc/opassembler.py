@@ -53,8 +53,7 @@ class IntOpAssembler(object):
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l0.is_imm():
-            self.mc.load_imm(r.r0, l0.value)
-            self.mc.sub(res.value, r.r0.value, l1.value)
+            self.mc.subfic(res.value, l1.value, l0.value)
         elif l1.is_imm():
             self.mc.subi(res.value, l0.value, l1.value)
         else:
@@ -215,11 +214,11 @@ class FloatOpAssembler(object):
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
         self.mc.fctidz(temp_loc.value, l0.value)
-        self.mc.mfprgpr(res.value, temp_loc.value)
+        self.mc.mftgpr(res.value, temp_loc.value)
 
     def emit_op_cast_int_to_float(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
-        self.mc.mgprfpr(temp_loc.value, l0.value)
+        self.mc.mffgpr(temp_loc.value, l0.value)
         self.mc.fcfid(res.value, temp_loc.value)
 
 class GuardOpAssembler(object):

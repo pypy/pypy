@@ -225,6 +225,9 @@ class BasicPPCAssembler(Assembler):
 
     fsqrt = XDB(63, XO1=22, Rc=0)
 
+    mffgpr = XS(31, XO1=607, Rc=0)
+    mftgpr = XS(31, XO1=735, Rc=0)
+
     icbi = X0(31, XO1=982)
 
     lbzux = XD(31, XO1=119)
