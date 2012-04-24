@@ -114,9 +114,11 @@ class PPC_CPU(AbstractLLCPU):
         return self.asm.fail_boxes_count
 
     # fetch the result of the computation and return it
+    def get_latest_value_float(self, index):
+        return self.asm.fail_boxes_float.getitem(index)
+
     def get_latest_value_int(self, index):
-        value = self.asm.fail_boxes_int.getitem(index)
-        return value
+        return self.asm.fail_boxes_int.getitem(index)
 
     def get_latest_value_ref(self, index):
         return self.asm.fail_boxes_ptr.getitem(index)
