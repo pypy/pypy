@@ -243,7 +243,7 @@ def c_is_subtype(derived, base):
 
 _c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
-    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.LONG,
+    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.SIZE_T,
     threadsafe=threadsafe,
     compilation_info=backend.eci,
     elidable_function=True)

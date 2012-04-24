@@ -467,7 +467,7 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return derived_type->GetBaseClass(base_type) != 0;
 }
 
-long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int /* direction */) {
     // WARNING: CINT can not handle actual dynamic casts!
     TClassRef derived_type = type_from_handle(derived_handle);
@@ -494,7 +494,7 @@ long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
          }
     }
 
-    return offset;
+    return (size_t) offset;   // may be negative (will roll over)
 }
 
 

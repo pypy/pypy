@@ -277,7 +277,7 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return (int)derived_type.HasBase(base_type);
 }
 
-long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
                        cppyy_object_t address, int direction) {
     Reflex::Type derived_type = type_from_handle(derived_handle);
     Reflex::Type base_type = type_from_handle(base_handle);
@@ -303,8 +303,8 @@ long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
             if (ibase->first.ToType() == base_type) {
                 long offset = (long)ibase->first.Offset((void*)address);
                 if (direction < 0)
-                    return -offset;
-                return offset;
+                   return (size_t) -offset;  // note negative; rolls over
+                return (size_t)offset;
             }
         }
 

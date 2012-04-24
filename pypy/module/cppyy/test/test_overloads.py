@@ -59,6 +59,7 @@ class AppTestOVERLOADS:
 
         c = c_overload()
         raises(TypeError, c.__dispatch__, 'get_int', 12)
+        raises(TypeError, c.__dispatch__, 'get_int', 'does_not_exist')
         assert c.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
         assert c.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
 

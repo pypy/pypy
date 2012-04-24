@@ -61,7 +61,7 @@ extern "C" {
     int cppyy_is_subtype(cppyy_type_t derived, cppyy_type_t base);
 
     /* calculate offsets between declared and actual type, up-cast: direction > 0; down-cast: direction < 0 */
-    long cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
+    size_t cppyy_base_offset(cppyy_type_t derived, cppyy_type_t base, cppyy_object_t address, int direction);
 
     /* method/function reflection information --------------------------------- */
     int cppyy_num_methods(cppyy_scope_t scope);
