@@ -678,12 +678,8 @@ information passed to the ExternalEntityRefHandler."""
 
     def set_error(self, space, code):
         err = rffi.charp2strn(XML_ErrorString(code), 200)
-        if os.name == 'nt':
-            lineno = -1
-            colno = -1
-        else:
-            lineno = XML_GetCurrentLineNumber(self.itself)
-            colno = XML_GetCurrentColumnNumber(self.itself)
+        lineno = XML_GetCurrentLineNumber(self.itself)
+        colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
         w_errorcls = space.fromcache(Cache).w_error
         w_error = space.call_function(w_errorcls, space.wrap(msg))
