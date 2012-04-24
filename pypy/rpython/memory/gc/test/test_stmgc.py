@@ -783,11 +783,15 @@ class TestBasic(StmGCTests):
         sr1, sr1_adr = self.malloc(SR, globl=False)
         wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = sr1_adr
+        #
         self.gc.root_walker.current_stack = [wr1]
         self.gc.collect(0)
-        #
         [wr1] = self.gc.root_walker.current_stack
         assert not wr1.wadr        # weakref to dead object
+        #
+        self.gc.collect(0)
+        assert self.gc.root_walker.current_stack == [wr1]
+        assert not wr1.wadr
 
     def test_weakref_to_global_turned_local(self):
         from pypy.rpython.memory.gc.test import test_stmtls
@@ -803,10 +807,15 @@ class TestBasic(StmGCTests):
         wr2, wr2_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = sr1_adr
         wr2.wadr = sr2_adr
+        #
         self.gc.root_walker.current_stack = [wr1, wr2]
         self.gc.collect(0)
-        #
         [wr1, wr2] = self.gc.root_walker.current_stack
+        assert wr1.wadr == sr1_adr
+        assert wr2.wadr == sr2_adr
+        #
+        self.gc.collect(0)
+        assert self.gc.root_walker.current_stack == [wr1, wr2]
         assert wr1.wadr == sr1_adr
         assert wr2.wadr == sr2_adr
 
