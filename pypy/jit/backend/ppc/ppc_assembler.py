@@ -197,6 +197,7 @@ class AssemblerPPC(OpAssembler):
         bytecode = rffi.cast(rffi.UCHARP, mem_loc)
         num = 0
         value = 0
+        fvalue = 0
         code_inputarg = False
         while True:
             code = rffi.cast(lltype.Signed, bytecode[0])
@@ -219,7 +220,8 @@ class AssemblerPPC(OpAssembler):
                     code = ~code
                     code_inputarg = False
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    start = spp + get_spp_offset(int(code))
+                    fvalue = rffi.cast(rffi.LONGP, start)[0]
                 else:
                     start = spp + get_spp_offset(int(code))
                     value = rffi.cast(rffi.LONGP, start)[0]
@@ -237,13 +239,14 @@ class AssemblerPPC(OpAssembler):
                     break
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    fvalue = fp_registers[code]
                 else:
                     reg_index = r.get_managed_reg_index(code)
                     value = registers[reg_index]
             # store the loaded value into fail_boxes_<type>
             if kind == self.DESCR_FLOAT:
-                assert 0, "not implemented yet"
+                tgt = self.fail_boxes_float.get_addr_for_num(num)
+                rffi.cast(rffi.LONGP, tgt)[0] = fvalue
             else:
                 if kind == self.DESCR_INT:
                     tgt = self.fail_boxes_int.get_addr_for_num(num)
@@ -298,7 +301,7 @@ class AssemblerPPC(OpAssembler):
                 kind = code & 3
                 code >>= 2
                 if kind == self.DESCR_FLOAT:
-                    assert 0, "not implemented yet"
+                    loc = r.ALL_FLOAT_REGS[code]
                 else:
                     #loc = r.all_regs[code]
                     assert (r.ALL_REGS[code] is 
@@ -904,7 +907,7 @@ class AssemblerPPC(OpAssembler):
                 elif arg.type == INT:
                     kind = self.DESCR_INT
                 elif arg.type == FLOAT:
-                    assert 0, "not implemented"
+                    kind = self.DESCR_FLOAT
                 else:
                     raise AssertionError("bogus kind")
                 loc = locs[i]
