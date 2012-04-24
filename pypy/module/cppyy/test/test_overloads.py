@@ -49,8 +49,6 @@ class AppTestOVERLOADS:
     def test02_class_based_overloads_explicit_resolution(self):
         """Test explicitly resolved function overloads"""
 
-        # TODO: write disp() or equivalent on methods for ol selection
-
         import cppyy
         a_overload = cppyy.gbl.a_overload
         b_overload = cppyy.gbl.b_overload
@@ -60,16 +58,16 @@ class AppTestOVERLOADS:
         ns_a_overload = cppyy.gbl.ns_a_overload
 
         c = c_overload()
-#        raises(TypeError, c.get_int.disp, 12)
-#        assert c.get_int.disp('a_overload* a')(a_overload()) == 42
-#        assert c.get_int.disp('b_overload* b')(b_overload()) == 13
+        raises(TypeError, c.__dispatch__, 'get_int', 12)
+        assert c.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
+        assert c.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
 
-#        assert c_overload().get_int.disp('a_overload* a')(a_overload())  == 42
-#        assert c_overload.get_int.disp('b_overload* b')(c, b_overload()) == 13
+        assert c_overload().__dispatch__('get_int', 'a_overload*')(a_overload())  == 42
+#        assert c_overload.__dispatch__('get_int', 'b_overload*')(c, b_overload()) == 13
 
         d = d_overload()
-#        assert d.get_int.disp('a_overload* a')(a_overload()) == 42
-#        assert d.get_int.disp('b_overload* b')(b_overload()) == 13
+        assert d.__dispatch__('get_int', 'a_overload*')(a_overload()) == 42
+        assert d.__dispatch__('get_int', 'b_overload*')(b_overload()) == 13
 
         nb = ns_a_overload.b_overload()
         raises(TypeError, nb.f, c_overload())

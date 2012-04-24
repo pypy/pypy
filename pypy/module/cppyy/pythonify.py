@@ -1,5 +1,6 @@
 # NOT_RPYTHON
 import cppyy
+import types
 
 
 # For now, keep namespaces and classes separate as namespaces are extensible
@@ -164,8 +165,12 @@ def make_pycppclass(scope, class_name, final_class_name, cppclass):
     metacpp = type(CppyyClass)(class_name+'_meta', _drop_cycles(metabases), {})
 
     # create the python-side C++ class representation
-    d = {"_cpp_proxy" : cppclass,
-         "__new__"    : make_new(class_name, cppclass),
+    def dispatch(self, name, signature):
+        cppol = cppclass.dispatch(name, signature)
+        return types.MethodType(make_method(name, cppol), self, type(self))
+    d = {"_cpp_proxy"   : cppclass,
+         "__dispatch__" : dispatch,
+         "__new__"      : make_new(class_name, cppclass),
          }
     pycppclass = metacpp(class_name, _drop_cycles(bases), d)
  
@@ -275,8 +280,6 @@ def get_pycppclass(name):
 
 
 # pythonization by decoration (move to their own file?)
-import types
-
 def python_style_getitem(self, idx):
     # python-style indexing: check for size and allow indexing from the back
     sz = len(self)

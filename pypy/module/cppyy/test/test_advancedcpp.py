@@ -485,6 +485,5 @@ class AppTestADVANCEDCPP:
 
         c2 = cppyy.gbl.create_c2()
         assert type(c2) == cppyy.gbl.c_class_2
-        print c2.m_c
         assert c2.m_c == 3
         c2.destruct()

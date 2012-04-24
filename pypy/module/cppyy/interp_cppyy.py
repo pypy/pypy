@@ -442,6 +442,15 @@ class W_CPPScope(Wrappable):
         self.datamembers[name] = new_dm
         return new_dm
 
+    @jit.elidable_promote('0')
+    def dispatch(self, name, signature):
+        overload = self.get_overload(name)
+        sig = '(%s)' % signature
+        for f in overload.functions:
+            if 0 < f.signature().find(sig):
+                return W_CPPOverload(self.space, self, [f])
+        raise OperationError(space.w_TypeError, space.wrap("no overload matches signature"))
+
     def missing_attribute_error(self, name):
         return OperationError(
             self.space.w_AttributeError,
@@ -585,6 +594,7 @@ W_CPPClass.typedef = TypeDef(
     get_datamember_names = interp2app(W_CPPClass.get_datamember_names, unwrap_spec=['self']),
     get_datamember = interp2app(W_CPPClass.get_datamember, unwrap_spec=['self', str]),
     is_namespace = interp2app(W_CPPClass.is_namespace, unwrap_spec=['self']),
+    dispatch = interp2app(W_CPPClass.dispatch, unwrap_spec=['self', str, str]),
 )
 W_CPPClass.typedef.acceptable_as_base_class = False
 
