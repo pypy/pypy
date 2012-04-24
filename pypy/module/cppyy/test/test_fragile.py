@@ -191,3 +191,6 @@ class AppTestFRAGILE:
         j = fragile.J()
         assert fragile.J.method1.__doc__ == j.method1.__doc__
         assert j.method1.__doc__ == "int fragile::J::method1(int, double)"
+
+        f = fragile.fglobal
+        assert f.__doc__ == "void fragile::fglobal(int, double, char)"

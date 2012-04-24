@@ -19,4 +19,6 @@
 
 #pragma link C++ variable fragile::gI;
 
+#pragma link C++ function fragile::fglobal;
+
 #endif

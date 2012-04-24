@@ -6,4 +6,6 @@
 
   <variable name="fragile::gI" />
 
+  <function pattern="fragile::f*" />
+
 </lcgdict>

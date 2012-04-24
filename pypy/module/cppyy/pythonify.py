@@ -52,6 +52,7 @@ def make_static_function(func_name, cppol):
     def function(*args):
         return cppol.call(None, *args)
     function.__name__ = func_name
+    function.__doc__ = cppol.signature()
     return staticmethod(function)
 
 def make_method(meth_name, cppol):

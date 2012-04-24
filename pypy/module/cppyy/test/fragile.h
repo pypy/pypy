@@ -75,4 +75,6 @@ public:
     int method1(int, double) { return 0; }
 };
 
+void fglobal(int, double, char);
+
 } // namespace fragile
