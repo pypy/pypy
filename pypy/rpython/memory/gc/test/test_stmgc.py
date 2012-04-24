@@ -338,6 +338,97 @@ class TestBasic(StmGCTests):
         assert obj == t_adr                       # doesn't make a copy
         self.checkflags(obj, False, False)        # but it becomes local
 
+    def test_nontransactional_mode(self):
+        import random
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        def reachable(source_objects):
+            pending = list(source_objects)
+            found = set(obj._obj for obj in pending)
+            for x in pending:
+                for name in ('sr2', 'sr3'):
+                    obj = getattr(x, name)
+                    if obj and obj._obj not in found:
+                        found.add(obj._obj)
+                        pending.append(obj)
+            return found
+        #
+        def shape_of_reachable(source_object):
+            shape = []
+            pending = [source_object]
+            found = {source_object._obj: 0}
+            for x in pending:
+                for name in ('sr2', 'sr3'):
+                    obj = getattr(x, name)
+                    if not obj:
+                        shape.append(None)
+                    else:
+                        if obj._obj not in found:
+                            found[obj._obj] = len(found)
+                            pending.append(obj)
+                        shape.append(found[obj._obj])
+            return shape
+        #
+        prebuilt = [self.malloc(SR, globl=True)[0] for i in range(15)]
+        globals = set(obj._obj for obj in prebuilt)
+        root_objects = prebuilt[:]
+        all_objects = root_objects[:]
+        NO_OBJECT = lltype.nullptr(SR)
+        #
+        for iteration in range(10):
+            # add 6 freshly malloced objects from the nursery
+            new_objects = [self.malloc(SR, globl=False)[0] for i in range(6)]
+            all_objects = all_objects + new_objects
+            set_all_objects = set(obj._obj for obj in all_objects)
+            #
+            # pick 4 random objects to be stack roots
+            fromstack = random.sample(all_objects, 4)
+            root_objects = prebuilt + fromstack
+            #
+            # randomly add or remove connections between objects, until they
+            # are all reachable from root_objects
+            while True:
+                missing_objects = set_all_objects - reachable(root_objects)
+                if not missing_objects:
+                    break
+                srcobj = random.choice(all_objects)
+                # give a higher chance to 'missing_objects', but also
+                # allows other objects
+                missing_objects = [obj._as_ptr() for obj in missing_objects]
+                missing_objects.append(NO_OBJECT)
+                missing_objects *= 2
+                missing_objects.extend(all_objects)
+                dstobj = random.choice(missing_objects)
+                name = random.choice(('sr2', 'sr3'))
+                src_adr = llmemory.cast_ptr_to_adr(srcobj)
+                adr2 = self.gc.stm_writebarrier(src_adr)
+                assert adr2 == src_adr
+                setattr(srcobj, name, dstobj)
+                if srcobj._obj in globals:
+                    globals.remove(srcobj._obj)
+            #
+            # Record the shape of the graph of reachable objects
+            shapes = [shape_of_reachable(obj) for obj in root_objects]
+            #
+            # Do a collection
+            self.gc.root_walker.current_stack = fromstack[:]
+            self.gc.collect(0)
+            #
+            # Reload 'fromstack', which may have moved, and compare the shape
+            # of the graph of reachable objects now
+            fromstack[:] = self.gc.root_walker.current_stack
+            root_objects = prebuilt + fromstack
+            shapes2 = [shape_of_reachable(obj) for obj in root_objects]
+            assert shapes == shapes2
+            #
+            # Reset the list of all objects for the next iteration
+            all_objects = [obj._as_ptr() for obj in reachable(root_objects)]
+            #
+            # Check the GLOBAL flag, and check that the objects really survived
+            for obj in all_objects:
+                self.checkflags(obj, obj._obj in globals, False)
+
     def test_relocalize_objects_after_transactional_mode(self):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
