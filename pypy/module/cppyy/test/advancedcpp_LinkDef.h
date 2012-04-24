@@ -16,6 +16,9 @@
 #pragma link C++ class c_class_2;
 #pragma link C++ class d_class;
 
+#pragma link C++ function create_c1();
+#pragma link C++ function create_c2();
+
 #pragma link C++ function get_a(a_class&);
 #pragma link C++ function get_b(b_class&);
 #pragma link C++ function get_c(c_class&);

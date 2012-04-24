@@ -467,11 +467,13 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return derived_type->GetBaseClass(base_type) != 0;
 }
 
-size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, cppyy_object_t address) {
+long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+                       cppyy_object_t address, int /* direction */) {
+    // WARNING: CINT can not handle actual dynamic casts!
     TClassRef derived_type = type_from_handle(derived_handle);
     TClassRef base_type = type_from_handle(base_handle);
 
-    size_t offset = 0;
+    long offset = 0;
 
     if (derived_type && base_type) {
         G__ClassInfo* base_ci    = (G__ClassInfo*)base_type->GetClassInfo();
@@ -483,17 +485,14 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, 
             // with CINT's (or Reflex's) interfaces.
             long baseprop = derived_ci->IsBase(*base_ci);
             if (!baseprop || (baseprop & G__BIT_ISVIRTUALBASE))
-                offset = (size_t)derived_type->GetBaseClassOffset(base_type);
+                offset = derived_type->GetBaseClassOffset(base_type);
             else
 #endif
                 offset = G__isanybase(base_ci->Tagnum(), derived_ci->Tagnum(), (long)address);
          } else {
-             offset = (size_t)derived_type->GetBaseClassOffset(base_type);
+             offset = derived_type->GetBaseClassOffset(base_type);
          }
     }
-
-    if (offset < 0)      // error return of G__isanybase()
-        return 0;
 
     return offset;
 }

@@ -584,7 +584,7 @@ class InstancePtrConverter(TypeConverter):
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass, self.cppclass):
                 rawobject = obj.get_rawobject()
-                offset = capi.c_base_offset(obj.cppclass, self.cppclass, rawobject)
+                offset = capi.c_base_offset(obj.cppclass, self.cppclass, rawobject, 1)
                 obj_address = capi.direct_ptradd(rawobject, offset)
                 return rffi.cast(capi.C_OBJECT, obj_address)
         raise OperationError(space.w_TypeError,

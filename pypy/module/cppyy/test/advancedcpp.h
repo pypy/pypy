@@ -91,6 +91,9 @@ public:
    int m_d;
 };
 
+a_class* create_c1();
+a_class* create_c2();
+
 int get_a(a_class& a);
 int get_b(b_class& b);
 int get_c(c_class& c);

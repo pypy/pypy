@@ -10,6 +10,9 @@ defaulter::defaulter(int a, int b, int c ) {
 
 
 // for esoteric inheritance testing
+a_class* create_c1() { return new c_class_1; }
+a_class* create_c2() { return new c_class_2; }
+
 int get_a( a_class& a ) { return a.m_a; }
 int get_b( b_class& b ) { return b.m_b; }
 int get_c( c_class& c ) { return c.m_c; }

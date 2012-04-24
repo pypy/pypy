@@ -354,7 +354,7 @@ class W_CPPDataMember(Wrappable):
         if cppinstance:
             assert lltype.typeOf(cppinstance.cppclass.handle) == lltype.typeOf(self.scope.handle)
             offset = self.offset + capi.c_base_offset(
-                cppinstance.cppclass, self.scope, cppinstance.get_rawobject())
+                cppinstance.cppclass, self.scope, cppinstance.get_rawobject(), 1)
         else:
             offset = self.offset
         return offset
@@ -594,7 +594,7 @@ class W_ComplexCPPClass(W_CPPClass):
 
     def get_cppthis(self, cppinstance, calling_scope):
         assert self == cppinstance.cppclass
-        offset = capi.c_base_offset(self, calling_scope, cppinstance.get_rawobject())
+        offset = capi.c_base_offset(self, calling_scope, cppinstance.get_rawobject(), 1)
         return capi.direct_ptradd(cppinstance.get_rawobject(), offset)
 
 W_ComplexCPPClass.typedef = TypeDef(
@@ -749,7 +749,7 @@ def wrap_cppobject(space, w_pycppclass, cppclass, rawobject, isref, python_owns)
     if rawobject:
         actual = capi.c_actual_class(cppclass, rawobject)
         if actual != cppclass.handle:
-            offset = capi._c_base_offset(actual, cppclass.handle, rawobject)
+            offset = capi._c_base_offset(actual, cppclass.handle, rawobject, -1)
             rawobject = capi.direct_ptradd(rawobject, offset)
             w_pycppclass = get_pythonized_cppclass(space, actual)
             w_cppclass = space.findattr(w_pycppclass, space.wrap("_cpp_proxy"))

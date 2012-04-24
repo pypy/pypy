@@ -12,6 +12,7 @@
   <class name="c_class_2" />
   <class name="d_class" />
 
+  <function pattern="create_*" />
   <function pattern="get_*" />
 
   <class pattern="T1<*>" />

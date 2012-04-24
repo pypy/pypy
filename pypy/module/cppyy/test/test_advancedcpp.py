@@ -1,6 +1,8 @@
 import py, os, sys
 from pypy.conftest import gettestobjspace
 
+from pypy.module.cppyy import capi
+
 
 currpath = py.path.local(__file__).dirpath()
 test_dct = str(currpath.join("advancedcppDict.so"))
@@ -20,6 +22,7 @@ class AppTestADVANCEDCPP:
         cls.space = space
         env = os.environ
         cls.w_test_dct = space.wrap(test_dct)
+        cls.w_capi_identity = space.wrap(capi.identify())
         cls.w_advanced = cls.space.appexec([], """():
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
@@ -466,3 +469,22 @@ class AppTestADVANCEDCPP:
 
         assert isinstance(b.clone(), base_class)      # TODO: clone() leaks
         assert isinstance(d.clone(), derived_class)   # TODO: clone() leaks
+
+    def test13_actual_type_virtual_multi(self):
+        """Test auto-downcast in adverse inheritance situation"""
+
+        import cppyy
+
+        c1 = cppyy.gbl.create_c1()
+        assert type(c1) == cppyy.gbl.c_class_1
+        assert c1.m_c == 3
+        c1.destruct()
+
+        if self.capi_identity == 'CINT':     # CINT does not support dynamic casts
+            return
+
+        c2 = cppyy.gbl.create_c2()
+        assert type(c2) == cppyy.gbl.c_class_2
+        print c2.m_c
+        assert c2.m_c == 3
+        c2.destruct()

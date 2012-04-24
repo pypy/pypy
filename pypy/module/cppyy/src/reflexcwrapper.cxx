@@ -277,7 +277,8 @@ int cppyy_is_subtype(cppyy_type_t derived_handle, cppyy_type_t base_handle) {
     return (int)derived_type.HasBase(base_type);
 }
 
-size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, cppyy_object_t address) {
+long cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle,
+                       cppyy_object_t address, int direction) {
     Reflex::Type derived_type = type_from_handle(derived_handle);
     Reflex::Type base_type = type_from_handle(base_handle);
 
@@ -291,9 +292,20 @@ size_t cppyy_base_offset(cppyy_type_t derived_handle, cppyy_type_t base_handle, 
         Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
         getbases.Invoke(&bases_holder);
 
+        // if direction is down-cast, perform the cast in C++ first in order to ensure
+        // we have a derived object for accessing internal offset pointers
+        if (direction < 0) {
+           Reflex::Object o(base_type, (void*)address);
+           address = (cppyy_object_t)o.CastObject(derived_type).Address();
+        }
+
         for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
-            if (ibase->first.ToType() == base_type)
-                return (size_t)ibase->first.Offset((void*)address);
+            if (ibase->first.ToType() == base_type) {
+                long offset = (long)ibase->first.Offset((void*)address);
+                if (direction < 0)
+                    return -offset;
+                return offset;
+            }
         }
 
         // contrary to typical invoke()s, the result of the internal getbases function

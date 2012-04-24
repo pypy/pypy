@@ -243,15 +243,15 @@ def c_is_subtype(derived, base):
 
 _c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
-    [C_TYPE, C_TYPE, C_OBJECT], rffi.SIZE_T,
+    [C_TYPE, C_TYPE, C_OBJECT, rffi.INT], rffi.LONG,
     threadsafe=threadsafe,
     compilation_info=backend.eci,
     elidable_function=True)
 @jit.elidable_promote()
-def c_base_offset(derived, base, address):
+def c_base_offset(derived, base, address, direction):
     if derived == base:
         return 0
-    return _c_base_offset(derived.handle, base.handle, address)
+    return _c_base_offset(derived.handle, base.handle, address, direction)
 
 # method/function reflection information -------------------------------------
 _c_num_methods = rffi.llexternal(
