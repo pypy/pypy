@@ -116,14 +116,20 @@ class SpaceTransaction(rstm.Transaction):
         NOTE: never register() the same instance multiple times.
         """
         ec = self.state.getvalue()
+        assert ec is not None       # must have been created first
         ec._transaction_pending.append(self)
 
     def run(self):
+        ec = self.space.getexecutioncontext()    # create it if needed
+        #
         if self.retry_counter > 0:
+            # Note that even in this case we have to ensure the ec is
+            # created first.  Otherwise, if the first transaction of a
+            # thread is retrying, the creation of the ec is cancelled
+            # and we end up in register() with no ec...
             self.register() # retrying: will be done later, try others first
             return
         #
-        ec = self.space.getexecutioncontext()    # create it if needed
         assert len(ec._transaction_pending) == 0
         #
         self.space.call_args(self.w_callback, self.args)

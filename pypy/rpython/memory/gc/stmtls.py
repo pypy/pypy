@@ -297,9 +297,9 @@ class StmGCTLS(object):
 
     def main_thread_writes_to_global_obj(self, obj):
         hdr = self.gc.header(obj)
-        ll_assert(hdr.tid & (GCFLAG_WAS_COPIED|GCFLAG_VISITED) == 0,
-                  "write in main thread: unexpected GCFLAG_WAS_COPIED"
-                  " or GCFLAG_VISITED")
+        # XXX should we also remove GCFLAG_WAS_COPIED here if it is set?
+        ll_assert(hdr.tid & GCFLAG_VISITED == 0,
+                  "write in main thread: unexpected GCFLAG_VISITED")
         # remove GCFLAG_GLOBAL, and add GCFLAG_VISITED
         hdr.tid += (GCFLAG_VISITED - GCFLAG_GLOBAL)
         # add the object into this linked list
