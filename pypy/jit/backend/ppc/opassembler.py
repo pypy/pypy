@@ -282,8 +282,9 @@ class GuardOpAssembler(object):
                 self.mc.cmp_op(0, l0.value, l1.getint(), imm=True)
             else:
                 self.mc.cmp_op(0, l0.value, l1.value)
-        else:
-            assert 0, "not implemented yet"
+        elif l0.is_fp_reg():
+            assert l1.is_fp_reg()
+            self.mc.cmp_op(0, l0,value, l1.value)
         self._emit_guard(op, failargs, c.NE)
 
     emit_guard_nonnull = emit_guard_true
@@ -1179,13 +1180,13 @@ class ForceOpAssembler(object):
             elif kind == REF:
                 adr = self.fail_boxes_ptr.get_addr_for_num(0)
             elif kind == FLOAT:
-                assert 0, "not implemented"
+                adr = self.fail_boxes_float.get_addr_for_num(0)
             else:
                 raise AssertionError(kind)
             with scratch_reg(self.mc):
                 self.mc.load_imm(r.SCRATCH, adr)
                 if op.result.type == FLOAT:
-                    assert 0, "not implemented yet"
+                    self.mc.lfdx(resloc.value, 0, r.SCRATCH.value)
                 else:
                     self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
 
@@ -1201,13 +1202,15 @@ class ForceOpAssembler(object):
         # Path B: use assembler helper
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
         if self.cpu.supports_floats:
-            assert 0, "not implemented yet"
+            floats = r.VOLATILES_FLOAT
+        else:
+            floats = []
 
         with Saved_Volatiles(self.mc, save_RES=False):
             # result of previous call is in r3
             self.mov_loc_loc(arglocs[0], r.r4)
             self.mc.call(asm_helper_adr)
-            if op.result and resloc.is_vfp_reg():
+            if op.result and resloc.is_fp_reg():
                 assert 0, "not implemented yet"
 
         # merge point
