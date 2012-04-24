@@ -80,7 +80,7 @@ corresponding source file)::
         void SetMyInt(int i) { m_myint = i; }
 
     public:
-       int m_myint;
+        int m_myint;
     };
 
 Then, generate the bindings using ``genreflex`` (part of ROOT), and compile the
@@ -174,10 +174,10 @@ For our purposes, the following rather straightforward selection will do
 
     $ cat MyAdvanced.xml
     <lcgdict>
-       <class pattern="Base?" />
-       <class name="Derived" />
-       <class name="std::string" />
-       <function name="BaseFactory" />
+        <class pattern="Base?" />
+        <class name="Derived" />
+        <class name="std::string" />
+        <function name="BaseFactory" />
     </lcgdict>
 
 .. _`selection file`: http://root.cern.ch/drupal/content/generating-reflex-dictionaries
@@ -353,6 +353,9 @@ That is a strong statement to make, but also a worthy goal.
   using classes that themselves are templates (etc.) in the arguments.
   All classes must already exist in the loaded reflection info.
 
+* **typedefs**: Are simple python references to the actual classes to which
+  they refer.
+
 * **unary operators**: Are supported if a python equivalent exists, and if the
   operator is defined in the C++ class.
 
@@ -368,6 +371,107 @@ Only when a missing feature is used, should there be an exception.
 For example, if no reflection info is available for a return type, then a
 class that has a method with that return type can still be used.
 Only that one specific method can not be used.
+
+
+Templates
+=========
+
+A bit of special care needs to be taken for the use of templates.
+For a templated class to be completely available, it must be guaranteed that
+said class is fully instantiated, and hence all executable C++ code is
+generated and compiled in.
+The easiest way to fulfill that guarantee is by explicit instantiation in the
+header file that is handed to ``genreflex``.
+The following example should make that clear::
+
+    $ cat MyTemplate.h
+    #include <vector>
+
+    class MyClass {
+    public:
+        MyClass(int i = -99) : m_i(i) {}
+        MyClass(const MyClass& s) : m_i(s.m_i) {}
+        MyClass& operator=(const MyClass& s) { m_i = s.m_i; return *this; }
+        ~MyClass() {}
+        int m_i;
+    };
+
+    template class std::vector<MyClass>;
+
+If you know for certain that all symbols will be linked in from other sources,
+you can also declare the explicit template instantiation ``extern``.
+
+Unfortunately, this is not enough for gcc.
+The iterators, if they are going to be used, need to be instantiated as well,
+as do the comparison operators on those iterators, as these live in an
+internal namespace, rather than in the iterator classes.
+One way to handle this, is to deal with this once in a macro, then reuse that
+macro for all ``vector`` classes.
+Thus, the header above needs this, instead of just the explicit instantiation
+of the ``vector<MyClass>``::
+
+    #define STLTYPES_EXPLICIT_INSTANTIATION_DECL(STLTYPE, TTYPE)                      \
+    template class std::STLTYPE< TTYPE >;                                             \
+    template class __gnu_cxx::__normal_iterator<TTYPE*, std::STLTYPE< TTYPE > >;      \
+    template class __gnu_cxx::__normal_iterator<const TTYPE*, std::STLTYPE< TTYPE > >;\
+    namespace __gnu_cxx {                                                             \
+    template bool operator==(const std::STLTYPE< TTYPE >::iterator&,                  \
+                             const std::STLTYPE< TTYPE >::iterator&);                 \
+    template bool operator!=(const std::STLTYPE< TTYPE >::iterator&,                  \
+                             const std::STLTYPE< TTYPE >::iterator&);                 \
+    }
+
+    STLTYPES_EXPLICIT_INSTANTIATION_DECL(vector, MyClass)
+
+Then, still for gcc, the selection file needs to contain the full hierarchy as
+well as the global overloads for comparisons for the iterators::
+
+    $ cat MyTemplate.xml
+    <lcgdict>
+        <class pattern="std::vector<*>" />
+        <class pattern="__gnu_cxx::__normal_iterator<*>" />
+        <class pattern="__gnu_cxx::new_allocator<*>" />
+        <class pattern="std::_Vector_base<*>" />
+        <class pattern="std::_Vector_base<*>::_Vector_impl" />
+        <class pattern="std::allocator<*>" />
+        <function name="__gnu_cxx::operator=="/>
+        <function name="__gnu_cxx::operator!="/>
+
+        <class name="MyClass" />
+    </lcgdict>
+
+Run the normal ``genreflex`` and compilation steps::
+
+    $ genreflex MyTemplate.h --selection=MyTemplate.xm
+    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyTemplate_rflx.cpp -o libTemplateDict.so
+
+Note: this is a dirty corner that clearly could do with some automation,
+even if the macro already helps.
+Such automation is planned.
+In fact, in the cling world, the backend can perform the template
+instantations and generate the reflection info on the fly, and none of the
+above will any longer be necessary.
+
+Subsequent use should be as expected.
+Note the meta-class style of "instantiating" the template::
+
+    >>>> import cppyy
+    >>>> cppyy.load_reflection_info("libTemplateDict.so")
+    >>>> std = cppyy.gbl.std
+    >>>> MyClass = cppyy.gbl.MyClass
+    >>>> v = std.vector(MyClass)()
+    >>>> v += [MyClass(1), MyClass(2), MyClass(3)]
+    >>>> for m in v:
+    ....     print m.m_i,
+    ....
+    1 2 3
+    >>>>
+
+Other templates work similarly.
+The arguments to the template instantiation can either be a string with the
+full list of arguments, or the explicit classes.
+The latter makes for easier code writing if the classes passed to the
+instantiation are themselves templates.
 
 
 The fast lane
