@@ -7,7 +7,7 @@ from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, get_const_ptr_for_string
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.rlib.rarithmetic import LONG_BIT
@@ -5066,6 +5066,25 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         finish(p1)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_call_pure_vstring_const(self):
+        ops = """
+        []
+        p0 = newstr(3)
+        strsetitem(p0, 0, 97)
+        strsetitem(p0, 1, 98)
+        strsetitem(p0, 2, 99)
+        i0 = call_pure(123, p0, descr=nonwritedescr)
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

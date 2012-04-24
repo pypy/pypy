@@ -111,6 +111,121 @@ straightforward::
 That's all there is to it!
 
 
+Advanced example
+================
+The following snippet of C++ is very contrived, to allow showing that such
+pathological code can be handled and to show how certain features play out in
+practice::
+
+    $ cat MyAdvanced.h
+    #include <string>
+
+    class Base1 {
+    public:
+        Base1(int i) : m_i(i) {}
+        virtual ~Base1() {}
+        int m_i;
+    };
+
+    class Base2 {
+    public:
+        Base2(double d) : m_d(d) {}
+        virtual ~Base2() {}
+        double m_d;
+    };
+
+    class C;
+
+    class Derived : public virtual Base1, public virtual Base2 {
+    public:
+        Derived(const std::string& name, int i, double d) : Base1(i), Base2(d), m_name(name) {}
+        virtual C* gimeC() { return (C*)0; }
+        std::string m_name;
+    };
+
+    Base1* BaseFactory(const std::string& name, int i, double d) {
+        return new Derived(name, i, d);
+    }
+
+This code is still only in a header file, with all functions inline, for
+convenience of the example.
+If the implementations live in a separate source file or shared library, the
+only change needed is to link those in when building the reflection library.
+
+If you were to run ``genreflex`` like above in the basic example, you will
+find that not all classes of interest will be reflected, nor will be the
+global factory function.
+In particular, ``std::string`` will be missing, since it is not defined in
+this header file, but in a header file that is included.
+In practical terms, general classes such as ``std::string`` should live in a
+core reflection set, but for the moment assume we want to have it in the
+reflection library that we are building for this example.
+
+The ``genreflex`` script can be steered using a so-called `selection file`_,
+which is a simple XML file specifying, either explicitly or by using a
+pattern, which classes, variables, namespaces, etc. to select from the given
+header file.
+With the aid of a selection file, a large project can be easily managed:
+simply ``#include`` all relevant headers into a single header file that is
+handed to ``genreflex``.
+Then, apply a selection file to pick up all the relevant classes.
+For our purposes, the following rather straightforward selection will do
+(the name ``lcgdict`` for the root is historical, but required)::
+
+    $ cat MyAdvanced.xml
+    <lcgdict>
+       <class pattern="Base?" />
+       <class name="Derived" />
+       <class name="std::string" />
+       <function name="BaseFactory" />
+    </lcgdict>
+
+.. _`selection file`: http://root.cern.ch/drupal/content/generating-reflex-dictionaries
+
+Now the reflection info can be generated and compiled::
+
+    $ genreflex MyAdvanced.h --selection=MyAdvanced.xml
+    $ g++ -fPIC -rdynamic -O2 -shared -I$ROOTSYS/include MyAdvanced_rflx.cpp -o libAdvExDict.so
+
+and subsequently be used from PyPy::
+
+    >>>> import cppyy
+    >>>> cppyy.load_reflection_info("libAdvExDict.so")
+    <CPPLibrary object at 0x00007fdb48fc8120>
+    >>>> d = cppyy.gbl.BaseFactory("name", 42, 3.14)
+    >>>> type(d)
+    <class '__main__.Derived'>
+    >>>> d.m_i
+    42
+    >>>> d.m_d
+    3.14
+    >>>> d.m_name == "name"
+    True
+    >>>>
+
+Again, that's all there is to it!
+
+A couple of things to note, though.
+If you look back at the C++ definition of the ``BaseFactory`` function,
+you will see that it declares the return type to be a ``Base1``, yet the
+bindings return an object of the actual type ``Derived``?
+This choice is made for a couple of reasons.
+First, it makes method dispatching easier: if bound objects are always their
+most derived type, then it is easy to calculate any offsets, if necessary.
+Second, it makes memory management easier: the combination of the type and
+the memory address uniquely identifies an object.
+That way, it can be recycled and object identity can be maintained if it is
+entered as a function argument into C++ and comes back to PyPy as a return
+value.
+Last, but not least, casting is decidedly unpythonistic.
+By always providing the most derived type known, casting becomes unnecessary.
+For example, the data member of ``Base2`` is simply directly available.
+Note also that the unreflected ``gimeC`` method of ``Derived`` does not
+preclude its use.
+It is only the ``gimeC`` method that is unusable as long as class ``C`` is
+unknown to the system.
+
+
 Features
 ========
 
@@ -159,6 +274,8 @@ That is a strong statement to make, but also a worthy goal.
 
 * **doc strings**: The doc string of a method or function contains the C++
   arguments and return types of all overloads of that name, as applicable.
+
+* **enums**: Are translated as ints with no further checking.
 
 * **functions**: Work as expected and live in their appropriate namespace
   (which can be the global one, ``cppyy.gbl``).
