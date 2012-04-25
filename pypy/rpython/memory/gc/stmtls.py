@@ -11,6 +11,7 @@ from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED, GCFLAG_HAS_SHADOW
+from pypy.rpython.memory.gc.stmgc import GCFLAG_PREBUILT
 
 
 class StmGCTLS(object):
@@ -113,8 +114,11 @@ class StmGCTLS(object):
         # We must also mark the following objects as GLOBAL again
         obj = self.mt_global_turned_local
         self.mt_global_turned_local = NULL
+        self.mt_save_prebuilt_turned_local = self.AddressStack()
         while obj:
             hdr = self.gc.header(obj)
+            if hdr.tid & GCFLAG_PREBUILT:
+                self.mt_save_prebuilt_turned_local.append(obj)
             obj = hdr.version
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [2]")
             ll_assert(hdr.tid & GCFLAG_VISITED != 0, "missing VISITED [2]")
@@ -144,6 +148,19 @@ class StmGCTLS(object):
         self.mt_global_turned_local = NULL
         self.gc.root_walker.walk_current_stack_roots(
             StmGCTLS._remark_object_as_local, self)
+        # Messy, because prebuilt objects may be Constants in the flow
+        # graphs and so don't appear in the stack, so need a special case.
+        # We save and restore which *prebuilt* objects were originally
+        # in mt_global_turned_local.  (Note that we can't simply save
+        # and restore mt_global_turned_local for *all* objects, because
+        # that would not be enough: the stack typically contains also many
+        # fresh objects that used to be local in enter_transactional_mode().)
+        while self.mt_save_prebuilt_turned_local.non_empty():
+            obj = self.mt_save_prebuilt_turned_local.pop()
+            hdr = self.gc.header(obj)
+            if hdr.tid & GCFLAG_GLOBAL:
+                self.main_thread_writes_to_global_obj(obj)
+        self.mt_save_prebuilt_turned_local.delete()
 
     def start_transaction(self):
         """Start a transaction: performs any pending cleanups, and set

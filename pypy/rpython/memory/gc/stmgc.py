@@ -145,6 +145,7 @@ GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_VISITED    = first_gcflag << 2
 GCFLAG_HAS_SHADOW = first_gcflag << 3
 GCFLAG_FIXED_HASH = first_gcflag << 4
+GCFLAG_PREBUILT   = first_gcflag << 5
 
 
 def always_inline(fn):
@@ -321,7 +322,7 @@ class StmGC(MovingGCBase):
         hdr.tid = self.combine(typeid16, flags)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
-        flags |= GCFLAG_GLOBAL
+        flags |= GCFLAG_GLOBAL | GCFLAG_PREBUILT
         self.init_gc_object(addr, typeid16, flags)
 
     # ----------
