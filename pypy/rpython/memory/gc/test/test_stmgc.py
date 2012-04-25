@@ -336,10 +336,13 @@ class TestBasic(StmGCTests):
     def test_write_barrier_global(self):
         # check that the main thread never makes a local copy of a global obj
         t, t_adr = self.malloc(S, globl=True)
-        self.checkflags(t_adr, True, False)
+        # the following flag can be set a bit randomly on global objects
+        self.gc.header(t_adr).tid |= GCFLAG_WAS_COPIED
+        self.checkflags(t_adr, True, True)
         obj = self.gc.stm_writebarrier(t_adr)     # main thread, global:
         assert obj == t_adr                       # doesn't make a copy
         self.checkflags(obj, False, False)        # but it becomes local
+        # ^^^ but the GCFLAG_WAS_COPIED is removed in this case
 
     def test_nontransactional_mode(self):
         import random

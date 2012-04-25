@@ -323,8 +323,10 @@ class StmGCTLS(object):
         # XXX should we also remove GCFLAG_WAS_COPIED here if it is set?
         ll_assert(hdr.tid & GCFLAG_VISITED == 0,
                   "write in main thread: unexpected GCFLAG_VISITED")
-        # remove GCFLAG_GLOBAL, and add GCFLAG_VISITED
-        hdr.tid += (GCFLAG_VISITED - GCFLAG_GLOBAL)
+        # remove GCFLAG_GLOBAL and (if it was there) GCFLAG_WAS_COPIED,
+        # and add GCFLAG_VISITED
+        hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_WAS_COPIED)
+        hdr.tid |= GCFLAG_VISITED
         # add the object into this linked list
         hdr.version = self.mt_global_turned_local
         self.mt_global_turned_local = obj
@@ -550,7 +552,7 @@ class StmGCTLS(object):
             ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
                       "unexpected GCFLAG_GLOBAL in mt_global_turned_local")
             ll_assert(hdr.tid & GCFLAG_VISITED != 0,
-                      "missing GCFLAG_VISIBLE in mt_global_turned_local")
+                      "missing GCFLAG_VISITED in mt_global_turned_local")
             self.trace_and_drag_out_of_nursery(obj)
             obj = hdr.version
 
