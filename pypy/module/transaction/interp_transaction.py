@@ -120,16 +120,11 @@ class SpaceTransaction(rstm.Transaction):
         ec._transaction_pending.append(self)
 
     def run(self):
+        #if self.retry_counter > 0:
+        #    # retrying: will be done later, try others first
+        #    return [self]     # XXX does not work, will be retried immediately
+        #
         ec = self.space.getexecutioncontext()    # create it if needed
-        #
-        if self.retry_counter > 0:
-            # Note that even in this case we have to ensure the ec is
-            # created first.  Otherwise, if the first transaction of a
-            # thread is retrying, the creation of the ec is cancelled
-            # and we end up in register() with no ec...
-            self.register() # retrying: will be done later, try others first
-            return
-        #
         assert len(ec._transaction_pending) == 0
         #
         self.space.call_args(self.w_callback, self.args)
