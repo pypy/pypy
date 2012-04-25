@@ -379,7 +379,7 @@ class ConstantInteger(CConfigEntry):
         self.name = name
 
     def prepare_code(self):
-        yield 'if ((%s) < 0) {' % (self.name,)
+        yield 'if ((%s) <= 0) {' % (self.name,)
         yield '    long long x = (long long)(%s);' % (self.name,)
         yield '    printf("value: %lld\\n", x);'
         yield '} else {'
@@ -401,7 +401,7 @@ class DefinedConstantInteger(CConfigEntry):
     def prepare_code(self):
         yield '#ifdef %s' % self.macro
         yield 'dump("defined", 1);'
-        yield 'if ((%s) < 0) {' % (self.macro,)
+        yield 'if ((%s) <= 0) {' % (self.macro,)
         yield '    long long x = (long long)(%s);' % (self.macro,)
         yield '    printf("value: %lld\\n", x);'
         yield '} else {'
