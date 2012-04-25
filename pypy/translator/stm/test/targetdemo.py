@@ -105,8 +105,13 @@ def entry_point(argv):
     #
     rstm.run_all_transactions(InitialTransaction(),
                               num_threads=glob.NUM_THREADS)
-    #
     check_chained_list(glob.anchor.next)
+    #
+    glob.anchor.next = None
+    rstm.run_all_transactions(InitialTransaction(),
+                              num_threads=glob.NUM_THREADS)
+    check_chained_list(glob.anchor.next)
+    #
     return 0
 
 # _____ Define and setup target ___

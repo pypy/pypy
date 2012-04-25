@@ -125,7 +125,10 @@ def fake_trace(obj, callback, arg):
             callback(addr, arg)
 
 def fake_weakpointer_offset(tid):
-    return llmemory.offsetof(WR, 'wadr')
+    if tid == 124:
+        return llmemory.offsetof(WR, 'wadr')
+    else:
+        return -1
 
 class FakeRootWalker:
     def walk_current_stack_roots(self, *args):
@@ -161,7 +164,7 @@ class StmGCTests:
     # test helpers
     def malloc(self, STRUCT, weakref=False, globl='auto'):
         size = llarena.round_up_for_allocation(llmemory.sizeof(STRUCT))
-        tid = lltype.cast_primitive(llgroup.HALFWORD, 123)
+        tid = lltype.cast_primitive(llgroup.HALFWORD, 123 + weakref)
         if globl == 'auto':
             globl = (self.gc.stm_operations.threadnum == 0)
         if globl:

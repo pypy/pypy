@@ -126,6 +126,9 @@ class StmGCTLS(object):
             self._clear_version_for_global_object(hdr)
         if not we_are_translated():
             del self.mt_global_turned_local   # don't use any more
+        #
+        if self.gc.DEBUG:
+            self.check_all_global_objects()
 
     def leave_transactional_mode(self):
         """Restart using the main thread for mallocs."""
@@ -135,7 +138,10 @@ class StmGCTLS(object):
                     del StmGCTLS.nontranslated_dict[key]
         self.start_transaction()
         #
-        # Do something special here after we restarted the "transaction"
+        if self.gc.DEBUG:
+            self.check_all_global_objects()
+        #
+        # Do something special here after we restarted the execution
         # in the main thread.  At this point, *all* objects are GLOBAL.
         # The write_barrier will ensure that any write makes the written-to
         # objects LOCAL again.  However, it is possible that the write
@@ -602,3 +608,41 @@ class StmGCTLS(object):
                 self.sharedarea_tls.free_object(obj)
             #
             obj = next
+
+    # ------------------------------------------------------------
+
+    def _debug_check_all_global1(self, root):
+        self._debug_check_all_global(root, None)
+
+    def _debug_check_all_global(self, root, ignored):
+        obj = root.address[0]
+        if self.debug_seen.contains(obj):
+            return
+        hdr = self.gc.header(obj)
+        ll_assert(hdr.tid & GCFLAG_GLOBAL != 0,
+                  "debug_check: missing GLOBAL")
+        ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
+                  "debug_check: unexpected WAS_COPIED")
+        ll_assert(hdr.tid & GCFLAG_VISITED == 0,
+                  "debug_check: unexpected VISITED")
+        ll_assert(hdr.tid & GCFLAG_HAS_SHADOW == 0,
+                  "debug_check: unexpected HAS_SHADOW")
+        self.gc.get_size(obj)      # extra checks
+        self.pending.append(obj)
+        self.debug_seen.setitem(obj, obj)
+
+    def check_all_global_objects(self):
+        self.pending = self.AddressStack()
+        self.debug_seen = self.AddressDict()
+        self.gc.root_walker.walk_current_stack_roots(
+            StmGCTLS._debug_check_all_global1, self)
+        while self.pending.non_empty():
+            obj = self.pending.pop()
+            offset = self.gc.weakpointer_offset(self.gc.get_type_id(obj))
+            if offset < 0:    # common case: not a weakref
+                self.gc.trace(obj, self._debug_check_all_global, None)
+            else:
+                if (obj + offset).address[0]:
+                    self._debug_check_all_global(obj + offset, None)
+        self.pending.delete()
+        self.debug_seen.delete()
