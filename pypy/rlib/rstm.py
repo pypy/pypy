@@ -19,6 +19,7 @@ class TransactionError(Exception):
 
 class Transaction(object):
     _next_transaction = None
+    _scheduled = False         # debugging
     retry_counter = 0
 
     def run(self):
@@ -187,6 +188,7 @@ def _run_really(transactionptr, retry_counter):
         transaction._next_transaction = transaction
     #
     transaction.retry_counter = retry_counter
+    transaction._scheduled = False
     new_transactions = transaction.run()
     return _link_new_transactions(new_transactions)
 _run_really._dont_inline_ = True
@@ -203,6 +205,11 @@ def _link_new_transactions(new_transactions):
     while n >= 0:
         new_transactions[n]._next_transaction = next
         next = new_transactions[n]
+        #
+        ll_assert(not next._scheduled,
+                  "the same Transaction instance is scheduled more than once")
+        next._scheduled = True
+        #
         n -= 1
     return next
 
