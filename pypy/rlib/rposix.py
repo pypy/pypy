@@ -79,13 +79,13 @@ if os.name == 'nt':
 else:
     separate_module_sources = []
     export_symbols = []
-eci = ExternalCompilationInfo(
+errno_eci = ExternalCompilationInfo(
     includes=['errno.h','stdio.h'],
     separate_module_sources = separate_module_sources,
     export_symbols = export_symbols,
 )
 
-_get_errno, _set_errno = CExternVariable(INT, 'errno', eci,
+_get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
                                          _nowrapper=True, c_type='int')
 # the default wrapper for set_errno is not suitable for use in critical places
@@ -100,7 +100,7 @@ def set_errno(errno):
 if os.name == 'nt':
     _validate_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
-        compilation_info=eci,
+        compilation_info=errno_eci,
         )
     @jit.dont_look_inside
     def validate_fd(fd):

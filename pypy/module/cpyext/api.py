@@ -112,8 +112,8 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join('pypy_decl.h').write("/* Will be filled later */")
-udir.join('pypy_macros.h').write("/* Will be filled later */")
+udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def copy_header_files(dstdir):
