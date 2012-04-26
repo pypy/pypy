@@ -553,7 +553,8 @@ class TranslationDriver(SimpleTaskEngine):
             exename = self.c_entryp
             newexename = mkexename(self.compute_exe_name())
             shutil.copy(str(exename), str(newexename))
-            if self.cbuilder.shared_library_name is not None:
+            if (hasattr(self, 'cbuilder') and
+                self.cbuilder.shared_library_name is not None):
                 soname = self.cbuilder.shared_library_name
                 newsoname = newexename.new(basename=soname.basename)
                 shutil.copy(str(soname), str(newsoname))

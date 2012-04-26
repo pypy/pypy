@@ -3,10 +3,12 @@ import ctypes
 from itertools import count
 
 from py.process import cmdexec
+from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import mkentrymap, Constant, Variable
 from pypy.rlib.jit import _we_are_jitted
 from pypy.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.lltypesystem import llarena, llgroup, llmemory, lltype, rffi
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.memory.gctransform.transform import GCTransformer
@@ -595,10 +597,13 @@ class FuncType(Type):
                         ', '.join(arg.repr_type() for arg in self.args)))
                 database.genllvm.ecis.append(obj.compilation_info)
         else:
-            name = database.unique_name('@rpy_' + obj._name
-                    .replace(',', '_').replace(' ', '_')
-                    .replace('(', '_').replace(')', '_')
-                    .replace('<', '_').replace('>', '_'))
+            if obj._name == '__main':
+                name = '@main'
+            else:
+                name = database.unique_name('@rpy_' + obj._name
+                        .replace(',', '_').replace(' ', '_')
+                        .replace('(', '_').replace(')', '_')
+                        .replace('<', '_').replace('>', '_'))
             ptr_type.refs[obj] = name
             database.genllvm.transform_graph(obj.graph)
             writer = FunctionWriter()
@@ -1255,6 +1260,28 @@ class FrameworkGCPolicy(GCPolicy):
         return getattr(obj, '_hash_cache_', None)
 
 
+def make_main(translator, entrypoint):
+    import os
+
+    def __main(argc, argv):
+        args = [rffi.charp2str(argv[i]) for i in range(argc)]
+        try:
+            return entrypoint(args)
+        except Exception, exc:
+            os.write(2, 'DEBUG: An uncaught exception was raised in '
+                        'entrypoint: ' + str(exc) + '\n')
+            return 1
+
+    mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
+    arg1 = annmodel.lltype_to_annotation(rffi.INT)
+    arg2 = annmodel.lltype_to_annotation(rffi.CCHARPP)
+    res = annmodel.lltype_to_annotation(lltype.Signed)
+    graph = mixlevelannotator.getgraph(__main, [arg1, arg2], res)
+    mixlevelannotator.finish()
+    mixlevelannotator.backend_optimize()
+    return graph
+
+
 class CTypesFuncWrapper(object):
     def __init__(self, genllvm, database, ep_ptr):
         self.translator = genllvm.translator
@@ -1389,9 +1416,6 @@ class GenLLVM(object):
         self.entry_point = entry_point
         self.base_path = udir.join(uniquemodulename('main'))
 
-        bk = self.translator.annotator.bookkeeper
-        ep_ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
-
         with self.base_path.new(ext='.ll').open('w') as f:
             f.write(cmdexec('clang -emit-llvm -S -x c /dev/null -o -'))
             # XXX
@@ -1404,6 +1428,8 @@ class GenLLVM(object):
             f.write('declare i8* @llvm.frameaddress(i32)\n')
 
             database = Database(self, f)
+            if self.standalone:
+                main = make_main(self.translator, entry_point)
             for graph in self.translator.graphs:
                 self.transform_graph(graph)
 
@@ -1413,20 +1439,28 @@ class GenLLVM(object):
                     '[%ctor {{ i32 65535, void ()* @{} }}]\n'.format(sr.V[1:]))
 
             if self.standalone:
-                raise NotImplementedError
+                get_repr(getfunctionptr(main)).V
             else:
-                self.wrapper = CTypesFuncWrapper(self, database, ep_ptr)
+                bk = self.translator.annotator.bookkeeper
+                ptr = getfunctionptr(bk.getdesc(entry_point).getuniquegraph())
+                self.wrapper = CTypesFuncWrapper(self, database, ptr)
             self.gcpolicy.finish()
 
-    def compile_standalone(self, exe_name):
-        raise NotImplementedError
-
-    def compile_module(self):
+    def _compile(self, add_opts, outfile):
         eci = ExternalCompilationInfo().merge(*self.ecis)
         eci = eci.convert_sources_to_files(being_main=True)
-        cmdexec('clang -O2 -shared -fPIC {0}{1}{2}.ll -o {2}.so'.format(
+        cmdexec('clang -O2 {}{}{}{}.ll -o {}'.format(
+                add_opts,
                 ''.join('-I{} '.format(ic) for ic in eci.include_dirs),
                 ''.join(smf + ' ' for smf in eci.separate_module_files),
-                self.base_path))
-        self.wrapper.load_cdll('{0}.so'.format(self.base_path))
+                self.base_path, outfile))
+
+    def compile_standalone(self, exe_name):
+        self._compile('', self.base_path)
+        return self.base_path
+
+    def compile_module(self):
+        so_file = self.base_path.new(ext='.so')
+        self._compile('-shared -fPIC ', so_file)
+        self.wrapper.load_cdll(str(so_file))
         return self.wrapper
