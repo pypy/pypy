@@ -1830,6 +1830,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
 
+    def test_array_indexing_bool_setitem_multidim(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 3], [15, 5], [15, 7], [15, 9]]).all()
+
+    def test_array_indexing_bool_setitem_2(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a = a[::2]
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 5], [15, 9]]).all()
+
     def test_copy_kwarg(self):
         from _numpypy import array
         x = array([1, 2, 3])

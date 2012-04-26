@@ -131,7 +131,7 @@ const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
 /* list of codecs defined in the .c files */
 
 #define DEFINE_CODEC(name)                              \
-    const MultibyteCodec *pypy_cjkcodec_##name(void);
+    MultibyteCodec *pypy_cjkcodec_##name(void);
 
 // _codecs_cn
 DEFINE_CODEC(gb2312)

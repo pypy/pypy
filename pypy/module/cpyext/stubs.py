@@ -1405,17 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
-def PyList_GetSlice(space, list, low, high):
-    """Return a list of the objects in list containing the objects between low
-    and high.  Return NULL and set an exception if unsuccessful.  Analogous
-    to list[low:high].  Negative indices, as when slicing from Python, are not
-    supported.
-
-    This function used an int for low and high. This might
-    require changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
 @cpython_api([Py_ssize_t], PyObject)
 def PyLong_FromSsize_t(space, v):
     """Return a new PyLongObject object from a C Py_ssize_t, or
@@ -1606,15 +1595,6 @@ def PyObject_Bytes(space, o):
     for PyObject_Str()."""
     raise NotImplementedError
 
-@cpython_api([PyObject], lltype.Signed, error=-1)
-def PyObject_HashNotImplemented(space, o):
-    """Set a TypeError indicating that type(o) is not hashable and return -1.
-    This function receives special treatment when stored in a tp_hash slot,
-    allowing a type to explicitly indicate to the interpreter that it is not
-    hashable.
-    """
-    raise NotImplementedError
-
 @cpython_api([], PyFrameObject)
 def PyEval_GetFrame(space):
     """Return the current thread state's frame, which is NULL if no frame is
@@ -1735,17 +1715,6 @@ def PyString_Decode(space, s, size, encoding, errors):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsDecodedObject(space, str, encoding, errors):
-    """Decode a string object by passing it to the codec registered for encoding and
-    return the result as Python object. encoding and errors have the same
-    meaning as the parameters of the same name in the string encode() method.
-    The codec to be used is looked up using the Python codec registry. Return NULL
-    if an exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.CCHARP], PyObject)

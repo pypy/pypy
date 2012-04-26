@@ -1,7 +1,6 @@
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_ufunc_instance(self):
         from _numpypy import add, ufunc
@@ -149,7 +148,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(fmax(0, nan))
         assert math.isnan(fmax(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
-        assert math.copysign(1.0, fmax(nnan, nan)) == -1.0
+        # Since comparisons with nnan and nan all return false,
+        # use copysign on both sides to sidestep bug in nan representaion
+        # on Microsoft win32
+        assert math.copysign(1., fmax(nnan, nan)) == math.copysign(1., nnan)
+
 
     def test_fmin(self):
         from _numpypy import fmin
@@ -165,7 +168,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(fmin(0, nan))
         assert math.isnan(fmin(nan, nan))
         # The numpy docs specify that the FIRST NaN should be used if both are NaN
-        assert math.copysign(1.0, fmin(nnan, nan)) == -1.0
+        # use copysign on both sides to sidestep bug in nan representaion
+        # on Microsoft win32
+        assert math.copysign(1., fmin(nnan, nan)) == math.copysign(1., nnan)
 
     def test_fmod(self):
         from _numpypy import fmod
