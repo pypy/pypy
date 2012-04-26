@@ -3,17 +3,12 @@
 #include "src_stm/fifo.c"
 
 
-/* this lock is acquired when we start running transactions, and
-   released only when we are finished. */
-static pthread_mutex_t mutex_unfinished = PTHREAD_MUTEX_INITIALIZER;
-
 /* this mutex is used to ensure non-conflicting accesses to global
    data in run_thread(). */
 static pthread_mutex_t mutex_global = PTHREAD_MUTEX_INITIALIZER;
 
 /* this lock is acquired if and only if there are no tasks pending,
-   i.e. the linked list stm_g_first_transaction ... stm_g_last_transaction is
-   empty and both pointers are NULL. */
+   i.e. the fifo stm_g_pending is empty. */
 static pthread_mutex_t mutex_no_tasks_pending = PTHREAD_MUTEX_INITIALIZER;
 
 /* some global data put there by run_all_transactions(). */
@@ -110,8 +105,6 @@ static void *run_thread(void *ignored)
     }
 
   pypy_g__stm_thread_stopping();
-  if (stm_g_num_waiting_threads == 0)   /* only the last thread to leave */
-    pthread_mutex_unlock(&mutex_unfinished);
   pthread_mutex_unlock(&mutex_global);
   return NULL;
 }
@@ -119,28 +112,42 @@ static void *run_thread(void *ignored)
 void stm_run_all_transactions(void *initial_transaction,
                               long num_threads)
 {
-  int i;
+  long i;
+  pthread_t *th = malloc(num_threads * sizeof(pthread_t*));
+  if (th == NULL)
+    {
+      /* XXX turn into a nice exception */
+      fprintf(stderr, "out of memory: too many threads?\n");
+      exit(1);
+    }
+
   fifo_init(&stm_g_pending);
   fifo_append(&stm_g_pending, initial_transaction);
   stm_g_num_threads = (int)num_threads;
   stm_g_num_waiting_threads = 0;
   stm_g_finished = 0;
 
-  pthread_mutex_lock(&mutex_unfinished);
-
-  for (i=0; i<(int)num_threads; i++)
+  for (i=0; i<num_threads; i++)
     {
-      pthread_t th;
-      int status = pthread_create(&th, NULL, run_thread, NULL);
+      int status = pthread_create(&th[i], NULL, run_thread, NULL);
       if (status != 0)
         {
           /* XXX turn into a nice exception */
-          fprintf(stderr, "fatal error: cannot create threads\n");
+          fprintf(stderr, "fatal error: cannot create thread %ld/%ld\n",
+                  i, num_threads);
           exit(1);
         }
-      pthread_detach(th);
     }
 
-  pthread_mutex_lock(&mutex_unfinished);
-  pthread_mutex_unlock(&mutex_unfinished);
+  for (i=0; i<num_threads; i++)
+    {
+      void *retval = NULL;
+      int ret = pthread_join(th[i], &retval);
+      if (ret != 0 || retval != NULL)
+        {
+          /* XXX? */
+          fprintf(stderr, "warning: thread %ld/%ld exited with %d (%p)\n",
+                  i, num_threads, ret, retval);
+        }
+    }
 }
