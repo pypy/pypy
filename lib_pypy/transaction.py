@@ -113,10 +113,16 @@ class local(object):
     is not shared between multiple concurrently-running transactions.
     It can be accessed without conflicts.
 
-    It can be used for purely transaction-local data.
+    It can be used for purely transaction-local data that needs to be
+    stored in a single global object.  As long as the data is not needed
+    after the transaction, e.g. because it is removed before the
+    transaction ends, using a "local" instance avoids conflicts which
+    would otherwise systematically trigger.
 
-    It can also be used for long-living caches that store values that
-    are (1) not too costly to compute and (2) not too memory-hungry,
-    because they will end up being computed and stored once per actual
-    thread.
+    Values that remain in a "local" instance after the end of a
+    transaction are visible in the next transaction that happens to be
+    executed on the same thread.  This can be used for long-living
+    caches that store values that are (1) not too costly to compute,
+    because they will end up being computed once per thread; and (2) not
+    too memory-hungry, because of the replicated storage.
     """
