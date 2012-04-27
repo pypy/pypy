@@ -572,7 +572,7 @@ def strftime(space, format, w_tup=None):
                 if i < length and format[i] == '#':
                     # not documented by python
                     i += 1
-                if i >= length or format[i] not in "aAbBcdfHIjmMpSUwWxXyYzZ%":
+                if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
                     raise OperationError(space.w_ValueError,
                                          space.wrap("invalid format string"))
             i += 1
