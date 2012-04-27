@@ -150,4 +150,5 @@ void stm_run_all_transactions(void *initial_transaction,
                   i, num_threads, ret, retval);
         }
     }
+  free(th);
 }
