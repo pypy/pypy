@@ -232,7 +232,12 @@ static void oreclist_insert(struct OrecList *oreclist, orec_t *newitem)
 {
   /* XXX it would be a good idea to try to compactify the list,
      by removing duplicate entries.  We are only interested in
-     the set of entries present, and the order doesn't matter. */
+     the set of entries present, and the order doesn't matter.
+     See for example if, in practice, there are many consecutive
+     duplicate entries; if so, add a check here.  Otherwise, or
+     in addition, we need a general de-duplicator logic called
+     at every local_collection().
+  */
   if (oreclist->size == oreclist->alloc)
     _oreclist_grow(oreclist);
   oreclist->items[oreclist->size++] = newitem;
