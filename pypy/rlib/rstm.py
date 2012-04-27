@@ -19,10 +19,10 @@ class TransactionError(Exception):
 
 class Transaction(object):
     _next_transaction = None
-    _scheduled = False         # debugging
-    retry_counter = 0
+    #_scheduled = False         # for debugging
 
     def run(self):
+        # subclasses can access 'self.retry_counter' here
         raise NotImplementedError
 
 
