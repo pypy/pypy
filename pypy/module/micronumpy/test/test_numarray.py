@@ -329,6 +329,49 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1, 3] == 8
         assert a.T[1, 2] == 11
 
+    def test_getitem_obj_index(self):
+        from _numpypy import arange
+
+        class CustomIndexObject(object):
+            def __init__(self, index):
+                self.index = index
+            def __index__(self):
+                return self.index
+
+        a = arange(10)
+
+        assert a[CustomIndexObject(1)] == 1
+
+    def test_getitem_obj_prefer_index_to_int(self):
+        from _numpypy import arange
+
+        class CustomIndexIntObject(object):
+            def __init__(self, index, value):
+                self.index = index
+                self.value = value
+            def __index__(self):
+                return self.index
+            def __int__(self):
+                return self.value
+
+        a = arange(10)
+
+
+        assert a[CustomIndexIntObject(0, 1)] == 0
+
+    def test_getitem_obj_int(self):
+        from _numpypy import arange
+
+        class CustomIntObject(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        a = arange(10)
+
+        assert a[CustomIntObject(1)] == 1
+
     def test_setitem(self):
         from _numpypy import array
         a = array(range(5))
@@ -347,6 +390,52 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[()] = range(5)
         for i in xrange(5):
             assert a[i] == i
+
+    def test_setitem_obj_index(self):
+        from _numpypy import arange
+
+        class CustomIndexObject(object):
+            def __init__(self, index):
+                self.index = index
+            def __index__(self):
+                return self.index
+
+        a = arange(10)
+
+        a[CustomIndexObject(1)] = 100
+        assert a[1] == 100
+
+    def test_setitem_obj_prefer_index_to_int(self):
+        from _numpypy import arange
+
+        class CustomIndexIntObject(object):
+            def __init__(self, index, value):
+                self.index = index
+                self.value = value
+            def __index__(self):
+                return self.index
+            def __int__(self):
+                return self.value
+
+        a = arange(10)
+
+        a[CustomIndexIntObject(0, 1)] = 100
+        assert a[0] == 100
+
+    def test_setitem_obj_int(self):
+        from _numpypy import arange
+
+        class CustomIntObject(object):
+            def __init__(self, index):
+                self.index = index
+            def __index__(self):
+                return self.index
+
+        a = arange(10)
+
+        a[CustomIntObject(1)] = 100
+
+        assert a[1] == 100
 
     def test_setslice_array(self):
         from _numpypy import array
