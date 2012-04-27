@@ -10,7 +10,6 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 
 import sys
-import os
 import weakref
 import py
 
