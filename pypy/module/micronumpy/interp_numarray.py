@@ -350,6 +350,17 @@ class BaseArray(Wrappable):
         if shape_len == 1:
             if space.isinstance_w(w_idx, space.w_int):
                 return True
+
+            try:
+                value = space.int_w(space.index(w_idx))
+                return True
+            except: pass
+
+            try:
+                value = space.int_w(w_idx)
+                return True
+            except: pass
+
             if space.isinstance_w(w_idx, space.w_slice):
                 return False
         elif (space.isinstance_w(w_idx, space.w_slice) or
@@ -1030,8 +1041,19 @@ class ConcreteArray(BaseArray):
 
     @jit.unroll_safe
     def _index_of_single_item(self, space, w_idx):
-        if space.isinstance_w(w_idx, space.w_int):
-            idx = space.int_w(w_idx)
+        is_valid = False
+        try:
+            idx = space.int_w(space.index(w_idx))
+            is_valid = True
+        except: pass
+
+        if not is_valid:
+            try:
+                idx = space.int_w(w_idx)
+                is_valid = True
+            except: pass
+
+        if is_valid:
             if idx < 0:
                 idx = self.shape[0] + idx
             if idx < 0 or idx >= self.shape[0]:
