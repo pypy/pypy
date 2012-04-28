@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import base_ptr_lltype, cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import keepalive_until_here, we_are_translated
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.nonconst import NonConstant
 from pypy.translator.stm.stmgcintf import StmOperations
@@ -219,3 +220,43 @@ def _stm_thread_starting():
 
 def _stm_thread_stopping():
     llop.stm_thread_stopping(lltype.Void)
+
+
+class ThreadLocal(object):
+    """
+    A thread-local container.  Use only for one or a few static places,
+    e.g. the ExecutionContext in the PyPy interpreter; and store any
+    number of stuff on the ExecutionContext instead.  The point of this
+    is to have proper GC support: if at the end of a transaction some
+    objects are only reachable via a ThreadLocal object, then these
+    objects don't need to be turned GLOBAL.  It avoids the overhead of
+    STM, notably the two copies that are needed for every transaction
+    that changes a GLOBAL object.
+    """
+    STMTHREADLOCAL = lltype.Struct('StmThreadLocal',
+                                   ('content', base_ptr_lltype()),
+                                   hints={'stm_thread_local': True})
+
+    def __init__(self, Class):
+        assert not we_are_translated(), (
+            "You can only have a small number of ThreadLocal() instances"
+            " built during translation.")
+        self.Class = Class
+        self.threadlocal = lltype.malloc(self.STMTHREADLOCAL, immortal=True)
+
+    def _freeze_(self):
+        return True      # but the thread-local value can be read and written
+
+    @specialize.arg(0)
+    def getvalue(self):
+        """Read the thread-local value.
+        It can be either None (the default) or an instance of self.Class."""
+        ptr = self.threadlocal.content
+        return cast_base_ptr_to_instance(self.Class, ptr)
+
+    @specialize.arg(0)
+    def setvalue(self, value):
+        """Write the thread-local value."""
+        assert value is None or isinstance(value, self.Class)
+        ptr = cast_instance_to_base_ptr(value)
+        self.threadlocal.content = ptr

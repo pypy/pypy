@@ -117,3 +117,20 @@ def test_raise():
         def run(self):
             return [FooBar() for i in range(10)]
     py.test.raises(MyException, rstm.run_all_transactions, DoInOrder())
+
+def test_threadlocal():
+    # not testing the thread-local factor, but only the general interface
+    class Point:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+    p1 = Point(10, 2)
+    p2 = Point(-1, 0)
+    tl = rstm.ThreadLocal(Point)
+    assert tl.getvalue() is None
+    tl.setvalue(p1)
+    assert tl.getvalue() is p1
+    tl.setvalue(p2)
+    assert tl.getvalue() is p2
+    tl.setvalue(None)
+    assert tl.getvalue() is None
