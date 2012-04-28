@@ -152,8 +152,8 @@ default_keymap = tuple(
      (r'\<delete>', 'delete'),
      (r'\<backspace>', 'backspace'),
      (r'\M-\<backspace>', 'backward-kill-word'),
-     (r'\<end>', 'end'),
-     (r'\<home>', 'home'),
+     (r'\<end>', 'end-of-line'),         # was 'end'
+     (r'\<home>', 'beginning-of-line'),  # was 'home'
      (r'\<f1>', 'help'),
      (r'\EOF', 'end'),  # the entries in the terminfo database for xterms
      (r'\EOH', 'home'), # seem to be wrong.  this is a less than ideal

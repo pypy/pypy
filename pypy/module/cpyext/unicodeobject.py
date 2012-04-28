@@ -597,7 +597,7 @@ def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     suffix match), 0 otherwise. Return -1 if an error occurred."""
     str = space.unicode_w(w_str)
     substr = space.unicode_w(w_substr)
-    if rffi.cast(lltype.Signed, direction) >= 0:
+    if rffi.cast(lltype.Signed, direction) <= 0:
         return stringtype.stringstartswith(str, substr, start, end)
     else:
         return stringtype.stringendswith(str, substr, start, end)

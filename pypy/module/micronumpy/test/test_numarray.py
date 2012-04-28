@@ -1,9 +1,8 @@
 
 import py
 
-from pypy.conftest import gettestobjspace, option
+from pypy.conftest import option
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import signature
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
@@ -1830,6 +1829,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(6).reshape(3, 2)
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
+
+    def test_array_indexing_bool_setitem_multidim(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 3], [15, 5], [15, 7], [15, 9]]).all()
+
+    def test_array_indexing_bool_setitem_2(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a = a[::2]
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 5], [15, 9]]).all()
 
     def test_copy_kwarg(self):
         from _numpypy import array

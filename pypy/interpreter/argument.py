@@ -98,6 +98,10 @@ class Arguments(object):
     Collects the arguments of a function call.
 
     Instances should be considered immutable.
+
+    Some parts of this class are written in a slightly convoluted style to help
+    the JIT. It is really crucial to get this right, because Python's argument
+    semantics are complex, but calls occur everywhere.
     """
 
     ###  Construction  ###
@@ -184,7 +188,13 @@ class Arguments(object):
         space = self.space
         keywords, values_w = space.view_as_kwargs(w_starstararg)
         if keywords is not None: # this path also taken for empty dicts
-            self._add_keywordargs_no_unwrapping(keywords, values_w)
+            if self.keywords is None:
+                self.keywords = keywords[:] # copy to make non-resizable
+                self.keywords_w = values_w[:]
+            else:
+                self._check_not_duplicate_kwargs(keywords, values_w)
+                self.keywords = self.keywords + keywords
+                self.keywords_w = self.keywords_w + values_w
             return not jit.isconstant(len(self.keywords))
         if space.isinstance_w(w_starstararg, space.w_dict):
             keys_w = space.unpackiterable(w_starstararg)
@@ -242,22 +252,16 @@ class Arguments(object):
     @jit.look_inside_iff(lambda self, keywords, keywords_w:
             jit.isconstant(len(keywords) and
             jit.isconstant(self.keywords)))
-    def _add_keywordargs_no_unwrapping(self, keywords, keywords_w):
-        if self.keywords is None:
-            self.keywords = keywords[:] # copy to make non-resizable
-            self.keywords_w = keywords_w[:]
-        else:
-            # looks quadratic, but the JIT should remove all of it nicely.
-            # Also, all the lists should be small
-            for key in keywords:
-                for otherkey in self.keywords:
-                    if otherkey == key:
-                        raise operationerrfmt(self.space.w_TypeError,
-                                              "got multiple values "
-                                              "for keyword argument "
-                                              "'%s'", key)
-            self.keywords = self.keywords + keywords
-            self.keywords_w = self.keywords_w + keywords_w
+    def _check_not_duplicate_kwargs(self, keywords, keywords_w):
+        # looks quadratic, but the JIT should remove all of it nicely.
+        # Also, all the lists should be small
+        for key in keywords:
+            for otherkey in self.keywords:
+                if otherkey == key:
+                    raise operationerrfmt(self.space.w_TypeError,
+                                          "got multiple values "
+                                          "for keyword argument "
+                                          "'%s'", key)
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,

@@ -34,13 +34,13 @@ get_buf(PyBufferObject *self, void **ptr, Py_ssize_t *size,
             proc = bp->bf_getreadbuffer;
         else if ((buffer_type == WRITE_BUFFER) ||
             (buffer_type == ANY_BUFFER))
-                proc = (readbufferproc)bp->bf_getwritebuffer;
+	    proc = (readbufferproc)bp->bf_getwritebuffer;
         else if (buffer_type == CHAR_BUFFER) {
             if (!PyType_HasFeature(self->ob_type,
-                Py_TPFLAGS_HAVE_GETCHARBUFFER)) {
-                PyErr_SetString(PyExc_TypeError,
-                    "Py_TPFLAGS_HAVE_GETCHARBUFFER needed");
-                return 0;
+                        Py_TPFLAGS_HAVE_GETCHARBUFFER)) {
+            PyErr_SetString(PyExc_TypeError,
+                "Py_TPFLAGS_HAVE_GETCHARBUFFER needed");
+            return 0;
             }
             proc = (readbufferproc)bp->bf_getcharbuffer;
         }
@@ -86,18 +86,18 @@ get_buf(PyBufferObject *self, void **ptr, Py_ssize_t *size,
 
 static PyObject *
 buffer_from_memory(PyObject *base, Py_ssize_t size, Py_ssize_t offset, void *ptr,
-           int readonly)
+                   int readonly)
 {
     PyBufferObject * b;
 
     if (size < 0 && size != Py_END_OF_BUFFER) {
         PyErr_SetString(PyExc_ValueError,
-                "size must be zero or positive");
+                        "size must be zero or positive");
         return NULL;
     }
     if (offset < 0) {
         PyErr_SetString(PyExc_ValueError,
-                "offset must be zero or positive");
+                        "offset must be zero or positive");
         return NULL;
     }
 
@@ -121,7 +121,7 @@ buffer_from_object(PyObject *base, Py_ssize_t size, Py_ssize_t offset, int reado
 {
     if (offset < 0) {
         PyErr_SetString(PyExc_ValueError,
-                "offset must be zero or positive");
+                        "offset must be zero or positive");
         return NULL;
     }
     if ( PyBuffer_Check(base) && (((PyBufferObject *)base)->b_base) ) {
@@ -193,7 +193,7 @@ PyBuffer_New(Py_ssize_t size)
 
     if (size < 0) {
         PyErr_SetString(PyExc_ValueError,
-                "size must be zero or positive");
+                        "size must be zero or positive");
         return NULL;
     }
     if (sizeof(*b) > PY_SSIZE_T_MAX - size) {
@@ -225,9 +225,11 @@ buffer_new(PyTypeObject *type, PyObject *args, PyObject *kw)
     Py_ssize_t offset = 0;
     Py_ssize_t size = Py_END_OF_BUFFER;
 
-    /*if (PyErr_WarnPy3k("buffer() not supported in 3.x", 1) < 0)
-        return NULL;*/
-    
+    /*
+     * if (PyErr_WarnPy3k("buffer() not supported in 3.x", 1) < 0)
+     *   return NULL;
+     */
+
     if (!_PyArg_NoKeywords("buffer()", kw))
         return NULL;
 
@@ -278,12 +280,11 @@ buffer_repr(PyBufferObject *self)
     const char *status = self->b_readonly ? "read-only" : "read-write";
 
     if ( self->b_base == NULL )
-        return PyUnicode_FromFormat(
-            "<%s buffer ptr %p, size %zd at %p>",
-            status,
-            self->b_ptr,
-            self->b_size,
-            self);
+        return PyUnicode_FromFormat("<%s buffer ptr %p, size %zd at %p>",
+                                   status,
+                                   self->b_ptr,
+                                   self->b_size,
+                                   self);
     else
         return PyUnicode_FromFormat(
             "<%s buffer for %p, size %zd, offset %zd at %p>",
@@ -316,7 +317,7 @@ buffer_hash(PyBufferObject *self)
     if ( !self->b_readonly )
     {
         PyErr_SetString(PyExc_TypeError,
-                "writable buffers are not hashable");
+                        "writable buffers are not hashable");
         return -1;
     }
 
@@ -376,13 +377,13 @@ buffer_concat(PyBufferObject *self, PyObject *other)
     {
         /* ### use a different exception type/message? */
         PyErr_SetString(PyExc_TypeError,
-                "single-segment buffer object expected");
+                        "single-segment buffer object expected");
         return NULL;
     }
 
-     if (!get_buf(self, &ptr1, &size, ANY_BUFFER))
-         return NULL;
- 
+    if (!get_buf(self, &ptr1, &size, ANY_BUFFER))
+        return NULL;
+
     /* optimize special case */
     if ( size == 0 )
     {
@@ -395,12 +396,12 @@ buffer_concat(PyBufferObject *self, PyObject *other)
 
     assert(count <= PY_SIZE_MAX - size);
 
-     ob = PyString_FromStringAndSize(NULL, size + count);
+    ob = PyString_FromStringAndSize(NULL, size + count);
     if ( ob == NULL )
         return NULL;
-     p = PyString_AS_STRING(ob);
-     memcpy(p, ptr1, size);
-     memcpy(p + size, ptr2, count);
+    p = PyString_AS_STRING(ob);
+    memcpy(p, ptr1, size);
+    memcpy(p + size, ptr2, count);
 
     /* there is an extra byte in the string object, so this is safe */
     p[size + count] = '\0';
@@ -471,7 +472,7 @@ buffer_slice(PyBufferObject *self, Py_ssize_t left, Py_ssize_t right)
     if ( right < left )
         right = left;
     return PyString_FromStringAndSize((char *)ptr + left,
-                      right - left);
+                                      right - left);
 }
 
 static PyObject *
@@ -479,10 +480,9 @@ buffer_subscript(PyBufferObject *self, PyObject *item)
 {
     void *p;
     Py_ssize_t size;
-    
+
     if (!get_buf(self, &p, &size, ANY_BUFFER))
         return NULL;
-    
     if (PyIndex_Check(item)) {
         Py_ssize_t i = PyNumber_AsSsize_t(item, PyExc_IndexError);
         if (i == -1 && PyErr_Occurred())
@@ -495,7 +495,7 @@ buffer_subscript(PyBufferObject *self, PyObject *item)
         Py_ssize_t start, stop, step, slicelength, cur, i;
 
         if (PySlice_GetIndicesEx((PySliceObject*)item, size,
-                 &start, &stop, &step, &slicelength) < 0) {
+                         &start, &stop, &step, &slicelength) < 0) {
             return NULL;
         }
 
@@ -503,7 +503,7 @@ buffer_subscript(PyBufferObject *self, PyObject *item)
             return PyString_FromStringAndSize("", 0);
         else if (step == 1)
             return PyString_FromStringAndSize((char *)p + start,
-                              stop - start);
+                                              stop - start);
         else {
             PyObject *result;
             char *source_buf = (char *)p;
@@ -518,14 +518,14 @@ buffer_subscript(PyBufferObject *self, PyObject *item)
             }
 
             result = PyString_FromStringAndSize(result_buf,
-                                slicelength);
+                                                slicelength);
             PyMem_Free(result_buf);
             return result;
         }
     }
     else {
         PyErr_SetString(PyExc_TypeError,
-                "sequence index must be integer");
+                        "sequence index must be integer");
         return NULL;
     }
 }
@@ -540,7 +540,7 @@ buffer_ass_item(PyBufferObject *self, Py_ssize_t idx, PyObject *other)
 
     if ( self->b_readonly ) {
         PyErr_SetString(PyExc_TypeError,
-                "buffer is read-only");
+                        "buffer is read-only");
         return -1;
     }
 
@@ -549,7 +549,7 @@ buffer_ass_item(PyBufferObject *self, Py_ssize_t idx, PyObject *other)
 
     if (idx < 0 || idx >= size) {
         PyErr_SetString(PyExc_IndexError,
-                "buffer assignment index out of range");
+                        "buffer assignment index out of range");
         return -1;
     }
 
@@ -565,7 +565,7 @@ buffer_ass_item(PyBufferObject *self, Py_ssize_t idx, PyObject *other)
     {
         /* ### use a different exception type/message? */
         PyErr_SetString(PyExc_TypeError,
-                "single-segment buffer object expected");
+                        "single-segment buffer object expected");
         return -1;
     }
 
@@ -573,7 +573,7 @@ buffer_ass_item(PyBufferObject *self, Py_ssize_t idx, PyObject *other)
         return -1;
     if ( count != 1 ) {
         PyErr_SetString(PyExc_TypeError,
-                "right operand must be a single byte");
+                        "right operand must be a single byte");
         return -1;
     }
 
@@ -592,7 +592,7 @@ buffer_ass_slice(PyBufferObject *self, Py_ssize_t left, Py_ssize_t right, PyObje
 
     if ( self->b_readonly ) {
         PyErr_SetString(PyExc_TypeError,
-                "buffer is read-only");
+                        "buffer is read-only");
         return -1;
     }
 
@@ -608,7 +608,7 @@ buffer_ass_slice(PyBufferObject *self, Py_ssize_t left, Py_ssize_t right, PyObje
     {
         /* ### use a different exception type/message? */
         PyErr_SetString(PyExc_TypeError,
-                "single-segment buffer object expected");
+                        "single-segment buffer object expected");
         return -1;
     }
     if (!get_buf(self, &ptr1, &size, ANY_BUFFER))
@@ -649,7 +649,7 @@ buffer_ass_subscript(PyBufferObject *self, PyObject *item, PyObject *value)
 
     if ( self->b_readonly ) {
         PyErr_SetString(PyExc_TypeError,
-                "buffer is read-only");
+                        "buffer is read-only");
         return -1;
     }
 
@@ -665,12 +665,11 @@ buffer_ass_subscript(PyBufferObject *self, PyObject *item, PyObject *value)
     {
         /* ### use a different exception type/message? */
         PyErr_SetString(PyExc_TypeError,
-                "single-segment buffer object expected");
+                        "single-segment buffer object expected");
         return -1;
     }
     if (!get_buf(self, &ptr1, &selfsize, ANY_BUFFER))
         return -1;
-    
     if (PyIndex_Check(item)) {
         Py_ssize_t i = PyNumber_AsSsize_t(item, PyExc_IndexError);
         if (i == -1 && PyErr_Occurred())
@@ -681,9 +680,9 @@ buffer_ass_subscript(PyBufferObject *self, PyObject *item, PyObject *value)
     }
     else if (PySlice_Check(item)) {
         Py_ssize_t start, stop, step, slicelength;
-        
+
         if (PySlice_GetIndicesEx((PySliceObject *)item, selfsize,
-                &start, &stop, &step, &slicelength) < 0)
+                        &start, &stop, &step, &slicelength) < 0)
             return -1;
 
         if ((othersize = (*pb->bf_getreadbuffer)(value, 0, &ptr2)) < 0)
@@ -704,7 +703,7 @@ buffer_ass_subscript(PyBufferObject *self, PyObject *item, PyObject *value)
         }
         else {
             Py_ssize_t cur, i;
-            
+
             for (cur = start, i = 0; i < slicelength;
                  cur += step, i++) {
                 ((char *)ptr1)[cur] = ((char *)ptr2)[i];
@@ -714,7 +713,7 @@ buffer_ass_subscript(PyBufferObject *self, PyObject *item, PyObject *value)
         }
     } else {
         PyErr_SetString(PyExc_TypeError,
-                "buffer indices must be integers");
+                        "buffer indices must be integers");
         return -1;
     }
 }
@@ -727,7 +726,7 @@ buffer_getreadbuf(PyBufferObject *self, Py_ssize_t idx, void **pp)
     Py_ssize_t size;
     if ( idx != 0 ) {
         PyErr_SetString(PyExc_SystemError,
-                "accessing non-existent buffer segment");
+                        "accessing non-existent buffer segment");
         return -1;
     }
     if (!get_buf(self, pp, &size, READ_BUFFER))
@@ -748,7 +747,7 @@ buffer_getwritebuf(PyBufferObject *self, Py_ssize_t idx, void **pp)
 
     if ( idx != 0 ) {
         PyErr_SetString(PyExc_SystemError,
-                "accessing non-existent buffer segment");
+                        "accessing non-existent buffer segment");
         return -1;
     }
     if (!get_buf(self, pp, &size, WRITE_BUFFER))
@@ -775,7 +774,7 @@ buffer_getcharbuf(PyBufferObject *self, Py_ssize_t idx, const char **pp)
     Py_ssize_t size;
     if ( idx != 0 ) {
         PyErr_SetString(PyExc_SystemError,
-                "accessing non-existent buffer segment");
+                        "accessing non-existent buffer segment");
         return -1;
     }
     if (!get_buf(self, &ptr, &size, CHAR_BUFFER))
@@ -813,44 +812,42 @@ static PyBufferProcs buffer_as_buffer = {
 };
 
 PyTypeObject PyBuffer_Type = {
-    PyObject_HEAD_INIT(NULL)
-    0,
+    PyVarObject_HEAD_INIT(NULL, 0)
     "buffer",
     sizeof(PyBufferObject),
     0,
-    (destructor)buffer_dealloc,   /* tp_dealloc */
-    0,                            /* tp_print */
-    0,                            /* tp_getattr */
-    0,                            /* tp_setattr */
-    (cmpfunc)buffer_compare,      /* tp_compare */
-    (reprfunc)buffer_repr,        /* tp_repr */
-    0,                            /* tp_as_number */
-    &buffer_as_sequence,          /* tp_as_sequence */
-    &buffer_as_mapping,           /* tp_as_mapping */
-    (hashfunc)buffer_hash,        /* tp_hash */
-    0,                            /* tp_call */
-    (reprfunc)buffer_str,         /* tp_str */
-    PyObject_GenericGetAttr,      /* tp_getattro */
-    0,                            /* tp_setattro */
-    &buffer_as_buffer,            /* tp_as_buffer */
+    (destructor)buffer_dealloc,                 /* tp_dealloc */
+    0,                                          /* tp_print */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    (cmpfunc)buffer_compare,                    /* tp_compare */
+    (reprfunc)buffer_repr,                      /* tp_repr */
+    0,                                          /* tp_as_number */
+    &buffer_as_sequence,                        /* tp_as_sequence */
+    &buffer_as_mapping,                         /* tp_as_mapping */
+    (hashfunc)buffer_hash,                      /* tp_hash */
+    0,                                          /* tp_call */
+    (reprfunc)buffer_str,                       /* tp_str */
+    PyObject_GenericGetAttr,                    /* tp_getattro */
+    0,                                          /* tp_setattro */
+    &buffer_as_buffer,                          /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GETCHARBUFFER, /* tp_flags */
-    buffer_doc,                   /* tp_doc */
-    0,                            /* tp_traverse */
-    0,                            /* tp_clear */
-    0,                            /* tp_richcompare */
-    0,                            /* tp_weaklistoffset */
-    0,                            /* tp_iter */
-    0,                            /* tp_iternext */
-    0,                            /* tp_methods */    
-    0,                            /* tp_members */
-    0,                            /* tp_getset */
-    0,                            /* tp_base */
-    0,                            /* tp_dict */
-    0,                            /* tp_descr_get */
-    0,                            /* tp_descr_set */
-    0,                            /* tp_dictoffset */
-    0,                            /* tp_init */
-    0,                            /* tp_alloc */
-    buffer_new,                   /* tp_new */
+    buffer_doc,                                 /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    0,                                          /* tp_methods */
+    0,                                          /* tp_members */
+    0,                                          /* tp_getset */
+    0,                                          /* tp_base */
+    0,                                          /* tp_dict */
+    0,                                          /* tp_descr_get */
+    0,                                          /* tp_descr_set */
+    0,                                          /* tp_dictoffset */
+    0,                                          /* tp_init */
+    0,                                          /* tp_alloc */
+    buffer_new,                                 /* tp_new */
 };
-

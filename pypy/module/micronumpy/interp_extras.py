@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_numarray import BaseArray
+from pypy.module.micronumpy.interp_numarray import BaseArray, get_numarray_cache
 
 
 @unwrap_spec(array=BaseArray)
@@ -13,3 +13,7 @@ def remove_invalidates(space, array):
     """
     del array.invalidates[:]
     return space.w_None
+
+@unwrap_spec(arg=bool)
+def set_invalidation(space, arg):
+    get_numarray_cache(space).enable_invalidation = arg

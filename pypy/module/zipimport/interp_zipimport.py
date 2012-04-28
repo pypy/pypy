@@ -229,7 +229,11 @@ class W_ZipImporter(Wrappable):
         startpos = fullname.rfind('.') + 1 # 0 when not found
         assert startpos >= 0
         subname = fullname[startpos:]
-        return self.prefix + subname.replace('.', '/')
+        if ZIPSEP == os.path.sep:
+            return self.prefix + subname.replace('.', '/')
+        else:
+            return self.prefix.replace(os.path.sep, ZIPSEP) + \
+                    subname.replace('.', '/')
 
     def make_co_filename(self, filename):
         """

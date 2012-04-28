@@ -145,12 +145,15 @@ class TestTranforms(unittest.TestCase):
 
     def test_binary_subscr_on_unicode(self):
         # valid code get optimized
-        asm = dis_single('u"foo"[0]')
-        self.assertIn("(u'f')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
-        asm = dis_single('u"\u0061\uffff"[1]')
-        self.assertIn("(u'\\uffff')", asm)
-        self.assertNotIn('BINARY_SUBSCR', asm)
+        # XXX for now we always disable this optimization
+        # XXX see CPython's issue5057
+        if 0:
+            asm = dis_single('u"foo"[0]')
+            self.assertIn("(u'f')", asm)
+            self.assertNotIn('BINARY_SUBSCR', asm)
+            asm = dis_single('u"\u0061\uffff"[1]')
+            self.assertIn("(u'\\uffff')", asm)
+            self.assertNotIn('BINARY_SUBSCR', asm)
 
         # invalid code doesn't get optimized
         # out of range

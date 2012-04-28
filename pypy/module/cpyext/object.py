@@ -390,6 +390,15 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
+@cpython_api([PyObject], lltype.Signed, error=-1)
+def PyObject_HashNotImplemented(space, o):
+    """Set a TypeError indicating that type(o) is not hashable and return -1.
+    This function receives special treatment when stored in a tp_hash slot,
+    allowing a type to explicitly indicate to the interpreter that it is not
+    hashable.
+    """
+    raise OperationError(space.w_TypeError, space.wrap("unhashable type"))
+
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, w_o):
     """This is equivalent to the Python expression dir(o), returning a (possibly

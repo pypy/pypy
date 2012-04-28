@@ -273,6 +273,43 @@ class TestString(BaseApiTest):
         rffi.free_charp(buf)
         assert w_s1 is w_s2
 
+    def test_AsEncodedObject(self, space, api):
+        ptr = space.wrap('abc')
+
+        errors = rffi.str2charp("strict")
+
+        encoding = rffi.str2charp("hex")
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, errors)
+        assert space.unwrap(res) == "616263"
+
+        res = api.PyString_AsEncodedObject(
+            ptr, encoding, lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "616263"
+        rffi.free_charp(encoding)
+
+        encoding = rffi.str2charp("unknown_encoding")
+        self.raises(space, api, LookupError, api.PyString_AsEncodedObject,
+                    ptr, encoding, errors)
+        rffi.free_charp(encoding)
+
+        rffi.free_charp(errors)
+
+        res = api.PyString_AsEncodedObject(
+            ptr, lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.unwrap(res) == "abc"
+
+        self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
+            space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
+        )
+
+    def test_AsDecodedObject(self, space, api):
+        w_str = space.wrap('caf\xe9')
+        encoding = rffi.str2charp("latin-1")
+        w_res = api.PyString_AsDecodedObject(w_str, encoding, None)
+        rffi.free_charp(encoding)
+        assert space.unwrap(w_res) == u"caf\xe9"
+
     def test_eq(self, space, api):
         assert 1 == api._PyString_Eq(space.wrapbytes("hello"), space.wrapbytes("hello"))
         assert 0 == api._PyString_Eq(space.wrapbytes("hello"), space.wrapbytes("world"))
