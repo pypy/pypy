@@ -7813,6 +7813,51 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_issue1080_infinitie_loop_virtual(self):
+        ops = """
+        [p10]
+        p52 = getfield_gc(p10, descr=nextdescr) # inst_storage
+        p54 = getarrayitem_gc(p52, 0, descr=arraydescr)
+        p69 = getfield_gc_pure(p54, descr=otherdescr) # inst_w_function
+
+        quasiimmut_field(p69, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        guard_value(p71, -4247) []
+
+        p106 = new_with_vtable(ConstClass(node_vtable))
+        p108 = new_array(3, descr=arraydescr)
+        p110 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p110, ConstPtr(myptr2), descr=otherdescr) # inst_w_function
+        setarrayitem_gc(p108, 0, p110, descr=arraydescr)
+        setfield_gc(p106, p108, descr=nextdescr) # inst_storage
+        jump(p106)
+        """
+        expected = """
+        []
+        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
+        guard_value(p72, -4247) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_issue1080_infinitie_loop_simple(self):
+        ops = """
+        [p69]
+        quasiimmut_field(p69, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        guard_value(p71, -4247) []
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        []
+        p72 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        guard_value(p72, -4247) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
