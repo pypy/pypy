@@ -198,7 +198,10 @@ class AppTestFfi:
         import nt
         r = ExpandEnvironmentStrings(u"%windir%\\test")
         assert isinstance(r, unicode)
-        assert r == nt.environ["WINDIR"] + "\\test"
+        if 'WINDIR' in nt.environ.keys():
+            assert r == nt.environ["WINDIR"] + "\\test"
+        else:
+            assert r == nt.environ["windir"] + "\\test"
 
     def test_long_key(self):
         from _winreg import (
