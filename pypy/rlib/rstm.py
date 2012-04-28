@@ -146,6 +146,9 @@ _transactionalstate = _TransactionalState()
 def _stm_run_transaction(transactionptr, retry_counter):
     #
     # Tell the GC we are starting a transaction
+    # (at this point, we have no stack root at all; the following
+    # call will clear any remaining garbage from the shadowstack,
+    # in case of an aborted transaction)
     llop.stm_start_transaction(lltype.Void)
     #
     # Now we can use the GC
