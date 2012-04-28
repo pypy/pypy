@@ -48,6 +48,11 @@ PyOS_getsig(int sig)
 #endif
 }
 
+/*
+ * All of the code in this function must only use async-signal-safe functions,
+ * listed at `man 7 signal` or
+ * http://www.opengroup.org/onlinepubs/009695399/functions/xsh_chap02_04.html.
+ */
 PyOS_sighandler_t
 PyOS_setsig(int sig, PyOS_sighandler_t handler)
 {
