@@ -9,6 +9,7 @@ from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import base_ptr_lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
@@ -502,7 +503,10 @@ def test_cast_instance_to_base_ptr():
             self.y = y
 
     def f(x, y):
-        a = A(x, y)
+        if x > 20:
+            a = None
+        else:
+            a = A(x, y)
         a1 = cast_instance_to_base_ptr(a)
         return a1
 
@@ -510,3 +514,30 @@ def test_cast_instance_to_base_ptr():
     assert typeOf(res) == base_ptr_lltype()
     assert fishllattr(res, 'x') == 5
     assert fishllattr(res, 'y') == 10
+
+    res = interpret(f, [25, 10])
+    assert res == nullptr(base_ptr_lltype().TO)
+
+
+def test_cast_base_ptr_to_instance():
+    class A:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+
+    def f(x, y):
+        if x > 20:
+            a = None
+        else:
+            a = A(x, y)
+        a1 = cast_instance_to_base_ptr(a)
+        b = cast_base_ptr_to_instance(A, a1)
+        return a is b
+
+    assert f(5, 10) is True
+    assert f(25, 10) is True
+
+    res = interpret(f, [5, 10])
+    assert res is True
+    res = interpret(f, [25, 10])
+    assert res is True
