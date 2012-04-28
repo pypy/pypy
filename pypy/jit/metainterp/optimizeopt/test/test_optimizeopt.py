@@ -7833,13 +7833,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage
         jump(p106)
         """
-        expected = """
-        []
-        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
-        guard_value(p72, -4247) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
+        py.test.raises(InvalidLoop, self.optimize_loop,
+                       ops, expected)
+        
 
     def test_issue1080_infinitie_loop_simple(self):
         ops = """
@@ -7856,7 +7852,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(p72, -4247) []
         jump()
         """
-        self.optimize_loop(ops, expected)
+        py.test.raises(InvalidLoop, self.optimize_loop,
+                       ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
