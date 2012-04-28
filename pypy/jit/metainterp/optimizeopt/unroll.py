@@ -315,7 +315,10 @@ class UnrollOptimizer(Optimization):
         try:
             jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         except BadVirtualState:
-            raise InvalidLoop
+            raise InvalidLoop('The state of the optimizer at the end of ' +
+                              'peeled loop is inconsistent with the ' +
+                              'VirtualState at the begining of the peeled ' +
+                              'loop')
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
@@ -325,7 +328,11 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short_inputargs)):
             if short_inputargs[i] in args:
                 if args[short_inputargs[i]] != jmp_to_short_args[i]:
-                    raise InvalidLoop
+                    raise InvalidLoop('The short preamble wants the ' +
+                                      'same box passed to multiple of its ' +
+                                      'inputargs, but the jump at the ' +
+                                      'end of this bridge does not do that.')
+                                      
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         for op in self.short[1:]:
