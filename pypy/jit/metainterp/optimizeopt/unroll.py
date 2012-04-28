@@ -526,8 +526,8 @@ class UnrollOptimizer(Optimization):
         args = jumpop.getarglist()
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(args)
-        #debug_start('jit-log-virtualstate')
-        #virtual_state.debug_print("Looking for ")
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print("Looking for ")
 
         for target in cell_token.target_tokens:
             if not target.virtual_state:
@@ -536,10 +536,10 @@ class UnrollOptimizer(Optimization):
             extra_guards = []
 
             bad = {}
-            #debugmsg = 'Did not match '
+            debugmsg = 'Did not match '
             if target.virtual_state.generalization_of(virtual_state, bad):
                 ok = True
-                #debugmsg = 'Matched '
+                debugmsg = 'Matched '
             else:
                 try:
                     cpu = self.optimizer.cpu
@@ -548,13 +548,13 @@ class UnrollOptimizer(Optimization):
                                                          extra_guards)
 
                     ok = True
-                    #debugmsg = 'Guarded to match '
+                    debugmsg = 'Guarded to match '
                 except InvalidLoop:
                     pass
-            #target.virtual_state.debug_print(debugmsg, bad)
+            target.virtual_state.debug_print(debugmsg, bad)
 
             if ok:
-                #debug_stop('jit-log-virtualstate')
+                debug_stop('jit-log-virtualstate')
 
                 values = [self.getvalue(arg)
                           for arg in jumpop.getarglist()]
@@ -581,7 +581,7 @@ class UnrollOptimizer(Optimization):
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
                 return True
-        #debug_stop('jit-log-virtualstate')
+        debug_stop('jit-log-virtualstate')
         return False
 
 class ValueImporter(object):
