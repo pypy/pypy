@@ -378,7 +378,10 @@ class UnrollOptimizer(Optimization):
             #final_virtual_state.debug_print("Bad virtual state at end of loop, ",
             #                                bad)
             #debug_stop('jit-log-virtualstate')
-            raise InvalidLoop
+            raise InvalidLoop('The virtual state at the end of the peeled ' +
+                              'loop is not compatible with the virtual ' +
+                              'state at the start of the loop which makes ' +
+                              'it impossible to close the loop')
             
         #debug_stop('jit-log-virtualstate')
 
