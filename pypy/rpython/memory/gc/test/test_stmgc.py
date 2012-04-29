@@ -863,4 +863,19 @@ class TestBasic(StmGCTests):
         self.gc.collect(0)                      # keeps LOCAL
         s = nongc.s                             # reload, it moved
         s_adr = llmemory.cast_ptr_to_adr(s)
-        self.checkflags(s_adr, False, False)    # check it survived
+        self.checkflags(s_adr, False, False)    # check it survived; local
+
+    def test_prebuilt_nongc_enterleave(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
+        nongc = lltype.malloc(NONGC, immortal=True, flavor='raw')
+        self.gc.root_walker.prebuilt_nongc = [(nongc, 's')]
+        #
+        s, _ = self.malloc(S, globl=False)      # a local object
+        nongc.s = s
+        self.gc.enter_transactional_mode()      # forces it to become GLOBAL
+        self.gc.leave_transactional_mode()
+        s = nongc.s                             # reload, it moved
+        s_adr = llmemory.cast_ptr_to_adr(s)
+        self.checkflags(s_adr, True, False)     # check it survived; global
