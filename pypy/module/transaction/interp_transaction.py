@@ -127,7 +127,16 @@ class SpaceTransaction(rstm.Transaction):
         ec = self.space.getexecutioncontext()    # create it if needed
         assert len(ec._transaction_pending) == 0
         #
+        if self.space.config.translation.stm:
+            from pypy.objspace.std.typeobject import MethodCache
+            ec._methodcache = MethodCache(self.space)
+        #
         self.space.call_args(self.w_callback, self.args)
+        #
+        if self.space.config.translation.stm:
+            # remove the method cache again now, to prevent it from being
+            # promoted to a GLOBAL
+            ec._methodcache = None
         #
         result = ec._transaction_pending
         ec._transaction_pending = []

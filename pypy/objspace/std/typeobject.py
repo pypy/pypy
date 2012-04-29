@@ -409,6 +409,9 @@ class W_TypeObject(W_Object):
         if space.config.translation.stm:
             # with stm, it's important to use one method cache per thread;
             # otherwise, we get all the time spurious transaction conflicts.
+            # For now we have one per transaction: the following field is
+            # set when we start a transaction, and cleared just before
+            # committing.
             cache = space.getexecutioncontext()._methodcache
         else:
             cache = space.fromcache(MethodCache)
