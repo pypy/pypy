@@ -8,6 +8,12 @@ from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
+# needed only for the verbatim copy of setup_class from test_base
+from pypy.conftest import gettestobjspace
+from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
+     byteorder_prefix
+from pypy.conftest import option
+import sys
 
 class MockDtype(object):
     class itemtype(object):
@@ -195,6 +201,48 @@ class TestNumArrayDirect(object):
         assert _to_coords(13, 'F') == [1, 0, 2]
 
 class AppTestNumArray(BaseNumpyAppTest):
+    def setup_class(cls):
+        # this is a verbatim copy from test_base, because calling the base classes
+        # setup_class method doesn't seem to work at all.
+        if option.runappdirect:
+            if '__pypy__' not in sys.builtin_module_names:
+                import numpy
+                sys.modules['numpypy'] = numpy
+                sys.modules['_numpypy'] = numpy
+        cls.space = gettestobjspace(usemodules=['micronumpy'])
+        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
+        cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
+
+        w_tup = cls.space.appexec([], """():
+
+        class CustomIndexObject(object):
+            def __init__(self, index):
+                self.index = index
+            def __index__(self):
+                return self.index
+
+        class CustomIndexIntObject(object):
+            def __init__(self, index, value):
+                self.index = index
+                self.value = value
+            def __index__(self):
+                return self.index
+            def __int__(self):
+                return self.value
+
+        class CustomIntObject(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        return CustomIndexObject, CustomIndexIntObject, CustomIntObject""")
+
+        tup = cls.space.unpackiterable(w_tup)
+        cls.w_CustomIndexObject = tup[0]
+        cls.w_CustomIndexIntObject = tup[1]
+        cls.w_CustomIntObject = tup[2]
+
     def test_ndarray(self):
         from _numpypy import ndarray, array, dtype
 
@@ -332,45 +380,24 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_getitem_obj_index(self):
         from _numpypy import arange
 
-        class CustomIndexObject(object):
-            def __init__(self, index):
-                self.index = index
-            def __index__(self):
-                return self.index
-
         a = arange(10)
 
-        assert a[CustomIndexObject(1)] == 1
+        assert a[self.CustomIndexObject(1)] == 1
 
     def test_getitem_obj_prefer_index_to_int(self):
         from _numpypy import arange
 
-        class CustomIndexIntObject(object):
-            def __init__(self, index, value):
-                self.index = index
-                self.value = value
-            def __index__(self):
-                return self.index
-            def __int__(self):
-                return self.value
-
         a = arange(10)
 
 
-        assert a[CustomIndexIntObject(0, 1)] == 0
+        assert a[self.CustomIndexIntObject(0, 1)] == 0
 
     def test_getitem_obj_int(self):
         from _numpypy import arange
 
-        class CustomIntObject(object):
-            def __init__(self, value):
-                self.value = value
-            def __index__(self):
-                return self.value
-
         a = arange(10)
 
-        assert a[CustomIntObject(1)] == 1
+        assert a[self.CustomIntObject(1)] == 1
 
     def test_setitem(self):
         from _numpypy import array
@@ -394,46 +421,25 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_setitem_obj_index(self):
         from _numpypy import arange
 
-        class CustomIndexObject(object):
-            def __init__(self, index):
-                self.index = index
-            def __index__(self):
-                return self.index
-
         a = arange(10)
 
-        a[CustomIndexObject(1)] = 100
+        a[self.CustomIndexObject(1)] = 100
         assert a[1] == 100
 
     def test_setitem_obj_prefer_index_to_int(self):
         from _numpypy import arange
 
-        class CustomIndexIntObject(object):
-            def __init__(self, index, value):
-                self.index = index
-                self.value = value
-            def __index__(self):
-                return self.index
-            def __int__(self):
-                return self.value
-
         a = arange(10)
 
-        a[CustomIndexIntObject(0, 1)] = 100
+        a[self.CustomIndexIntObject(0, 1)] = 100
         assert a[0] == 100
 
     def test_setitem_obj_int(self):
         from _numpypy import arange
 
-        class CustomIntObject(object):
-            def __init__(self, index):
-                self.index = index
-            def __index__(self):
-                return self.index
-
         a = arange(10)
 
-        a[CustomIntObject(1)] = 100
+        a[self.CustomIntObject(1)] = 100
 
         assert a[1] == 100
 
