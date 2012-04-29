@@ -267,9 +267,14 @@ class TypeLayoutBuilder(object):
         # prebuilt structures.  It should list all the locations that could
         # possibly point to a GC heap object.
         # this lists contains pointers in GcStructs and GcArrays
+        # (note that on some GCs, we don't need this, so it is empty)
         self.addresses_of_static_ptrs = []
         # this lists contains pointers in raw Structs and Arrays
         self.addresses_of_static_ptrs_in_nongc = []
+        # this lists contains addresses of functions that just return
+        # the thread-local address of a GC pointer from a raw Struct
+        # with the 'stm_thread_local' hint.
+        self.addresses_of_static_getters_thrloc = []
         # for debugging, the following list collects all the prebuilt
         # GcStructs and GcArrays
         self.all_prebuilt_gc = []
@@ -425,24 +430,28 @@ class TypeLayoutBuilder(object):
         adr = llmemory.cast_ptr_to_adr(value._as_ptr())
         if TYPE._gckind == "gc":
             if gc.prebuilt_gc_objects_are_static_roots or gc.DEBUG:
-                appendto = self.addresses_of_static_ptrs
+                append = self.addresses_of_static_ptrs.append
             else:
                 return
         elif hasattr(TYPE, "_hints") and TYPE._hints.get('stm_thread_local'):
-            # The exception data's value object is skipped: it's a thread-
-            # local data structure.  We assume that objects are stored
-            # only temporarily there, so it is always cleared at the point
-            # where we collect the roots.
-            if TYPE._name == 'ExcData':
-                return
-            # Some other thread-local data don't have any GC pointers
-            # themselves.  These are fine.
-            assert list(gc_pointers_inside(value, adr)) == []
-            return
+            assert gc.handles_thread_locals
+            def append(a):
+                def getter():
+                    return a
+                from pypy.annotation import model as annmodel
+                from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+                annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
+                fptr = annhelper.delayedfunction(getter, [],
+                                                 annmodel.SomeAddress())
+                annhelper.finish()
+                adr = llmemory.cast_ptr_to_adr(fptr)
+                self.addresses_of_static_getters_thrloc.append(adr)
         else:
-            appendto = self.addresses_of_static_ptrs_in_nongc
+            append = self.addresses_of_static_ptrs_in_nongc.append
         for a in gc_pointers_inside(value, adr, mutable_only=True):
-            appendto.append(a)
+            append(a)
+
+GETTERFN = lltype.Ptr(lltype.FuncType([], llmemory.Address))
 
 # ____________________________________________________________
 #
