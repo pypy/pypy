@@ -8,13 +8,6 @@ from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-# needed only for the verbatim copy of setup_class from test_base
-from pypy.conftest import gettestobjspace
-from pypy.module.micronumpy.interp_dtype import nonnative_byteorder_prefix,\
-     byteorder_prefix
-from pypy.conftest import option
-import sys
-
 class MockDtype(object):
     class itemtype(object):
         @staticmethod
@@ -202,16 +195,7 @@ class TestNumArrayDirect(object):
 
 class AppTestNumArray(BaseNumpyAppTest):
     def setup_class(cls):
-        # this is a verbatim copy from test_base, because calling the base classes
-        # setup_class method doesn't seem to work at all.
-        if option.runappdirect:
-            if '__pypy__' not in sys.builtin_module_names:
-                import numpy
-                sys.modules['numpypy'] = numpy
-                sys.modules['_numpypy'] = numpy
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
-        cls.w_non_native_prefix = cls.space.wrap(nonnative_byteorder_prefix)
-        cls.w_native_prefix = cls.space.wrap(byteorder_prefix)
+        BaseNumpyAppTest.setup_class.im_func(cls)
 
         w_tup = cls.space.appexec([], """():
 
