@@ -119,6 +119,7 @@ def test_raise():
     py.test.raises(MyException, rstm.run_all_transactions, DoInOrder())
 
 def test_threadlocal():
+    py.test.skip("disabled")
     # not testing the thread-local factor, but only the general interface
     class Point:
         def __init__(self, x, y):

@@ -225,7 +225,7 @@ def _stm_thread_stopping():
     llop.stm_thread_stopping(lltype.Void)
 
 
-class ThreadLocal(object):
+class DISABLEDThreadLocal(object):
     """
     A thread-local container.  Use only for one or a few static places,
     e.g. the ExecutionContext in the PyPy interpreter; and store any
@@ -241,9 +241,8 @@ class ThreadLocal(object):
                                    hints={'stm_thread_local': True})
 
     def __init__(self, Class):
-        assert not we_are_translated(), (
-            "You can only have a small number of ThreadLocal() instances"
-            " built during translation.")
+        """NOT_RPYTHON: You can only have a small number of ThreadLocal()
+        instances built during translation."""
         self.Class = Class
         self.threadlocal = lltype.malloc(self.STMTHREADLOCAL, immortal=True)
 
