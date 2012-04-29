@@ -6533,9 +6533,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_quasi_immut_2(self):
         ops = """
         []
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         escape(i1)
         jump()
         """
@@ -6585,13 +6585,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_call_may_force_invalidated_guards_reload(self):
         ops = """
         [i0a, i0b]
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i2 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -7833,8 +7833,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage
         jump(p106)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, expected)
+        expected = """
+        []
+        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
+        guard_value(p72, -4247) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
         
 
     def test_issue1080_infinitie_loop_simple(self):
@@ -7852,8 +7857,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(p72, -4247) []
         jump()
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, expected)
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
