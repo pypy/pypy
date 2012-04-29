@@ -25,19 +25,36 @@ class FakeSharedArea:
     pass
 
 class FakeRootWalker:
-    def walk_current_stack_roots(self, callback, arg):
+    current_stack = ()
+    prebuilt_nongc = ()
+
+    def collect_list(self, lst):
         A = lltype.Array(llmemory.Address)
-        roots = lltype.malloc(A, len(self.current_stack), flavor='raw')
-        for i in range(len(self.current_stack)):
-            roots[i] = llmemory.cast_ptr_to_adr(self.current_stack[i])
-        for i in range(len(self.current_stack)):
+        roots = lltype.malloc(A, len(lst), flavor='raw')
+        for i in range(len(lst)):
+            roots[i] = llmemory.cast_ptr_to_adr(lst[i])
+        for i in range(len(lst)):
             root = lltype.direct_ptradd(lltype.direct_arrayitems(roots), i)
             root = llmemory.cast_ptr_to_adr(root)
-            callback(arg, root)
-        for i in range(len(self.current_stack)):
-            P = lltype.typeOf(self.current_stack[i])
-            self.current_stack[i] = llmemory.cast_adr_to_ptr(roots[i], P)
+            yield root
+        for i in range(len(lst)):
+            P = lltype.typeOf(lst[i])
+            lst[i] = llmemory.cast_adr_to_ptr(roots[i], P)
         lltype.free(roots, flavor='raw')
+
+    def walk_current_stack_roots(self, callback, arg):
+        for root in self.collect_list(self.current_stack):
+            callback(arg, root)
+
+    def collect_field_list(self, lst):
+        for structptr, field in lst:
+            root = lltype.direct_fieldptr(structptr, field)
+            root = llmemory.cast_ptr_to_adr(root)
+            yield root
+
+    def walk_current_nongc_roots(self, callback, arg):
+        for root in self.collect_field_list(self.prebuilt_nongc):
+            callback(arg, root)
 
 class FakeGC:
     from pypy.rpython.memory.support import AddressDict, null_address_dict

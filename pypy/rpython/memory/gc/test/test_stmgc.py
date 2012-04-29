@@ -133,6 +133,8 @@ def fake_weakpointer_offset(tid):
 class FakeRootWalker:
     def walk_current_stack_roots(self, *args):
         pass     # no stack roots in this test file
+    def walk_current_nongc_roots(self, *args):
+        pass     # no nongc roots in this test file
 
 
 class StmGCTests:
@@ -848,3 +850,17 @@ class TestBasic(StmGCTests):
         assert a == sr1_adr
         a = self.gc.stm_normalize_global(tr1_adr)
         assert a == sr1_adr
+
+    def test_prebuilt_nongc(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
+        nongc = lltype.malloc(NONGC, immortal=True, flavor='raw')
+        self.gc.root_walker.prebuilt_nongc = [(nongc, 's')]
+        #
+        s, _ = self.malloc(S, globl=False)      # a local object
+        nongc.s = s
+        self.gc.collect(0)                      # keeps LOCAL
+        s = nongc.s                             # reload, it moved
+        s_adr = llmemory.cast_ptr_to_adr(s)
+        self.checkflags(s_adr, False, False)    # check it survived

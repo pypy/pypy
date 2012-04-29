@@ -198,3 +198,15 @@ class StmShadowStackRootWalker(BaseRootWalker):
         self.rootstackhook(collect_stack_root, arg,
                            stackgcdata.root_stack_base,
                            stackgcdata.root_stack_top)
+
+    @specialize.argtype(2)
+    def walk_current_nongc_roots(self, collect_nongc_root, arg):
+        gcdata = self.gcdata
+        gc = self.gc
+        addr = gcdata.static_root_start
+        end = gcdata.static_root_nongcend
+        while addr != end:
+            result = addr.address[0]
+            if gc.points_to_valid_gc_object(result):
+                collect_nongc_root(arg, result)
+            addr += sizeofaddr
