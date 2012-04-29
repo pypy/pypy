@@ -86,8 +86,7 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     code (see tldict_lookup()).
 #
 # Invariant: between two transactions, all objects visible from the current
-# thread are always GLOBAL, with the exception of the ones only reachable
-# via thread-local data structures, which remain LOCAL.  In particular:
+# thread are always GLOBAL.  In particular:
 #
 #   - The LOCAL objects of a thread are not visible at all from other threads.
 #     This means that in transactional mode there is *no* pointer from a
@@ -95,8 +94,6 @@ first_gcflag = 1 << (LONG_BIT//2)
 #
 #   - At the end of enter_transactional_mode(), and at the beginning of
 #     leave_transactional_mode(), *all* objects everywhere are GLOBAL.
-#     (With the possible exception of the thread-local ones from the main
-#     thread.)
 #
 # Collection: for now we have only local_collection(), which ignores all
 # GLOBAL objects.
@@ -113,11 +110,9 @@ first_gcflag = 1 << (LONG_BIT//2)
 #
 #   - A special case is the end-of-transaction collection, done by the same
 #     local_collection() with a twist: all pointers to a LOCAL COPY object
-#     are replaced with copies to the corresponding GLOBAL original.
-#     We additionally mark all surviving LOCAL objects as GLOBAL,
-#     unless they are only reachable via thread-locals.
-#     Then we are back to the situation where this thread sees only
-#     GLOBAL objects (again, with the exception of thread-locals).
+#     are replaced with copies to the corresponding GLOBAL original.  When
+#     it is done, we mark all surviving LOCAL objects as GLOBAL too, and we
+#     are back to the situation where this thread sees only GLOBAL objects.
 #     What we leave to the C code to do "as a finishing touch" is to copy
 #     transactionally the content of the LOCAL COPY objects back over the
 #     GLOBAL originals; before this is done, the transaction can be aborted
@@ -168,7 +163,6 @@ class StmGC(MovingGCBase):
     #needs_write_barrier = "stm"
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx?
-    handles_thread_locals = True
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed),
                                   ('version', llmemory.Address))

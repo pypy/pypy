@@ -168,7 +168,6 @@ class FrameworkGCTransformer(GCTransformer):
         a_random_address = llmemory.cast_ptr_to_adr(foo)
         gcdata.static_root_start = a_random_address      # patched in finish()
         gcdata.static_root_nongcend = a_random_address   # patched in finish()
-        gcdata.static_root_thrlocend = a_random_address  # patched in finish()
         gcdata.static_root_end = a_random_address        # patched in finish()
         gcdata.max_type_id = 13                          # patched in finish()
         gcdata.typeids_z = a_random_address              # patched in finish()
@@ -206,9 +205,6 @@ class FrameworkGCTransformer(GCTransformer):
             annmodel.SomeAddress())
         data_classdef.generalize_attr(
             'static_root_nongcend',
-            annmodel.SomeAddress())
-        data_classdef.generalize_attr(
-            'static_root_thrlocend',
             annmodel.SomeAddress())
         data_classdef.generalize_attr(
             'static_root_end',
@@ -587,11 +583,9 @@ class FrameworkGCTransformer(GCTransformer):
         r_gcdata = self.translator.rtyper.getrepr(s_gcdata)
         ll_instance = rmodel.inputconst(r_gcdata, self.gcdata).value
 
-        lb = self.layoutbuilder
         addresses_of_static_ptrs = (
-            lb.addresses_of_static_ptrs_in_nongc +
-            lb.addresses_of_static_getters_thrloc +
-            lb.addresses_of_static_ptrs)
+            self.layoutbuilder.addresses_of_static_ptrs_in_nongc +
+            self.layoutbuilder.addresses_of_static_ptrs)
         log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
@@ -599,23 +593,9 @@ class FrameworkGCTransformer(GCTransformer):
 
         for i in range(len(addresses_of_static_ptrs)):
             ll_static_roots_inside[i] = addresses_of_static_ptrs[i]
-
-        ll_instance.inst_static_root_start = (
-            llmemory.cast_ptr_to_adr(ll_static_roots_inside) +
-            llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address)))
-        ll_instance.inst_static_root_nongcend = (
-            ll_instance.inst_static_root_start +
-            sizeofaddr * len(lb.addresses_of_static_ptrs_in_nongc))
-        ll_instance.inst_static_root_thrlocend = (
-            ll_instance.inst_static_root_nongcend +
-            sizeofaddr * len(lb.addresses_of_static_getters_thrloc))
-        ll_instance.inst_static_root_end = (
-            ll_instance.inst_static_root_thrlocend +
-            sizeofaddr * len(lb.addresses_of_static_ptrs))
-        assert ll_instance.inst_static_root_end == (
-            ll_instance.inst_static_root_start +
-            sizeofaddr * len(addresses_of_static_ptrs))
-
+        ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
+        ll_instance.inst_static_root_nongcend = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(self.layoutbuilder.addresses_of_static_ptrs_in_nongc)
+        ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(addresses_of_static_ptrs)
         newgcdependencies = []
         newgcdependencies.append(ll_static_roots_inside)
         ll_instance.inst_max_type_id = len(group.members)
@@ -627,15 +607,6 @@ class FrameworkGCTransformer(GCTransformer):
             ll_typeids_z[i] = typeids_z[i]
         ll_instance.inst_typeids_z = llmemory.cast_ptr_to_adr(ll_typeids_z)
         newgcdependencies.append(ll_typeids_z)
-        #
-        if lb.addresses_of_static_getters_thrloc:
-            annhelper = annlowlevel.MixLevelHelperAnnotator(
-                self.translator.rtyper)
-            for getter in lb.addresses_of_static_getters_thrloc:
-                annhelper.getgraph(getter.ptr._obj._callable, [],
-                                   annmodel.SomeAddress())
-            annhelper.finish()
-        #
         return newgcdependencies
 
     def get_finish_tables(self):
@@ -1403,8 +1374,7 @@ class BaseRootWalker(object):
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc,
-                   collect_static_in_prebuilt_threadlocal=None):
+                   collect_static_in_prebuilt_gc):
         gcdata = self.gcdata
         gc = self.gc
         if collect_static_in_prebuilt_nongc:
@@ -1415,18 +1385,8 @@ class BaseRootWalker(object):
                 if gc.points_to_valid_gc_object(result):
                     collect_static_in_prebuilt_nongc(gc, result)
                 addr += sizeofaddr
-        if collect_static_in_prebuilt_threadlocal:
-            addr = gcdata.static_root_nongcend
-            end = gcdata.static_root_thrlocend
-            while addr != end:
-                fadr = addr.address[0]
-                fptr = llmemory.cast_adr_to_ptr(fadr, gctypelayout.GETTERFN)
-                result = fptr()
-                if gc.points_to_valid_gc_object(result):
-                    collect_static_in_prebuilt_threadlocal(gc, result)
-                addr += sizeofaddr
         if collect_static_in_prebuilt_gc:
-            addr = gcdata.static_root_thrlocend
+            addr = gcdata.static_root_nongcend
             end = gcdata.static_root_end
             while addr != end:
                 result = addr.address[0]
