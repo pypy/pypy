@@ -20,7 +20,7 @@ class TransactionError(Exception):
 
 class Transaction(object):
     _next_transaction = None
-    #_scheduled = False         # for debugging
+    _scheduled = False         # for debugging
 
     def run(self):
         # subclasses can access 'self.retry_counter' here
