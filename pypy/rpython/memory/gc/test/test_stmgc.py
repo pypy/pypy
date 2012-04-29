@@ -135,6 +135,8 @@ class FakeRootWalker:
         pass     # no stack roots in this test file
     def walk_current_nongc_roots(self, *args):
         pass     # no nongc roots in this test file
+    def walk_current_thrloc_roots(self, *args):
+        pass     # no thread-local roots in this test file
 
 
 class StmGCTests:
@@ -851,7 +853,7 @@ class TestBasic(StmGCTests):
         a = self.gc.stm_normalize_global(tr1_adr)
         assert a == sr1_adr
 
-    def test_prebuilt_nongc(self):
+    def test_prebuilt_nongc_main(self):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
@@ -863,4 +865,50 @@ class TestBasic(StmGCTests):
         self.gc.collect(0)                      # keeps LOCAL
         s = nongc.s                             # reload, it moved
         s_adr = llmemory.cast_ptr_to_adr(s)
-        self.checkflags(s_adr, False, False)    # check it survived
+        self.checkflags(s_adr, False, False)    # check it survived; local
+
+    def test_prebuilt_nongc_enterleave(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
+        nongc = lltype.malloc(NONGC, immortal=True, flavor='raw')
+        self.gc.root_walker.prebuilt_nongc = [(nongc, 's')]
+        #
+        s, _ = self.malloc(S, globl=False)      # a local object
+        nongc.s = s
+        self.gc.enter_transactional_mode()      # forces it to become GLOBAL
+        self.gc.leave_transactional_mode()
+        s = nongc.s                             # reload, it moved
+        s_adr = llmemory.cast_ptr_to_adr(s)
+        self.checkflags(s_adr, True, False)     # check it survived; global
+
+    def test_prebuilt_threadlocal_main(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        THREADLOCAL = lltype.Struct('THREADLOCAL', ('s', lltype.Ptr(S)),
+                                    hints={'stm_thread_local': True})
+        threadlocal = lltype.malloc(THREADLOCAL, immortal=True, flavor='raw')
+        self.gc.root_walker.prebuilt_threadlocal = [(threadlocal, 's')]
+        #
+        s, _ = self.malloc(S, globl=False)      # a local object
+        threadlocal.s = s
+        self.gc.collect(0)                      # keeps LOCAL
+        s = threadlocal.s                       # reload, it moved
+        s_adr = llmemory.cast_ptr_to_adr(s)
+        self.checkflags(s_adr, False, False)    # check it survived; local
+
+    def test_prebuilt_threadlocal_enterleave(self):
+        from pypy.rpython.memory.gc.test import test_stmtls
+        self.gc.root_walker = test_stmtls.FakeRootWalker()
+        THREADLOCAL = lltype.Struct('THREADLOCAL', ('s', lltype.Ptr(S)),
+                                    hints={'stm_thread_local': True})
+        threadlocal = lltype.malloc(THREADLOCAL, immortal=True, flavor='raw')
+        self.gc.root_walker.prebuilt_threadlocal = [(threadlocal, 's')]
+        #
+        s, _ = self.malloc(S, globl=False)     # a local object
+        threadlocal.s = s
+        self.gc.enter_transactional_mode()     # 's' remains LOCAL (difference)
+        self.gc.leave_transactional_mode()
+        s = threadlocal.s                      # reload, it moved
+        s_adr = llmemory.cast_ptr_to_adr(s)
+        self.checkflags(s_adr, False, False)   # check it survived; still local

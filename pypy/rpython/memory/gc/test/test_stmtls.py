@@ -27,6 +27,7 @@ class FakeSharedArea:
 class FakeRootWalker:
     current_stack = ()
     prebuilt_nongc = ()
+    prebuilt_threadlocal = ()
 
     def collect_list(self, lst):
         A = lltype.Array(llmemory.Address)
@@ -54,6 +55,10 @@ class FakeRootWalker:
 
     def walk_current_nongc_roots(self, callback, arg):
         for root in self.collect_field_list(self.prebuilt_nongc):
+            callback(arg, root)
+
+    def walk_current_thrloc_roots(self, callback, arg):
+        for root in self.collect_field_list(self.prebuilt_threadlocal):
             callback(arg, root)
 
 class FakeGC:
