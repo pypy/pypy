@@ -238,8 +238,7 @@ class StmGCTLS(object):
         # they are simply added to 'pending'.
         self.collect_roots_from_stack()
         #
-        # Find the roots that are living in raw structures, and in
-        # thread-local raw structures.
+        # Find the roots that are living in raw structures.
         self.collect_from_raw_structures()
         #
         # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
@@ -388,8 +387,6 @@ class StmGCTLS(object):
 
     def collect_from_raw_structures(self):
         self.gc.root_walker.walk_current_nongc_roots(
-            StmGCTLS._trace_drag_out1, self)
-        self.gc.root_walker.walk_current_thrloc_roots(
             StmGCTLS._trace_drag_out1, self)
 
     def trace_and_drag_out_of_nursery(self, obj):
