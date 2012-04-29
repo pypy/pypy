@@ -63,3 +63,31 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(entry_point, backendopt=True)
         data = cbuilder.cmdexec('')
         assert '12\n12\n' in data, "got: %r" % (data,)
+
+    def test_prebuilt_nongc(self):
+        class DoNothing(rstm.Transaction):
+            def run(self):
+                pass
+        from pypy.rpython.lltypesystem import lltype
+        R = lltype.GcStruct('R', ('x', lltype.Signed))
+        S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
+        s1 = lltype.malloc(S1, immortal=True, flavor='raw')
+        S2 = lltype.Struct('S2', ('r', lltype.Ptr(R)),
+                           hints={'stm_thread_local': True})
+        s2 = lltype.malloc(S2, immortal=True, flavor='raw')
+        def do_stuff():
+            rstm.run_all_transactions(DoNothing())
+            print s1.r.x
+            print s2.r.x
+        do_stuff._dont_inline_ = True
+        def main(argv):
+            s1.r = lltype.malloc(R)
+            s1.r.x = 42
+            s2.r = lltype.malloc(R)
+            s2.r.x = 43
+            do_stuff()
+            return 0
+        #
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert '42\n43\n' in data, "got: %r" % (data,)
