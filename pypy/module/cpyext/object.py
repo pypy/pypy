@@ -57,6 +57,10 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
+@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
+def _PyObject_GC_NewVar(space, type, itemcount):
+    return _PyObject_NewVar(space, type, itemcount)
+
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)

@@ -139,42 +139,6 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
             ])
         module.getstring()
 
-    def test_format_v(self):
-        module = self.import_extension('foo', [
-            ("test_string_format_v", "METH_VARARGS",
-             '''
-                 return helper("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
-                        PyString_AsString(PyTuple_GetItem(args, 1)));
-             '''
-             )
-            ], prologue='''
-            PyObject* helper(char* fmt, ...)
-            {
-              va_list va;
-              PyObject* res;
-              va_start(va, fmt);
-              res = PyString_FromFormatV(fmt, va);
-              va_end(va);
-              return res;
-            }
-            ''')
-        res = module.test_string_format_v(1, "xyz")
-        assert res == "bla 1 ble xyz\n"
-
-    def test_format(self):
-        module = self.import_extension('foo', [
-            ("test_string_format", "METH_VARARGS",
-             '''
-                 return PyString_FromFormat("bla %d ble %s\\n",
-                        PyInt_AsLong(PyTuple_GetItem(args, 0)),
-                        PyString_AsString(PyTuple_GetItem(args, 1)));
-             '''
-             )
-            ])
-        res = module.test_string_format(1, "xyz")
-        assert res == "bla 1 ble xyz\n"
-
     def test_intern_inplace(self):
         module = self.import_extension('foo', [
             ("test_intern_inplace", "METH_O",

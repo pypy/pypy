@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define Py_CLEANUP_SUPPORTED 0x20000
+
 #define PYTHON_API_VERSION 1013
 #define PYTHON_API_STRING "1013"
 

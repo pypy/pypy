@@ -29,6 +29,16 @@ typedef struct {
 PyObject *PyUnicode_FromFormatV(const char *format, va_list vargs);
 PyObject *PyUnicode_FromFormat(const char *format, ...);
 
+Py_LOCAL_INLINE(size_t) Py_UNICODE_strlen(const Py_UNICODE *u)
+{
+    int res = 0;
+    while(*u++)
+        res++;
+    return res;
+}
+
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -529,6 +529,8 @@ manually remove this flag though!
 
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
+#define PyObject_GC_NewVar(type, typeobj, size) \
+                ( (type *) _PyObject_GC_NewVar(typeobj, size) )
 
 /* A dummy PyGC_Head, just to please some tests. Don't use it! */
 typedef union _gc_head {

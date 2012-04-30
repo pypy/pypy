@@ -215,3 +215,11 @@ def PyDictProxy_New(space, w_dict):
     w_frozendict = make_frozendict(space)
     return space.call_function(w_frozendict, w_dict)
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def _PyDict_HasOnlyStringKeys(space, w_dict):
+    keys_w = space.unpackiterable(w_dict)
+    for w_key in keys_w:
+        if not space.isinstance_w(w_key, space.w_unicode):
+            return 0
+    return 1
+
