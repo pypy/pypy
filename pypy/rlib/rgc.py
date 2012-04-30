@@ -154,21 +154,17 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             assert (source_start + length <= dest_start or
                     dest_start + length <= source_start)
 
-    # XXX --- custom version for STM ---
-    for i in range(length):
-        dest[i + dest_start] = source[i + source_start]
-    return
-    # XXX --- the rest is never translated so far ---
-
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
     if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
         # perform a write barrier that copies necessary flags from
         # source to dest
-        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
+        if llop.stm_is_enabled(lltype.Bool) or (
+           not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
                                                 source_start, dest_start,
-                                                length):
-            # if the write barrier is not supported, copy by hand
+                                                length)):
+            # if the write barrier is not supported, or if STM is
+            # enabled, copy by hand
             i = 0
             while i < length:
                 dest[i + dest_start] = source[i + source_start]
@@ -190,10 +186,8 @@ def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
 
-    # XXX --- custom version for STM ---
-    # the next two lines are disabled:
-##    if llop.shrink_array(lltype.Bool, p, smallerlength):
-##        return p    # done by the GC
+    if llop.shrink_array(lltype.Bool, p, smallerlength):
+        return p    # done by the GC
 
     # XXX we assume for now that the type of p is GcStruct containing a
     # variable array, with no further pointers anywhere, and exactly one
@@ -206,24 +200,24 @@ def ll_shrink_array(p, smallerlength):
     field = getattr(p, TP._names[0])
     setattr(newp, TP._names[0], field)
 
-    # XXX --- custom version for STM ---
-    # the old version first:
-##    ARRAY = getattr(TP, TP._arrayfld)
-##    offset = (llmemory.offsetof(TP, TP._arrayfld) +
-##              llmemory.itemoffsetof(ARRAY, 0))
-##    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
-##    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
-##    llmemory.raw_memcopy(source_addr, dest_addr,
-##                         llmemory.sizeof(ARRAY.OF) * smallerlength)
+    if llop.stm_is_enabled(lltype.Bool):
+        # do the copying element by element
+        i = 0
+        while i < smallerlength:
+            newp.chars[i] = p.chars[i]
+            i += 1
+        return newp
 
-##    keepalive_until_here(p)
-##    keepalive_until_here(newp)
+    ARRAY = getattr(TP, TP._arrayfld)
+    offset = (llmemory.offsetof(TP, TP._arrayfld) +
+              llmemory.itemoffsetof(ARRAY, 0))
+    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
+    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
+    llmemory.raw_memcopy(source_addr, dest_addr,
+                         llmemory.sizeof(ARRAY.OF) * smallerlength)
 
-    i = 0
-    while i < smallerlength:
-        newp.chars[i] = p.chars[i]
-        i += 1
-
+    keepalive_until_here(p)
+    keepalive_until_here(newp)
     return newp
 ll_shrink_array._annspecialcase_ = 'specialize:ll'
 ll_shrink_array._jit_look_inside_ = False
