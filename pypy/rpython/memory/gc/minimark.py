@@ -916,7 +916,7 @@ class MiniMarkGC(MovingGCBase):
         ll_assert(not self.is_in_nursery(obj),
                   "object in nursery after collection")
         # similarily, all objects should have this flag:
-        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS,
+        ll_assert(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS != 0,
                   "missing GCFLAG_TRACK_YOUNG_PTRS")
         # the GCFLAG_VISITED should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_VISITED == 0,
