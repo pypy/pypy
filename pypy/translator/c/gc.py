@@ -412,6 +412,6 @@ name_to_gcpolicy = {
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
-    'framework+asmgcroot': AsmGcRootFrameworkGcPolicy,
+    'framework+asmgcc': AsmGcRootFrameworkGcPolicy,
     'framework+stm': StmFrameworkGcPolicy,
 }
