@@ -12,21 +12,17 @@ from pypy import conftest
 
 class LLInterpedTranformerTests:
 
-    def llinterpreter_for_transformed_graph(self, f, args_s):
+    def llinterpreter_for_transformed_graph(self, f):
         from pypy.rpython.llinterp import LLInterpreter
         from pypy.translator.c.genc import CStandaloneBuilder
         from pypy.translator.c import gc
+        from pypy.annotation.listdef import s_list_of_strings
 
-        t = rtype(f, args_s)
+        t = rtype(f, [s_list_of_strings])
         # XXX we shouldn't need an actual gcpolicy here.
         cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         graph = cbuild.getentrypointptr()._obj.graph
-        # arguments cannot be GC objects because nobody would put a
-        # proper header on them
-        for v in graph.getargs():
-            if isinstance(v.concretetype, lltype.Ptr):
-                assert v.concretetype.TO._gckind != 'gc', "fix the test!"
         llinterp = LLInterpreter(t.rtyper)
         if conftest.option.view:
             t.view()
@@ -47,20 +43,22 @@ class LLInterpedTranformerTests:
                 d = C()
                 d.x = 2
                 return d
-        def f(x):
+        def f(argv):
+            x = int(argv[1])
             return g(x).x
 
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f)
 
-        res = llinterp.eval_graph(graph, [0])
-        assert res == f(0)
-        res = llinterp.eval_graph(graph, [1])
-        assert res == f(1)
+        res = llinterp.eval_entry_point(graph, ["0"])
+        assert res == f(["", "0"])
+        res = llinterp.eval_entry_point(graph, ["1"])
+        assert res == f(["", "1"])
 
     def test_simple_varsize(self):
         from pypy.annotation.model import SomeInteger
 
-        def f(x):
+        def f(argv):
+            x = int(argv[1])
             r = []
             for i in range(x):
                 if i % 2:
@@ -68,17 +66,18 @@ class LLInterpedTranformerTests:
             return len(r)
 
 
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f)
 
-        res = llinterp.eval_graph(graph, [0])
-        assert res == f(0)
-        res = llinterp.eval_graph(graph, [10])
-        assert res == f(10)
+        res = llinterp.eval_entry_point(graph, ["0"])
+        assert res == f(["", "0"])
+        res = llinterp.eval_entry_point(graph, ["10"])
+        assert res == f(["", "10"])
 
     def test_str(self):
         from pypy.annotation.model import SomeBool
 
-        def f(flag):
+        def f(argv):
+            flag = int(argv[1])
             if flag:
                 x = 'a'
             else:
@@ -86,12 +85,12 @@ class LLInterpedTranformerTests:
             return len(x + 'a')
 
 
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeBool()])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f)
 
-        res = llinterp.eval_graph(graph, [True])
-        assert res == f(True)
-        res = llinterp.eval_graph(graph, [False])
-        assert res == f(False)
+        res = llinterp.eval_entry_point(graph, ["1"])
+        assert res == f(["", "1"])
+        res = llinterp.eval_entry_point(graph, ["0"])
+        assert res == f(["", "0"])
 
 class _TestGCTransformer(BaseGCTransformer):
 

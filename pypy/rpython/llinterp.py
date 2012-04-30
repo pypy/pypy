@@ -61,6 +61,19 @@ class LLInterpreter(object):
         if tracing:
             self.tracer = Tracer()
 
+    def eval_entry_point(self, graph, args=()):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        ARGV = graph.startblock.inputargs[1].concretetype
+        args = [''] + list(args)
+        ll_args = lltype.malloc(ARGV.TO, len(args), flavor='raw')
+        for i in range(len(args)):
+            ll_args[i] = rffi.str2charp(args[i])
+        res = self.eval_graph(graph, [len(args), ll_args])
+        for arg in ll_args:
+            rffi.free_charp(arg)
+        lltype.free(ll_args, flavor='raw')
+        return res
+
     def eval_graph(self, graph, args=(), recursive=False):
         llframe = self.frame_class(graph, args, self)
         if self.tracer and not recursive:
