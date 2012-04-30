@@ -214,6 +214,8 @@ class _AppTestSelect:
 
     def test_poll(self):
         import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
         readend, writeend = self.getpair()
         try:
             class A(object):
