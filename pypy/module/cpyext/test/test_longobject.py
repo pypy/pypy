@@ -35,6 +35,7 @@ class TestLongObject(BaseApiTest):
         w_value = space.newlong(2)
         value = api.PyLong_AsSsize_t(w_value)
         assert value == 2
+        assert space.eq_w(w_value, api.PyLong_FromSsize_t(2))
 
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
