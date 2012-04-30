@@ -33,15 +33,16 @@ class TestLLInterpedRefcounting(LLInterpedTranformerTests):
                 return d
         def g(x):
             return h(x).x
-        def f(x):
+        def f(argv):
+            x = int(argv[1])
             r = g(x)
             return r + delcounter.dels
 
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f)
 
-        res = llinterp.eval_graph(graph, [1])
+        res = llinterp.eval_entry_point(graph, ["1"])
         assert res == 1
-        res = llinterp.eval_graph(graph, [0])
+        res = llinterp.eval_entry_point(graph, ["0"])
         assert res == 3
 
     def test_raw_instance_flavor(self):
@@ -61,7 +62,7 @@ class TestLLInterpedRefcounting(LLInterpedTranformerTests):
             x = X()
             x.y = Y()
             return x
-        def f():
+        def f(argv):
             from pypy.rlib.objectmodel import free_non_gc_object
             state.freed_counter = 0
             x = g()
@@ -71,8 +72,8 @@ class TestLLInterpedRefcounting(LLInterpedTranformerTests):
             free_non_gc_object(x)
             # for now we have no automatic decref when free_non_gc_object() is
             # called
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [])
-        llinterp.eval_graph(graph, [])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f)
+        llinterp.eval_entry_point(graph, [])
 
 def test_simple_barrier():
     S = lltype.GcStruct("S", ('x', lltype.Signed))
