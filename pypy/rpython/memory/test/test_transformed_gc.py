@@ -1139,6 +1139,8 @@ class TestGenerationGC(GenericMovingGCTests):
             pass
 
         def f():
+            # first, make sure we don't start with a nursery almost full
+            rgc.collect(0)
             # we need at least 1 obj to allocate a nursery
             a = A()
             nf_a = llop.gc_adr_of_nursery_free(llmemory.Address)
