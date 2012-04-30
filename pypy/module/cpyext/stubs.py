@@ -1431,14 +1431,6 @@ def PyLong_FromUnicode(space, u, length, base):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyLong_AsSsize_t(space, pylong):
-    """Return a C Py_ssize_t representation of the contents of pylong.  If
-    pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
-    and -1 will be returned.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyMapping_DelItemString(space, o, key):
     """Remove the mapping for object key from the object o. Return -1 on

@@ -31,6 +31,11 @@ class TestLongObject(BaseApiTest):
         value = api.PyLong_AsUnsignedLong(w_value)
         assert value == (sys.maxint - 1) * 2
 
+    def test_as_ssize_t(self, space, api):
+        w_value = space.newlong(2)
+        value = api.PyLong_AsSsize_t(w_value)
+        assert value == 2
+
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
         assert space.unwrap(w_value) == -12
