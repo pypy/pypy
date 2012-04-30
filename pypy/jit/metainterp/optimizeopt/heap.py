@@ -257,8 +257,8 @@ class OptHeap(Optimization):
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
-        assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
+            opnum == rop.CALL_PURE or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
