@@ -5090,7 +5090,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
 
-
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):
 
 ##    def test_instanceof(self):

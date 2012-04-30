@@ -8,7 +8,6 @@ from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rgc
-from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc

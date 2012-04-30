@@ -481,7 +481,7 @@ class OptHeap(Optimization):
         # already between the tracing and now.  In this case, we are
         # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
         # as a regular getfield.
-        if not qmutdescr.is_still_valid():
+        if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
             self._remove_guard_not_invalidated = True
             return
         # record as an out-of-line guard
