@@ -903,3 +903,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             return rstring_to_float(s)
         fn = self.getcompiled(llf, [int])
         assert fn(0) == 42.3
+
+    def test_stm_is_enabled(self):
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.lltypesystem.lloperation import llop
+        # note that right now the situation of lloperation is a bit messy.
+        # stm_is_enabled is not "sideeffects=False" because otherwise
+        # it is constant-folded away by backendopt/constfold.py.
+        assert llop.stm_is_enabled.sideeffects == True
+        #
+        def llf(i):
+            return int(llop.stm_is_enabled(lltype.Bool))
+        fn = self.getcompiled(llf, [int])
+        assert fn(0) == 0

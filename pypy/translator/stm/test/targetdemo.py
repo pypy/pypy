@@ -1,4 +1,5 @@
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import rstm
 from pypy.rlib.debug import debug_print, ll_assert
 
@@ -95,6 +96,7 @@ class InitialTransaction(rstm.Transaction):
 
 def entry_point(argv):
     print "hello world"
+    assert llop.stm_is_enabled(lltype.Bool)
     if len(argv) > 1:
         glob.NUM_THREADS = int(argv[1])
         if len(argv) > 2:
