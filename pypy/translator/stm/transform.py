@@ -162,11 +162,6 @@ class STMTransformer(object):
             self.count_write_barrier += 1
         newoperations.append(op)
 
-    def stt_stm_is_enabled(self, newoperations, op):
-        c_True = Constant(True, lltype.Bool)
-        op = SpaceOperation('same_as', [c_True], op.result)
-        newoperations.append(op)
-
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
         if flags['flavor'] == 'gc':

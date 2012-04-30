@@ -135,3 +135,6 @@ def test_threadlocal():
     assert tl.getvalue() is p2
     tl.setvalue(None)
     assert tl.getvalue() is None
+
+def test_stm_is_enabled():
+    assert rstm.stm_is_enabled() is None    # not translated

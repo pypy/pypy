@@ -716,8 +716,7 @@ def make_string_mappings(strtype):
         string is already nonmovable.  Must be followed by a
         free_nonmovingbuffer call.
         """
-        from pypy.rpython.lltypesystem.lloperation import llop
-        if llop.stm_is_enabled(lltype.Bool) or rgc.can_move(data):
+        if rgc.stm_is_enabled() or rgc.can_move(data):
             count = len(data)
             buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
             for i in range(count):
@@ -741,8 +740,7 @@ def make_string_mappings(strtype):
         # if 'buf' points inside 'data'.  This is only possible if we
         # followed the 2nd case in get_nonmovingbuffer(); in the first case,
         # 'buf' points to its own raw-malloced memory.
-        from pypy.rpython.lltypesystem.lloperation import llop
-        if llop.stm_is_enabled(lltype.Bool):
+        if rgc.stm_is_enabled():
             followed_2nd_path = False
         else:
             data = llstrtype(data)

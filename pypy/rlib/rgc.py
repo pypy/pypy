@@ -18,6 +18,12 @@ def set_max_heap_size(nbytes):
     """
     pass
 
+def stm_is_enabled():
+    """Check if we are translating with STM enabled or no.  This function
+    is here rather than in rstm.py to avoid that you have to import rstm.py.
+    """
+    return None   # means 'not translated at all'
+
 # ____________________________________________________________
 # Annotation and specialization
 
@@ -49,6 +55,18 @@ class SetMaxHeapSizeEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop('gc_set_max_heap_size', [v_nbytes],
                          resulttype=lltype.Void)
+
+class StmIsEnabled(ExtRegistryEntry):
+    _about_ = stm_is_enabled
+
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        result = config.translation.stm
+        return self.bookkeeper.immutablevalue(result)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 def can_move(p):
     """Check if the GC object 'p' is at an address that can move.
@@ -159,7 +177,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
         # perform a write barrier that copies necessary flags from
         # source to dest
-        if llop.stm_is_enabled(lltype.Bool) or (
+        if stm_is_enabled() or (
            not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
                                                 source_start, dest_start,
                                                 length)):
@@ -200,7 +218,7 @@ def ll_shrink_array(p, smallerlength):
     field = getattr(p, TP._names[0])
     setattr(newp, TP._names[0], field)
 
-    if llop.stm_is_enabled(lltype.Bool):
+    if stm_is_enabled():
         # do the copying element by element
         i = 0
         while i < smallerlength:

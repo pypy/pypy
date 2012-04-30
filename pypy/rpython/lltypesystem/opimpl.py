@@ -623,9 +623,6 @@ def op_ll_read_timestamp():
     from pypy.rlib.rtimer import read_timestamp
     return read_timestamp()
 
-def op_stm_is_enabled():
-    return False
-
 def op_stm_start_transaction():
     pass
 

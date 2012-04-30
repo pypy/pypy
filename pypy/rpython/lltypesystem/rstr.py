@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
-from pypy.rlib import jit
+from pypy.rlib import jit, rgc
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
@@ -20,7 +20,6 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 #
@@ -77,7 +76,7 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         # STM requires the slow character-by-character version,
         # which at least works without forcing the transaction
         # to become inevitable
-        if llop.stm_is_enabled(Bool):
+        if rgc.stm_is_enabled():
             i = 0
             while i < length:
                 dst.chars[dststart + i] = src.chars[srcstart + i]

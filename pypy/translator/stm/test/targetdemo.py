@@ -96,7 +96,7 @@ class InitialTransaction(rstm.Transaction):
 
 def entry_point(argv):
     print "hello world"
-    assert llop.stm_is_enabled(lltype.Bool)
+    assert rstm.stm_is_enabled()
     if len(argv) > 1:
         glob.NUM_THREADS = int(argv[1])
         if len(argv) > 2:

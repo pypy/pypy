@@ -8,6 +8,7 @@ from pypy.rlib.debug import ll_assert
 from pypy.rlib.nonconst import NonConstant
 from pypy.translator.stm.stmgcintf import StmOperations
 
+from pypy.rlib.rgc import stm_is_enabled     # re-exported here
 
 
 NUM_THREADS_DEFAULT = 4     # XXX for now
