@@ -450,6 +450,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
+        # ignore the lines pypy_g_ll_deallocator: refcount only
+        lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: ValueError')   # assert found
         lines = lines[:idx+1]
         assert len(lines) >= 4
@@ -461,6 +463,7 @@ class TestStandalone(StandaloneTests):
         out2, err2 = cbuilder.cmdexec("x", expect_crash=True)
         assert out2.strip() == ''
         lines2 = err2.strip().splitlines()
+        lines2 = [line for line in lines2 if 'll_deallocator' not in line]
         idx = lines2.index('Fatal RPython error: KeyError')    # assert found
         lines2 = lines2[:idx+1]
         l0, l1, l2 = lines2[-4:-1]
@@ -489,6 +492,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == 'done.'
         lines = err.strip().splitlines()
+        # ignore the lines pypy_g_ll_deallocator: refcount only
+        lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: KeyError')    # assert found
         lines = lines[:idx+1]
         assert len(lines) >= 5
@@ -526,6 +531,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == 'done.'
         lines = err.strip().splitlines()
+        # ignore the lines pypy_g_ll_deallocator: refcount only
+        lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: KeyError')     # assert found
         lines = lines[:idx+1]
         assert len(lines) >= 5
@@ -562,6 +569,8 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", expect_crash=True)
         assert out.strip() == ''
         lines = err.strip().splitlines()
+        # ignore the lines pypy_g_ll_deallocator: refcount only
+        lines = [line for line in lines if 'll_deallocator' not in line]
         idx = lines.index('Fatal RPython error: ValueError')    # assert found
         lines = lines[:idx+1]
         assert len(lines) >= 5
