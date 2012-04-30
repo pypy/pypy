@@ -37,8 +37,6 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
         t.viewcg()
     return t
 
-ARGS = lltype.FixedSizeArray(lltype.Signed, 3)
-
 class GCTest(object):
     gcpolicy = None
     GC_CAN_MOVE = False
@@ -83,21 +81,22 @@ class GCTest(object):
             cleanups.append(cleanup)
 
         def entrypoint(args):
-            num = args[0]
+            num = name_to_func[args[1]]
             func = funcs0[num]
             if func:
                 res = func()
             else:
                 func = funcs2[num]
-                res = func(args[1], args[2])
+                res = func(int(args[2]), int(args[3]))
             cleanup = cleanups[num]
             if cleanup:
                 cleanup()
             return res
 
         from pypy.translator.c.genc import CStandaloneBuilder
+        from pypy.annotation.listdef import s_list_of_strings
 
-        s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
+        s_args = s_list_of_strings
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,
                   taggedpointers=cls.taggedpointers)
 
@@ -120,7 +119,6 @@ class GCTest(object):
 
     def runner(self, name, statistics=False, transformer=False):
         db = self.db
-        name_to_func = self.name_to_func
         entrygraph = self.entrygraph
         from pypy.rpython.llinterp import LLInterpreter
 
@@ -138,11 +136,19 @@ class GCTest(object):
         # setup => resets the gc
         llinterp.eval_graph(setupgraph, [])
         def run(args):
-            ll_args = lltype.malloc(ARGS, immortal=True)
-            ll_args[0] = name_to_func[name]
+            ARGV = entrygraph.startblock.inputargs[1].concretetype
+            argc = 2 + len(args)
+            ll_args = lltype.malloc(ARGV.TO, argc, flavor='raw')
+            ll_args[0] = rffi.str2charp('')
+            ll_args[1] = rffi.str2charp(name)
             for i in range(len(args)):
-                ll_args[1+i] = args[i]
-            res = llinterp.eval_graph(entrygraph, [ll_args])
+                ll_args[2+i] = rffi.str2charp(str(args[i]))
+            res = llinterp.eval_graph(entrygraph, [argc, ll_args])
+            for i in range(len(args)):
+                rffi.free_charp(ll_args[2+i])
+            rffi.free_charp(ll_args[1])
+            rffi.free_charp(ll_args[0])
+            lltype.free(ll_args, flavor='raw')
             return res
 
         if statistics:
