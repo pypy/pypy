@@ -30,7 +30,7 @@ def test_framework_simple():
     def entrypoint(argv):
         a = A()
         a.b = g(1)
-        return str(a.b)
+        return a.b
 
     from pypy.rpython.llinterp import LLInterpreter
     from pypy.translator.c.genc import CStandaloneBuilder
@@ -43,18 +43,15 @@ def test_framework_simple():
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
-    r_list_of_strings = t.rtyper.getrepr(s_list_of_strings)
-    ll_argv = r_list_of_strings.convert_const([])
-
     llinterp = LLInterpreter(t.rtyper)
 
     # FIIIIISH
     setupgraph = db.gctransformer.frameworkgc_setup_ptr.value._obj.graph
     llinterp.eval_graph(setupgraph, [])
 
-    res = llinterp.eval_graph(entrygraph, [ll_argv])
+    res = llinterp.eval_entry_point(entrygraph, [])
 
-    assert ''.join(res.chars) == "2"
+    assert res == 2
 
 def test_cancollect():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
