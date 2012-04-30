@@ -136,7 +136,6 @@ class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
-        from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
 
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         if hasattr(self, 'GC_PARAMS'):
@@ -343,6 +342,7 @@ class FrameworkGCTransformer(GCTransformer):
                 annmodel.s_None)
 
         if hasattr(GCClass, 'heap_stats'):
+            from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
             self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
                     [s_gc], annmodel.SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
                     minimal_transform=False)

@@ -716,10 +716,8 @@ def make_string_mappings(strtype):
         string is already nonmovable.  Must be followed by a
         free_nonmovingbuffer call.
         """
-        # XXX --- custom version for STM ---
-        # disabled the "else" part
-        ##if rgc.can_move(data):
-        if 1:
+        from pypy.rpython.lltypesystem.lloperation import llop
+        if llop.stm_is_enabled(lltype.Bool) or rgc.can_move(data):
             count = len(data)
             buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
             for i in range(count):
@@ -743,14 +741,15 @@ def make_string_mappings(strtype):
         # if 'buf' points inside 'data'.  This is only possible if we
         # followed the 2nd case in get_nonmovingbuffer(); in the first case,
         # 'buf' points to its own raw-malloced memory.
-
-        # XXX --- custom version for STM ---
-##        data = llstrtype(data)
-##        data_start = cast_ptr_to_adr(data) + \
-##            offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
-##        followed_2nd_path = (buf == cast(TYPEP, data_start))
-##        keepalive_until_here(data)
-        followed_2nd_path = False
+        from pypy.rpython.lltypesystem.lloperation import llop
+        if llop.stm_is_enabled(lltype.Bool):
+            followed_2nd_path = False
+        else:
+            data = llstrtype(data)
+            data_start = cast_ptr_to_adr(data) + \
+                offsetof(STRTYPE, 'chars') + itemoffsetof(STRTYPE.chars, 0)
+            followed_2nd_path = (buf == cast(TYPEP, data_start))
+            keepalive_until_here(data)
         if not followed_2nd_path:
             lltype.free(buf, flavor='raw')
     free_nonmovingbuffer._annenforceargs_ = [strtype, None]

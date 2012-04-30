@@ -73,17 +73,22 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         assert srcstart >= 0
         assert dststart >= 0
         assert length >= 0
-        # XXX --- custom version for STM ---
-        # the old version first:
-##        src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
-##        dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
-##        llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
-##        keepalive_until_here(src)
-##        keepalive_until_here(dst)
-        i = 0
-        while i < length:
-            dst.chars[dststart + i] = src.chars[srcstart + i]
-            i += 1
+        #
+        # STM requires the slow character-by-character version,
+        # which at least works without forcing the transaction
+        # to become inevitable
+        if llop.stm_is_enabled(Bool):
+            i = 0
+            while i < length:
+                dst.chars[dststart + i] = src.chars[srcstart + i]
+                i += 1
+            return
+        #
+        src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
+        dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
+        llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 

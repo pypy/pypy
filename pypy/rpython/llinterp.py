@@ -946,6 +946,14 @@ class LLFrame(object):
     def op_stack_current(self):
         return 0
 
+    def _stm_not_implemented(self, *args):
+        raise NotImplementedError
+    op_stm_writebarrier = _stm_not_implemented
+    op_stm_normalize_global = _stm_not_implemented
+    op_stm_become_inevitable = _stm_not_implemented
+    op_stm_thread_starting = _stm_not_implemented
+    op_stm_thread_stopping = _stm_not_implemented
+
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():
         exec py.code.Source("""

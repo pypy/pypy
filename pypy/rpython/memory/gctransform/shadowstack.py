@@ -28,7 +28,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         root_iterator = get_root_iterator(gctransformer)
-        def walk_stack_root(callback, arg, start, end):
+        def walk_stack_root(callback, start, end):
             root_iterator.setcontext(NonConstant(llmemory.NULL))
             gc = self.gc
             addr = end
@@ -36,7 +36,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 addr = root_iterator.nextleft(gc, start, addr)
                 if addr == llmemory.NULL:
                     return
-                callback(arg, addr)
+                callback(gc, addr)
         self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
@@ -56,9 +56,9 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.shadow_stack_pool.initial_setup()
         BaseRootWalker.setup_root_walker(self)
 
-    def walk_stack_roots(self, collect_stack_root, arg):
+    def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
-        self.rootstackhook(collect_stack_root, arg,
+        self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)
 
     def need_thread_support(self, gctransformer, getfn):
