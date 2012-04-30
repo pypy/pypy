@@ -1,5 +1,6 @@
 import py
 from pypy.conftest import gettestobjspace
+py.test.skip("epoll support disabled for now")
 
 
 class AppTestEpoll: 

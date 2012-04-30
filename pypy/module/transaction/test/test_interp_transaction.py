@@ -3,6 +3,10 @@ from pypy.module.transaction import interp_transaction
 
 
 class FakeSpace:
+    class config:
+        class objspace:
+            class std:
+                withmethodcache = False
     def __init__(self):
         self._spacecache = {}
     def getexecutioncontext(self):
