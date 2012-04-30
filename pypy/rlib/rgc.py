@@ -22,7 +22,8 @@ def stm_is_enabled():
     """Check if we are translating with STM enabled or no.  This function
     is here rather than in rstm.py to avoid that you have to import rstm.py.
     """
-    return None   # means 'not translated at all'
+    return None   # means 'not translated at all';
+                  # in "if stm_is_enabled()" it is equivalent to False
 
 # ____________________________________________________________
 # Annotation and specialization
