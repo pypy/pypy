@@ -1,0 +1,3 @@
+Enable global STM transformation of the translated interpreter.
+Trades performance for running on multiple cores in individual
+"transactions".
