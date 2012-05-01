@@ -1947,35 +1947,6 @@ def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
     changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
-def PyUnicode_DecodeUTF32(space, s, size, errors, byteorder):
-    """Decode length bytes from a UTF-32 encoded buffer string and return the
-    corresponding Unicode object.  errors (if non-NULL) defines the error
-    handling. It defaults to "strict".
-
-    If byteorder is non-NULL, the decoder starts decoding using the given byte
-    order:
-
-    *byteorder == -1: little endian
-    *byteorder == 0:  native order
-    *byteorder == 1:  big endian
-
-    If *byteorder is zero, and the first four bytes of the input data are a
-    byte order mark (BOM), the decoder switches to this byte order and the BOM is
-    not copied into the resulting Unicode string.  If *byteorder is -1 or
-    1, any byte order mark is copied to the output.
-
-    After completion, *byteorder is set to the current byte order at the end
-    of input data.
-
-    In a narrow build codepoints outside the BMP will be decoded as surrogate pairs.
-
-    If byteorder is NULL, the codec starts in native order mode.
-
-    Return NULL if an exception was raised by the codec.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)
 def PyUnicode_DecodeUTF32Stateful(space, s, size, errors, byteorder, consumed):
     """If consumed is NULL, behave like PyUnicode_DecodeUTF32(). If
