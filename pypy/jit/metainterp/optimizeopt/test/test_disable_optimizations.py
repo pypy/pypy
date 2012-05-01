@@ -41,6 +41,6 @@ for optnum in range(len(allopts)):
     opt = allopts[optnum]
     exec "TestNo%sLLtype = TestLLtype" % (opt[0].upper() + opt[1:])
 
-del TestLLtype
-del TestNoUnrollLLtype
+del TestLLtype # No need to run the last set twice
+del TestNoUnrollLLtype # This case is take care of by test_optimizebasic
         
