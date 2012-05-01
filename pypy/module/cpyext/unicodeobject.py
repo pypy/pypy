@@ -419,10 +419,10 @@ def PyUnicode_FromStringAndSize(space, s, size):
     needed data. The buffer is copied into the new object. If the buffer is not
     NULL, the return value might be a shared object. Therefore, modification of
     the resulting Unicode object is only allowed when u is NULL."""
-    if not s:
-        raise NotImplementedError
-    w_str = space.wrap(rffi.charpsize2str(s, size))
-    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+    if s:
+        return make_ref(space, PyUnicode_DecodeUTF8(space, s, size, None))
+    else:
+        return rffi.cast(PyObject, new_empty_unicode(space, size))
 
 @cpython_api([rffi.INT_real], PyObject)
 def PyUnicode_FromOrdinal(space, ordinal):
@@ -481,6 +481,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Decode%s' % suffix] = PyUnicode_DecodeXXX
 
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Encode%s' % suffix)
@@ -494,6 +495,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 
 make_conversion_functions('UTF8', 'utf-8')
 make_conversion_functions('ASCII', 'ascii')
