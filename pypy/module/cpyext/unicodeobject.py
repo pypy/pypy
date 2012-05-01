@@ -354,10 +354,10 @@ def PyUnicode_Decode(space, s, size, encoding, errors):
     in the unicode() built-in function.  The codec to be used is looked up
     using the Python codec registry.  Return NULL if an exception was raised by
     the codec."""
-    w_str = space.wrap(rffi.charpsize2str(s, size))
+    w_str = space.wrapbytes(rffi.charpsize2str(s, size))
     w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
+        w_errors = space.wrapbytes(rffi.charp2str(errors))
     else:
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', w_encoding, w_errors)
@@ -432,7 +432,7 @@ def PyUnicode_FromOrdinal(space, ordinal):
     (UCS2), and range(0x110000) on wide builds (UCS4). A ValueError is
     raised in case it is not."""
     w_ordinal = space.wrap(rffi.cast(lltype.Signed, ordinal))
-    return space.call_function(space.builtin.get('unichr'), w_ordinal)
+    return space.call_function(space.builtin.get('chr'), w_ordinal)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
 def PyUnicode_Resize(space, ref, newsize):
@@ -475,7 +475,7 @@ def make_conversion_functions(suffix, encoding):
         encoded string s. Return NULL if an exception was raised by
         the codec.
         """
-        w_s = space.wrap(rffi.charpsize2str(s, size))
+        w_s = space.wrapbytes(rffi.charpsize2str(s, size))
         if errors:
             w_errors = space.wrap(rffi.charp2str(errors))
         else:
@@ -617,7 +617,11 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
 def PyUnicode_Compare(space, w_left, w_right):
     """Compare two strings and return -1, 0, 1 for less than, equal, and greater
     than, respectively."""
-    return space.int_w(space.cmp(w_left, w_right))
+    if space.is_true(space.lt(w_left, w_right)):
+        return -1
+    if space.is_true(space.lt(w_right, w_left)):
+        return 1
+    return 0
 
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):
