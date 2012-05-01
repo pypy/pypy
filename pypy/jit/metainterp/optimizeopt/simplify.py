@@ -4,8 +4,9 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.history import TargetToken, JitCellToken
 
 class OptSimplify(Optimization):
-    def __init__(self):
+    def __init__(self, unroll):
         self.last_label_descr = None
+        self.unroll = unroll
         
     def optimize_CALL_PURE(self, op):
         args = op.getarglist()
@@ -35,24 +36,26 @@ class OptSimplify(Optimization):
         pass
 
     def optimize_LABEL(self, op):
-        descr = op.getdescr()
-        if isinstance(descr, JitCellToken):
-            return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
-        self.last_label_descr = op.getdescr()
+        if not self.unroll:
+            descr = op.getdescr()
+            if isinstance(descr, JitCellToken):
+                return self.optimize_JUMP(op.copy_and_change(rop.JUMP))
+            self.last_label_descr = op.getdescr()
         self.emit_operation(op)
         
     def optimize_JUMP(self, op):
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        if not descr.target_tokens:
-            assert self.last_label_descr is not None
-            target_token = self.last_label_descr
-            assert isinstance(target_token, TargetToken)
-            assert target_token.targeting_jitcell_token is descr
-            op.setdescr(self.last_label_descr)
-        else:
-            assert len(descr.target_tokens) == 1
-            op.setdescr(descr.target_tokens[0])
+        if not self.unroll:
+            descr = op.getdescr()
+            assert isinstance(descr, JitCellToken)
+            if not descr.target_tokens:
+                assert self.last_label_descr is not None
+                target_token = self.last_label_descr
+                assert isinstance(target_token, TargetToken)
+                assert target_token.targeting_jitcell_token is descr
+                op.setdescr(self.last_label_descr)
+            else:
+                assert len(descr.target_tokens) == 1
+                op.setdescr(descr.target_tokens[0])
         self.emit_operation(op)
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',

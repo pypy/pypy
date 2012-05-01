@@ -21,6 +21,26 @@ information, it will not change the python-side interface.
 .. _`llvm`: http://llvm.org/
 
 
+Motivation
+==========
+
+The cppyy module offers two unique features, which result in great
+performance as well as better functionality and cross-language integration
+than would otherwise be possible.
+First, cppyy is written in RPython and therefore open to optimizations by the
+JIT up until the actual point of call into C++.
+This means that there are no conversions necessary between a garbage collected
+and a reference counted environment, as is needed for the use of existing
+extension modules written or generated for CPython.
+It also means that if variables are already unboxed by the JIT, they can be
+passed through directly to C++.
+Second, Reflex (and cling far more so) adds dynamic features to C++, thus
+greatly reducing impedance mismatches between the two languages.
+In fact, Reflex is dynamic enough that you could write the runtime bindings
+generation in python (as opposed to RPython) and this is used to create very
+natural "pythonizations" of the bound code.
+
+
 Installation
 ============
 
@@ -195,10 +215,12 @@ and subsequently be used from PyPy::
     >>>> d = cppyy.gbl.BaseFactory("name", 42, 3.14)
     >>>> type(d)
     <class '__main__.Derived'>
-    >>>> d.m_i
-    42
-    >>>> d.m_d
-    3.14
+    >>>> isinstance(d, cppyy.gbl.Base1)
+    True
+    >>>> isinstance(d, cppyy.gbl.Base2)
+    True
+    >>>> d.m_i, d.m_d
+    (42, 3.14)
     >>>> d.m_name == "name"
     True
     >>>>
@@ -295,6 +317,9 @@ That is a strong statement to make, but also a worthy goal.
   To select a specific virtual method, do like with normal python classes
   that override methods: select it from the class that you need, rather than
   calling the method on the instance.
+  To select a specific overload, use the __dispatch__ special function, which
+  takes the name of the desired method and its signature (which can be
+  obtained from the doc string) as arguments.
 
 * **namespaces**: Are represented as python classes.
   Namespaces are more open-ended than classes, so sometimes initial access may
