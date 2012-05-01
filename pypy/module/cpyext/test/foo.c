@@ -89,7 +89,7 @@ static PyMethodDef foo_methods[] = {
 static PyObject *
 foo_get_name(PyObject *self, void *closure)
 {
-    return PyString_FromStringAndSize("Foo Example", 11);
+    return PyUnicode_FromStringAndSize("Foo Example", 11);
 }
 
 static PyObject *

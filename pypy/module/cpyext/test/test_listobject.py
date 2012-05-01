@@ -125,11 +125,11 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         assert len(l) == 1
         assert l[0] == 14
 
-        l = range(6)
+        l = list(range(6))
         module.setslice(l, ['a'])
         assert l == [0, 'a', 4, 5]
 
-        l = range(6)
+        l = list(range(6))
         module.setslice(l, None)
         assert l == [0, 4, 5]
 

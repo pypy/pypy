@@ -9,7 +9,7 @@ from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rarithmetic import intmask
 
 
-PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
+PyLong_Check, PyLong_CheckExact = build_type_checkers("Long", "w_int")
 
 @cpython_api([lltype.Signed], PyObject)
 def PyLong_FromLong(space, val):

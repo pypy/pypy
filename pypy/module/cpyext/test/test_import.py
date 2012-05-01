@@ -4,9 +4,9 @@ from pypy.rpython.lltypesystem import rffi, lltype
 
 class TestImport(BaseApiTest):
     def test_import(self, space, api):
-        pdb = api.PyImport_Import(space.wrap("pdb"))
-        assert pdb
-        assert space.getattr(pdb, space.wrap("pm"))
+        inspect = api.PyImport_Import(space.wrap("inspect"))
+        assert inspect
+        assert space.getattr(inspect, space.wrap("ismethod"))
 
     def test_addmodule(self, space, api):
         with rffi.scoped_str2charp("sys") as modname:
@@ -19,7 +19,7 @@ class TestImport(BaseApiTest):
                                          space.wrap('__name__'))) == 'foobar'
 
     def test_getmoduledict(self, space, api):
-        testmod = "_functools"
+        testmod = "contextlib"
         w_pre_dict = api.PyImport_GetModuleDict()
         assert not space.is_true(space.contains(w_pre_dict, space.wrap(testmod)))
 
@@ -32,10 +32,10 @@ class TestImport(BaseApiTest):
         assert space.is_true(space.contains(w_dict, space.wrap(testmod)))
 
     def test_reload(self, space, api):
-        pdb = api.PyImport_Import(space.wrap("pdb"))
-        space.delattr(pdb, space.wrap("set_trace"))
-        pdb = api.PyImport_ReloadModule(pdb)
-        assert space.getattr(pdb, space.wrap("set_trace"))
+        inspect = api.PyImport_Import(space.wrap("inspect"))
+        space.delattr(inspect, space.wrap("getframeinfo"))
+        inspect = api.PyImport_ReloadModule(inspect)
+        assert space.getattr(inspect, space.wrap("getframeinfo"))
 
 class AppTestImportLogic(AppTestCpythonExtensionBase):
     def test_import_logic(self):

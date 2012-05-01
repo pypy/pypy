@@ -55,7 +55,7 @@ def PyMember_GetOne(space, obj, w_member):
     if member_type == T_STRING:
         result = rffi.cast(rffi.CCHARPP, addr)
         if result[0]:
-            w_result = PyString_FromString(space, result[0])
+            w_result = PyUnicode_FromString(space, result[0])
         else:
             w_result = space.w_None
     elif member_type == T_STRING_INPLACE:

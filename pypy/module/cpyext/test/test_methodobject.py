@@ -44,7 +44,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              if(PyCFunction_Check(args)) {
                  PyCFunctionObject* func = (PyCFunctionObject*)args;
-                 return PyString_FromString(func->m_ml->ml_name);
+                 return PyUnicode_FromString(func->m_ml->ml_name);
              }
              else {
                  Py_RETURN_FALSE;
@@ -108,7 +108,7 @@ class TestPyCMethodObject(BaseApiTest):
         ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
                                  c_func.get_llhelper(space))
 
-        method = api.PyDescr_NewMethod(space.w_str, ml)
+        method = api.PyDescr_NewMethod(space.w_unicode, ml)
         assert repr(method).startswith(
             "<built-in method 'func' of 'str' object ")
 

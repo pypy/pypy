@@ -73,17 +73,17 @@ class AppTestThread(AppTestCpythonExtensionBase):
         raises(ValueError, module.test_key, key)
         # Same test, in another thread.
         result = []
-        import thread, time
+        import _thread, time
         def in_thread():
             try:
                 module.test_key(key)
                 raises(ValueError, module.test_key, key)
-            except Exception, e:
+            except Exception as e:
                 result.append(e)
             else:
                 result.append(True)
-        thread.start_new_thread(in_thread, ())
+                _thread.start_new_thread(in_thread, ())
         while not result:
-            print "."
+            print(".")
             time.sleep(.5)
         assert result == [True]

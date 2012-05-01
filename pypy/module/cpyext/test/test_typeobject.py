@@ -121,8 +121,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = module.UnicodeSubtype(u"xyz")
-        assert newobj == u"xyz"
+        newobj = module.UnicodeSubtype("xyz")
+        assert newobj == "xyz"
         assert isinstance(newobj, module.UnicodeSubtype)
 
         assert isinstance(module.fooType(), module.fooType)
@@ -134,7 +134,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         class fuu2(fuu):
             def baz(self):
                 return self
-        assert fuu2(u"abc").baz().escape()
+        assert fuu2("abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
 
     def test_init(self):
@@ -181,11 +181,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert sre_compile.MAGIC == module.MAGIC
         import re
         import time
-        s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile(ur"Foo.*Bar")
+        s = "Foo " * 1000 + "Bar"
+        prog = re.compile(r"Foo.*Bar")
         assert prog.match(s)
-        m = re.search(u"xyz", u"xyzxyz")
-        assert m
         m = re.search("xyz", "xyzxyz")
         assert m
         assert "groupdict" in dir(m)
@@ -208,10 +206,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         cmpr = module.CmpType()
 
         # should not crash
-        cmpr < 4
-        cmpr <= 4
-        cmpr > 4
-        cmpr >= 4
+        raises(TypeError, "cmpr < 4")
+        raises(TypeError, "cmpr <= 4")
+        raises(TypeError, "cmpr > 4")
+        raises(TypeError, "cmpr >= 4")
 
         assert cmpr.__le__(4) is NotImplemented
 

@@ -169,28 +169,6 @@ class TestObject(BaseApiTest):
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
 
-    def test_compare(self, space, api):
-        assert api.PyObject_Compare(space.wrap(42), space.wrap(72)) == -1
-        assert api.PyObject_Compare(space.wrap(72), space.wrap(42)) == 1
-        assert api.PyObject_Compare(space.wrap("a"), space.wrap("a")) == 0
-
-    def test_cmp(self, space, api):
-        w = space.wrap
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as ptr:
-            assert api.PyObject_Cmp(w(42), w(72), ptr) == 0
-            assert ptr[0] == -1
-            assert api.PyObject_Cmp(w("a"), w("a"), ptr) == 0
-            assert ptr[0] == 0
-            assert api.PyObject_Cmp(w(u"\xe9"), w("\xe9"), ptr) < 0
-            assert api.PyErr_Occurred()
-            api.PyErr_Clear()
-
-    def test_unicode(self, space, api):
-        assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
-        assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
-        assert api.PyObject_Unicode(space.wrap("\xe9")) is None
-        api.PyErr_Clear()
-
     def test_dir(self, space, api):
         w_dir = api.PyObject_Dir(space.sys)
         assert space.isinstance_w(w_dir, space.w_list)
@@ -212,7 +190,6 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert module.typecheck(1, int)
         assert module.typecheck('foo', str)
         assert module.typecheck('foo', object)
-        assert module.typecheck(1L, long)
         assert module.typecheck(True, bool)
         assert module.typecheck(1.2, float)
         assert module.typecheck(int, type)
@@ -224,7 +201,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  PyObject *fname = PyTuple_GetItem(args, 0);
                  PyObject *obj = PyTuple_GetItem(args, 1);
 
-                 FILE *fp = fopen(PyString_AsString(fname), "wb");
+                 FILE *fp = fopen(_PyUnicode_AsString(fname), "wb");
                  int ret;
                  if (fp == NULL)
                      Py_RETURN_NONE;
@@ -291,7 +268,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     return result;
                  """)])
         result = module.fillinfo()
-        assert "hello, world." == result
+        assert b"hello, world." == result
 
 
     def test_fillWithObject(self):
@@ -339,7 +316,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     return result;
                  """)])
         result = module.fillinfo()
-        assert "hello, world." == result
+        assert b"hello, world." == result
 
 
 class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):

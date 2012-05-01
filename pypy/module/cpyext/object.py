@@ -249,26 +249,6 @@ def PyObject_Unicode(space, w_obj):
     function."""
     return space.call_function(space.w_unicode, w_obj)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_Compare(space, w_o1, w_o2):
-    """
-    Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  Returns the result of the
-    comparison on success.  On error, the value returned is undefined; use
-    PyErr_Occurred() to detect an error.  This is equivalent to the Python
-    expression cmp(o1, o2)."""
-    return space.int_w(space.cmp(w_o1, w_o2))
-
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, w_o1, w_o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
-    res = space.int_w(space.cmp(w_o1, w_o2))
-    result[0] = rffi.cast(rffi.INT, res)
-    return 0
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,

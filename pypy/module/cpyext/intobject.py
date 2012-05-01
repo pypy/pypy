@@ -76,12 +76,8 @@ def PyInt_AsUnsignedLongMask(space, w_obj):
     unsigned long.  This function does not check for overflow.
     """
     w_int = space.int(w_obj)
-    if space.is_true(space.isinstance(w_int, space.w_int)):
-        num = space.int_w(w_int)
-        return r_uint(num)
-    else:
-        num = space.bigint_w(w_int)
-        return num.uintmask()
+    num = space.bigint_w(w_int)
+    return num.uintmask()
 
 @cpython_api([PyObject], lltype.Signed, error=CANNOT_FAIL)
 def PyInt_AS_LONG(space, w_int):

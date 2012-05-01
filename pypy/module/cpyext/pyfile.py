@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers)
+    cpython_api, CANNOT_FAIL, CONST_STRING, FILEP)
 from pypy.module.cpyext.pyobject import PyObject, borrow_from
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.interpreter.error import OperationError
@@ -38,9 +38,9 @@ def PyFile_FromString(space, filename, mode):
     On success, return a new file object that is opened on the file given by
     filename, with a file mode given by mode, where mode has the same
     semantics as the standard C routine fopen().  On failure, return NULL."""
-    w_filename = space.wrap(rffi.charp2str(filename))
+    w_filename = space.wrapbytes(rffi.charp2str(filename))
     w_mode = space.wrap(rffi.charp2str(mode))
-    return space.call_method(space.builtin, 'file', w_filename, w_mode)
+    return space.call_method(space.builtin, 'open', w_filename, w_mode)
 
 @cpython_api([FILEP, CONST_STRING, CONST_STRING, rffi.VOIDP], PyObject)
 def PyFile_FromFile(space, fp, name, mode, close):

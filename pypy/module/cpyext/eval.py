@@ -94,7 +94,7 @@ Py_file_input = 257
 Py_eval_input = 258
 
 def compile_string(space, source, filename, start, flags=0):
-    w_source = space.wrap(source)
+    w_source = space.wrapbytes(source)
     start = rffi.cast(lltype.Signed, start)
     if start == Py_file_input:
         mode = 'exec'

@@ -117,7 +117,7 @@ class TestEval(BaseApiTest):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
         flags.c_cf_flags = rffi.cast(rffi.INT, consts.PyCF_SOURCE_IS_UTF8)
         w_globals = space.newdict()
-        buf = rffi.str2charp("a = u'caf\xc3\xa9'")
+        buf = rffi.str2charp("a = 'caf\xc3\xa9'")
         try:
             api.PyRun_StringFlags(buf, Py_single_input,
                                   w_globals, w_globals, flags)
@@ -229,7 +229,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("call_func", "METH_VARARGS",
              """
-                PyObject *t = PyString_FromString("t");
+                PyObject *t = PyUnicode_FromString("t");
                 PyObject *res = PyObject_CallFunctionObjArgs(
                    PyTuple_GetItem(args, 0),
                    Py_None, NULL);
@@ -238,8 +238,8 @@ class AppTestCall(AppTestCpythonExtensionBase):
              """),
             ("call_method", "METH_VARARGS",
              """
-                PyObject *t = PyString_FromString("t");
-                PyObject *count = PyString_FromString("count");
+                PyObject *t = PyUnicode_FromString("t");
+                PyObject *count = PyUnicode_FromString("count");
                 PyObject *res = PyObject_CallMethodObjArgs(
                    PyTuple_GetItem(args, 0),
                    count, t, NULL);
@@ -277,15 +277,15 @@ class AppTestCall(AppTestCpythonExtensionBase):
         mod = module.exec_code(code)
         assert mod.__name__ == "cpyext_test_modname"
         assert mod.__file__ == "someFile"
-        print dir(mod)
-        print mod.__dict__
+        print(dir(mod))
+        print(mod.__dict__)
         assert mod.f(42) == 47
 
         mod = module.exec_code_ex(code)
         assert mod.__name__ == "cpyext_test_modname"
         assert mod.__file__ == "otherFile"
-        print dir(mod)
-        print mod.__dict__
+        print(dir(mod))
+        print(mod.__dict__)
         assert mod.f(42) == 47
 
     def test_merge_compiler_flags(self):
@@ -301,7 +301,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.get_flags() == (0, 0)
 
         ns = {'module':module}
-        exec """from __future__ import division    \nif 1:
+        exec("""from __future__ import division    \nif 1:
                 def nested_flags():
-                    return module.get_flags()""" in ns
+                    return module.get_flags()""", ns)
         assert ns['nested_flags']() == (1, 0x2000)  # CO_FUTURE_DIVISION
