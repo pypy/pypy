@@ -195,7 +195,7 @@ class TestNumArrayDirect(object):
 
 class AppTestNumArray(BaseNumpyAppTest):
     def setup_class(cls):
-        BaseNumpyAppTest.setup_class.im_func(cls)
+        super(AppTestNumArray, cls).setup_class()
 
         w_tup = cls.space.appexec([], """():
 
