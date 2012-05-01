@@ -1405,13 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([Py_ssize_t], PyObject)
-def PyLong_FromSsize_t(space, v):
-    """Return a new PyLongObject object from a C Py_ssize_t, or
-    NULL on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyLong_FromSize_t(space, v):
     """Return a new PyLongObject object from a C size_t, or
