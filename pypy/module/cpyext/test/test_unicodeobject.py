@@ -356,6 +356,42 @@ class TestUnicode(BaseApiTest):
         test("\xFE\xFF\x00\x61\x00\x62\x00\x63\x00\x64", 0, 1)
         test("\xFF\xFE\x61\x00\x62\x00\x63\x00\x64\x00", 0, -1)
 
+    def test_decode_utf32(self, space, api):
+        def test(encoded, endian, realendian=None):
+            encoded_charp = rffi.str2charp(encoded)
+            strict_charp = rffi.str2charp("strict")
+            if endian is not None:
+                if endian < 0:
+                    value = -1
+                elif endian > 0:
+                    value = 1
+                else:
+                    value = 0
+                pendian = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+                pendian[0] = rffi.cast(rffi.INT, value)
+            else:
+                pendian = None
+
+            w_ustr = api.PyUnicode_DecodeUTF32(encoded_charp, len(encoded), strict_charp, pendian)
+            assert space.eq_w(space.call_method(w_ustr, 'encode', space.wrap('ascii')),
+                              space.wrap("ab"))
+
+            rffi.free_charp(encoded_charp)
+            rffi.free_charp(strict_charp)
+            if pendian:
+                if realendian is not None:
+                    assert rffi.cast(rffi.INT, realendian) == pendian[0]
+                lltype.free(pendian, flavor='raw')
+
+        test("\x61\x00\x00\x00\x62\x00\x00\x00", -1)
+
+        test("\x61\x00\x00\x00\x62\x00\x00\x00", None)
+
+        test("\x00\x00\x00\x61\x00\x00\x00\x62", 1)
+
+        test("\x00\x00\xFE\xFF\x00\x00\x00\x61\x00\x00\x00\x62", 0, 1)
+        test("\xFF\xFE\x00\x00\x61\x00\x00\x00\x62\x00\x00\x00", 0, -1)
+
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
 
