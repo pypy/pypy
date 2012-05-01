@@ -416,7 +416,8 @@ def PyUnicode_FromStringAndSize(space, s, size):
     NULL, the return value might be a shared object. Therefore, modification of
     the resulting Unicode object is only allowed when u is NULL."""
     if s:
-        return make_ref(space, PyUnicode_DecodeUTF8(space, s, size, None))
+        return make_ref(space, PyUnicode_DecodeUTF8(
+            space, s, size, lltype.nullptr(rffi.CCHARP.TO)))
     else:
         return rffi.cast(PyObject, new_empty_unicode(space, size))
 
