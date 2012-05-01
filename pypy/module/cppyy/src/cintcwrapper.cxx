@@ -36,6 +36,10 @@ extern "C" void* G__SetShlHandle(char*);
 extern "C" void G__LockCriticalSection();
 extern "C" void G__UnlockCriticalSection();
 
+#define G__SETMEMFUNCENV      (long)0x7fff0035
+#define G__NOP                (long)0x7fff00ff
+
+
 /* ROOT meta internals ---------------------------------------------------- */
 namespace {
 
@@ -84,7 +88,7 @@ typedef std::vector<TGlobal> GlobalVars_t;
 static GlobalVars_t g_globalvars;
 
 
-/* initialization of th ROOT system (debatable ... ) ---------------------- */
+/* initialization of the ROOT system (debatable ... ) --------------------- */
 namespace {
 
 class TCppyyApplication : public TApplication {
@@ -288,7 +292,9 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     G__setnull(&result);
 
     G__LockCriticalSection();      // is recursive lock
-
+    long index = (long)&method;
+    G__CurrentCall(G__SETMEMFUNCENV, 0, &index);
+    
     // TODO: access to store_struct_offset won't work on Windows
     long store_struct_offset = G__store_struct_offset;
     if (self)
@@ -302,6 +308,7 @@ static inline G__value cppyy_call_T(cppyy_method_t method,
     if (G__get_return(0) > G__RETURN_NORMAL)
         G__security_recover(0);    // 0 ensures silence
 
+    G__CurrentCall(G__NOP, 0, 0);
     G__UnlockCriticalSection();
 
     return result;
