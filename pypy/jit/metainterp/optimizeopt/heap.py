@@ -257,8 +257,8 @@ class OptHeap(Optimization):
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
-        assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
+            opnum == rop.CALL_PURE or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
@@ -481,7 +481,7 @@ class OptHeap(Optimization):
         # already between the tracing and now.  In this case, we are
         # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
         # as a regular getfield.
-        if not qmutdescr.is_still_valid():
+        if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
             self._remove_guard_not_invalidated = True
             return
         # record as an out-of-line guard
