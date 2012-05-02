@@ -2,22 +2,20 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 import sys
+import os
 
 
 class Module(MixedModule):
     appleveldefs = {
     }
-    if sys.platform.startswith('win'):
-        interpleveldefs = {
-            'select': 'interp_select.select',
-            'error' : 'space.fromcache(interp_select.Cache).w_error'
-        }
-    else:    
-        interpleveldefs = {
-            'poll'  : 'interp_select.poll',
-            'select': 'interp_select.select',
-            'error' : 'space.fromcache(interp_select.Cache).w_error'
-        }
+
+    interpleveldefs = {
+        'select': 'interp_select.select',
+        'error' : 'space.fromcache(interp_select.Cache).w_error'
+    }
+
+    if os.name =='posix':
+        interpleveldefs['poll'] = 'interp_select.poll'
 
     if sys.platform.startswith('linux'):
         interpleveldefs['epoll'] = 'interp_epoll.W_Epoll'

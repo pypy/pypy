@@ -64,6 +64,7 @@ class AppTestRCTime:
 
     def test_localtime(self):
         import time as rctime
+        import os
         raises(TypeError, rctime.localtime, "foo")
         rctime.localtime()
         rctime.localtime(None)
@@ -75,6 +76,10 @@ class AppTestRCTime:
         assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.localtime(t) == rctime.localtime(t)
+        if os.name == 'nt':
+            raises(ValueError, rctime.localtime, -1)
+        else:
+            rctime.localtime(-1)
 
     def test_mktime(self):
         import time as rctime
@@ -108,11 +113,8 @@ class AppTestRCTime:
         assert long(rctime.mktime(rctime.gmtime(t))) - rctime.timezone == long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
-        try:
-            rctime.localtime(-1)
-        except:
-            skip('localtime cannot be negative on this platform')
-        assert rctime.mktime(rctime.localtime(-1)) == -1
+        if os.name != 'nt':
+            assert rctime.mktime(rctime.localtime(-1)) == -1
 
     def test_asctime(self):
         import time as rctime
@@ -211,7 +213,7 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
-        import os
+
         t = rctime.time()
         tt = rctime.gmtime(t)
         for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',

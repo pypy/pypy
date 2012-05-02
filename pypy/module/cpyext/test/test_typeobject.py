@@ -107,6 +107,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.double_member = 9.25;      assert obj.double_member == 9.25
         obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        obj.ssizet_member = 2**31;     assert obj.ssizet_member == 2**31
         #
 
     def test_staticmethod(self):
