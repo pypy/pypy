@@ -373,12 +373,12 @@ class AppTestSimpleSearches:
 
     def test_search_simple_boundaries(self):
         import re
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         assert re.search(r"bla\b", "bla")
         assert re.search(r"bla\b", "bla ja")
-        assert re.search(r"bla\b", u"bla%s" % UPPER_PI)
+        assert re.search(r"bla\b", "bla%s" % UPPER_PI, re.ASCII)
         assert not re.search(r"bla\b", "blano")
-        assert not re.search(r"bla\b", u"bla%s" % UPPER_PI, re.UNICODE)
+        assert not re.search(r"bla\b", "bla%s" % UPPER_PI, re.UNICODE)
 
     def test_search_simple_categories(self):
         import re
