@@ -11,7 +11,7 @@ incpath = pkgpath.join("include")
 
 if os.environ.get("ROOTSYS"):
     rootincpath = [os.path.join(os.environ["ROOTSYS"], "include")]
-    rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib")]
+    rootlibpath = [os.path.join(os.environ["ROOTSYS"], "lib64"), os.path.join(os.environ["ROOTSYS"], "lib")]
 else:
     rootincpath = []
     rootlibpath = []

@@ -10,7 +10,7 @@ ifeq ($(ROOTSYS),)
   cppflags=
 else
   genreflex=$(ROOTSYS)/bin/genreflex
-  cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib
+  cppflags=-I$(ROOTSYS)/include -L$(ROOTSYS)/lib64 -L$(ROOTSYS)/lib
 endif
 
 PLATFORM := $(shell uname -s)
