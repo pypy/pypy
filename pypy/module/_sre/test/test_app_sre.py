@@ -189,13 +189,13 @@ class AppTestSreMatch:
 
     def test_sub_unicode(self):
         import re
-        assert isinstance(re.sub(u"a", u"b", u""), str)
+        assert isinstance(re.sub("a", "b", ""), str)
         # the input is returned unmodified if no substitution is performed,
         # which (if interpreted literally, as CPython does) gives the
         # following strangeish rules:
-        assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), str)
-        assert isinstance(re.sub(u"a", u"b", b"diwoiiobmoi"), bytes)
-        assert isinstance(re.sub(u'x', b'y', b'x'), bytes)
+        assert isinstance(re.sub("a", "b", "diwoiioamoi"), str)
+        assert isinstance(re.sub("a", "b", b"diwoiiobmoi"), bytes)
+        assert isinstance(re.sub('x', b'y', b'x'), bytes)
 
     def test_sub_callable(self):
         import re
@@ -382,17 +382,17 @@ class AppTestSimpleSearches:
 
     def test_search_simple_categories(self):
         import re
-        LOWER_PI = u"\u03c0"
-        INDIAN_DIGIT = u"\u0966"
-        EM_SPACE = u"\u2001"
+        LOWER_PI = "\u03c0"
+        INDIAN_DIGIT = "\u0966"
+        EM_SPACE = "\u2001"
         LOWER_AE = "\xe4"
         assert re.search(r"bla\d\s\w", "bla3 b")
-        assert re.search(r"b\d", u"b%s" % INDIAN_DIGIT, re.UNICODE)
-        assert not re.search(r"b\D", u"b%s" % INDIAN_DIGIT, re.UNICODE)
-        assert re.search(r"b\s", u"b%s" % EM_SPACE, re.UNICODE)
-        assert not re.search(r"b\S", u"b%s" % EM_SPACE, re.UNICODE)
-        assert re.search(r"b\w", u"b%s" % LOWER_PI, re.UNICODE)
-        assert not re.search(r"b\W", u"b%s" % LOWER_PI, re.UNICODE)
+        assert re.search(r"b\d", "b%s" % INDIAN_DIGIT, re.UNICODE)
+        assert not re.search(r"b\D", "b%s" % INDIAN_DIGIT, re.UNICODE)
+        assert re.search(r"b\s", "b%s" % EM_SPACE, re.UNICODE)
+        assert not re.search(r"b\S", "b%s" % EM_SPACE, re.UNICODE)
+        assert re.search(r"b\w", "b%s" % LOWER_PI, re.UNICODE)
+        assert not re.search(r"b\W", "b%s" % LOWER_PI, re.UNICODE)
         assert re.search(r"b\w", "b%s" % LOWER_AE, re.UNICODE)
 
     def test_search_simple_any(self):
@@ -403,38 +403,38 @@ class AppTestSimpleSearches:
 
     def test_search_simple_in(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
-        EM_SPACE = u"\u2001"
-        LINE_SEP = u"\u2028"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
+        EM_SPACE = "\u2001"
+        LINE_SEP = "\u2028"
         assert re.search(r"b[\da-z]a", "bb1a")
         assert re.search(r"b[\da-z]a", "bbsa")
         assert not re.search(r"b[\da-z]a", "bbSa")
         assert re.search(r"b[^okd]a", "bsa")
         assert not re.search(r"b[^okd]a", "bda")
-        assert re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % UPPER_PI) # bigcharset
-        assert re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % EM_SPACE)
-        assert not re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % LINE_SEP)
+        assert re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % UPPER_PI) # bigcharset
+        assert re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % EM_SPACE)
+        assert not re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % LINE_SEP)
 
     def test_search_simple_literal_ignore(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.search(r"ba", "ba", re.IGNORECASE)
         assert re.search(r"ba", "BA", re.IGNORECASE)
-        assert re.search(u"b%s" % UPPER_PI, u"B%s" % LOWER_PI,
+        assert re.search("b%s" % UPPER_PI, "B%s" % LOWER_PI,
             re.IGNORECASE | re.UNICODE)
 
     def test_search_simple_in_ignore(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.search(r"ba[A-C]", "bac", re.IGNORECASE)
         assert re.search(r"ba[a-c]", "baB", re.IGNORECASE)
-        assert re.search(u"ba[%s]" % UPPER_PI, "ba%s" % LOWER_PI,
+        assert re.search("ba[%s]" % UPPER_PI, "ba%s" % LOWER_PI,
             re.IGNORECASE | re.UNICODE)
         assert re.search(r"ba[^A-C]", "bar", re.IGNORECASE)
         assert not re.search(r"ba[^A-C]", "baA", re.IGNORECASE)
@@ -496,13 +496,13 @@ class AppTestSimpleSearches:
 
     def test_search_simple_groupref(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.match(r"((ab)+)c\1", "ababcabab")
         assert not re.match(r"((ab)+)c\1", "ababcab")
         assert not re.search(r"(a|(b))\2", "aa")
         assert re.match(r"((ab)+)c\1", "aBAbcAbaB", re.IGNORECASE)
-        assert re.match(r"((a.)+)c\1", u"a%sca%s" % (UPPER_PI, LOWER_PI),
+        assert re.match(r"((a.)+)c\1", "a%sca%s" % (UPPER_PI, LOWER_PI),
             re.IGNORECASE | re.UNICODE)
 
     def test_search_simple_groupref_exists(self):
