@@ -8,7 +8,7 @@ from pypy.jit.metainterp.quasiimmut import QuasiImmut
 from pypy.jit.metainterp.quasiimmut import get_current_qmut_instance
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.rlib.jit import JitDriver, dont_look_inside, unroll_safe
+from pypy.rlib.jit import JitDriver, dont_look_inside, unroll_safe, promote
 
 
 def test_get_current_qmut_instance():
@@ -506,6 +506,27 @@ class QuasiImmutTests(object):
             "guard_not_invalidated": 2
         })
 
+    def test_issue1080(self):
+        myjitdriver = JitDriver(greens=[], reds=["n", "sa", "a"])
+        class Foo(object):
+            _immutable_fields_ = ["x?"]
+            def __init__(self, x):
+                self.x = x
+        one, two = Foo(1), Foo(2)
+        def main(n):
+            sa = 0
+            a = one
+            while n:
+                myjitdriver.jit_merge_point(n=n, sa=sa, a=a)
+                sa += a.x
+                if a.x == 1:
+                    a = two
+                elif a.x == 2:
+                    a = one                    
+                n -= 1
+            return sa
+        res = self.meta_interp(main, [10])
+        assert res == main(10)
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass

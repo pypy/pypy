@@ -341,9 +341,13 @@ class AutoFlusher(object):
 
     def add(self, w_iobase):
         assert w_iobase.streamholder is None
-        holder = StreamHolder(w_iobase)
-        w_iobase.streamholder = holder
-        self.streams[holder] = None
+        if rweakref.has_weakref_support():
+            holder = StreamHolder(w_iobase)
+            w_iobase.streamholder = holder
+            self.streams[holder] = None
+        #else:
+        #   no support for weakrefs, so ignore and we
+        #   will not get autoflushing
 
     def remove(self, w_iobase):
         holder = w_iobase.streamholder

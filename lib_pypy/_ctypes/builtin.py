@@ -3,7 +3,8 @@ import _rawffi, sys
 try:
     from thread import _local as local
 except ImportError:
-    local = object    # no threads
+    class local(object):    # no threads
+        pass
 
 class ConvMode:
     encoding = 'ascii'

@@ -33,6 +33,11 @@ def PyComplex_ImagAsDouble(space, w_obj):
         # CPython also accepts anything
         return 0.0
 
+@cpython_api([Py_complex_ptr], PyObject)
+def _PyComplex_FromCComplex(space, v):
+    """Create a new Python complex number object from a C Py_complex value."""
+    return space.newcomplex(v.c_real, v.c_imag)
+
 # lltype does not handle functions returning a structure.  This implements a
 # helper function, which takes as argument a reference to the return value.
 @cpython_api([PyObject, Py_complex_ptr], lltype.Void)

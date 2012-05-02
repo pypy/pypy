@@ -21,7 +21,7 @@ def compile_shared():
     # Compile .c file
     include_dir = os.path.join(thisdir, '..', 'include')
     if sys.platform == 'win32':
-        ccflags = []
+        ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
         ccflags = ['-fPIC']
     res = compiler.compile([os.path.join(thisdir, '_ctypes_test.c')],
@@ -34,6 +34,13 @@ def compile_shared():
     if sys.platform == 'win32':
         # XXX libpypy-c.lib is currently not installed automatically
         library = os.path.join(thisdir, '..', 'include', 'libpypy-c')
+        if not os.path.exists(library + '.lib'):
+            #For a nightly build
+            library = os.path.join(thisdir, '..', 'include', 'python27')
+        if not os.path.exists(library + '.lib'):
+            # For a local translation
+            library = os.path.join(thisdir, '..', 'pypy', 'translator',
+                    'goal', 'libpypy-c')
         libraries = [library, 'oleaut32']
         extra_ldargs = ['/MANIFEST'] # needed for VC10
     else:

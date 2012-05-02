@@ -1,21 +1,25 @@
 #include <Python.h>
 #include <stdarg.h>
 
-PyObject * PyTuple_Pack(Py_ssize_t size, ...)
+PyObject *
+PyTuple_Pack(Py_ssize_t n, ...)
 {
-    va_list ap;
-    PyObject *cur, *tuple;
-    int i;
+    Py_ssize_t i;
+    PyObject *o;
+    PyObject *result;
+    va_list vargs;
 
-    tuple = PyTuple_New(size);
-    va_start(ap, size);
-    for (i = 0; i < size; i++) {
-        cur = va_arg(ap, PyObject*);
-        Py_INCREF(cur);
-        if (PyTuple_SetItem(tuple, i, cur) < 0)
+    va_start(vargs, n);
+    result = PyTuple_New(n);
+    if (result == NULL)
+        return NULL;
+    for (i = 0; i < n; i++) {
+        o = va_arg(vargs, PyObject *);
+        Py_INCREF(o);
+        if (PyTuple_SetItem(result, i, o) < 0)
             return NULL;
     }
-    va_end(ap);
-    return tuple;
+    va_end(vargs);
+    return result;
 }
 

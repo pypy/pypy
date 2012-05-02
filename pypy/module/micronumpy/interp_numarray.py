@@ -72,9 +72,10 @@ class BaseArray(Wrappable):
             arr.force_if_needed()
         del self.invalidates[:]
 
-    def add_invalidates(self, other):
-        self.invalidates.append(other)
-
+    def add_invalidates(self, space, other):
+        if get_numarray_cache(space).enable_invalidation:
+            self.invalidates.append(other)
+        
     def descr__new__(space, w_subtype, w_size, w_dtype=None):
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
@@ -513,7 +514,30 @@ class BaseArray(Wrappable):
             arr = concrete.copy(space)
             arr.setshape(space, new_shape)
         return arr
-
+       
+    @unwrap_spec(axis1=int, axis2=int)
+    def descr_swapaxes(self, space, axis1, axis2):
+        """a.swapaxes(axis1, axis2)
+    
+        Return a view of the array with `axis1` and `axis2` interchanged.
+    
+        Refer to `numpy.swapaxes` for full documentation.
+    
+        See Also
+        --------
+        numpy.swapaxes : equivalent function
+        """
+        concrete = self.get_concrete()
+        shape = concrete.shape[:]
+        strides = concrete.strides[:]
+        backstrides = concrete.backstrides[:]
+        shape[axis1], shape[axis2] = shape[axis2], shape[axis1]   
+        strides[axis1], strides[axis2] = strides[axis2], strides[axis1]
+        backstrides[axis1], backstrides[axis2] = backstrides[axis2], backstrides[axis1] 
+        arr = W_NDimSlice(concrete.start, strides, 
+                           backstrides, shape, concrete)
+        return space.wrap(arr)   
+                                      
     def descr_tolist(self, space):
         if len(self.shape) == 0:
             assert isinstance(self, Scalar)
@@ -1412,6 +1436,7 @@ BaseArray.typedef = TypeDef(
     copy = interp2app(BaseArray.descr_copy),
     flatten = interp2app(BaseArray.descr_flatten),
     reshape = interp2app(BaseArray.descr_reshape),
+    swapaxes = interp2app(BaseArray.descr_swapaxes),
     tolist = interp2app(BaseArray.descr_tolist),
     take = interp2app(BaseArray.descr_take),
     compress = interp2app(BaseArray.descr_compress),
@@ -1559,3 +1584,10 @@ def isna(space, w_obj):
         arr.fill(space, space.wrap(False))
         return arr
     return space.wrap(False)
+
+class NumArrayCache(object):
+    def __init__(self, space):
+        self.enable_invalidation = True
+
+def get_numarray_cache(space):
+    return space.fromcache(NumArrayCache)

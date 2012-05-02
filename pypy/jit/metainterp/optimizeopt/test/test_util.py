@@ -122,6 +122,7 @@ class LLtypeMixin(object):
     quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
     quasibox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, quasi))
+    quasiptr = quasibox.value
     quasiimmutdescr = QuasiImmutDescr(cpu, quasibox,
                                       quasifielddescr,
                                       cpu.fielddescrof(QUASI, 'mutate_field'))

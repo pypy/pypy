@@ -1,9 +1,8 @@
 
 import py
 
-from pypy.conftest import gettestobjspace, option
+from pypy.conftest import option
 from pypy.interpreter.error import OperationError
-from pypy.module.micronumpy import signature
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
@@ -1410,6 +1409,35 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (array([1, 2]).repeat(2) == array([1, 1, 2, 2])).all()
 
 
+    def test_swapaxes(self):
+        from _numpypy import array
+        # testcases from numpy docstring
+        x = array([[1, 2, 3]])
+        assert (x.swapaxes(0, 1) == array([[1], [2], [3]])).all() 
+        x = array([[[0,1],[2,3]],[[4,5],[6,7]]]) # shape = (2, 2, 2)
+        assert (x.swapaxes(0, 2) == array([[[0, 4], [2, 6]], 
+                                           [[1, 5], [3, 7]]])).all() 
+        assert (x.swapaxes(0, 1) == array([[[0, 1], [4, 5]], 
+                                           [[2, 3], [6, 7]]])).all()
+        assert (x.swapaxes(1, 2) == array([[[0, 2], [1, 3]], 
+                                           [[4, 6],[5, 7]]])).all()
+
+        # more complex shape i.e. (2, 2, 3)
+        x = array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]) 
+        assert (x.swapaxes(0, 1) == array([[[1, 2, 3], [7, 8, 9]], 
+                                           [[4, 5, 6], [10, 11, 12]]])).all() 
+        assert (x.swapaxes(0, 2) == array([[[1, 7], [4, 10]], [[2, 8], [5, 11]], 
+                                           [[3, 9], [6, 12]]])).all() 
+        assert (x.swapaxes(1, 2) == array([[[1, 4], [2, 5], [3, 6]], 
+                                           [[7, 10], [8, 11],[9, 12]]])).all() 
+        
+        # test slice
+        assert (x[0:1,0:2].swapaxes(0,2) == array([[[1], [4]], [[2], [5]], 
+                                                   [[3], [6]]])).all()
+        # test virtual
+        assert ((x + x).swapaxes(0,1) == array([[[ 2,  4,  6], [14, 16, 18]], 
+                                         [[ 8, 10, 12], [20, 22, 24]]])).all()
+                        
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import _numpypy
@@ -1801,6 +1829,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = arange(6).reshape(3, 2)
         a[a & 1 == 1] = array([8, 9, 10])
         assert (a == [[0, 8], [2, 9], [4, 10]]).all()
+
+    def test_array_indexing_bool_setitem_multidim(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 3], [15, 5], [15, 7], [15, 9]]).all()
+
+    def test_array_indexing_bool_setitem_2(self):
+        from _numpypy import arange
+        a = arange(10).reshape(5, 2)
+        a = a[::2]
+        a[a & 1 == 0] = 15
+        assert (a == [[15, 1], [15, 5], [15, 9]]).all()
 
     def test_copy_kwarg(self):
         from _numpypy import array

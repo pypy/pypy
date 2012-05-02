@@ -525,6 +525,7 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
+        assert op.getopnum() != rop.CALL_PURE
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:

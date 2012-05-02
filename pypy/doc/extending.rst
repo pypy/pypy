@@ -23,6 +23,8 @@ for the PyPy python interpreter (in order of usefulness):
 
 * Write them in RPython as mixedmodule_, using *rffi* as bindings.
 
+* Write them in C++ and bind them through Reflex_ (EXPERIMENTAL)
+
 .. _ctypes: #CTypes
 .. _\_ffi: #LibFFI
 .. _mixedmodule: #Mixed Modules
@@ -110,3 +112,59 @@ Some documentation is available `here`_
 
 XXX we should provide detailed docs about lltype and rffi, especially if we
     want people to follow that way.
+
+Reflex
+======
+
+This method is still experimental and is being exercised on a branch,
+`reflex-support`_, which adds the `cppyy`_ module.
+The method works by using the `Reflex package`_ to provide reflection
+information of the C++ code, which is then used to automatically generate
+bindings at runtime.
+From a python standpoint, there is no difference between generating bindings
+at runtime, or having them "statically" generated and available in scripts
+or compiled into extension modules: python classes and functions are always
+runtime structures, created when a script or module loads.
+However, if the backend itself is capable of dynamic behavior, it is a much
+better functional match to python, allowing tighter integration and more
+natural language mappings.
+Full details are `available here`_.
+
+.. _`cppyy`: cppyy.html
+.. _`reflex-support`: cppyy.html
+.. _`Reflex package`: http://root.cern.ch/drupal/content/reflex
+.. _`available here`: cppyy.html
+
+Pros
+----
+
+The cppyy module is written in RPython, which makes it possible to keep the
+code execution visible to the JIT all the way to the actual point of call into
+C++, thus allowing for a very fast interface.
+Reflex is currently in use in large software environments in High Energy
+Physics (HEP), across many different projects and packages, and its use can be
+virtually completely automated in a production environment.
+One of its uses in HEP is in providing language bindings for CPython.
+Thus, it is possible to use Reflex to have bound code work on both CPython and
+on PyPy.
+In the medium-term, Reflex will be replaced by `cling`_, which is based on
+`llvm`_.
+This will affect the backend only; the python-side interface is expected to
+remain the same, except that cling adds a lot of dynamic behavior to C++,
+enabling further language integration.
+
+.. _`cling`: http://root.cern.ch/drupal/content/cling
+.. _`llvm`: http://llvm.org/
+
+Cons
+----
+
+C++ is a large language, and cppyy is not yet feature-complete.
+Still, the experience gained in developing the equivalent bindings for CPython
+means that adding missing features is a simple matter of engineering, not a
+question of research.
+The module is written so that currently missing features should do no harm if
+you don't use them, if you do need a particular feature, it may be necessary
+to work around it in python or with a C++ helper function.
+Although Reflex works on various platforms, the bindings with PyPy have only
+been tested on Linux.
