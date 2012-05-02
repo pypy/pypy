@@ -327,17 +327,17 @@ class AppTestGetlower:
     def test_getlower_no_flags(self):
         UPPER_AE = "\xc4"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, UPPER_AE),
-            (u"\u00c4", u"\u00c4"), (u"\u4444", u"\u4444")], 0)
+            ("\u00c4", "\u00c4"), ("\u4444", "\u4444")], 0)
 
     def test_getlower_locale(self):
         import locale, sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         try:
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-                (u"\u00c4", u"\u00e4"), (UPPER_PI, UPPER_PI)],
+                ("\u00c4", "\u00e4"), (UPPER_PI, UPPER_PI)],
                 sre_constants.SRE_FLAG_LOCALE)
         except locale.Error:
             # skip test
@@ -347,11 +347,11 @@ class AppTestGetlower:
         import sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-            (u"\u00c4", u"\u00e4"), (UPPER_PI, LOWER_PI),
-            (u"\u4444", u"\u4444")], sre_constants.SRE_FLAG_UNICODE)
+            ("\u00c4", "\u00e4"), (UPPER_PI, LOWER_PI),
+            ("\u4444", "\u4444")], sre_constants.SRE_FLAG_UNICODE)
         
 
 class AppTestSimpleSearches:
@@ -666,15 +666,15 @@ class AppTestOpcodes:
             skip("locale error")
 
     def test_at_uni_boundary(self):
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         opcodes = s.encode_literal("bl") + [s.OPCODES["any"], s.OPCODES["at"],
             s.ATCODES["at_uni_boundary"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bla ha", u"bl%s ja" % UPPER_PI])
-        s.assert_no_match(opcodes, [u"bla%s" % LOWER_PI])
+        s.assert_match(opcodes, ["bla ha", "bl%s ja" % UPPER_PI])
+        s.assert_no_match(opcodes, ["bla%s" % LOWER_PI])
         opcodes = s.encode_literal("bl") + [s.OPCODES["any"], s.OPCODES["at"],
             s.ATCODES["at_uni_non_boundary"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["blaha", u"bl%sja" % UPPER_PI])
+        s.assert_match(opcodes, ["blaha", "bl%sja" % UPPER_PI])
 
     def test_category_loc_word(self):
         import locale
@@ -685,11 +685,11 @@ class AppTestOpcodes:
             opcodes2 = s.encode_literal("b") \
                 + [s.OPCODES["category"], s.CHCODES["category_loc_not_word"], s.OPCODES["success"]]
             s.assert_no_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, u"b\u00FC")
+            s.assert_no_match(opcodes1, "b\u00FC")
             s.assert_match(opcodes2, "b\xFC")
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, u"b\u00FC")
+            s.assert_no_match(opcodes1, "b\u00FC")
             s.assert_no_match(opcodes2, "b\xFC")
             s.void_locale()
         except locale.Error:
@@ -777,10 +777,10 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["bb", "bu"])
 
     def test_not_literal_ignore(self):
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         opcodes = s.encode_literal("b") \
             + [s.OPCODES["not_literal_ignore"], ord("a"), s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bb", "bu", u"b%s" % UPPER_PI])
+        s.assert_match(opcodes, ["bb", "bu", "b%s" % UPPER_PI])
         s.assert_no_match(opcodes, ["ba", "bA"])
 
     def test_in_ignore(self):
