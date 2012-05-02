@@ -194,17 +194,16 @@ class TestNumArrayDirect(object):
         assert _to_coords(13, 'F') == [1, 0, 2]
 
 class AppTestNumArray(BaseNumpyAppTest):
-    def setup_class(cls):
-        super(AppTestNumArray, cls).setup_class()
-
-        w_tup = cls.space.appexec([], """():
-
+    def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
             def __init__(self, index):
                 self.index = index
             def __index__(self):
                 return self.index
 
+        return CustomIndexObject(index)
+
+    def w_CustomIndexIntObject(self, index, value):
         class CustomIndexIntObject(object):
             def __init__(self, index, value):
                 self.index = index
@@ -214,18 +213,16 @@ class AppTestNumArray(BaseNumpyAppTest):
             def __int__(self):
                 return self.value
 
+        return CustomIndexIntObject(index, value)
+
+    def w_CustomIntObject(self, value):
         class CustomIntObject(object):
             def __init__(self, value):
                 self.value = value
             def __index__(self):
                 return self.value
 
-        return CustomIndexObject, CustomIndexIntObject, CustomIntObject""")
-
-        tup = cls.space.unpackiterable(w_tup)
-        cls.w_CustomIndexObject = tup[0]
-        cls.w_CustomIndexIntObject = tup[1]
-        cls.w_CustomIntObject = tup[2]
+        return CustomIntObject(value)
 
     def test_ndarray(self):
         from _numpypy import ndarray, array, dtype
