@@ -1,3 +1,0 @@
-
-class TransactionError(Exception):
-    pass
