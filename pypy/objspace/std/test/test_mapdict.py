@@ -815,6 +815,7 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 1, 0)
 
     def test_old_style_base(self):
+        py.test.skip('py3k no longer has old style classes')
         class B:
             pass
         class C(object):
@@ -840,10 +841,11 @@ class AppTestWithMapDictAndCounters(object):
         class C(object):
             def m(*args):
                 return args
-        C.sm = staticmethod(C.m.im_func)
-        C.cm = classmethod(C.m.im_func)
+        C.sm = staticmethod(C.m)
+        C.cm = classmethod(C.m)
 
-        exec """if 1:
+        d = {'C': C}
+        exec("""if 1:
 
             def f():
                 c = C()
@@ -862,7 +864,10 @@ class AppTestWithMapDictAndCounters(object):
                 res = c.cm(1)
                 assert res == (C, 1)
                 return 42
-        """
+        """, d)
+        f = d['f']
+        g = d['g']
+        h = d['h']
         res = self.check(f, 'm')
         assert res == (1, 0, 0)
         res = self.check(f, 'm')
@@ -892,7 +897,8 @@ class AppTestWithMapDictAndCounters(object):
             def m(*args):
                 return args
 
-        exec """if 1:
+        d = {'C': C}
+        exec("""if 1:
 
             def f():
                 c = C()
@@ -903,7 +909,8 @@ class AppTestWithMapDictAndCounters(object):
                 assert res == (c, 1)
                 return 42
 
-        """
+        """, d)
+        f = d['f']
         res = self.check(f, 'm')
         assert res == (1, 1, 1)
         res = self.check(f, 'm')
@@ -1014,9 +1021,10 @@ class AppTestGlobalCaching(AppTestWithMapDict):
             l = [A(), B(), C()] * 10
             __pypy__.reset_method_cache_counter()
             # 'exec' to make sure that a.f() is compiled with CALL_METHOD
-            exec """for i, a in enumerate(l):
+            d = {'l': l}
+            exec("""for i, a in enumerate(l):
                         assert a.f() == 42 + i % 3
-            """ in locals()
+            """, d)
             cache_counter = __pypy__.mapdict_cache_counter("f")
             if cache_counter == (27, 3):
                 break

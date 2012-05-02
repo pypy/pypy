@@ -504,6 +504,8 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
     return NULL;
 }
 
+#undef appendstring
+
 PyObject *
 PyUnicode_FromFormat(const char *format, ...)
 {

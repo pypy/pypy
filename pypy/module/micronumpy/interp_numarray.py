@@ -72,9 +72,10 @@ class BaseArray(Wrappable):
             arr.force_if_needed()
         del self.invalidates[:]
 
-    def add_invalidates(self, other):
-        self.invalidates.append(other)
-
+    def add_invalidates(self, space, other):
+        if get_numarray_cache(space).enable_invalidation:
+            self.invalidates.append(other)
+        
     def descr__new__(space, w_subtype, w_size, w_dtype=None):
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
@@ -1583,3 +1584,10 @@ def isna(space, w_obj):
         arr.fill(space, space.wrap(False))
         return arr
     return space.wrap(False)
+
+class NumArrayCache(object):
+    def __init__(self, space):
+        self.enable_invalidation = True
+
+def get_numarray_cache(space):
+    return space.fromcache(NumArrayCache)

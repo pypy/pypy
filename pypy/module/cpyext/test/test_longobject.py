@@ -31,6 +31,12 @@ class TestLongObject(BaseApiTest):
         value = api.PyLong_AsUnsignedLong(w_value)
         assert value == (sys.maxint - 1) * 2
 
+    def test_as_ssize_t(self, space, api):
+        w_value = space.newlong(2)
+        value = api.PyLong_AsSsize_t(w_value)
+        assert value == 2
+        assert space.eq_w(w_value, api.PyLong_FromSsize_t(2))
+
     def test_fromdouble(self, space, api):
         w_value = api.PyLong_FromDouble(-12.74)
         assert space.unwrap(w_value) == -12
@@ -152,7 +158,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  int little_endian, is_signed;
                  if (!PyArg_ParseTuple(args, "ii", &little_endian, &is_signed))
                      return NULL;
-                 return _PyLong_FromByteArray("\x9A\xBC", 2,
+                 return _PyLong_FromByteArray("\\x9A\\xBC", 2,
                                               little_endian, is_signed);
              """),
             ])

@@ -139,9 +139,13 @@ class TestDictObject(BaseApiTest):
         api.Py_DecRef(py_dict) # release borrowed references
 
         assert space.eq_w(space.newlist(keys_w),
-                          space.call_method(w_dict, "keys"))
+                          space.call_function(
+                             space.w_list,
+                             space.call_method(w_dict, "keys")))
         assert space.eq_w(space.newlist(values_w),
-                          space.call_method(w_dict, "values"))
+                          space.call_function(
+                             space.w_list,
+                             space.call_method(w_dict, "values")))
 
     def test_dictproxy(self, space, api):
         w_dict = space.sys.get('modules')

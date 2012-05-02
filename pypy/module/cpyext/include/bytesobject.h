@@ -25,3 +25,6 @@
 #define _PyBytes_Join _PyString_Join
 #define PyBytes_AsStringAndSize PyString_AsStringAndSize
 #define _PyBytes_InsertThousandsGrouping _PyString_InsertThousandsGrouping
+
+#define PyByteArray_Check(obj) \
+    PyObject_IsInstance(obj, (PyObject *)&PyByteArray_Type)

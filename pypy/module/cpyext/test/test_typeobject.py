@@ -14,12 +14,12 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert "copy" in dir(module.fooType)
         obj = module.new()
-        print obj.foo
+        print(obj.foo)
         assert obj.foo == 42
-        print "Obj has type", type(obj)
+        print("Obj has type", type(obj))
         assert type(obj) is module.fooType
-        print "type of obj has type", type(type(obj))
-        print "type of type of obj has type", type(type(type(obj)))
+        print("type of obj has type", type(type(obj)))
+        print("type of type of obj has type", type(type(type(obj))))
         assert module.fooType.__doc__ == "foo is for testing."
 
     def test_typeobject_method_descriptor(self):
@@ -36,7 +36,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo' objects>"
         assert obj2(foo=1, bar=2) == dict(foo=1, bar=2)
 
-        print obj.foo
+        print(obj.foo)
         assert obj.foo == 42
         assert obj.int_member == obj.foo
 
@@ -107,6 +107,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.double_member = 9.25;      assert obj.double_member == 9.25
         obj.longlong_member = -2**59;  assert obj.longlong_member == -2**59
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
+        obj.ssizet_member = 2**31;     assert obj.ssizet_member == 2**31
         #
 
     def test_staticmethod(self):
@@ -120,8 +121,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = module.UnicodeSubtype(u"xyz")
-        assert newobj == u"xyz"
+        newobj = module.UnicodeSubtype("xyz")
+        assert newobj == "xyz"
         assert isinstance(newobj, module.UnicodeSubtype)
 
         assert isinstance(module.fooType(), module.fooType)
@@ -133,7 +134,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         class fuu2(fuu):
             def baz(self):
                 return self
-        assert fuu2(u"abc").baz().escape()
+        assert fuu2("abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
 
     def test_init(self):
@@ -180,11 +181,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert sre_compile.MAGIC == module.MAGIC
         import re
         import time
-        s = u"Foo " * 1000 + u"Bar"
-        prog = re.compile(ur"Foo.*Bar")
+        s = "Foo " * 1000 + "Bar"
+        prog = re.compile(r"Foo.*Bar")
         assert prog.match(s)
-        m = re.search(u"xyz", u"xyzxyz")
-        assert m
         m = re.search("xyz", "xyzxyz")
         assert m
         assert "groupdict" in dir(m)
@@ -207,10 +206,10 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         cmpr = module.CmpType()
 
         # should not crash
-        cmpr < 4
-        cmpr <= 4
-        cmpr > 4
-        cmpr >= 4
+        raises(TypeError, "cmpr < 4")
+        raises(TypeError, "cmpr <= 4")
+        raises(TypeError, "cmpr > 4")
+        raises(TypeError, "cmpr >= 4")
 
         assert cmpr.__le__(4) is NotImplemented
 
@@ -488,3 +487,55 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(it) is type(iter([]))
         assert module.tp_iternext(it) == 1
         raises(StopIteration, module.tp_iternext, it)
+        
+    def test_bool(self):
+        module = self.import_extension('foo', [
+            ("newInt", "METH_VARARGS",
+             """
+                IntLikeObject *intObj;
+                long intval;
+                PyObject *name;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                intlike_as_number.nb_nonzero = intlike_nb_nonzero;
+                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+
+                intObj->value = intval;
+                return (PyObject *)intObj;
+             """)],
+            """
+            typedef struct
+            {
+                PyObject_HEAD
+                int value;
+            } IntLikeObject;
+
+            static int
+            intlike_nb_nonzero(IntLikeObject *v)
+            {
+                if (v->value == -42) {
+                    PyErr_SetNone(PyExc_ValueError);
+                    return -1;
+                }
+                return v->value;
+            }
+
+            PyTypeObject IntLike_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLike",
+                /*tp_basicsize*/        sizeof(IntLikeObject),
+            };
+            static PyNumberMethods intlike_as_number;
+            """)
+        assert not bool(module.newInt(0))
+        assert bool(module.newInt(1))
+        assert bool(module.newInt(-1))
+        raises(ValueError, bool, module.newInt(-42))

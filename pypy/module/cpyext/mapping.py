@@ -22,20 +22,23 @@ def PyMapping_Length(space, w_obj):
 def PyMapping_Keys(space, w_obj):
     """On success, return a list of the keys in object o.  On failure, return NULL.
     This is equivalent to the Python expression o.keys()."""
-    return space.call_method(w_obj, "keys")
+    return space.call_function(space.w_list,
+                               space.call_method(w_obj, "keys"))
 
 @cpython_api([PyObject], PyObject)
 def PyMapping_Values(space, w_obj):
     """On success, return a list of the values in object o.  On failure, return
     NULL. This is equivalent to the Python expression o.values()."""
-    return space.call_method(w_obj, "values")
+    return space.call_function(space.w_list,
+                               space.call_method(w_obj, "values"))
 
 @cpython_api([PyObject], PyObject)
 def PyMapping_Items(space, w_obj):
     """On success, return a list of the items in object o, where each item is a tuple
     containing a key-value pair.  On failure, return NULL. This is equivalent to
     the Python expression o.items()."""
-    return space.call_method(w_obj, "items")
+    return space.call_function(space.w_list,
+                               space.call_method(w_obj, "items"))
 
 @cpython_api([PyObject, CONST_STRING], PyObject)
 def PyMapping_GetItemString(space, w_obj, key):

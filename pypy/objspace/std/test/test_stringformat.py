@@ -44,7 +44,7 @@ class AppTestStringObjectWithDict:
             def __getitem__(self, key):
                 return key
         assert '%(key)s'%MyMapping2() == 'key'
-        assert u'%(key)s'%MyMapping2() == u'key'
+        #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
 class AppTestStringObject:
 
@@ -127,15 +127,6 @@ class AppTestStringObject:
         assert '27' == '%.2o' % n
         assert '027' == '%#.2o' % n
 
-    def test_format_long(self):
-        l = 4800000000L
-        assert '%d' % l == '4800000000'
-        #
-        class SubLong(long):
-            pass
-        sl = SubLong(l)
-        assert '%d' % sl == '4800000000'
-
     def test_format_list(self):
         l = [1,2]
         assert '<[1, 2]>' == '<%s>' % l
@@ -176,15 +167,14 @@ class AppTestStringObject:
         e = 'e'
         assert '%c' % A == 'A'
         assert '%c' % e == 'e'
-        raises(OverflowError, '%c'.__mod__, (256,))
+        #raises(OverflowError, '%c'.__mod__, (256,)) # py2
+        assert '%c' % 256 == '\u0100'                # py3k
         raises(OverflowError, '%c'.__mod__, (-1,))
-        raises(OverflowError, u'%c'.__mod__, (sys.maxunicode+1,))
+        raises(OverflowError, '%c'.__mod__, (sys.maxunicode+1,))
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))
     
-    def test_broken_unicode(self):
-        raises(UnicodeDecodeError, 'Názov: %s'.__mod__, u'Jerry')
 
 class AppTestWidthPrec:
     def test_width(self):
@@ -266,24 +256,10 @@ class AppTestWidthPrec:
         assert "%G" % (nan,) == 'NAN'
 
 class AppTestUnicodeObject:
-    def test_unicode_convert(self):
-        u = u"x"
-        assert isinstance("%s" % u, unicode)
-
-    def test_unicode_nonascii(self):
-        """
-        Interpolating a unicode string with non-ascii characters in it into
-        a string format should decode the format string as ascii and return
-        unicode.
-        """
-        u = u'\x80'
-        result = "%s" % u
-        assert isinstance(result, unicode)
-        assert result == u
-
+    
     def test_unicode_d(self):
         t = 3
-        assert u"%.1d" % t == '3'
+        assert "%.1d" % t == '3'
 
     def test_unicode_overflow(self):
         skip("nicely passes on top of CPython but requires > 2GB of RAM")
@@ -291,18 +267,17 @@ class AppTestUnicodeObject:
         raises((OverflowError, MemoryError), 'u"%.*d" % (sys.maxint, 1)')
 
     def test_unicode_format_a(self):
-        ten = 10L
-        assert u'%x' % ten == 'a'
+        ten = 10
+        assert '%x' % ten == 'a'
 
     def test_long_no_overflow(self):
-        big = 100000000000L
-        assert "%x" % big == "174876e800"
+        big = 0x1234567890987654321
+        assert "%x" % big == "1234567890987654321"
 
     def test_missing_cases(self):
-        big = -123456789012345678901234567890L
-        print '%032d' % big
+        big = -123456789012345678901234567890
         assert '%032d' % big == '-0123456789012345678901234567890'
 
     def test_invalid_char(self):
         f = 4
-        raises(ValueError, 'u"%\u1234" % (f,)')
+        raises(ValueError, '"%\u1234" % (f,)')

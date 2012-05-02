@@ -77,6 +77,8 @@ def really_build_fake_type(cpy_type):
             kw[meth_name] = EvenMoreObscureWrapping(__builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name))
     else:
         for s, v in cpy_type.__dict__.items():
+            if s == 'next':
+                s = '__next__'
             if not (cpy_type is unicode and s in ['__add__', '__contains__']):
                 if s != '__getattribute__' or cpy_type is type(sys) or cpy_type is type(Exception):
                     kw[s] = v

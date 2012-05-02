@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.module.cpyext.api import (cpython_api, PyObject, build_type_checkers,
-                                    CONST_STRING, ADDR, CANNOT_FAIL)
+from pypy.module.cpyext.api import (
+    cpython_api, PyObject, build_type_checkers, Py_ssize_t,
+    CONST_STRING, ADDR, CANNOT_FAIL)
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
@@ -8,11 +9,18 @@ from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rarithmetic import intmask
 
 
-PyLong_Check, PyLong_CheckExact = build_type_checkers("Long")
+PyLong_Check, PyLong_CheckExact = build_type_checkers("Long", "w_int")
 
 @cpython_api([lltype.Signed], PyObject)
 def PyLong_FromLong(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
+    return space.newlong(val)
+
+@cpython_api([Py_ssize_t], PyObject)
+def PyLong_FromSsize_t(space, val):
+    """Return a new PyLongObject object from a C Py_ssize_t, or
+    NULL on failure.
+    """
     return space.newlong(val)
 
 @cpython_api([rffi.LONGLONG], PyObject)
@@ -54,6 +62,14 @@ def PyLong_AsLong(space, w_long):
     Return a C long representation of the contents of pylong.  If
     pylong is greater than LONG_MAX, an OverflowError is raised
     and -1 will be returned."""
+    return space.int_w(w_long)
+
+@cpython_api([PyObject], Py_ssize_t, error=-1)
+def PyLong_AsSsize_t(space, w_long):
+    """Return a C Py_ssize_t representation of the contents of pylong.  If
+    pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
+    and -1 will be returned.
+    """
     return space.int_w(w_long)
 
 @cpython_api([PyObject], rffi.LONGLONG, error=-1)

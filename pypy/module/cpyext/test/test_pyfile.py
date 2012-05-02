@@ -14,11 +14,7 @@ class TestFile(BaseApiTest):
         rffi.free_charp(filename)
         rffi.free_charp(mode)
 
-        assert api.PyFile_Check(w_file)
-        assert api.PyFile_CheckExact(w_file)
-        assert not api.PyFile_Check(space.wrap("text"))
-
-        space.call_method(w_file, "write", space.wrap("text"))
+        space.call_method(w_file, "write", space.wrapbytes("text"))
         space.call_method(w_file, "close")
         assert (udir / "_test_file").read() == "text"
 

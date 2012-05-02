@@ -126,37 +126,22 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             PyBuffer_Release(&buf);
             return result;
             ''')
-        assert 'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
-
-
-    def test_pyarg_parse_string_old_buffer(self):
-        pybuffer = self.import_parser(
-            '''
-            Py_buffer buf;
-            PyObject *result;
-            if (!PyArg_ParseTuple(args, "s*", &buf)) {
-                return NULL;
-            }
-            result = PyString_FromStringAndSize(buf.buf, buf.len);
-            PyBuffer_Release(&buf);
-            return result;
-            ''')
-        assert 'foo\0bar\0baz' == pybuffer(buffer('foo\0bar\0baz'))
+        assert b'foo\0bar\0baz' == pybuffer('foo\0bar\0baz')
 
 
     def test_pyarg_parse_charbuf_and_length(self):
         """
-        The `t#` format specifier can be used to parse a read-only 8-bit
+        The `s#` format specifier can be used to parse a read-only 8-bit
         character buffer into a char* and int giving its length in bytes.
         """
         charbuf = self.import_parser(
             '''
             char *buf;
             int len;
-            if (!PyArg_ParseTuple(args, "t#", &buf, &len)) {
+            if (!PyArg_ParseTuple(args, "s#", &buf, &len)) {
                 return NULL;
             }
             return PyString_FromStringAndSize(buf, len);
             ''')
         raises(TypeError, "charbuf(10)")
-        assert 'foo\0bar\0baz' == charbuf('foo\0bar\0baz')
+        assert b'foo\0bar\0baz' == charbuf('foo\0bar\0baz')

@@ -116,9 +116,10 @@ def unwrap_list_of_strings(space, w_list):
     return [space.str_w(w_item) for w_item in space.fixedview(w_list)]
 
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
               PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
-def PyCode_New(space, argcount, nlocals, stacksize, flags,
+def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
                w_filename, w_funcname, firstlineno, w_lnotab):
     """Return a new code object.  If you need a dummy code object to
@@ -147,6 +148,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return space.wrap(PyCode(space,
                              argcount=0,
+                             kwonlyargcount=0,
                              nlocals=0,
                              stacksize=0,
                              flags=0,

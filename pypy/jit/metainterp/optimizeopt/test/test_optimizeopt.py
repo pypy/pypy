@@ -105,6 +105,9 @@ class BaseTestWithUnroll(BaseTest):
 
         return loop
 
+    def raises(self, e, fn, *args):
+        py.test.raises(e, fn, *args)
+
 class OptimizeOptTest(BaseTestWithUnroll):
 
     def setup_method(self, meth=None):
@@ -2639,7 +2642,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = new_with_vtable(ConstClass(node_vtable))
         jump(p2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
+        self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
     def test_invalid_loop_2(self):
@@ -2651,7 +2654,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(p2)      # prevent it from staying Virtual
         jump(p2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
+        self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
     def test_invalid_loop_3(self):
@@ -2665,7 +2668,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
 
     def test_merge_guard_class_guard_value(self):
@@ -4411,7 +4414,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        py.test.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """
@@ -5024,7 +5027,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i0, 3)
         jump(i2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_bound_ne_const_not(self):
         ops = """
@@ -5074,7 +5077,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i0, 3)
         jump(i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_bound_lshift(self):
         ops = """
@@ -6533,9 +6536,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_quasi_immut_2(self):
         ops = """
         []
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         escape(i1)
         jump()
         """
@@ -6585,13 +6588,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_call_may_force_invalidated_guards_reload(self):
         ops = """
         [i0a, i0b]
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
-        quasiimmut_field(ConstPtr(myptr), descr=quasiimmutdescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        i2 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -7810,6 +7813,52 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(ConstPtr(myptr), descr=nonwritedescr)
         guard_true(i3) []
         jump(p1, 1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_issue1080_infinitie_loop_virtual(self):
+        ops = """
+        [p10]
+        p52 = getfield_gc(p10, descr=nextdescr) # inst_storage
+        p54 = getarrayitem_gc(p52, 0, descr=arraydescr)
+        p69 = getfield_gc_pure(p54, descr=otherdescr) # inst_w_function
+
+        quasiimmut_field(p69, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        guard_value(p71, -4247) []
+
+        p106 = new_with_vtable(ConstClass(node_vtable))
+        p108 = new_array(3, descr=arraydescr)
+        p110 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p110, ConstPtr(myptr2), descr=otherdescr) # inst_w_function
+        setarrayitem_gc(p108, 0, p110, descr=arraydescr)
+        setfield_gc(p106, p108, descr=nextdescr) # inst_storage
+        jump(p106)
+        """
+        expected = """
+        []
+        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
+        guard_value(p72, -4247) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        
+
+    def test_issue1080_infinitie_loop_simple(self):
+        ops = """
+        [p69]
+        quasiimmut_field(p69, descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        guard_value(p71, -4247) []
+        jump(ConstPtr(myptr))
+        """
+        expected = """
+        []
+        p72 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
+        guard_value(p72, -4247) []
+        jump()
         """
         self.optimize_loop(ops, expected)
 

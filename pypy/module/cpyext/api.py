@@ -102,8 +102,8 @@ Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
-udir.join('pypy_decl.h').write("/* Will be filled later */")
-udir.join('pypy_macros.h').write("/* Will be filled later */")
+udir.join('pypy_decl.h').write("/* Will be filled later */\n")
+udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 globals().update(rffi_platform.configure(CConfig_constants))
 
 def copy_header_files(dstdir):
@@ -924,12 +924,12 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "pyerrors.c",
                                source_dir / "modsupport.c",
                                source_dir / "getargs.c",
+                               source_dir / "abstract.c",
                                source_dir / "unicodeobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
                                source_dir / "sysmodule.c",
                                source_dir / "bufferobject.c",
-                               source_dir / "object.c",
                                source_dir / "cobject.c",
                                source_dir / "structseq.c",
                                source_dir / "capsule.c",

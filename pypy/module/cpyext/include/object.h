@@ -38,10 +38,19 @@ typedef struct {
 	PyObject_VAR_HEAD
 } PyVarObject;
 
+#ifndef PYPY_DEBUG_REFCOUNT
 #define Py_INCREF(ob)   (Py_IncRef((PyObject *)ob))
 #define Py_DECREF(ob)   (Py_DecRef((PyObject *)ob))
 #define Py_XINCREF(ob)  (Py_IncRef((PyObject *)ob))
 #define Py_XDECREF(ob)  (Py_DecRef((PyObject *)ob))
+#else
+#define Py_INCREF(ob)   (((PyObject *)ob)->ob_refcnt++)
+#define Py_DECREF(ob)  ((((PyObject *)ob)->ob_refcnt > 1) ? \
+			((PyObject *)ob)->ob_refcnt-- : (Py_DecRef((PyObject *)ob)))
+
+#define Py_XINCREF(op) do { if ((op) == NULL) ; else Py_INCREF(op); } while (0)
+#define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
+#endif
 
 #define Py_CLEAR(op)				\
         do {                            	\
@@ -520,6 +529,8 @@ manually remove this flag though!
 
 #define PyObject_GC_New(type, typeobj) \
                 ( (type *) _PyObject_GC_New(typeobj) )
+#define PyObject_GC_NewVar(type, typeobj, size) \
+                ( (type *) _PyObject_GC_NewVar(typeobj, size) )
 
 /* A dummy PyGC_Head, just to please some tests. Don't use it! */
 typedef union _gc_head {

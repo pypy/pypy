@@ -379,6 +379,18 @@ class Test_rbigint(object):
         for n, expected in [(37, 9), (1291, 931), (67889, 39464)]:
             v = two.pow(t, rbigint.fromint(n))
             assert v.toint() == expected
+        #
+        # more tests, comparing against CPython's answer
+        enabled = sample(range(5*32), 10)
+        for i in range(5*32):
+            t = t.mul(two)      # add one random bit
+            if random() >= 0.5:
+                t = t.add(rbigint.fromint(1))
+            if i not in enabled:
+                continue    # don't take forever
+            n = randint(1, sys.maxint)
+            v = two.pow(t, rbigint.fromint(n))
+            assert v.toint() == pow(2, t.tolong(), n)
 
     def test_pow_lln(self):
         x = 10L

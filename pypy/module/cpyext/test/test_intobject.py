@@ -64,7 +64,7 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             ])
         values = module.values()
         types = [type(x) for x in values]
-        assert types == [int, long, int, int]
+        assert types == [int, int, int, int]
 
     def test_int_subtype(self):
         module = self.import_extension(

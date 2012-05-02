@@ -76,7 +76,7 @@ class AppTest_IndexProtocol:
         assert self.n.__index__() == 5
 
     def test_subclasses(self):
-        r = range(10)
+        r = list(range(10))
         assert r[self.TrapInt(5):self.TrapInt(10)] == r[5:10]
         assert slice(self.TrapInt()).indices(0) == (0,0,1)
 
@@ -268,7 +268,7 @@ class AppTest_OverflowTestCase:
         assert self.neg.__index__() == self.neg
 
     def test_getitem(self):
-        from sys import maxint
+        from sys import maxsize as maxint
         class GetItem(object):
             def __len__(self):
                 return maxint
@@ -277,7 +277,7 @@ class AppTest_OverflowTestCase:
         x = GetItem()
         assert x[self.pos] == self.pos
         assert x[self.neg] == self.neg
-        assert x[self.neg:self.pos] == (-1, maxint)
+        assert x[self.neg:self.pos] == slice(self.neg, self.pos)
         assert x[self.neg:self.pos:1].indices(maxint) == (0, maxint, 1)
 
     def test_getslice_nolength(self):
@@ -285,21 +285,7 @@ class AppTest_OverflowTestCase:
             def __getitem__(self, slice):
                 return slice
 
-        assert X()[-2:1] == (-2, 1)
-
-    def test_getitem_classic(self):
-        from sys import maxint
-        class Empty: pass
-        class GetItem(Empty):
-            def __len__(self):
-                return maxint
-            def __getitem__(self, key):
-                return key
-        x = GetItem()
-        assert x[self.pos] == self.pos
-        assert x[self.neg] == self.neg
-        assert x[self.neg:self.pos] == (-1, maxint)
-        assert x[self.neg:self.pos:1].indices(maxint) == (0, maxint, 1)
+        assert X()[-2:1] == slice(-2, 1)
 
     def test_sequence_repeat(self):
         raises(OverflowError, lambda: "a" * self.pos)

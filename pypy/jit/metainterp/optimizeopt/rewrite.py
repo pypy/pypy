@@ -208,7 +208,8 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop
+                raise InvalidLoop('A GURAD_{VALUE,TRUE,FALSE} was proven to' +
+                                  'always fail')
             return
         if emit_operation:
             self.emit_operation(op)
@@ -220,7 +221,7 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -229,7 +230,7 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
         self.emit_operation(op)
         value.make_nonnull(op)
 
@@ -278,7 +279,7 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -301,7 +302,8 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
+                              'fail')
         self.optimize_GUARD_CLASS(op)
 
     def optimize_CALL_LOOPINVARIANT(self, op):

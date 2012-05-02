@@ -57,6 +57,10 @@ def PyObject_dealloc(space, obj):
 def _PyObject_GC_New(space, type):
     return _PyObject_New(space, type)
 
+@cpython_api([PyTypeObjectPtr, Py_ssize_t], PyObject)
+def _PyObject_GC_NewVar(space, type, itemcount):
+    return _PyObject_NewVar(space, type, itemcount)
+
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
     PyObject_Del(space, obj)
@@ -245,26 +249,6 @@ def PyObject_Unicode(space, w_obj):
     function."""
     return space.call_function(space.w_unicode, w_obj)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_Compare(space, w_o1, w_o2):
-    """
-    Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  Returns the result of the
-    comparison on success.  On error, the value returned is undefined; use
-    PyErr_Occurred() to detect an error.  This is equivalent to the Python
-    expression cmp(o1, o2)."""
-    return space.int_w(space.cmp(w_o1, w_o2))
-
-@cpython_api([PyObject, PyObject, rffi.INTP], rffi.INT_real, error=-1)
-def PyObject_Cmp(space, w_o1, w_o2, result):
-    """Compare the values of o1 and o2 using a routine provided by o1, if one
-    exists, otherwise with a routine provided by o2.  The result of the
-    comparison is returned in result.  Returns -1 on failure.  This is the
-    equivalent of the Python statement result = cmp(o1, o2)."""
-    res = space.int_w(space.cmp(w_o1, w_o2))
-    result[0] = rffi.cast(rffi.INT, res)
-    return 0
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
@@ -389,6 +373,15 @@ def PyObject_Hash(space, w_obj):
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
+
+@cpython_api([PyObject], lltype.Signed, error=-1)
+def PyObject_HashNotImplemented(space, o):
+    """Set a TypeError indicating that type(o) is not hashable and return -1.
+    This function receives special treatment when stored in a tp_hash slot,
+    allowing a type to explicitly indicate to the interpreter that it is not
+    hashable.
+    """
+    raise OperationError(space.w_TypeError, space.wrap("unhashable type"))
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Dir(space, w_o):

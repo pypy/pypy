@@ -65,6 +65,7 @@ class AppTestModuleDict(object):
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
     def test_check_module_uses_module_dict(self):
+        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         m = type(__builtins__)("abc")
         self.impl_used(m.__dict__)
 
@@ -142,6 +143,7 @@ class AppTestCellDict(object):
         assert x == ("a", 3)
 
     def test_degenerate(self):
+        py3k_skip("ModuleDictStrategy is immediately turned into ObjectDictStrategy because we use unicode keys now")
         import __pypy__
 
         d = self.d
@@ -149,4 +151,4 @@ class AppTestCellDict(object):
         d["a"] = 3
         del d["a"]
         d[object()] = 5
-        assert d.values() == [5]
+        assert list(d.values()) == [5]
