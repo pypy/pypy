@@ -1405,13 +1405,6 @@ def PyCallIter_Check(space, op):
     """
     raise NotImplementedError
 
-@cpython_api([Py_ssize_t], PyObject)
-def PyLong_FromSsize_t(space, v):
-    """Return a new PyLongObject object from a C Py_ssize_t, or
-    NULL on failure.
-    """
-    raise NotImplementedError
-
 @cpython_api([rffi.SIZE_T], PyObject)
 def PyLong_FromSize_t(space, v):
     """Return a new PyLongObject object from a C size_t, or
@@ -1429,14 +1422,6 @@ def PyLong_FromUnicode(space, u, length, base):
 
     This function used an int for length. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PyLong_AsSsize_t(space, pylong):
-    """Return a C Py_ssize_t representation of the contents of pylong.  If
-    pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
-    and -1 will be returned.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
@@ -1978,35 +1963,6 @@ def PyUnicode_DecodeUTF8Stateful(space, s, size, errors, consumed):
 
     This function used an int type for size. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
-def PyUnicode_DecodeUTF32(space, s, size, errors, byteorder):
-    """Decode length bytes from a UTF-32 encoded buffer string and return the
-    corresponding Unicode object.  errors (if non-NULL) defines the error
-    handling. It defaults to "strict".
-
-    If byteorder is non-NULL, the decoder starts decoding using the given byte
-    order:
-
-    *byteorder == -1: little endian
-    *byteorder == 0:  native order
-    *byteorder == 1:  big endian
-
-    If *byteorder is zero, and the first four bytes of the input data are a
-    byte order mark (BOM), the decoder switches to this byte order and the BOM is
-    not copied into the resulting Unicode string.  If *byteorder is -1 or
-    1, any byte order mark is copied to the output.
-
-    After completion, *byteorder is set to the current byte order at the end
-    of input data.
-
-    In a narrow build codepoints outside the BMP will be decoded as surrogate pairs.
-
-    If byteorder is NULL, the codec starts in native order mode.
-
-    Return NULL if an exception was raised by the codec.
-    """
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP, Py_ssize_t], PyObject)

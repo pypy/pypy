@@ -415,10 +415,11 @@ def PyUnicode_FromStringAndSize(space, s, size):
     needed data. The buffer is copied into the new object. If the buffer is not
     NULL, the return value might be a shared object. Therefore, modification of
     the resulting Unicode object is only allowed when u is NULL."""
-    if not s:
-        raise NotImplementedError
-    w_str = space.wrap(rffi.charpsize2str(s, size))
-    return space.call_method(w_str, 'decode', space.wrap("utf-8"))
+    if s:
+        return make_ref(space, PyUnicode_DecodeUTF8(
+            space, s, size, lltype.nullptr(rffi.CCHARP.TO)))
+    else:
+        return rffi.cast(PyObject, new_empty_unicode(space, size))
 
 @cpython_api([rffi.INT_real], PyObject)
 def PyUnicode_FromOrdinal(space, ordinal):
@@ -477,6 +478,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Decode%s' % suffix] = PyUnicode_DecodeXXX
 
     @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
     @func_renamer('PyUnicode_Encode%s' % suffix)
@@ -490,6 +492,7 @@ def make_conversion_functions(suffix, encoding):
         else:
             w_errors = space.w_None
         return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
+    globals()['PyUnicode_Encode%s' % suffix] = PyUnicode_EncodeXXX
 
 make_conversion_functions('UTF8', 'utf-8')
 make_conversion_functions('ASCII', 'ascii')
@@ -525,9 +528,8 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     string = rffi.charpsize2str(s, size)
 
-    #FIXME: I don't like these prefixes
-    if pbyteorder is not None: # correct NULL check?
-        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0]) # compatible with int?
+    if pbyteorder is not None:
+        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0])
         if llbyteorder < 0:
             byteorder = "little"
         elif llbyteorder > 0:
@@ -542,11 +544,67 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     else:
         errors = None
 
-    result, length, byteorder = runicode.str_decode_utf_16_helper(string, size,
-                                           errors,
-                                           True, # final ? false for multiple passes?
-                                           None, # errorhandler
-                                           byteorder)
+    result, length, byteorder = runicode.str_decode_utf_16_helper(
+        string, size, errors,
+        True, # final ? false for multiple passes?
+        None, # errorhandler
+        byteorder)
+    if pbyteorder is not None:
+        pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
+
+    return space.wrap(result)
+
+@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
+def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
+    """Decode length bytes from a UTF-32 encoded buffer string and
+    return the corresponding Unicode object.  errors (if non-NULL)
+    defines the error handling. It defaults to "strict".
+
+    If byteorder is non-NULL, the decoder starts decoding using the
+    given byte order:
+    *byteorder == -1: little endian
+    *byteorder == 0:  native order
+    *byteorder == 1:  big endian
+
+    If *byteorder is zero, and the first four bytes of the input data
+    are a byte order mark (BOM), the decoder switches to this byte
+    order and the BOM is not copied into the resulting Unicode string.
+    If *byteorder is -1 or 1, any byte order mark is copied to the
+    output.
+
+    After completion, *byteorder is set to the current byte order at
+    the end of input data.
+
+    In a narrow build codepoints outside the BMP will be decoded as
+    surrogate pairs.
+
+    If byteorder is NULL, the codec starts in native order mode.
+
+    Return NULL if an exception was raised by the codec.
+    """
+    string = rffi.charpsize2str(s, size)
+
+    if pbyteorder:
+        llbyteorder = rffi.cast(lltype.Signed, pbyteorder[0])
+        if llbyteorder < 0:
+            byteorder = "little"
+        elif llbyteorder > 0:
+            byteorder = "big"
+        else:
+            byteorder = "native"
+    else:
+        byteorder = "native"
+
+    if llerrors:
+        errors = rffi.charp2str(llerrors)
+    else:
+        errors = None
+
+    result, length, byteorder = runicode.str_decode_utf_32_helper(
+        string, size, errors,
+        True, # final ? false for multiple passes?
+        None, # errorhandler
+        byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
 
