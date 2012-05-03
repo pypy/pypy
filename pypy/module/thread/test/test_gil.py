@@ -55,7 +55,7 @@ class GILTests(test_ll_thread.AbstractGCTestClass):
                 assert state.datalen3 == len(state.data)
                 assert state.datalen4 == len(state.data)
                 debug_print(main, i, state.datalen4)
-                state.threadlocals.yield_thread()
+                gil.do_yield_thread()
                 assert i == j
                 j += 1
         def bootstrap():
