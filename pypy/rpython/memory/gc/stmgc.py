@@ -24,7 +24,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - Each object lives either in the shared area, or in a thread-local
 #     nursery.  The shared area contains:
 #       - the prebuilt objects
-#       - the small objects allocated via minimarkpage.py
+#       - the small objects allocated via minimarkpage.py (XXX so far,
+#         just with malloc)
 #       - the non-small raw-malloced objects
 #
 #   - The GLOBAL objects are all located in the shared area.
@@ -38,27 +39,25 @@ first_gcflag = 1 << (LONG_BIT//2)
 #     is not actually generational (slow when running long transactions
 #     or before running transactions at all).
 #
-#   - A few details are different depending on the running mode:
-#     either "transactional" or "non-transactional".  The transactional
-#     mode is where we have multiple threads, in a transaction.run()
-#     call.  The non-transactional mode has got only the main thread.
+#   - So far, the GC is always running in "transactional" mode.  Later,
+#     it would be possible to speed it up in case there is only one
+#     (non-blocked) thread.
 #
 # GC Flags on objects:
 #
 #   - GCFLAG_GLOBAL: identifies GLOBAL objects.  All prebuilt objects
 #     start as GLOBAL; conversely, all freshly allocated objects start
-#     as LOCAL.  But they may switch between the two; see below.
-#     All objects that are or have been GLOBAL are immortal for now
+#     as LOCAL, and become GLOBAL if they survive an end-of-transaction.
+#     All objects that are GLOBAL are immortal for now
 #     (global_collect() will be done later).
 #
 #   - GCFLAG_WAS_COPIED: means that the object is either a LOCAL COPY
-#     or, if GLOBAL, then it has or had at least one LOCAL COPY.  Used
-#     in transactional mode only; see below.
+#     or, if GLOBAL, then it has or had at least one LOCAL COPY.  See
+#     below.
 #
 #   - GCFLAG_VISITED: used during collections to flag objects found to be
 #     surviving.  Between collections, it must be set on the LOCAL COPY
-#     objects or the ones from 'mt_global_turned_local' (see below), and
-#     only on them.
+#     objects, and only on them.
 #
 #   - GCFLAG_HAS_SHADOW: set on nursery objects whose id() or identityhash()
 #     was taken.  Means that we already have a corresponding object allocated
@@ -69,51 +68,34 @@ first_gcflag = 1 << (LONG_BIT//2)
 # When the mutator (= the program outside the GC) wants to write to an
 # object, stm_writebarrier() does something special on GLOBAL objects:
 #
-#   - In non-transactional mode, the write barrier turns the object LOCAL
-#     and add it in the list 'main_thread_tls.mt_global_turned_local'.
-#     This list contains all previously-GLOBAL objects that have been
-#     modified.  [XXX:TODO]Objects turned LOCAL are changed back to GLOBAL and
-#     removed from 'mt_global_turned_local' by the next collection,
-#     unless they are also found in the stack (the reason being that if
-#     they are in the stack and stm_writebarrier() has already been
-#     called, then it might not be called a second time if they are
-#     changed again after collection).
-#
-#   - In transactional mode, the write barrier creates a LOCAL COPY of
-#     the object and returns it (or, if already created by the same
-#     transaction, finds it again).  The list of LOCAL COPY objects has
-#     a role similar to 'mt_global_turned_local', but is maintained by C
-#     code (see tldict_lookup()).
+#   - In transactional mode (always for now), the write barrier creates
+#     a LOCAL COPY of the object and returns it (or, if already created by
+#     the same transaction, finds it again).  The mapping from GLOBAL to
+#     LOCAL COPY objects is maintained by C code (see tldict_lookup()).
 #
 # Invariant: between two transactions, all objects visible from the current
 # thread are always GLOBAL.  In particular:
 #
 #   - The LOCAL objects of a thread are not visible at all from other threads.
-#     This means that in transactional mode there is *no* pointer from a
-#     GLOBAL object directly to a LOCAL object.
-#
-#   - At the end of enter_transactional_mode(), and at the beginning of
-#     leave_transactional_mode(), *all* objects everywhere are GLOBAL.
+#     This means that there is *no* pointer from a GLOBAL object directly to
+#     a LOCAL object.  At most, there can be pointers from a GLOBAL object to
+#     another GLOBAL object that itself has a LOCAL COPY --- or, of course,
+#     pointers from a LOCAL object to anything.
 #
 # Collection: for now we have only local_collection(), which ignores all
 # GLOBAL objects.
 #
-#   - In non-transactional mode, we use 'mt_global_turned_local' as a list
-#     of roots, together with the stack.  By construction, all objects that
-#     are still GLOBAL can be ignored, because they cannot point to a LOCAL
-#     object (except to a 'mt_global_turned_local' object).
-#
-#   - In transactional mode, we similarly use the list maintained by C code
+#   - To find the roots, we take the list (maintained by the C code)
 #     of the LOCAL COPY objects of the current transaction, together with
-#     the stack.  Again, GLOBAL objects can be ignored because they have no
-#     pointer to any LOCAL object at all in that mode.
+#     the stack.  GLOBAL objects can be ignored because they have no
+#     pointer to any LOCAL object at all.
 #
 #   - A special case is the end-of-transaction collection, done by the same
 #     local_collection() with a twist: all pointers to a LOCAL COPY object
-#     are replaced with copies to the corresponding GLOBAL original.  When
+#     are replaced with pointers to the corresponding GLOBAL original.  When
 #     it is done, we mark all surviving LOCAL objects as GLOBAL too, and we
 #     are back to the situation where this thread sees only GLOBAL objects.
-#     What we leave to the C code to do "as a finishing touch" is to copy
+#     What we leave to the C code to do "as the finishing touch" is to copy
 #     transactionally the content of the LOCAL COPY objects back over the
 #     GLOBAL originals; before this is done, the transaction can be aborted
 #     at any point with no visible side-effect on any object that other
@@ -129,11 +111,8 @@ first_gcflag = 1 << (LONG_BIT//2)
 #   - if GCFLAG_HAS_SHADOW, to the shadow object outside the nursery.
 #     (It is not used on other nursery objects before collection.)
 #
-#   - it contains the 'next' object of the 'mt_global_turned_local' list.
-#
 #   - it contains the 'next' object of the 'sharedarea_tls.chained_list'
-#     list, which describes all LOCAL objects malloced outside the nursery
-#     (excluding the ones that were GLOBAL at some point).
+#     list, which describes all LOCAL objects malloced outside the nursery.
 #
 #   - for nursery objects, during collection, if they are copied outside
 #     the nursery, they grow GCFLAG_VISITED and their 'version' points
@@ -199,7 +178,6 @@ class StmGC(MovingGCBase):
         self.stm_operations = stm_operations
         self.nursery_size = nursery_size
         self.sharedarea = stmshared.StmGCSharedArea(self)
-        self.transactional_mode = False
         #
         def _stm_getsize(obj):     # indirection to hide 'self'
             return self.get_size(obj)
@@ -224,32 +202,23 @@ class StmGC(MovingGCBase):
         #
         self.sharedarea.setup()
         #
-        from pypy.rpython.memory.gc.stmtls import StmGCTLS
-        self.main_thread_tls = StmGCTLS(self, in_main_thread=True)
-        self.main_thread_tls.start_transaction()
+        self.setup_thread()
 
     def setup_thread(self):
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
-        StmGCTLS(self, in_main_thread=False)
+        StmGCTLS(self).start_transaction()
 
     def teardown_thread(self):
-        self.get_tls().teardown_thread()
+        self.stm_operations.try_inevitable()
+        stmtls = self.get_tls()
+        stmtls.stop_transaction()
+        stmtls.delete()
 
     @always_inline
     def get_tls(self):
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
         tls = self.stm_operations.get_tls()
         return StmGCTLS.cast_address_to_tls_object(tls)
-
-    def enter_transactional_mode(self):
-        ll_assert(not self.transactional_mode, "already in transactional mode")
-        self.main_thread_tls.enter_transactional_mode()
-        self.transactional_mode = True
-
-    def leave_transactional_mode(self):
-        ll_assert(self.transactional_mode, "already in non-transactional mode")
-        self.transactional_mode = False
-        self.main_thread_tls.leave_transactional_mode()
 
     # ----------
 
@@ -259,11 +228,7 @@ class StmGC(MovingGCBase):
                                contains_weakptr=False):
         #assert not needs_finalizer, "XXX" --- finalizer is just ignored
         #
-        # Check the mode: either in a transactional thread, or in
-        # the main thread.  For now we do the same thing in both
-        # modes, but set different flags.
-        #
-        # Get the memory from the nursery.
+        # Get the memory from the thread-local nursery.
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         tls = self.get_tls()
@@ -380,15 +345,7 @@ class StmGC(MovingGCBase):
         #
         @dont_inline
         def _stm_write_barrier_global(obj):
-            tls = self.get_tls()
-            if tls is self.main_thread_tls:
-                # not in a transaction: the main thread writes to a global obj.
-                # In this case we turn the object local.
-                tls.main_thread_writes_to_global_obj(obj)
-                return obj
-            #
-            # else, in a transaction: we find or make a local copy of the
-            # global object
+            # find or make a local copy of the global object
             hdr = self.header(obj)
             if hdr.tid & GCFLAG_WAS_COPIED == 0:
                 #
@@ -410,10 +367,13 @@ class StmGC(MovingGCBase):
             # Here, we need to really make a local copy
             size = self.get_size(obj)
             totalsize = self.gcheaderbuilder.size_gc_header + size
+            tls = self.get_tls()
             try:
                 localobj = tls.malloc_local_copy(totalsize)
             except MemoryError:
-                # XXX
+                # should not really let the exception propagate.
+                # XXX do something slightly better, like abort the transaction
+                # and raise a MemoryError when retrying
                 fatalerror("MemoryError in _stm_write_barrier_global -- sorry")
                 return llmemory.NULL
             #
@@ -446,8 +406,8 @@ class StmGC(MovingGCBase):
             comparison with another pointer.  If 'obj' is the local
             version of an existing global object, then returns the
             global object.  Don't use for e.g. hashing, because if 'obj'
-            is a purely local object, it just returns 'obj' --- which
-            will change at the next commit.
+            is a local object, it just returns 'obj' --- even for nursery
+            objects, which move at the next local collection.
             """
             if not obj:
                 return obj
@@ -472,7 +432,7 @@ class StmGC(MovingGCBase):
             #
             # The object is still in the nursery of the current TLS.
             # (It cannot be in the nursery of a different thread, because
-            # such objects are not visible to different threads at all.)
+            # such an object would not be visible to this thread at all.)
             #
             ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0, "id: WAS_COPIED?")
             #

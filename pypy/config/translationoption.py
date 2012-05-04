@@ -108,6 +108,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("stm", "enable use of Software Transactional Memory",
                default=False, cmdline="--stm",
                requires=[("translation.gc", "stmgc"),
+                         ("translation.thread", True),
                          ("translation.continuation", False),  # XXX for now
                          ]),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",

@@ -1,5 +1,6 @@
 import time
-from pypy.module.thread import ll_thread, gil
+from pypy.module.thread import ll_thread
+from pypy.rlib import rstm
 from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
 
 
@@ -69,7 +70,7 @@ class ThreadRunner(object):
     def really_run(self):
         for value in range(glob.LENGTH):
             add_at_end_of_chained_list(glob.anchor, value, self.index)
-            gil.do_yield_thread()
+            rstm.do_yield_thread()
 
 # ____________________________________________________________
 # bah, we are really missing an RPython interface to threads
@@ -129,7 +130,7 @@ bootstrapper = Bootstrapper()
 def setup_threads():
     #space.threadlocals.setup_threads(space)
     bootstrapper.setup()
-    invoke_around_extcall(gil.before_external_call, gil.after_external_call)
+    invoke_around_extcall(rstm.before_external_call, rstm.after_external_call)
 
 def start_thread(args):
     bootstrapper.acquire(args)

@@ -403,14 +403,10 @@ LL_OPERATIONS = {
     'stm_getarrayitem':       LLOp(sideeffects=False, canrun=True),
     'stm_getinteriorfield':   LLOp(sideeffects=False, canrun=True),
     'stm_become_inevitable':  LLOp(),
-    'stm_enter_transactional_mode': LLOp(canrun=True, canmallocgc=True),
-    'stm_leave_transactional_mode': LLOp(canrun=True, canmallocgc=True),
     'stm_writebarrier':       LLOp(),
     'stm_normalize_global':   LLOp(),
     'stm_start_transaction':  LLOp(canrun=True, canmallocgc=True),
     'stm_stop_transaction':   LLOp(canrun=True, canmallocgc=True),
-    'stm_thread_starting':    LLOp(),
-    'stm_thread_stopping':    LLOp(),
 
     # __________ address operations __________
 

@@ -22,9 +22,8 @@ class StmGCTLS(object):
 
     nontranslated_dict = {}
 
-    def __init__(self, gc, in_main_thread):
+    def __init__(self, gc):
         self.gc = gc
-        self.in_main_thread = in_main_thread
         self.stm_operations = self.gc.stm_operations
         self.null_address_dict = self.gc.null_address_dict
         self.AddressStack = self.gc.AddressStack
@@ -48,14 +47,10 @@ class StmGCTLS(object):
         # --- the LOCAL objects which are weakrefs.  They are also listed
         #     in the appropriate place, like sharedarea_tls, if needed.
         self.local_weakrefs = self.AddressStack()
-        # --- main thread only: this is the list of GLOBAL objects that
-        #     have been turned into LOCAL objects
-        if in_main_thread:
-            self.mt_global_turned_local = NULL
         #
         self._register_with_C_code()
 
-    def teardown_thread(self):
+    def delete(self):
         self._cleanup_state()
         self._unregister_with_C_code()
         self.local_weakrefs.delete()
@@ -81,7 +76,7 @@ class StmGCTLS(object):
             n = 10000 + len(StmGCTLS.nontranslated_dict)
             tlsaddr = rffi.cast(llmemory.Address, n)
             StmGCTLS.nontranslated_dict[n] = self
-        self.stm_operations.set_tls(tlsaddr, int(self.in_main_thread))
+        self.stm_operations.set_tls(tlsaddr)
 
     def _unregister_with_C_code(self):
         ll_assert(self.gc.get_tls() is self,
@@ -106,74 +101,12 @@ class StmGCTLS(object):
 
     # ------------------------------------------------------------
 
-    def enter_transactional_mode(self):
-        """Called on the main thread, just before spawning the other
-        threads."""
-        self.stop_transaction()
-        #
-        # We must also mark the following objects as GLOBAL again
-        obj = self.mt_global_turned_local
-        self.mt_global_turned_local = NULL
-        self.mt_save_prebuilt_turned_local = self.AddressStack()
-        while obj:
-            hdr = self.gc.header(obj)
-            if hdr.tid & GCFLAG_PREBUILT:
-                self.mt_save_prebuilt_turned_local.append(obj)
-            obj = hdr.version
-            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0, "already GLOBAL [2]")
-            ll_assert(hdr.tid & GCFLAG_VISITED != 0, "missing VISITED [2]")
-            hdr.tid += GCFLAG_GLOBAL - GCFLAG_VISITED
-            self._clear_version_for_global_object(hdr)
-        if not we_are_translated():
-            del self.mt_global_turned_local   # don't use any more
-        #
-        if self.gc.DEBUG:
-            self.check_all_global_objects()
-
-    def leave_transactional_mode(self):
-        """Restart using the main thread for mallocs."""
-        if not we_are_translated():
-            for key, value in StmGCTLS.nontranslated_dict.items():
-                if value is not self:
-                    del StmGCTLS.nontranslated_dict[key]
-        self.start_transaction()
-        #
-        if self.gc.DEBUG:
-            self.check_all_global_objects()
-        #
-        # Do something special here after we restarted the execution
-        # in the main thread.  At this point, *all* objects are GLOBAL.
-        # The write_barrier will ensure that any write makes the written-to
-        # objects LOCAL again.  However, it is possible that the write
-        # barrier was called before the enter/leave_transactional_mode()
-        # and will not be called again before writing.  But such objects
-        # are right now directly in the stack.  So to fix this issue, we
-        # conservatively mark as local all objects directly from the stack.
-        # XXX TODO: do the same thing after each local_collection() by
-        # the main thread.
-        self.mt_global_turned_local = NULL
-        self.gc.root_walker.walk_current_stack_roots(
-            StmGCTLS._remark_object_as_local, self)
-        # Messy, because prebuilt objects may be Constants in the flow
-        # graphs and so don't appear in the stack, so need a special case.
-        # We save and restore which *prebuilt* objects were originally
-        # in mt_global_turned_local.  (Note that we can't simply save
-        # and restore mt_global_turned_local for *all* objects, because
-        # that would not be enough: the stack typically contains also many
-        # fresh objects that used to be local in enter_transactional_mode().)
-        while self.mt_save_prebuilt_turned_local.non_empty():
-            obj = self.mt_save_prebuilt_turned_local.pop()
-            hdr = self.gc.header(obj)
-            if hdr.tid & GCFLAG_GLOBAL:
-                self.main_thread_writes_to_global_obj(obj)
-        self.mt_save_prebuilt_turned_local.delete()
-
     def start_transaction(self):
         """Start a transaction: performs any pending cleanups, and set
         up a fresh state for allocating.  Called at the start of
-        each transaction, and at the start of the main thread."""
-        # Note that the calls to enter() and
-        # end_of_transaction_collection() are not balanced: if a
+        each transaction, including at the start of a thread."""
+        # Note that the calls to start_transaction() and
+        # stop_transaction() are not balanced: if a
         # transaction is aborted, the latter might never be called.
         # Be ready here to clean up any state.
         self._cleanup_state()
@@ -186,6 +119,10 @@ class StmGCTLS(object):
             llarena.arena_reset(self.nursery_start, clear_size, 2)
         self.nursery_free = self.nursery_start
         self.nursery_top  = self.nursery_start + self.nursery_size
+        # At this point, all visible objects are GLOBAL, but newly
+        # malloced objects will be LOCAL.
+        if self.gc.DEBUG:
+            self.check_all_global_objects()
 
     def stop_transaction(self):
         """Stop a transaction: do a local collection to empty the
@@ -193,7 +130,7 @@ class StmGCTLS(object):
         then mark all these objects as global."""
         self.local_collection(end_of_transaction=1)
         if not self.local_nursery_is_empty():
-            self.local_collection(end_of_transaction=2)
+            self.local_collection(end_of_transaction=1, run_finalizers=False)
         self._promote_locals_to_globals()
         self._disable_mallocs()
 
@@ -204,15 +141,14 @@ class StmGCTLS(object):
 
     # ------------------------------------------------------------
 
-    def local_collection(self, end_of_transaction=0):
+    def local_collection(self, end_of_transaction=0, run_finalizers=True):
         """Do a local collection.  This should be equivalent to a minor
         collection only, but the GC is not generational so far, so it is
         for now the same as a full collection --- but only on LOCAL
         objects, not touching the GLOBAL objects.  More precisely, this
-        finds all YOUNG LOCAL objects, move them out of the nursery if
-        necessary, and make them OLD LOCAL objects.  This starts from
-        the roots from the stack.  The flag GCFLAG_WAS_COPIED is kept
-        and the C tree is updated if the local young objects move.
+        finds all LOCAL objects alive, moving them if necessary out of the
+        nursery.  This starts from the roots from the stack and the LOCAL
+        COPY objects.
         """
         #
         debug_start("gc-local")
@@ -243,10 +179,7 @@ class StmGCTLS(object):
         #
         # Also find the roots that are the local copy of GCFLAG_WAS_COPIED
         # objects.
-        if not self.in_main_thread:
-            self.collect_roots_from_tldict()
-        else:
-            self.collect_from_mt_global_turned_local()
+        self.collect_roots_from_tldict()
         #
         # Now repeatedly follow objects until 'pending' is empty.
         self.collect_flush_pending()
@@ -264,7 +197,7 @@ class StmGCTLS(object):
         # don't have GCFLAG_VISITED.  As the newly allocated nursery
         # objects don't have it either, at the start of the next
         # collection, the only LOCAL objects that have it are the ones
-        # in 'mt_global_turned_local' or the C tldict with GCFLAG_WAS_COPIED.
+        # in the C tldict, together with GCFLAG_WAS_COPIED.
         #
         # All live nursery objects are out, and the rest dies.  Fill
         # the whole nursery with zero and reset the current nursery pointer.
@@ -292,13 +225,15 @@ class StmGCTLS(object):
             fatalerror("malloc in a non-main thread but outside a transaction")
         if llmemory.raw_malloc_usage(size) > self.nursery_size // 8 * 7:
             fatalerror("object too large to ever fit in the nursery")
-        while True:
-            self.local_collection()
+        self.local_collection()
+        free = self.nursery_free
+        top  = self.nursery_top
+        if (top - free) < llmemory.raw_malloc_usage(size):
+            # try again
+            self.local_collection(run_finalizers=False)
+            ll_assert(self.local_nursery_is_empty(), "nursery must be empty [0]")
             free = self.nursery_free
-            top  = self.nursery_top
-            if (top - free) < llmemory.raw_malloc_usage(size):
-                continue         # try again
-            return free
+        return free
 
     def is_in_nursery(self, addr):
         ll_assert(llmemory.cast_adr_to_int(addr) & 1 == 0,
@@ -306,7 +241,7 @@ class StmGCTLS(object):
         return self.nursery_start <= addr < self.nursery_top
 
     def malloc_local_copy(self, totalsize):
-        """Allocate an object that will be used as a LOCAL copy of
+        """Allocate an object that will be used as a LOCAL COPY of
         some GLOBAL object."""
         localobj = self.sharedarea_tls.malloc_object(totalsize)
         self.copied_local_objects.append(localobj)
@@ -314,25 +249,6 @@ class StmGCTLS(object):
 
     def fresh_new_weakref(self, obj):
         self.local_weakrefs.append(obj)
-
-    def _remark_object_as_local(self, root):
-        obj = root.address[0]
-        hdr = self.gc.header(obj)
-        if hdr.tid & GCFLAG_GLOBAL:
-            self.main_thread_writes_to_global_obj(obj)
-
-    def main_thread_writes_to_global_obj(self, obj):
-        hdr = self.gc.header(obj)
-        # XXX should we also remove GCFLAG_WAS_COPIED here if it is set?
-        ll_assert(hdr.tid & GCFLAG_VISITED == 0,
-                  "write in main thread: unexpected GCFLAG_VISITED")
-        # remove GCFLAG_GLOBAL and (if it was there) GCFLAG_WAS_COPIED,
-        # and add GCFLAG_VISITED
-        hdr.tid &= ~(GCFLAG_GLOBAL | GCFLAG_WAS_COPIED)
-        hdr.tid |= GCFLAG_VISITED
-        # add the object into this linked list
-        hdr.version = self.mt_global_turned_local
-        self.mt_global_turned_local = obj
 
     # ------------------------------------------------------------
 
@@ -392,9 +308,10 @@ class StmGCTLS(object):
     def trace_and_drag_out_of_nursery(self, obj):
         # This is called to fix the references inside 'obj', to ensure that
         # they are global.  If necessary, the referenced objects are copied
-        # into the global area first.  This is called on the LOCAL copy of
+        # out of the nursery first.  This is called on the LOCAL copy of
         # the roots, and on the freshly OLD copy of all other reached LOCAL
-        # objects.
+        # objects.  This only looks inside 'obj': it does not depend on or
+        # touch the flags of 'obj'.
         self.gc.trace(obj, self._trace_drag_out, None)
 
     def _trace_drag_out1(self, root):
@@ -454,6 +371,8 @@ class StmGCTLS(object):
         #
         # If 'obj' was already forwarded, change it to its forwarding address.
         # If 'obj' has already a shadow but isn't forwarded so far, use it.
+        # The common case is the "else" part, so we use only one test to
+        # know if we are in the common case or not.
         if hdr.tid & (GCFLAG_VISITED | GCFLAG_HAS_SHADOW):
             #
             if hdr.tid & GCFLAG_VISITED:
@@ -551,19 +470,6 @@ class StmGCTLS(object):
         ll_assert(TL == TG, "in a root: type(LOCAL) != type(GLOBAL)")
         #
         self.trace_and_drag_out_of_nursery(localobj)
-
-    def collect_from_mt_global_turned_local(self):
-        # NB. all objects in the 'mt_global_turned_local' list are
-        # currently immortal (because they were once GLOBAL)
-        obj = self.mt_global_turned_local
-        while obj:
-            hdr = self.gc.header(obj)
-            ll_assert(hdr.tid & GCFLAG_GLOBAL == 0,
-                      "unexpected GCFLAG_GLOBAL in mt_global_turned_local")
-            ll_assert(hdr.tid & GCFLAG_VISITED != 0,
-                      "missing GCFLAG_VISITED in mt_global_turned_local")
-            self.trace_and_drag_out_of_nursery(obj)
-            obj = hdr.version
 
     def collect_flush_pending(self):
         # Follow the objects in the 'pending' stack and move the
