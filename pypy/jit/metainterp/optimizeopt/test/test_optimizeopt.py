@@ -105,6 +105,9 @@ class BaseTestWithUnroll(BaseTest):
 
         return loop
 
+    def raises(self, e, fn, *args):
+        py.test.raises(e, fn, *args)
+
 class OptimizeOptTest(BaseTestWithUnroll):
 
     def setup_method(self, meth=None):
@@ -2639,7 +2642,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = new_with_vtable(ConstClass(node_vtable))
         jump(p2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
+        self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
     def test_invalid_loop_2(self):
@@ -2651,7 +2654,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(p2)      # prevent it from staying Virtual
         jump(p2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop,
+        self.raises(InvalidLoop, self.optimize_loop,
                        ops, ops)
 
     def test_invalid_loop_3(self):
@@ -2665,7 +2668,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, p4, descr=nextdescr)
         jump(p3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
 
     def test_merge_guard_class_guard_value(self):
@@ -4411,7 +4414,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        py.test.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """
@@ -5024,7 +5027,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(i0, 3)
         jump(i2)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_bound_ne_const_not(self):
         ops = """
@@ -5074,7 +5077,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i0, 3)
         jump(i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_bound_lshift(self):
         ops = """
