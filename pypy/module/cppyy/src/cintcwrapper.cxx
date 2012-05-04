@@ -343,6 +343,11 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     return G__int(result);
 }
 
+long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    G__value result = cppyy_call_T(method, self, nargs, args);
+    return G__Longlong(result);
+}
+
 double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     G__value result = cppyy_call_T(method, self, nargs, args);
     return G__double(result);
