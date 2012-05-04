@@ -404,10 +404,6 @@ TYPE stm_read_int##SIZE##SUFFIX(void* addr, long offset)                \
   owner_version_t ovt;                                                  \
                                                                         \
   assert(sizeof(TYPE) == SIZE);                                         \
-  /* XXX try to remove this check from the main path:           */      \
-  /*     d is NULL when running in the main thread              */      \
-  if (d == NULL)                                                        \
-    return *(TYPE *)(((char *)addr) + offset);                          \
                                                                         \
   if ((GETTID(o) & GCFLAG_WAS_COPIED) != 0)                             \
     {                                                                   \
@@ -439,8 +435,6 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
   volatile orec_t *o = get_orec(src);
   owner_version_t ovt;
 
-  assert(d != NULL);
-
   /* don't copy the header */
   src = ((char *)src) + sizeof(orec_t);
   dst = ((char *)dst) + sizeof(orec_t);
@@ -449,14 +443,10 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
   STM_DO_READ(memcpy(dst, src, size));
 }
 
-static void descriptor_init(long in_main_thread)
+static void descriptor_init(void)
 {
   assert(thread_descriptor == NULL);
-  if (in_main_thread)
-    {
-      /* the main thread doesn't have a thread_descriptor at all */
-    }
-  else
+  if (1)
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
@@ -485,8 +475,7 @@ static void descriptor_init(long in_main_thread)
 static void descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL)
-    return;
+  assert(d != NULL);
 
   thread_descriptor = NULL;
 
@@ -527,13 +516,32 @@ static void descriptor_done(void)
 static void begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
-  /* you need to call descriptor_init() before calling this */
-  assert(d != NULL);
   d->setjmp_buf = buf;
   d->start_time = (/*d->last_known_global_timestamp*/ global_timestamp) & ~1;
 }
 
-static void commit_transaction(void)
+void stm_begin_inevitable_transaction(void)
+{
+  /* Equivalent to begin_transaction(); stm_try_inevitable();
+     except more efficient */
+  struct tx_descriptor *d = thread_descriptor;
+  d->setjmp_buf = NULL;
+
+  while (1)
+    {
+      mutex_lock();
+      unsigned long curtime = get_global_timestamp(d) & ~1;
+      if (change_global_timestamp(d, curtime, curtime + 1))
+        {
+          d->start_time = curtime;
+          break;
+        }
+      mutex_unlock();
+      tx_spinloop(6);
+    }
+}
+
+void stm_commit_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   assert(d != NULL);
@@ -604,8 +612,6 @@ void stm_try_inevitable(STM_CCHARP1(why))
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL)
-    return;  /* I am running in the main thread */
   if (is_inevitable(d))
     return;  /* I am already inevitable */
 
@@ -632,13 +638,14 @@ void stm_try_inevitable(STM_CCHARP1(why))
              in try_inevitable() very soon)?  unclear.  For now
              let's try to spinloop, after the waiting done by
              acquiring the mutex */
-          mutex_unlock();
-          tx_spinloop(6);
-          continue;
         }
-      if (change_global_timestamp(d, curtime, curtime + 1))
-        break;
+      else
+        {
+          if (change_global_timestamp(d, curtime, curtime + 1))
+            break;
+        }
       mutex_unlock();
+      tx_spinloop(6);
     }
   d->setjmp_buf = NULL;   /* inevitable from now on */
 #ifdef RPY_STM_DEBUG_PRINT
@@ -656,16 +663,14 @@ void stm_abort_and_retry(void)
 long stm_thread_id(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (d == NULL)
-    return 0;    /* no thread_descriptor: it's the main thread */
   return d->my_lock_word;
 }
 
 static __thread void *rpython_tls_object;
 
-void stm_set_tls(void *newtls, long in_main_thread)
+void stm_set_tls(void *newtls)
 {
-  descriptor_init(in_main_thread);
+  descriptor_init();
   rpython_tls_object = newtls;
 }
 
@@ -707,12 +712,6 @@ void stm_tldict_enum(void)
     {
       pypy_g__stm_enum_callback(tls, item->addr, item->val);
     } REDOLOG_LOOP_END;
-}
-
-long stm_in_transaction(void)
-{
-  struct tx_descriptor *d = thread_descriptor;
-  return d != NULL;
 }
 
 #undef GETVERSION

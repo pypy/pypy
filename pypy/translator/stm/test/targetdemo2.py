@@ -63,14 +63,11 @@ class ThreadRunner(object):
 
     def run(self):
         try:
-            self.really_run()
+            for value in range(glob.LENGTH):
+                add_at_end_of_chained_list(glob.anchor, value, self.index)
+                #rstm.do_yield_thread()
         finally:
             self.finished_lock.release()
-
-    def really_run(self):
-        for value in range(glob.LENGTH):
-            add_at_end_of_chained_list(glob.anchor, value, self.index)
-            rstm.do_yield_thread()
 
 # ____________________________________________________________
 # bah, we are really missing an RPython interface to threads

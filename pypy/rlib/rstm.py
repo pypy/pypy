@@ -2,12 +2,12 @@ from pypy.translator.stm import stmgcintf
 
 
 def before_external_call():
-    stmgcintf.StmOperations.before_external_call()
+    stmgcintf.StmOperations.commit_transaction()
 before_external_call._gctransformer_hint_cannot_collect_ = True
 before_external_call._dont_reach_me_in_del_ = True
 
 def after_external_call():
-    stmgcintf.StmOperations.after_external_call()
+    stmgcintf.StmOperations.begin_inevitable_transaction()
 after_external_call._gctransformer_hint_cannot_collect_ = True
 after_external_call._dont_reach_me_in_del_ = True
 

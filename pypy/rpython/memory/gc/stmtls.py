@@ -337,8 +337,6 @@ class StmGCTLS(object):
             # detect_flag_combination is GCFLAG_WAS_COPIED|GCFLAG_VISITED.
             # This case is to force pointers to the LOCAL copy to be
             # replaced with pointers to the GLOBAL copy.
-            ll_assert(not self.in_main_thread,
-                      "unexpected flag combination in the main thread")
             return 2
 
         if can_be_in_nursery and self.is_in_nursery(obj):

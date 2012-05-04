@@ -54,6 +54,5 @@ typedef long owner_version_t;
 
 #include "src_stm/lists.c"
 #include "src_stm/core.c"
-#include "src_stm/rpyintf.c"
 
 /************************************************************/

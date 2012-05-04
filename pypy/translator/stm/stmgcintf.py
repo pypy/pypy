@@ -47,17 +47,17 @@ class StmOperations(object):
 
     # C part of the implementation of the pypy.rlib.rstm module
     in_transaction = smexternal('stm_in_transaction', [], lltype.Signed)
-    before_external_call = smexternal('stm_before_external_call',
-                                      [], lltype.Void)
-    after_external_call = smexternal('stm_after_external_call',
-                                     [], lltype.Void)
+    is_inevitable = smexternal('stm_is_inevitable', [], lltype.Signed)
+    begin_inevitable_transaction = smexternal(
+        'stm_begin_inevitable_transaction', [], lltype.Void)
+    commit_transaction = smexternal(
+        'stm_commit_transaction', [], lltype.Void)
     do_yield_thread = smexternal('stm_do_yield_thread',
                                  [], lltype.Void)
 
     # for the GC: store and read a thread-local-storage field, as well
     # as initialize and shut down the internal thread_descriptor
-    set_tls = smexternal('stm_set_tls', [llmemory.Address, lltype.Signed],
-                         lltype.Void)
+    set_tls = smexternal('stm_set_tls', [llmemory.Address], lltype.Void)
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
 

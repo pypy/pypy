@@ -12,10 +12,7 @@
 
 
 /* see comments in ../stmgcintf.py */
-long stm_in_transaction(void);
-void stm_run_all_transactions(void*, long);
-
-void stm_set_tls(void *, long);
+void stm_set_tls(void *);
 void *stm_get_tls(void);
 void stm_del_tls(void);
 long stm_thread_id(void);
@@ -23,6 +20,9 @@ long stm_thread_id(void);
 void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
 void stm_tldict_enum(void);
+
+void stm_begin_inevitable_transaction(void);
+void stm_commit_transaction(void);
 
 /* these functions are declared by generated C code from pypy.rlib.rstm
    and from the GC (see llop.nop(...)) */

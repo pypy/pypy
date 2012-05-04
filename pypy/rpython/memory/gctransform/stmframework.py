@@ -12,45 +12,34 @@ from pypy.rlib.objectmodel import specialize
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
+        gc = self.gcdata.gc
         #
-        def thread_starting(gc):
+        def gc_thread_start():
             self.root_walker.allocate_shadow_stack()
             gc.setup_thread()
         #
-        def thread_stopping(gc):
+        def gc_thread_die():
             gc.teardown_thread()
             self.root_walker.free_shadow_stack()
         #
-        def start_transaction(gc):
-            self.root_walker.start_transaction()
-            gc.start_transaction()
+        #def start_transaction(gc):
+        #    self.root_walker.start_transaction()
+        #    gc.start_transaction()
         #
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
-        self.thread_starting_ptr = getfn(
-            thread_starting,
-            [s_gc], annmodel.s_None)
-        self.thread_stopping_ptr = getfn(
-            thread_stopping,
-            [s_gc], annmodel.s_None)
+        self.thread_start_ptr = getfn(
+            gc_thread_start,
+            [], annmodel.s_None)
+        self.thread_die_ptr = getfn(
+            gc_thread_die,
+            [], annmodel.s_None)
         self.stm_writebarrier_ptr = getfn(
-            self.gcdata.gc.stm_writebarrier,
+            gc.stm_writebarrier,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
         self.stm_normalize_global_ptr = getfn(
-            self.gcdata.gc.stm_normalize_global,
+            gc.stm_normalize_global,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
-        self.stm_enter_transactional_mode_ptr = getfn(
-            self.gcdata.gc.enter_transactional_mode.im_func,
-            [s_gc], annmodel.s_None)
-        self.stm_leave_transactional_mode_ptr = getfn(
-            self.gcdata.gc.leave_transactional_mode.im_func,
-            [s_gc], annmodel.s_None)
-        self.stm_start_ptr = getfn(
-            start_transaction,
-            [s_gc], annmodel.s_None)
-        self.stm_stop_ptr = getfn(
-            self.gcdata.gc.stop_transaction.im_func,
-            [s_gc], annmodel.s_None)
 
     def build_root_walker(self):
         return StmShadowStackRootWalker(self)
@@ -158,6 +147,11 @@ class StmShadowStackRootWalker(BaseRootWalker):
         rsd = gctransformer.root_stack_depth
         if rsd is not None:
             self.root_stack_depth = rsd
+
+    def need_thread_support(self, gctransformer, getfn):
+        # we always have thread support, and it is handled
+        # in _declare_functions() already
+        pass
 
     def setup_root_walker(self):
         self.allocate_shadow_stack()
