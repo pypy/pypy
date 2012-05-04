@@ -13,8 +13,10 @@ cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
     m_uint   =  22u;
     m_long   = -33l;
     m_ulong  =  33ul;
-    m_float  = -44.f;
-    m_double = -55.;
+    m_llong  = -44ll;
+    m_ullong =  55ull;
+    m_float  = -66.f;
+    m_double = -77.;
     m_enum   = kNothing;
 
     m_short_array2  = new short[N];
@@ -86,6 +88,8 @@ int            cppyy_test_data::get_int()    { return m_int; }
 unsigned int   cppyy_test_data::get_uint()   { return m_uint; }
 long           cppyy_test_data::get_long()   { return m_long; }
 unsigned long  cppyy_test_data::get_ulong()  { return m_ulong; }
+long long      cppyy_test_data::get_llong()  { return m_llong; }
+unsigned long long cppyy_test_data::get_ullong()  { return m_ullong; }
 float          cppyy_test_data::get_float()  { return m_float; }
 double         cppyy_test_data::get_double() { return m_double; }
 cppyy_test_data::what cppyy_test_data::get_enum() { return m_enum; }
@@ -129,22 +133,28 @@ void cppyy_test_data::set_long(long l)                       { m_long   = l; }
 void cppyy_test_data::set_long_c(const long& l)              { m_long   = l; }
 void cppyy_test_data::set_ulong(unsigned long ul)            { m_ulong  = ul; }
 void cppyy_test_data::set_ulong_c(const unsigned long& ul)   { m_ulong  = ul; }
+void cppyy_test_data::set_llong(long long ll)                { m_llong  = ll; }
+void cppyy_test_data::set_llong_c(const long long& ll)       { m_llong  = ll; }
+void cppyy_test_data::set_ullong(unsigned long long ull)     { m_ullong  = ull; }
+void cppyy_test_data::set_ullong_c(const unsigned long long& ull) { m_ullong  = ull; }
 void cppyy_test_data::set_float(float f)                     { m_float  = f; }
 void cppyy_test_data::set_float_c(const float& f)            { m_float  = f; }
 void cppyy_test_data::set_double(double d)                   { m_double = d; }
 void cppyy_test_data::set_double_c(const double& d)          { m_double = d; }
 void cppyy_test_data::set_enum(what w)                       { m_enum   = w; }
 
-char           cppyy_test_data::s_char   = 's';
-unsigned char  cppyy_test_data::s_uchar  = 'u';
-short          cppyy_test_data::s_short  = -101;
-unsigned short cppyy_test_data::s_ushort =  255u;
-int            cppyy_test_data::s_int    = -202;
-unsigned int   cppyy_test_data::s_uint   =  202u;
-long           cppyy_test_data::s_long   = -303l;
-unsigned long  cppyy_test_data::s_ulong  =  303ul;
-float          cppyy_test_data::s_float  = -404.f;
-double         cppyy_test_data::s_double = -505.;
+char                cppyy_test_data::s_char   = 's';
+unsigned char       cppyy_test_data::s_uchar  = 'u';
+short               cppyy_test_data::s_short  = -101;
+unsigned short      cppyy_test_data::s_ushort =  255u;
+int                 cppyy_test_data::s_int    = -202;
+unsigned int        cppyy_test_data::s_uint   =  202u;
+long                cppyy_test_data::s_long   = -303l;
+unsigned long       cppyy_test_data::s_ulong  =  303ul;
+long long           cppyy_test_data::s_llong  = -404ll;
+unsigned long long  cppyy_test_data::s_ullong =  505ull;
+float               cppyy_test_data::s_float  = -606.f;
+double              cppyy_test_data::s_double = -707.;
 cppyy_test_data::what  cppyy_test_data::s_enum = cppyy_test_data::kNothing;
 
 

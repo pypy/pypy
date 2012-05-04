@@ -21,18 +21,20 @@ public:
     void destroy_arrays();
 
 // getters
-    bool           get_bool();
-    char           get_char();
-    unsigned char  get_uchar();
-    short          get_short();
-    unsigned short get_ushort();
-    int            get_int();
-    unsigned int   get_uint();
-    long           get_long();
-    unsigned long  get_ulong();
-    float          get_float();
-    double         get_double();
-    what           get_enum();
+    bool                 get_bool();
+    char                 get_char();
+    unsigned char        get_uchar();
+    short                get_short();
+    unsigned short       get_ushort();
+    int                  get_int();
+    unsigned int         get_uint();
+    long                 get_long();
+    unsigned long        get_ulong();
+    long long            get_llong();
+    unsigned long long   get_ullong();
+    float                get_float();
+    double               get_double();
+    what                 get_enum();
 
     short*          get_short_array();
     short*          get_short_array2();
@@ -71,8 +73,12 @@ public:
     void set_uint_c(const unsigned int& ui);
     void set_long(long l);
     void set_long_c(const long& l);
+    void set_llong(long long ll);
+    void set_llong_c(const long long& ll);
     void set_ulong(unsigned long ul);
     void set_ulong_c(const unsigned long& ul);
+    void set_ullong(unsigned long long ll);
+    void set_ullong_c(const unsigned long long& ll);
     void set_float(float f);
     void set_float_c(const float& f);
     void set_double(double d);
@@ -81,18 +87,20 @@ public:
 
 public:
 // basic types
-    bool           m_bool;
-    char           m_char;
-    unsigned char  m_uchar;
-    short          m_short;
-    unsigned short m_ushort;
-    int            m_int;
-    unsigned int   m_uint;
-    long           m_long;
-    unsigned long  m_ulong;
-    float          m_float;
-    double         m_double;
-    what           m_enum;
+    bool                 m_bool;
+    char                 m_char;
+    unsigned char        m_uchar;
+    short                m_short;
+    unsigned short       m_ushort;
+    int                  m_int;
+    unsigned int         m_uint;
+    long                 m_long;
+    unsigned long        m_ulong;
+    long long            m_llong;
+    unsigned long long   m_ullong;
+    float                m_float;
+    double               m_double;
+    what                 m_enum;
 
 // array types
     short           m_short_array[N];
@@ -118,17 +126,19 @@ public:
     cppyy_test_pod* m_ppod;
 
 public:
-    static char           s_char;
-    static unsigned char  s_uchar;
-    static short          s_short;
-    static unsigned short s_ushort;
-    static int            s_int;
-    static unsigned int   s_uint;
-    static long           s_long;
-    static unsigned long  s_ulong;
-    static float          s_float;
-    static double         s_double;
-    static what           s_enum;
+    static char                    s_char;
+    static unsigned char           s_uchar;
+    static short                   s_short;
+    static unsigned short          s_ushort;
+    static int                     s_int;
+    static unsigned int            s_uint;
+    static long                    s_long;
+    static unsigned long           s_ulong;
+    static long long               s_llong;
+    static unsigned long long      s_ullong;
+    static float                   s_float;
+    static double                  s_double;
+    static what                    s_enum;
 
 private:
     bool m_owns_arrays;

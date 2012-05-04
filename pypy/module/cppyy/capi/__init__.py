@@ -113,6 +113,11 @@ c_call_l = rffi.llexternal(
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONG,
     threadsafe=threadsafe,
     compilation_info=backend.eci)
+c_call_ll = rffi.llexternal(
+    "cppyy_call_ll",
+    [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.LONGLONG,
+    threadsafe=threadsafe,
+    compilation_info=backend.eci)
 c_call_f = rffi.llexternal(
     "cppyy_call_f",
     [C_METHOD, C_OBJECT, rffi.INT, rffi.VOIDP], rffi.DOUBLE,

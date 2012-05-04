@@ -366,6 +366,29 @@ class ConstLongRefConverter(ConstRefNumericTypeConverterMixin, LongConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset()] = self.typecode
 
+class LongLongConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.slong
+    c_type     = rffi.LONGLONG
+    c_ptrtype  = rffi.LONGLONGP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(self.c_type, capi.c_strtoll(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return space.r_longlong_w(w_obj)
+
+class ConstLongLongRefConverter(ConstRefNumericTypeConverterMixin, LongLongConverter):
+    _immutable_ = True
+    libffitype = libffi.types.pointer
+    typecode = 'r'
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(self.c_ptrtype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = self.typecode
+
 class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
     _immutable_ = True
     libffitype = libffi.types.ulong
@@ -381,6 +404,23 @@ class UnsignedLongConverter(IntTypeConverterMixin, TypeConverter):
 class ConstUnsignedLongRefConverter(ConstRefNumericTypeConverterMixin, UnsignedLongConverter):
     _immutable_ = True
     libffitype = libffi.types.pointer
+
+class UnsignedLongLongConverter(IntTypeConverterMixin, TypeConverter):
+    _immutable_ = True
+    libffitype = libffi.types.ulong
+    c_type     = rffi.ULONGLONG
+    c_ptrtype  = rffi.ULONGLONGP
+
+    def __init__(self, space, default):
+        self.default = rffi.cast(self.c_type, capi.c_strtoull(default))
+
+    def _unwrap_object(self, space, w_obj):
+        return space.r_ulonglong_w(w_obj)
+
+class ConstUnsignedLongLongRefConverter(ConstRefNumericTypeConverterMixin, UnsignedLongLongConverter):
+    _immutable_ = True
+    libffitype = libffi.types.pointer
+
 
 class FloatConverter(FloatTypeConverterMixin, TypeConverter):
     _immutable_ = True
@@ -748,6 +788,14 @@ _converters["unsigned long int"]        = UnsignedLongConverter
 _converters["const unsigned long int&"] = ConstUnsignedLongRefConverter
 _converters["unsigned long"]            = _converters["unsigned long int"]
 _converters["const unsigned long&"]     = _converters["const unsigned long int&"]
+_converters["long long int"]            = LongLongConverter
+_converters["const long long int&"]     = ConstLongLongRefConverter
+_converters["long long"]                = _converters["long long int"]
+_converters["const long long&"]         = _converters["const long long int&"]
+_converters["unsigned long long int"]   = UnsignedLongLongConverter
+_converters["const unsigned long long int&"] = ConstUnsignedLongLongRefConverter
+_converters["unsigned long long"]       = _converters["unsigned long long int"]
+_converters["const unsigned long long&"] = _converters["const unsigned long long int&"]
 _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter

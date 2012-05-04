@@ -147,6 +147,32 @@ class UnsignedLongExecutor(LongExecutor):
         result = libffifunc.call(argchain, rffi.ULONG)
         return space.wrap(result)
 
+class LongLongExecutor(FunctionExecutor):
+    _immutable_ = True
+    libffitype = libffi.types.sint64
+
+    def _wrap_result(self, space, result):
+        return space.wrap(result)
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = capi.c_call_ll(cppmethod, cppthis, num_args, args)
+        return self._wrap_result(space, result)
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.LONGLONG)
+        return space.wrap(result)
+
+class UnsignedLongLongExecutor(LongLongExecutor):
+    _immutable_ = True
+    libffitype = libffi.types.uint64
+
+    def _wrap_result(self, space, result):
+        return space.wrap(rffi.cast(rffi.ULONGLONG, result))
+
+    def execute_libffi(self, space, libffifunc, argchain):
+        result = libffifunc.call(argchain, rffi.ULONGLONG)
+        return space.wrap(result)
+
 class ConstIntRefExecutor(FunctionExecutor):
     _immutable_ = True
     libffitype = libffi.types.pointer
@@ -396,6 +422,10 @@ _executors["unsigned long int"]   = UnsignedLongExecutor
 _executors["unsigned long"]       = _executors["unsigned long int"]
 _executors["unsigned long int*"]  = UnsignedLongPtrExecutor
 _executors["unsigned long*"]      = _executors["unsigned long int*"]
+_executors["long long int"]       = LongLongExecutor
+_executors["long long"]           = _executors["long long int"]
+_executors["unsigned long long int"] = UnsignedLongLongExecutor
+_executors["unsigned long long"]  = _executors["unsigned long long int"]
 _executors["float"]               = FloatExecutor
 _executors["float*"]              = FloatPtrExecutor
 _executors["double"]              = DoubleExecutor

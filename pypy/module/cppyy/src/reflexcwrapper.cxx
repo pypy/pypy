@@ -136,6 +136,10 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     return cppyy_call_T<long>(method, self, nargs, args);
 }
 
+long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
+    return cppyy_call_T<long long>(method, self, nargs, args);
+}
+
 double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     return cppyy_call_T<float>(method, self, nargs, args);
 }

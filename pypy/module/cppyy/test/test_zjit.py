@@ -137,6 +137,8 @@ class FakeSpace(object):
         return obj
 
     c_int_w = int_w
+    r_longlong_w = int_w
+    r_ulonglong_w = uint_w
 
     def isinstance_w(self, w_obj, w_type):
         assert isinstance(w_obj, FakeBase)

@@ -31,6 +31,7 @@ extern "C" {
     short  cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     int    cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     long   cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
+    long long cppyy_call_ll(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     double cppyy_call_f(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
     double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void* args);
 

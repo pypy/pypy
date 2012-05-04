@@ -53,10 +53,12 @@ class AppTestDATATYPES:
         assert c.m_uint   ==  22
         assert c.m_long   == -33
         assert c.m_ulong  ==  33
+        assert c.m_llong  == -44
+        assert c.m_ullong ==  55
 
         # reading floating point types
-        assert round(c.m_float  + 44., 5) == 0
-        assert round(c.m_double + 55., 8) == 0
+        assert round(c.m_float  + 66., 5) == 0
+        assert round(c.m_double + 77., 8) == 0
 
         # reding of array types
         for i in range(self.N):
@@ -146,7 +148,7 @@ class AppTestDATATYPES:
 # TODO: raises(TypeError, 'c.set_uchar(-1)')
 
         # integer types
-        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
         for i in range(len(names)):
             exec 'c.m_%s = %d' % (names[i],i)
             assert eval('c.get_%s()' % names[i]) == i
@@ -175,6 +177,7 @@ class AppTestDATATYPES:
         c.destroy_arrays()
 
         # integer arrays
+        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong']
         import array
         a = range(self.N)
         atypes = ['h', 'H', 'i', 'I', 'l', 'L' ]
@@ -232,12 +235,16 @@ class AppTestDATATYPES:
         assert c.s_long                 == -303L
         assert c.s_ulong                ==  303L
         assert cppyy_test_data.s_ulong  ==  303L
+        assert cppyy_test_data.s_llong  == -404L
+        assert c.s_llong                == -404L
+        assert c.s_ullong               ==  505L
+        assert cppyy_test_data.s_ullong ==  505L
 
         # floating point types
-        assert round(cppyy_test_data.s_float  + 404., 5) == 0
-        assert round(c.s_float                + 404., 5) == 0
-        assert round(cppyy_test_data.s_double + 505., 8) == 0
-        assert round(c.s_double               + 505., 8) == 0
+        assert round(cppyy_test_data.s_float  + 606., 5) == 0
+        assert round(c.s_float                + 606., 5) == 0
+        assert round(cppyy_test_data.s_double + 707., 8) == 0
+        assert round(c.s_double               + 707., 8) == 0
 
         c.destruct()
 
