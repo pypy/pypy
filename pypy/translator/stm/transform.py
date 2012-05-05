@@ -46,7 +46,7 @@ class STMTransformer(object):
         #
         for graph in t.graphs:
             gcsource.break_blocks_after_transaction_breaker(
-                t, graph, self.transactionbreak_analyzer)
+                t, graph, transactionbreak_analyzer)
         #
         for graph in t.graphs:
             pre_insert_stm_writebarrier(graph)
