@@ -354,19 +354,27 @@ class BaseArray(Wrappable):
             try:
                 value = space.int_w(space.index(w_idx))
                 return True
-            except: pass
+            except OperationError:
+                pass
 
             try:
                 value = space.int_w(w_idx)
                 return True
-            except: pass
+            except OperationError:
+                pass
 
             if space.isinstance_w(w_idx, space.w_slice):
                 return False
         elif (space.isinstance_w(w_idx, space.w_slice) or
               space.isinstance_w(w_idx, space.w_int)):
             return False
-        lgt = space.len_w(w_idx)
+
+        try:
+            lgt = space.len_w(w_idx)
+        except OperationError:
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("index must be either an int or a sequence."))
+
         if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
@@ -1045,13 +1053,15 @@ class ConcreteArray(BaseArray):
         try:
             idx = space.int_w(space.index(w_idx))
             is_valid = True
-        except: pass
+        except OperationError:
+            pass
 
         if not is_valid:
             try:
                 idx = space.int_w(w_idx)
                 is_valid = True
-            except: pass
+            except OperationError:
+                pass
 
         if is_valid:
             if idx < 0:

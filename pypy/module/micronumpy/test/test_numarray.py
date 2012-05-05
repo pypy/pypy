@@ -424,6 +424,23 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         assert a[1] == 100
 
+    def test_access_swallow_exception(self):
+        class ErrorIndex(object):
+            def __index__(self):
+                return 1 / 0
+
+        class ErrorInt(object):
+            def __int__(self):
+                return 1 / 0
+
+        # numpy will swallow errors in __int__ and __index__ and
+        # just raise IndexError.
+
+        from _numpypy import arange
+        a = arange(10)
+        raises(IndexError, "a[ErrorIndex()] == 0")
+        raises(IndexError, "a[ErrorInt()] == 0")
+
     def test_setslice_array(self):
         from _numpypy import array
         a = array(range(5))
