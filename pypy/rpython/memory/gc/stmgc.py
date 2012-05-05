@@ -124,7 +124,6 @@ GCFLAG_WAS_COPIED = first_gcflag << 1     # keep in sync with et.c
 GCFLAG_VISITED    = first_gcflag << 2
 GCFLAG_HAS_SHADOW = first_gcflag << 3
 GCFLAG_FIXED_HASH = first_gcflag << 4
-GCFLAG_PREBUILT   = first_gcflag << 5
 
 
 def always_inline(fn):
@@ -202,16 +201,30 @@ class StmGC(MovingGCBase):
         #
         self.sharedarea.setup()
         #
+        self.stm_operations.descriptor_init()
+        self.stm_operations.begin_inevitable_transaction()
         self.setup_thread()
 
     def setup_thread(self):
+        """Build the StmGCTLS object and start a transaction at the level
+        of the GC.  The C-level transaction should already be started."""
+        ll_assert(self.stm_operations.in_transaction(),
+                  "setup_thread: not in a transaction")
         from pypy.rpython.memory.gc.stmtls import StmGCTLS
-        StmGCTLS(self).start_transaction()
+        stmtls = StmGCTLS(self)
+        stmtls.start_transaction()
 
     def teardown_thread(self):
-        self.stm_operations.try_inevitable()
+        """Stop the current transaction, commit it at the level of
+        C code, and tear down the StmGCTLS object.  For symmetry, this
+        ensures that the level of C has another (empty) transaction
+        started."""
+        ll_assert(bool(self.stm_operations.in_transaction()),
+                  "teardown_thread: not in a transaction")
         stmtls = self.get_tls()
         stmtls.stop_transaction()
+        self.stm_operations.commit_transaction()
+        self.stm_operations.begin_inevitable_transaction()
         stmtls.delete()
 
     @always_inline
@@ -287,7 +300,7 @@ class StmGC(MovingGCBase):
         hdr.tid = self.combine(typeid16, flags)
 
     def init_gc_object_immortal(self, addr, typeid16, flags=0):
-        flags |= GCFLAG_GLOBAL | GCFLAG_PREBUILT
+        flags |= GCFLAG_GLOBAL
         self.init_gc_object(addr, typeid16, flags)
 
     # ----------

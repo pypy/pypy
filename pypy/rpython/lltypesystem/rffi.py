@@ -281,10 +281,12 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+            token = 0
             if aroundstate is not None:
-                after = aroundstate.after
-                if after:
-                    after()
+                if aroundstate.enter_callback is not None:
+                    token = aroundstate.enter_callback()
+                elif aroundstate.after is not None:
+                    aroundstate.after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -299,9 +301,10 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                 result = errorcode
             stackcounter.stacks_counter -= 1
             if aroundstate is not None:
-                before = aroundstate.before
-                if before:
-                    before()
+                if aroundstate.leave_callback is not None:
+                    aroundstate.leave_callback(token)
+                elif aroundstate.before is not None:
+                    aroundstate.before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
@@ -317,11 +320,15 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+EnterCallbackFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Signed))
+LeaveCallbackFnPtr = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
 class AroundState:
     _alloc_flavor_ = "raw"
     def _freeze_(self):
         self.before = None    # or a regular RPython function
         self.after = None     # or a regular RPython function
+        self.enter_callback = None
+        self.leave_callback = None
         return False
 aroundstate = AroundState()
 aroundstate._freeze_()

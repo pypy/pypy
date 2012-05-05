@@ -629,12 +629,6 @@ def op_stm_start_transaction():
 def op_stm_stop_transaction():
     pass
 
-def op_stm_enter_transactional_mode():
-    pass
-
-def op_stm_leave_transactional_mode():
-    pass
-
 def op_nop(x):
     pass
 

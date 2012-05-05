@@ -12,33 +12,13 @@ from pypy.rlib.objectmodel import specialize
 class StmFrameworkGCTransformer(FrameworkGCTransformer):
 
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
-        gc = self.gcdata.gc
-        #
-        def gc_thread_start():
-            self.root_walker.allocate_shadow_stack()
-            gc.setup_thread()
-        #
-        def gc_thread_die():
-            gc.teardown_thread()
-            self.root_walker.free_shadow_stack()
-        #
-        #def start_transaction(gc):
-        #    self.root_walker.start_transaction()
-        #    gc.start_transaction()
-        #
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
-        self.thread_start_ptr = getfn(
-            gc_thread_start,
-            [], annmodel.s_None)
-        self.thread_die_ptr = getfn(
-            gc_thread_die,
-            [], annmodel.s_None)
         self.stm_writebarrier_ptr = getfn(
-            gc.stm_writebarrier,
+            self.gcdata.gc.stm_writebarrier,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
         self.stm_normalize_global_ptr = getfn(
-            gc.stm_normalize_global,
+            self.gcdata.gc.stm_normalize_global,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
 
     def build_root_walker(self):
@@ -54,24 +34,6 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
         v_gcdata_adr = hop.genop('cast_ptr_to_adr', [c_const_stackgcdata],
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
-
-    def gct_stm_thread_starting(self, hop):
-        hop.genop("direct_call", [self.thread_starting_ptr, self.c_const_gc])
-
-    def gct_stm_thread_stopping(self, hop):
-        hop.genop("direct_call", [self.thread_stopping_ptr, self.c_const_gc])
-
-    def gct_stm_enter_transactional_mode(self, hop):
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.stm_enter_transactional_mode_ptr,
-                                  self.c_const_gc])
-        self.pop_roots(hop, livevars)
-
-    def gct_stm_leave_transactional_mode(self, hop):
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.stm_leave_transactional_mode_ptr,
-                                  self.c_const_gc])
-        self.pop_roots(hop, livevars)
 
     def gct_stm_writebarrier(self, hop):
         op = hop.spaceop
@@ -149,9 +111,22 @@ class StmShadowStackRootWalker(BaseRootWalker):
             self.root_stack_depth = rsd
 
     def need_thread_support(self, gctransformer, getfn):
-        # we always have thread support, and it is handled
-        # in _declare_functions() already
-        pass
+        gc = gctransformer.gcdata.gc
+        #
+        def gc_thread_start():
+            self.allocate_shadow_stack()
+            gc.setup_thread()
+        #
+        def gc_thread_die():
+            gc.teardown_thread()
+            self.free_shadow_stack()
+        #
+        self.thread_start_ptr = getfn(
+            gc_thread_start,
+            [], annmodel.s_None)
+        self.thread_die_ptr = getfn(
+            gc_thread_die,
+            [], annmodel.s_None)
 
     def setup_root_walker(self):
         self.allocate_shadow_stack()

@@ -476,7 +476,8 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
-def invoke_around_extcall(before, after):
+def invoke_around_extcall(before, after,
+                          enter_callback=None, leave_callback=None):
     """Call before() before any external function call, and after() after.
     At the moment only one pair before()/after() can be registered at a time.
     """
@@ -490,6 +491,13 @@ def invoke_around_extcall(before, after):
     from pypy.rpython.annlowlevel import llhelper
     llhelper(rffi.AroundFnPtr, before)
     llhelper(rffi.AroundFnPtr, after)
+    # do the same thing about enter/leave_callback
+    if enter_callback is not None:
+        rffi.aroundstate.enter_callback = enter_callback
+        llhelper(rffi.EnterCallbackFnPtr, enter_callback)
+    if leave_callback is not None:
+        rffi.aroundstate.leave_callback = leave_callback
+        llhelper(rffi.LeaveCallbackFnPtr, leave_callback)
 
 def is_in_callback():
     from pypy.rpython.lltypesystem import rffi

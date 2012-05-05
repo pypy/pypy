@@ -21,8 +21,14 @@ void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
 void stm_tldict_enum(void);
 
+long stm_descriptor_init(void);
+void stm_descriptor_done(void);
+
 void stm_begin_inevitable_transaction(void);
 void stm_commit_transaction(void);
+
+long stm_in_transaction(void);
+long stm_is_inevitable(void);
 
 /* these functions are declared by generated C code from pypy.rlib.rstm
    and from the GC (see llop.nop(...)) */

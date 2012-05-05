@@ -12,6 +12,7 @@ struct tx_descriptor {
   /*unsigned long last_known_global_timestamp;*/
   owner_version_t my_lock_word;
   struct OrecList reads;
+  int active;    /* 0 = inactive, 1 = regular, 2 = inevitable */
   unsigned num_commits;
   unsigned num_aborts[ABORT_REASONS];
   unsigned num_spinloops[SPINLOOP_REASONS];
@@ -61,6 +62,7 @@ static void tx_spinloop(int num)
   unsigned int c;
   int i;
   struct tx_descriptor *d = thread_descriptor;
+  assert(d->active);
   d->num_spinloops[num]++;
 
   //printf("tx_spinloop(%d)\n", num);
@@ -80,7 +82,10 @@ static void tx_spinloop(int num)
 
 static _Bool is_inevitable(struct tx_descriptor *d)
 {
-  return d->setjmp_buf == NULL;
+  /* Assert that we are running a transaction.
+     Returns True if this transaction is inevitable. */
+  assert(d->active == 1 + !d->setjmp_buf);
+  return d->active == 2;
 }
 
 /*** run the redo log to commit a transaction, and release the locks */
@@ -180,6 +185,7 @@ static void common_cleanup(struct tx_descriptor *d)
 {
   d->reads.size = 0;
   redolog_clear(&d->redolog);
+  d->active = 0;
 }
 
 static void tx_cleanup(struct tx_descriptor *d)
@@ -201,7 +207,7 @@ static void tx_restart(struct tx_descriptor *d)
 static void tx_abort(int reason)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(!is_inevitable(d));
+  assert(d->active == 1);
   d->num_aborts[reason]++;
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-abort");
@@ -220,7 +226,7 @@ static void validate_fast(struct tx_descriptor *d, int lognum)
 {
   int i;
   owner_version_t ovt;
-  assert(!is_inevitable(d));
+  assert(d->active == 1);
   for (i=0; i<d->reads.size; i++)
     {
     retry:
@@ -251,7 +257,7 @@ static void validate(struct tx_descriptor *d)
 {
   int i;
   owner_version_t ovt;
-  assert(!is_inevitable(d));
+  assert(d->active == 1);
   for (i=0; i<d->reads.size; i++)
     {
       ovt = GETVERSION(d->reads.items[i]);      // read this orec
@@ -443,10 +449,9 @@ void stm_copy_transactional_to_raw(void *src, void *dst, long size)
   STM_DO_READ(memcpy(dst, src, size));
 }
 
-static void descriptor_init(void)
+long stm_descriptor_init(void)
 {
-  assert(thread_descriptor == NULL);
-  if (1)
+  if (thread_descriptor == NULL)
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
@@ -469,13 +474,17 @@ static void descriptor_init(void)
                 (long)pthread_self(), (long)d->my_lock_word);
       PYPY_DEBUG_STOP("stm-init");
 #endif
+      return 1;
     }
+  else
+    return 0;   /* already initialized */
 }
 
-static void descriptor_done(void)
+void stm_descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   assert(d != NULL);
+  assert(d->active == 0);
 
   thread_descriptor = NULL;
 
@@ -516,6 +525,8 @@ static void descriptor_done(void)
 static void begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
+  assert(d->active == 0);
+  d->active = 1;
   d->setjmp_buf = buf;
   d->start_time = (/*d->last_known_global_timestamp*/ global_timestamp) & ~1;
 }
@@ -525,6 +536,8 @@ void stm_begin_inevitable_transaction(void)
   /* Equivalent to begin_transaction(); stm_try_inevitable();
      except more efficient */
   struct tx_descriptor *d = thread_descriptor;
+  assert(d->active == 0);
+  d->active = 2;
   d->setjmp_buf = NULL;
 
   while (1)
@@ -612,8 +625,10 @@ void stm_try_inevitable(STM_CCHARP1(why))
      by another thread.  We set the lowest bit in global_timestamp
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
-  if (is_inevitable(d))
-    return;  /* I am already inevitable */
+  if (d == NULL || d->active != 1)
+    return;  /* I am already inevitable, or not in a transaction at all
+                (XXX statically we should know when we're outside
+                a transaction) */
 
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-inevitable");
@@ -670,7 +685,6 @@ static __thread void *rpython_tls_object;
 
 void stm_set_tls(void *newtls)
 {
-  descriptor_init();
   rpython_tls_object = newtls;
 }
 
@@ -681,7 +695,7 @@ void *stm_get_tls(void)
 
 void stm_del_tls(void)
 {
-  descriptor_done();
+  rpython_tls_object = NULL;
 }
 
 void *stm_tldict_lookup(void *key)
@@ -712,6 +726,18 @@ void stm_tldict_enum(void)
     {
       pypy_g__stm_enum_callback(tls, item->addr, item->val);
     } REDOLOG_LOOP_END;
+}
+
+long stm_in_transaction(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return d->active;
+}
+
+long stm_is_inevitable(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return is_inevitable(d);
 }
 
 #undef GETVERSION

@@ -11,7 +11,6 @@ from pypy.rpython.memory.gc.stmgc import WORD, NULL
 from pypy.rpython.memory.gc.stmgc import always_inline, dont_inline
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_VISITED
 from pypy.rpython.memory.gc.stmgc import GCFLAG_WAS_COPIED, GCFLAG_HAS_SHADOW
-from pypy.rpython.memory.gc.stmgc import GCFLAG_PREBUILT
 
 
 class StmGCTLS(object):

@@ -964,8 +964,6 @@ class LLFrame(object):
     op_stm_writebarrier = _stm_not_implemented
     op_stm_normalize_global = _stm_not_implemented
     op_stm_become_inevitable = _stm_not_implemented
-    op_stm_thread_starting = _stm_not_implemented
-    op_stm_thread_stopping = _stm_not_implemented
 
     # operations on pyobjects!
     for opname in lloperation.opimpls.keys():
