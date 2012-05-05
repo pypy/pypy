@@ -10,6 +10,7 @@ from pypy.conftest import option
 import sys
 
 class BaseNumpyAppTest(object):
+    @classmethod
     def setup_class(cls):
         if option.runappdirect:
             if '__pypy__' not in sys.builtin_module_names:
