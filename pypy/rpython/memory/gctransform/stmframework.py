@@ -14,6 +14,12 @@ class StmFrameworkGCTransformer(FrameworkGCTransformer):
     def _declare_functions(self, GCClass, getfn, s_gc, *args):
         super(StmFrameworkGCTransformer, self)._declare_functions(
             GCClass, getfn, s_gc, *args)
+        self.stm_start_ptr = getfn(
+            self.gcdata.gc.start_transaction.im_func,
+            [s_gc], annmodel.s_None)
+        self.stm_stop_ptr = getfn(
+            self.gcdata.gc.stop_transaction.im_func,
+            [s_gc], annmodel.s_None)
         self.stm_writebarrier_ptr = getfn(
             self.gcdata.gc.stm_writebarrier,
             [annmodel.SomeAddress()], annmodel.SomeAddress())
@@ -148,6 +154,7 @@ class StmShadowStackRootWalker(BaseRootWalker):
     def start_transaction(self):
         # When a transaction is aborted, it leaves behind its shadow
         # stack content.  We have to clear it here.
+        XXX
         stackgcdata = self.stackgcdata
         stackgcdata.root_stack_top = stackgcdata.root_stack_base
 
