@@ -3,6 +3,7 @@ from pypy.objspace.flow.model import Block, Link, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.stm.localtracker import StmLocalTracker
+from pypy.translator.stm import gcsource
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.rpython import rclass
 
@@ -39,12 +40,22 @@ class STMTransformer(object):
     def transform(self):
         assert not hasattr(self.translator, 'stm_transformation_applied')
         self.start_log()
-        for graph in self.translator.graphs:
+        t = self.translator
+        transactionbreak_analyzer = gcsource.TransactionBreakAnalyzer(t)
+        transactionbreak_analyzer.analyze_all()
+        #
+        for graph in t.graphs:
+            gcsource.break_blocks_after_transaction_breaker(
+                t, graph, self.transactionbreak_analyzer)
+        #
+        for graph in t.graphs:
             pre_insert_stm_writebarrier(graph)
-        self.localtracker = StmLocalTracker(self.translator)
-        for graph in self.translator.graphs:
+        #
+        self.localtracker = StmLocalTracker(t, transactionbreak_analyzer)
+        for graph in t.graphs:
             self.transform_graph(graph)
         self.localtracker = None
+        #
         self.translator.stm_transformation_applied = True
         self.print_logs()
 
@@ -253,7 +264,6 @@ def pre_insert_stm_writebarrier(graph):
     # one variable on which we do 'stm_writebarrier', but there are
     # also other variables that contain the same pointer, e.g. casted
     # to a different precise type.
-    from pypy.translator.stm.gcsource import COPIES_POINTER, _is_gc
     #
     def emit(op):
         for v1 in op.args:
@@ -277,9 +287,9 @@ def pre_insert_stm_writebarrier(graph):
         copies = {}
         wants_a_writebarrier = {}
         for op in block.operations:
-            if op.opname in COPIES_POINTER:
+            if op.opname in gcsource.COPIES_POINTER:
                 assert len(op.args) == 1
-                if _is_gc(op.result) and _is_gc(op.args[0]):
+                if gcsource._is_gc(op.result) and gcsource._is_gc(op.args[0]):
                     copies[op.result] = op
             elif (op.opname in ('getfield', 'getarrayitem',
                                 'getinteriorfield') and

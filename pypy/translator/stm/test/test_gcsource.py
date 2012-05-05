@@ -1,5 +1,7 @@
 from pypy.translator.translator import TranslationContext
 from pypy.translator.stm.gcsource import GcSource
+from pypy.translator.stm.gcsource import TransactionBreakAnalyzer
+from pypy.translator.stm.gcsource import break_blocks_after_transaction_breaker
 from pypy.objspace.flow.model import SpaceOperation, Constant
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.jit import hint
@@ -10,11 +12,19 @@ class X:
         self.n = n
 
 
-def gcsource(func, sig):
+def gcsource(func, sig, transactionbreak=False):
     t = TranslationContext()
     t.buildannotator().build_types(func, sig)
     t.buildrtyper().specialize()
-    gsrc = GcSource(t)
+    if transactionbreak:
+        transactionbreak_analyzer = TransactionBreakAnalyzer(t)
+        transactionbreak_analyzer.analyze_all()
+        for graph in t.graphs:
+            break_blocks_after_transaction_breaker(
+                t, graph, transactionbreak_analyzer)
+    else:
+        transactionbreak_analyzer = None
+    gsrc = GcSource(t, transactionbreak_analyzer)
     return gsrc
 
 def test_simple():
@@ -159,7 +169,7 @@ def test_transactionbroken():
         x = X(n)
         break_transaction()
         return x
-    gsrc = gcsource(main, [int])
+    gsrc = gcsource(main, [int], transactionbreak=True)
     v_result = gsrc.translator.graphs[0].getreturnvar()
     s = gsrc[v_result]
     assert 'transactionbreak' in s
@@ -168,7 +178,27 @@ def test_transactionbroken():
         break_transaction()
         x = X(n)
         return x
-    gsrc = gcsource(main, [int])
+    gsrc = gcsource(main, [int], transactionbreak=True)
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert 'transactionbreak' not in s
+    #
+    def main(n):
+        x = X(n)
+        break_transaction()
+        y = X(n)   # extra operation in the same block
+        return x
+    gsrc = gcsource(main, [int], transactionbreak=True)
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert 'transactionbreak' in s
+    #
+    def g(n):
+        break_transaction()
+        return X(n)
+    def main(n):
+        return g(n)
+    gsrc = gcsource(main, [int], transactionbreak=True)
     v_result = gsrc.translator.graphs[0].getreturnvar()
     s = gsrc[v_result]
     assert 'transactionbreak' not in s

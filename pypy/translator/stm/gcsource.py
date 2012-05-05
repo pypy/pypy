@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.translator.simplify import get_graph
+from pypy.translator.unsimplify import split_block
 from pypy.translator.backendopt import graphanalyze
 
 
@@ -132,20 +133,36 @@ class TransactionBreakAnalyzer(graphanalyze.BoolGraphAnalyzer):
                              'stm_stop_transaction')
 
 
-def enum_transactionbroken_vars(translator):
-    transactionbreak_analyzer = TransactionBreakAnalyzer(translator)
-    transactionbreak_analyzer.analyze_all()
+def enum_transactionbroken_vars(translator, transactionbreak_analyzer):
+    if transactionbreak_analyzer is None:
+        return    # for tests only
     for graph in translator.graphs:
         for block in graph.iterblocks():
-            livevars = set()
+            if not block.operations:
+                continue
+            for op in block.operations[:-1]:
+                assert not transactionbreak_analyzer.analyze(op)
+            op = block.operations[-1]
+            if not transactionbreak_analyzer.analyze(op):
+                continue
+            # This block ends in a transaction breaking operation.  So
+            # any variable passed from this block to a next one (with
+            # the exception of the variable freshly returned by the
+            # last operation) must be assumed to be potentially global.
             for link in block.exits:
-                livevars |= set(link.args) - set(link.getextravars())
-            for op in block.operations[::-1]:
-                livevars.discard(op.result)
-                if transactionbreak_analyzer.analyze(op):
-                    for v in livevars:
-                        yield v
-                livevars.update(op.args)
+                for v1, v2 in zip(link.args, link.target.inputargs):
+                    if v1 is not op.result:
+                        yield v2
+
+def break_blocks_after_transaction_breaker(translator, graph,
+                                           transactionbreak_analyzer):
+    """Split blocks so that they end immediately after any operation
+    that may cause a transaction break."""
+    for block in list(graph.iterblocks()):
+        for i in range(len(block.operations)-2, -1, -1):
+            op = block.operations[i]
+            if transactionbreak_analyzer.analyze(op):
+                split_block(translator.annotator, block, i + 1)
 
 
 class GcSource(object):
@@ -153,12 +170,13 @@ class GcSource(object):
     Constant, or a SpaceOperation that creates the value, or a string
     which describes a special case."""
 
-    def __init__(self, translator):
+    def __init__(self, translator, transactionbreak_analyzer=None):
         self.translator = translator
         self._backmapping = {}
         for v1, v2 in enum_gc_dependencies(translator):
             self._backmapping.setdefault(v2, []).append(v1)
-        for v2 in enum_transactionbroken_vars(translator):
+        for v2 in enum_transactionbroken_vars(translator,
+                                              transactionbreak_analyzer):
             self._backmapping.setdefault(v2, []).append('transactionbreak')
 
     def __getitem__(self, variable):
