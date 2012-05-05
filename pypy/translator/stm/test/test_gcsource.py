@@ -149,3 +149,26 @@ def test_hint_stm_write():
     s = gsrc[v_result]
     assert len(s) == 1
     assert list(s)[0].opname == 'hint'
+
+def test_transactionbroken():
+    def break_transaction():
+        pass
+    break_transaction._transaction_break_ = True
+    #
+    def main(n):
+        x = X(n)
+        break_transaction()
+        return x
+    gsrc = gcsource(main, [int])
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert 'transactionbreak' in s
+    #
+    def main(n):
+        break_transaction()
+        x = X(n)
+        return x
+    gsrc = gcsource(main, [int])
+    v_result = gsrc.translator.graphs[0].getreturnvar()
+    s = gsrc[v_result]
+    assert 'transactionbreak' not in s

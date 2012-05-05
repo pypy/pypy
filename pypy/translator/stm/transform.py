@@ -330,6 +330,3 @@ def pre_insert_stm_writebarrier(graph):
             for link in block.exits:
                 link.args = [renames.get(v, v) for v in link.args]
         block.operations = newoperations
-
-# XXX must repeat stm_writebarrier after doing something that can
-# go to the next transaction

@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import Variable
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.translator.simplify import get_graph
+from pypy.translator.backendopt import graphanalyze
 
 
 COPIES_POINTER = set([
@@ -110,6 +111,43 @@ def enum_gc_dependencies(translator):
     return resultlist
 
 
+class TransactionBreakAnalyzer(graphanalyze.BoolGraphAnalyzer):
+    """This analyzer looks for function calls that may ultimately
+    cause a transaction break (end of previous transaction, start
+    of next one)."""
+
+    def analyze_direct_call(self, graph, seen=None):
+        try:
+            func = graph.func
+        except AttributeError:
+            pass
+        else:
+            if getattr(func, '_transaction_break_', False):
+                return True
+        return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph,
+                                                              seen)
+
+    def analyze_simple_operation(self, op, graphinfo):
+        return op.opname in ('stm_start_transaction',
+                             'stm_stop_transaction')
+
+
+def enum_transactionbroken_vars(translator):
+    transactionbreak_analyzer = TransactionBreakAnalyzer(translator)
+    transactionbreak_analyzer.analyze_all()
+    for graph in translator.graphs:
+        for block in graph.iterblocks():
+            livevars = set()
+            for link in block.exits:
+                livevars |= set(link.args) - set(link.getextravars())
+            for op in block.operations[::-1]:
+                livevars.discard(op.result)
+                if transactionbreak_analyzer.analyze(op):
+                    for v in livevars:
+                        yield v
+                livevars.update(op.args)
+
+
 class GcSource(object):
     """Works like a dict {gcptr-var: set-of-sources}.  A source is a
     Constant, or a SpaceOperation that creates the value, or a string
@@ -120,6 +158,8 @@ class GcSource(object):
         self._backmapping = {}
         for v1, v2 in enum_gc_dependencies(translator):
             self._backmapping.setdefault(v2, []).append(v1)
+        for v2 in enum_transactionbroken_vars(translator):
+            self._backmapping.setdefault(v2, []).append('transactionbreak')
 
     def __getitem__(self, variable):
         result = set()
