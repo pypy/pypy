@@ -746,22 +746,27 @@ elif _MS_WINDOWS:
 
             # check file size
             try:
-                st = os.fstat(fileno)
+                low, high = _get_file_size(fh)
             except OSError:
-                pass     # ignore errors and trust map_size
+                pass     # ignore non-seeking files and errors and trust map_size
             else:
-                mode = st[stat.ST_MODE]
-                size = st[stat.ST_SIZE]
-                if stat.S_ISREG(mode):
-                    if map_size == 0:
-                        if offset > size:
-                            raise RValueError(
-                                "mmap offset is greater than file size")
-                        map_size = int(size - offset)
-                        if map_size != size - offset:
-                            raise RValueError("mmap length is too large")
-                    elif offset + map_size > size:
-                        raise RValueError("mmap length is greater than file size")
+                if not high and low <= sys.maxint:
+                   size = low
+                else:   
+                    # not so sure if the signed/unsigned strictness is a good idea:
+                    high = rffi.cast(lltype.Unsigned, high)
+                    low = rffi.cast(lltype.Unsigned, low)
+                    size = (high << 32) + low
+                    size = rffi.cast(lltype.Signed, size)
+                if map_size == 0:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
+                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE
