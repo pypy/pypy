@@ -1,5 +1,5 @@
 import os
-if os.name <> 'nt':
+if os.name != 'nt':
     skip('tests for win32 only')
 
 from pypy.rlib import rwin32
