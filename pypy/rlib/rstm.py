@@ -49,9 +49,10 @@ def _get_stm_callback(func, argcls):
         llarg = rffi.cast(rclass.OBJECTPTR, llarg)
         arg = cast_base_ptr_to_instance(argcls, llarg)
         try:
-            func(arg, retry_counter)
+            res = func(arg, retry_counter)
         finally:
             llop.stm_stop_transaction(lltype.Void)
+        return res
     return _stm_callback
 
 @specialize.arg(0, 1)

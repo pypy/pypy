@@ -742,12 +742,12 @@ long stm_is_inevitable(void)
   return is_inevitable(d);
 }
 
-void stm_perform_transaction(void(*callback)(void*, long), void *arg,
+void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore)
 {
   jmp_buf _jmpbuf;
   long volatile v_counter = 0;
-  long counter;
+  long counter, result;
   void *volatile saved_value;
   struct tx_descriptor *d = thread_descriptor;
   assert(d->active == 0);
@@ -755,12 +755,18 @@ void stm_perform_transaction(void(*callback)(void*, long), void *arg,
   /***/
   setjmp(_jmpbuf);
   /***/
-  *(void**)save_and_restore = saved_value;
-  begin_transaction(&_jmpbuf);
-  counter = v_counter;
-  v_counter = counter + 1;
-  callback(arg, counter);
-  stm_commit_transaction();
+  while (1)
+    {
+      *(void**)save_and_restore = saved_value;
+      begin_transaction(&_jmpbuf);
+      counter = v_counter;
+      v_counter = counter + 1;
+      result = callback(arg, counter);
+      stm_commit_transaction();
+      if (result != 1)   /* also when it raises an RPython exception */
+        return;
+      v_counter = 0;
+    }
 }
 
 #undef GETVERSION

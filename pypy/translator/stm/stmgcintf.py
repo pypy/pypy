@@ -36,7 +36,7 @@ class StmOperations(object):
 
     INIT_DONE       = lltype.Ptr(lltype.FuncType([], lltype.Void))
     CALLBACK_TX     = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
-                                                 lltype.Void))
+                                                 lltype.Signed))
     GETSIZE         = lltype.Ptr(lltype.FuncType([llmemory.Address],
                                                  lltype.Signed))
     CALLBACK_ENUM   = lltype.Ptr(lltype.FuncType([llmemory.Address]*3,
