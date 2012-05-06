@@ -189,13 +189,13 @@ class AppTestSreMatch:
 
     def test_sub_unicode(self):
         import re
-        assert isinstance(re.sub(u"a", u"b", u""), str)
+        assert isinstance(re.sub("a", "b", ""), str)
         # the input is returned unmodified if no substitution is performed,
         # which (if interpreted literally, as CPython does) gives the
         # following strangeish rules:
-        assert isinstance(re.sub(u"a", u"b", "diwoiioamoi"), str)
-        assert isinstance(re.sub(u"a", u"b", b"diwoiiobmoi"), bytes)
-        assert isinstance(re.sub(u'x', b'y', b'x'), bytes)
+        assert isinstance(re.sub("a", "b", "diwoiioamoi"), str)
+        assert isinstance(re.sub("a", "b", b"diwoiiobmoi"), bytes)
+        assert isinstance(re.sub('x', b'y', b'x'), bytes)
 
     def test_sub_callable(self):
         import re
@@ -327,17 +327,17 @@ class AppTestGetlower:
     def test_getlower_no_flags(self):
         UPPER_AE = "\xc4"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, UPPER_AE),
-            (u"\u00c4", u"\u00c4"), (u"\u4444", u"\u4444")], 0)
+            ("\u00c4", "\u00c4"), ("\u4444", "\u4444")], 0)
 
     def test_getlower_locale(self):
         import locale, sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         try:
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-                (u"\u00c4", u"\u00e4"), (UPPER_PI, UPPER_PI)],
+                ("\u00c4", "\u00e4"), (UPPER_PI, UPPER_PI)],
                 sre_constants.SRE_FLAG_LOCALE)
         except locale.Error:
             # skip test
@@ -347,11 +347,11 @@ class AppTestGetlower:
         import sre_constants
         UPPER_AE = "\xc4"
         LOWER_AE = "\xe4"
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-            (u"\u00c4", u"\u00e4"), (UPPER_PI, LOWER_PI),
-            (u"\u4444", u"\u4444")], sre_constants.SRE_FLAG_UNICODE)
+            ("\u00c4", "\u00e4"), (UPPER_PI, LOWER_PI),
+            ("\u4444", "\u4444")], sre_constants.SRE_FLAG_UNICODE)
         
 
 class AppTestSimpleSearches:
@@ -373,26 +373,26 @@ class AppTestSimpleSearches:
 
     def test_search_simple_boundaries(self):
         import re
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         assert re.search(r"bla\b", "bla")
         assert re.search(r"bla\b", "bla ja")
-        assert re.search(r"bla\b", u"bla%s" % UPPER_PI)
+        assert re.search(r"bla\b", "bla%s" % UPPER_PI, re.ASCII)
         assert not re.search(r"bla\b", "blano")
-        assert not re.search(r"bla\b", u"bla%s" % UPPER_PI, re.UNICODE)
+        assert not re.search(r"bla\b", "bla%s" % UPPER_PI, re.UNICODE)
 
     def test_search_simple_categories(self):
         import re
-        LOWER_PI = u"\u03c0"
-        INDIAN_DIGIT = u"\u0966"
-        EM_SPACE = u"\u2001"
+        LOWER_PI = "\u03c0"
+        INDIAN_DIGIT = "\u0966"
+        EM_SPACE = "\u2001"
         LOWER_AE = "\xe4"
         assert re.search(r"bla\d\s\w", "bla3 b")
-        assert re.search(r"b\d", u"b%s" % INDIAN_DIGIT, re.UNICODE)
-        assert not re.search(r"b\D", u"b%s" % INDIAN_DIGIT, re.UNICODE)
-        assert re.search(r"b\s", u"b%s" % EM_SPACE, re.UNICODE)
-        assert not re.search(r"b\S", u"b%s" % EM_SPACE, re.UNICODE)
-        assert re.search(r"b\w", u"b%s" % LOWER_PI, re.UNICODE)
-        assert not re.search(r"b\W", u"b%s" % LOWER_PI, re.UNICODE)
+        assert re.search(r"b\d", "b%s" % INDIAN_DIGIT, re.UNICODE)
+        assert not re.search(r"b\D", "b%s" % INDIAN_DIGIT, re.UNICODE)
+        assert re.search(r"b\s", "b%s" % EM_SPACE, re.UNICODE)
+        assert not re.search(r"b\S", "b%s" % EM_SPACE, re.UNICODE)
+        assert re.search(r"b\w", "b%s" % LOWER_PI, re.UNICODE)
+        assert not re.search(r"b\W", "b%s" % LOWER_PI, re.UNICODE)
         assert re.search(r"b\w", "b%s" % LOWER_AE, re.UNICODE)
 
     def test_search_simple_any(self):
@@ -403,38 +403,38 @@ class AppTestSimpleSearches:
 
     def test_search_simple_in(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
-        EM_SPACE = u"\u2001"
-        LINE_SEP = u"\u2028"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
+        EM_SPACE = "\u2001"
+        LINE_SEP = "\u2028"
         assert re.search(r"b[\da-z]a", "bb1a")
         assert re.search(r"b[\da-z]a", "bbsa")
         assert not re.search(r"b[\da-z]a", "bbSa")
         assert re.search(r"b[^okd]a", "bsa")
         assert not re.search(r"b[^okd]a", "bda")
-        assert re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % UPPER_PI) # bigcharset
-        assert re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % EM_SPACE)
-        assert not re.search(u"b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
-            u"b%sa" % LINE_SEP)
+        assert re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % UPPER_PI) # bigcharset
+        assert re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % EM_SPACE)
+        assert not re.search("b[%s%s%s]a" % (LOWER_PI, UPPER_PI, EM_SPACE),
+            "b%sa" % LINE_SEP)
 
     def test_search_simple_literal_ignore(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.search(r"ba", "ba", re.IGNORECASE)
         assert re.search(r"ba", "BA", re.IGNORECASE)
-        assert re.search(u"b%s" % UPPER_PI, u"B%s" % LOWER_PI,
+        assert re.search("b%s" % UPPER_PI, "B%s" % LOWER_PI,
             re.IGNORECASE | re.UNICODE)
 
     def test_search_simple_in_ignore(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.search(r"ba[A-C]", "bac", re.IGNORECASE)
         assert re.search(r"ba[a-c]", "baB", re.IGNORECASE)
-        assert re.search(u"ba[%s]" % UPPER_PI, "ba%s" % LOWER_PI,
+        assert re.search("ba[%s]" % UPPER_PI, "ba%s" % LOWER_PI,
             re.IGNORECASE | re.UNICODE)
         assert re.search(r"ba[^A-C]", "bar", re.IGNORECASE)
         assert not re.search(r"ba[^A-C]", "baA", re.IGNORECASE)
@@ -496,13 +496,13 @@ class AppTestSimpleSearches:
 
     def test_search_simple_groupref(self):
         import re
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         assert re.match(r"((ab)+)c\1", "ababcabab")
         assert not re.match(r"((ab)+)c\1", "ababcab")
         assert not re.search(r"(a|(b))\2", "aa")
         assert re.match(r"((ab)+)c\1", "aBAbcAbaB", re.IGNORECASE)
-        assert re.match(r"((a.)+)c\1", u"a%sca%s" % (UPPER_PI, LOWER_PI),
+        assert re.match(r"((a.)+)c\1", "a%sca%s" % (UPPER_PI, LOWER_PI),
             re.IGNORECASE | re.UNICODE)
 
     def test_search_simple_groupref_exists(self):
@@ -666,15 +666,15 @@ class AppTestOpcodes:
             skip("locale error")
 
     def test_at_uni_boundary(self):
-        UPPER_PI = u"\u03a0"
-        LOWER_PI = u"\u03c0"
+        UPPER_PI = "\u03a0"
+        LOWER_PI = "\u03c0"
         opcodes = s.encode_literal("bl") + [s.OPCODES["any"], s.OPCODES["at"],
             s.ATCODES["at_uni_boundary"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bla ha", u"bl%s ja" % UPPER_PI])
-        s.assert_no_match(opcodes, [u"bla%s" % LOWER_PI])
+        s.assert_match(opcodes, ["bla ha", "bl%s ja" % UPPER_PI])
+        s.assert_no_match(opcodes, ["bla%s" % LOWER_PI])
         opcodes = s.encode_literal("bl") + [s.OPCODES["any"], s.OPCODES["at"],
             s.ATCODES["at_uni_non_boundary"], s.OPCODES["success"]]
-        s.assert_match(opcodes, ["blaha", u"bl%sja" % UPPER_PI])
+        s.assert_match(opcodes, ["blaha", "bl%sja" % UPPER_PI])
 
     def test_category_loc_word(self):
         import locale
@@ -685,11 +685,11 @@ class AppTestOpcodes:
             opcodes2 = s.encode_literal("b") \
                 + [s.OPCODES["category"], s.CHCODES["category_loc_not_word"], s.OPCODES["success"]]
             s.assert_no_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, u"b\u00FC")
+            s.assert_no_match(opcodes1, "b\u00FC")
             s.assert_match(opcodes2, "b\xFC")
             locale.setlocale(locale.LC_ALL, "de_DE")
             s.assert_match(opcodes1, "b\xFC")
-            s.assert_no_match(opcodes1, u"b\u00FC")
+            s.assert_no_match(opcodes1, "b\u00FC")
             s.assert_no_match(opcodes2, "b\xFC")
             s.void_locale()
         except locale.Error:
@@ -777,10 +777,10 @@ class AppTestOpcodes:
         s.assert_no_match(opcodes, ["bb", "bu"])
 
     def test_not_literal_ignore(self):
-        UPPER_PI = u"\u03a0"
+        UPPER_PI = "\u03a0"
         opcodes = s.encode_literal("b") \
             + [s.OPCODES["not_literal_ignore"], ord("a"), s.OPCODES["success"]]
-        s.assert_match(opcodes, ["bb", "bu", u"b%s" % UPPER_PI])
+        s.assert_match(opcodes, ["bb", "bu", "b%s" % UPPER_PI])
         s.assert_no_match(opcodes, ["ba", "bA"])
 
     def test_in_ignore(self):
