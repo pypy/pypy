@@ -878,7 +878,7 @@ class HandlerTests(unittest.TestCase):
     def test_http_doubleslash(self):
         # Checks the presence of any unnecessary double slash in url does not
         # break anything. Previously, a double slash directly after the host
-        # could could cause incorrect parsing.
+        # could cause incorrect parsing.
         h = urllib.request.AbstractHTTPHandler()
         o = h.parent = MockOpener()
 
@@ -1058,6 +1058,19 @@ class HandlerTests(unittest.TestCase):
             h.http_error_302(req, MockFile(), 302, "That's fine",
                 MockHeaders({"location": valid_url}))
             self.assertEqual(o.req.get_full_url(), valid_url)
+
+    def test_relative_redirect(self):
+        from_url = "http://example.com/a.html"
+        relative_url = "/b.html"
+        h = urllib.request.HTTPRedirectHandler()
+        o = h.parent = MockOpener()
+        req = Request(from_url)
+        req.timeout = socket._GLOBAL_DEFAULT_TIMEOUT
+
+        valid_url = urllib.parse.urljoin(from_url,relative_url)
+        h.http_error_302(req, MockFile(), 302, "That's fine",
+            MockHeaders({"location": valid_url}))
+        self.assertEqual(o.req.get_full_url(), valid_url)
 
     def test_cookie_redirect(self):
         # cookies shouldn't leak into redirected requests
@@ -1408,6 +1421,17 @@ class RequestTests(unittest.TestCase):
         url = 'http://docs.python.org/library/urllib2.html#OK'
         req = Request(url)
         self.assertEqual(req.get_full_url(), url)
+
+def test_HTTPError_interface():
+    """
+    Issue 13211 reveals that HTTPError didn't implement the URLError
+    interface even though HTTPError is a subclass of URLError.
+
+    >>> err = urllib.error.HTTPError(msg='something bad happened', url=None, code=None, hdrs=None, fp=None)
+    >>> assert hasattr(err, 'reason')
+    >>> err.reason
+    'something bad happened'
+    """
 
 def test_main(verbose=None):
     from test import test_urllib2

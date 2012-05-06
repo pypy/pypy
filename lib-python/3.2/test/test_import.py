@@ -4,12 +4,14 @@ from importlib.test.import_ import test_relative_imports
 from importlib.test.import_ import util as importlib_util
 import marshal
 import os
+import platform
 import py_compile
 import random
 import stat
 import sys
 import unittest
 import textwrap
+import errno
 
 from test.support import (
     EnvironmentVarGuard, TESTFN, check_warnings, forget, is_jython,
@@ -106,15 +108,15 @@ class ImportTests(unittest.TestCase):
                 open(fname, 'w').close()
                 os.chmod(fname, (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH |
                                  stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
-                __import__(TESTFN)
                 fn = imp.cache_from_source(fname)
+                unlink(fn)
+                __import__(TESTFN)
                 if not os.path.exists(fn):
                     self.fail("__import__ did not result in creation of "
                               "either a .pyc or .pyo file")
-                    s = os.stat(fn)
-                    self.assertEqual(
-                        stat.S_IMODE(s.st_mode),
-                        stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+                s = os.stat(fn)
+                self.assertEqual(stat.S_IMODE(s.st_mode),
+                                 stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
             finally:
                 del sys.path[0]
                 remove_files(TESTFN)
@@ -138,6 +140,15 @@ class ImportTests(unittest.TestCase):
             self.assertIs(os, new_os)
             self.assertIs(orig_path, new_os.path)
             self.assertIsNot(orig_getenv, new_os.getenv)
+
+    def test_bug7732(self):
+        source = TESTFN + '.py'
+        os.mkdir(source)
+        try:
+            self.assertRaisesRegex(ImportError, '^No module',
+                imp.find_module, TESTFN, ["."])
+        finally:
+            os.rmdir(source)
 
     def test_module_with_large_stack(self, module='longlist'):
         # Regression test for http://bugs.python.org/issue561858.
@@ -299,6 +310,30 @@ class ImportTests(unittest.TestCase):
             sys.argv.insert(0, C())
             """))
         script_helper.assert_python_ok(testfn)
+
+    def test_timestamp_overflow(self):
+        # A modification timestamp larger than 2**32 should not be a problem
+        # when importing a module (issue #11235).
+        sys.path.insert(0, os.curdir)
+        try:
+            source = TESTFN + ".py"
+            compiled = imp.cache_from_source(source)
+            with open(source, 'w') as f:
+                pass
+            try:
+                os.utime(source, (2 ** 33 - 5, 2 ** 33 - 5))
+            except OverflowError:
+                self.skipTest("cannot set modification time to large integer")
+            except OSError as e:
+                if e.errno != getattr(errno, 'EOVERFLOW', None):
+                    raise
+                self.skipTest("cannot set modification time to large integer ({})".format(e))
+            __import__(TESTFN)
+            # The pyc file was created.
+            os.stat(compiled)
+        finally:
+            del sys.path[0]
+            remove_files(TESTFN)
 
 
 class PycRewritingTests(unittest.TestCase):
@@ -537,6 +572,8 @@ class PycacheTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix',
                          "test meaningful only on posix systems")
+    @unittest.skipIf(hasattr(os, 'geteuid') and os.geteuid() == 0,
+            "due to varying filesystem permission semantics (issue #11956)")
     def test_unwritable_directory(self):
         # When the umask causes the new __pycache__ directory to be
         # unwritable, the import still succeeds but no .pyc file is written.

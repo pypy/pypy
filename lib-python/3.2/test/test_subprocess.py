@@ -13,10 +13,12 @@ import sysconfig
 import warnings
 import select
 import shutil
+import gc
+
 try:
-    import gc
+    import resource
 except ImportError:
-    gc = None
+    resource = None
 
 mswindows = (sys.platform == "win32")
 
@@ -732,12 +734,12 @@ class _SuppressCoreFiles(object):
 
     def __enter__(self):
         """Try to save previous ulimit, then set it to (0, 0)."""
-        try:
-            import resource
-            self.old_limit = resource.getrlimit(resource.RLIMIT_CORE)
-            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-        except (ImportError, ValueError, resource.error):
-            pass
+        if resource is not None:
+            try:
+                self.old_limit = resource.getrlimit(resource.RLIMIT_CORE)
+                resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            except (ValueError, resource.error):
+                pass
 
         if sys.platform == 'darwin':
             # Check if the 'Crash Reporter' on OSX was configured
@@ -758,11 +760,11 @@ class _SuppressCoreFiles(object):
         """Return core file behavior to default."""
         if self.old_limit is None:
             return
-        try:
-            import resource
-            resource.setrlimit(resource.RLIMIT_CORE, self.old_limit)
-        except (ImportError, ValueError, resource.error):
-            pass
+        if resource is not None:
+            try:
+                resource.setrlimit(resource.RLIMIT_CORE, self.old_limit)
+            except (ValueError, resource.error):
+                pass
 
 
 @unittest.skipIf(mswindows, "POSIX specific tests")
@@ -853,7 +855,6 @@ class POSIXProcessTestCase(BaseTestCase):
             self.fail("Exception raised by preexec_fn did not make it "
                       "to the parent process.")
 
-    @unittest.skipUnless(gc, "Requires a gc module.")
     def test_preexec_gc_module_failure(self):
         # This tests the code that disables garbage collection if the child
         # process will execute any Python.
@@ -1272,8 +1273,18 @@ class POSIXProcessTestCase(BaseTestCase):
 
         self.addCleanup(p1.wait)
         self.addCleanup(p2.wait)
-        self.addCleanup(p1.terminate)
-        self.addCleanup(p2.terminate)
+        def kill_p1():
+            try:
+                p1.terminate()
+            except ProcessLookupError:
+                pass
+        def kill_p2():
+            try:
+                p2.terminate()
+            except ProcessLookupError:
+                pass
+        self.addCleanup(kill_p1)
+        self.addCleanup(kill_p2)
 
         p1.stdin.write(data)
         p1.stdin.close()
@@ -1294,6 +1305,11 @@ class POSIXProcessTestCase(BaseTestCase):
         self.addCleanup(os.close, fds[1])
 
         open_fds = set(fds)
+        # add a bunch more fds
+        for _ in range(9):
+            fd = os.open("/dev/null", os.O_RDONLY)
+            self.addCleanup(os.close, fd)
+            open_fds.add(fd)
 
         p = subprocess.Popen([sys.executable, fd_status],
                              stdout=subprocess.PIPE, close_fds=False)
@@ -1310,6 +1326,19 @@ class POSIXProcessTestCase(BaseTestCase):
 
         self.assertFalse(remaining_fds & open_fds,
                          "Some fds were left open")
+        self.assertIn(1, remaining_fds, "Subprocess failed")
+
+        # Keep some of the fd's we opened open in the subprocess.
+        # This tests _posixsubprocess.c's proper handling of fds_to_keep.
+        fds_to_keep = set(open_fds.pop() for _ in range(8))
+        p = subprocess.Popen([sys.executable, fd_status],
+                             stdout=subprocess.PIPE, close_fds=True,
+                             pass_fds=())
+        output, ignored = p.communicate()
+        remaining_fds = set(map(int, output.split(b',')))
+
+        self.assertFalse(remaining_fds & fds_to_keep & open_fds,
+                         "Some fds not in pass_fds were left open")
         self.assertIn(1, remaining_fds, "Subprocess failed")
 
     # Mac OS X Tiger (10.4) has a kernel bug: sometimes, the file
@@ -1393,6 +1422,56 @@ class POSIXProcessTestCase(BaseTestCase):
             self.assertIn(f, select.select([f], [], [], 0.0)[0])
         finally:
             p.wait()
+
+    def test_zombie_fast_process_del(self):
+        # Issue #12650: on Unix, if Popen.__del__() was called before the
+        # process exited, it wouldn't be added to subprocess._active, and would
+        # remain a zombie.
+        # spawn a Popen, and delete its reference before it exits
+        p = subprocess.Popen([sys.executable, "-c",
+                              'import sys, time;'
+                              'time.sleep(0.2)'],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        self.addCleanup(p.stdout.close)
+        self.addCleanup(p.stderr.close)
+        ident = id(p)
+        pid = p.pid
+        del p
+        # check that p is in the active processes list
+        self.assertIn(ident, [id(o) for o in subprocess._active])
+
+    def test_leak_fast_process_del_killed(self):
+        # Issue #12650: on Unix, if Popen.__del__() was called before the
+        # process exited, and the process got killed by a signal, it would never
+        # be removed from subprocess._active, which triggered a FD and memory
+        # leak.
+        # spawn a Popen, delete its reference and kill it
+        p = subprocess.Popen([sys.executable, "-c",
+                              'import time;'
+                              'time.sleep(3)'],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        self.addCleanup(p.stdout.close)
+        self.addCleanup(p.stderr.close)
+        ident = id(p)
+        pid = p.pid
+        del p
+        os.kill(pid, signal.SIGKILL)
+        # check that p is in the active processes list
+        self.assertIn(ident, [id(o) for o in subprocess._active])
+
+        # let some time for the process to exit, and create a new Popen: this
+        # should trigger the wait() of p
+        time.sleep(0.2)
+        with self.assertRaises(EnvironmentError) as c:
+            with subprocess.Popen(['nonexisting_i_hope'],
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE) as proc:
+                pass
+        # p should have been wait()ed on, and removed from the _active list
+        self.assertRaises(OSError, os.waitpid, pid, 0)
+        self.assertNotIn(ident, [id(o) for o in subprocess._active])
 
 
 @unittest.skipUnless(mswindows, "Windows specific tests")
@@ -1623,7 +1702,7 @@ class CommandsWithSpaces (BaseTestCase):
         self.with_spaces([sys.executable, self.fname, "ab cd"])
 
 
-class ContextManagerTests(ProcessTestCase):
+class ContextManagerTests(BaseTestCase):
 
     def test_pipe(self):
         with subprocess.Popen([sys.executable, "-c",

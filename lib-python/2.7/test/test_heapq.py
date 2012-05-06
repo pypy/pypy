@@ -215,6 +215,11 @@ class TestHeap(TestCase):
 class TestHeapPython(TestHeap):
     module = py_heapq
 
+    def test_islice_protection(self):
+        m = self.module
+        self.assertFalse(m.nsmallest(-1, [1]))
+        self.assertFalse(m.nlargest(-1, [1]))
+
 
 @skipUnless(c_heapq, 'requires _heapq')
 class TestHeapC(TestHeap):

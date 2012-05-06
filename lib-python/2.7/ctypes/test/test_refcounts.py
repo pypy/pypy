@@ -90,6 +90,7 @@ class AnotherLeak(unittest.TestCase):
             return a * b * 2
         f = proto(func)
 
+        gc.collect()
         a = sys.getrefcount(ctypes.c_int)
         f(1, 2)
         self.assertEqual(sys.getrefcount(ctypes.c_int), a)

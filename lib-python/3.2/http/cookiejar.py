@@ -1,4 +1,4 @@
-"""HTTP cookie handling for web clients.
+r"""HTTP cookie handling for web clients.
 
 This module has (now fairly distant) origins in Gisle Aas' Perl module
 HTTP::Cookies, from the libwww-perl library.
@@ -1020,7 +1020,7 @@ class DefaultCookiePolicy(CookiePolicy):
                     (not erhn.startswith(".") and
                      not ("."+erhn).endswith(domain))):
                     _debug("   effective request-host %s (even with added "
-                           "initial dot) does not end end with %s",
+                           "initial dot) does not end with %s",
                            erhn, domain)
                     return False
             if (cookie.version > 0 or

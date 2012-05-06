@@ -1316,6 +1316,7 @@ class _TestManagerRestart(BaseTestCase):
         queue = manager.get_queue()
         self.assertEqual(queue.get(), 'hello world')
         del queue
+        test_support.gc_collect()
         manager.shutdown()
         manager = QueueManager(
             address=addr, authkey=authkey, serializer=SERIALIZER)
@@ -1605,6 +1606,10 @@ class _TestHeap(BaseTestCase):
             if len(blocks) > maxblocks:
                 i = random.randrange(maxblocks)
                 del blocks[i]
+            # XXX There should be a better way to release resources for a
+            # single block
+            if i % maxblocks == 0:
+                import gc; gc.collect()
 
         # get the heap object
         heap = multiprocessing.heap.BufferWrapper._heap
@@ -1704,6 +1709,7 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
+        test_support.gc_collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))

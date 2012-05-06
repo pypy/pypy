@@ -12,6 +12,7 @@ from functools import wraps
 
 from test.test_support import TESTFN, check_warnings, run_unittest, make_bad_fd
 from test.test_support import py3k_bytes as bytes
+from test.test_support import gc_collect
 from test.script_helper import run_python
 
 from _io import FileIO as _FileIO
@@ -34,6 +35,7 @@ class AutoFileTests(unittest.TestCase):
         self.assertEqual(self.f.tell(), p.tell())
         self.f.close()
         self.f = None
+        gc_collect()
         self.assertRaises(ReferenceError, getattr, p, 'tell')
 
     def testSeekTell(self):
@@ -104,8 +106,8 @@ class AutoFileTests(unittest.TestCase):
         self.assertTrue(f.closed)
 
     def testMethods(self):
-        methods = ['fileno', 'isatty', 'read', 'readinto',
-                   'seek', 'tell', 'truncate', 'write', 'seekable',
+        methods = ['fileno', 'isatty', 'read',
+                   'tell', 'truncate', 'seekable',
                    'readable', 'writable']
         if sys.platform.startswith('atheos'):
             methods.remove('truncate')
@@ -117,6 +119,10 @@ class AutoFileTests(unittest.TestCase):
             method = getattr(self.f, methodname)
             # should raise on closed file
             self.assertRaises(ValueError, method)
+        # methods with one argument
+        self.assertRaises(ValueError, self.f.readinto, 0)
+        self.assertRaises(ValueError, self.f.write, 0)
+        self.assertRaises(ValueError, self.f.seek, 0)
 
     def testOpendir(self):
         # Issue 3703: opening a directory should fill the errno

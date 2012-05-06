@@ -61,8 +61,6 @@ __date__    = "07 February 2010"
 #
 if hasattr(sys, 'frozen'): #support for py2exe
     _srcfile = "logging%s__init__%s" % (os.sep, __file__[-4:])
-elif __file__[-4:].lower() in ['.pyc', '.pyo']:
-    _srcfile = __file__[:-4] + '.py'
 else:
     _srcfile = __file__
 _srcfile = os.path.normcase(_srcfile)
@@ -296,7 +294,7 @@ class LogRecord(object):
                 # for an example
                 try:
                     self.processName = mp.current_process().name
-                except StandardError:
+                except Exception:
                     pass
         if logProcesses and hasattr(os, 'getpid'):
             self.process = os.getpid()
@@ -883,7 +881,7 @@ class Handler(Filterer):
         You could, however, replace this with a custom handler if you wish.
         The record which was being processed is passed in to this method.
         """
-        if raiseExceptions:
+        if raiseExceptions and sys.stderr:  # see issue 13807
             ei = sys.exc_info()
             try:
                 traceback.print_exception(ei[0], ei[1], ei[2],
@@ -1096,6 +1094,8 @@ class Manager(object):
         placeholder to now point to the logger.
         """
         rv = None
+        if not isinstance(name, str):
+            raise TypeError('A logger name must be a string')
         _acquireLock()
         try:
             if name in self.loggerDict:

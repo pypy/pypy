@@ -35,8 +35,10 @@ corresponding Unix manual entries for more information on calls."""
     appleveldefs = {
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
+    'urandom': 'app_posix.urandom',
     }
     if os.name == 'nt':
+        del appleveldefs['urandom'] # at interp on win32
         appleveldefs.update({
                 'popen2' : 'app_posix.popen2',
                 'popen3' : 'app_posix.popen3',

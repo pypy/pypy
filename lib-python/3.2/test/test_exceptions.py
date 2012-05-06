@@ -5,6 +5,7 @@ import sys
 import unittest
 import pickle
 import weakref
+import errno
 
 from test.support import (TESTFN, unlink, run_unittest, captured_output,
                           gc_collect, cpython_only)
@@ -607,6 +608,68 @@ class ExceptionTests(unittest.TestCase):
         gc_collect()
         self.assertEqual(sys.exc_info(), (None, None, None))
 
+    def _check_generator_cleanup_exc_state(self, testfunc):
+        # Issue #12791: exception state is cleaned up as soon as a generator
+        # is closed (reference cycles are broken).
+        class MyException(Exception):
+            def __init__(self, obj):
+                self.obj = obj
+        class MyObj:
+            pass
+
+        def raising_gen():
+            try:
+                raise MyException(obj)
+            except MyException:
+                yield
+
+        obj = MyObj()
+        wr = weakref.ref(obj)
+        g = raising_gen()
+        next(g)
+        testfunc(g)
+        g = obj = None
+        obj = wr()
+        self.assertIs(obj, None)
+
+    def test_generator_throw_cleanup_exc_state(self):
+        def do_throw(g):
+            try:
+                g.throw(RuntimeError())
+            except RuntimeError:
+                pass
+        self._check_generator_cleanup_exc_state(do_throw)
+
+    def test_generator_close_cleanup_exc_state(self):
+        def do_close(g):
+            g.close()
+        self._check_generator_cleanup_exc_state(do_close)
+
+    def test_generator_del_cleanup_exc_state(self):
+        def do_del(g):
+            g = None
+        self._check_generator_cleanup_exc_state(do_del)
+
+    def test_generator_next_cleanup_exc_state(self):
+        def do_next(g):
+            try:
+                next(g)
+            except StopIteration:
+                pass
+            else:
+                self.fail("should have raised StopIteration")
+        self._check_generator_cleanup_exc_state(do_next)
+
+    def test_generator_send_cleanup_exc_state(self):
+        def do_send(g):
+            try:
+                g.send(None)
+            except StopIteration:
+                pass
+            else:
+                self.fail("should have raised StopIteration")
+        self._check_generator_cleanup_exc_state(do_send)
+
     def test_3114(self):
         # Bug #3114: in its destructor, MyObject retrieves a pointer to
         # obsolete and/or deallocated objects.
@@ -786,6 +849,13 @@ class ExceptionTests(unittest.TestCase):
         else:
             self.fail("RuntimeError not raised")
         self.assertEqual(wr(), None)
+
+    def test_errno_ENOTDIR(self):
+        # Issue #12802: "not a directory" errors are ENOTDIR even on Windows
+        with self.assertRaises(OSError) as cm:
+            os.listdir(__file__)
+        self.assertEqual(cm.exception.errno, errno.ENOTDIR, cm.exception)
+
 
 def test_main():
     run_unittest(ExceptionTests)

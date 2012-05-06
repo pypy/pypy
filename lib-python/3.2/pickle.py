@@ -299,20 +299,20 @@ class _Pickler:
             f(self, obj) # Call unbound method with explicit self
             return
 
-        # Check for a class with a custom metaclass; treat as regular class
-        try:
-            issc = issubclass(t, type)
-        except TypeError: # t is not a class (old Boost; see SF #502085)
-            issc = 0
-        if issc:
-            self.save_global(obj)
-            return
-
         # Check copyreg.dispatch_table
         reduce = dispatch_table.get(t)
         if reduce:
             rv = reduce(obj)
         else:
+            # Check for a class with a custom metaclass; treat as regular class
+            try:
+                issc = issubclass(t, type)
+            except TypeError: # t is not a class (old Boost; see SF #502085)
+                issc = False
+            if issc:
+                self.save_global(obj)
+                return
+
             # Check for a __reduce_ex__ method, fall back to __reduce__
             reduce = getattr(obj, "__reduce_ex__", None)
             if reduce:
@@ -364,7 +364,7 @@ class _Pickler:
             raise PicklingError("args from save_reduce() should be a tuple")
 
         # Assert that func is callable
-        if not hasattr(func, '__call__'):
+        if not callable(func):
             raise PicklingError("func from save_reduce() should be callable")
 
         save = self.save
@@ -487,7 +487,11 @@ class _Pickler:
 
     def save_bytes(self, obj, pack=struct.pack):
         if self.proto < 3:
-            self.save_reduce(bytes, (list(obj),), obj=obj)
+            if len(obj) == 0:
+                self.save_reduce(bytes, (), obj=obj)
+            else:
+                self.save_reduce(codecs.encode,
+                                 (str(obj, 'latin1'), 'latin1'), obj=obj)
             return
         n = len(obj)
         if n < 256:
@@ -1156,16 +1160,22 @@ class _Unpickler:
 
     def load_put(self):
         i = int(self.readline()[:-1])
+        if i < 0:
+            raise ValueError("negative PUT argument")
         self.memo[i] = self.stack[-1]
     dispatch[PUT[0]] = load_put
 
     def load_binput(self):
         i = self.read(1)[0]
+        if i < 0:
+            raise ValueError("negative BINPUT argument")
         self.memo[i] = self.stack[-1]
     dispatch[BINPUT[0]] = load_binput
 
     def load_long_binput(self):
         i = mloads(b'i' + self.read(4))
+        if i < 0:
+            raise ValueError("negative LONG_BINPUT argument")
         self.memo[i] = self.stack[-1]
     dispatch[LONG_BINPUT[0]] = load_long_binput
 

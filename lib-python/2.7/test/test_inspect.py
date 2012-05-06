@@ -4,11 +4,11 @@ import types
 import unittest
 import inspect
 import linecache
-import datetime
 from UserList import UserList
 from UserDict import UserDict
 
 from test.test_support import run_unittest, check_py3k_warnings
+from test.test_support import check_impl_detail
 
 with check_py3k_warnings(
         ("tuple parameter unpacking has been removed", SyntaxWarning),
@@ -74,7 +74,8 @@ class TestPredicates(IsTestBase):
 
     def test_excluding_predicates(self):
         self.istest(inspect.isbuiltin, 'sys.exit')
-        self.istest(inspect.isbuiltin, '[].append')
+        if check_impl_detail():
+            self.istest(inspect.isbuiltin, '[].append')
         self.istest(inspect.iscode, 'mod.spam.func_code')
         self.istest(inspect.isframe, 'tb.tb_frame')
         self.istest(inspect.isfunction, 'mod.spam')
@@ -92,9 +93,9 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'datetime.timedelta.days')
+            self.istest(inspect.ismemberdescriptor, 'type(lambda: None).func_globals')
         else:
-            self.assertFalse(inspect.ismemberdescriptor(datetime.timedelta.days))
+            self.assertFalse(inspect.ismemberdescriptor(type(lambda: None).func_globals))
 
     def test_isroutine(self):
         self.assertTrue(inspect.isroutine(mod.spam))
@@ -567,7 +568,8 @@ class TestGetcallargsFunctions(unittest.TestCase):
         else:
             self.fail('Exception not raised')
         self.assertIs(type(ex1), type(ex2))
-        self.assertEqual(str(ex1), str(ex2))
+        if check_impl_detail():
+            self.assertEqual(str(ex1), str(ex2))
 
     def makeCallable(self, signature):
         """Create a function that returns its locals(), excluding the

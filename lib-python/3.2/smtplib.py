@@ -364,8 +364,10 @@ class SMTP:
         while 1:
             try:
                 line = self.file.readline()
-            except socket.error:
-                line = ''
+            except socket.error as e:
+                self.close()
+                raise SMTPServerDisconnected("Connection unexpectedly closed: "
+                                             + str(e))
             if not line:
                 self.close()
                 raise SMTPServerDisconnected("Connection unexpectedly closed")
@@ -910,6 +912,7 @@ if __name__ == '__main__':
 
     def prompt(prompt):
         sys.stdout.write(prompt + ": ")
+        sys.stdout.flush()
         return sys.stdin.readline().strip()
 
     fromaddr = prompt("From")

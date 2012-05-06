@@ -806,7 +806,6 @@ class AppTestAppMain:
         fake_exe = prefix.join('bin/pypy-c').ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
-                                        'lib-python/modified-%s' % cpy_ver,
                                         'lib-python/%s' % cpy_ver)]
         
         self.w_goal_dir = self.space.wrap(goal_dir)
@@ -840,9 +839,9 @@ class AppTestAppMain:
             app_main.os = os
             pypy_c = os.path.join(self.trunkdir, 'pypy', 'translator', 'goal', 'pypy-c')
             newpath = app_main.get_library_path(pypy_c)
-            # we get at least lib_pypy, lib-python/modified-X.Y.Z,
+            # we get at least lib_pypy 
             # lib-python/X.Y.Z, and maybe more (e.g. plat-linux2)
-            assert len(newpath) >= 3
+            assert len(newpath) >= 2
             for p in newpath:
                 assert p.startswith(self.trunkdir)
         finally:

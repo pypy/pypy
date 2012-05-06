@@ -113,7 +113,7 @@ class TestLoader(object):
                 return self.suiteClass([inst])
         elif isinstance(obj, suite.TestSuite):
             return obj
-        if hasattr(obj, '__call__'):
+        if callable(obj):
             test = obj()
             if isinstance(test, suite.TestSuite):
                 return test
@@ -138,9 +138,8 @@ class TestLoader(object):
         def isTestMethod(attrname, testCaseClass=testCaseClass,
                          prefix=self.testMethodPrefix):
             return attrname.startswith(prefix) and \
-                hasattr(getattr(testCaseClass, attrname), '__call__')
-        testFnNames = testFnNames = list(filter(isTestMethod,
-                                                dir(testCaseClass)))
+                callable(getattr(testCaseClass, attrname))
+        testFnNames = list(filter(isTestMethod, dir(testCaseClass)))
         if self.sortTestMethodsUsing:
             testFnNames.sort(key=functools.cmp_to_key(self.sortTestMethodsUsing))
         return testFnNames

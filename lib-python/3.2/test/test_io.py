@@ -42,7 +42,10 @@ try:
     import threading
 except ImportError:
     threading = None
-
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 def _default_chunk_size():
     """Get the default TextIOWrapper chunk size"""
@@ -242,9 +245,14 @@ class MockNonBlockWriterIO:
             except ValueError:
                 pass
             else:
-                self._blocker_char = None
-                self._write_stack.append(b[:n])
-                raise self.BlockingIOError(0, "test blocking", n)
+                if n > 0:
+                    # write data up to the first blocker
+                    self._write_stack.append(b[:n])
+                    return n
+                else:
+                    # cancel blocker and indicate would block
+                    self._blocker_char = None
+                    return None
         self._write_stack.append(b)
         return len(b)
 
@@ -354,6 +362,11 @@ class IOTest(unittest.TestCase):
             # Non-zero seeking from current or end pos
             self.assertRaises(exc, fp.seek, 1, self.SEEK_CUR)
             self.assertRaises(exc, fp.seek, -1, self.SEEK_END)
+
+    def test_open_handles_NUL_chars(self):
+        fn_with_NUL = 'foo\0bar'
+        self.assertRaises(TypeError, self.open, fn_with_NUL, 'w')
+        self.assertRaises(TypeError, self.open, bytes(fn_with_NUL, 'ascii'), 'w')
 
     def test_raw_file_io(self):
         with self.open(support.TESTFN, "wb", buffering=0) as f:
@@ -609,6 +622,17 @@ class IOTest(unittest.TestCase):
         self.assertEqual(rawio.read(2), b"g")
         self.assertEqual(rawio.read(2), None)
         self.assertEqual(rawio.read(2), b"")
+
+    def test_types_have_dict(self):
+        test = (
+            self.IOBase(),
+            self.RawIOBase(),
+            self.TextIOBase(),
+            self.StringIO(),
+            self.BytesIO()
+        )
+        for obj in test:
+            self.assertTrue(hasattr(obj, "__dict__"))
 
 class CIOTest(IOTest):
 
@@ -910,6 +934,14 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
                     self.assertEqual(s.count(c), N)
         finally:
             support.unlink(support.TESTFN)
+
+    def test_unseekable(self):
+        bufio = self.tp(self.MockUnseekableIO(b"A" * 10))
+        self.assertRaises(self.UnsupportedOperation, bufio.tell)
+        self.assertRaises(self.UnsupportedOperation, bufio.seek, 0)
+        bufio.read(1)
+        self.assertRaises(self.UnsupportedOperation, bufio.seek, 0)
+        self.assertRaises(self.UnsupportedOperation, bufio.tell)
 
     def test_misbehaved_io(self):
         rawio = self.MisbehavedRawIO((b"abc", b"d", b"efg"))
@@ -1395,15 +1427,18 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
         rw.seek(0, 0)
         self.assertEqual(b"asdf", rw.read(4))
 
-        rw.write(b"asdf")
+        rw.write(b"123f")
         rw.seek(0, 0)
-        self.assertEqual(b"asdfasdfl", rw.read())
+        self.assertEqual(b"asdf123fl", rw.read())
         self.assertEqual(9, rw.tell())
         rw.seek(-4, 2)
         self.assertEqual(5, rw.tell())
         rw.seek(2, 1)
         self.assertEqual(7, rw.tell())
         self.assertEqual(b"fl", rw.read(11))
+        rw.flush()
+        self.assertEqual(b"asdf123fl", raw.getvalue())
+
         self.assertRaises(TypeError, rw.seek, 0.0)
 
     def check_flush_and_read(self, read_func):
@@ -1547,6 +1582,43 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
     def test_misbehaved_io(self):
         BufferedReaderTest.test_misbehaved_io(self)
         BufferedWriterTest.test_misbehaved_io(self)
+
+    def test_interleaved_read_write(self):
+        # Test for issue #12213
+        with self.BytesIO(b'abcdefgh') as raw:
+            with self.tp(raw, 100) as f:
+                f.write(b"1")
+                self.assertEqual(f.read(1), b'b')
+                f.write(b'2')
+                self.assertEqual(f.read1(1), b'd')
+                f.write(b'3')
+                buf = bytearray(1)
+                f.readinto(buf)
+                self.assertEqual(buf, b'f')
+                f.write(b'4')
+                self.assertEqual(f.peek(1), b'h')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1b2d3f4h')
+
+        with self.BytesIO(b'abc') as raw:
+            with self.tp(raw, 100) as f:
+                self.assertEqual(f.read(1), b'a')
+                f.write(b"2")
+                self.assertEqual(f.read(1), b'c')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'a2c')
+
+    def test_interleaved_readline_write(self):
+        with self.BytesIO(b'ab\ncdef\ng\n') as raw:
+            with self.tp(raw) as f:
+                f.write(b'1')
+                self.assertEqual(f.readline(), b'b\n')
+                f.write(b'2')
+                self.assertEqual(f.readline(), b'def\n')
+                f.write(b'3')
+                self.assertEqual(f.readline(), b'\n')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1b\n2def\n3\n')
 
     # You can't construct a BufferedRandom over a non-seekable stream.
     test_unseekable = None
@@ -2355,6 +2427,21 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"456def")
 
+    def test_rwpair_cleared_before_textio(self):
+        # Issue 13070: TextIOWrapper's finalization would crash when called
+        # after the reference to the underlying BufferedRWPair's writer got
+        # cleared by the GC.
+        for i in range(1000):
+            b1 = self.BufferedRWPair(self.MockRawIO(), self.MockRawIO())
+            t1 = self.TextIOWrapper(b1, encoding="ascii")
+            b2 = self.BufferedRWPair(self.MockRawIO(), self.MockRawIO())
+            t2 = self.TextIOWrapper(b2, encoding="ascii")
+            # circular references
+            t1.buddy = t2
+            t2.buddy = t1
+        support.gc_collect()
+
+
 class PyTextIOWrapperTest(TextIOWrapperTest):
     pass
 
@@ -2669,6 +2756,68 @@ class MiscIOTest(unittest.TestCase):
                 with self.open(support.TESTFN, **kwargs) as f:
                     self.assertRaises(TypeError, pickle.dumps, f, protocol)
 
+    @unittest.skipUnless(fcntl, 'fcntl required for this test')
+    def test_nonblock_pipe_write_bigbuf(self):
+        self._test_nonblock_pipe_write(16*1024)
+
+    @unittest.skipUnless(fcntl, 'fcntl required for this test')
+    def test_nonblock_pipe_write_smallbuf(self):
+        self._test_nonblock_pipe_write(1024)
+
+    def _set_non_blocking(self, fd):
+        flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        self.assertNotEqual(flags, -1)
+        res = fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        self.assertEqual(res, 0)
+
+    def _test_nonblock_pipe_write(self, bufsize):
+        sent = []
+        received = []
+        r, w = os.pipe()
+        self._set_non_blocking(r)
+        self._set_non_blocking(w)
+
+        # To exercise all code paths in the C implementation we need
+        # to play with buffer sizes.  For instance, if we choose a
+        # buffer size less than or equal to _PIPE_BUF (4096 on Linux)
+        # then we will never get a partial write of the buffer.
+        rf = self.open(r, mode='rb', closefd=True, buffering=bufsize)
+        wf = self.open(w, mode='wb', closefd=True, buffering=bufsize)
+
+        with rf, wf:
+            for N in 9999, 73, 7574:
+                try:
+                    i = 0
+                    while True:
+                        msg = bytes([i % 26 + 97]) * N
+                        sent.append(msg)
+                        wf.write(msg)
+                        i += 1
+
+                except self.BlockingIOError as e:
+                    self.assertEqual(e.args[0], errno.EAGAIN)
+                    sent[-1] = sent[-1][:e.characters_written]
+                    received.append(rf.read())
+                    msg = b'BLOCKED'
+                    wf.write(msg)
+                    sent.append(msg)
+
+            while True:
+                try:
+                    wf.flush()
+                    break
+                except self.BlockingIOError as e:
+                    self.assertEqual(e.args[0], errno.EAGAIN)
+                    self.assertEqual(e.characters_written, 0)
+                    received.append(rf.read())
+
+            received += iter(rf.read, None)
+
+        sent, received = b''.join(sent), b''.join(received)
+        self.assertTrue(sent == received)
+        self.assertTrue(wf.closed)
+        self.assertTrue(rf.closed)
+
 class CMiscIOTest(MiscIOTest):
     io = io
 
@@ -2796,11 +2945,11 @@ class SignalsTest(unittest.TestCase):
             os.close(w)
             os.close(r)
 
-    def test_interrupterd_read_retry_buffered(self):
+    def test_interrupted_read_retry_buffered(self):
         self.check_interrupted_read_retry(lambda x: x.decode('latin1'),
                                           mode="rb")
 
-    def test_interrupterd_read_retry_text(self):
+    def test_interrupted_read_retry_text(self):
         self.check_interrupted_read_retry(lambda x: x,
                                           mode="r")
 
@@ -2859,10 +3008,10 @@ class SignalsTest(unittest.TestCase):
                 if e.errno != errno.EBADF:
                     raise
 
-    def test_interrupterd_write_retry_buffered(self):
+    def test_interrupted_write_retry_buffered(self):
         self.check_interrupted_write_retry(b"x", mode="wb")
 
-    def test_interrupterd_write_retry_text(self):
+    def test_interrupted_write_retry_text(self):
         self.check_interrupted_write_retry("x", mode="w", encoding="latin1")
 
 

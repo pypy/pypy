@@ -42,6 +42,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
+    'pypy': {
+        'stdlib': '{base}/lib-python',
+        'platstdlib': '{base}/lib-python',
+        'purelib': '{base}/lib-python',
+        'platlib': '{base}/lib-python',
+        'include': '{base}/include',
+        'platinclude': '{base}/include',
+        'scripts': '{base}/bin',
+        'data'   : '{base}',
+        },
     'nt': {
         'stdlib': '{base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -174,7 +184,9 @@ def _expand_vars(scheme, vars):
     return res
 
 def _get_default_scheme():
-    if os.name == 'posix':
+    if '__pypy__' in sys.builtin_module_names:
+        return 'pypy'
+    elif os.name == 'posix':
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
     return os.name
@@ -198,160 +210,9 @@ def _getuserbase():
     return env_base if env_base else joinuser("~", ".local")
 
 
-def _parse_makefile(filename, vars=None):
-    """Parse a Makefile-style file.
-
-    A dictionary containing name/value pairs is returned.  If an
-    optional dictionary is passed in as the second argument, it is
-    used instead of a new dictionary.
-    """
-    import re
-    # Regexes needed for parsing Makefile (and similar syntaxes,
-    # like old-style Setup files).
-    _variable_rx = re.compile("([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)")
-    _findvar1_rx = re.compile(r"\$\(([A-Za-z][A-Za-z0-9_]*)\)")
-    _findvar2_rx = re.compile(r"\${([A-Za-z][A-Za-z0-9_]*)}")
-
-    if vars is None:
-        vars = {}
-    done = {}
-    notdone = {}
-
-    with open(filename, errors="surrogateescape") as f:
-        lines = f.readlines()
-
-    for line in lines:
-        if line.startswith('#') or line.strip() == '':
-            continue
-        m = _variable_rx.match(line)
-        if m:
-            n, v = m.group(1, 2)
-            v = v.strip()
-            # `$$' is a literal `$' in make
-            tmpv = v.replace('$$', '')
-
-            if "$" in tmpv:
-                notdone[n] = v
-            else:
-                try:
-                    v = int(v)
-                except ValueError:
-                    # insert literal `$'
-                    done[n] = v.replace('$$', '$')
-                else:
-                    done[n] = v
-
-    # do variable interpolation here
-    variables = list(notdone.keys())
-
-    # Variables with a 'PY_' prefix in the makefile. These need to
-    # be made available without that prefix through sysconfig.
-    # Special care is needed to ensure that variable expansion works, even
-    # if the expansion uses the name without a prefix.
-    renamed_variables = ('CFLAGS', 'LDFLAGS', 'CPPFLAGS')
-
-    while len(variables) > 0:
-        for name in tuple(variables):
-            value = notdone[name]
-            m = _findvar1_rx.search(value) or _findvar2_rx.search(value)
-            if m is not None:
-                n = m.group(1)
-                found = True
-                if n in done:
-                    item = str(done[n])
-                elif n in notdone:
-                    # get it on a subsequent round
-                    found = False
-                elif n in os.environ:
-                    # do it like make: fall back to environment
-                    item = os.environ[n]
-
-                elif n in renamed_variables:
-                    if name.startswith('PY_') and name[3:] in renamed_variables:
-                        item = ""
-
-                    elif 'PY_' + n in notdone:
-                        found = False
-
-                    else:
-                        item = str(done['PY_' + n])
-
-                else:
-                    done[n] = item = ""
-
-                if found:
-                    after = value[m.end():]
-                    value = value[:m.start()] + item + after
-                    if "$" in after:
-                        notdone[name] = value
-                    else:
-                        try:
-                            value = int(value)
-                        except ValueError:
-                            done[name] = value.strip()
-                        else:
-                            done[name] = value
-                        variables.remove(name)
-
-                        if name.startswith('PY_') \
-                        and name[3:] in renamed_variables:
-
-                            name = name[3:]
-                            if name not in done:
-                                done[name] = value
-
-
-            else:
-                # bogus variable reference (e.g. "prefix=$/opt/python");
-                # just drop it since we can't deal
-                done[name] = value
-                variables.remove(name)
-
-    # strip spurious spaces
-    for k, v in done.items():
-        if isinstance(v, str):
-            done[k] = v.strip()
-
-    # save the results in the global dictionary
-    vars.update(done)
-    return vars
-
-
-def get_makefile_filename():
-    """Return the path of the Makefile."""
-    if _PYTHON_BUILD:
-        return os.path.join(_PROJECT_BASE, "Makefile")
-    return os.path.join(get_path('stdlib'),
-                        'config-{}{}'.format(_PY_VERSION_SHORT, sys.abiflags),
-                        'Makefile')
-
-
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # load the installed Makefile:
-    makefile = get_makefile_filename()
-    try:
-        _parse_makefile(makefile, vars)
-    except IOError as e:
-        msg = "invalid Python installation: unable to open %s" % makefile
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise IOError(msg)
-    # load the installed pyconfig.h:
-    config_h = get_config_h_filename()
-    try:
-        with open(config_h) as f:
-            parse_config_h(f, vars)
-    except IOError as e:
-        msg = "invalid Python installation: unable to open %s" % config_h
-        if hasattr(e, "strerror"):
-            msg = msg + " (%s)" % e.strerror
-        raise IOError(msg)
-    # On AIX, there are wrong paths to the linker scripts in the Makefile
-    # -- these paths are relative to the Python source, but when installed
-    # the scripts are in another directory.
-    if _PYTHON_BUILD:
-        vars['LDSHARED'] = vars['BLDSHARED']
+    return
 
 def _init_non_posix(vars):
     """Initialize the module as appropriate for NT"""
@@ -639,6 +500,150 @@ def get_platform():
         if release[0] >= "5":           # SunOS 5 == Solaris 2
             osname = "solaris"
             release = "%d.%s" % (int(release[0]) - 3, release[2:])
+        # fall through to standard osname-release-machine representation
+    elif osname[:4] == "irix":              # could be "irix64"!
+        return "%s-%s" % (osname, release)
+    elif osname[:3] == "aix":
+        return "%s-%s.%s" % (osname, version, release)
+    elif osname[:6] == "cygwin":
+        osname = "cygwin"
+        rel_re = re.compile (r'[\d.]+')
+        m = rel_re.match(release)
+        if m:
+            release = m.group()
+    elif osname[:6] == "darwin":
+        #
+        # For our purposes, we'll assume that the system version from
+        # distutils' perspective is what MACOSX_DEPLOYMENT_TARGET is set
+        # to. This makes the compatibility story a bit more sane because the
+        # machine is going to compile and link as if it were
+        # MACOSX_DEPLOYMENT_TARGET.
+        #
+        cfgvars = get_config_vars()
+        macver = cfgvars.get('MACOSX_DEPLOYMENT_TARGET')
+
+        if 1:
+            # Always calculate the release of the running machine,
+            # needed to determine if we can build fat binaries or not.
+
+            macrelease = macver
+            # Get the system version. Reading this plist is a documented
+            # way to get the system version (see the documentation for
+            # the Gestalt Manager)
+            try:
+                f = open('/System/Library/CoreServices/SystemVersion.plist')
+            except IOError:
+                # We're on a plain darwin box, fall back to the default
+                # behaviour.
+                pass
+            else:
+                try:
+                    m = re.search(
+                            r'<key>ProductUserVisibleVersion</key>\s*' +
+                            r'<string>(.*?)</string>', f.read())
+                    if m is not None:
+                        macrelease = '.'.join(m.group(1).split('.')[:2])
+                    # else: fall back to the default behaviour
+                finally:
+                    f.close()
+
+        if not macver:
+            macver = macrelease
+
+        if macver:
+            release = macver
+            osname = "macosx"
+
+            if (macrelease + '.') >= '10.4.' and \
+                    '-arch' in get_config_vars().get('CFLAGS', '').strip():
+                # The universal build will build fat binaries, but not on
+                # systems before 10.4
+                #
+                # Try to detect 4-way universal builds, those have machine-type
+                # 'universal' instead of 'fat'.
+
+                machine = 'fat'
+                cflags = get_config_vars().get('CFLAGS')
+
+                archs = re.findall('-arch\s+(\S+)', cflags)
+                archs = tuple(sorted(set(archs)))
+
+                if len(archs) == 1:
+                    machine = archs[0]
+                elif archs == ('i386', 'ppc'):
+                    machine = 'fat'
+                elif archs == ('i386', 'x86_64'):
+                    machine = 'intel'
+                elif archs == ('i386', 'ppc', 'x86_64'):
+                    machine = 'fat3'
+                elif archs == ('ppc64', 'x86_64'):
+                    machine = 'fat64'
+                elif archs == ('i386', 'ppc', 'ppc64', 'x86_64'):
+                    machine = 'universal'
+                else:
+                    raise ValueError(
+                       "Don't know machine value for archs=%r"%(archs,))
+
+            elif machine == 'i386':
+                # On OSX the machine type returned by uname is always the
+                # 32-bit variant, even if the executable architecture is
+                # the 64-bit variant
+                if sys.maxsize >= 2**32:
+                    machine = 'x86_64'
+
+            elif machine in ('PowerPC', 'Power_Macintosh'):
+                # Pick a sane name for the PPC architecture.
+                # See 'i386' case
+                if sys.maxsize >= 2**32:
+                    machine = 'ppc64'
+                else:
+                    machine = 'ppc'
+
+    return "%s-%s-%s" % (osname, release, machine)
+
+
+def get_python_version():
+    return _PY_VERSION_SHORT
+
+def _print_dict(title, data):
+    for index, (key, value) in enumerate(sorted(data.items())):
+        if index == 0:
+            print('{0}: '.format(title))
+        print('\t{0} = "{1}"'.format(key, value))
+
+def _main():
+    """Display all information sysconfig detains."""
+    print('Platform: "{0}"'.format(get_platform()))
+    print('Python version: "{0}"'.format(get_python_version()))
+    print('Current installation scheme: "{0}"'.format(_get_default_scheme()))
+    print('')
+    _print_dict('Paths', get_paths())
+    print('')
+    _print_dict('Variables', get_config_vars())
+
+if __name__ == '__main__':
+    _main()
+
+    # Convert the OS name to lowercase, remove '/' characters
+    # (to accommodate BSD/OS), and translate spaces (for "Power Macintosh")
+    osname = osname.lower().replace('/', '')
+    machine = machine.replace(' ', '_')
+    machine = machine.replace('/', '-')
+
+    if osname[:5] == "linux":
+        # At least on Linux/Intel, 'machine' is the processor --
+        # i386, etc.
+        # XXX what about Alpha, SPARC, etc?
+        return  "%s-%s" % (osname, machine)
+    elif osname[:5] == "sunos":
+        if release[0] >= "5":           # SunOS 5 == Solaris 2
+            osname = "solaris"
+            release = "%d.%s" % (int(release[0]) - 3, release[2:])
+            # We can't use "platform.architecture()[0]" because a
+            # bootstrap problem. We use a dict to get an error
+            # if some suspicious happens.
+            bitness = {2147483647:"32bit", 9223372036854775807:"64bit"}
+            machine += ".%s" % bitness[sys.maxsize]
         # fall through to standard osname-release-machine representation
     elif osname[:4] == "irix":              # could be "irix64"!
         return "%s-%s" % (osname, release)

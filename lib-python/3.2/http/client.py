@@ -678,7 +678,10 @@ class HTTPConnection:
                 try:
                     port = int(host[i+1:])
                 except ValueError:
-                    raise InvalidURL("nonnumeric port: '%s'" % host[i+1:])
+                    if host[i+1:] == "": # http://foo.com:/ == http://foo.com/
+                        port = self.default_port
+                    else:
+                        raise InvalidURL("nonnumeric port: '%s'" % host[i+1:])
                 host = host[:i]
             else:
                 port = self.default_port
@@ -947,11 +950,11 @@ class HTTPConnection:
     def endheaders(self, message_body=None):
         """Indicate that the last header line has been sent to the server.
 
-        This method sends the request to the server.  The optional
-        message_body argument can be used to pass message body
-        associated with the request.  The message body will be sent in
-        the same packet as the message headers if possible.  The
-        message_body should be a string.
+        This method sends the request to the server.  The optional message_body
+        argument can be used to pass a message body associated with the
+        request.  The message body will be sent in the same packet as the
+        message headers if it is a string, otherwise it is sent as a separate
+        packet.
         """
         if self.__state == _CS_REQ_STARTED:
             self.__state = _CS_REQ_SENT

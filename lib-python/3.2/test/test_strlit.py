@@ -32,6 +32,7 @@ import sys
 import shutil
 import tempfile
 import unittest
+import test.support
 
 
 TEMPLATE = r"""# coding: %s
@@ -64,7 +65,7 @@ class TestLiterals(unittest.TestCase):
         sys.path.insert(0, self.tmpdir)
 
     def tearDown(self):
-        sys.path = self.save_path
+        sys.path[:] = self.save_path
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_template(self):
@@ -142,7 +143,8 @@ class TestLiterals(unittest.TestCase):
         self.check_encoding("latin9")
 
 
+def test_main():
+    test.support.run_unittest(__name__)
+
 if __name__ == "__main__":
-    # Hack so that error messages containing non-ASCII can be printed
-    sys.stdout._encoding = sys.stderr._encoding = "utf-8"
-    unittest.main()
+    test_main()
