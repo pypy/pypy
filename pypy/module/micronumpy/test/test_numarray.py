@@ -8,7 +8,6 @@ from pypy.module.micronumpy.interp_iter import Chunk, Chunks
 from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
-
 class MockDtype(object):
     class itemtype(object):
         @staticmethod
@@ -195,6 +194,36 @@ class TestNumArrayDirect(object):
         assert _to_coords(13, 'F') == [1, 0, 2]
 
 class AppTestNumArray(BaseNumpyAppTest):
+    def w_CustomIndexObject(self, index):
+        class CustomIndexObject(object):
+            def __init__(self, index):
+                self.index = index
+            def __index__(self):
+                return self.index
+
+        return CustomIndexObject(index)
+
+    def w_CustomIndexIntObject(self, index, value):
+        class CustomIndexIntObject(object):
+            def __init__(self, index, value):
+                self.index = index
+                self.value = value
+            def __index__(self):
+                return self.index
+            def __int__(self):
+                return self.value
+
+        return CustomIndexIntObject(index, value)
+
+    def w_CustomIntObject(self, value):
+        class CustomIntObject(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        return CustomIntObject(value)
+
     def test_ndarray(self):
         from _numpypy import ndarray, array, dtype
 
@@ -329,6 +358,28 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1, 3] == 8
         assert a.T[1, 2] == 11
 
+    def test_getitem_obj_index(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+        assert a[self.CustomIndexObject(1)] == 1
+
+    def test_getitem_obj_prefer_index_to_int(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+
+        assert a[self.CustomIndexIntObject(0, 1)] == 0
+
+    def test_getitem_obj_int(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+        assert a[self.CustomIntObject(1)] == 1
+
     def test_setitem(self):
         from _numpypy import array
         a = array(range(5))
@@ -347,6 +398,48 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[()] = range(5)
         for i in xrange(5):
             assert a[i] == i
+
+    def test_setitem_obj_index(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+        a[self.CustomIndexObject(1)] = 100
+        assert a[1] == 100
+
+    def test_setitem_obj_prefer_index_to_int(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+        a[self.CustomIndexIntObject(0, 1)] = 100
+        assert a[0] == 100
+
+    def test_setitem_obj_int(self):
+        from _numpypy import arange
+
+        a = arange(10)
+
+        a[self.CustomIntObject(1)] = 100
+
+        assert a[1] == 100
+
+    def test_access_swallow_exception(self):
+        class ErrorIndex(object):
+            def __index__(self):
+                return 1 / 0
+
+        class ErrorInt(object):
+            def __int__(self):
+                return 1 / 0
+
+        # numpy will swallow errors in __int__ and __index__ and
+        # just raise IndexError.
+
+        from _numpypy import arange
+        a = arange(10)
+        raises(IndexError, "a[ErrorIndex()] == 0")
+        raises(IndexError, "a[ErrorInt()] == 0")
 
     def test_setslice_array(self):
         from _numpypy import array
