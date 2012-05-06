@@ -51,8 +51,15 @@ the full ROOT package, you can also use your Reflex-bound code on `CPython`_.
 `Download`_ a binary or install from `source`_.
 Some Linux and Mac systems may have ROOT provided in the list of scientific
 software of their packager.
-A current, standalone version of Reflex should be provided at some point,
-once the dependencies and general packaging have been thought out.
+If, however, you prefer a standalone version of Reflex, the best is to get
+this `recent snapshot`_, and install like so::
+
+    $ tar jxf reflex-2012-05-02.tar.bz2
+    $ cd reflex-2012-05-02
+    $ build/autogen
+    $ ./configure <usual set of options such as --prefix>
+    $ make && make install
+
 Also, make sure you have a version of `gccxml`_ installed, which is most
 easily provided by the packager of your system.
 If you read up on gccxml, you'll probably notice that it is no longer being
@@ -61,12 +68,13 @@ That's why the medium term plan is to move to `cling`_.
 
 .. _`Download`: http://root.cern.ch/drupal/content/downloading-root
 .. _`source`: http://root.cern.ch/drupal/content/installing-root-source
+.. _`recent snapshot`: http://cern.ch/wlav/reflex-2012-05-02.tar.bz2
 .. _`gccxml`: http://www.gccxml.org
 
 Next, get the `PyPy sources`_, select the reflex-support branch, and build
 pypy-c.
 For the build to succeed, the ``$ROOTSYS`` environment variable must point to
-the location of your ROOT installation::
+the location of your ROOT (or standalone Reflex) installation::
 
     $ hg clone https://bitbucket.org/pypy/pypy
     $ cd pypy

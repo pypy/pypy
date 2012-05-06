@@ -50,6 +50,7 @@ class BZ2FileTest(BaseTest):
         self.filename = TESTFN
 
     def tearDown(self):
+        test_support.gc_collect()
         if os.path.isfile(self.filename):
             os.unlink(self.filename)
 
@@ -246,6 +247,8 @@ class BZ2FileTest(BaseTest):
         for i in xrange(10000):
             o = BZ2File(self.filename)
             del o
+            if i % 100 == 0:
+                test_support.gc_collect()
 
     def testOpenNonexistent(self):
         # "Test opening a nonexistent file"
@@ -310,6 +313,7 @@ class BZ2FileTest(BaseTest):
             for t in threads:
                 t.join()
 
+    @test_support.impl_detail()
     def testMixedIterationReads(self):
         # Issue #8397: mixed iteration and reads should be forbidden.
         with bz2.BZ2File(self.filename, 'wb') as f:

@@ -652,7 +652,11 @@ class Optimizer(Optimization):
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
 
-
+    # These are typically removed already by OptRewrite, but it can be
+    # dissabled and unrolling emits some SAME_AS ops to setup the
+    # optimizier state. These needs to always be optimized out.
+    def optimize_SAME_AS(self, op):
+        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
 
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',

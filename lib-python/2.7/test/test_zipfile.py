@@ -234,8 +234,9 @@ class TestsWithSourceFile(unittest.TestCase):
 
         # Read the ZIP archive
         with zipfile.ZipFile(f, "r") as zipfp:
-            for line, zipline in zip(self.line_gen, zipfp.open(TESTFN)):
-                self.assertEqual(zipline, line + '\n')
+            with zipfp.open(TESTFN) as f:
+                for line, zipline in zip(self.line_gen, f):
+                    self.assertEqual(zipline, line + '\n')
 
     def test_readline_read_stored(self):
         # Issue #7610: calls to readline() interleaved with calls to read().
@@ -340,7 +341,8 @@ class TestsWithSourceFile(unittest.TestCase):
         produces the expected result."""
         with zipfile.ZipFile(TESTFN2, "w") as zipfp:
             zipfp.write(TESTFN)
-            self.assertEqual(zipfp.read(TESTFN), open(TESTFN).read())
+            with open(TESTFN) as f:
+                self.assertEqual(zipfp.read(TESTFN), f.read())
 
     @skipUnless(zlib, "requires zlib")
     def test_per_file_compression(self):
@@ -382,7 +384,8 @@ class TestsWithSourceFile(unittest.TestCase):
                 self.assertEqual(writtenfile, correctfile)
 
                 # make sure correct data is in correct file
-                self.assertEqual(fdata, open(writtenfile, "rb").read())
+                with open(writtenfile, "rb") as fid:
+                    self.assertEqual(fdata, fid.read())
                 os.remove(writtenfile)
 
         # remove the test file subdirectories
@@ -401,24 +404,25 @@ class TestsWithSourceFile(unittest.TestCase):
                 else:
                     outfile = os.path.join(os.getcwd(), fpath)
 
-                self.assertEqual(fdata, open(outfile, "rb").read())
+                with  open(outfile, "rb") as fid:
+                    self.assertEqual(fdata, fid.read())
                 os.remove(outfile)
 
         # remove the test file subdirectories
         shutil.rmtree(os.path.join(os.getcwd(), 'ziptest2dir'))
 
     def test_writestr_compression(self):
-        zipfp = zipfile.ZipFile(TESTFN2, "w")
-        zipfp.writestr("a.txt", "hello world", compress_type=zipfile.ZIP_STORED)
-        if zlib:
-            zipfp.writestr("b.txt", "hello world", compress_type=zipfile.ZIP_DEFLATED)
+        with zipfile.ZipFile(TESTFN2, "w") as zipfp:
+            zipfp.writestr("a.txt", "hello world", compress_type=zipfile.ZIP_STORED)
+            if zlib:
+                zipfp.writestr("b.txt", "hello world", compress_type=zipfile.ZIP_DEFLATED)
 
-        info = zipfp.getinfo('a.txt')
-        self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
+            info = zipfp.getinfo('a.txt')
+            self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
 
-        if zlib:
-            info = zipfp.getinfo('b.txt')
-            self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
+            if zlib:
+                info = zipfp.getinfo('b.txt')
+                self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
     def zip_test_writestr_permissions(self, f, compression):
@@ -646,7 +650,8 @@ class PyZipFileTests(unittest.TestCase):
 
     def test_write_non_pyfile(self):
         with zipfile.PyZipFile(TemporaryFile(), "w") as zipfp:
-            open(TESTFN, 'w').write('most definitely not a python file')
+            with open(TESTFN, 'w') as f:
+                f.write('most definitely not a python file')
             self.assertRaises(RuntimeError, zipfp.writepy, TESTFN)
             os.remove(TESTFN)
 
@@ -795,7 +800,8 @@ class OtherTests(unittest.TestCase):
         self.assertRaises(RuntimeError, zipf.open, "foo.txt")
         self.assertRaises(RuntimeError, zipf.testzip)
         self.assertRaises(RuntimeError, zipf.writestr, "bogus.txt", "bogus")
-        open(TESTFN, 'w').write('zipfile test data')
+        with open(TESTFN, 'w') as fp:
+            fp.write('zipfile test data')
         self.assertRaises(RuntimeError, zipf.write, TESTFN)
 
     def test_bad_constructor_mode(self):
@@ -803,7 +809,6 @@ class OtherTests(unittest.TestCase):
         self.assertRaises(RuntimeError, zipfile.ZipFile, TESTFN, "q")
 
     def test_bad_open_mode(self):
-        """Check that bad modes passed to ZipFile.open are caught."""
         with zipfile.ZipFile(TESTFN, mode="w") as zipf:
             zipf.writestr("foo.txt", "O, for a Muse of Fire!")
 
@@ -851,7 +856,6 @@ class OtherTests(unittest.TestCase):
 
     def test_comments(self):
         """Check that comments on the archive are handled properly."""
-
         # check default comment is empty
         with zipfile.ZipFile(TESTFN, mode="w") as zipf:
             self.assertEqual(zipf.comment, '')
@@ -953,14 +957,16 @@ class OtherTests(unittest.TestCase):
         with zipfile.ZipFile(TESTFN, mode="w") as zipf:
             pass
         try:
-            zipf = zipfile.ZipFile(TESTFN, mode="r")
+            with zipfile.ZipFile(TESTFN, mode="r") as zipf:
+                pass
         except zipfile.BadZipfile:
             self.fail("Unable to create empty ZIP file in 'w' mode")
 
         with zipfile.ZipFile(TESTFN, mode="a") as zipf:
             pass
         try:
-            zipf = zipfile.ZipFile(TESTFN, mode="r")
+            with zipfile.ZipFile(TESTFN, mode="r") as zipf:
+                pass
         except:
             self.fail("Unable to create empty ZIP file in 'a' mode")
 
@@ -1160,6 +1166,8 @@ class TestsWithMultipleOpens(unittest.TestCase):
             data1 += zopen1.read(500)
             data2 += zopen2.read(500)
             self.assertEqual(data1, data2)
+            zopen1.close()
+            zopen2.close()
 
     def test_different_file(self):
         # Verify that (when the ZipFile is in control of creating file objects)
@@ -1207,9 +1215,9 @@ class TestWithDirectory(unittest.TestCase):
 
     def test_store_dir(self):
         os.mkdir(os.path.join(TESTFN2, "x"))
-        zipf = zipfile.ZipFile(TESTFN, "w")
-        zipf.write(os.path.join(TESTFN2, "x"), "x")
-        self.assertTrue(zipf.filelist[0].filename.endswith("x/"))
+        with zipfile.ZipFile(TESTFN, "w") as zipf:
+            zipf.write(os.path.join(TESTFN2, "x"), "x")
+            self.assertTrue(zipf.filelist[0].filename.endswith("x/"))
 
     def tearDown(self):
         shutil.rmtree(TESTFN2)
@@ -1226,7 +1234,8 @@ class UniversalNewlineTests(unittest.TestCase):
         for n, s in enumerate(self.seps):
             self.arcdata[s] = s.join(self.line_gen) + s
             self.arcfiles[s] = '%s-%d' % (TESTFN, n)
-            open(self.arcfiles[s], "wb").write(self.arcdata[s])
+            with open(self.arcfiles[s], "wb") as f:
+                f.write(self.arcdata[s])
 
     def make_test_archive(self, f, compression):
         # Create the ZIP archive
@@ -1295,8 +1304,9 @@ class UniversalNewlineTests(unittest.TestCase):
         # Read the ZIP archive
         with zipfile.ZipFile(f, "r") as zipfp:
             for sep, fn in self.arcfiles.items():
-                for line, zipline in zip(self.line_gen, zipfp.open(fn, "rU")):
-                    self.assertEqual(zipline, line + '\n')
+                with zipfp.open(fn, "rU") as f:
+                    for line, zipline in zip(self.line_gen, f):
+                        self.assertEqual(zipline, line + '\n')
 
     def test_read_stored(self):
         for f in (TESTFN2, TemporaryFile(), StringIO()):

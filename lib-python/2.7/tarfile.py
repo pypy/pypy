@@ -425,10 +425,16 @@ class _Stream:
                 raise CompressionError("zlib module is not available")
             self.zlib = zlib
             self.crc = zlib.crc32("") & 0xffffffffL
-            if mode == "r":
-                self._init_read_gz()
-            else:
-                self._init_write_gz()
+            try:
+                if mode == "r":
+                    self._init_read_gz()
+                else:
+                    self._init_write_gz()
+            except:
+                if not self._extfileobj:
+                    fileobj.close()
+                    self.closed = True
+                raise    
 
         if comptype == "bz2":
             try:
@@ -1682,13 +1688,14 @@ class TarFile(object):
 
             if filemode not in "rw":
                 raise ValueError("mode must be 'r' or 'w'")
-
-            t = cls(name, filemode,
-                    _Stream(name, filemode, comptype, fileobj, bufsize),
-                    **kwargs)
-            t._extfileobj = False
-            return t
-
+            fid = _Stream(name, filemode, comptype, fileobj, bufsize)
+            try:
+                t = cls(name, filemode, fid, **kwargs)
+                t._extfileobj = False
+                return t
+            except:
+                fid.close()
+                raise
         elif mode in "aw":
             return cls.taropen(name, mode, fileobj, **kwargs)
 
@@ -1715,16 +1722,18 @@ class TarFile(object):
             gzip.GzipFile
         except (ImportError, AttributeError):
             raise CompressionError("gzip module is not available")
-
-        if fileobj is None:
-            fileobj = bltn_open(name, mode + "b")
-
+        gz_fid = None
         try:
-            t = cls.taropen(name, mode,
-                gzip.GzipFile(name, mode, compresslevel, fileobj),
-                **kwargs)
+            gz_fid = gzip.GzipFile(name, mode, compresslevel, fileobj)
+            t = cls.taropen(name, mode, gz_fid, **kwargs)
         except IOError:
+            if gz_fid:
+                gz_fid.close()
             raise ReadError("not a gzip file")
+        except:
+            if gz_fid:
+                gz_fid.close()
+            raise 
         t._extfileobj = False
         return t
 
@@ -1741,15 +1750,21 @@ class TarFile(object):
         except ImportError:
             raise CompressionError("bz2 module is not available")
 
-        if fileobj is not None:
-            fileobj = _BZ2Proxy(fileobj, mode)
-        else:
-            fileobj = bz2.BZ2File(name, mode, compresslevel=compresslevel)
-
         try:
-            t = cls.taropen(name, mode, fileobj, **kwargs)
+            if fileobj is not None:
+                bzfileobj = _BZ2Proxy(fileobj, mode)
+            else:
+                bzfileobj = bz2.BZ2File(name, mode, compresslevel=compresslevel)
+            t = cls.taropen(name, mode, bzfileobj, **kwargs)
+
         except (IOError, EOFError):
+            if fileobj is None:
+                bzfileobj.close()
             raise ReadError("not a bzip2 file")
+        except:
+            if fileobj is None:
+                bzfileobj.close()
+            raise 
         t._extfileobj = False
         return t
 

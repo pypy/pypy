@@ -309,6 +309,7 @@ class TestJointOps(unittest.TestCase):
             fo.close()
             test_support.unlink(test_support.TESTFN)
 
+    @test_support.impl_detail(pypy=False)
     def test_do_not_rehash_dict_keys(self):
         n = 10
         d = dict.fromkeys(map(HashCountingInt, xrange(n)))
@@ -559,6 +560,7 @@ class TestSet(TestJointOps):
         p = weakref.proxy(s)
         self.assertEqual(str(p), str(s))
         s = None
+        test_support.gc_collect()
         self.assertRaises(ReferenceError, str, p)
 
     # C API test only available in a debug build
@@ -590,6 +592,7 @@ class TestFrozenSet(TestJointOps):
         s.__init__(self.otherword)
         self.assertEqual(s, set(self.word))
 
+    @test_support.impl_detail()
     def test_singleton_empty_frozenset(self):
         f = frozenset()
         efs = [frozenset(), frozenset([]), frozenset(()), frozenset(''),
@@ -770,9 +773,10 @@ class TestBasicOps(unittest.TestCase):
         for v in self.set:
             self.assertIn(v, self.values)
         setiter = iter(self.set)
-        # note: __length_hint__ is an internal undocumented API,
-        # don't rely on it in your own programs
-        self.assertEqual(setiter.__length_hint__(), len(self.set))
+        if test_support.check_impl_detail():
+            # note: __length_hint__ is an internal undocumented API,
+            # don't rely on it in your own programs
+            self.assertEqual(setiter.__length_hint__(), len(self.set))
 
     def test_pickling(self):
         p = pickle.dumps(self.set)
@@ -1564,7 +1568,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             for meth in (s.union, s.intersection, s.difference, s.symmetric_difference, s.isdisjoint):
                 for g in (G, I, Ig, L, R):
                     expected = meth(data)
-                    actual = meth(G(data))
+                    actual = meth(g(data))
                     if isinstance(expected, bool):
                         self.assertEqual(actual, expected)
                     else:

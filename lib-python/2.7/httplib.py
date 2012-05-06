@@ -1024,7 +1024,11 @@ class HTTPConnection:
             kwds["buffering"] = True;
         response = self.response_class(*args, **kwds)
 
-        response.begin()
+        try:
+            response.begin()
+        except:
+            response.close()
+            raise
         assert response.will_close != _UNKNOWN
         self.__state = _CS_IDLE
 

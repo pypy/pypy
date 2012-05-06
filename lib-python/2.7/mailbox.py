@@ -619,7 +619,9 @@ class _singlefileMailbox(Mailbox):
         """Write any pending changes to disk."""
         if not self._pending:
             return
-
+        if self._file.closed:
+            self._pending = False
+            return
         # In order to be writing anything out at all, self._toc must
         # already have been generated (and presumably has been modified
         # by adding or deleting an item).
@@ -747,6 +749,7 @@ class _mboxMMDF(_singlefileMailbox):
         """Return a file-like representation or raise a KeyError."""
         start, stop = self._lookup(key)
         self._file.seek(start)
+            
         if not from_:
             self._file.readline()
         return _PartialFile(self._file, self._file.tell(), stop)
@@ -1818,6 +1821,10 @@ class _ProxyFile:
         else:
             self._pos = pos
 
+    def __del__(self):
+        if hasattr(self,'_file'):
+            self.close()
+
     def read(self, size=None):
         """Read bytes."""
         return self._read(size, self._file.read)
@@ -1854,6 +1861,7 @@ class _ProxyFile:
 
     def close(self):
         """Close the file."""
+        self._file.close()
         del self._file
 
     def _read(self, size, read_method):
