@@ -190,7 +190,7 @@ Specification: Generators and Exception Propagation
       File "<stdin>", line 1, in ?
       File "<stdin>", line 2, in g
       File "<stdin>", line 2, in f
-    ZeroDivisionError: integer division or modulo by zero
+    ZeroDivisionError: integer division by zero
     >>> k.next()  # and the generator cannot be resumed
     Traceback (most recent call last):
       File "<stdin>", line 1, in ?
@@ -733,14 +733,16 @@ syntax_tests = """
 ...     yield 1
 Traceback (most recent call last):
   ..
-SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[0]>, line 3)
+  File "<doctest test.test_generators.__test__.syntax[0]>", line 3
+SyntaxError: 'return' with argument inside generator
 
 >>> def f():
 ...     yield 1
 ...     return 22
 Traceback (most recent call last):
   ..
-SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[1]>, line 3)
+  File "<doctest test.test_generators.__test__.syntax[1]>", line 3
+SyntaxError: 'return' with argument inside generator
 
 "return None" is not the same as "return" in a generator:
 
@@ -749,7 +751,8 @@ SyntaxError: 'return' with argument inside generator (<doctest test.test_generat
 ...     return None
 Traceback (most recent call last):
   ..
-SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[2]>, line 3)
+  File "<doctest test.test_generators.__test__.syntax[2]>", line 3
+SyntaxError: 'return' with argument inside generator
 
 These are fine:
 
@@ -878,7 +881,9 @@ These are fine:
 ...     if 0:
 ...         yield 2             # because it's a generator (line 10)
 Traceback (most recent call last):
-SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.syntax[24]>, line 10)
+  ...
+  File "<doctest test.test_generators.__test__.syntax[24]>", line 10
+SyntaxError: 'return' with argument inside generator
 
 This one caused a crash (see SF bug 567538):
 
@@ -1496,6 +1501,10 @@ True
 """
 
 coroutine_tests = """\
+A helper function to call gc.collect() without printing
+>>> import gc
+>>> def gc_collect(): gc.collect()
+
 Sending a value into a started generator:
 
 >>> def f():
@@ -1570,13 +1579,14 @@ SyntaxError: 'yield' outside function
 >>> def f(): return lambda x=(yield): 1
 Traceback (most recent call last):
   ...
-SyntaxError: 'return' with argument inside generator (<doctest test.test_generators.__test__.coroutine[22]>, line 1)
+  File "<doctest test.test_generators.__test__.coroutine[22]>", line 1
+SyntaxError: 'return' with argument inside generator
 
 >>> def f(): x = yield = y
 Traceback (most recent call last):
   ...
   File "<doctest test.test_generators.__test__.coroutine[23]>", line 1
-SyntaxError: assignment to yield expression not possible
+SyntaxError: can't assign to yield expression
 
 >>> def f(): (yield bar) = y
 Traceback (most recent call last):
@@ -1665,7 +1675,7 @@ ValueError: 7
 >>> f().throw("abc")     # throw on just-opened generator
 Traceback (most recent call last):
   ...
-TypeError: exceptions must be classes, or instances, not str
+TypeError: exceptions must be old-style classes or derived from BaseException, not str
 
 Now let's try closing a generator:
 
@@ -1697,7 +1707,7 @@ And finalization:
 
 >>> g = f()
 >>> g.next()
->>> del g
+>>> del g; gc_collect()
 exiting
 
 >>> class context(object):
@@ -1708,7 +1718,7 @@ exiting
 ...          yield
 >>> g = f()
 >>> g.next()
->>> del g
+>>> del g; gc_collect()
 exiting
 
 
@@ -1721,7 +1731,7 @@ GeneratorExit is not caught by except Exception:
 
 >>> g = f()
 >>> g.next()
->>> del g
+>>> del g; gc_collect()
 finally
 
 
@@ -1747,6 +1757,7 @@ Our ill-behaved code should be invoked during GC:
 >>> g = f()
 >>> g.next()
 >>> del g
+>>> gc_collect()
 >>> sys.stderr.getvalue().startswith(
 ...     "Exception RuntimeError: 'generator ignored GeneratorExit' in "
 ... )
@@ -1812,6 +1823,9 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
+>>> import gc
+>>> def gc_collect(): gc.collect()
+
 >>> import itertools
 >>> def leak():
 ...     class gen:
@@ -1863,9 +1877,10 @@ to test.
 ...
 ...     l = Leaker()
 ...     del l
+...     gc_collect()
 ...     err = sys.stderr.getvalue().strip()
 ...     err.startswith(
-...         "Exception RuntimeError: RuntimeError() in <"
+...         "Exception RuntimeError: RuntimeError() in "
 ...     )
 ...     err.endswith("> ignored")
 ...     len(err.splitlines())

@@ -623,7 +623,9 @@ class HTMLDoc(Doc):
             head, '#ffffff', '#7799ee',
             '<a href=".">index</a><br>' + filelink + docloc)
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        def isnonbuiltinmodule(obj):
+            return inspect.ismodule(obj) and obj is not __builtin__
+        modules = inspect.getmembers(object, isnonbuiltinmodule)
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):
