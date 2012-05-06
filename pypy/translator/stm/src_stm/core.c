@@ -188,18 +188,15 @@ static void common_cleanup(struct tx_descriptor *d)
   d->active = 0;
 }
 
-static void tx_cleanup(struct tx_descriptor *d)
+static void tx_restart(struct tx_descriptor *d)
 {
   // release the locks and restore version numbers
   releaseAndRevertLocks(d);
+  // notifies the CPU that we're potentially in a spin loop
+  tx_spinloop(0);
   // reset all lists
   common_cleanup(d);
-}
-
-static void tx_restart(struct tx_descriptor *d)
-{
-  tx_cleanup(d);
-  tx_spinloop(0);
+  // jump back to the setjmp_buf (this call does not return)
   longjmp(*d->setjmp_buf, 1);
 }
 
@@ -542,22 +539,27 @@ void stm_begin_inevitable_transaction(void)
 
   while (1)
     {
-      mutex_lock();
-      unsigned long curtime = get_global_timestamp(d) & ~1;
-      if (change_global_timestamp(d, curtime, curtime + 1))
+      unsigned long curtime = get_global_timestamp(d);
+      if (curtime & 1)
         {
-          d->start_time = curtime;
-          break;
+          /* already an inevitable transaction: wait */
+          tx_spinloop(6);
+          mutex_lock();
+          mutex_unlock();
         }
-      mutex_unlock();
-      tx_spinloop(6);
+      else
+        if (change_global_timestamp(d, curtime, curtime + 1))
+          {
+            d->start_time = curtime;
+            break;
+          }
     }
 }
 
 void stm_commit_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
-  assert(d != NULL);
+  assert(d->active != 0);
 
   // if I don't have writes, I'm committed
   if (!redolog_any_entry(&d->redolog))
@@ -738,6 +740,27 @@ long stm_is_inevitable(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   return is_inevitable(d);
+}
+
+void stm_perform_transaction(void(*callback)(void*, long), void *arg,
+                             void *save_and_restore)
+{
+  jmp_buf _jmpbuf;
+  long volatile v_counter = 0;
+  long counter;
+  void *volatile saved_value;
+  struct tx_descriptor *d = thread_descriptor;
+  assert(d->active == 0);
+  saved_value = *(void**)save_and_restore;
+  /***/
+  setjmp(_jmpbuf);
+  /***/
+  *(void**)save_and_restore = saved_value;
+  begin_transaction(&_jmpbuf);
+  counter = v_counter;
+  v_counter = counter + 1;
+  callback(arg, counter);
+  stm_commit_transaction();
 }
 
 #undef GETVERSION

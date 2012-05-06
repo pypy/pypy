@@ -35,8 +35,8 @@ class StmOperations(object):
                          '4f': rffi.FLOAT}
 
     INIT_DONE       = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    RUN_TRANSACTION = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
-                                                 rffi.VOIDP))
+    CALLBACK_TX     = lltype.Ptr(lltype.FuncType([rffi.VOIDP, lltype.Signed],
+                                                 lltype.Void))
     GETSIZE         = lltype.Ptr(lltype.FuncType([llmemory.Address],
                                                  lltype.Signed))
     CALLBACK_ENUM   = lltype.Ptr(lltype.FuncType([llmemory.Address]*3,
@@ -54,8 +54,9 @@ class StmOperations(object):
         'stm_begin_inevitable_transaction', [], lltype.Void)
     commit_transaction = smexternal(
         'stm_commit_transaction', [], lltype.Void)
-    do_yield_thread = smexternal('stm_do_yield_thread',
-                                 [], lltype.Void)
+    perform_transaction = smexternal('stm_perform_transaction',
+                                     [CALLBACK_TX, rffi.VOIDP, llmemory.Address],
+                                     lltype.Void)
 
     # for the GC: store and read a thread-local-storage field, as well
     # as initialize and shut down the internal thread_descriptor
