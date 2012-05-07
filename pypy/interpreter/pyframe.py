@@ -144,6 +144,13 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
+    def _hints_for_stm(self):
+        self = hint(self, stm_write=True)
+        #hint(self.locals_stack_w, stm_write=True) -- later
+        #hint(self.cells, stm_immutable=True)      -- later
+        self = hint(self, access_directly=True)
+        return self
+
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
         The optional arguments are there to handle a generator's frame:
@@ -151,10 +158,7 @@ class PyFrame(eval.Frame):
         generator.throw().
         """
         if self.space.config.translation.stm:
-            self = hint(self, stm_write=True)
-            #hint(self.locals_stack_w, stm_write=True) -- later
-            #hint(self.cells, stm_immutable=True)      -- later
-            self = hint(self, access_directly=True)
+            self = self._hints_for_stm()
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -197,13 +201,13 @@ class PyFrame(eval.Frame):
 
     # stack manipulation helpers
     def pushvalue(self, w_object):
-        hint(self, stm_assert_local=True)
+        #hint(self, stm_assert_local=True)    XXX re-enable
         depth = self.valuestackdepth
         self.locals_stack_w[depth] = w_object
         self.valuestackdepth = depth + 1
 
     def popvalue(self):
-        hint(self, stm_assert_local=True)
+        #hint(self, stm_assert_local=True)    XXX re-enable
         depth = self.valuestackdepth - 1
         assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
         w_object = self.locals_stack_w[depth]
