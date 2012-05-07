@@ -38,8 +38,6 @@ class TestCheckSignals:
 class AppTestSignal:
 
     def setup_class(cls):
-        if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
-            py.test.skip("requires os.kill() and os.getpid()")
         space = gettestobjspace(usemodules=['signal'])
         cls.space = space
         cls.w_signal = space.appexec([], "(): import signal; return signal")

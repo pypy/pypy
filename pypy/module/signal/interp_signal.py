@@ -25,6 +25,9 @@ SIG_DFL = cpy_signal.SIG_DFL
 SIG_IGN = cpy_signal.SIG_IGN
 signal_names = list(setup())
 signal_values = [globals()[key] for key in signal_names]
+signal_values = {}
+for key in signal_names:
+    signal_values[globals()[key]] = None
 
 includes = ['stdlib.h', 'src/signals.h']
 if sys.platform != 'win32':
@@ -244,7 +247,7 @@ def pause(space):
     return space.w_None
 
 def check_signum(space, signum):
-    for sig in signal_values:
+    for sig in signal_values.keys():
         if signum == sig:
             return
     raise OperationError(space.w_ValueError,
