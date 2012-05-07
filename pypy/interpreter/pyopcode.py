@@ -98,7 +98,7 @@ class __extend__(pyframe.PyFrame):
             return self.popvalue()    # normal exit path
         else:
             self.__reraise = None
-            raise self.__reraise      # re-raise the exception we got
+            raise e                   # re-raise the exception we got
 
     def _dispatch_stm_transaction(self, retry_counter):
         self = self._hints_for_stm()
