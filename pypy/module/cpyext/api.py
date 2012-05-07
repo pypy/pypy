@@ -82,7 +82,7 @@ assert CONST_WSTRING == rffi.CWCHARP
 FILEP = rffi.COpaquePtr('FILE')
 
 if sys.platform == 'win32':
-    _fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
+    fileno = rffi.llexternal('_fileno', [FILEP], rffi.INT)
 else:
     fileno = rffi.llexternal('fileno', [FILEP], rffi.INT)
 
