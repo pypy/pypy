@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from ctypes.test import xfail
 import _ctypes_test
 
 class Callbacks(unittest.TestCase):
@@ -98,6 +99,7 @@ class Callbacks(unittest.TestCase):
 ##        self.check_type(c_char_p, "abc")
 ##        self.check_type(c_char_p, "def")
 
+    @xfail
     def test_pyobject(self):
         o = ()
         from sys import getrefcount as grc

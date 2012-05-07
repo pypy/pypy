@@ -168,7 +168,7 @@ del x
 
 # Pickling machinery
 
-class Pickler:
+class Pickler(object):
 
     def __init__(self, file, protocol=None):
         """This takes a file-like object for writing a pickle data stream.
@@ -638,6 +638,10 @@ class Pickler:
             # else tmp is empty, and we're done
 
     def save_dict(self, obj):
+        modict_saver = self._pickle_moduledict(obj)
+        if modict_saver is not None:
+            return self.save_reduce(*modict_saver)
+
         write = self.write
 
         if self.bin:
@@ -687,6 +691,29 @@ class Pickler:
                 write(SETITEM)
             # else tmp is empty, and we're done
 
+    def _pickle_moduledict(self, obj):
+        # save module dictionary as "getattr(module, '__dict__')"
+
+        # build index of module dictionaries
+        try:
+            modict = self.module_dict_ids
+        except AttributeError:
+            modict = {}
+            from sys import modules
+            for mod in modules.values():
+                if isinstance(mod, ModuleType):
+                    modict[id(mod.__dict__)] = mod
+            self.module_dict_ids = modict
+
+        thisid = id(obj)
+        try:
+            themodule = modict[thisid]
+        except KeyError:
+            return None
+        from __builtin__ import getattr
+        return getattr, (themodule, '__dict__')
+
+
     def save_inst(self, obj):
         cls = obj.__class__
 
@@ -726,6 +753,29 @@ class Pickler:
         write(BUILD)
 
     dispatch[InstanceType] = save_inst
+
+    def save_function(self, obj):
+        try:
+            return self.save_global(obj)
+        except PicklingError, e:
+            pass
+        # Check copy_reg.dispatch_table
+        reduce = dispatch_table.get(type(obj))
+        if reduce:
+            rv = reduce(obj)
+        else:
+            # Check for a __reduce_ex__ method, fall back to __reduce__
+            reduce = getattr(obj, "__reduce_ex__", None)
+            if reduce:
+                rv = reduce(self.proto)
+            else:
+                reduce = getattr(obj, "__reduce__", None)
+                if reduce:
+                    rv = reduce()
+                else:
+                    raise e
+        return self.save_reduce(obj=obj, *rv)
+    dispatch[FunctionType] = save_function
 
     def save_global(self, obj, name=None, pack=struct.pack):
         write = self.write
@@ -768,7 +818,6 @@ class Pickler:
         self.memoize(obj)
 
     dispatch[ClassType] = save_global
-    dispatch[FunctionType] = save_global
     dispatch[BuiltinFunctionType] = save_global
     dispatch[TypeType] = save_global
 
@@ -824,7 +873,7 @@ def whichmodule(func, funcname):
 
 # Unpickling machinery
 
-class Unpickler:
+class Unpickler(object):
 
     def __init__(self, file):
         """This takes a file-like object for reading a pickle data stream.

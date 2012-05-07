@@ -308,7 +308,7 @@ def http_server(evt, numrequests, requestHandler=None):
         global ADDR, PORT, URL
         ADDR, PORT = serv.socket.getsockname()
         #connect to IP address directly.  This avoids socket.create_connection()
-        #trying to connect to "localhost" using all address families, which
+        #trying to connect to to "localhost" using all address families, which
         #causes slowdown e.g. on vista which supports AF_INET6.  The server listens
         #on AF_INET only.
         URL = "http://%s:%d"%(ADDR, PORT)
@@ -367,7 +367,7 @@ def http_multi_server(evt, numrequests, requestHandler=None):
         global ADDR, PORT, URL
         ADDR, PORT = serv.socket.getsockname()
         #connect to IP address directly.  This avoids socket.create_connection()
-        #trying to connect to "localhost" using all address families, which
+        #trying to connect to to "localhost" using all address families, which
         #causes slowdown e.g. on vista which supports AF_INET6.  The server listens
         #on AF_INET only.
         URL = "http://%s:%d"%(ADDR, PORT)
@@ -435,6 +435,7 @@ class BaseServerTestCase(unittest.TestCase):
 
     def tearDown(self):
         # wait on the server thread to terminate
+        test_support.gc_collect() # to close the active connections
         self.evt.wait(10)
 
         # disable traceback reporting
@@ -472,9 +473,6 @@ class SimpleServerTestCase(BaseServerTestCase):
                 # protocol error; provide additional information in test output
                 self.fail("%s\n%s" % (e, getattr(e, "headers", "")))
 
-    def test_unicode_host(self):
-        server = xmlrpclib.ServerProxy(u"http://%s:%d/RPC2"%(ADDR, PORT))
-        self.assertEqual(server.add("a", u"\xe9"), u"a\xe9")
 
     # [ch] The test 404 is causing lots of false alarms.
     def XXXtest_404(self):
@@ -588,12 +586,6 @@ class SimpleServerTestCase(BaseServerTestCase):
         # Get the test to run faster by sending a request with test_simple1.
         # This avoids waiting for the socket timeout.
         self.test_simple1()
-
-    def test_partial_post(self):
-        # Check that a partial POST doesn't make the server loop: issue #14001.
-        conn = httplib.HTTPConnection(ADDR, PORT)
-        conn.request('POST', '/RPC2 HTTP/1.0\r\nContent-Length: 100\r\n\r\nbye')
-        conn.close()
 
 class MultiPathServerTestCase(BaseServerTestCase):
     threadFunc = staticmethod(http_multi_server)

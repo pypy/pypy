@@ -448,10 +448,11 @@ class UnicodeTest(
                 meth('\xff')
             with self.assertRaises(TypeError) as cm:
                 meth(['f'])
-            exc = str(cm.exception)
-            self.assertIn('unicode', exc)
-            self.assertIn('str', exc)
-            self.assertIn('tuple', exc)
+            if test_support.check_impl_detail():
+                exc = str(cm.exception)
+                self.assertIn('unicode', exc)
+                self.assertIn('str', exc)
+                self.assertIn('tuple', exc)
 
     @test_support.run_with_locale('LC_ALL', 'de_DE', 'fr_FR')
     def test_format_float(self):
@@ -1062,7 +1063,8 @@ class UnicodeTest(
         # to take a 64-bit long, this test should apply to all platforms.
         if sys.maxint > (1 << 32) or struct.calcsize('P') != 4:
             return
-        self.assertRaises(OverflowError, u't\tt\t'.expandtabs, sys.maxint)
+        self.assertRaises((OverflowError, MemoryError),
+                          u't\tt\t'.expandtabs, sys.maxint)
 
     def test__format__(self):
         def test(value, format, expected):

@@ -3,7 +3,8 @@
 import platform
 import unittest
 from test.test_support import fcmp, have_unicode, TESTFN, unlink, \
-                              run_unittest, check_py3k_warnings
+                              run_unittest, check_py3k_warnings, \
+                              check_impl_detail
 import warnings
 from operator import neg
 
@@ -247,12 +248,14 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError, compile)
         self.assertRaises(ValueError, compile, 'print 42\n', '<string>', 'badmode')
         self.assertRaises(ValueError, compile, 'print 42\n', '<string>', 'single', 0xff)
-        self.assertRaises(TypeError, compile, chr(0), 'f', 'exec')
+        if check_impl_detail(cpython=True):
+            self.assertRaises(TypeError, compile, chr(0), 'f', 'exec')
         self.assertRaises(TypeError, compile, 'pass', '?', 'exec',
                           mode='eval', source='0', filename='tmp')
         if have_unicode:
             compile(unicode('print u"\xc3\xa5"\n', 'utf8'), '', 'exec')
-            self.assertRaises(TypeError, compile, unichr(0), 'f', 'exec')
+            if check_impl_detail(cpython=True):
+                self.assertRaises(TypeError, compile, unichr(0), 'f', 'exec')
             self.assertRaises(ValueError, compile, unicode('a = 1'), 'f', 'bad')
 
 
@@ -395,12 +398,16 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(eval('dir()', g, m), list('xyz'))
         self.assertEqual(eval('globals()', g, m), g)
         self.assertEqual(eval('locals()', g, m), m)
-        self.assertRaises(TypeError, eval, 'a', m)
+        # on top of CPython, the first dictionary (the globals) has to
+        # be a real dict.  This is not the case on top of PyPy.
+        if check_impl_detail(pypy=False):
+            self.assertRaises(TypeError, eval, 'a', m)
+
         class A:
             "Non-mapping"
             pass
         m = A()
-        self.assertRaises(TypeError, eval, 'a', g, m)
+        self.assertRaises((TypeError, AttributeError), eval, 'a', g, m)
 
         # Verify that dict subclasses work as well
         class D(dict):
@@ -491,9 +498,10 @@ class BuiltinTest(unittest.TestCase):
         execfile(TESTFN, globals, locals)
         self.assertEqual(locals['z'], 2)
 
+        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
         unlink(TESTFN)
         self.assertRaises(TypeError, execfile)
-        self.assertRaises(TypeError, execfile, TESTFN, {}, ())
+        self.assertRaises((TypeError, IOError), execfile, TESTFN, {}, ())
         import os
         self.assertRaises(IOError, execfile, os.curdir)
         self.assertRaises(IOError, execfile, "I_dont_exist")
@@ -1108,7 +1116,8 @@ class BuiltinTest(unittest.TestCase):
             def __cmp__(self, other):
                 raise RuntimeError
             __hash__ = None # Invalid cmp makes this unhashable
-        self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
+        if check_impl_detail(cpython=True):
+            self.assertRaises(RuntimeError, range, a, a + 1, badzero(1))
 
         # Reject floats.
         self.assertRaises(TypeError, range, 1., 1., 1.)

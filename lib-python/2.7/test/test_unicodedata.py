@@ -233,10 +233,12 @@ class UnicodeMiscTest(UnicodeDatabaseTest):
         # been loaded in this process.
         popen = subprocess.Popen(args, stderr=subprocess.PIPE)
         popen.wait()
-        self.assertEqual(popen.returncode, 1)
-        error = "SyntaxError: (unicode error) \N escapes not supported " \
-            "(can't load unicodedata module)"
-        self.assertIn(error, popen.stderr.read())
+        self.assertIn(popen.returncode, [0, 1]) # at least it did not segfault
+        if test.test_support.check_impl_detail():
+            self.assertEqual(popen.returncode, 1)
+            error = "SyntaxError: (unicode error) \N escapes not supported " \
+                "(can't load unicodedata module)"
+            self.assertIn(error, popen.stderr.read())
 
     def test_decimal_numeric_consistent(self):
         # Test that decimal and numeric are consistent,

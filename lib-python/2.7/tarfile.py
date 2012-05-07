@@ -1716,9 +1716,6 @@ class TarFile(object):
         except (ImportError, AttributeError):
             raise CompressionError("gzip module is not available")
 
-        if fileobj is None:
-            fileobj = bltn_open(name, mode + "b")
-
         try:
             t = cls.taropen(name, mode,
                 gzip.GzipFile(name, mode, compresslevel, fileobj),

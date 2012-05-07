@@ -1,5 +1,6 @@
-from pypy.module.thread import ll_thread as thread
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.rlib.rweakref import RWeakKeyDictionary
+from pypy.interpreter.baseobjspace import Wrappable, W_Root
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
 
@@ -9,16 +10,23 @@ class Local(Wrappable):
 
     def __init__(self, space, initargs):
         self.initargs = initargs
-        ident = thread.get_ident()
-        self.dicts = {ident: space.newdict(instance=True)}
+        self.dicts = RWeakKeyDictionary(ExecutionContext, W_Root)
+        # The app-level __init__() will be called by the general
+        # instance-creation logic.  It causes getdict() to be
+        # immediately called.  If we don't prepare and set a w_dict
+        # for the current thread, then this would in cause getdict()
+        # to call __init__() a second time.
+        ec = space.getexecutioncontext()
+        w_dict = space.newdict(instance=True)
+        self.dicts.set(ec, w_dict)
 
     def getdict(self, space):
-        ident = thread.get_ident()
-        try:
-            w_dict = self.dicts[ident]
-        except KeyError:
+        ec = space.getexecutioncontext()
+        w_dict = self.dicts.get(ec)
+        if w_dict is None:
             # create a new dict for this thread
-            w_dict = self.dicts[ident] = space.newdict(instance=True)
+            w_dict = space.newdict(instance=True)
+            self.dicts.set(ec, w_dict)
             # call __init__
             try:
                 w_self = space.wrap(self)
@@ -27,10 +35,9 @@ class Local(Wrappable):
                 space.call_obj_args(w_init, w_self, self.initargs)
             except:
                 # failed, forget w_dict and propagate the exception
-                del self.dicts[ident]
+                self.dicts.set(ec, None)
                 raise
             # ready
-            space.threadlocals.atthreadexit(space, finish_thread, self)
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
@@ -48,8 +55,3 @@ Local.typedef = TypeDef("thread._local",
                         __init__ = interp2app(Local.descr_local__init__),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
-
-def finish_thread(w_obj):
-    assert isinstance(w_obj, Local)
-    ident = thread.get_ident()
-    del w_obj.dicts[ident]
