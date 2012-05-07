@@ -50,10 +50,6 @@ int pypy_main_function(int argc, char *argv[])
     }
 #endif
 
-#ifdef MS_WINDOWS
-    pypy_Windows_startup();
-#endif
-
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 
