@@ -87,3 +87,23 @@ class AppTestLocal(GenericTestThread):
             thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5, delay=2)
         assert len(done) == 5
+
+    def test_local_is_not_immortal(self):
+        import thread, gc, time
+        class Local(thread._local):
+            def __del__(self):
+                done.append('del')
+        done = []
+        def f():
+            assert not hasattr(l, 'foo')
+            l.bar = 42
+            done.append('ok')
+            self.waitfor(lambda: len(done) == 3, delay=8)
+        l = Local()
+        l.foo = 42
+        thread.start_new_thread(f, ())
+        self.waitfor(lambda: len(done) == 1, delay=2)
+        l = None
+        gc.collect()
+        assert done == ['ok', 'del']
+        done.append('shutdown')
