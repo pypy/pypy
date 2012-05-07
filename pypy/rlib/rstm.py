@@ -56,6 +56,7 @@ def _get_stm_callback(func, argcls):
             res = func(arg, retry_counter)
         except:
             fatalerror("no exception allowed in stm_callback")
+            assert 0
         llop.stm_stop_transaction(lltype.Void)
         return res
     return _stm_callback
