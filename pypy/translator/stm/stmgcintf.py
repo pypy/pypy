@@ -48,6 +48,8 @@ class StmOperations(object):
     # C part of the implementation of the pypy.rlib.rstm module
     in_transaction = smexternal('stm_in_transaction', [], lltype.Signed)
     is_inevitable = smexternal('stm_is_inevitable', [], lltype.Signed)
+    add_atomic = smexternal('stm_add_atomic', [lltype.Signed], lltype.Void)
+    get_atomic = smexternal('stm_get_atomic', [], lltype.Signed)
     descriptor_init = smexternal('stm_descriptor_init', [], lltype.Signed)
     descriptor_done = smexternal('stm_descriptor_done', [], lltype.Void)
     begin_inevitable_transaction = smexternal(

@@ -29,6 +29,8 @@ void stm_commit_transaction(void);
 
 long stm_in_transaction(void);
 long stm_is_inevitable(void);
+void stm_add_atomic(long);
+long stm_get_atomic(void);
 
 void stm_perform_transaction(long(*)(void*, long), void*, void*);
 

@@ -4,6 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {
+        'atomic':                 'app_atomic.atomic',
     }
 
     interpleveldefs = {
@@ -20,6 +21,8 @@ class Module(MixedModule):
         'LockType':               'os_lock.Lock',
         #'_local':                'os_local.Local',   # only if 'rweakref'
         'error':                  'space.fromcache(error.Cache).w_error',
+        '_atomic_enter':          'atomic.atomic_enter',
+        '_atomic_exit':           'atomic.atomic_exit',
     }
 
     def __init__(self, space, *args):

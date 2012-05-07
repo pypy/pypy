@@ -736,12 +736,25 @@ long stm_is_inevitable(void)
   return is_inevitable(d);
 }
 
+static __thread long stm_atomic = 0;
+
+void stm_add_atomic(long delta)
+{
+    stm_atomic += delta;
+}
+
+long stm_get_atomic(void)
+{
+    return stm_atomic;
+}
+
 void stm_perform_transaction(long(*callback)(void*, long), void *arg,
                              void *save_and_restore)
 {
   jmp_buf _jmpbuf;
   long volatile v_counter = 0;
   void *volatile saved_value;
+  long volatile v_atomic = stm_atomic;
   assert(thread_descriptor->active == 0);
   saved_value = *(void**)save_and_restore;
   /***/
@@ -752,12 +765,15 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   long counter, result;
   *(void**)save_and_restore = saved_value;
   counter = v_counter;
+  stm_atomic = v_atomic;
   do
     {
       v_counter = counter + 1;
-      begin_transaction(&_jmpbuf);
+      if (!stm_atomic)
+        begin_transaction(&_jmpbuf);
       result = callback(arg, counter);
-      stm_commit_transaction();
+      if (!stm_atomic)
+        stm_commit_transaction();
       counter = 0;
     }
   while (result == 1);  /* also stops if we got an RPython exception */

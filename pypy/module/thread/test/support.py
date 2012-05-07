@@ -2,12 +2,12 @@ import py
 import time, gc, thread, os
 from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
-from pypy.module.thread import gil
 
 
 NORMAL_TIMEOUT = 300.0   # 5 minutes
 
 def waitfor(space, w_condition, delay=1):
+    from pypy.module.thread import gil
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:

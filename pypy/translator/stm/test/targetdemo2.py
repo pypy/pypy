@@ -70,6 +70,17 @@ class ThreadRunner(object):
             self.finished_lock.release()
 
     def run_really(self, retry_counter):
+        if self.value == glob.LENGTH // 2:
+            print "atomic!"
+            assert not rstm.is_atomic()
+            rstm.increment_atomic()
+            assert rstm.is_atomic()
+        if self.value == glob.LENGTH * 2 // 3:
+            print "--------------- done atomic"
+            assert rstm.is_atomic()
+            rstm.decrement_atomic()
+            assert not rstm.is_atomic()
+        #
         add_at_end_of_chained_list(glob.anchor, self.value, self.index)
         self.value += 1
         return int(self.value < glob.LENGTH)

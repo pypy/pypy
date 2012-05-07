@@ -13,43 +13,53 @@ from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
 def is_inevitable():
     return we_are_translated() and stmgcintf.StmOperations.is_inevitable()
 
+def increment_atomic():
+    stmgcintf.StmOperations.add_atomic(+1)
+
+def decrement_atomic():
+    stmgcintf.StmOperations.add_atomic(-1)
+
+def is_atomic():
+    return stmgcintf.StmOperations.get_atomic()
+
 def before_external_call():
-    e = get_errno()
-    llop.stm_stop_transaction(lltype.Void)
-    stmgcintf.StmOperations.commit_transaction()
-    set_errno(e)
+    if not is_atomic():
+        e = get_errno()
+        llop.stm_stop_transaction(lltype.Void)
+        stmgcintf.StmOperations.commit_transaction()
+        set_errno(e)
 before_external_call._dont_reach_me_in_del_ = True
 before_external_call._transaction_break_ = True
 
 def after_external_call():
-    e = get_errno()
-    stmgcintf.StmOperations.begin_inevitable_transaction()
-    llop.stm_start_transaction(lltype.Void)
-    set_errno(e)
+    if not is_atomic():
+        e = get_errno()
+        stmgcintf.StmOperations.begin_inevitable_transaction()
+        llop.stm_start_transaction(lltype.Void)
+        set_errno(e)
 after_external_call._dont_reach_me_in_del_ = True
 after_external_call._transaction_break_ = True
 
 def enter_callback_call():
-    e = get_errno()
     token = stmgcintf.StmOperations.descriptor_init()
-    stmgcintf.StmOperations.begin_inevitable_transaction()
     if token != 1:
-        llop.stm_start_transaction(lltype.Void)
-    #else: the StmGCTLS is not built yet.  leave it to gc_thread_start()
-    set_errno(e)
+        after_external_call()
+    else:
+        ll_assert(not is_atomic(), "new thread: is_atomic() != 0")
+        stmgcintf.StmOperations.begin_inevitable_transaction()
+        # the StmGCTLS is not built yet.  leave it to gc_thread_start()
     return token
 enter_callback_call._dont_reach_me_in_del_ = True
 enter_callback_call._transaction_break_ = True
 
 def leave_callback_call(token):
-    e = get_errno()
     if token != 1:
-        llop.stm_stop_transaction(lltype.Void)
-    #else: the StmGCTLS is already destroyed, done by gc_thread_die()
-    stmgcintf.StmOperations.commit_transaction()
-    if token == 1:
+        before_external_call()
+    else:
+        # the StmGCTLS is already destroyed, done by gc_thread_die()
+        # (we don't care if is_atomic() or not, we'll commit now)
+        stmgcintf.StmOperations.commit_transaction()
         stmgcintf.StmOperations.descriptor_done()
-    set_errno(e)
 leave_callback_call._dont_reach_me_in_del_ = True
 leave_callback_call._transaction_break_ = True
 
@@ -58,7 +68,8 @@ leave_callback_call._transaction_break_ = True
 @specialize.memo()
 def _get_stm_callback(func, argcls):
     def _stm_callback(llarg, retry_counter):
-        llop.stm_start_transaction(lltype.Void)
+        if not is_atomic():
+            llop.stm_start_transaction(lltype.Void)
         llarg = rffi.cast(rclass.OBJECTPTR, llarg)
         arg = cast_base_ptr_to_instance(argcls, llarg)
         try:
@@ -66,7 +77,8 @@ def _get_stm_callback(func, argcls):
         except:
             fatalerror("no exception allowed in stm_callback")
             assert 0
-        llop.stm_stop_transaction(lltype.Void)
+        if not is_atomic():
+            llop.stm_stop_transaction(lltype.Void)
         return res
     return _stm_callback
 
