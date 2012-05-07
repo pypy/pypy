@@ -1,6 +1,10 @@
 
 import _rawffi, sys
-from __pypy__ import local
+try:
+    from thread import _local as local
+except ImportError:
+    class local(object):    # no threads
+        pass
 
 class ConvMode:
     encoding = 'ascii'

@@ -29,7 +29,6 @@ class TimeModule(MixedModule):
 
 class Module(MixedModule):
     appleveldefs = {
-        'local'                     : 'app_local.local',
     }
 
     interpleveldefs = {
