@@ -138,12 +138,8 @@ makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
-``ReferenceError`` at any place that uses them.
-
-As a side effect, the ``finally`` clause inside a generator will be executed
-only when the generator object is garbage collected (see `issue 736`__).
-
-.. __: http://bugs.pypy.org/issue736
+``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
+``weakref.proxy()`` at all; use ``weakref.ref()``.)
 
 There are a few extra implications for the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
@@ -162,7 +158,10 @@ Note that this difference might show up indirectly in some cases.  For
 example, a generator left pending in the middle is --- again ---
 garbage-collected later in PyPy than in CPython.  You can see the
 difference if the ``yield`` keyword it is suspended at is itself
-enclosed in a ``try:`` or a ``with:`` block.
+enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
+as `issue 736`__.
+
+.. __: http://bugs.pypy.org/issue736
 
 Using the default GC called ``minimark``, the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -186,7 +185,8 @@ not be called::
 Even more obscure: the same is true, for old-style classes, if you attach
 the ``__del__`` to an instance (even in CPython this does not work with
 new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
-just make sure there is a ``__del__`` method in the class to start with.
+just make sure there is a ``__del__`` method in the class to start with
+(even containing only ``pass``; replacing or overriding it later works fine).
 
 
 Subclasses of built-in types
