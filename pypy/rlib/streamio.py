@@ -190,7 +190,7 @@ if sys.platform == "win32":
     # See PyPyTarget.target() in targetpypystandalone.py
     def _setfd_binary(fd):
         #Allow this to succeed on invalid fd's
-        if rposix._validate_fd(fd):
+        if rposix.is_valid_fd(fd):
             _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):

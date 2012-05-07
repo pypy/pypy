@@ -98,16 +98,16 @@ def set_errno(errno):
     _set_errno(rffi.cast(INT, errno))
 
 if os.name == 'nt':
-    _validate_fd = rffi.llexternal(
+    is_valid_fd = rffi.llexternal(
         "_PyVerify_fd", [rffi.INT], rffi.INT,
         compilation_info=errno_eci,
         )
     @jit.dont_look_inside
     def validate_fd(fd):
-        if not _validate_fd(fd):
+        if not is_valid_fd(fd):
             raise OSError(get_errno(), 'Bad file descriptor')
 else:
-    def _validate_fd(fd):
+    def is_valid_fd(fd):
         return 1
 
     def validate_fd(fd):
@@ -117,7 +117,7 @@ def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
         try:
-            if _validate_fd(fd):
+            if is_valid_fd(fd):
                 os.close(fd)
         except OSError:
             pass

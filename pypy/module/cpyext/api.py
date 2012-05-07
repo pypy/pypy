@@ -26,7 +26,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.__builtin__.interp_memoryview import W_MemoryView
 from pypy.rlib.entrypoint import entrypoint
-from pypy.rlib.rposix import _validate_fd
+from pypy.rlib.rposix import is_valid_fd
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.exports import export_struct
@@ -90,7 +90,7 @@ fopen = rffi.llexternal('fopen', [CONST_STRING, CONST_STRING], FILEP)
 
 _fclose = rffi.llexternal('fclose', [FILEP], rffi.INT)
 def fclose(fp):
-    if not _validate_fd(fileno(fp)):
+    if not is_valid_fd(fileno(fp)):
         return -1
     return _fclose(fp)
 
