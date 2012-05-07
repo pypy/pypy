@@ -747,26 +747,26 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
 {
   jmp_buf _jmpbuf;
   long volatile v_counter = 0;
-  long counter, result;
   void *volatile saved_value;
-  struct tx_descriptor *d = thread_descriptor;
-  assert(d->active == 0);
+  assert(thread_descriptor->active == 0);
   saved_value = *(void**)save_and_restore;
   /***/
   setjmp(_jmpbuf);
-  /***/
-  while (1)
+  /* After setjmp(), the local variables v_counter and saved_value
+   * are preserved because they are volatile.  The other variables
+   * are only declared here. */
+  long counter, result;
+  *(void**)save_and_restore = saved_value;
+  counter = v_counter;
+  do
     {
-      *(void**)save_and_restore = saved_value;
-      begin_transaction(&_jmpbuf);
-      counter = v_counter;
       v_counter = counter + 1;
+      begin_transaction(&_jmpbuf);
       result = callback(arg, counter);
       stm_commit_transaction();
-      if (result != 1)   /* also when it raises an RPython exception */
-        return;
-      v_counter = 0;
+      counter = 0;
     }
+  while (result == 1);  /* also stops if we got an RPython exception */
 }
 
 #undef GETVERSION
