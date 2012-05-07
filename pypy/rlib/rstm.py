@@ -2,11 +2,15 @@ import threading
 from pypy.translator.stm import stmgcintf
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import (cast_base_ptr_to_instance,
                                       cast_instance_to_base_ptr,
                                       llhelper)
+
+def is_inevitable():
+    return we_are_translated() and stmgcintf.StmOperations.is_inevitable()
 
 def before_external_call():
     llop.stm_stop_transaction(lltype.Void)

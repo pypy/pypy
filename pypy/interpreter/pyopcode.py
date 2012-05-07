@@ -12,6 +12,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf
+from pypy.rlib import rstm
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
@@ -75,6 +76,9 @@ class __extend__(pyframe.PyFrame):
     ### opcode dispatch ###
 
     def dispatch(self, pycode, next_instr, ec):
+        if self.space.config.translation.stm and we_are_translated():
+            return self.dispatch_with_stm(next_instr)
+
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
         co_code = pycode.co_code
@@ -84,6 +88,23 @@ class __extend__(pyframe.PyFrame):
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
         except ExitFrame:
             return self.popvalue()
+
+    def dispatch_with_stm(self, next_instr):
+        self.last_instr = intmask(next_instr)
+        try:
+            rstm.perform_transaction(pyframe.PyFrame._dispatch_stm_transaction,
+                                     pyframe.PyFrame, self)
+        except ExitFrame:
+            return self.popvalue()
+        assert 0, "should not be reachable"
+
+    def _dispatch_stm_transaction(self, retry_counter):
+        co_code = self.pycode.co_code
+        next_instr = r_uint(self.last_instr)
+        ec = self.space.getexecutioncontext()
+        next_instr = self.handle_bytecode(co_code, next_instr, ec)
+        self.last_instr = intmask(next_instr)
+        return 1   # loop again, unless interrupted by an ExitFrame
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
@@ -278,6 +299,9 @@ class __extend__(pyframe.PyFrame):
                     next_instr = res
 
             if jit.we_are_jitted():
+                return next_instr
+
+            if rstm.is_inevitable():
                 return next_instr
 
     @jit.unroll_safe
