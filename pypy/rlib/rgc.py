@@ -175,20 +175,26 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO
-    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+
+    slowpath = False
+    if stm_is_enabled():
+        slowpath = True
+        #
+    elif isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
         # perform a write barrier that copies necessary flags from
         # source to dest
-        if stm_is_enabled() or (
-           not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
+        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
                                                 source_start, dest_start,
-                                                length)):
-            # if the write barrier is not supported, or if STM is
-            # enabled, copy by hand
-            i = 0
-            while i < length:
-                dest[i + dest_start] = source[i + source_start]
-                i += 1
-            return
+                                                length):
+            slowpath = True
+    if slowpath:
+        # if the write barrier is not supported, or if STM is
+        # enabled, copy by hand
+        i = 0
+        while i < length:
+            dest[i + dest_start] = source[i + source_start]
+            i += 1
+        return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
     cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
