@@ -231,7 +231,7 @@ class AppTestRCTime:
         # Guard against invalid/non-supported format string
         # so that Python don't crash (Windows crashes when the format string
         # input to [w]strftime is not kosher.
-        if os.name =='nt':
+        if os.name == 'nt':
             raises(ValueError, rctime.strftime, '%f')
         else:
             assert rctime.strftime('%f') == '%f'

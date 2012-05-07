@@ -245,7 +245,7 @@ def pause(space):
 
 def check_signum(space, signum):
     for sig in signal_values:
-        if signum ==sig:
+        if signum == sig:
             return
     raise OperationError(space.w_ValueError,
                          space.wrap("invalid signal value"))

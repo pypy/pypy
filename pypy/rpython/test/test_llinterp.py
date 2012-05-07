@@ -34,7 +34,7 @@ def timelog(prefix, call, *args, **kwds):
     #start = time.time()
     res = call(*args, **kwds) 
     #elapsed = time.time() - start 
-    #print "%.2f secs" %(elapsed,)
+    #print "%.2f secs" % (elapsed,)
     return res 
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
@@ -138,8 +138,8 @@ def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
     try:
         got = interp.find_exception(info.value)
     except ValueError as message:
-        got = 'None %r'%message
-    assert got is exc, "wrong exception type, expected %r got %r"%(exc, got)
+        got = 'None %r' % message
+    assert got is exc, "wrong exception type, expected %r got %r" % (exc, got)
 
 #__________________________________________________________________
 # tests
