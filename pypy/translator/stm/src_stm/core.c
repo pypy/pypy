@@ -275,37 +275,36 @@ static void validate(struct tx_descriptor *d)
 
 #ifdef USE_PTHREAD_MUTEX
 /* mutex: only to avoid busy-looping too much in tx_spinloop() below */
+# ifndef RPY_STM_ASSERT
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
-# ifdef RPY_STM_ASSERT
+#  define mutex_lock()    pthread_mutex_lock(&mutex_inevitable)
+#  define mutex_unlock()  pthread_mutex_unlock(&mutex_inevitable)
+# else
+static pthread_mutex_t mutex_inevitable = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 static unsigned long locked_by = 0;
 static void mutex_lock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
 #ifdef RPY_STM_DEBUG_PRINT
-  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
-                                      "%lx: mutex inev locking...\n", pself);
+  //fprintf(stderr, "%lx: mutex inev locking...\n", pself);
 #endif
   assert(locked_by != pself);
   pthread_mutex_lock(&mutex_inevitable);
   locked_by = pself;
 #ifdef RPY_STM_DEBUG_PRINT
-  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
-                                      "%lx: mutex inev locked\n", pself);
+  //fprintf(stderr, "%lx: mutex inev locked\n", pself);
 #endif
 }
 static void mutex_unlock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
+  assert(locked_by == pself);
   locked_by = 0;
 #ifdef RPY_STM_DEBUG_PRINT
-  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
-                                      "%lx: mutex inev unlocked\n", pself);
+  //fprintf(stderr, "%lx: mutex inev unlocked\n", pself);
 #endif
   pthread_mutex_unlock(&mutex_inevitable);
 }
-# else
-#  define mutex_lock()    pthread_mutex_lock(&mutex_inevitable)
-#  define mutex_unlock()  pthread_mutex_unlock(&mutex_inevitable)
 # endif
 #else
 # define mutex_lock()     /* nothing */
@@ -537,22 +536,16 @@ void stm_begin_inevitable_transaction(void)
   d->active = 2;
   d->setjmp_buf = NULL;
 
+  mutex_lock();
   while (1)
     {
       unsigned long curtime = get_global_timestamp(d);
-      if (curtime & 1)
+      if (!(curtime & 1) && change_global_timestamp(d, curtime, curtime + 1))
         {
-          /* already an inevitable transaction: wait */
-          tx_spinloop(6);
-          mutex_lock();
-          mutex_unlock();
+          d->start_time = curtime;
+          break;
         }
-      else
-        if (change_global_timestamp(d, curtime, curtime + 1))
-          {
-            d->start_time = curtime;
-            break;
-          }
+      tx_spinloop(6);
     }
 }
 

@@ -47,6 +47,8 @@ _stack_criticalcode_stop = llexternal('LL_stack_criticalcode_stop', [],
 def stack_check():
     if not we_are_translated():
         return
+    # XXX --- custom version for STM ---
+    return  # ignore
     #
     # Load the "current" stack position, or at least some address that
     # points close to the current stack head
