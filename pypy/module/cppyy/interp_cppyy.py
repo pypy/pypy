@@ -127,6 +127,9 @@ class CPPMethod(object):
         self.executor = None
         self._libffifunc = None
 
+    def _address_from_local_buffer(self, call_local, index):
+        return lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), index*rffi.sizeof(rffi.VOIDP))
+
     @jit.unroll_safe
     def call(self, cppthis, args_w):
         jit.promote(self)
@@ -140,20 +143,27 @@ class CPPMethod(object):
         if self.arg_converters is None:
             self._setup(cppthis)
 
+        call_local = lltype.malloc(rffi.CArray(rffi.VOIDP), len(args_w), flavor='raw')
+
         if self._libffifunc:
             try:
-                return self.do_fast_call(cppthis, args_w)
+                result = self.do_fast_call(cppthis, args_w, call_local)
+                lltype.free(call_local, flavor='raw')
+                return result
             except FastCallNotPossible:
                 pass          # can happen if converters or executor does not implement ffi
+            except:
+                lltype.free(call_local, flavor='raw')
+                raise
 
-        args = self.prepare_arguments(args_w)
+        args = self.prepare_arguments(args_w, call_local)
         try:
             return self.executor.execute(self.space, self.cppmethod, cppthis, len(args_w), args)
         finally:
-            self.free_arguments(args, len(args_w))
+            self.finalize_call(args, args_w, call_local)
 
     @jit.unroll_safe
-    def do_fast_call(self, cppthis, args_w):
+    def do_fast_call(self, cppthis, args_w, call_local):
         jit.promote(self)
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
@@ -196,7 +206,7 @@ class CPPMethod(object):
                 self._libffifunc = libffifunc
 
     @jit.unroll_safe
-    def prepare_arguments(self, args_w):
+    def prepare_arguments(self, args_w, call_local):
         jit.promote(self)
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
@@ -205,25 +215,31 @@ class CPPMethod(object):
             w_arg = args_w[i]
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-                conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
+                loc_i = self._address_from_local_buffer(call_local, i)
+                conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i), loc_i)
             except:
                 # fun :-(
                 for j in range(i):
                     conv = self.arg_converters[j]
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
-                    conv.free_argument(rffi.cast(capi.C_OBJECT, arg_j))
+                    loc_j = self._address_from_local_buffer(call_local, j)
+                    conv.free_argument(rffi.cast(capi.C_OBJECT, arg_j), loc_j)
                 capi.c_deallocate_function_args(args)
+                lltype.free(call_local, flavor='raw')
                 raise
         return args
 
     @jit.unroll_safe
-    def free_arguments(self, args, nargs):
+    def finalize_call(self, args, args_w, call_local):
         stride = capi.c_function_arg_sizeof()
-        for i in range(nargs):
+        for i in range(len(args_w)):
             conv = self.arg_converters[i]
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
-            conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i))
+            loc_i = self._address_from_local_buffer(call_local, i)
+            conv.finalize_call(self.space, args_w[i], loc_i)
+            conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i), loc_i)
         capi.c_deallocate_function_args(args)
+        lltype.free(call_local, flavor='raw')
 
     def signature(self):
         return capi.c_method_signature(self.scope, self.index)

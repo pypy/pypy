@@ -21,6 +21,13 @@ def get_rawobject(space, w_obj):
         return rawobject
     return capi.C_NULL_OBJECT
 
+def set_rawobject(space, w_obj, address):
+    from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    if cppinstance:
+        assert lltype.typeOf(cppinstance._rawobject) == capi.C_OBJECT
+        cppinstance._rawobject = rffi.cast(capi.C_OBJECT, address)
+
 def get_rawobject_nonnull(space, w_obj):
     from pypy.module.cppyy.interp_cppyy import W_CPPInstance
     cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
@@ -53,7 +60,7 @@ class TypeConverter(object):
     def _is_abstract(self, space):
         raise OperationError(space.w_TypeError, space.wrap("no converter available"))
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         self._is_abstract(space)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
@@ -70,7 +77,10 @@ class TypeConverter(object):
     def to_memory(self, space, w_obj, w_value, offset):
         self._is_abstract(space)
 
-    def free_argument(self, arg):
+    def finalize_call(self, space, w_obj, call_local):
+        pass
+
+    def free_argument(self, arg, call_local):
         pass
 
 
@@ -181,7 +191,7 @@ class IntTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -189,7 +199,7 @@ class FloatTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
         ba = rffi.cast(rffi.CCHARP, address)
@@ -203,7 +213,7 @@ class VoidConverter(TypeConverter):
     def __init__(self, space, name):
         self.name = name
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         raise OperationError(space.w_TypeError,
                              space.wrap('no converter available for type "%s"' % self.name))
 
@@ -219,7 +229,7 @@ class BoolConverter(TypeConverter):
                                  space.wrap("boolean value should be bool, or integer 1 or 0"))
         return arg
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -262,7 +272,7 @@ class CharConverter(TypeConverter):
                                  space.wrap("char expected, got string of size %d" % len(value)))
         return value[0] # turn it into a "char" to the annotator
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.CCHARP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
@@ -360,7 +370,7 @@ class ConstLongRefConverter(ConstRefNumericTypeConverterMixin, LongConverter):
     libffitype = libffi.types.pointer
     typecode = 'r'
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
         ba = rffi.cast(rffi.CCHARP, address)
@@ -383,7 +393,7 @@ class ConstLongLongRefConverter(ConstRefNumericTypeConverterMixin, LongLongConve
     libffitype = libffi.types.pointer
     typecode = 'r'
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
         ba = rffi.cast(rffi.CCHARP, address)
@@ -478,7 +488,7 @@ class ConstDoubleRefConverter(ConstRefNumericTypeConverterMixin, DoubleConverter
 class CStringConverter(TypeConverter):
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.LONGP, address)
         arg = space.str_w(w_obj)
         x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
@@ -490,14 +500,14 @@ class CStringConverter(TypeConverter):
         charpptr = rffi.cast(rffi.CCHARPP, address)
         return space.wrap(rffi.charp2str(charpptr[0]))
 
-    def free_argument(self, arg):
+    def free_argument(self, arg, call_local):
         lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
 
 
 class VoidPtrConverter(TypeConverter):
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         ba = rffi.cast(rffi.CCHARP, address)
@@ -507,21 +517,26 @@ class VoidPtrConverter(TypeConverter):
         argchain.arg(get_rawobject(space, w_obj))
         return lltype.nullptr(rffi.VOIDP.TO)
 
-
 class VoidPtrPtrConverter(TypeConverter):
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
+        r = rffi.cast(rffi.VOIDPP, call_local)
+        r[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         x = rffi.cast(rffi.VOIDPP, address)
-        x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
+        x[0] = rffi.cast(rffi.VOIDP, call_local)
+        address = rffi.cast(capi.C_OBJECT, address)
         ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset()] = 'p'
+        ba[capi.c_function_arg_typeoffset()] = 'a'
 
+    def finalize_call(self, space, w_obj, call_local):
+        r = rffi.cast(rffi.VOIDPP, call_local)
+        set_rawobject(space, w_obj, r[0])
 
 class VoidPtrRefConverter(TypeConverter):
     _immutable_ = True
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, get_rawobject(space, w_obj))
         ba = rffi.cast(rffi.CCHARP, address)
@@ -631,7 +646,7 @@ class InstancePtrConverter(TypeConverter):
                              space.wrap("cannot pass %s as %s" %
                              (space.type(w_obj).getname(space, "?"), self.cppclass.name)))
 
-    def convert_argument(self, space, w_obj, address):
+    def convert_argument(self, space, w_obj, address, call_local):
         x = rffi.cast(rffi.VOIDPP, address)
         x[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
         address = rffi.cast(capi.C_OBJECT, address)
@@ -665,6 +680,32 @@ class InstanceConverter(InstancePtrConverter):
         self._is_abstract(space)
 
 
+class InstancePtrPtrConverter(InstancePtrConverter):
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address, call_local):
+        r = rffi.cast(rffi.VOIDPP, call_local)
+        r[0] = rffi.cast(rffi.VOIDP, self._unwrap_object(space, w_obj))
+        x = rffi.cast(rffi.VOIDPP, address)
+        x[0] = rffi.cast(rffi.VOIDP, call_local)
+        address = rffi.cast(capi.C_OBJECT, address)
+        ba = rffi.cast(rffi.CCHARP, address)
+        ba[capi.c_function_arg_typeoffset()] = 'o'
+
+    def from_memory(self, space, w_obj, w_pycppclass, offset):
+        self._is_abstract(space)
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        self._is_abstract(space)
+
+    def finalize_call(self, space, w_obj, call_local):
+        from pypy.module.cppyy.interp_cppyy import W_CPPInstance
+        obj = space.interpclass_w(w_obj)
+        assert isinstance(obj, W_CPPInstance)
+        r = rffi.cast(rffi.VOIDPP, call_local)
+        obj._rawobject = rffi.cast(capi.C_OBJECT, r[0])
+
+
 class StdStringConverter(InstanceConverter):
     _immutable_ = True
 
@@ -694,7 +735,7 @@ class StdStringConverter(InstanceConverter):
             pass
         return InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
-    def free_argument(self, arg):
+    def free_argument(self, arg, call_local):
         capi.c_free_stdstring(rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
 class StdStringRefConverter(InstancePtrConverter):
@@ -753,6 +794,8 @@ def get_converter(space, name, default):
         cppclass = space.interp_w(W_CPPClass, cppclass, can_be_None=False)
         if compound == "*" or compound == "&":
             return InstancePtrConverter(space, cppclass)
+        elif compound == "**":
+            return InstancePtrPtrConverter(space, cppclass)
         elif compound == "":
             return InstanceConverter(space, cppclass)
     elif capi.c_is_enum(clean_name):

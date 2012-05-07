@@ -85,6 +85,15 @@ public:
     void set_double_c(const double& d);
     void set_enum(what w);
 
+    void set_pod_val(cppyy_test_pod);
+    void set_pod_ptr_in(cppyy_test_pod*);
+    void set_pod_ptr_out(cppyy_test_pod*);
+    void set_pod_ref(const cppyy_test_pod&);
+    void set_pod_ptrptr_in(cppyy_test_pod**);
+    void set_pod_void_ptrptr_in(void**);
+    void set_pod_ptrptr_out(cppyy_test_pod**);
+    void set_pod_void_ptrptr_out(void**);
+
 public:
 // basic types
     bool                 m_bool;

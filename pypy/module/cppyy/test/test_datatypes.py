@@ -456,3 +456,71 @@ class AppTestDATATYPES:
 
         assert c.get_pod_ptrref().m_int == 666
         assert c.get_pod_ptrref().m_double == 3.14
+
+    def test13_object_arguments(self):
+        """Test setting and returning of a POD through arguments"""
+
+        import cppyy
+
+        c = cppyy.gbl.cppyy_test_data()
+        assert c.m_pod.m_int == 888
+        assert c.m_pod.m_double == 3.14
+
+        p = cppyy.gbl.cppyy_test_pod()
+        p.m_int = 123
+        assert p.m_int == 123
+        p.m_double = 321.
+        assert p.m_double == 321.
+
+        c.set_pod_val(p)
+        assert c.m_pod.m_int == 123
+        assert c.m_pod.m_double == 321.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_ptr_in(p)
+        assert c.m_pod.m_int == 123
+        assert c.m_pod.m_double == 321.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_ptr_out(p)
+        assert p.m_int == 888
+        assert p.m_double == 3.14
+
+        p.m_int = 555
+        p.m_double = 666.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_ref(p)
+        assert c.m_pod.m_int == 555
+        assert c.m_pod.m_double == 666.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_ptrptr_in(p)
+        assert c.m_pod.m_int == 555
+        assert c.m_pod.m_double == 666.
+        assert p.m_int == 555
+        assert p.m_double == 666.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_void_ptrptr_in(p)
+        assert c.m_pod.m_int == 555
+        assert c.m_pod.m_double == 666.
+        assert p.m_int == 555
+        assert p.m_double == 666.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_ptrptr_out(p)
+        assert c.m_pod.m_int == 888
+        assert c.m_pod.m_double == 3.14
+        assert p.m_int == 888
+        assert p.m_double == 3.14
+
+        p.m_int = 777
+        p.m_double = 888.
+
+        c = cppyy.gbl.cppyy_test_data()
+        c.set_pod_void_ptrptr_out(p)
+        assert c.m_pod.m_int == 888
+        assert c.m_pod.m_double == 3.14
+        assert p.m_int == 888
+        assert p.m_double == 3.14

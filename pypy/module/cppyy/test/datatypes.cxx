@@ -1,5 +1,7 @@
 #include "datatypes.h"
 
+#include <iostream>
+
 
 //===========================================================================
 cppyy_test_data::cppyy_test_data() : m_owns_arrays(false)
@@ -142,6 +144,15 @@ void cppyy_test_data::set_float_c(const float& f)            { m_float  = f; }
 void cppyy_test_data::set_double(double d)                   { m_double = d; }
 void cppyy_test_data::set_double_c(const double& d)          { m_double = d; }
 void cppyy_test_data::set_enum(what w)                       { m_enum   = w; }
+
+void cppyy_test_data::set_pod_val(cppyy_test_pod p)            { m_pod = p; }
+void cppyy_test_data::set_pod_ptr_in(cppyy_test_pod* pp)       { m_pod = *pp; }
+void cppyy_test_data::set_pod_ptr_out(cppyy_test_pod* pp)      { *pp = m_pod; }
+void cppyy_test_data::set_pod_ref(const cppyy_test_pod& rp)    { m_pod = rp; }
+void cppyy_test_data::set_pod_ptrptr_in(cppyy_test_pod** ppp)  { m_pod = **ppp; }
+void cppyy_test_data::set_pod_void_ptrptr_in(void** pp)        { m_pod = **((cppyy_test_pod**)pp); }
+void cppyy_test_data::set_pod_ptrptr_out(cppyy_test_pod** ppp) { *ppp = &m_pod; }
+void cppyy_test_data::set_pod_void_ptrptr_out(void** pp)       { *((cppyy_test_pod**)pp) = &m_pod; }
 
 char                cppyy_test_data::s_char   = 's';
 unsigned char       cppyy_test_data::s_uchar  = 'u';
