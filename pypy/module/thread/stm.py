@@ -8,6 +8,7 @@ from pypy.rlib.objectmodel import invoke_around_extcall
 
 
 class STMThreadLocals(OSThreadLocals):
+    can_cache = False
 
     def initialize(self, space):
         pass

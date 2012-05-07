@@ -7,6 +7,8 @@ class OSThreadLocals:
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
 
+    can_cache = True
+
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
         self._freeze_()
@@ -14,19 +16,21 @@ class OSThreadLocals:
     def _freeze_(self):
         self._valuedict.clear()
         self._mainthreadident = 0
-        self._mostrecentkey = 0        # fast minicaching for the common case
-        self._mostrecentvalue = None   # fast minicaching for the common case
+        if self.can_cache:
+            self._mostrecentkey = 0        # fast minicaching for the common case
+            self._mostrecentvalue = None   # fast minicaching for the common case
         return False
 
     def getvalue(self):
         ident = thread.get_ident()
-        if ident == self._mostrecentkey:
+        if self.can_cache and ident == self._mostrecentkey:
             result = self._mostrecentvalue
         else:
             value = self._valuedict.get(ident, None)
-            # slow path: update the minicache
-            self._mostrecentkey = ident
-            self._mostrecentvalue = value
+            if self.can_cache:
+                # slow path: update the minicache
+                self._mostrecentkey = ident
+                self._mostrecentvalue = value
             result = value
         return result
 
@@ -41,9 +45,10 @@ class OSThreadLocals:
                 del self._valuedict[ident]
             except KeyError:
                 pass
-        # update the minicache to prevent it from containing an outdated value
-        self._mostrecentkey = ident
-        self._mostrecentvalue = value
+        if self.can_cache:
+            # update the minicache to prevent it from containing an outdated value
+            self._mostrecentkey = ident
+            self._mostrecentvalue = value
 
     def getmainthreadvalue(self):
         ident = self._mainthreadident
