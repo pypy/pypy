@@ -30,7 +30,6 @@ class GILThreadLocals(OSThreadLocals):
             if not thread.gil_allocate():
                 raise wrap_thread_error(space, "can't allocate GIL")
             self.gil_ready = True
-            self.enter_thread(space)   # setup the main thread
             result = True
         else:
             result = False      # already set up

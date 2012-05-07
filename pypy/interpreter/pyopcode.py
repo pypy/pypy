@@ -1325,10 +1325,6 @@ class FrameBlock(object):
                                w(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
-        next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return r_uint(next_instr)
-
-    def really_handle(self, frame, unroller):
         """ Purely abstract method
         """
         raise NotImplementedError
@@ -1340,17 +1336,17 @@ class LoopBlock(FrameBlock):
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return unroller.jump_to
+            return r_uint(unroller.jump_to)
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
-            return self.handlerposition
+            return r_uint(self.handlerposition)
 
 
 class ExceptBlock(FrameBlock):
@@ -1360,7 +1356,7 @@ class ExceptBlock(FrameBlock):
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
@@ -1375,7 +1371,7 @@ class ExceptBlock(FrameBlock):
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class FinallyBlock(FrameBlock):
@@ -1396,7 +1392,7 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
@@ -1404,18 +1400,18 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if (frame.space.full_exceptions and
             isinstance(unroller, SApplicationException)):
             unroller.operr.normalize_exception(frame.space)
-        return FinallyBlock.really_handle(self, frame, unroller)
+        return FinallyBlock.handle(self, frame, unroller)
 
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,

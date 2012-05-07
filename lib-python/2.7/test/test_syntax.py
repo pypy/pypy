@@ -5,7 +5,8 @@ Here's an example of the sort of thing that is tested.
 >>> def f(x):
 ...     global x
 Traceback (most recent call last):
-SyntaxError: name 'x' is local and global (<doctest test.test_syntax[0]>, line 1)
+  File "<doctest test.test_syntax[0]>", line 1
+SyntaxError: name 'x' is local and global
 
 The tests are all raise SyntaxErrors.  They were created by checking
 each C call that raises SyntaxError.  There are several modules that
@@ -375,7 +376,7 @@ This should probably raise a better error than a SystemError (or none at all).
 In 2.5 there was a missing exception and an assert was triggered in a debug
 build.  The number of blocks must be greater than CO_MAXBLOCKS.  SF #1565514
 
-   >>> while 1:
+   >>> while 1: # doctest:+SKIP
    ...  while 2:
    ...   while 3:
    ...    while 4:

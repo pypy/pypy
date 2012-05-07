@@ -32,7 +32,7 @@ def get_lockdata():
                         'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
                         'freebsd6', 'freebsd7', 'freebsd8',
                         'bsdos2', 'bsdos3', 'bsdos4',
-                        'openbsd', 'openbsd2', 'openbsd3', 'openbsd4'):
+                        'openbsd', 'openbsd2', 'openbsd3', 'openbsd4', 'openbsd5'):
         if struct.calcsize('l') == 8:
             off_t = 'l'
             pid_t = 'i'
