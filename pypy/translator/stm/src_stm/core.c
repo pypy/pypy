@@ -665,6 +665,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
       tx_spinloop(6);
     }
   d->setjmp_buf = NULL;   /* inevitable from now on */
+  d->active = 2;
 #ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_STOP("stm-inevitable");
 #endif
