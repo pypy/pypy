@@ -48,7 +48,7 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_init(self):
         import thread
-        tags = [1, 2, 3, 4, 5, 54321]
+        tags = ['???', 1, 2, 3, 4, 5, 54321]
         seen = []
 
         raises(TypeError, thread._local, a=1)
@@ -61,6 +61,7 @@ class AppTestLocal(GenericTestThread):
 
         x = X(42)
         assert x.tag == 54321
+        assert x.tag == 54321
         def f():
             seen.append(x.tag)
         for i in range(5):
@@ -69,7 +70,7 @@ class AppTestLocal(GenericTestThread):
         seen1 = seen[:]
         seen1.sort()
         assert seen1 == [1, 2, 3, 4, 5]
-        assert tags == []
+        assert tags == ['???']
 
     def test_local_setdict(self):
         import thread

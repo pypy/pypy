@@ -1,5 +1,6 @@
 from pypy.module.thread import ll_thread as thread
 
+
 class OSThreadLocals:
     """Thread-local storage for OS-level threads.
     For memory management, this version depends on explicit notification when
@@ -51,21 +52,6 @@ class OSThreadLocals:
     def getallvalues(self):
         return self._valuedict
 
-    def enter_thread(self, space):
-        "Notification that the current thread is just starting."
-        ec = space.getexecutioncontext()
-        ec.thread_exit_funcs = []
-
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
-        try:
-            ec = space.getexecutioncontext()
-            while ec.thread_exit_funcs:
-                exit_func, w_obj = ec.thread_exit_funcs.pop()
-                exit_func(w_obj)
-        finally:
-            self.setvalue(None)
-
-    def atthreadexit(self, space, exit_func, w_obj):
-        ec = space.getexecutioncontext()
-        ec.thread_exit_funcs.append((exit_func, w_obj))
+        self.setvalue(None)
