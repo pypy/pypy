@@ -223,6 +223,11 @@ class __extend__(pyframe.PyFrame):
             else:
                 oparg = 0
 
+            # note: the structure of the code here is such that it makes
+            # after transaction a big "if/elif" chain that is turned into
+            # a switch().  It starts here: even if the first one is not
+            # an "if" but a "while" the effect is the same.
+
             while opcode == self.opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
                 if opcode < self.HAVE_ARGUMENT:
@@ -241,9 +246,9 @@ class __extend__(pyframe.PyFrame):
                 else:
                     unroller = SReturnValue(w_returnvalue)
                     next_instr = block.handle(self, unroller)
-                    return next_instr    # now inside a 'finally' block
+                    # now inside a 'finally' block
 
-            if opcode == self.opcodedesc.END_FINALLY.index:
+            elif opcode == self.opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
                     # go on unrolling the stack
@@ -254,12 +259,11 @@ class __extend__(pyframe.PyFrame):
                         raise Return
                     else:
                         next_instr = block.handle(self, unroller)
-                return next_instr
 
-            if opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+            elif opcode == self.opcodedesc.JUMP_ABSOLUTE.index:
+                next_instr = self.jump_absolute(oparg, next_instr, ec)
 
-            if we_are_translated():
+            elif we_are_translated():
                 for opdesc in unrolling_all_opcode_descs:
                     # static checks to skip this whole case if necessary
                     if opdesc.bytecode_spec is not self.bytecode_spec:
@@ -271,6 +275,8 @@ class __extend__(pyframe.PyFrame):
                         'END_FINALLY', 'JUMP_ABSOLUTE'):
                         continue   # opcodes implemented above
 
+                    # the following "if" is part of the big switch described
+                    # above.
                     if opcode == opdesc.index:
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
