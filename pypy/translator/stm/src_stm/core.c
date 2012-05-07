@@ -740,12 +740,18 @@ static __thread long stm_atomic = 0;
 
 void stm_add_atomic(long delta)
 {
-    stm_atomic += delta;
+  stm_atomic += delta;
 }
 
 long stm_get_atomic(void)
 {
-    return stm_atomic;
+  return stm_atomic;
+}
+
+long stm_should_break_transaction(void)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  return !stm_atomic && is_inevitable(d);
 }
 
 void stm_perform_transaction(long(*callback)(void*, long), void *arg,
@@ -755,7 +761,7 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
   long volatile v_counter = 0;
   void *volatile saved_value;
   long volatile v_atomic = stm_atomic;
-  assert(thread_descriptor->active == 0);
+  assert((!thread_descriptor->active) == (!stm_atomic));
   saved_value = *(void**)save_and_restore;
   /***/
   setjmp(_jmpbuf);
@@ -777,6 +783,9 @@ void stm_perform_transaction(long(*callback)(void*, long), void *arg,
       counter = 0;
     }
   while (result == 1);  /* also stops if we got an RPython exception */
+
+  if (stm_atomic && thread_descriptor->setjmp_buf == &_jmpbuf)
+    stm_try_inevitable(STM_EXPLAIN1("perform_transaction left with atomic"));
 }
 
 #undef GETVERSION

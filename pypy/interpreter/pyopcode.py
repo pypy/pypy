@@ -318,7 +318,7 @@ class __extend__(pyframe.PyFrame):
             if jit.we_are_jitted():
                 return next_instr
 
-            if rstm.is_inevitable():
+            if rstm.should_break_transaction():
                 return next_instr
 
     @jit.unroll_safe
