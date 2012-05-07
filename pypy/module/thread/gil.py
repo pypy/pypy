@@ -2,6 +2,8 @@
 Global Interpreter Lock.
 """
 
+... do not import me for now ...
+
 # This module adds a global lock to an object space.
 # If multiple threads try to execute simultaneously in this space,
 # all but one will be blocked.  The other threads get a chance to run

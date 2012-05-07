@@ -24,10 +24,14 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON: patches space.threadlocals to use real threadlocals"
-        from pypy.module.thread import gil
         MixedModule.__init__(self, space, *args)
         prev = space.threadlocals.getvalue()
-        space.threadlocals = gil.GILThreadLocals()
+        if space.config.translation.stm:
+            from pypy.module.thread import stm
+            space.threadlocals = stm.STMThreadLocals()
+        else:
+            from pypy.module.thread import gil
+            space.threadlocals = gil.GILThreadLocals()
         space.threadlocals.initialize(space)
         space.threadlocals.setvalue(prev)
 
