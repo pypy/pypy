@@ -1,6 +1,6 @@
 import threading
 from pypy.translator.stm import stmgcintf
-from pypy.rlib.debug import ll_assert
+from pypy.rlib.debug import ll_assert, fatalerror
 from pypy.rlib.objectmodel import keepalive_until_here, specialize
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass
@@ -54,8 +54,9 @@ def _get_stm_callback(func, argcls):
         arg = cast_base_ptr_to_instance(argcls, llarg)
         try:
             res = func(arg, retry_counter)
-        finally:
-            llop.stm_stop_transaction(lltype.Void)
+        except:
+            fatalerror("no exception allowed in stm_callback")
+        llop.stm_stop_transaction(lltype.Void)
         return res
     return _stm_callback
 

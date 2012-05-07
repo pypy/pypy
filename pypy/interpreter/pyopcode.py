@@ -91,20 +91,29 @@ class __extend__(pyframe.PyFrame):
 
     def dispatch_with_stm(self, next_instr):
         self.last_instr = intmask(next_instr)
-        try:
-            rstm.perform_transaction(pyframe.PyFrame._dispatch_stm_transaction,
-                                     pyframe.PyFrame, self)
-        except ExitFrame:
-            return self.popvalue()
-        assert 0, "should not be reachable"
+        rstm.perform_transaction(pyframe.PyFrame._dispatch_stm_transaction,
+                                 self.space.FrameClass, self)
+        e = self.__reraise
+        if e is None:
+            return self.popvalue()    # normal exit path
+        else:
+            self.__reraise = None
+            raise self.__reraise      # re-raise the exception we got
 
     def _dispatch_stm_transaction(self, retry_counter):
-        co_code = self.pycode.co_code
-        next_instr = r_uint(self.last_instr)
-        ec = self.space.getexecutioncontext()
-        next_instr = self.handle_bytecode(co_code, next_instr, ec)
-        self.last_instr = intmask(next_instr)
-        return 1   # loop again, unless interrupted by an ExitFrame
+        try:
+            co_code = self.pycode.co_code
+            next_instr = r_uint(self.last_instr)
+            ec = self.space.getexecutioncontext()
+            next_instr = self.handle_bytecode(co_code, next_instr, ec)
+            self.last_instr = intmask(next_instr)
+            return 1     # loop
+        except ExitFrame:
+            self.__reraise = None
+            return 0     # stop looping
+        except Exception, e:
+            self.__reraise = e
+            return 0     # stop looping
 
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
