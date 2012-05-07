@@ -75,3 +75,4 @@ def perform_transaction(func, argcls, arg):
     stmgcintf.StmOperations.perform_transaction(llcallback, llarg, adr_of_top)
     after_external_call()
     keepalive_until_here(arg)
+perform_transaction._transaction_break_ = True
