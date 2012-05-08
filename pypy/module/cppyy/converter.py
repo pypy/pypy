@@ -64,7 +64,7 @@ class TypeConverter(object):
     def convert_argument(self, space, w_obj, address, call_local):
         self._is_abstract(space)
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -159,9 +159,8 @@ class NumericTypeConverterMixin(object):
     _mixin_ = True
     _immutable_ = True
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(self._unwrap_object(space, w_obj))
-        return lltype.nullptr(rffi.VOIDP.TO)
 
     def default_argument_libffi(self, space, argchain):
         argchain.arg(self.default)
@@ -181,13 +180,12 @@ class ConstRefNumericTypeConverterMixin(NumericTypeConverterMixin):
     _immutable_ = True
     uses_local = True
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
+        assert rffi.sizeof(self.c_type) <= 2*rffi.sizeof(rffi.VOIDP)  # see interp_cppyy.py
         obj = self._unwrap_object(space, w_obj)
-        tbuf = lltype.malloc(self.c_ptrtype.TO, rffi.sizeof(self.c_type), flavor='raw')
-        tbuf[0] = obj
-        vbuf = rffi.cast(rffi.VOIDP, tbuf)
-        argchain.arg(vbuf)
-        return vbuf
+        typed_buf = rffi.cast(self.c_ptrtype, call_local)
+        typed_buf[0] = obj
+        argchain.arg(call_local)
 
 class IntTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
@@ -235,9 +233,8 @@ class BoolConverter(TypeConverter):
         x = rffi.cast(rffi.LONGP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(self._unwrap_object(space, w_obj))
-        return lltype.nullptr(rffi.VOIDP.TO)
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
@@ -278,9 +275,8 @@ class CharConverter(TypeConverter):
         x = rffi.cast(rffi.CCHARP, address)
         x[0] = self._unwrap_object(space, w_obj)
 
-    def convert_argument_libffi(self, space, w_obj, argchain): 
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(self._unwrap_object(space, w_obj))
-        return lltype.nullptr(rffi.VOIDP.TO)
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
@@ -461,7 +457,7 @@ class ConstFloatRefConverter(FloatConverter):
     libffitype = libffi.types.pointer
     typecode = 'F'
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
 
@@ -515,9 +511,8 @@ class VoidPtrConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset()] = 'a'
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(get_rawobject(space, w_obj))
-        return lltype.nullptr(rffi.VOIDP.TO)
 
 class VoidPtrPtrConverter(TypeConverter):
     _immutable_ = True
@@ -656,9 +651,8 @@ class InstancePtrConverter(TypeConverter):
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset()] = 'o'
 
-    def convert_argument_libffi(self, space, w_obj, argchain):
+    def convert_argument_libffi(self, space, w_obj, argchain, call_local):
         argchain.arg(self._unwrap_object(space, w_obj))
-        return lltype.nullptr(rffi.VOIDP.TO)
 
     def from_memory(self, space, w_obj, w_pycppclass, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))

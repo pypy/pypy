@@ -130,7 +130,7 @@ class CPPMethod(object):
     def _address_from_local_buffer(self, call_local, idx):
         if not call_local:
             return call_local
-        stride = rffi.sizeof(rffi.VOIDP)
+        stride = 2*rffi.sizeof(rffi.VOIDP)
         loc_idx = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), idx*stride)
         return rffi.cast(rffi.VOIDP, loc_idx)
 
@@ -153,7 +153,7 @@ class CPPMethod(object):
         # some calls, e.g. for ptr-ptr or reference need a local array to store data for
         # the duration of the call
         if [conv for conv in self.converters if conv.uses_local]:
-            call_local = rffi.lltype.malloc(rffi.VOIDP.TO, len(args_w), flavor='raw')
+            call_local = lltype.malloc(rffi.VOIDP.TO, 2*len(args_w), flavor='raw')
         else:
             call_local = lltype.nullptr(rffi.VOIDP.TO)
 
@@ -181,21 +181,14 @@ class CPPMethod(object):
         argchain = libffi.ArgChain()
         argchain.arg(cppthis)
         i = len(self.arg_defs)
-        refbuffers = []
-        try:
-            for i in range(len(args_w)):
-                conv = self.converters[i]
-                w_arg = args_w[i]
-                refbuf = conv.convert_argument_libffi(self.space, w_arg, argchain)
-                if refbuf:
-                    refbuffers.append(refbuf)
-            for j in range(i+1, len(self.arg_defs)):
-                conv = self.converters[j]
-                conv.default_argument_libffi(self.space, argchain)
-            return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
-        finally:
-            for refbuf in refbuffers:
-                lltype.free(refbuf, flavor='raw')
+        for i in range(len(args_w)):
+            conv = self.converters[i]
+            w_arg = args_w[i]
+            conv.convert_argument_libffi(self.space, w_arg, argchain, call_local)
+        for j in range(i+1, len(self.arg_defs)):
+            conv = self.converters[j]
+            conv.default_argument_libffi(self.space, argchain)
+        return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
 
     def _setup(self, cppthis):
         self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
