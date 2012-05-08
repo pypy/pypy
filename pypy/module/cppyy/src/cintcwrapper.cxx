@@ -552,7 +552,7 @@ char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
         if (cppyy_is_constructor(handle, method_index))
             return cppstring_to_cstring("constructor");
         f = (TFunction*)cr->GetListOfMethods()->At(method_index);
-    else
+    } else
         f = &g_globalfuncs[method_index];
     return type_cppstring_to_cstring(f->GetReturnTypeName());
 }
