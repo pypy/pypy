@@ -922,7 +922,7 @@ class TestOptimizations:
                           ops.RETURN_VALUE: 1}
 
         source = """def f():
-        return u"\U00012345abcdef"[3]
+        return "\U00012345abcdef"[3]
         """
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
