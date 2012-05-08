@@ -616,11 +616,9 @@ class AppTestSocketTCP:
                 cli.send('foobar' * 70)
         except timeout:
             pass
-        # test sendall() timeout
-        try:
-            cli.sendall('foobar'*70)
-        except timeout:
-            pass
+        # test sendall() timeout, be sure to send data larger than the
+        # socket buffer
+        raises(timeout, cli.sendall, 'foobar' * 7000)
         # done
         cli.close()
         t.close()
