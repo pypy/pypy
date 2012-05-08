@@ -11,6 +11,7 @@ from pypy.conftest import option
 import sys
 
 class BaseNumpyAppTest(object):
+    @classmethod
     def setup_class(cls):
         py.test.py3k_skip("micronumpy not supported on py3k")
         if option.runappdirect:

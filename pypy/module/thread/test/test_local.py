@@ -48,7 +48,7 @@ class AppTestLocal(GenericTestThread):
 
     def test_local_init(self):
         import _thread
-        tags = [1, 2, 3, 4, 5, 54321]
+        tags = ['???', 1, 2, 3, 4, 5, 54321]
         seen = []
 
         raises(TypeError, _thread._local, a=1)
@@ -61,6 +61,7 @@ class AppTestLocal(GenericTestThread):
 
         x = X(42)
         assert x.tag == 54321
+        assert x.tag == 54321
         def f():
             seen.append(x.tag)
         for i in range(5):
@@ -69,7 +70,7 @@ class AppTestLocal(GenericTestThread):
         seen1 = seen[:]
         seen1.sort()
         assert seen1 == [1, 2, 3, 4, 5]
-        assert tags == []
+        assert tags == ['???']
 
     def test_local_setdict(self):
         import _thread
@@ -87,3 +88,23 @@ class AppTestLocal(GenericTestThread):
             _thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5, delay=2)
         assert len(done) == 5
+
+    def test_local_is_not_immortal(self):
+        import thread, gc, time
+        class Local(thread._local):
+            def __del__(self):
+                done.append('del')
+        done = []
+        def f():
+            assert not hasattr(l, 'foo')
+            l.bar = 42
+            done.append('ok')
+            self.waitfor(lambda: len(done) == 3, delay=8)
+        l = Local()
+        l.foo = 42
+        thread.start_new_thread(f, ())
+        self.waitfor(lambda: len(done) == 1, delay=2)
+        l = None
+        gc.collect()
+        assert done == ['ok', 'del']
+        done.append('shutdown')

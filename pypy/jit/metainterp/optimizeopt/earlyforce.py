@@ -7,7 +7,8 @@ class OptEarlyForce(Optimization):
         opnum = op.getopnum()
         if (opnum != rop.SETFIELD_GC and 
             opnum != rop.SETARRAYITEM_GC and
-            opnum != rop.QUASIIMMUT_FIELD):
+            opnum != rop.QUASIIMMUT_FIELD and
+            opnum != rop.SAME_AS):
                
             for arg in op.getarglist():
                 if arg in self.optimizer.values:
