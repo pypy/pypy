@@ -208,7 +208,7 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop('A GURAD_{VALUE,TRUE,FALSE} was proven to' +
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
                                   'always fail')
             return
         if emit_operation:
