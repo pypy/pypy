@@ -3,6 +3,8 @@ Software Transactional Memory emulation of the GIL.
 """
 
 from pypy.module.thread.threadlocals import OSThreadLocals
+from pypy.module.thread.error import wrap_thread_error
+from pypy.module.thread import ll_thread
 from pypy.rlib import rstm
 from pypy.rlib.objectmodel import invoke_around_extcall
 
@@ -21,3 +23,18 @@ class STMThreadLocals(OSThreadLocals):
 
     def reinit_threads(self, space):
         self.setup_threads(space)
+
+
+class STMLock(ll_thread.Lock):
+    def __init__(self, space, ll_lock):
+        ll_thread.Lock.__init__(self, ll_lock)
+        self.space = space
+
+    def acquire(self, flag):
+        if rstm.is_atomic():
+            raise wrap_thread_error(self.space,
+                "cannot acquire locks inside an atomic block")
+        return ll_thread.Lock.acquire(self, flag)
+
+def allocate_stm_lock(space):
+    return STMLock(space, ll_thread.allocate_ll_lock())

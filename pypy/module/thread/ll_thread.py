@@ -115,13 +115,16 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
+        return self._acquire(flag)    # indirection for the STMLock subclass
+
+    def _acquire(self, flag):
         res = c_thread_acquirelock(self._lock, int(flag))
         res = rffi.cast(lltype.Signed, res)
         return bool(res)
 
     def release(self):
         # Sanity check: the lock must be locked
-        if self.acquire(False):
+        if self._acquire(False):
             c_thread_releaselock(self._lock)
             raise error("bad lock")
         else:

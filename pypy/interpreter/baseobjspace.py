@@ -682,7 +682,11 @@ class ObjSpace(object):
     def __allocate_lock(self):
         from pypy.module.thread.ll_thread import allocate_lock, error
         try:
-            return allocate_lock()
+            if self.config.translation.stm:
+                from pypy.module.thread import stm
+                return stm.allocate_stm_lock(self)
+            else:
+                return allocate_lock()
         except error:
             raise OperationError(self.w_RuntimeError,
                                  self.wrap("out of resources"))

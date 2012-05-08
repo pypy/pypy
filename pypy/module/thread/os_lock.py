@@ -7,6 +7,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.error import OperationError
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
@@ -32,9 +33,11 @@ class Lock(Wrappable):
     def __init__(self, space):
         self.space = space
         try:
-            self.lock = thread.allocate_lock()
-        except thread.error:
-            raise wrap_thread_error(space, "out of resources")
+            self.lock = space.allocate_lock()
+        except OperationError, e:
+            if e.match(space, space.w_RuntimeError):
+                raise wrap_thread_error(space, "out of resources")
+            raise
 
     @unwrap_spec(waitflag=int)
     def descr_lock_acquire(self, space, waitflag=1):
