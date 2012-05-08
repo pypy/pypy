@@ -31,6 +31,7 @@ long stm_in_transaction(void);
 long stm_is_inevitable(void);
 void stm_add_atomic(long);
 long stm_get_atomic(void);
+long stm_should_break_transaction(void);
 
 void stm_perform_transaction(long(*)(void*, long), void*, void*);
 
