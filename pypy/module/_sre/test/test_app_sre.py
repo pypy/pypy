@@ -356,6 +356,8 @@ class AppTestGetlower:
 
 class AppTestSimpleSearches:
 
+    spaceconfig = {'usemodules': ('array',)}
+
     def test_search_simple_literal(self):
         import re
         assert re.search("bla", "bla")
