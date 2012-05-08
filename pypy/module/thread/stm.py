@@ -32,9 +32,14 @@ class STMLock(ll_thread.Lock):
 
     def acquire(self, flag):
         if rstm.is_atomic():
-            raise wrap_thread_error(self.space,
-                "cannot acquire locks inside an atomic block")
-        return ll_thread.Lock.acquire(self, flag)
+            acquired = ll_thread.Lock.acquire(self, False)
+            if flag and not acquired:
+                raise wrap_thread_error(self.space,
+                    "deadlock: an atomic transaction tries to acquire "
+                    "a lock that is already acquired.  See http://XXX.")
+        else:
+            acquired = ll_thread.Lock.acquire(self, flag)
+        return acquired
 
 def allocate_stm_lock(space):
     return STMLock(space, ll_thread.allocate_ll_lock())
