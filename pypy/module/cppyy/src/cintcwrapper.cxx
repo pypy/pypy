@@ -546,7 +546,14 @@ char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
 }
 
 char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
-    TFunction* f = type_get_method(handle, method_index);
+    TFunction* f = 0;
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass()) {
+        if (cppyy_is_constructor(handle, method_index))
+            return cppstring_to_cstring("constructor");
+        f = (TFunction*)cr->GetListOfMethods()->At(method_index);
+    else
+        f = &g_globalfuncs[method_index];
     return type_cppstring_to_cstring(f->GetReturnTypeName());
 }
 

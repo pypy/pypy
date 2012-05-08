@@ -340,6 +340,8 @@ char* cppyy_method_name(cppyy_scope_t handle, int method_index) {
 char* cppyy_method_result_type(cppyy_scope_t handle, int method_index) {
     Reflex::Scope s = scope_from_handle(handle);
     Reflex::Member m = s.FunctionMemberAt(method_index);
+    if (m.IsConstructor())
+        return cppstring_to_cstring("constructor");
     Reflex::Type rt = m.TypeOf().ReturnType();
     std::string name = rt.Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);

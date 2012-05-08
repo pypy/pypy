@@ -42,6 +42,7 @@ def get_rawobject_nonnull(space, w_obj):
 class TypeConverter(object):
     _immutable_ = True
     libffitype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    uses_local = False
 
     name = ""
 
@@ -178,6 +179,7 @@ class NumericTypeConverterMixin(object):
 class ConstRefNumericTypeConverterMixin(NumericTypeConverterMixin):
     _mixin_ = True
     _immutable_ = True
+    uses_local = True
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         obj = self._unwrap_object(space, w_obj)
@@ -519,6 +521,7 @@ class VoidPtrConverter(TypeConverter):
 
 class VoidPtrPtrConverter(TypeConverter):
     _immutable_ = True
+    uses_local = True
 
     def convert_argument(self, space, w_obj, address, call_local):
         r = rffi.cast(rffi.VOIDPP, call_local)
@@ -682,6 +685,7 @@ class InstanceConverter(InstancePtrConverter):
 
 class InstancePtrPtrConverter(InstancePtrConverter):
     _immutable_ = True
+    uses_local = True
 
     def convert_argument(self, space, w_obj, address, call_local):
         r = rffi.cast(rffi.VOIDPP, call_local)

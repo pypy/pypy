@@ -112,55 +112,68 @@ class CPPMethod(object):
     """ A concrete function after overloading has been resolved """
     _immutable_ = True
     
-    def __init__(self, space, containing_scope, method_index, result_type, arg_defs, args_required):
+    def __init__(self, space, containing_scope, method_index, arg_defs, args_required):
         self.space = space
         self.scope = containing_scope
         self.index = method_index
         self.cppmethod = capi.c_get_method(self.scope, method_index)
         self.arg_defs = arg_defs
         self.args_required = args_required
-        self.result_type = result_type
+        self.args_expected = len(arg_defs)
 
         # Setup of the method dispatch's innards is done lazily, i.e. only when
         # the method is actually used.
-        self.arg_converters = None
+        self.converters = None
         self.executor = None
         self._libffifunc = None
 
-    def _address_from_local_buffer(self, call_local, index):
-        return lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), index*rffi.sizeof(rffi.VOIDP))
+    def _address_from_local_buffer(self, call_local, idx):
+        if not call_local:
+            return call_local
+        stride = rffi.sizeof(rffi.VOIDP)
+        loc_idx = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, call_local), idx*stride)
+        return rffi.cast(rffi.VOIDP, loc_idx)
 
     @jit.unroll_safe
     def call(self, cppthis, args_w):
         jit.promote(self)
         assert lltype.typeOf(cppthis) == capi.C_OBJECT
+
+        # check number of given arguments against required (== total - defaults)
         args_expected = len(self.arg_defs)
         args_given = len(args_w)
         if args_expected < args_given or args_given < self.args_required:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("wrong number of arguments"))
 
-        if self.arg_converters is None:
+        # initial setup of converters, executors, and libffi (if available)
+        if self.converters is None:
             self._setup(cppthis)
 
-        call_local = lltype.malloc(rffi.CArray(rffi.VOIDP), len(args_w), flavor='raw')
+        # some calls, e.g. for ptr-ptr or reference need a local array to store data for
+        # the duration of the call
+        if [conv for conv in self.converters if conv.uses_local]:
+            call_local = rffi.lltype.malloc(rffi.VOIDP.TO, len(args_w), flavor='raw')
+        else:
+            call_local = lltype.nullptr(rffi.VOIDP.TO)
 
-        if self._libffifunc:
-            try:
-                result = self.do_fast_call(cppthis, args_w, call_local)
-                lltype.free(call_local, flavor='raw')
-                return result
-            except FastCallNotPossible:
-                pass          # can happen if converters or executor does not implement ffi
-            except:
-                lltype.free(call_local, flavor='raw')
-                raise
-
-        args = self.prepare_arguments(args_w, call_local)
         try:
-            return self.executor.execute(self.space, self.cppmethod, cppthis, len(args_w), args)
+            # attempt to call directly through ffi chain
+            if self._libffifunc:
+                try:
+                    return self.do_fast_call(cppthis, args_w, call_local)
+                except FastCallNotPossible:
+                    pass      # can happen if converters or executor does not implement ffi
+
+            # ffi chain must have failed; using stub functions instead
+            args = self.prepare_arguments(args_w, call_local)
+            try:
+                return self.executor.execute(self.space, self.cppmethod, cppthis, len(args_w), args)
+            finally:
+                self.finalize_call(args, args_w, call_local)
         finally:
-            self.finalize_call(args, args_w, call_local)
+            if call_local:
+                lltype.free(call_local, flavor='raw')
 
     @jit.unroll_safe
     def do_fast_call(self, cppthis, args_w, call_local):
@@ -171,13 +184,13 @@ class CPPMethod(object):
         refbuffers = []
         try:
             for i in range(len(args_w)):
-                conv = self.arg_converters[i]
+                conv = self.converters[i]
                 w_arg = args_w[i]
                 refbuf = conv.convert_argument_libffi(self.space, w_arg, argchain)
                 if refbuf:
                     refbuffers.append(refbuf)
             for j in range(i+1, len(self.arg_defs)):
-                conv = self.arg_converters[j]
+                conv = self.converters[j]
                 conv.default_argument_libffi(self.space, argchain)
             return self.executor.execute_libffi(self.space, self._libffifunc, argchain)
         finally:
@@ -185,9 +198,9 @@ class CPPMethod(object):
                 lltype.free(refbuf, flavor='raw')
 
     def _setup(self, cppthis):
-        self.arg_converters = [converter.get_converter(self.space, arg_type, arg_dflt)
-                                   for arg_type, arg_dflt in self.arg_defs]
-        self.executor = executor.get_executor(self.space, self.result_type)
+        self.converters = [converter.get_converter(self.space, arg_type, arg_dflt)
+                               for arg_type, arg_dflt in self.arg_defs]
+        self.executor = executor.get_executor(self.space, capi.c_method_result_type(self.scope, self.index))
 
         # Each CPPMethod corresponds one-to-one to a C++ equivalent and cppthis
         # has been offset to the matching class. Hence, the libffi pointer is
@@ -195,9 +208,8 @@ class CPPMethod(object):
         methgetter = capi.c_get_methptr_getter(self.scope, self.index)
         if methgetter and cppthis:      # methods only for now
             funcptr = methgetter(rffi.cast(capi.C_OBJECT, cppthis))
-            argtypes_libffi = [conv.libffitype for conv in self.arg_converters
-                               if conv.libffitype]
-            if (len(argtypes_libffi) == len(self.arg_converters) and
+            argtypes_libffi = [conv.libffitype for conv in self.converters if conv.libffitype]
+            if (len(argtypes_libffi) == len(self.converters) and
                     self.executor.libffitype):
                 # add c++ this to the arguments
                 libffifunc = libffi.Func("XXX",
@@ -211,7 +223,7 @@ class CPPMethod(object):
         args = capi.c_allocate_function_args(len(args_w))
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
-            conv = self.arg_converters[i]
+            conv = self.converters[i]
             w_arg = args_w[i]
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
@@ -220,12 +232,11 @@ class CPPMethod(object):
             except:
                 # fun :-(
                 for j in range(i):
-                    conv = self.arg_converters[j]
+                    conv = self.converters[j]
                     arg_j = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), j*stride)
                     loc_j = self._address_from_local_buffer(call_local, j)
                     conv.free_argument(rffi.cast(capi.C_OBJECT, arg_j), loc_j)
                 capi.c_deallocate_function_args(args)
-                lltype.free(call_local, flavor='raw')
                 raise
         return args
 
@@ -233,13 +244,12 @@ class CPPMethod(object):
     def finalize_call(self, args, args_w, call_local):
         stride = capi.c_function_arg_sizeof()
         for i in range(len(args_w)):
-            conv = self.arg_converters[i]
+            conv = self.converters[i]
             arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
             loc_i = self._address_from_local_buffer(call_local, i)
             conv.finalize_call(self.space, args_w[i], loc_i)
             conv.free_argument(rffi.cast(capi.C_OBJECT, arg_i), loc_i)
         capi.c_deallocate_function_args(args)
-        lltype.free(call_local, flavor='raw')
 
     def signature(self):
         return capi.c_method_signature(self.scope, self.index)
@@ -485,7 +495,6 @@ class W_CPPNamespace(W_CPPScope):
     kind = "namespace"
 
     def _make_cppfunction(self, method_index):
-        result_type = capi.c_method_result_type(self, method_index)
         num_args = capi.c_method_num_args(self, method_index)
         args_required = capi.c_method_req_args(self, method_index)
         arg_defs = []
@@ -493,7 +502,7 @@ class W_CPPNamespace(W_CPPScope):
             arg_type = capi.c_method_arg_type(self, method_index, i)
             arg_dflt = capi.c_method_arg_default(self, method_index, i)
             arg_defs.append((arg_type, arg_dflt))
-        return CPPFunction(self.space, self, method_index, result_type, arg_defs, args_required)
+        return CPPFunction(self.space, self, method_index, arg_defs, args_required)
 
     def _make_datamember(self, dm_name, dm_idx):
         type_name = capi.c_datamember_type(self, dm_idx)
@@ -551,7 +560,6 @@ class W_CPPClass(W_CPPScope):
     kind = "class"
 
     def _make_cppfunction(self, method_index):
-        result_type = capi.c_method_result_type(self, method_index)
         num_args = capi.c_method_num_args(self, method_index)
         args_required = capi.c_method_req_args(self, method_index)
         arg_defs = []
@@ -560,13 +568,12 @@ class W_CPPClass(W_CPPScope):
             arg_dflt = capi.c_method_arg_default(self, method_index, i)
             arg_defs.append((arg_type, arg_dflt))
         if capi.c_is_constructor(self, method_index):
-            result_type = "constructor"
             cls = CPPConstructor
         elif capi.c_is_staticmethod(self, method_index):
             cls = CPPFunction
         else:
             cls = CPPMethod
-        return cls(self.space, self, method_index, result_type, arg_defs, args_required)
+        return cls(self.space, self, method_index, arg_defs, args_required)
 
     def _find_datamembers(self):
         num_datamembers = capi.c_num_datamembers(self)
