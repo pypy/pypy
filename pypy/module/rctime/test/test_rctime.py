@@ -213,6 +213,7 @@ class AppTestRCTime:
 
     def test_strftime(self):
         import time as rctime
+        import os
 
         t = rctime.time()
         tt = rctime.gmtime(t)
