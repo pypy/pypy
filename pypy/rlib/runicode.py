@@ -505,8 +505,9 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
     pos = 0
     if byteorder == 'native':
         if size >= 4:
-            bom = ((ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
-                   (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
+            bom = intmask(
+                (ord(s[iorder[3]]) << 24) | (ord(s[iorder[2]]) << 16) |
+                (ord(s[iorder[1]]) << 8)  | ord(s[iorder[0]]))
             if BYTEORDER == 'little':
                 if bom == BOM32_DIRECT:
                     pos += 4

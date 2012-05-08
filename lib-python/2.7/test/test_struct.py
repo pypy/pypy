@@ -535,7 +535,8 @@ class StructTest(unittest.TestCase):
 
     @unittest.skipUnless(IS32BIT, "Specific to 32bit machines")
     def test_crasher(self):
-        self.assertRaises(MemoryError, struct.pack, "357913941c", "a")
+        self.assertRaises((MemoryError, struct.error), struct.pack,
+                          "357913941c", "a")
 
     def test_count_overflow(self):
         hugecount = '{}b'.format(sys.maxsize+1)

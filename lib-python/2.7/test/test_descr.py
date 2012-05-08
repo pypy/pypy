@@ -2,6 +2,7 @@ import __builtin__
 import sys
 import types
 import unittest
+import popen2     # trigger early the warning from popen2.py
 
 from copy import deepcopy
 from test import test_support
@@ -1128,7 +1129,7 @@ order (MRO) for bases """
 
         # Test lookup leaks [SF bug 572567]
         import gc
-        if hasattr(gc, 'get_objects'):
+        if test_support.check_impl_detail():
             class G(object):
                 def __cmp__(self, other):
                     return 0
@@ -1741,6 +1742,10 @@ order (MRO) for bases """
                 raise MyException
 
         for name, runner, meth_impl, ok, env in specials:
+            if name == '__length_hint__' or name == '__sizeof__':
+                if not test_support.check_impl_detail():
+                    continue
+
             class X(Checker):
                 pass
             for attr, obj in env.iteritems():
@@ -1980,7 +1985,9 @@ order (MRO) for bases """
         except TypeError, msg:
             self.assertTrue(str(msg).find("weak reference") >= 0)
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if test_support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
+            #else: pypy supports taking weakrefs to some more objects
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -3092,7 +3099,16 @@ order (MRO) for bases """
         class R(J):
             __slots__ = ["__dict__", "__weakref__"]
 
-        for cls, cls2 in ((G, H), (G, I), (I, H), (Q, R), (R, Q)):
+        if test_support.check_impl_detail(pypy=False):
+            lst = ((G, H), (G, I), (I, H), (Q, R), (R, Q))
+        else:
+            # Not supported in pypy: changing the __class__ of an object
+            # to another __class__ that just happens to have the same slots.
+            # If needed, we can add the feature, but what we'll likely do
+            # then is to allow mostly any __class__ assignment, even if the
+            # classes have different __slots__, because we it's easier.
+            lst = ((Q, R), (R, Q))
+        for cls, cls2 in lst:
             x = cls()
             x.a = 1
             x.__class__ = cls2
@@ -3175,7 +3191,8 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                self.fail("%r's __dict__ can be modified" % cls)
+                if test_support.check_impl_detail(pypy=False):
+                    self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):
@@ -4383,13 +4400,10 @@ order (MRO) for bases """
         self.assertTrue(l.__add__ != [5].__add__)
         self.assertTrue(l.__add__ != l.__mul__)
         self.assertTrue(l.__add__.__name__ == '__add__')
-        if hasattr(l.__add__, '__self__'):
-            # CPython
-            self.assertTrue(l.__add__.__self__ is l)
+        self.assertTrue(l.__add__.__self__ is l)
+        if hasattr(l.__add__, '__objclass__'):   # CPython
             self.assertTrue(l.__add__.__objclass__ is list)
-        else:
-            # Python implementations where [].__add__ is a normal bound method
-            self.assertTrue(l.__add__.im_self is l)
+        else:                                    # PyPy
             self.assertTrue(l.__add__.im_class is list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         try:
@@ -4578,8 +4592,12 @@ order (MRO) for bases """
             str.split(fake_str)
 
         # call a slot wrapper descriptor
-        with self.assertRaises(TypeError):
-            str.__add__(fake_str, "abc")
+        try:
+            r = str.__add__(fake_str, "abc")
+        except TypeError:
+            pass
+        else:
+            self.assertEqual(r, NotImplemented)
 
 
 class DictProxyTests(unittest.TestCase):

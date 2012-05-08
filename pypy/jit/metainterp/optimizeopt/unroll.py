@@ -335,9 +335,13 @@ class UnrollOptimizer(Optimization):
                                       
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        for op in self.short[1:]:
+        i = 1
+        while i < len(self.short):
+            # Note that self.short might be extended during this loop
+            op = self.short[i]
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
+            i += 1
 
         # Import boxes produced in the preamble but used in the loop
         newoperations = self.optimizer.get_newoperations()
