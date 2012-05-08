@@ -33,8 +33,6 @@ class TestMMap:
         interpret(f, [])
 
     def test_file_size(self):
-        if os.name == "nt":
-            skip("Only Unix checks file size")
         def func(no):
 
             try:
@@ -433,15 +431,16 @@ class TestMMap:
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
             skip("Windows-only test")
-
-        m = mmap.mmap(-1, 1000, tagname="foo")
-        # same tagname, but larger size
-        try:
-            m2 = mmap.mmap(-1, 5000, tagname="foo")
-            m2.getitem(4500)
-        except WindowsError:
-            pass
-        m.close()
+        def func():
+            m = mmap.mmap(-1, 1000, tagname="foo")
+            # same tagname, but larger size
+            try:
+                m2 = mmap.mmap(-1, 5000, tagname="foo")
+                m2.getitem(4500)
+            except WindowsError:
+                pass
+            m.close()
+        interpret(func, [])
 
     def test_windows_crasher_2(self):
         if sys.platform != "win32":

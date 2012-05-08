@@ -271,5 +271,6 @@ class AppTestMath:
         assert math.trunc(foo()) == "truncated"
 
     def test_copysign_nan(self):
+        skip('sign of nan is undefined')
         import math
         assert math.copysign(1.0, float('-nan')) == -1.0

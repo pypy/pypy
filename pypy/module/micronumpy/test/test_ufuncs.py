@@ -233,12 +233,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a[1] == 0
 
     def test_signbit(self):
-        from _numpypy import signbit, copysign
+        from _numpypy import signbit
 
-        assert (signbit([0, 0.0, 1, 1.0, float('inf'), float('nan')]) ==
-            [False, False, False, False, False, False]).all()
-        assert (signbit([-0, -0.0, -1, -1.0, float('-inf'), -float('nan'), float('-nan')]) ==
-            [False,  True,  True,  True,  True,  True, True]).all()
+        assert (signbit([0, 0.0, 1, 1.0, float('inf')]) ==
+            [False, False, False, False, False]).all()
+        assert (signbit([-0, -0.0, -1, -1.0, float('-inf')]) ==
+            [False,  True,  True,  True,  True]).all()
+        skip('sign of nan is non-determinant')
+        assert (signbit([float('nan'), float('-nan'), -float('nan')]) ==
+            [False, True, True]).all()    
 
     def test_reciporocal(self):
         from _numpypy import array, reciprocal
@@ -267,8 +270,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0, inf] == ceil(a)).all()
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == trunc(a)).all()
         assert all([math.isnan(f(float("nan"))) for f in floor, ceil, trunc])
-        assert all([math.copysign(1, f(float("nan"))) == 1 for f in floor, ceil, trunc])
-        assert all([math.copysign(1, f(float("-nan"))) == -1 for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
+        assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_copysign(self):
         from _numpypy import array, copysign
