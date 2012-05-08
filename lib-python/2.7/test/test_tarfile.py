@@ -340,8 +340,7 @@ class MiscReadTest(CommonReadTest):
         # constructor in case of an error. For the test we rely on
         # the fact that opening an empty file raises a ReadError.
         empty = os.path.join(TEMPDIR, "empty")
-        with open(empty, "wb") as fid:
-            fid.write("")
+        open(empty, "wb").write("")
 
         try:
             tar = object.__new__(tarfile.TarFile)
