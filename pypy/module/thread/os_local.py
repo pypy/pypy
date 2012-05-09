@@ -1,8 +1,11 @@
-from pypy.rlib.rweakref import RWeakKeyDictionary
+import weakref
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
+
+
+ExecutionContext._thread_local_objs = None
 
 
 class Local(Wrappable):
@@ -10,7 +13,7 @@ class Local(Wrappable):
 
     def __init__(self, space, initargs):
         self.initargs = initargs
-        self.dicts = RWeakKeyDictionary(ExecutionContext, W_Root)
+        self.dicts = {}   # mapping ExecutionContexts to the wraped dict
         # The app-level __init__() will be called by the general
         # instance-creation logic.  It causes getdict() to be
         # immediately called.  If we don't prepare and set a w_dict
@@ -18,15 +21,24 @@ class Local(Wrappable):
         # to call __init__() a second time.
         ec = space.getexecutioncontext()
         w_dict = space.newdict(instance=True)
-        self.dicts.set(ec, w_dict)
+        self.dicts[ec] = w_dict
+        self._register_in_ec(ec)
+
+    def _register_in_ec(self, ec):
+        if not ec.space.config.translation.rweakref:
+            return    # without weakrefs, works but 'dicts' is never cleared
+        if ec._thread_local_objs is None:
+            ec._thread_local_objs = []
+        ec._thread_local_objs.append(weakref.ref(self))
 
     def getdict(self, space):
         ec = space.getexecutioncontext()
-        w_dict = self.dicts.get(ec)
-        if w_dict is None:
+        try:
+            w_dict = self.dicts[ec]
+        except KeyError:
             # create a new dict for this thread
             w_dict = space.newdict(instance=True)
-            self.dicts.set(ec, w_dict)
+            self.dicts[ec] = w_dict
             # call __init__
             try:
                 w_self = space.wrap(self)
@@ -35,9 +47,10 @@ class Local(Wrappable):
                 space.call_obj_args(w_init, w_self, self.initargs)
             except:
                 # failed, forget w_dict and propagate the exception
-                self.dicts.set(ec, None)
+                del self.dicts[ec]
                 raise
             # ready
+            self._register_in_ec(ec)
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
@@ -55,3 +68,13 @@ Local.typedef = TypeDef("thread._local",
                         __init__ = interp2app(Local.descr_local__init__),
                         __dict__ = GetSetProperty(descr_get_dict, cls=Local),
                         )
+
+def thread_is_stopping(ec):
+    tlobjs = ec._thread_local_objs
+    if tlobjs is None:
+        return
+    ec._thread_local_objs = None
+    for wref in tlobjs:
+        local = wref()
+        if local is not None:
+            del local.dicts[ec]
