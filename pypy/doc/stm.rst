@@ -60,14 +60,15 @@ manager to use in a ``with`` statement.  Any code running in the ``with
 thread.atomic`` block is guaranteed to be fully serialized with respect
 to any code run by other threads (so-called *strong isolation*).
 
-Note that this is a guarantee of observed behavior: under the conditions
-described below, a ``thread.atomic`` block can actually run in parallel
-with other threads, whether they are in a ``thread.atomic`` or not.
+Note that this is a *guarantee of observed behavior:* under the conditions
+described below, a ``thread.atomic`` block can internally run in parallel
+with other threads, whether they are in a ``thread.atomic`` or not.  But
+the behavior is as if the threads don't overlap.
 
 Classical minimal example: in a thread, you want to pop an item from
 ``list1`` and append it to ``list2``, knowing that both lists can be
 mutated concurrently by other threads.  Using ``thread.atomic`` this can
-be done without careful usage of locks on any mutation of the lists::
+be done without careful usage of locks on all the mutations of the lists::
 
     with thread.atomic:
         x = list1.pop()
@@ -89,22 +90,22 @@ itself acquire locks internally too; most notably, any file access does.
 These locks work fine in ``pypy-stm`` either outside ``thread.atomic``
 blocks or inside ``thread.atomic`` blocks.  However, due to hard
 technical issues, it is not really possible for them to work correctly
-if a ``thread.atomic`` block tries to acquire a lock that is already
-acquired.  In that situation (only), acquiring the lock will raise
-``thread.error``.
+if a ``thread.atomic`` block tries to acquire a lock that has already
+been acquired outside.  In that situation (only), trying to acquire the
+lock will raise ``thread.error``.
 
 A common way for this issue to show up is using ``print`` statements,
 because of the internal lock on ``stdout``.  You are free to use
 ``print`` either outside ``thread.atomic`` blocks or inside them, but
 not both concurrently.  An easy fix is to put all ``print`` statements
-inside ``thread.atomic`` blocks.  Writing this kind of code::
+inside ``thread.atomic`` blocks, by writing this kind of code::
 
     with thread.atomic:
         print "hello, the value is:", value
 
-actually also helps ensuring that the whole line (or lines) is printed
-atomically, instead of being broken up with interleaved output from
-other threads.
+Note that this actually also helps ensuring that the whole line (or
+lines) is printed atomically, instead of being broken up with
+interleaved output from other threads.
 
 In this case, it is always a good idea to protect ``print`` statements
 by ``thread.atomic``.  But not all file operations benefit: if you have
@@ -119,20 +120,25 @@ Parallelization
 ===============
 
 How much actual parallelization a multithreaded program can see is a bit
-subtle.  The exact rules may vary over time, too.  Here is an overview.
+subtle.  Basically, a program not using ``thread.atomic`` or using it
+for very short amounts of time will parallelize almost freely.  However,
+using ``thread.atomic`` gives less obvious rules.  The exact details may
+vary from version to version, too, until they are a bit more stabilized.
+Here is an overview.
 
 Each thread is actually running as a sequence of "transactions", which
 are separated by "transaction breaks".  The execution of the whole
 multithreaded program works as if all transactions were serialized.
-You don't see the transactions actually running in parallel.
+You don't see it but the transactions are actually running in parallel.
 
 This works as long as two principles are respected.  The first one is
 that the transactions must not *conflict* with each other.  The most
 obvious sources of conflicts are threads that all increment a global
 shared counter, or that all store the result of their computations into
-the same shared list.  (It is expected that some STM-aware library will
-eventually be designed to help with sharing problems, like a STM-aware
-list or queue.)
+the same list --- or, more subtly, that all ``pop()`` the work to do
+from the same list, because that is also a mutation of the list.
+(It is expected that some STM-aware library will eventually be designed
+to help with sharing problems, like a STM-aware list or queue.)
 
 The other principle is that of avoiding long-running "inevitable"
 transactions.  This is more subtle to understand.  The first thing we
@@ -146,35 +152,40 @@ at the following places:
 * from time to time between the execution of two bytecodes;
 * across an external system call.
 
-Transaction breaks *never* occur in ``thread.atomic`` mode.
+In ``thread.atomic`` mode, transaction breaks *never* occur.
 
-Additionally, every transaction can further be in one of two modes:
-either "normal" or "inevitable".  To simplify, a transaction starts in
-"normal" mode, but switches to "inevitable" as soon as it performs
-input/output.  If we have an inevitable transaction, all other
-transactions are paused; this effect is similar to the GIL.
+Additionally, every transaction can further be in one of two running
+modes: either "normal" or "inevitable".  To simplify, a transaction
+starts in "normal" mode, but switches to "inevitable" as soon as it
+performs input/output (more precisely, just before).  If we have an
+inevitable transaction, all other transactions are paused; this effect
+is similar to the GIL.
 
 In the absence of ``thread.atomic``, inevitable transactions only have a
-small effect.  Indeed, as soon as the current bytecode finishes, the
+small effect.  The transaction is stopped, and the next one restarted,
+around any long-running I/O.  Inevitable transactions still occur; e.g.
+for technical reasons the transaction immediately following I/O is
+inevitable.  However, as soon as the current bytecode finishes, the
 interpreter notices that the transaction is inevitable and immediately
-introduces a transaction break in order to switch back to a normal-mode
-transaction.  It means that inevitable transactions only run for a small
-fraction of the time.
+introduces yet another transaction break.  This switches us back to a
+normal-mode transaction.  It means that inevitable transactions only run
+for a small fraction of the time.
 
-With ``thread.atomic`` however you have to be a bit careful, because the
-next transaction break will only occur after the end of the outermost
-``with thread.atomic``.  Basically, you should organize your code in
-such a way that for any ``thread.atomic`` block that runs for a
-noticable time, any I/O is done near the end of it, not when there is
-still a lot of CPU (or I/O) time ahead.
+With ``thread.atomic`` however you have to be a bit careful, because I/O
+will not introduce transaction breaks; instead, it makes the transaction
+inevitable.  Moreover the next transaction break will only occur after
+the end of the outermost ``with thread.atomic``.  Basically, you should
+organize your code in such a way that for any ``thread.atomic`` block
+that runs for a noticable time, any I/O is done near the end of it, not
+when there is still a lot of CPU (or I/O) time ahead.
 
 In particular, this means that you should ideally avoid blocking I/O
 operations in ``thread.atomic`` blocks.  They work, but because the
 transaction is turned inevitable *before* the I/O is performed, they
-will prevent any parallel work at all.  (This may look like
-``thread.atomic`` blocks reverse the usual effects of the GIL: if the
-block is computation-intensive it will nicely be parallelized, but doing
-any long I/O prevents any parallel work.)
+will prevent any parallel work at all.  (This looks a bit like the
+opposite of the usual effects of the GIL: if the block is
+computation-intensive it will nicely be parallelized, but if it does any
+long I/O then it prevents any parallel work.)
 
 
 Implementation
