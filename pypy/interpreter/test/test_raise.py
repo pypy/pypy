@@ -279,3 +279,12 @@ class AppTestRaise:
             def __new__(cls, *args):
                 return object()
         raises(TypeError, "raise MyException")
+
+
+    def test_pop_exception_value(self):
+        # assert that this code don't crash
+        for i in range(10):
+            try:
+                raise ValueError
+            except ValueError as e:
+                continue
