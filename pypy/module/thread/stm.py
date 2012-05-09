@@ -36,7 +36,7 @@ class STMLock(ll_thread.Lock):
             if flag and not acquired:
                 raise wrap_thread_error(self.space,
                     "deadlock: an atomic transaction tries to acquire "
-                    "a lock that is already acquired.  See http://XXX.")
+                    "a lock that is already acquired.  See pypy/doc/stm.rst.")
         else:
             acquired = ll_thread.Lock.acquire(self, flag)
         return acquired
