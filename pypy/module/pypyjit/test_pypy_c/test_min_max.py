@@ -22,7 +22,7 @@ class TestMinMax(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i11 = int_add(i4, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i11, i9, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i11, i9, descr=...)
         """)
 
     def test_silly_max(self):

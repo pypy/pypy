@@ -1,6 +1,6 @@
 import sys
 from pypy.tool.pairtype import extendabletype
-from pypy.jit.backend.x86.regloc import ImmedLoc, StackLoc
+from pypy.jit.backend.x86.regloc import ImmediateAssemblerLocation, StackLoc
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
@@ -12,12 +12,15 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
         srccount[key] = 0
     for i in range(len(dst_locations)):
         src = src_locations[i]
-        if isinstance(src, ImmedLoc):
+        if isinstance(src, ImmediateAssemblerLocation):
             continue
         key = src._getregkey()
         if key in srccount:
             if key == dst_locations[i]._getregkey():
-                srccount[key] = -sys.maxint     # ignore a move "x = x"
+                # ignore a move "x = x"
+                # setting any "large enough" negative value is ok, but
+                # be careful of overflows, don't use -sys.maxint
+                srccount[key] = -len(dst_locations) - 1
                 pending_dests -= 1
             else:
                 srccount[key] += 1
@@ -31,7 +34,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                 srccount[key] = -1       # means "it's done"
                 pending_dests -= 1
                 src = src_locations[i]
-                if not isinstance(src, ImmedLoc):
+                if not isinstance(src, ImmediateAssemblerLocation):
                     key = src._getregkey()
                     if key in srccount:
                         srccount[key] -= 1
@@ -66,6 +69,13 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
 
 def _move(assembler, src, dst, tmpreg):
     if dst.is_memory_reference() and src.is_memory_reference():
+        if isinstance(src, ImmediateAssemblerLocation):
+            assembler.regalloc_immedmem2mem(src, dst)
+            return
+        if tmpreg is None:
+            assembler.regalloc_push(src)
+            assembler.regalloc_pop(dst)
+            return
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)
@@ -87,7 +97,7 @@ def remap_frame_layout_mixed(assembler,
         dstloc = dst_locations2[i]
         if isinstance(loc, StackLoc):
             key = loc._getregkey()
-            if (key in dst_keys or (loc.width > WORD and
+            if (key in dst_keys or (loc.get_width() > WORD and
                                     (key + WORD) in dst_keys)):
                 assembler.regalloc_push(loc)
                 extrapushes.append(dstloc)

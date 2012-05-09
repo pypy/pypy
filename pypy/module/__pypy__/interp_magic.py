@@ -5,7 +5,6 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
 
-
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
@@ -73,3 +72,11 @@ def lookup_special(space, w_obj, meth):
 
 def do_what_I_mean(space):
     return space.wrap(42)
+
+def list_strategy(space, w_list):
+    from pypy.objspace.std.listobject import W_ListObject
+    if isinstance(w_list, W_ListObject):
+        return space.wrap(w_list.strategy._applevel_repr)
+    else:
+        w_msg = space.wrap("Can only get the list strategy of a list")
+        raise OperationError(space.w_TypeError, w_msg)

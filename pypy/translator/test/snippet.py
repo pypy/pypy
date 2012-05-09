@@ -648,48 +648,6 @@ def harmonic(n):
     return result
 
 
-# specifically for geninterp testing
-
-def t_isinstance(x, y):
-    return isinstance(x, (int, long)) and isinstance(y, int)
-
-def t_issubclass(x, y):
-    return issubclass(type(x), (int, long)) and issubclass(type(y), int)
-
-def t_neg_long():
-    return -132L
-
-def t_attrerror(x):
-    try:
-        return x.foobar
-    except AttributeError:
-        return 567
-
-
-class Exc(Exception):
-    def __init__(self, v):
-        Exception.__init__(self, v)    
-
-def exception_subclass_sanity(x):
-    try:
-        raise Exc(x)
-    except Exception, e:
-        return e.args[0]
-
-
-class HaveProp(object):
-
-    def __init__(self, v):
-        self.v = v
-
-    def _hi(self):
-        return self.v
-    hi = property(_hi, doc="HaveProp._hi")
-
-
-def run_prop(v):
-    return HaveProp(v).hi
-
 # --------------------(Currently) Non runnable Functions ---------------------
 
 def _somebug1(n=int):
@@ -1210,7 +1168,7 @@ def class_spec():
     return istk.top(), sstk.top()
 
 
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck
 
 def add_func(i=numtype):
     try:
@@ -1253,7 +1211,7 @@ def hugo(a, b, c):pass
 def lshift_func(i=numtype):
     try:
         hugo(2, 3, 5)
-        return ovfcheck_lshift((-maxint-1), i)
+        return ovfcheck((-maxint-1) << i)
     except (hugelmugel, OverflowError, StandardError, ValueError):
         raise
 

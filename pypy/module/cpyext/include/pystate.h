@@ -5,11 +5,12 @@ struct _ts; /* Forward */
 struct _is; /* Forward */
 
 typedef struct _is {
-    int _foo;
+    struct _is *next;
 } PyInterpreterState;
 
 typedef struct _ts {
     PyInterpreterState *interp;
+    PyObject *dict;  /* Stores per-thread state */
 } PyThreadState;
 
 #define Py_BEGIN_ALLOW_THREADS { \
@@ -23,5 +24,7 @@ typedef struct _ts {
 typedef
     enum {PyGILState_LOCKED, PyGILState_UNLOCKED}
         PyGILState_STATE;
+
+#define PyThreadState_GET() PyThreadState_Get()
 
 #endif /* !Py_PYSTATE_H */

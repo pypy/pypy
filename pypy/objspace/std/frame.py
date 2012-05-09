@@ -3,13 +3,11 @@
 import operator
 
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.interpreter import pyopcode, function
+from pypy.interpreter import pyopcode
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.module.__builtin__ import Module
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std import intobject, smallintobject
 from pypy.objspace.std.multimethod import FailedToImplement
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.listobject import W_ListObject
 
 
@@ -58,7 +56,7 @@ def list_BINARY_SUBSCR(f, oparg, next_instr):
     w_1 = f.popvalue()
     if type(w_1) is W_ListObject and type(w_2) is intobject.W_IntObject:
         try:
-            w_result = w_1.wrappeditems[w_2.intval]
+            w_result = w_1.getitem(w_2.intval)
         except IndexError:
             raise OperationError(f.space.w_IndexError,
                 f.space.wrap("list index out of range"))

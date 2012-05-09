@@ -10,7 +10,6 @@ def descr__new__(space, w_typetype, w_name, w_bases=gateway.NoneNotWrapped,
     w_dict=gateway.NoneNotWrapped):
 
     "This is used to create user-defined classes only."
-    from pypy.objspace.std.typeobject import W_TypeObject
     # XXX check types
 
     w_typetype = _precheck_for_new(space, w_typetype)
@@ -19,9 +18,17 @@ def descr__new__(space, w_typetype, w_name, w_bases=gateway.NoneNotWrapped,
     if (space.is_w(space.type(w_typetype), space.w_type) and w_bases is None and
         w_dict is None):
         return space.type(w_name)
-    elif w_bases is None or w_dict is None:
-        raise OperationError(space.w_TypeError, space.wrap("type() takes 1 or 3 arguments"))
+    else:
+        return _create_new_type(space, w_typetype, w_name, w_bases, w_dict)
 
+
+def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
+    # this is in its own function because we want the special case 'type(x)'
+    # above to be seen by the jit.
+    from pypy.objspace.std.typeobject import W_TypeObject
+
+    if w_bases is None or w_dict is None:
+        raise OperationError(space.w_TypeError, space.wrap("type() takes 1 or 3 arguments"))
 
     bases_w = space.fixedview(w_bases)
 

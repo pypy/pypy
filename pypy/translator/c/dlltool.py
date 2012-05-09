@@ -14,11 +14,14 @@ class CLibraryBuilder(CBuilder):
         CBuilder.__init__(self, *args, **kwds)
 
     def getentrypointptr(self):
+        entrypoints = []
         bk = self.translator.annotator.bookkeeper
-        graphs = [bk.getdesc(f).cachedgraph(None) for f, _ in self.functions]
-        return [getfunctionptr(graph) for graph in graphs]
+        for f, _ in self.functions:
+            graph = bk.getdesc(f).getuniquegraph()
+            entrypoints.append(getfunctionptr(graph))
+        return entrypoints
 
-    def gen_makefile(self, targetdir):
+    def gen_makefile(self, targetdir, exe_name=None):
         pass # XXX finish
 
     def compile(self):

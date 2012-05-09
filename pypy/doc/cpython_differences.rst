@@ -138,12 +138,8 @@ makes "weak proxies" (as returned by ``weakref.proxy()``) somewhat less
 useful: they will appear to stay alive for a bit longer in PyPy, and
 suddenly they will really be dead, raising a ``ReferenceError`` on the
 next access.  Any code that uses weak proxies must carefully catch such
-``ReferenceError`` at any place that uses them.
-
-As a side effect, the ``finally`` clause inside a generator will be executed
-only when the generator object is garbage collected (see `issue 736`__).
-
-.. __: http://bugs.pypy.org/issue736
+``ReferenceError`` at any place that uses them.  (Or, better yet, don't use
+``weakref.proxy()`` at all; use ``weakref.ref()``.)
 
 There are a few extra implications for the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
@@ -157,6 +153,15 @@ module.  More information is available on the blog `[1]`__ `[2]`__.
 
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
 .. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
+
+Note that this difference might show up indirectly in some cases.  For
+example, a generator left pending in the middle is --- again ---
+garbage-collected later in PyPy than in CPython.  You can see the
+difference if the ``yield`` keyword it is suspended at is itself
+enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
+as `issue 736`__.
+
+.. __: http://bugs.pypy.org/issue736
 
 Using the default GC called ``minimark``, the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -180,7 +185,8 @@ not be called::
 Even more obscure: the same is true, for old-style classes, if you attach
 the ``__del__`` to an instance (even in CPython this does not work with
 new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
-just make sure there is a ``__del__`` method in the class to start with.
+just make sure there is a ``__del__`` method in the class to start with
+(even containing only ``pass``; replacing or overriding it later works fine).
 
 
 Subclasses of built-in types
@@ -262,6 +268,26 @@ Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
 
+Object Identity of Primitive Values, ``is`` and ``id``
+-------------------------------------------------------
+
+Object identity of primitive values works by value equality, not by identity of
+the wrapper. This means that ``x + 1 is x + 1`` is always true, for arbitrary
+integers ``x``. The rule applies for the following types:
+
+ - ``int``
+
+ - ``float``
+
+ - ``long``
+
+ - ``complex``
+
+This change requires some changes to ``id`` as well. ``id`` fulfills the
+following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
+above types will return a value that is computed from the argument, and can
+thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
+
 
 Miscellaneous
 -------------
@@ -284,14 +310,19 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-* Do not compare immutable objects with ``is``.  For example on CPython
-  it is true that ``x is 0`` works, i.e. does the same as ``type(x) is
-  int and x == 0``, but it is so by accident.  If you do instead
-  ``x is 1000``, then it stops working, because 1000 is too large and
-  doesn't come from the internal cache.  In PyPy it fails to work in
-  both cases, because we have no need for a cache at all.
+* directly calling the internal magic methods of a few built-in types
+  with invalid arguments may have a slightly different result.  For
+  example, ``[].__add__(None)`` and ``(2).__add__(None)`` both return
+  ``NotImplemented`` on PyPy; on CPython, only the later does, and the
+  former raises ``TypeError``.  (Of course, ``[]+None`` and ``2+None``
+  both raise ``TypeError`` everywhere.)  This difference is an
+  implementation detail that shows up because of internal C-level slots
+  that PyPy does not have.
 
-* Also, object identity of immutable keys in dictionaries is not necessarily
-  preserved.
+* the ``__dict__`` attribute of new-style classes returns a normal dict, as
+  opposed to a dict proxy like in CPython. Mutating the dict will change the
+  type and vice versa. For builtin types, a dictionary will be returned that
+  cannot be changed (but still looks and behaves like a normal dictionary).
+
 
 .. include:: _ref.txt

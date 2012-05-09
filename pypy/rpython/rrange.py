@@ -107,8 +107,10 @@ def rtype_builtin_range(hop):
     if isinstance(hop.r_result, AbstractRangeRepr):
         if hop.r_result.step != 0:
             c_rng = hop.inputconst(Void, hop.r_result.RANGE)
+            hop.exception_is_here()
             return hop.gendirectcall(hop.r_result.ll_newrange, c_rng, vstart, vstop)
         else:
+            hop.exception_is_here()
             return hop.gendirectcall(hop.r_result.ll_newrangest, vstart, vstop, vstep)
     else:
         # cannot build a RANGE object, needs a real list
@@ -117,6 +119,7 @@ def rtype_builtin_range(hop):
         if isinstance(ITEMTYPE, Ptr):
             ITEMTYPE = ITEMTYPE.TO
         cLIST = hop.inputconst(Void, ITEMTYPE)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_range2list, cLIST, vstart, vstop, vstep)
 
 rtype_builtin_xrange = rtype_builtin_range
@@ -204,9 +207,13 @@ class EnumerateIteratorRepr(IteratorRepr):
         v_index = hop.gendirectcall(self.ll_getnextindex, v_enumerate)
         hop2 = hop.copy()
         hop2.args_r = [self.r_baseiter]
+        r_item_src = self.r_baseiter.r_list.external_item_repr
+        r_item_dst = hop.r_result.items_r[1]
         v_item = self.r_baseiter.rtype_next(hop2)
+        v_item = hop.llops.convertvar(v_item, r_item_src, r_item_dst)
         return hop.r_result.newtuple(hop.llops, hop.r_result,
                                      [v_index, v_item])
 
 def rtype_builtin_enumerate(hop):
+    hop.exception_cannot_occur()
     return hop.r_result.r_baseiter.newiter(hop)

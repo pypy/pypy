@@ -32,11 +32,10 @@ def PyList_SetItem(space, w_list, index, w_item):
     Py_DecRef(space, w_item)
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.wrappeditems
-    if index < 0 or index >= len(wrappeditems):
+    if index < 0 or index >= w_list.length():
         raise OperationError(space.w_IndexError, space.wrap(
             "list assignment index out of range"))
-    wrappeditems[index] = w_item
+    w_list.setitem(index, w_item)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
@@ -47,7 +46,7 @@ def PyList_GetItem(space, w_list, index):
     IndexError exception."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    wrappeditems = w_list.wrappeditems
+    wrappeditems = w_list.getitems()
     if index < 0 or index >= len(wrappeditems):
         raise OperationError(space.w_IndexError, space.wrap(
             "list index out of range"))
@@ -74,7 +73,7 @@ def PyList_GET_SIZE(space, w_list):
     """Macro form of PyList_Size() without error checking.
     """
     assert isinstance(w_list, W_ListObject)
-    return len(w_list.wrappeditems)
+    return w_list.length()
 
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
@@ -110,6 +109,16 @@ def PyList_Reverse(space, w_list):
         PyErr_BadInternalCall(space)
     space.call_method(w_list, "reverse")
     return 0
+
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+def PyList_GetSlice(space, w_list, low, high):
+    """Return a list of the objects in list containing the objects between low
+    and high.  Return NULL and set an exception if unsuccessful.  Analogous
+    to list[low:high].  Negative indices, as when slicing from Python, are not
+    supported."""
+    w_start = space.wrap(low)
+    w_stop = space.wrap(high)
+    return space.getslice(w_list, w_start, w_stop)
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PyList_SetSlice(space, w_list, low, high, w_sequence):

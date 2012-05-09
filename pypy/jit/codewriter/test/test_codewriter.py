@@ -217,7 +217,7 @@ def test_raw_malloc_and_access():
     cw.make_jitcodes(verbose=True)
     #
     s = jitdriver_sd.mainjitcode.dump()
-    assert 'residual_call_ir_i $<* fn _ll_1_raw_malloc__Signed>' in s
+    assert 'residual_call_ir_i $<* fn _ll_1_raw_malloc_varsize__Signed>' in s
     assert 'setarrayitem_raw_i' in s
     assert 'getarrayitem_raw_i' in s
     assert 'residual_call_ir_v $<* fn _ll_1_raw_free__arrayPtr>' in s

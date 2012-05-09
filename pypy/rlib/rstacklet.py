@@ -1,3 +1,4 @@
+import sys
 from pypy.rlib import _rffi_stacklet as _c
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import we_are_translated
@@ -72,6 +73,11 @@ def _getgcrootfinder(config, translated):
     if translated:
         assert config is not None, ("you have to pass a valid config, "
                                     "e.g. from 'driver.config'")
+    elif '__pypy__' in sys.builtin_module_names:
+        import py
+        py.test.skip("cannot run the stacklet tests on top of pypy: "
+                     "calling directly the C function stacklet_switch() "
+                     "will crash, depending on details of your config")
     if config is not None:
         assert config.translation.continuation, (
             "stacklet: you have to translate with --continuation")

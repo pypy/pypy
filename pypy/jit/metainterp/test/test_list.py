@@ -1,4 +1,5 @@
 import py
+from pypy.rlib.objectmodel import newlist_hint
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
@@ -6,8 +7,8 @@ from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 class ListTests:
 
     def check_all_virtualized(self):
-        self.check_loops(new_array=0, setarrayitem_gc=0, getarrayitem_gc=0,
-                         arraylen_gc=0)
+        self.check_resops(setarrayitem_gc=0, new_array=0, arraylen_gc=0,
+                          getarrayitem_gc=0)
 
     def test_simple_array(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
@@ -20,7 +21,7 @@ class ListTests:
             return n
         res = self.meta_interp(f, [10], listops=True)
         assert res == 0
-        self.check_loops(int_sub=1)
+        self.check_resops(int_sub=2)
         self.check_all_virtualized()
 
     def test_list_pass_around(self):
@@ -56,7 +57,8 @@ class ListTests:
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
         # one setitem should be gone by now
-        self.check_loops(call=1, setarrayitem_gc=2, getarrayitem_gc=1)
+        self.check_resops(setarrayitem_gc=4, getarrayitem_gc=2, call=2)
+
 
     def test_ll_fixed_setitem_fast(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'l'])
@@ -93,7 +95,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
-        self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
+        self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
 
     def test_vlist_alloc_and_set(self):
         # the check_loops fails, because [non-null] * n is not supported yet
@@ -141,7 +143,7 @@ class ListTests:
 
         res = self.meta_interp(f, [5], listops=True)
         assert res == 7
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_fold_getitem_1(self):
         jitdriver = JitDriver(greens = ['pc', 'n', 'l'], reds = ['total'])
@@ -161,7 +163,7 @@ class ListTests:
 
         res = self.meta_interp(f, [4], listops=True)
         assert res == f(4)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_fold_getitem_2(self):
         jitdriver = JitDriver(greens = ['pc', 'n', 'l'], reds = ['total', 'x'])
@@ -186,7 +188,7 @@ class ListTests:
 
         res = self.meta_interp(f, [4], listops=True)
         assert res == f(4)
-        self.check_loops(call=0, getfield_gc=0)
+        self.check_resops(call=0, getfield_gc=0)
 
     def test_fold_indexerror(self):
         jitdriver = JitDriver(greens = [], reds = ['total', 'n', 'lst'])
@@ -206,7 +208,7 @@ class ListTests:
 
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
-        self.check_loops(guard_exception=0)
+        self.check_resops(guard_exception=0)
 
     def test_virtual_resize(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 's'])
@@ -224,9 +226,30 @@ class ListTests:
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
-        self.check_loops({"int_add": 1, "int_sub": 1, "int_gt": 1,
-                          "guard_true": 1, "jump": 1})
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+                           'guard_true': 2, 'int_sub': 2})
 
+    def test_newlist_hint(self):
+        def f(i):
+            l = newlist_hint(i)
+            l[0] = 55
+            return len(l)
+
+        r = self.interp_operations(f, [3])
+        assert r == 0
+
+    def test_newlist_hint_optimized(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+
+        def f(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                l = newlist_hint(5)
+                l.append(1)
+                i -= l[0]
+
+        self.meta_interp(f, [10], listops=True)
+        self.check_resops(new_array=0, call=0)
 
 class TestOOtype(ListTests, OOJitMixin):
     pass
@@ -258,4 +281,4 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_loops(getfield_gc=10, everywhere=True)
+        self.check_resops(getfield_gc=10)

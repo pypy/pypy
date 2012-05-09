@@ -51,6 +51,24 @@ class AST(Wrappable):
             space.setattr(self, w_name,
                           space.getitem(w_state, w_name))
 
+    def missing_field(self, space, required, host):
+        "Find which required field is missing."
+        state = self.initialization_state
+        for i in range(len(required)):
+            if (state >> i) & 1:
+                continue  # field is present
+            missing = required[i]
+            if missing is None:
+                continue  # field is optional
+            w_obj = self.getdictvalue(space, missing)
+            if w_obj is None:
+                err = "required field \"%s\" missing from %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+            else:
+                err = "incorrect type for field \"%s\" in %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+        raise AssertionError("should not reach here")
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -94,24 +112,12 @@ AST.typedef = typedef.TypeDef("AST",
 )
 
 
-def missing_field(space, state, required, host):
-    "Find which required field is missing."
-    for i in range(len(required)):
-        if not (state >> i) & 1:
-            missing = required[i]
-            if missing is not None:
-                 err = "required field \"%s\" missing from %s"
-                 err = err % (missing, host)
-                 w_err = space.wrap(err)
-                 raise OperationError(space.w_TypeError, w_err)
-    raise AssertionError("should not reach here")
 
 
 class mod(AST):
     pass
 
 class Module(mod):
-
 
     def __init__(self, body):
         self.body = body
@@ -128,7 +134,7 @@ class Module(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Module')
+            self.missing_field(space, ['body'], 'Module')
         else:
             pass
         w_list = self.w_body
@@ -145,7 +151,6 @@ class Module(mod):
 
 class Interactive(mod):
 
-
     def __init__(self, body):
         self.body = body
         self.w_body = None
@@ -161,7 +166,7 @@ class Interactive(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Interactive')
+            self.missing_field(space, ['body'], 'Interactive')
         else:
             pass
         w_list = self.w_body
@@ -178,7 +183,6 @@ class Interactive(mod):
 
 class Expression(mod):
 
-
     def __init__(self, body):
         self.body = body
         self.initialization_state = 1
@@ -192,14 +196,13 @@ class Expression(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Expression')
+            self.missing_field(space, ['body'], 'Expression')
         else:
             pass
         self.body.sync_app_attrs(space)
 
 
 class Suite(mod):
-
 
     def __init__(self, body):
         self.body = body
@@ -216,7 +219,7 @@ class Suite(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Suite')
+            self.missing_field(space, ['body'], 'Suite')
         else:
             pass
         w_list = self.w_body
@@ -232,14 +235,12 @@ class Suite(mod):
 
 
 class stmt(AST):
+
     def __init__(self, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
 class FunctionDef(stmt):
-
-    _lineno_mask = 16
-    _col_offset_mask = 32
 
     def __init__(self, name, args, body, decorator_list, lineno, col_offset):
         self.name = name
@@ -264,7 +265,7 @@ class FunctionDef(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['name', 'args', 'body', 'decorator_list', 'lineno', 'col_offset'], 'FunctionDef')
+            self.missing_field(space, ['lineno', 'col_offset', 'name', 'args', 'body', 'decorator_list'], 'FunctionDef')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -292,9 +293,6 @@ class FunctionDef(stmt):
 
 class ClassDef(stmt):
 
-    _lineno_mask = 16
-    _col_offset_mask = 32
-
     def __init__(self, name, bases, body, decorator_list, lineno, col_offset):
         self.name = name
         self.bases = bases
@@ -320,7 +318,7 @@ class ClassDef(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'], 'ClassDef')
+            self.missing_field(space, ['lineno', 'col_offset', 'name', 'bases', 'body', 'decorator_list'], 'ClassDef')
         else:
             pass
         w_list = self.w_bases
@@ -357,9 +355,6 @@ class ClassDef(stmt):
 
 class Return(stmt):
 
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
     def __init__(self, value, lineno, col_offset):
         self.value = value
         stmt.__init__(self, lineno, col_offset)
@@ -374,19 +369,16 @@ class Return(stmt):
         return visitor.visit_Return(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~1) ^ 6:
-            missing_field(space, self.initialization_state, [None, 'lineno', 'col_offset'], 'Return')
+        if (self.initialization_state & ~4) ^ 3:
+            self.missing_field(space, ['lineno', 'col_offset', None], 'Return')
         else:
-            if not self.initialization_state & 1:
+            if not self.initialization_state & 4:
                 self.value = None
         if self.value:
             self.value.sync_app_attrs(space)
 
 
 class Delete(stmt):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, targets, lineno, col_offset):
         self.targets = targets
@@ -404,7 +396,7 @@ class Delete(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['targets', 'lineno', 'col_offset'], 'Delete')
+            self.missing_field(space, ['lineno', 'col_offset', 'targets'], 'Delete')
         else:
             pass
         w_list = self.w_targets
@@ -420,9 +412,6 @@ class Delete(stmt):
 
 
 class Assign(stmt):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, targets, value, lineno, col_offset):
         self.targets = targets
@@ -442,7 +431,7 @@ class Assign(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['targets', 'value', 'lineno', 'col_offset'], 'Assign')
+            self.missing_field(space, ['lineno', 'col_offset', 'targets', 'value'], 'Assign')
         else:
             pass
         w_list = self.w_targets
@@ -459,9 +448,6 @@ class Assign(stmt):
 
 
 class AugAssign(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, target, op, value, lineno, col_offset):
         self.target = target
@@ -480,7 +466,7 @@ class AugAssign(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['target', 'op', 'value', 'lineno', 'col_offset'], 'AugAssign')
+            self.missing_field(space, ['lineno', 'col_offset', 'target', 'op', 'value'], 'AugAssign')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -488,9 +474,6 @@ class AugAssign(stmt):
 
 
 class Print(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, dest, values, nl, lineno, col_offset):
         self.dest = dest
@@ -511,10 +494,10 @@ class Print(stmt):
         return visitor.visit_Print(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~1) ^ 30:
-            missing_field(space, self.initialization_state, [None, 'values', 'nl', 'lineno', 'col_offset'], 'Print')
+        if (self.initialization_state & ~4) ^ 27:
+            self.missing_field(space, ['lineno', 'col_offset', None, 'values', 'nl'], 'Print')
         else:
-            if not self.initialization_state & 1:
+            if not self.initialization_state & 4:
                 self.dest = None
         if self.dest:
             self.dest.sync_app_attrs(space)
@@ -531,9 +514,6 @@ class Print(stmt):
 
 
 class For(stmt):
-
-    _lineno_mask = 16
-    _col_offset_mask = 32
 
     def __init__(self, target, iter, body, orelse, lineno, col_offset):
         self.target = target
@@ -559,7 +539,7 @@ class For(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['target', 'iter', 'body', 'orelse', 'lineno', 'col_offset'], 'For')
+            self.missing_field(space, ['lineno', 'col_offset', 'target', 'iter', 'body', 'orelse'], 'For')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -588,9 +568,6 @@ class For(stmt):
 
 class While(stmt):
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
-
     def __init__(self, test, body, orelse, lineno, col_offset):
         self.test = test
         self.body = body
@@ -613,7 +590,7 @@ class While(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['test', 'body', 'orelse', 'lineno', 'col_offset'], 'While')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'While')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -641,9 +618,6 @@ class While(stmt):
 
 class If(stmt):
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
-
     def __init__(self, test, body, orelse, lineno, col_offset):
         self.test = test
         self.body = body
@@ -666,7 +640,7 @@ class If(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['test', 'body', 'orelse', 'lineno', 'col_offset'], 'If')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'If')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -694,9 +668,6 @@ class If(stmt):
 
 class With(stmt):
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
-
     def __init__(self, context_expr, optional_vars, body, lineno, col_offset):
         self.context_expr = context_expr
         self.optional_vars = optional_vars
@@ -717,10 +688,10 @@ class With(stmt):
         return visitor.visit_With(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~2) ^ 29:
-            missing_field(space, self.initialization_state, ['context_expr', None, 'body', 'lineno', 'col_offset'], 'With')
+        if (self.initialization_state & ~8) ^ 23:
+            self.missing_field(space, ['lineno', 'col_offset', 'context_expr', None, 'body'], 'With')
         else:
-            if not self.initialization_state & 2:
+            if not self.initialization_state & 8:
                 self.optional_vars = None
         self.context_expr.sync_app_attrs(space)
         if self.optional_vars:
@@ -738,9 +709,6 @@ class With(stmt):
 
 
 class Raise(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, type, inst, tback, lineno, col_offset):
         self.type = type
@@ -762,14 +730,14 @@ class Raise(stmt):
         return visitor.visit_Raise(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~7) ^ 24:
-            missing_field(space, self.initialization_state, [None, None, None, 'lineno', 'col_offset'], 'Raise')
+        if (self.initialization_state & ~28) ^ 3:
+            self.missing_field(space, ['lineno', 'col_offset', None, None, None], 'Raise')
         else:
-            if not self.initialization_state & 1:
-                self.type = None
-            if not self.initialization_state & 2:
-                self.inst = None
             if not self.initialization_state & 4:
+                self.type = None
+            if not self.initialization_state & 8:
+                self.inst = None
+            if not self.initialization_state & 16:
                 self.tback = None
         if self.type:
             self.type.sync_app_attrs(space)
@@ -780,9 +748,6 @@ class Raise(stmt):
 
 
 class TryExcept(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, body, handlers, orelse, lineno, col_offset):
         self.body = body
@@ -808,7 +773,7 @@ class TryExcept(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['body', 'handlers', 'orelse', 'lineno', 'col_offset'], 'TryExcept')
+            self.missing_field(space, ['lineno', 'col_offset', 'body', 'handlers', 'orelse'], 'TryExcept')
         else:
             pass
         w_list = self.w_body
@@ -845,9 +810,6 @@ class TryExcept(stmt):
 
 class TryFinally(stmt):
 
-    _lineno_mask = 4
-    _col_offset_mask = 8
-
     def __init__(self, body, finalbody, lineno, col_offset):
         self.body = body
         self.w_body = None
@@ -868,7 +830,7 @@ class TryFinally(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['body', 'finalbody', 'lineno', 'col_offset'], 'TryFinally')
+            self.missing_field(space, ['lineno', 'col_offset', 'body', 'finalbody'], 'TryFinally')
         else:
             pass
         w_list = self.w_body
@@ -895,9 +857,6 @@ class TryFinally(stmt):
 
 class Assert(stmt):
 
-    _lineno_mask = 4
-    _col_offset_mask = 8
-
     def __init__(self, test, msg, lineno, col_offset):
         self.test = test
         self.msg = msg
@@ -914,10 +873,10 @@ class Assert(stmt):
         return visitor.visit_Assert(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~2) ^ 13:
-            missing_field(space, self.initialization_state, ['test', None, 'lineno', 'col_offset'], 'Assert')
+        if (self.initialization_state & ~8) ^ 7:
+            self.missing_field(space, ['lineno', 'col_offset', 'test', None], 'Assert')
         else:
-            if not self.initialization_state & 2:
+            if not self.initialization_state & 8:
                 self.msg = None
         self.test.sync_app_attrs(space)
         if self.msg:
@@ -925,9 +884,6 @@ class Assert(stmt):
 
 
 class Import(stmt):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, names, lineno, col_offset):
         self.names = names
@@ -945,7 +901,7 @@ class Import(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['names', 'lineno', 'col_offset'], 'Import')
+            self.missing_field(space, ['lineno', 'col_offset', 'names'], 'Import')
         else:
             pass
         w_list = self.w_names
@@ -961,9 +917,6 @@ class Import(stmt):
 
 
 class ImportFrom(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, module, names, level, lineno, col_offset):
         self.module = module
@@ -982,12 +935,12 @@ class ImportFrom(stmt):
         return visitor.visit_ImportFrom(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~5) ^ 26:
-            missing_field(space, self.initialization_state, [None, 'names', None, 'lineno', 'col_offset'], 'ImportFrom')
+        if (self.initialization_state & ~20) ^ 11:
+            self.missing_field(space, ['lineno', 'col_offset', None, 'names', None], 'ImportFrom')
         else:
-            if not self.initialization_state & 1:
-                self.module = None
             if not self.initialization_state & 4:
+                self.module = None
+            if not self.initialization_state & 16:
                 self.level = 0
         w_list = self.w_names
         if w_list is not None:
@@ -1002,9 +955,6 @@ class ImportFrom(stmt):
 
 
 class Exec(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, body, globals, locals, lineno, col_offset):
         self.body = body
@@ -1025,12 +975,12 @@ class Exec(stmt):
         return visitor.visit_Exec(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~6) ^ 25:
-            missing_field(space, self.initialization_state, ['body', None, None, 'lineno', 'col_offset'], 'Exec')
+        if (self.initialization_state & ~24) ^ 7:
+            self.missing_field(space, ['lineno', 'col_offset', 'body', None, None], 'Exec')
         else:
-            if not self.initialization_state & 2:
+            if not self.initialization_state & 8:
                 self.globals = None
-            if not self.initialization_state & 4:
+            if not self.initialization_state & 16:
                 self.locals = None
         self.body.sync_app_attrs(space)
         if self.globals:
@@ -1040,9 +990,6 @@ class Exec(stmt):
 
 
 class Global(stmt):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, names, lineno, col_offset):
         self.names = names
@@ -1058,7 +1005,7 @@ class Global(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['names', 'lineno', 'col_offset'], 'Global')
+            self.missing_field(space, ['lineno', 'col_offset', 'names'], 'Global')
         else:
             pass
         w_list = self.w_names
@@ -1071,9 +1018,6 @@ class Global(stmt):
 
 
 class Expr(stmt):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, value, lineno, col_offset):
         self.value = value
@@ -1089,16 +1033,13 @@ class Expr(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['value', 'lineno', 'col_offset'], 'Expr')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Expr')
         else:
             pass
         self.value.sync_app_attrs(space)
 
 
 class Pass(stmt):
-
-    _lineno_mask = 1
-    _col_offset_mask = 2
 
     def __init__(self, lineno, col_offset):
         stmt.__init__(self, lineno, col_offset)
@@ -1112,15 +1053,12 @@ class Pass(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Pass')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Pass')
         else:
             pass
 
 
 class Break(stmt):
-
-    _lineno_mask = 1
-    _col_offset_mask = 2
 
     def __init__(self, lineno, col_offset):
         stmt.__init__(self, lineno, col_offset)
@@ -1134,15 +1072,12 @@ class Break(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Break')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Break')
         else:
             pass
 
 
 class Continue(stmt):
-
-    _lineno_mask = 1
-    _col_offset_mask = 2
 
     def __init__(self, lineno, col_offset):
         stmt.__init__(self, lineno, col_offset)
@@ -1156,20 +1091,18 @@ class Continue(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Continue')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Continue')
         else:
             pass
 
 
 class expr(AST):
+
     def __init__(self, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
 class BoolOp(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, op, values, lineno, col_offset):
         self.op = op
@@ -1188,7 +1121,7 @@ class BoolOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['op', 'values', 'lineno', 'col_offset'], 'BoolOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'op', 'values'], 'BoolOp')
         else:
             pass
         w_list = self.w_values
@@ -1204,9 +1137,6 @@ class BoolOp(expr):
 
 
 class BinOp(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, left, op, right, lineno, col_offset):
         self.left = left
@@ -1225,7 +1155,7 @@ class BinOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['left', 'op', 'right', 'lineno', 'col_offset'], 'BinOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'left', 'op', 'right'], 'BinOp')
         else:
             pass
         self.left.sync_app_attrs(space)
@@ -1233,9 +1163,6 @@ class BinOp(expr):
 
 
 class UnaryOp(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, op, operand, lineno, col_offset):
         self.op = op
@@ -1252,16 +1179,13 @@ class UnaryOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['op', 'operand', 'lineno', 'col_offset'], 'UnaryOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'op', 'operand'], 'UnaryOp')
         else:
             pass
         self.operand.sync_app_attrs(space)
 
 
 class Lambda(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, args, body, lineno, col_offset):
         self.args = args
@@ -1279,7 +1203,7 @@ class Lambda(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['args', 'body', 'lineno', 'col_offset'], 'Lambda')
+            self.missing_field(space, ['lineno', 'col_offset', 'args', 'body'], 'Lambda')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -1287,9 +1211,6 @@ class Lambda(expr):
 
 
 class IfExp(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, test, body, orelse, lineno, col_offset):
         self.test = test
@@ -1309,7 +1230,7 @@ class IfExp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['test', 'body', 'orelse', 'lineno', 'col_offset'], 'IfExp')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'IfExp')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -1318,9 +1239,6 @@ class IfExp(expr):
 
 
 class Dict(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, keys, values, lineno, col_offset):
         self.keys = keys
@@ -1342,7 +1260,7 @@ class Dict(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['keys', 'values', 'lineno', 'col_offset'], 'Dict')
+            self.missing_field(space, ['lineno', 'col_offset', 'keys', 'values'], 'Dict')
         else:
             pass
         w_list = self.w_keys
@@ -1369,9 +1287,6 @@ class Dict(expr):
 
 class Set(expr):
 
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
     def __init__(self, elts, lineno, col_offset):
         self.elts = elts
         self.w_elts = None
@@ -1388,7 +1303,7 @@ class Set(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['elts', 'lineno', 'col_offset'], 'Set')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts'], 'Set')
         else:
             pass
         w_list = self.w_elts
@@ -1404,9 +1319,6 @@ class Set(expr):
 
 
 class ListComp(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, elt, generators, lineno, col_offset):
         self.elt = elt
@@ -1426,7 +1338,7 @@ class ListComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['elt', 'generators', 'lineno', 'col_offset'], 'ListComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'ListComp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1443,9 +1355,6 @@ class ListComp(expr):
 
 
 class SetComp(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, elt, generators, lineno, col_offset):
         self.elt = elt
@@ -1465,7 +1374,7 @@ class SetComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['elt', 'generators', 'lineno', 'col_offset'], 'SetComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'SetComp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1482,9 +1391,6 @@ class SetComp(expr):
 
 
 class DictComp(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, key, value, generators, lineno, col_offset):
         self.key = key
@@ -1506,7 +1412,7 @@ class DictComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['key', 'value', 'generators', 'lineno', 'col_offset'], 'DictComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'key', 'value', 'generators'], 'DictComp')
         else:
             pass
         self.key.sync_app_attrs(space)
@@ -1524,9 +1430,6 @@ class DictComp(expr):
 
 
 class GeneratorExp(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, elt, generators, lineno, col_offset):
         self.elt = elt
@@ -1546,7 +1449,7 @@ class GeneratorExp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['elt', 'generators', 'lineno', 'col_offset'], 'GeneratorExp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'GeneratorExp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1564,9 +1467,6 @@ class GeneratorExp(expr):
 
 class Yield(expr):
 
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
     def __init__(self, value, lineno, col_offset):
         self.value = value
         expr.__init__(self, lineno, col_offset)
@@ -1581,19 +1481,16 @@ class Yield(expr):
         return visitor.visit_Yield(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~1) ^ 6:
-            missing_field(space, self.initialization_state, [None, 'lineno', 'col_offset'], 'Yield')
+        if (self.initialization_state & ~4) ^ 3:
+            self.missing_field(space, ['lineno', 'col_offset', None], 'Yield')
         else:
-            if not self.initialization_state & 1:
+            if not self.initialization_state & 4:
                 self.value = None
         if self.value:
             self.value.sync_app_attrs(space)
 
 
 class Compare(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, left, ops, comparators, lineno, col_offset):
         self.left = left
@@ -1615,7 +1512,7 @@ class Compare(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['left', 'ops', 'comparators', 'lineno', 'col_offset'], 'Compare')
+            self.missing_field(space, ['lineno', 'col_offset', 'left', 'ops', 'comparators'], 'Compare')
         else:
             pass
         self.left.sync_app_attrs(space)
@@ -1639,9 +1536,6 @@ class Compare(expr):
 
 
 class Call(expr):
-
-    _lineno_mask = 32
-    _col_offset_mask = 64
 
     def __init__(self, func, args, keywords, starargs, kwargs, lineno, col_offset):
         self.func = func
@@ -1670,12 +1564,12 @@ class Call(expr):
         return visitor.visit_Call(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~24) ^ 103:
-            missing_field(space, self.initialization_state, ['func', 'args', 'keywords', None, None, 'lineno', 'col_offset'], 'Call')
+        if (self.initialization_state & ~96) ^ 31:
+            self.missing_field(space, ['lineno', 'col_offset', 'func', 'args', 'keywords', None, None], 'Call')
         else:
-            if not self.initialization_state & 8:
+            if not self.initialization_state & 32:
                 self.starargs = None
-            if not self.initialization_state & 16:
+            if not self.initialization_state & 64:
                 self.kwargs = None
         self.func.sync_app_attrs(space)
         w_list = self.w_args
@@ -1706,9 +1600,6 @@ class Call(expr):
 
 class Repr(expr):
 
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
     def __init__(self, value, lineno, col_offset):
         self.value = value
         expr.__init__(self, lineno, col_offset)
@@ -1723,16 +1614,13 @@ class Repr(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['value', 'lineno', 'col_offset'], 'Repr')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Repr')
         else:
             pass
         self.value.sync_app_attrs(space)
 
 
 class Num(expr):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, n, lineno, col_offset):
         self.n = n
@@ -1747,15 +1635,12 @@ class Num(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['n', 'lineno', 'col_offset'], 'Num')
+            self.missing_field(space, ['lineno', 'col_offset', 'n'], 'Num')
         else:
             pass
 
 
 class Str(expr):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
 
     def __init__(self, s, lineno, col_offset):
         self.s = s
@@ -1770,15 +1655,12 @@ class Str(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['s', 'lineno', 'col_offset'], 'Str')
+            self.missing_field(space, ['lineno', 'col_offset', 's'], 'Str')
         else:
             pass
 
 
 class Attribute(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, value, attr, ctx, lineno, col_offset):
         self.value = value
@@ -1796,16 +1678,13 @@ class Attribute(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['value', 'attr', 'ctx', 'lineno', 'col_offset'], 'Attribute')
+            self.missing_field(space, ['lineno', 'col_offset', 'value', 'attr', 'ctx'], 'Attribute')
         else:
             pass
         self.value.sync_app_attrs(space)
 
 
 class Subscript(expr):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, value, slice, ctx, lineno, col_offset):
         self.value = value
@@ -1824,7 +1703,7 @@ class Subscript(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['value', 'slice', 'ctx', 'lineno', 'col_offset'], 'Subscript')
+            self.missing_field(space, ['lineno', 'col_offset', 'value', 'slice', 'ctx'], 'Subscript')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -1832,9 +1711,6 @@ class Subscript(expr):
 
 
 class Name(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, id, ctx, lineno, col_offset):
         self.id = id
@@ -1850,15 +1726,12 @@ class Name(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['id', 'ctx', 'lineno', 'col_offset'], 'Name')
+            self.missing_field(space, ['lineno', 'col_offset', 'id', 'ctx'], 'Name')
         else:
             pass
 
 
 class List(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, elts, ctx, lineno, col_offset):
         self.elts = elts
@@ -1877,7 +1750,7 @@ class List(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['elts', 'ctx', 'lineno', 'col_offset'], 'List')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts', 'ctx'], 'List')
         else:
             pass
         w_list = self.w_elts
@@ -1893,9 +1766,6 @@ class List(expr):
 
 
 class Tuple(expr):
-
-    _lineno_mask = 4
-    _col_offset_mask = 8
 
     def __init__(self, elts, ctx, lineno, col_offset):
         self.elts = elts
@@ -1914,7 +1784,7 @@ class Tuple(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['elts', 'ctx', 'lineno', 'col_offset'], 'Tuple')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts', 'ctx'], 'Tuple')
         else:
             pass
         w_list = self.w_elts
@@ -1931,9 +1801,6 @@ class Tuple(expr):
 
 class Const(expr):
 
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
     def __init__(self, value, lineno, col_offset):
         self.value = value
         expr.__init__(self, lineno, col_offset)
@@ -1947,7 +1814,7 @@ class Const(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['value', 'lineno', 'col_offset'], 'Const')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Const')
         else:
             pass
 
@@ -2009,7 +1876,6 @@ class slice(AST):
 
 class Ellipsis(slice):
 
-
     def __init__(self):
         self.initialization_state = 0
 
@@ -2021,13 +1887,12 @@ class Ellipsis(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 0:
-            missing_field(space, self.initialization_state, [], 'Ellipsis')
+            self.missing_field(space, [], 'Ellipsis')
         else:
             pass
 
 
 class Slice(slice):
-
 
     def __init__(self, lower, upper, step):
         self.lower = lower
@@ -2049,7 +1914,7 @@ class Slice(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~7) ^ 0:
-            missing_field(space, self.initialization_state, [None, None, None], 'Slice')
+            self.missing_field(space, [None, None, None], 'Slice')
         else:
             if not self.initialization_state & 1:
                 self.lower = None
@@ -2067,7 +1932,6 @@ class Slice(slice):
 
 class ExtSlice(slice):
 
-
     def __init__(self, dims):
         self.dims = dims
         self.w_dims = None
@@ -2083,7 +1947,7 @@ class ExtSlice(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['dims'], 'ExtSlice')
+            self.missing_field(space, ['dims'], 'ExtSlice')
         else:
             pass
         w_list = self.w_dims
@@ -2100,7 +1964,6 @@ class ExtSlice(slice):
 
 class Index(slice):
 
-
     def __init__(self, value):
         self.value = value
         self.initialization_state = 1
@@ -2114,7 +1977,7 @@ class Index(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['value'], 'Index')
+            self.missing_field(space, ['value'], 'Index')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -2377,7 +2240,7 @@ class comprehension(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['target', 'iter', 'ifs'], 'comprehension')
+            self.missing_field(space, ['target', 'iter', 'ifs'], 'comprehension')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -2394,14 +2257,12 @@ class comprehension(AST):
                 node.sync_app_attrs(space)
 
 class excepthandler(AST):
+
     def __init__(self, lineno, col_offset):
         self.lineno = lineno
         self.col_offset = col_offset
 
 class ExceptHandler(excepthandler):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
 
     def __init__(self, type, name, body, lineno, col_offset):
         self.type = type
@@ -2424,12 +2285,12 @@ class ExceptHandler(excepthandler):
         return visitor.visit_ExceptHandler(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~3) ^ 28:
-            missing_field(space, self.initialization_state, [None, None, 'body', 'lineno', 'col_offset'], 'ExceptHandler')
+        if (self.initialization_state & ~12) ^ 19:
+            self.missing_field(space, ['lineno', 'col_offset', None, None, 'body'], 'ExceptHandler')
         else:
-            if not self.initialization_state & 1:
+            if not self.initialization_state & 4:
                 self.type = None
-            if not self.initialization_state & 2:
+            if not self.initialization_state & 8:
                 self.name = None
         if self.type:
             self.type.sync_app_attrs(space)
@@ -2470,7 +2331,7 @@ class arguments(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~6) ^ 9:
-            missing_field(space, self.initialization_state, ['args', None, None, 'defaults'], 'arguments')
+            self.missing_field(space, ['args', None, None, 'defaults'], 'arguments')
         else:
             if not self.initialization_state & 2:
                 self.vararg = None
@@ -2513,7 +2374,7 @@ class keyword(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['arg', 'value'], 'keyword')
+            self.missing_field(space, ['arg', 'value'], 'keyword')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -2533,7 +2394,7 @@ class alias(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~2) ^ 1:
-            missing_field(space, self.initialization_state, ['name', None], 'alias')
+            self.missing_field(space, ['name', None], 'alias')
         else:
             if not self.initialization_state & 2:
                 self.asname = None
@@ -3019,6 +2880,8 @@ def Expression_get_body(space, w_self):
 def Expression_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3098,7 +2961,7 @@ def stmt_get_lineno(space, w_self):
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._lineno_mask:
+    if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'lineno')
     return space.wrap(w_self.lineno)
@@ -3112,14 +2975,14 @@ def stmt_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
     w_self.deldictvalue(space, 'lineno')
-    w_self.initialization_state |= w_self._lineno_mask
+    w_self.initialization_state |= 1
 
 def stmt_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._col_offset_mask:
+    if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'col_offset')
     return space.wrap(w_self.col_offset)
@@ -3133,7 +2996,7 @@ def stmt_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
     w_self.deldictvalue(space, 'col_offset')
-    w_self.initialization_state |= w_self._col_offset_mask
+    w_self.initialization_state |= 2
 
 stmt.typedef = typedef.TypeDef("stmt",
     AST.typedef,
@@ -3149,7 +3012,7 @@ def FunctionDef_get_name(space, w_self):
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'name')
     return space.wrap(w_self.name)
@@ -3163,14 +3026,14 @@ def FunctionDef_set_name(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'name', w_new_value)
         return
     w_self.deldictvalue(space, 'name')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def FunctionDef_get_args(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'args')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'args')
     return space.wrap(w_self.args)
@@ -3184,10 +3047,10 @@ def FunctionDef_set_args(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'args', w_new_value)
         return
     w_self.deldictvalue(space, 'args')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def FunctionDef_get_body(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -3201,10 +3064,10 @@ def FunctionDef_get_body(space, w_self):
 
 def FunctionDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 def FunctionDef_get_decorator_list(space, w_self):
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 32:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'decorator_list')
     if w_self.w_decorator_list is None:
@@ -3218,7 +3081,7 @@ def FunctionDef_get_decorator_list(space, w_self):
 
 def FunctionDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 32
 
 _FunctionDef_field_unroller = unrolling_iterable(['name', 'args', 'body', 'decorator_list'])
 def FunctionDef_init(space, w_self, __args__):
@@ -3254,7 +3117,7 @@ def ClassDef_get_name(space, w_self):
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'name')
     return space.wrap(w_self.name)
@@ -3268,10 +3131,10 @@ def ClassDef_set_name(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'name', w_new_value)
         return
     w_self.deldictvalue(space, 'name')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def ClassDef_get_bases(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'bases')
     if w_self.w_bases is None:
@@ -3285,10 +3148,10 @@ def ClassDef_get_bases(space, w_self):
 
 def ClassDef_set_bases(space, w_self, w_new_value):
     w_self.w_bases = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def ClassDef_get_body(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -3302,10 +3165,10 @@ def ClassDef_get_body(space, w_self):
 
 def ClassDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 def ClassDef_get_decorator_list(space, w_self):
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 32:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'decorator_list')
     if w_self.w_decorator_list is None:
@@ -3319,7 +3182,7 @@ def ClassDef_get_decorator_list(space, w_self):
 
 def ClassDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 32
 
 _ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'decorator_list'])
 def ClassDef_init(space, w_self, __args__):
@@ -3356,7 +3219,7 @@ def Return_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -3364,13 +3227,15 @@ def Return_get_value(space, w_self):
 def Return_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, True)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Return_field_unroller = unrolling_iterable(['value'])
 def Return_init(space, w_self, __args__):
@@ -3397,7 +3262,7 @@ Return.typedef = typedef.TypeDef("Return",
 )
 
 def Delete_get_targets(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'targets')
     if w_self.w_targets is None:
@@ -3411,7 +3276,7 @@ def Delete_get_targets(space, w_self):
 
 def Delete_set_targets(space, w_self, w_new_value):
     w_self.w_targets = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Delete_field_unroller = unrolling_iterable(['targets'])
 def Delete_init(space, w_self, __args__):
@@ -3439,7 +3304,7 @@ Delete.typedef = typedef.TypeDef("Delete",
 )
 
 def Assign_get_targets(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'targets')
     if w_self.w_targets is None:
@@ -3453,14 +3318,14 @@ def Assign_get_targets(space, w_self):
 
 def Assign_set_targets(space, w_self, w_new_value):
     w_self.w_targets = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Assign_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -3468,13 +3333,15 @@ def Assign_get_value(space, w_self):
 def Assign_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Assign_field_unroller = unrolling_iterable(['targets', 'value'])
 def Assign_init(space, w_self, __args__):
@@ -3507,7 +3374,7 @@ def AugAssign_get_target(space, w_self):
         w_obj = w_self.getdictvalue(space, 'target')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'target')
     return space.wrap(w_self.target)
@@ -3515,20 +3382,22 @@ def AugAssign_get_target(space, w_self):
 def AugAssign_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
         return
     w_self.deldictvalue(space, 'target')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def AugAssign_get_op(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'op')
     return operator_to_class[w_self.op - 1]()
@@ -3544,14 +3413,14 @@ def AugAssign_set_op(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def AugAssign_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -3559,13 +3428,15 @@ def AugAssign_get_value(space, w_self):
 def AugAssign_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _AugAssign_field_unroller = unrolling_iterable(['target', 'op', 'value'])
 def AugAssign_init(space, w_self, __args__):
@@ -3598,7 +3469,7 @@ def Print_get_dest(space, w_self):
         w_obj = w_self.getdictvalue(space, 'dest')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'dest')
     return space.wrap(w_self.dest)
@@ -3606,16 +3477,18 @@ def Print_get_dest(space, w_self):
 def Print_set_dest(space, w_self, w_new_value):
     try:
         w_self.dest = space.interp_w(expr, w_new_value, True)
+        if type(w_self.dest) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'dest', w_new_value)
         return
     w_self.deldictvalue(space, 'dest')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Print_get_values(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'values')
     if w_self.w_values is None:
@@ -3629,14 +3502,14 @@ def Print_get_values(space, w_self):
 
 def Print_set_values(space, w_self, w_new_value):
     w_self.w_values = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Print_get_nl(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'nl')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'nl')
     return space.wrap(w_self.nl)
@@ -3650,7 +3523,7 @@ def Print_set_nl(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'nl', w_new_value)
         return
     w_self.deldictvalue(space, 'nl')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Print_field_unroller = unrolling_iterable(['dest', 'values', 'nl'])
 def Print_init(space, w_self, __args__):
@@ -3684,7 +3557,7 @@ def For_get_target(space, w_self):
         w_obj = w_self.getdictvalue(space, 'target')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'target')
     return space.wrap(w_self.target)
@@ -3692,20 +3565,22 @@ def For_get_target(space, w_self):
 def For_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
         return
     w_self.deldictvalue(space, 'target')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def For_get_iter(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'iter')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'iter')
     return space.wrap(w_self.iter)
@@ -3713,16 +3588,18 @@ def For_get_iter(space, w_self):
 def For_set_iter(space, w_self, w_new_value):
     try:
         w_self.iter = space.interp_w(expr, w_new_value, False)
+        if type(w_self.iter) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'iter', w_new_value)
         return
     w_self.deldictvalue(space, 'iter')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def For_get_body(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -3736,10 +3613,10 @@ def For_get_body(space, w_self):
 
 def For_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 def For_get_orelse(space, w_self):
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 32:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'orelse')
     if w_self.w_orelse is None:
@@ -3753,7 +3630,7 @@ def For_get_orelse(space, w_self):
 
 def For_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 32
 
 _For_field_unroller = unrolling_iterable(['target', 'iter', 'body', 'orelse'])
 def For_init(space, w_self, __args__):
@@ -3789,7 +3666,7 @@ def While_get_test(space, w_self):
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'test')
     return space.wrap(w_self.test)
@@ -3797,16 +3674,18 @@ def While_get_test(space, w_self):
 def While_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
     w_self.deldictvalue(space, 'test')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def While_get_body(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -3820,10 +3699,10 @@ def While_get_body(space, w_self):
 
 def While_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def While_get_orelse(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'orelse')
     if w_self.w_orelse is None:
@@ -3837,7 +3716,7 @@ def While_get_orelse(space, w_self):
 
 def While_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _While_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def While_init(space, w_self, __args__):
@@ -3872,7 +3751,7 @@ def If_get_test(space, w_self):
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'test')
     return space.wrap(w_self.test)
@@ -3880,16 +3759,18 @@ def If_get_test(space, w_self):
 def If_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
     w_self.deldictvalue(space, 'test')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def If_get_body(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -3903,10 +3784,10 @@ def If_get_body(space, w_self):
 
 def If_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def If_get_orelse(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'orelse')
     if w_self.w_orelse is None:
@@ -3920,7 +3801,7 @@ def If_get_orelse(space, w_self):
 
 def If_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _If_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def If_init(space, w_self, __args__):
@@ -3955,7 +3836,7 @@ def With_get_context_expr(space, w_self):
         w_obj = w_self.getdictvalue(space, 'context_expr')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'context_expr')
     return space.wrap(w_self.context_expr)
@@ -3963,20 +3844,22 @@ def With_get_context_expr(space, w_self):
 def With_set_context_expr(space, w_self, w_new_value):
     try:
         w_self.context_expr = space.interp_w(expr, w_new_value, False)
+        if type(w_self.context_expr) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'context_expr', w_new_value)
         return
     w_self.deldictvalue(space, 'context_expr')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def With_get_optional_vars(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'optional_vars')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'optional_vars')
     return space.wrap(w_self.optional_vars)
@@ -3984,16 +3867,18 @@ def With_get_optional_vars(space, w_self):
 def With_set_optional_vars(space, w_self, w_new_value):
     try:
         w_self.optional_vars = space.interp_w(expr, w_new_value, True)
+        if type(w_self.optional_vars) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'optional_vars', w_new_value)
         return
     w_self.deldictvalue(space, 'optional_vars')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def With_get_body(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -4007,7 +3892,7 @@ def With_get_body(space, w_self):
 
 def With_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _With_field_unroller = unrolling_iterable(['context_expr', 'optional_vars', 'body'])
 def With_init(space, w_self, __args__):
@@ -4041,7 +3926,7 @@ def Raise_get_type(space, w_self):
         w_obj = w_self.getdictvalue(space, 'type')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'type')
     return space.wrap(w_self.type)
@@ -4049,20 +3934,22 @@ def Raise_get_type(space, w_self):
 def Raise_set_type(space, w_self, w_new_value):
     try:
         w_self.type = space.interp_w(expr, w_new_value, True)
+        if type(w_self.type) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
         return
     w_self.deldictvalue(space, 'type')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Raise_get_inst(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'inst')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'inst')
     return space.wrap(w_self.inst)
@@ -4070,20 +3957,22 @@ def Raise_get_inst(space, w_self):
 def Raise_set_inst(space, w_self, w_new_value):
     try:
         w_self.inst = space.interp_w(expr, w_new_value, True)
+        if type(w_self.inst) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'inst', w_new_value)
         return
     w_self.deldictvalue(space, 'inst')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Raise_get_tback(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'tback')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'tback')
     return space.wrap(w_self.tback)
@@ -4091,13 +3980,15 @@ def Raise_get_tback(space, w_self):
 def Raise_set_tback(space, w_self, w_new_value):
     try:
         w_self.tback = space.interp_w(expr, w_new_value, True)
+        if type(w_self.tback) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'tback', w_new_value)
         return
     w_self.deldictvalue(space, 'tback')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Raise_field_unroller = unrolling_iterable(['type', 'inst', 'tback'])
 def Raise_init(space, w_self, __args__):
@@ -4126,7 +4017,7 @@ Raise.typedef = typedef.TypeDef("Raise",
 )
 
 def TryExcept_get_body(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -4140,10 +4031,10 @@ def TryExcept_get_body(space, w_self):
 
 def TryExcept_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def TryExcept_get_handlers(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'handlers')
     if w_self.w_handlers is None:
@@ -4157,10 +4048,10 @@ def TryExcept_get_handlers(space, w_self):
 
 def TryExcept_set_handlers(space, w_self, w_new_value):
     w_self.w_handlers = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def TryExcept_get_orelse(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'orelse')
     if w_self.w_orelse is None:
@@ -4174,7 +4065,7 @@ def TryExcept_get_orelse(space, w_self):
 
 def TryExcept_set_orelse(space, w_self, w_new_value):
     w_self.w_orelse = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _TryExcept_field_unroller = unrolling_iterable(['body', 'handlers', 'orelse'])
 def TryExcept_init(space, w_self, __args__):
@@ -4206,7 +4097,7 @@ TryExcept.typedef = typedef.TypeDef("TryExcept",
 )
 
 def TryFinally_get_body(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -4220,10 +4111,10 @@ def TryFinally_get_body(space, w_self):
 
 def TryFinally_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def TryFinally_get_finalbody(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'finalbody')
     if w_self.w_finalbody is None:
@@ -4237,7 +4128,7 @@ def TryFinally_get_finalbody(space, w_self):
 
 def TryFinally_set_finalbody(space, w_self, w_new_value):
     w_self.w_finalbody = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _TryFinally_field_unroller = unrolling_iterable(['body', 'finalbody'])
 def TryFinally_init(space, w_self, __args__):
@@ -4271,7 +4162,7 @@ def Assert_get_test(space, w_self):
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'test')
     return space.wrap(w_self.test)
@@ -4279,20 +4170,22 @@ def Assert_get_test(space, w_self):
 def Assert_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
     w_self.deldictvalue(space, 'test')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Assert_get_msg(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'msg')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'msg')
     return space.wrap(w_self.msg)
@@ -4300,13 +4193,15 @@ def Assert_get_msg(space, w_self):
 def Assert_set_msg(space, w_self, w_new_value):
     try:
         w_self.msg = space.interp_w(expr, w_new_value, True)
+        if type(w_self.msg) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'msg', w_new_value)
         return
     w_self.deldictvalue(space, 'msg')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Assert_field_unroller = unrolling_iterable(['test', 'msg'])
 def Assert_init(space, w_self, __args__):
@@ -4334,7 +4229,7 @@ Assert.typedef = typedef.TypeDef("Assert",
 )
 
 def Import_get_names(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'names')
     if w_self.w_names is None:
@@ -4348,7 +4243,7 @@ def Import_get_names(space, w_self):
 
 def Import_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Import_field_unroller = unrolling_iterable(['names'])
 def Import_init(space, w_self, __args__):
@@ -4380,7 +4275,7 @@ def ImportFrom_get_module(space, w_self):
         w_obj = w_self.getdictvalue(space, 'module')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'module')
     return space.wrap(w_self.module)
@@ -4397,10 +4292,10 @@ def ImportFrom_set_module(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'module', w_new_value)
         return
     w_self.deldictvalue(space, 'module')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def ImportFrom_get_names(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'names')
     if w_self.w_names is None:
@@ -4414,14 +4309,14 @@ def ImportFrom_get_names(space, w_self):
 
 def ImportFrom_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def ImportFrom_get_level(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'level')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'level')
     return space.wrap(w_self.level)
@@ -4435,7 +4330,7 @@ def ImportFrom_set_level(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'level', w_new_value)
         return
     w_self.deldictvalue(space, 'level')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _ImportFrom_field_unroller = unrolling_iterable(['module', 'names', 'level'])
 def ImportFrom_init(space, w_self, __args__):
@@ -4469,7 +4364,7 @@ def Exec_get_body(space, w_self):
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     return space.wrap(w_self.body)
@@ -4477,20 +4372,22 @@ def Exec_get_body(space, w_self):
 def Exec_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
     w_self.deldictvalue(space, 'body')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Exec_get_globals(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'globals')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'globals')
     return space.wrap(w_self.globals)
@@ -4498,20 +4395,22 @@ def Exec_get_globals(space, w_self):
 def Exec_set_globals(space, w_self, w_new_value):
     try:
         w_self.globals = space.interp_w(expr, w_new_value, True)
+        if type(w_self.globals) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'globals', w_new_value)
         return
     w_self.deldictvalue(space, 'globals')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Exec_get_locals(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'locals')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'locals')
     return space.wrap(w_self.locals)
@@ -4519,13 +4418,15 @@ def Exec_get_locals(space, w_self):
 def Exec_set_locals(space, w_self, w_new_value):
     try:
         w_self.locals = space.interp_w(expr, w_new_value, True)
+        if type(w_self.locals) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'locals', w_new_value)
         return
     w_self.deldictvalue(space, 'locals')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Exec_field_unroller = unrolling_iterable(['body', 'globals', 'locals'])
 def Exec_init(space, w_self, __args__):
@@ -4554,7 +4455,7 @@ Exec.typedef = typedef.TypeDef("Exec",
 )
 
 def Global_get_names(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'names')
     if w_self.w_names is None:
@@ -4568,7 +4469,7 @@ def Global_get_names(space, w_self):
 
 def Global_set_names(space, w_self, w_new_value):
     w_self.w_names = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Global_field_unroller = unrolling_iterable(['names'])
 def Global_init(space, w_self, __args__):
@@ -4600,7 +4501,7 @@ def Expr_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -4608,13 +4509,15 @@ def Expr_get_value(space, w_self):
 def Expr_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Expr_field_unroller = unrolling_iterable(['value'])
 def Expr_init(space, w_self, __args__):
@@ -4696,7 +4599,7 @@ def expr_get_lineno(space, w_self):
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._lineno_mask:
+    if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'lineno')
     return space.wrap(w_self.lineno)
@@ -4710,14 +4613,14 @@ def expr_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
     w_self.deldictvalue(space, 'lineno')
-    w_self.initialization_state |= w_self._lineno_mask
+    w_self.initialization_state |= 1
 
 def expr_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._col_offset_mask:
+    if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'col_offset')
     return space.wrap(w_self.col_offset)
@@ -4731,7 +4634,7 @@ def expr_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
     w_self.deldictvalue(space, 'col_offset')
-    w_self.initialization_state |= w_self._col_offset_mask
+    w_self.initialization_state |= 2
 
 expr.typedef = typedef.TypeDef("expr",
     AST.typedef,
@@ -4747,7 +4650,7 @@ def BoolOp_get_op(space, w_self):
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'op')
     return boolop_to_class[w_self.op - 1]()
@@ -4763,10 +4666,10 @@ def BoolOp_set_op(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def BoolOp_get_values(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'values')
     if w_self.w_values is None:
@@ -4780,7 +4683,7 @@ def BoolOp_get_values(space, w_self):
 
 def BoolOp_set_values(space, w_self, w_new_value):
     w_self.w_values = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _BoolOp_field_unroller = unrolling_iterable(['op', 'values'])
 def BoolOp_init(space, w_self, __args__):
@@ -4813,7 +4716,7 @@ def BinOp_get_left(space, w_self):
         w_obj = w_self.getdictvalue(space, 'left')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'left')
     return space.wrap(w_self.left)
@@ -4821,20 +4724,22 @@ def BinOp_get_left(space, w_self):
 def BinOp_set_left(space, w_self, w_new_value):
     try:
         w_self.left = space.interp_w(expr, w_new_value, False)
+        if type(w_self.left) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
         return
     w_self.deldictvalue(space, 'left')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def BinOp_get_op(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'op')
     return operator_to_class[w_self.op - 1]()
@@ -4850,14 +4755,14 @@ def BinOp_set_op(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def BinOp_get_right(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'right')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'right')
     return space.wrap(w_self.right)
@@ -4865,13 +4770,15 @@ def BinOp_get_right(space, w_self):
 def BinOp_set_right(space, w_self, w_new_value):
     try:
         w_self.right = space.interp_w(expr, w_new_value, False)
+        if type(w_self.right) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'right', w_new_value)
         return
     w_self.deldictvalue(space, 'right')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _BinOp_field_unroller = unrolling_iterable(['left', 'op', 'right'])
 def BinOp_init(space, w_self, __args__):
@@ -4904,7 +4811,7 @@ def UnaryOp_get_op(space, w_self):
         w_obj = w_self.getdictvalue(space, 'op')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'op')
     return unaryop_to_class[w_self.op - 1]()
@@ -4920,14 +4827,14 @@ def UnaryOp_set_op(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'op', w_new_value)
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def UnaryOp_get_operand(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'operand')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'operand')
     return space.wrap(w_self.operand)
@@ -4935,13 +4842,15 @@ def UnaryOp_get_operand(space, w_self):
 def UnaryOp_set_operand(space, w_self, w_new_value):
     try:
         w_self.operand = space.interp_w(expr, w_new_value, False)
+        if type(w_self.operand) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'operand', w_new_value)
         return
     w_self.deldictvalue(space, 'operand')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _UnaryOp_field_unroller = unrolling_iterable(['op', 'operand'])
 def UnaryOp_init(space, w_self, __args__):
@@ -4973,7 +4882,7 @@ def Lambda_get_args(space, w_self):
         w_obj = w_self.getdictvalue(space, 'args')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'args')
     return space.wrap(w_self.args)
@@ -4987,14 +4896,14 @@ def Lambda_set_args(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'args', w_new_value)
         return
     w_self.deldictvalue(space, 'args')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Lambda_get_body(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     return space.wrap(w_self.body)
@@ -5002,13 +4911,15 @@ def Lambda_get_body(space, w_self):
 def Lambda_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
     w_self.deldictvalue(space, 'body')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Lambda_field_unroller = unrolling_iterable(['args', 'body'])
 def Lambda_init(space, w_self, __args__):
@@ -5040,7 +4951,7 @@ def IfExp_get_test(space, w_self):
         w_obj = w_self.getdictvalue(space, 'test')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'test')
     return space.wrap(w_self.test)
@@ -5048,20 +4959,22 @@ def IfExp_get_test(space, w_self):
 def IfExp_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
     w_self.deldictvalue(space, 'test')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def IfExp_get_body(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'body')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     return space.wrap(w_self.body)
@@ -5069,20 +4982,22 @@ def IfExp_get_body(space, w_self):
 def IfExp_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
     w_self.deldictvalue(space, 'body')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def IfExp_get_orelse(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'orelse')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'orelse')
     return space.wrap(w_self.orelse)
@@ -5090,13 +5005,15 @@ def IfExp_get_orelse(space, w_self):
 def IfExp_set_orelse(space, w_self, w_new_value):
     try:
         w_self.orelse = space.interp_w(expr, w_new_value, False)
+        if type(w_self.orelse) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'orelse', w_new_value)
         return
     w_self.deldictvalue(space, 'orelse')
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _IfExp_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
 def IfExp_init(space, w_self, __args__):
@@ -5125,7 +5042,7 @@ IfExp.typedef = typedef.TypeDef("IfExp",
 )
 
 def Dict_get_keys(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'keys')
     if w_self.w_keys is None:
@@ -5139,10 +5056,10 @@ def Dict_get_keys(space, w_self):
 
 def Dict_set_keys(space, w_self, w_new_value):
     w_self.w_keys = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Dict_get_values(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'values')
     if w_self.w_values is None:
@@ -5156,7 +5073,7 @@ def Dict_get_values(space, w_self):
 
 def Dict_set_values(space, w_self, w_new_value):
     w_self.w_values = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Dict_field_unroller = unrolling_iterable(['keys', 'values'])
 def Dict_init(space, w_self, __args__):
@@ -5186,7 +5103,7 @@ Dict.typedef = typedef.TypeDef("Dict",
 )
 
 def Set_get_elts(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elts')
     if w_self.w_elts is None:
@@ -5200,7 +5117,7 @@ def Set_get_elts(space, w_self):
 
 def Set_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Set_field_unroller = unrolling_iterable(['elts'])
 def Set_init(space, w_self, __args__):
@@ -5232,7 +5149,7 @@ def ListComp_get_elt(space, w_self):
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elt')
     return space.wrap(w_self.elt)
@@ -5240,16 +5157,18 @@ def ListComp_get_elt(space, w_self):
 def ListComp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
     w_self.deldictvalue(space, 'elt')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def ListComp_get_generators(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'generators')
     if w_self.w_generators is None:
@@ -5263,7 +5182,7 @@ def ListComp_get_generators(space, w_self):
 
 def ListComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _ListComp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def ListComp_init(space, w_self, __args__):
@@ -5296,7 +5215,7 @@ def SetComp_get_elt(space, w_self):
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elt')
     return space.wrap(w_self.elt)
@@ -5304,16 +5223,18 @@ def SetComp_get_elt(space, w_self):
 def SetComp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
     w_self.deldictvalue(space, 'elt')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def SetComp_get_generators(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'generators')
     if w_self.w_generators is None:
@@ -5327,7 +5248,7 @@ def SetComp_get_generators(space, w_self):
 
 def SetComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _SetComp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def SetComp_init(space, w_self, __args__):
@@ -5360,7 +5281,7 @@ def DictComp_get_key(space, w_self):
         w_obj = w_self.getdictvalue(space, 'key')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'key')
     return space.wrap(w_self.key)
@@ -5368,20 +5289,22 @@ def DictComp_get_key(space, w_self):
 def DictComp_set_key(space, w_self, w_new_value):
     try:
         w_self.key = space.interp_w(expr, w_new_value, False)
+        if type(w_self.key) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'key', w_new_value)
         return
     w_self.deldictvalue(space, 'key')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def DictComp_get_value(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -5389,16 +5312,18 @@ def DictComp_get_value(space, w_self):
 def DictComp_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def DictComp_get_generators(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'generators')
     if w_self.w_generators is None:
@@ -5412,7 +5337,7 @@ def DictComp_get_generators(space, w_self):
 
 def DictComp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _DictComp_field_unroller = unrolling_iterable(['key', 'value', 'generators'])
 def DictComp_init(space, w_self, __args__):
@@ -5446,7 +5371,7 @@ def GeneratorExp_get_elt(space, w_self):
         w_obj = w_self.getdictvalue(space, 'elt')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elt')
     return space.wrap(w_self.elt)
@@ -5454,16 +5379,18 @@ def GeneratorExp_get_elt(space, w_self):
 def GeneratorExp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
     w_self.deldictvalue(space, 'elt')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def GeneratorExp_get_generators(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'generators')
     if w_self.w_generators is None:
@@ -5477,7 +5404,7 @@ def GeneratorExp_get_generators(space, w_self):
 
 def GeneratorExp_set_generators(space, w_self, w_new_value):
     w_self.w_generators = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _GeneratorExp_field_unroller = unrolling_iterable(['elt', 'generators'])
 def GeneratorExp_init(space, w_self, __args__):
@@ -5510,7 +5437,7 @@ def Yield_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -5518,13 +5445,15 @@ def Yield_get_value(space, w_self):
 def Yield_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, True)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Yield_field_unroller = unrolling_iterable(['value'])
 def Yield_init(space, w_self, __args__):
@@ -5555,7 +5484,7 @@ def Compare_get_left(space, w_self):
         w_obj = w_self.getdictvalue(space, 'left')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'left')
     return space.wrap(w_self.left)
@@ -5563,16 +5492,18 @@ def Compare_get_left(space, w_self):
 def Compare_set_left(space, w_self, w_new_value):
     try:
         w_self.left = space.interp_w(expr, w_new_value, False)
+        if type(w_self.left) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
         return
     w_self.deldictvalue(space, 'left')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Compare_get_ops(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ops')
     if w_self.w_ops is None:
@@ -5586,10 +5517,10 @@ def Compare_get_ops(space, w_self):
 
 def Compare_set_ops(space, w_self, w_new_value):
     w_self.w_ops = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Compare_get_comparators(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'comparators')
     if w_self.w_comparators is None:
@@ -5603,7 +5534,7 @@ def Compare_get_comparators(space, w_self):
 
 def Compare_set_comparators(space, w_self, w_new_value):
     w_self.w_comparators = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Compare_field_unroller = unrolling_iterable(['left', 'ops', 'comparators'])
 def Compare_init(space, w_self, __args__):
@@ -5638,7 +5569,7 @@ def Call_get_func(space, w_self):
         w_obj = w_self.getdictvalue(space, 'func')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'func')
     return space.wrap(w_self.func)
@@ -5646,16 +5577,18 @@ def Call_get_func(space, w_self):
 def Call_set_func(space, w_self, w_new_value):
     try:
         w_self.func = space.interp_w(expr, w_new_value, False)
+        if type(w_self.func) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'func', w_new_value)
         return
     w_self.deldictvalue(space, 'func')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Call_get_args(space, w_self):
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'args')
     if w_self.w_args is None:
@@ -5669,10 +5602,10 @@ def Call_get_args(space, w_self):
 
 def Call_set_args(space, w_self, w_new_value):
     w_self.w_args = w_new_value
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Call_get_keywords(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'keywords')
     if w_self.w_keywords is None:
@@ -5686,14 +5619,14 @@ def Call_get_keywords(space, w_self):
 
 def Call_set_keywords(space, w_self, w_new_value):
     w_self.w_keywords = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 def Call_get_starargs(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'starargs')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 32:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'starargs')
     return space.wrap(w_self.starargs)
@@ -5701,20 +5634,22 @@ def Call_get_starargs(space, w_self):
 def Call_set_starargs(space, w_self, w_new_value):
     try:
         w_self.starargs = space.interp_w(expr, w_new_value, True)
+        if type(w_self.starargs) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'starargs', w_new_value)
         return
     w_self.deldictvalue(space, 'starargs')
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 32
 
 def Call_get_kwargs(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'kwargs')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 16:
+    if not w_self.initialization_state & 64:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'kwargs')
     return space.wrap(w_self.kwargs)
@@ -5722,13 +5657,15 @@ def Call_get_kwargs(space, w_self):
 def Call_set_kwargs(space, w_self, w_new_value):
     try:
         w_self.kwargs = space.interp_w(expr, w_new_value, True)
+        if type(w_self.kwargs) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'kwargs', w_new_value)
         return
     w_self.deldictvalue(space, 'kwargs')
-    w_self.initialization_state |= 16
+    w_self.initialization_state |= 64
 
 _Call_field_unroller = unrolling_iterable(['func', 'args', 'keywords', 'starargs', 'kwargs'])
 def Call_init(space, w_self, __args__):
@@ -5765,7 +5702,7 @@ def Repr_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -5773,13 +5710,15 @@ def Repr_get_value(space, w_self):
 def Repr_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Repr_field_unroller = unrolling_iterable(['value'])
 def Repr_init(space, w_self, __args__):
@@ -5810,7 +5749,7 @@ def Num_get_n(space, w_self):
         w_obj = w_self.getdictvalue(space, 'n')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'n')
     return w_self.n
@@ -5824,7 +5763,7 @@ def Num_set_n(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'n', w_new_value)
         return
     w_self.deldictvalue(space, 'n')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Num_field_unroller = unrolling_iterable(['n'])
 def Num_init(space, w_self, __args__):
@@ -5855,7 +5794,7 @@ def Str_get_s(space, w_self):
         w_obj = w_self.getdictvalue(space, 's')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 's')
     return w_self.s
@@ -5869,7 +5808,7 @@ def Str_set_s(space, w_self, w_new_value):
         w_self.setdictvalue(space, 's', w_new_value)
         return
     w_self.deldictvalue(space, 's')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Str_field_unroller = unrolling_iterable(['s'])
 def Str_init(space, w_self, __args__):
@@ -5900,7 +5839,7 @@ def Attribute_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -5908,20 +5847,22 @@ def Attribute_get_value(space, w_self):
 def Attribute_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Attribute_get_attr(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'attr')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'attr')
     return space.wrap(w_self.attr)
@@ -5935,14 +5876,14 @@ def Attribute_set_attr(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'attr', w_new_value)
         return
     w_self.deldictvalue(space, 'attr')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Attribute_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
@@ -5958,7 +5899,7 @@ def Attribute_set_ctx(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Attribute_field_unroller = unrolling_iterable(['value', 'attr', 'ctx'])
 def Attribute_init(space, w_self, __args__):
@@ -5991,7 +5932,7 @@ def Subscript_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return space.wrap(w_self.value)
@@ -5999,20 +5940,22 @@ def Subscript_get_value(space, w_self):
 def Subscript_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Subscript_get_slice(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'slice')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'slice')
     return space.wrap(w_self.slice)
@@ -6020,20 +5963,22 @@ def Subscript_get_slice(space, w_self):
 def Subscript_set_slice(space, w_self, w_new_value):
     try:
         w_self.slice = space.interp_w(slice, w_new_value, False)
+        if type(w_self.slice) is slice:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'slice', w_new_value)
         return
     w_self.deldictvalue(space, 'slice')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def Subscript_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
@@ -6049,7 +5994,7 @@ def Subscript_set_ctx(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _Subscript_field_unroller = unrolling_iterable(['value', 'slice', 'ctx'])
 def Subscript_init(space, w_self, __args__):
@@ -6082,7 +6027,7 @@ def Name_get_id(space, w_self):
         w_obj = w_self.getdictvalue(space, 'id')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'id')
     return space.wrap(w_self.id)
@@ -6096,14 +6041,14 @@ def Name_set_id(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'id', w_new_value)
         return
     w_self.deldictvalue(space, 'id')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Name_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
@@ -6119,7 +6064,7 @@ def Name_set_ctx(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Name_field_unroller = unrolling_iterable(['id', 'ctx'])
 def Name_init(space, w_self, __args__):
@@ -6147,7 +6092,7 @@ Name.typedef = typedef.TypeDef("Name",
 )
 
 def List_get_elts(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elts')
     if w_self.w_elts is None:
@@ -6161,14 +6106,14 @@ def List_get_elts(space, w_self):
 
 def List_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def List_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
@@ -6184,7 +6129,7 @@ def List_set_ctx(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _List_field_unroller = unrolling_iterable(['elts', 'ctx'])
 def List_init(space, w_self, __args__):
@@ -6213,7 +6158,7 @@ List.typedef = typedef.TypeDef("List",
 )
 
 def Tuple_get_elts(space, w_self):
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'elts')
     if w_self.w_elts is None:
@@ -6227,14 +6172,14 @@ def Tuple_get_elts(space, w_self):
 
 def Tuple_set_elts(space, w_self, w_new_value):
     w_self.w_elts = w_new_value
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def Tuple_get_ctx(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'ctx')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'ctx')
     return expr_context_to_class[w_self.ctx - 1]()
@@ -6250,7 +6195,7 @@ def Tuple_set_ctx(space, w_self, w_new_value):
         return
     # need to save the original object too
     w_self.setdictvalue(space, 'ctx', w_new_value)
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 _Tuple_field_unroller = unrolling_iterable(['elts', 'ctx'])
 def Tuple_init(space, w_self, __args__):
@@ -6283,7 +6228,7 @@ def Const_get_value(space, w_self):
         w_obj = w_self.getdictvalue(space, 'value')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'value')
     return w_self.value
@@ -6297,7 +6242,7 @@ def Const_set_value(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'value', w_new_value)
         return
     w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 _Const_field_unroller = unrolling_iterable(['value'])
 def Const_init(space, w_self, __args__):
@@ -6409,6 +6354,8 @@ def Slice_get_lower(space, w_self):
 def Slice_set_lower(space, w_self, w_new_value):
     try:
         w_self.lower = space.interp_w(expr, w_new_value, True)
+        if type(w_self.lower) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6430,6 +6377,8 @@ def Slice_get_upper(space, w_self):
 def Slice_set_upper(space, w_self, w_new_value):
     try:
         w_self.upper = space.interp_w(expr, w_new_value, True)
+        if type(w_self.upper) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6451,6 +6400,8 @@ def Slice_get_step(space, w_self):
 def Slice_set_step(space, w_self, w_new_value):
     try:
         w_self.step = space.interp_w(expr, w_new_value, True)
+        if type(w_self.step) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6540,6 +6491,8 @@ def Index_get_value(space, w_self):
 def Index_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6809,6 +6762,8 @@ def comprehension_get_target(space, w_self):
 def comprehension_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6830,6 +6785,8 @@ def comprehension_get_iter(space, w_self):
 def comprehension_set_iter(space, w_self, w_new_value):
     try:
         w_self.iter = space.interp_w(expr, w_new_value, False)
+        if type(w_self.iter) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6887,7 +6844,7 @@ def excepthandler_get_lineno(space, w_self):
         w_obj = w_self.getdictvalue(space, 'lineno')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._lineno_mask:
+    if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'lineno')
     return space.wrap(w_self.lineno)
@@ -6901,14 +6858,14 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
     w_self.deldictvalue(space, 'lineno')
-    w_self.initialization_state |= w_self._lineno_mask
+    w_self.initialization_state |= 1
 
 def excepthandler_get_col_offset(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'col_offset')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & w_self._col_offset_mask:
+    if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'col_offset')
     return space.wrap(w_self.col_offset)
@@ -6922,7 +6879,7 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
     w_self.deldictvalue(space, 'col_offset')
-    w_self.initialization_state |= w_self._col_offset_mask
+    w_self.initialization_state |= 2
 
 excepthandler.typedef = typedef.TypeDef("excepthandler",
     AST.typedef,
@@ -6938,7 +6895,7 @@ def ExceptHandler_get_type(space, w_self):
         w_obj = w_self.getdictvalue(space, 'type')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 1:
+    if not w_self.initialization_state & 4:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'type')
     return space.wrap(w_self.type)
@@ -6946,20 +6903,22 @@ def ExceptHandler_get_type(space, w_self):
 def ExceptHandler_set_type(space, w_self, w_new_value):
     try:
         w_self.type = space.interp_w(expr, w_new_value, True)
+        if type(w_self.type) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
         return
     w_self.deldictvalue(space, 'type')
-    w_self.initialization_state |= 1
+    w_self.initialization_state |= 4
 
 def ExceptHandler_get_name(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'name')
         if w_obj is not None:
             return w_obj
-    if not w_self.initialization_state & 2:
+    if not w_self.initialization_state & 8:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'name')
     return space.wrap(w_self.name)
@@ -6967,16 +6926,18 @@ def ExceptHandler_get_name(space, w_self):
 def ExceptHandler_set_name(space, w_self, w_new_value):
     try:
         w_self.name = space.interp_w(expr, w_new_value, True)
+        if type(w_self.name) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
         return
     w_self.deldictvalue(space, 'name')
-    w_self.initialization_state |= 2
+    w_self.initialization_state |= 8
 
 def ExceptHandler_get_body(space, w_self):
-    if not w_self.initialization_state & 4:
+    if not w_self.initialization_state & 16:
         typename = space.type(w_self).getname(space)
         raise operationerrfmt(space.w_AttributeError, "'%s' object has no attribute '%s'", typename, 'body')
     if w_self.w_body is None:
@@ -6990,7 +6951,7 @@ def ExceptHandler_get_body(space, w_self):
 
 def ExceptHandler_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 16
 
 _ExceptHandler_field_unroller = unrolling_iterable(['type', 'name', 'body'])
 def ExceptHandler_init(space, w_self, __args__):
@@ -7164,6 +7125,8 @@ def keyword_get_value(space, w_self):
 def keyword_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

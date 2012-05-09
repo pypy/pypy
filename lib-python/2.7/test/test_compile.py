@@ -3,6 +3,7 @@ import sys
 import _ast
 from test import test_support
 import textwrap
+from test.test_support import check_impl_detail
 
 class TestSpecifics(unittest.TestCase):
 
@@ -90,12 +91,13 @@ class TestSpecifics(unittest.TestCase):
         self.assertEqual(m.results, ('z', g))
         exec 'z = locals()' in g, m
         self.assertEqual(m.results, ('z', m))
-        try:
-            exec 'z = b' in m
-        except TypeError:
-            pass
-        else:
-            self.fail('Did not validate globals as a real dict')
+        if check_impl_detail():
+            try:
+                exec 'z = b' in m
+            except TypeError:
+                pass
+            else:
+                self.fail('Did not validate globals as a real dict')
 
         class A:
             "Non-mapping"
@@ -252,7 +254,7 @@ if 1:
             self.assertEqual(eval("-" + all_one_bits), -18446744073709551615L)
         else:
             self.fail("How many bits *does* this machine have???")
-        # Verify treatment of contant folding on -(sys.maxint+1)
+        # Verify treatment of constant folding on -(sys.maxint+1)
         # i.e. -2147483648 on 32 bit platforms.  Should return int, not long.
         self.assertIsInstance(eval("%s" % (-sys.maxint - 1)), int)
         self.assertIsInstance(eval("%s" % (-sys.maxint - 2)), long)

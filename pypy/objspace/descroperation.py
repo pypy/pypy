@@ -43,6 +43,13 @@ def type_eq(space):
     return w_eq
 type_eq._annspecialcase_ = 'specialize:memo'
 
+def list_iter(space):
+    "Utility that returns the app-level descriptor list.__iter__."
+    w_src, w_iter = space.lookup_in_type_where(space.w_list,
+                                               '__iter__')
+    return w_iter
+list_iter._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)
@@ -407,7 +414,8 @@ class DescrOperation(object):
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
-            return space.get_and_call_function(w_descr, w_container, w_item)
+            w_result = space.get_and_call_function(w_descr, w_container, w_item)
+            return space.nonzero(w_result)
         return space._contains(w_container, w_item)
 
     def _contains(space, w_container, w_item):

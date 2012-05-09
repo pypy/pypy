@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import running_on_llinterp
 from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -463,6 +463,31 @@ class BaseTestRbuiltin(BaseRtypingTest):
             assert x1 == intmask(x0)
             assert x3 == intmask(x2)
 
+    def test_id_on_builtins(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+        def fn():
+            return (compute_unique_id("foo"),
+                    compute_unique_id(u"bar"),
+                    compute_unique_id([1]),
+                    compute_unique_id({"foo": 3}),
+                    compute_unique_id(StringBuilder()),
+                    compute_unique_id(UnicodeBuilder()))
+        res = self.interpret(fn, [])
+        for id in self.ll_unpack_tuple(res, 6):
+            assert isinstance(id, (int, r_longlong))
+
+    def test_uniqueness_of_id_on_strings(self):
+        from pypy.rlib.objectmodel import compute_unique_id
+        def fn(s1, s2):
+            return (compute_unique_id(s1), compute_unique_id(s2))
+
+        s1 = "foo"
+        s2 = ''.join(['f','oo'])
+        res = self.interpret(fn, [self.string_to_ll(s1), self.string_to_ll(s2)])
+        i1, i2 = self.ll_unpack_tuple(res, 2)
+        assert i1 != i2
+
     def test_cast_primitive(self):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         def llf(u):
@@ -542,7 +567,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         if r_longlong is not r_int:
             assert isinstance(res, r_longlong)
         else:
-            assert isinstance(res, int)
+            assert is_valid_int(res)
         #
         def llfn(v):
             return rffi.cast(rffi.ULONGLONG, v)

@@ -10,9 +10,6 @@ import re
 REGEXES = [
     (('tracing_no', 'tracing_time'), '^Tracing:\s+([\d.]+)\s+([\d.]+)$'),
     (('backend_no', 'backend_time'), '^Backend:\s+([\d.]+)\s+([\d.]+)$'),
-    (('asm_no',), '^Running asm:\s+([\d.]+)$'),
-    (('blackhole_no',),
-         '^Blackhole:\s+([\d.]+)$'),
     (None, '^TOTAL.*$'),
     (('ops.total',), '^ops:\s+(\d+)$'),
     (('recorded_ops.total',), '^recorded ops:\s+(\d+)$'),

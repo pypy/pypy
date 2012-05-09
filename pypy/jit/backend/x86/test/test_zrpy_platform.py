@@ -74,8 +74,8 @@ void check3(int a, int b, int c) {
     myjitdriver = jit.JitDriver(greens = [], reds = ['n'])
 
     def entrypoint(argv):
-        myjitdriver.set_param('threshold', 2)
-        myjitdriver.set_param('trace_eagerness', 0)
+        jit.set_param(myjitdriver, 'threshold', 2)
+        jit.set_param(myjitdriver, 'trace_eagerness', 0)
         n = 16
         while n > 0:
             myjitdriver.can_enter_jit(n=n)

@@ -100,7 +100,10 @@ class AppTestFfi:
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        assert pow_addr == self.pow_addr & (sys.maxint*2-1)
+        fff = sys.maxint*2-1
+        if sys.platform == 'win32':
+            fff = sys.maxint*2+1
+        assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):
         import sys
@@ -190,6 +193,7 @@ class AppTestFfi:
 
     def test_convert_strings_to_char_p(self):
         """
+            DLLEXPORT
             long mystrlen(char* s)
             {
                 long len = 0;
@@ -215,6 +219,7 @@ class AppTestFfi:
     def test_convert_unicode_to_unichar_p(self):
         """
             #include <wchar.h>
+            DLLEXPORT
             long mystrlen_u(wchar_t* s)
             {
                 long len = 0;
@@ -241,6 +246,7 @@ class AppTestFfi:
 
     def test_keepalive_temp_buffer(self):
         """
+            DLLEXPORT
             char* do_nothing(char* s)
             {
                 return s;
@@ -525,5 +531,7 @@ class AppTestFfi:
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(AttributeError, "libfoo.getfunc('I_do_not_exist', [], types.void)")
+        if self.iswin32:
+            skip("unix specific")
         libnone = CDLL(None)
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")

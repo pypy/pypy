@@ -126,13 +126,13 @@ class TestLLType(BaseFinalizerAnalyzerTests):
         r = self.analyze(f, [], A.__del__.im_func)
         assert r
 
-    def test_is_light_finalizer_decorator(self):
+    def test_must_be_light_finalizer_decorator(self):
         S = lltype.GcStruct('S')
 
-        @rgc.is_light_finalizer
+        @rgc.must_be_light_finalizer
         def f():
             lltype.malloc(S)
-        @rgc.is_light_finalizer
+        @rgc.must_be_light_finalizer
         def g():
             pass
         self.analyze(g, []) # did not explode

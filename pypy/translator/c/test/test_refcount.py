@@ -229,7 +229,6 @@ def test_wrong_startblock_incref():
     graph = t.buildflowgraph(g)
     assert graph.startblock.operations == []
     graph.startblock = graph.startblock.exits[0].target
-    graph.startblock.isstartblock = True
     from pypy.objspace.flow.model import checkgraph
     checkgraph(graph)
     t._prebuilt_graphs[g] = graph

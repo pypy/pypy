@@ -1,6 +1,6 @@
 import py, sys
 
-from pypy.rlib.rarithmetic import r_longlong, intmask
+from pypy.rlib.rarithmetic import r_longlong, intmask, is_valid_int
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link
 from pypy.translator.unsimplify import varoftype
@@ -32,7 +32,7 @@ class FakeCPU:
 def test_functions():
     xll = longlong.getfloatstorage(3.5)
     assert longlong.getrealfloat(xll) == 3.5
-    assert isinstance(longlong.gethash(xll), int)
+    assert is_valid_int(longlong.gethash(xll))
 
 
 class TestLongLong:
@@ -78,7 +78,7 @@ class TestLongLong:
             oplist = tr.rewrite_operation(op)
             assert len(oplist) == 2
             assert oplist[0].opname == 'residual_call_irf_f'
-            assert oplist[0].args[0].value == 'llong_from_int'
+            assert oplist[0].args[0].value == opname.split('_')[0]+'_from_int'
             assert oplist[0].args[1] == 'calldescr-84'
             assert list(oplist[0].args[2]) == [const(0)]
             assert list(oplist[0].args[3]) == []

@@ -1,4 +1,4 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     args_dict)
@@ -61,7 +61,10 @@ class OptPure(Optimization):
         oldop = self.pure_operations.get(args, None)
         if oldop is not None and oldop.getdescr() is op.getdescr():
             assert oldop.getopnum() == op.getopnum()
+            # this removes a CALL_PURE that has the same (non-constant)
+            # arguments as a previous CALL_PURE.
             self.make_equal_to(op.result, self.getvalue(oldop.result))
+            self.last_emitted_operation = REMOVED
             return
         else:
             self.pure_operations[args] = op
@@ -71,6 +74,13 @@ class OptPure(Optimization):
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
                                          op.getdescr()))
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            # it was a CALL_PURE that was killed; so we also kill the
+            # following GUARD_NO_EXCEPTION
+            return
+        self.emit_operation(op)
 
     def flush(self):
         assert self.posponedop is None

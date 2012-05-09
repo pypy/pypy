@@ -16,6 +16,8 @@ from pypy.interpreter import baseobjspace, argument
 def transparent_class(name, BaseCls):
 
     class W_Transparent(BaseCls):
+        ignore_for_isinstance_cache = True
+
         def __init__(self, space, w_type, w_controller):
             self.w_type = w_type
             self.w_controller = w_controller

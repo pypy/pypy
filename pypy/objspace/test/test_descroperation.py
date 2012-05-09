@@ -641,6 +641,19 @@ class AppTest_Descroperation:
         assert issubclass(B, B)
         assert issubclass(23, B)
 
+    def test_issubclass_and_method(self):
+        class Meta(type):
+            def __subclasscheck__(cls, sub):
+                if sub is Dict:
+                    return True
+        class A:
+            __metaclass__ = Meta
+            def method(self):
+                return 42
+        class Dict:
+            method = A.method
+        assert Dict().method() == 42
+
     def test_truth_of_long(self):
         class X(object):
             def __len__(self): return 1L
@@ -680,6 +693,32 @@ class AppTest_Descroperation:
         assert l == 3 and type(l) is int
         l = len(X(X(2)))
         assert l == 2 and type(l) is int
+
+    def test_bool___contains__(self):
+        class X(object):
+            def __contains__(self, item):
+                if item == 'foo':
+                    return 42
+                else:
+                    return 'hello world'
+        x = X()
+        res = 'foo' in x
+        assert res is True
+        res = 'bar' in x
+        assert res is True
+        #
+        class MyError(Exception):
+            pass
+        class CannotConvertToBool(object):
+            def __nonzero__(self):
+                raise MyError
+        class X(object):
+            def __contains__(self, item):
+                return CannotConvertToBool()
+        x = X()
+        raises(MyError, "'foo' in x")
+        
+            
 
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}

@@ -69,8 +69,8 @@ translation_optiondescription = OptionDescription(
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
-                     "boehm": [("translation.gctransformer", "boehm"),
-                               ("translation.continuation", False)],  # breaks
+                     "boehm": [("translation.continuation", False),  # breaks
+                               ("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
@@ -105,7 +105,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],
-               suggests=[("translation.gc", "generation")]),
+               suggests=[("translation.gc", "generation"),
+                         ("translation.gcrootfinder", "shadowstack")]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
@@ -123,6 +124,9 @@ translation_optiondescription = OptionDescription(
                  default="off"),
     # jit_ffi is automatically turned on by withmod-_ffi (which is enabled by default)
     BoolOption("jit_ffi", "optimize libffi calls", default=False, cmdline=None),
+    BoolOption("check_str_without_nul",
+               "Forbid NUL chars in strings in some external function calls",
+               default=False, cmdline=None),
 
     # misc
     BoolOption("verbose", "Print extra information", default=False),
@@ -178,11 +182,6 @@ translation_optiondescription = OptionDescription(
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
-    BoolOption("builtins_can_raise_exceptions",
-               "When true, assume any call to a 'simple' builtin such as "
-               "'hex' can raise an arbitrary exception",
-               default=False,
-               cmdline=None),
     BoolOption("list_comprehension_operations",
                "When true, look for and special-case the sequence of "
                "operations that results from a list comprehension and "
@@ -397,6 +396,10 @@ def set_opt_level(config, level):
     # list_comprehension_operations is needed for translation, because
     # make_sure_not_resized often relies on it, so we always enable them
     config.translation.suggest(list_comprehension_operations=True)
+
+    # finally, make the choice of the gc definitive.  This will fail
+    # if we have specified strange inconsistent settings.
+    config.translation.gc = config.translation.gc
 
 # ----------------------------------------------------------------
 

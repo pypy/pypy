@@ -93,6 +93,10 @@ class RPythonAnnotator(object):
         # make input arguments and set their type
         args_s = [self.typeannotation(t) for t in input_arg_types]
 
+        # XXX hack
+        annmodel.TLS.check_str_without_nul = (
+            self.translator.config.translation.check_str_without_nul)
+
         flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
         if not isinstance(flowgraph, FunctionGraph):
             assert isinstance(flowgraph, annmodel.SomeObject)

@@ -180,7 +180,12 @@ class FunctionDesc(Desc):
         if name is None:
             name = pyobj.func_name
         if signature is None:
-            signature = cpython_code_signature(pyobj.func_code)
+            if hasattr(pyobj, '_generator_next_method_of_'):
+                from pypy.interpreter.argument import Signature
+                signature = Signature(['entry'])     # haaaaaack
+                defaults = ()
+            else:
+                signature = cpython_code_signature(pyobj.func_code)
         if defaults is None:
             defaults = pyobj.func_defaults
         self.name = name
@@ -224,8 +229,8 @@ class FunctionDesc(Desc):
                     return thing
                 elif hasattr(thing, '__name__'): # mostly types and functions
                     return thing.__name__
-                elif hasattr(thing, 'name'): # mostly ClassDescs
-                    return thing.name
+                elif hasattr(thing, 'name') and isinstance(thing.name, str):
+                    return thing.name            # mostly ClassDescs
                 elif isinstance(thing, tuple):
                     return '_'.join(map(nameof, thing))
                 else:
@@ -252,7 +257,8 @@ class FunctionDesc(Desc):
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
+            raise TypeError("signature mismatch: %s() %s" % 
+                            (self.name, e.getmsg()))
         return inputcells
 
     def specialize(self, inputcells, op=None):
@@ -392,7 +398,6 @@ class ClassDesc(Desc):
             cls = pyobj
             base = object
             baselist = list(cls.__bases__)
-            baselist.reverse()
 
             # special case: skip BaseException in Python 2.5, and pretend
             # that all exceptions ultimately inherit from Exception instead
@@ -402,17 +407,27 @@ class ClassDesc(Desc):
             elif baselist == [py.builtin.BaseException]:
                 baselist = [Exception]
 
+            mixins_before = []
+            mixins_after = []
             for b1 in baselist:
                 if b1 is object:
                     continue
                 if b1.__dict__.get('_mixin_', False):
-                    self.add_mixin(b1)
+                    if base is object:
+                        mixins_before.append(b1)
+                    else:
+                        mixins_after.append(b1)
                 else:
                     assert base is object, ("multiple inheritance only supported "
                                             "with _mixin_: %r" % (cls,))
                     base = b1
-
+            if mixins_before and mixins_after:
+                raise Exception("unsupported: class %r has mixin bases both"
+                                " before and after the regular base" % (self,))
+            self.add_mixins(mixins_after, check_not_in=base)
+            self.add_mixins(mixins_before)
             self.add_sources_for_class(cls)
+
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
 
@@ -474,14 +489,30 @@ class ClassDesc(Desc):
                 return
         self.classdict[name] = Constant(value)
 
-    def add_mixin(self, base):
-        for subbase in base.__bases__:
-            if subbase is object:
-                continue
-            assert subbase.__dict__.get("_mixin_", False), ("Mixin class %r has non"
-                "mixin base class %r" % (base, subbase))
-            self.add_mixin(subbase)
-        self.add_sources_for_class(base, mixin=True)
+    def add_mixins(self, mixins, check_not_in=object):
+        if not mixins:
+            return
+        A = type('tmp', tuple(mixins) + (object,), {})
+        mro = A.__mro__
+        assert mro[0] is A and mro[-1] is object
+        mro = mro[1:-1]
+        #
+        skip = set()
+        def add(cls):
+            if cls is not object:
+                for base in cls.__bases__:
+                    add(base)
+                for name in cls.__dict__:
+                    skip.add(name)
+        add(check_not_in)
+        #
+        for base in reversed(mro):
+            assert base.__dict__.get("_mixin_", False), ("Mixin class %r has non"
+                "mixin base class %r" % (mixins, base))
+            for name, value in base.__dict__.items():
+                if name in skip:
+                    continue
+                self.add_source_attribute(name, value, mixin=True)
 
     def add_sources_for_class(self, cls, mixin=False):
         for name, value in cls.__dict__.items():

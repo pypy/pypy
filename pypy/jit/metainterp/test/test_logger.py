@@ -5,7 +5,7 @@ from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
-from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
+from pypy.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr
 from pypy.jit.backend.model import AbstractCPU
 
 
@@ -54,7 +54,7 @@ class TestLogger(object):
         class FakeJitDriver(object):
             class warmstate(object):
                 get_location_str = staticmethod(lambda args: "dupa")
-        
+
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
             cpu.ts = self.ts
@@ -77,7 +77,7 @@ class TestLogger(object):
             equaloplists(loop.operations, oloop.operations)
             assert oloop.inputargs == loop.inputargs
         return logger, loop, oloop
-    
+
     def test_simple(self):
         inp = '''
         [i0, i1, i2, p3, p4, p5]
@@ -116,12 +116,13 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point(0, 0)
+        debug_merge_point(0, 0, 0)
         '''
         _, loop, oloop = self.reparse(inp, check_equal=False)
         assert loop.operations[0].getarg(1).getint() == 0
-        assert oloop.operations[0].getarg(1)._get_str() == "dupa"
-        
+        assert loop.operations[0].getarg(2).getint() == 0
+        assert oloop.operations[0].getarg(2)._get_str() == "dupa"
+
     def test_floats(self):
         inp = '''
         [f0]
@@ -131,7 +132,7 @@ class TestLogger(object):
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
-        namespace = {'target': LoopToken()}
+        namespace = {'target': JitCellToken()}
         namespace['target'].number = 3
         inp = '''
         [i0]
@@ -142,7 +143,7 @@ class TestLogger(object):
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "jump(i0, descr=<Loop3>)"
         pure_parse(output)
-        
+
     def test_guard_descr(self):
         namespace = {'fdescr': BasicFailDescr()}
         inp = '''
@@ -154,7 +155,7 @@ class TestLogger(object):
         output = logger.log_loop(loop)
         assert output.splitlines()[-1] == "guard_true(i0, descr=<Guard0>) [i0]"
         pure_parse(output)
-        
+
         logger = Logger(self.make_metainterp_sd(), guard_number=False)
         output = logger.log_loop(loop)
         lastline = output.splitlines()[-1]
@@ -180,7 +181,7 @@ class TestLogger(object):
     def test_intro_loop(self):
         bare_logger = logger.Logger(self.make_metainterp_sd())
         output = capturing(bare_logger.log_loop, [], [], 1, "foo")
-        assert output.splitlines()[0] == "# Loop 1 : foo with 0 ops"
+        assert output.splitlines()[0] == "# Loop 1 () : foo with 0 ops"
         pure_parse(output)
 
     def test_intro_bridge(self):

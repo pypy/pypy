@@ -1,11 +1,12 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 
 from pypy.objspace.std.stringtype import wrapstr
 
-class W_StringJoinObject(W_Object):
+class W_StringJoinObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, joined_strs, until=-1):

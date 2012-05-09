@@ -1,3 +1,4 @@
+import sys
 from pypy.objspace.std.sliceobject import normalize_simple_slice
 
 
@@ -41,6 +42,24 @@ class TestW_SliceObject:
                     assert (getslice(length, start, stop) ==
                             getslice(length, mystart, mystop))
 
+
+    def test_indexes4(self):
+        space = self.space
+        w = space.wrap
+
+        def getslice(length, start, stop, step):
+            return [i for i in range(0, length, step) if start <= i < stop]
+
+        for step in [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5, None]:
+            for length in range(5):
+                for start in range(-2*length-2, 2*length+3) + [None]:
+                    for stop in range(-2*length-2, 2*length+3) + [None]:
+                        sl = space.newslice(w(start), w(stop), w(step))
+                        mystart, mystop, mystep, slicelength = sl.indices4(space, length)
+                        assert len(range(length)[start:stop:step]) == slicelength
+                        if sys.version_info >= (2, 6):   # doesn't work in 2.5
+                            assert slice(start, stop, step).indices(length) == (
+                                    mystart, mystop, mystep)
 
 class AppTest_SliceObject:
     def test_new(self):

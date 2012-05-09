@@ -169,6 +169,22 @@ class BaseTestRrange(BaseRtypingTest):
         res = self.interpret(fn, [2])
         assert res == 789
 
+    def test_enumerate_instances(self):
+        class A:
+            pass
+        def fn(n):
+            a = A()
+            b = A()
+            a.k = 10
+            b.k = 20
+            for i, x in enumerate([a, b]):
+                if i == n:
+                    return x.k
+            return 5
+        res = self.interpret(fn, [1])
+        assert res == 20
+
+
 
 class TestLLtype(BaseTestRrange, LLRtypeMixin):
     from pypy.rpython.lltypesystem import rrange 

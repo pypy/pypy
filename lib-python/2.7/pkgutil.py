@@ -11,7 +11,7 @@ from types import ModuleType
 
 __all__ = [
     'get_importer', 'iter_importers', 'get_loader', 'find_loader',
-    'walk_packages', 'iter_modules',
+    'walk_packages', 'iter_modules', 'get_data',
     'ImpImporter', 'ImpLoader', 'read_code', 'extend_path',
 ]
 
@@ -244,7 +244,8 @@ class ImpLoader:
         return mod
 
     def get_data(self, pathname):
-        return open(pathname, "rb").read()
+        with open(pathname, "rb") as f:
+            return f.read()
 
     def _reopen(self):
         if self.file and self.file.closed:

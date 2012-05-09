@@ -7,29 +7,52 @@ from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
 
-def Windows(cc=None):
-    if cc == 'mingw32':
+def _get_compiler_type(cc, x64_flag):
+    import subprocess
+    if not cc:
+        cc = os.environ.get('CC','')
+    if not cc:
+        return MsvcPlatform(cc=cc, x64=x64_flag)
+    elif cc.startswith('mingw'):
         return MingwPlatform(cc)
-    else:
-        return MsvcPlatform(cc)
+    try:
+        subprocess.check_output([cc, '--version'])
+    except:
+        raise ValueError,"Could not find compiler specified by cc option" + \
+                " '%s', it must be a valid exe file on your path"%cc
+    return MingwPlatform(cc)
 
-def _get_msvc_env(vsver):
+def Windows(cc=None):
+    return _get_compiler_type(cc, False)
+
+def Windows_x64(cc=None):
+    return _get_compiler_type(cc, True)
+    
+def _get_msvc_env(vsver, x64flag):
     try:
         toolsdir = os.environ['VS%sCOMNTOOLS' % vsver]
     except KeyError:
         return None
 
-    vcvars = os.path.join(toolsdir, 'vsvars32.bat')
+    if x64flag:
+        vsinstalldir = os.path.abspath(os.path.join(toolsdir, '..', '..'))
+        vcinstalldir = os.path.join(vsinstalldir, 'VC')
+        vcbindir = os.path.join(vcinstalldir, 'BIN')
+        vcvars = os.path.join(vcbindir, 'amd64', 'vcvarsamd64.bat')
+    else:
+        vcvars = os.path.join(toolsdir, 'vsvars32.bat')
 
     import subprocess
-    popen = subprocess.Popen('"%s" & set' % (vcvars,),
+    try:
+        popen = subprocess.Popen('"%s" & set' % (vcvars,),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
 
-    stdout, stderr = popen.communicate()
-    if popen.wait() != 0:
-        return
-
+        stdout, stderr = popen.communicate()
+        if popen.wait() != 0:
+            return None
+    except:
+        return None
     env = {}
 
     stdout = stdout.replace("\r\n", "\n")
@@ -42,21 +65,21 @@ def _get_msvc_env(vsver):
     ## log.msg("Updated environment with %s" % (vcvars,))
     return env
 
-def find_msvc_env():
+def find_msvc_env(x64flag=False):
     # First, try to get the compiler which served to compile python
     msc_pos = sys.version.find('MSC v.')
     if msc_pos != -1:
         msc_ver = int(sys.version[msc_pos+6:msc_pos+10])
         # 1300 -> 70, 1310 -> 71, 1400 -> 80, 1500 -> 90
         vsver = (msc_ver / 10) - 60
-        env = _get_msvc_env(vsver)
+        env = _get_msvc_env(vsver, x64flag)
 
         if env is not None:
             return env
 
     # Then, try any other version
     for vsver in (100, 90, 80, 71, 70): # All the versions I know
-        env = _get_msvc_env(vsver)
+        env = _get_msvc_env(vsver, x64flag)
 
         if env is not None:
             return env
@@ -64,12 +87,15 @@ def find_msvc_env():
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
 
-msvc_compiler_environ = find_msvc_env()
+msvc_compiler_environ32 = find_msvc_env(False)
+msvc_compiler_environ64 = find_msvc_env(True)
 
 class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
+    
+    relevant_environ = ('PATH', 'INCLUDE', 'LIB')
 
     cc = 'cl.exe'
     link = 'link.exe'
@@ -79,8 +105,13 @@ class MsvcPlatform(Platform):
     standalone_only = ()
     shared_only = ()
     environ = None
-
-    def __init__(self, cc=None):
+    
+    def __init__(self, cc=None, x64=False):
+        self.x64 = x64
+        if x64:
+            msvc_compiler_environ = msvc_compiler_environ64
+        else:
+            msvc_compiler_environ = msvc_compiler_environ32
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
@@ -103,9 +134,16 @@ class MsvcPlatform(Platform):
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            self.masm = 'c:/masm32/bin/ml.exe'
+            masm32 = 'c:/masm32/bin/ml.exe'
+            masm64 = 'c:/masm64/bin/ml64.exe'
         else:
-            self.masm = 'ml.exe'
+            masm32 = 'ml.exe'
+            masm64 = 'ml64.exe'
+        
+        if x64:
+            self.masm = masm64
+        else:
+            self.masm = masm32
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
@@ -165,7 +203,13 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
-        args = ['/nologo', '/c'] + compile_args + [str(cfile), '/Fo%s' % (oname,)]
+        # notabene: (tismer)
+        # This function may be called for .c but also .asm files.
+        # The c compiler accepts any order of arguments, while
+        # the assembler still has the old behavior that all options
+        # must come first, and after the file name all options are ignored.
+        # So please be careful with the order of parameters! ;-)
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -250,7 +294,7 @@ class MsvcPlatform(Platform):
                 return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
-        rel_ofiles = [rel_cfile[:-2]+'.obj' for rel_cfile in rel_cfiles]
+        rel_ofiles = [rel_cfile[:rel_cfile.rfind('.')]+'.obj' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in eci.include_dirs]
@@ -273,7 +317,10 @@ class MsvcPlatform(Platform):
             ('CC_LINK', self.link),
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
+            ('_WIN32', '1'),
             ]
+        if self.x64:
+            definitions.append(('_WIN64', '1'))
 
         for args in definitions:
             m.definition(*args)
@@ -281,6 +328,7 @@ class MsvcPlatform(Platform):
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
             ('.c.obj', '', '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) /Fo$@ /c $< $(INCLUDEDIRS)'),
+            ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
         for rule in rules:
@@ -294,6 +342,9 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
+        m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
+               ['$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+                ])
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename)
@@ -306,6 +357,9 @@ class MsvcPlatform(Platform):
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
                    ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
+                   ['$(CC_LINK) /nologo /DEBUG main.obj $(SHARED_IMPORT_LIB) /out:$@'
                     ])
 
         return m
@@ -355,7 +409,9 @@ class MingwPlatform(posix.BasePosix):
     so_ext = 'dll'
 
     def __init__(self, cc=None):
-        Platform.__init__(self, 'gcc')
+        if not cc:
+            cc = 'gcc'
+        Platform.__init__(self, cc)
 
     def _args_for_shared(self, args):
         return ['-shared'] + args

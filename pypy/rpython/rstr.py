@@ -165,6 +165,7 @@ class __extend__(AbstractStringRepr):
         v_char = hop.inputarg(rstr.char_repr, arg=1)
         v_left = hop.inputconst(Bool, left)
         v_right = hop.inputconst(Bool, right)
+        hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_strip, v_str, v_char, v_left, v_right)
 
     def rtype_method_lstrip(self, hop):
@@ -287,6 +288,8 @@ class __extend__(AbstractStringRepr):
 
     def rtype_unicode(self, hop):
         if hop.args_s[0].is_constant():
+            # convertion errors occur during annotation, so cannot any more:
+            hop.exception_cannot_occur()
             return hop.inputconst(hop.r_result, hop.s_result.const)
         repr = hop.args_r[0].repr
         v_str = hop.inputarg(repr, 0)

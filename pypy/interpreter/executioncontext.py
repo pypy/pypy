@@ -154,6 +154,7 @@ class ExecutionContext(object):
         #operationerr.print_detailed_traceback(self.space)
 
     def _convert_exc(self, operr):
+        # Only for the flow object space
         return operr
 
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
@@ -165,6 +166,11 @@ class ExecutionContext(object):
                 return self._convert_exc(frame.last_exception)
             frame = self.getnextframe_nohidden(frame)
         return None
+
+    def set_sys_exc_info(self, operror):
+        frame = self.gettopframe_nohidden()
+        if frame:     # else, the exception goes nowhere and is lost
+            frame.last_exception = operror
 
     def settrace(self, w_func):
         """Set the global trace function."""
@@ -445,6 +451,7 @@ class UserDelAction(AsyncAction):
         AsyncAction.__init__(self, space)
         self.dying_objects = []
         self.finalizers_lock_count = 0
+        self.enabled_at_app_level = True
 
     def register_callback(self, w_obj, callback, descrname):
         self.dying_objects.append((w_obj, callback, descrname))

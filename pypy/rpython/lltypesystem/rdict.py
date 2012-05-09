@@ -323,6 +323,17 @@ class DictRepr(AbstractDictRepr):
         hop.exception_is_here()
         return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
 
+    def rtype_method_pop(self, hop):
+        if hop.nb_args == 2:
+            v_args = hop.inputargs(self, self.key_repr)
+            target = ll_pop
+        elif hop.nb_args == 3:
+            v_args = hop.inputargs(self, self.key_repr, self.value_repr)
+            target = ll_pop_default
+        hop.exception_is_here()
+        v_res = hop.gendirectcall(target, *v_args)
+        return self.recast_value(hop.llops, v_res)
+
 class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -874,3 +885,18 @@ def ll_popitem(ELEM, dic):
     r.item1 = recast(ELEM.TO.item1, entry.value)
     _ll_dict_del(dic, i)
     return r
+
+def ll_pop(dic, key):
+    i = ll_dict_lookup(dic, key, dic.keyhash(key))
+    if not i & HIGHEST_BIT:
+        value = ll_get_value(dic, i)
+        _ll_dict_del(dic, i)
+        return value
+    else:
+        raise KeyError
+
+def ll_pop_default(dic, key, dfl):
+    try:
+        return ll_pop(dic, key)
+    except KeyError:
+        return dfl

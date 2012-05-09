@@ -67,9 +67,6 @@ class W_RSocket(Wrappable, RSocket):
             self.connect(self.addr_from_object(space, w_addr))
         except SocketError, e:
             raise converted_error(space, e)
-        except TypeError, e:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap(str(e)))
 
     def connect_ex_w(self, space, w_addr):
         """connect_ex(address) -> errno

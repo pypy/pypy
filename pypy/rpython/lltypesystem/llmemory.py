@@ -8,6 +8,8 @@ import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 class AddressOffset(Symbolic):
 
@@ -28,11 +30,12 @@ class AddressOffset(Symbolic):
     def __ge__(self, other):
         if self is other:
             return True
-        elif (isinstance(other, (int, long)) and other == 0 and
+        elif (is_valid_int(other) and other == 0 and
             self.known_nonneg()):
             return True
         else:
-            raise TypeError("Symbolics can not be compared!")
+            raise TypeError("Symbolics cannot be compared! (%r, %r)"
+                            % (self, other))
 
     def __lt__(self, other):
         return not self.__ge__(other)
@@ -57,7 +60,7 @@ class ItemOffset(AddressOffset):
         return "<ItemOffset %r %r>" % (self.TYPE, self.repeat)
 
     def __mul__(self, other):
-        if not isinstance(other, int):
+        if not is_valid_int(other):
             return NotImplemented
         return ItemOffset(self.TYPE, self.repeat * other)
 

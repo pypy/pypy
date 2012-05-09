@@ -38,9 +38,27 @@ _setlogmask = libc.setlogmask
 _setlogmask.argtypes = (c_int,)
 _setlogmask.restype = c_int
 
+_S_log_open = False
+_S_ident_o = None
+
+def _get_argv():
+    try:
+        import sys
+        script = sys.argv[0]
+        if isinstance(script, str):
+            return script[script.rfind('/')+1:] or None
+    except Exception:
+        pass
+    return None
+
 @builtinify
-def openlog(ident, option, facility):
-    _openlog(ident, option, facility)
+def openlog(ident=None, logoption=0, facility=LOG_USER):
+    global _S_ident_o, _S_log_open
+    if ident is None:
+        ident = _get_argv()
+    _S_ident_o = c_char_p(ident)    # keepalive
+    _openlog(_S_ident_o, logoption, facility)
+    _S_log_open = True
 
 @builtinify
 def syslog(arg1, arg2=None):
@@ -48,11 +66,18 @@ def syslog(arg1, arg2=None):
         priority, message = arg1, arg2
     else:
         priority, message = LOG_INFO, arg1
+    # if log is not opened, open it now
+    if not _S_log_open:
+        openlog()
     _syslog(priority, "%s", message)
 
 @builtinify
 def closelog():
-    _closelog()
+    global _S_log_open, S_ident_o
+    if _S_log_open:
+        _closelog()
+        _S_log_open = False
+        _S_ident_o = None
 
 @builtinify
 def setlogmask(mask):

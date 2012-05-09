@@ -8,8 +8,9 @@ from pypy.objspace.std.unicodeobject import _normalize_index
 from pypy.objspace.std.ropeobject import W_RopeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib import rope
+from pypy.rlib.rstring import StringBuilder
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import unicodeobject, slicetype, iterobject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.module.unicodedata import unicodedb
@@ -76,7 +77,7 @@ def encode_unicode(space, w_unistr, encoding, errors):
     return encode_object(space, w_unistr, encoding, errors)
 
 
-class W_RopeUnicodeObject(W_Object):
+class W_RopeUnicodeObject(unicodeobject.W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
     _immutable_fields_ = ['_node']
 
@@ -117,7 +118,7 @@ def ropeunicode_w(space, w_str):
     return rope.LiteralUnicodeNode(space.unicode_w(w_str))
 
 
-class W_RopeUnicodeIterObject(W_Object):
+class W_RopeUnicodeIterObject(iterobject.W_AbstractIterObject):
     from pypy.objspace.std.itertype import iter_typedef as typedef
 
     def __init__(w_self, w_rope, index=0):
@@ -946,15 +947,16 @@ def mod__RopeUnicode_ANY(space, w_format, w_values):
     return mod_format(space, w_format, w_values, do_unicode=True)
 
 def buffer__RopeUnicode(space, w_unicode):
-    from pypy.rlib.rstruct.unichar import pack_unichar
-    charlist = []
+    from pypy.rlib.rstruct.unichar import pack_unichar, UNICODE_SIZE
     node = w_unicode._node
     iter = rope.ItemIterator(node)
-    for idx in range(node.length()):
+    length = node.length()
+    builder = StringBuilder(length * UNICODE_SIZE)
+    for idx in range(length):
         unich = unichr(iter.nextint())
-        pack_unichar(unich, charlist)
+        pack_unichar(unich, builder)
     from pypy.interpreter.buffer import StringBuffer
-    return space.wrap(StringBuffer(''.join(charlist)))
+    return space.wrap(StringBuffer(builder.build()))
 
 
 # methods of the iterator

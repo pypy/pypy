@@ -329,11 +329,16 @@ callable_proxy_typedef_dict = {}
 special_ops = {'repr': True, 'userdel': True, 'hash': True}
 
 for opname, _, arity, special_methods in ObjSpace.MethodTable:
-    if opname in special_ops:
+    if opname in special_ops or not special_methods:
         continue
     nonspaceargs =  ", ".join(["w_obj%s" % i for i in range(arity)])
     code = "def func(space, %s):\n    '''%s'''\n" % (nonspaceargs, opname)
-    for i in range(arity):
+    assert arity >= len(special_methods)
+    forcing_count = len(special_methods)
+    if opname.startswith('inplace_'):
+        assert arity == 2
+        forcing_count = arity
+    for i in range(forcing_count):
         code += "    w_obj%s = force(space, w_obj%s)\n" % (i, i)
     code += "    return space.%s(%s)" % (opname, nonspaceargs)
     exec py.code.Source(code).compile()

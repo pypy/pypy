@@ -58,12 +58,12 @@ if _WIN32:
     header_lines = [
         '#include <WinSock2.h>',
         '#include <WS2tcpip.h>',
+        '#include <Mstcpip.h>',
         # winsock2 defines AF_UNIX, but not sockaddr_un
         '#undef AF_UNIX',
         ]
     if _MSVC:
         header_lines.extend([
-            '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
             'typedef int ssize_t;',
             'typedef unsigned __int16 uint16_t;',
@@ -71,6 +71,7 @@ if _WIN32:
             ])
     else: # MINGW
         includes = ('stdint.h',)
+        """
         header_lines.extend([
             '''\
             #ifndef _WIN32_WINNT
@@ -88,6 +89,7 @@ if _WIN32:
                 u_long  keepaliveinterval;
             };'''
             ])
+        """
     HEADER = '\n'.join(header_lines)
     COND_HEADER = ''
 constants = {}
@@ -418,7 +420,7 @@ assert WIN32 == _WIN32
 if _MSVC:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
-    INVALID_SOCKET = cConfig.INVALID_SOCKET
+    INVALID_SOCKET = r_uint(cConfig.INVALID_SOCKET)
 else:
     def invalid_socket(fd):
         return fd < 0

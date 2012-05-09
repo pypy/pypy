@@ -496,6 +496,17 @@ class AppClassCollector(PyPyClassCollector):
     def setup(self):
         super(AppClassCollector, self).setup()
         cls = self.obj
+        #
+        # <hack>
+        for name in dir(cls):
+            if name.startswith('test_'):
+                func = getattr(cls, name, None)
+                code = getattr(func, 'func_code', None)
+                if code and code.co_flags & 32:
+                    raise AssertionError("unsupported: %r is a generator "
+                                         "app-level test method" % (name,))
+        # </hack>
+        #
         space = cls.space
         clsname = cls.__name__
         if self.config.option.runappdirect:

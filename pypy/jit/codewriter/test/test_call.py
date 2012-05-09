@@ -192,3 +192,21 @@ def test_releases_gil_analyzer():
     [op] = block.operations
     call_descr = cc.getcalldescr(op)
     assert call_descr.extrainfo.has_random_effects()
+
+def test_random_effects_on_stacklet_switch():
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+    from pypy.rlib._rffi_stacklet import switch, thread_handle, handle
+    @jit.dont_look_inside
+    def f():
+        switch(rffi.cast(thread_handle, 0), rffi.cast(handle, 0))
+
+    rtyper = support.annotate(f, [])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+
+    [f_graph] = [x for x in res if x.func is f]
+    [block, _] = list(f_graph.iterblocks())
+    op = block.operations[-1]
+    call_descr = cc.getcalldescr(op)
+    assert call_descr.extrainfo.has_random_effects()

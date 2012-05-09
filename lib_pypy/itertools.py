@@ -25,7 +25,7 @@ groupby(iterable[, keyfunc]) --> sub-iterators grouped by value of keyfunc(v)
 
 __all__ = ['chain', 'count', 'cycle', 'dropwhile', 'groupby', 'ifilter',
            'ifilterfalse', 'imap', 'islice', 'izip', 'repeat', 'starmap',
-           'takewhile', 'tee']
+           'takewhile', 'tee', 'compress', 'product']
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f

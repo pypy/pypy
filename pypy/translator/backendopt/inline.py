@@ -453,7 +453,6 @@ class BaseInliner(object):
         #vars that need to be passed through the blocks of the inlined function
         linktoinlined = splitlink
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
-        copiedstartblock.isstartblock = False
         #find args passed to startblock of inlined function
         passon_args = []
         for arg in self.op.args[1:]:

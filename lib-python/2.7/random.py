@@ -41,7 +41,6 @@ General notes on the underlying Mersenne Twister core generator:
 
 from __future__ import division
 from warnings import warn as _warn
-from types import MethodType as _MethodType, BuiltinMethodType as _BuiltinMethodType
 from math import log as _log, exp as _exp, pi as _pi, e as _e, ceil as _ceil
 from math import sqrt as _sqrt, acos as _acos, cos as _cos, sin as _sin
 from os import urandom as _urandom
@@ -240,8 +239,7 @@ class Random(_random.Random):
 
         return self.randrange(a, b+1)
 
-    def _randbelow(self, n, _log=_log, int=int, _maxwidth=1L<<BPF,
-                   _Method=_MethodType, _BuiltinMethod=_BuiltinMethodType):
+    def _randbelow(self, n, _log=_log, int=int, _maxwidth=1L<<BPF):
         """Return a random int in the range [0,n)
 
         Handles the case where n has more bits than returned
@@ -256,7 +254,8 @@ class Random(_random.Random):
             # Only call self.getrandbits if the original random() builtin method
             # has not been overridden or if a new getrandbits() was supplied.
             # This assures that the two methods correspond.
-            if type(self.random) is _BuiltinMethod or type(getrandbits) is _Method:
+            if (self.random == super(Random, self).random or
+                getrandbits != super(Random, self).getrandbits):
                 k = int(1.00001 + _log(n-1, 2.0))   # 2**k > n-1 > 2**(k-2)
                 r = getrandbits(k)
                 while r >= n:
@@ -317,7 +316,7 @@ class Random(_random.Random):
 
         n = len(population)
         if not 0 <= k <= n:
-            raise ValueError, "sample larger than population"
+            raise ValueError("sample larger than population")
         random = self.random
         _int = int
         result = [None] * k
@@ -490,6 +489,12 @@ class Random(_random.Random):
 
         Conditions on the parameters are alpha > 0 and beta > 0.
 
+        The probability distribution function is:
+
+                    x ** (alpha - 1) * math.exp(-x / beta)
+          pdf(x) =  --------------------------------------
+                      math.gamma(alpha) * beta ** alpha
+
         """
 
         # alpha > 0, beta > 0, mean is alpha*beta, variance is alpha*beta**2
@@ -592,7 +597,7 @@ class Random(_random.Random):
 
 ## -------------------- beta --------------------
 ## See
-## http://sourceforge.net/bugs/?func=detailbug&bug_id=130030&group_id=5470
+## http://mail.python.org/pipermail/python-bugs-list/2001-January/003752.html
 ## for Ivan Frohne's insightful analysis of why the original implementation:
 ##
 ##    def betavariate(self, alpha, beta):

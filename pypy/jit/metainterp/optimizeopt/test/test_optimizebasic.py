@@ -1,16 +1,16 @@
 import py
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData)
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from pypy.jit.metainterp.history import TargetToken, JitCellToken
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimize import InvalidLoop
-from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
+from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, get_const_ptr_for_string
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.rlib.rarithmetic import LONG_BIT
-
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -116,9 +116,13 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-
         loop = self.parse(ops)
-        expected = self.parse(optops)
+        token = JitCellToken()
+        loop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
+                          loop.operations
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
+        expected = convert_old_style_to_targets(self.parse(optops), jump=True)
         self._do_optimize_loop(loop, call_pure_results)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)
@@ -681,25 +685,60 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
 
-    def test_fold_guard_no_exception(self):
+    def test_keep_guard_no_exception(self):
         ops = """
-        [i]
-        guard_no_exception() []
-        i1 = int_add(i, 3)
-        guard_no_exception() []
+        [i1]
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        guard_no_exception() []
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)       # the exception is considered lost when we loop back
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_keep_guard_no_exception_with_call_pure_that_is_not_folded(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         expected = """
-        [i]
-        i1 = int_add(i, 3)
-        i2 = call(i1, descr=nonwritedescr)
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_no_exception_with_call_pure_on_constant_args(self):
+        arg_consts = [ConstInt(i) for i in (123456, 81)]
+        call_pure_results = {tuple(arg_consts): ConstInt(5)}
+        ops = """
+        [i1]
+        i3 = same_as(81)
+        i2 = call_pure(123456, i3, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(5)
+        """
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_remove_guard_no_exception_with_duplicated_call_pure(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        i3 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2, i3]
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         self.optimize_loop(ops, expected)
 
@@ -4123,6 +4162,38 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_concat_constant_lengths(self):
+        ops = """
+        [i0]
+        p0 = newstr(1)
+        strsetitem(p0, 0, i0)
+        p1 = newstr(0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p0, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_concat_constant_lengths_2(self):
+        ops = """
+        [i0]
+        p0 = newstr(0)
+        p1 = newstr(1)
+        strsetitem(p1, 0, i0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p1, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_str_slice_1(self):
         ops = """
         [p1, i1, i2]
@@ -4883,6 +4954,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_plain_virtual_string_copy_content(self):
         ops = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        expected = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 6)
+        copystrcontent(s"abc123", p1, 0, 6, 6)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_plain_virtual_string_copy_content_2(self):
+        ops = """
         []
         p0 = newstr(6)
         copystrcontent(s"hello!", p0, 0, 0, 6)
@@ -4894,10 +4986,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         []
         p0 = newstr(6)
         copystrcontent(s"hello!", p0, 0, 0, 6)
-        p1 = newstr(12)
-        copystrcontent(p0, p1, 0, 0, 6)
-        copystrcontent(s"abc123", p1, 0, 6, 6)
-        i0 = strgetitem(p1, 0)
+        i0 = strgetitem(p0, 0)
         finish(i0)
         """
         self.optimize_strunicode_loop(ops, expected)
@@ -4914,10 +5003,92 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_known_equal_ints(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+        i5 = int_lt(i2, i1)
+        guard_true(i5) []
+
+        i6 = getarrayitem_gc(p0, i2)
+        finish(i6)
+        """
+        expected = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+
+        i6 = getarrayitem_gc(p0, i3)
+        finish(i6)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_str_copy_virtual(self):
+        ops = """
+        [i0]
+        p0 = newstr(8)
+        strsetitem(p0, 0, i0)
+        strsetitem(p0, 1, i0)
+        strsetitem(p0, 2, i0)
+        strsetitem(p0, 3, i0)
+        strsetitem(p0, 4, i0)
+        strsetitem(p0, 5, i0)
+        strsetitem(p0, 6, i0)
+        strsetitem(p0, 7, i0)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 8)
+        strsetitem(p1, 8, 3)
+        strsetitem(p1, 9, 0)
+        strsetitem(p1, 10, 0)
+        strsetitem(p1, 11, 0)
+        finish(p1)
+        """
+        expected = """
+        [i0]
+        p1 = newstr(12)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i0)
+        strsetitem(p1, 2, i0)
+        strsetitem(p1, 3, i0)
+        strsetitem(p1, 4, i0)
+        strsetitem(p1, 5, i0)
+        strsetitem(p1, 6, i0)
+        strsetitem(p1, 7, i0)
+        strsetitem(p1, 8, 3)
+        finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_call_pure_vstring_const(self):
+        ops = """
+        []
+        p0 = newstr(3)
+        strsetitem(p0, 0, 97)
+        strsetitem(p0, 1, 98)
+        strsetitem(p0, 2, 99)
+        i0 = call_pure(123, p0, descr=nonwritedescr)
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(5)
+        """
+        call_pure_results = {
+            (ConstInt(123), get_const_ptr_for_string("abc"),): ConstInt(5),
+        }
+        self.optimize_loop(ops, expected, call_pure_results)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
-
 
 ##class TestOOtype(BaseTestOptimizeBasic, OOtypeMixin):
 

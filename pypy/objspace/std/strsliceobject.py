@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -12,7 +13,7 @@ from pypy.objspace.std.stringtype import wrapstr, wrapchar, sliced, \
      stringendswith, stringstartswith
 
 
-class W_StringSliceObject(W_Object):
+class W_StringSliceObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, str, start, stop):
@@ -60,8 +61,8 @@ def contains__StringSlice_String(space, w_self, w_sub):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     length = w_self.stop - w_self.start
     sub = w_sub._value
-    start = slicetype.adapt_bound(space, length, w_start)
-    end = slicetype.adapt_bound(space, length, w_end)
+    start, end = slicetype.unwrap_start_stop(
+            space, length, w_start, w_end, True)
 
     assert start >= 0
     assert end >= 0

@@ -116,8 +116,6 @@ def normalize_calltable_row_signature(annotator, shape, row):
                     v = Constant(default)
                 outlist.append(v)
             newblock.closeblock(Link(outlist, oldblock))
-            oldblock.isstartblock = False
-            newblock.isstartblock = True
             graph.startblock = newblock
             for i in range(len(newdefaults)-1,-1,-1):
                 if newdefaults[i] is NODEFAULT:
@@ -171,8 +169,6 @@ def normalize_calltable_row_annotation(annotator, graphs):
             # prepare the output args of newblock and link
             outlist = inlist[:]
             newblock.closeblock(Link(outlist, oldblock))
-            oldblock.isstartblock = False
-            newblock.isstartblock = True
             graph.startblock = newblock
             # finished
             checkgraph(graph)

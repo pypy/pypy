@@ -5,7 +5,7 @@ from __future__ import with_statement
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, is_emulated_long
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
@@ -27,8 +27,12 @@ py.log.setconsumer("libffi", ansi_log)
 _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
+_WIN64 = _WIN32 and is_emulated_long
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
+
+_LITTLE_ENDIAN = sys.byteorder == 'little'
+_BIG_ENDIAN = sys.byteorder == 'big'
 
 if _WIN32:
     from pypy.rlib import rwin32
@@ -110,12 +114,17 @@ elif _MINGW:
         )
 
     eci = rffi_platform.configure_external_library(
-        'libffi', eci,
+        'libffi-5', eci,
         [dict(prefix='libffi-',
               include_dir='include', library_dir='.libs'),
+         dict(prefix=r'c:\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
+    if not _WIN64:
+        asm_ifc = 'win32.c'
+    else:
+        asm_ifc = 'win64.asm'
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
@@ -123,7 +132,7 @@ else:
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
-                                 libffidir.join('win32.c'),
+                                 libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
         export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
@@ -139,7 +148,7 @@ class CConfig:
     FFI_OK = rffi_platform.ConstantInteger('FFI_OK')
     FFI_BAD_TYPEDEF = rffi_platform.ConstantInteger('FFI_BAD_TYPEDEF')
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
-    if _WIN32:
+    if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
@@ -210,26 +219,49 @@ def _unsigned_type_for(TYPE):
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
-TYPE_MAP = {
-    rffi.DOUBLE : ffi_type_double,
-    rffi.FLOAT  : ffi_type_float,
-    rffi.LONGDOUBLE : ffi_type_longdouble,
-    rffi.UCHAR  : ffi_type_uchar,
-    rffi.CHAR   : ffi_type_schar,
-    rffi.SHORT  : ffi_type_sshort,
-    rffi.USHORT : ffi_type_ushort,
-    rffi.UINT   : ffi_type_uint,
-    rffi.INT    : ffi_type_sint,
+__int_type_map = [
+    (rffi.UCHAR, ffi_type_uchar),
+    (rffi.SIGNEDCHAR, ffi_type_schar),
+    (rffi.SHORT, ffi_type_sshort),
+    (rffi.USHORT, ffi_type_ushort),
+    (rffi.UINT, ffi_type_uint),
+    (rffi.INT, ffi_type_sint),
     # xxx don't use ffi_type_slong and ffi_type_ulong - their meaning
     # changes from a libffi version to another :-((
-    rffi.ULONG     : _unsigned_type_for(rffi.ULONG),
-    rffi.LONG      : _signed_type_for(rffi.LONG),
-    rffi.ULONGLONG : _unsigned_type_for(rffi.ULONGLONG),
-    rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
-    lltype.Void    : ffi_type_void,
-    lltype.UniChar : _unsigned_type_for(lltype.UniChar),
-    lltype.Bool    : _unsigned_type_for(lltype.Bool),
-    }
+    (rffi.ULONG, _unsigned_type_for(rffi.ULONG)),
+    (rffi.LONG, _signed_type_for(rffi.LONG)),
+    (rffi.ULONGLONG, _unsigned_type_for(rffi.ULONGLONG)),
+    (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
+    (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
+    (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    (lltype.Char, _signed_type_for(lltype.Char)),
+    ]
+
+__float_type_map = [
+    (rffi.DOUBLE, ffi_type_double),
+    (rffi.FLOAT, ffi_type_float),
+    (rffi.LONGDOUBLE, ffi_type_longdouble),
+    ]
+
+__ptr_type_map = [
+    (rffi.VOIDP, ffi_type_pointer),
+    ]
+
+__type_map = __int_type_map + __float_type_map + [
+    (lltype.Void, ffi_type_void)
+    ]
+
+TYPE_MAP_INT = dict(__int_type_map)
+TYPE_MAP_FLOAT = dict(__float_type_map)
+TYPE_MAP = dict(__type_map)
+
+ffitype_map_int = unrolling_iterable(__int_type_map)
+ffitype_map_int_or_ptr = unrolling_iterable(__int_type_map + __ptr_type_map)
+ffitype_map_float = unrolling_iterable(__float_type_map)
+ffitype_map = unrolling_iterable(__type_map)
+
+del __int_type_map, __float_type_map, __ptr_type_map, __type_map
+
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -287,7 +319,7 @@ if _WIN32:
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
-if _WIN32:
+if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
@@ -338,12 +370,36 @@ def cast_type_to_ffitype(tp):
 cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
-    # this is for primitive types. For structures and arrays
-    # would be something different (more dynamic)
+    # This is for primitive types.  Note that the exact type of 'arg' may be
+    # different from the expected 'c_size'.  To cope with that, we fall back
+    # to a byte-by-byte copy.
     TP = lltype.typeOf(arg)
     TP_P = lltype.Ptr(rffi.CArray(TP))
-    buf = rffi.cast(TP_P, ll_buf)
-    buf[0] = arg
+    TP_size = rffi.sizeof(TP)
+    c_size = intmask(ffitp.c_size)
+    # if both types have the same size, we can directly write the
+    # value to the buffer
+    if c_size == TP_size:
+        buf = rffi.cast(TP_P, ll_buf)
+        buf[0] = arg
+    else:
+        # needs byte-by-byte copying.  Make sure 'arg' is an integer type.
+        # Note that this won't work for rffi.FLOAT/rffi.DOUBLE.
+        assert TP is not rffi.FLOAT and TP is not rffi.DOUBLE
+        if TP_size <= rffi.sizeof(lltype.Signed):
+            arg = rffi.cast(lltype.Unsigned, arg)
+        else:
+            arg = rffi.cast(lltype.UnsignedLongLong, arg)
+        if _LITTLE_ENDIAN:
+            for i in range(c_size):
+                ll_buf[i] = chr(arg & 0xFF)
+                arg >>= 8
+        elif _BIG_ENDIAN:
+            for i in range(c_size-1, -1, -1):
+                ll_buf[i] = chr(arg & 0xFF)
+                arg >>= 8
+        else:
+            raise AssertionError
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
 
@@ -409,7 +465,7 @@ FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
 def get_call_conv(flags, from_jit):
-    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+    if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
@@ -617,11 +673,11 @@ class RawCDLL(object):
         return dlsym(self.lib, name)
 
 class CDLL(RawCDLL):
-    def __init__(self, libname):
+    def __init__(self, libname, mode=-1):
         """Load the library, or raises DLOpenError."""
         RawCDLL.__init__(self, rffi.cast(DLLHANDLE, -1))
         with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname)
+            self.lib = dlopen(ll_libname, mode)
 
     def __del__(self):
         if self.lib != rffi.cast(DLLHANDLE, -1):

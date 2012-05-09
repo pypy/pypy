@@ -19,6 +19,7 @@ syn match pypyFailArgs    '[[].*[]]'
 syn match pypyLoopArgs    '^[[].*'
 syn match pypyLoopStart   '^#.*'
 syn match pypyDebugMergePoint  '^debug_merge_point(.\+)'
+syn match pypyLogBoundary '[[][0-9a-f]\+[]] \([{].\+\|.\+[}]\)$'
 
 hi def link pypyLoopStart   Structure
 "hi def link pypyLoopArgs    PreProc
@@ -29,3 +30,4 @@ hi def link pypyConstPtr    Constant
 hi def link pypyNumber      Number
 hi def link pypyDescr       PreProc
 hi def link pypyDescrField  Label
+hi def link pypyLogBoundary Statement

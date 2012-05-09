@@ -8,6 +8,9 @@ Papers
 *Articles about PyPy published so far, most recent first:* (bibtex_ file)
 
 
+* `Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`_,
+  C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
+
 * `Allocation Removal by Partial Evaluation in a Tracing JIT`_,
   C.F. Bolz, A. Cuni, M. Fijalkowski, M. Leuschel, S. Pedroni, A. Rigo
 
@@ -50,6 +53,9 @@ Papers
 
 *Other research using PyPy (as far as we know it):*
 
+* `Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`_,
+  N. Riley and C. Zilles
+
 * `PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`_,
   C. Bruni and T. Verwaest
 
@@ -65,6 +71,7 @@ Papers
 
 
 .. _bibtex: https://bitbucket.org/pypy/extradoc/raw/tip/talk/bibtex.bib
+.. _`Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages`: https://bitbucket.org/pypy/extradoc/raw/extradoc/talk/icooolps2011/jit-hints.pdf
 .. _`Allocation Removal by Partial Evaluation in a Tracing JIT`: http://codespeak.net/svn/pypy/extradoc/talk/pepm2011/bolz-allocation-removal.pdf
 .. _`Towards a Jitting VM for Prolog Execution`: http://www.stups.uni-duesseldorf.de/publications/bolz-prolog-jit.pdf
 .. _`High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages`: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
@@ -74,6 +81,7 @@ Papers
 .. _`Automatic JIT Compiler Generation with Runtime Partial Evaluation`:  http://www.stups.uni-duesseldorf.de/thesis/final-master.pdf
 .. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/Recent_abstracts.html#AACM-DLS07
 .. _`EU Reports`: index-report.html
+.. _`Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution`: http://sabi.net/nriley/pubs/dls6-riley.pdf
 .. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
 .. _`Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python`: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 .. _`Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy`: http://dx.doi.org/10.1007/978-3-540-89275-5_7

@@ -135,13 +135,30 @@ class AppTestIoModule:
         assert r.read(2) == 'ab'
         assert r.read(2) == 'c'
         assert r.read(2) == 'de'
-        assert r.read(2) == None
+        assert r.read(2) is None
         assert r.read(2) == 'fg'
         assert r.read(2) == ''
 
+    def test_rawio_readall_none(self):
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            read_stack = [None, None, "a"]
+            def readinto(self, buf):
+                v = self.read_stack.pop()
+                if v is None:
+                    return v
+                buf[:len(v)] = v
+                return len(v)
+
+        r = MockRawIO()
+        s = r.readall()
+        assert s =="a"
+        s = r.readall()
+        assert s is None
+
 class AppTestOpen:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_io', '_locale'])
+        cls.space = gettestobjspace(usemodules=['_io', '_locale', 'array', 'struct'])
         tmpfile = udir.join('tmpfile').ensure()
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 

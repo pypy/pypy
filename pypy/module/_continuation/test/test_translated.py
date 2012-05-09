@@ -93,13 +93,20 @@ class AppTestWrapper:
         if not option.runappdirect:
             py.test.skip("meant only for -A run")
 
-    def test_single_threaded(self):
-        for i in range(20):
-            yield Runner().run_test,
-
-    def test_multi_threaded(self):
-        for i in range(5):
-            yield multithreaded_test,
+def _setup():
+    for _i in range(20):
+        def test_single_threaded(self):
+            Runner().run_test()
+        test_single_threaded.func_name = 'test_single_threaded_%d' % _i
+        setattr(AppTestWrapper, test_single_threaded.func_name,
+                test_single_threaded)
+    for _i in range(5):
+        def test_multi_threaded(self):
+            multithreaded_test()
+        test_multi_threaded.func_name = 'test_multi_threaded_%d' % _i
+        setattr(AppTestWrapper, test_multi_threaded.func_name,
+                test_multi_threaded)
+_setup()
 
 class ThreadTest(object):
     def __init__(self, lock):

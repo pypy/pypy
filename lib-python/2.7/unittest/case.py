@@ -1,5 +1,6 @@
 """Test case implementation"""
 
+import collections
 import sys
 import functools
 import difflib
@@ -9,8 +10,10 @@ import warnings
 
 from . import result
 from .util import (
-    strclass, safe_repr, sorted_list_difference, unorderable_list_difference
+    strclass, safe_repr, unorderable_list_difference,
+    _count_diff_all_purpose, _count_diff_hashable
 )
+
 
 __unittest = True
 
@@ -166,6 +169,10 @@ class TestCase(object):
 
     maxDiff = 80*8
 
+    # If a string is longer than _diffThreshold, use normal comparison instead
+    # of difflib.  See #11763.
+    _diffThreshold = 2**16
+
     # Attribute used by TestSuite for classSetUp
 
     _classSetupFailed = False
@@ -311,11 +318,15 @@ class TestCase(object):
                 self.setUp()
             except SkipTest as e:
                 self._addSkip(result, str(e))
-            except Exception:
+            except KeyboardInterrupt:
+                raise
+            except:
                 result.addError(self, sys.exc_info())
             else:
                 try:
                     testMethod()
+                except KeyboardInterrupt:
+                    raise
                 except self.failureException:
                     result.addFailure(self, sys.exc_info())
                 except _ExpectedFailure as e:
@@ -336,14 +347,16 @@ class TestCase(object):
                         result.addFailure(self, sys.exc_info())
                 except SkipTest as e:
                     self._addSkip(result, str(e))
-                except Exception:
+                except:
                     result.addError(self, sys.exc_info())
                 else:
                     success = True
 
                 try:
                     self.tearDown()
-                except Exception:
+                except KeyboardInterrupt:
+                    raise
+                except:
                     result.addError(self, sys.exc_info())
                     success = False
 
@@ -367,7 +380,9 @@ class TestCase(object):
             function, args, kwargs = self._cleanups.pop(-1)
             try:
                 function(*args, **kwargs)
-            except Exception:
+            except KeyboardInterrupt:
+                raise
+            except:
                 ok = False
                 result.addError(self, sys.exc_info())
         return ok
@@ -393,15 +408,15 @@ class TestCase(object):
         raise self.failureException(msg)
 
     def assertFalse(self, expr, msg=None):
-        "Fail the test if the expression is true."
+        """Check that the expression is false."""
         if expr:
-            msg = self._formatMessage(msg, "%s is not False" % safe_repr(expr))
+            msg = self._formatMessage(msg, "%s is not false" % safe_repr(expr))
             raise self.failureException(msg)
 
     def assertTrue(self, expr, msg=None):
-        """Fail the test unless the expression is true."""
+        """Check that the expression is true."""
         if not expr:
-            msg = self._formatMessage(msg, "%s is not True" % safe_repr(expr))
+            msg = self._formatMessage(msg, "%s is not true" % safe_repr(expr))
             raise self.failureException(msg)
 
     def _formatMessage(self, msg, standardMsg):
@@ -842,20 +857,19 @@ class TestCase(object):
         self.fail(self._formatMessage(msg, standardMsg))
 
     def assertItemsEqual(self, expected_seq, actual_seq, msg=None):
-        """An unordered sequence / set specific comparison. It asserts that
-        expected_seq and actual_seq contain the same elements. It is
-        the equivalent of::
+        """An unordered sequence specific comparison. It asserts that
+        actual_seq and expected_seq have the same element counts.
+        Equivalent to::
 
-            self.assertEqual(sorted(expected_seq), sorted(actual_seq))
-
-        Raises with an error message listing which elements of expected_seq
-        are missing from actual_seq and vice versa if any.
+            self.assertEqual(Counter(iter(actual_seq)),
+                             Counter(iter(expected_seq)))
 
         Asserts that each element has the same count in both sequences.
         Example:
             - [0, 1, 1] and [1, 0, 1] compare equal.
             - [0, 0, 1] and [0, 1] compare unequal.
         """
+        first_seq, second_seq = list(actual_seq), list(expected_seq)
         with warnings.catch_warnings():
             if sys.py3kwarning:
                 # Silence Py3k warning raised during the sorting
@@ -864,28 +878,23 @@ class TestCase(object):
                              "comparing unequal types"]:
                     warnings.filterwarnings("ignore", _msg, DeprecationWarning)
             try:
-                expected = sorted(expected_seq)
-                actual = sorted(actual_seq)
+                first = collections.Counter(first_seq)
+                second = collections.Counter(second_seq)
             except TypeError:
-                # Unsortable items (example: set(), complex(), ...)
-                expected = list(expected_seq)
-                actual = list(actual_seq)
-                missing, unexpected = unorderable_list_difference(
-                    expected, actual, ignore_duplicate=False
-                )
+                # Handle case with unhashable elements
+                differences = _count_diff_all_purpose(first_seq, second_seq)
             else:
-                return self.assertSequenceEqual(expected, actual, msg=msg)
+                if first == second:
+                    return
+                differences = _count_diff_hashable(first_seq, second_seq)
 
-        errors = []
-        if missing:
-            errors.append('Expected, but missing:\n    %s' %
-                           safe_repr(missing))
-        if unexpected:
-            errors.append('Unexpected, but present:\n    %s' %
-                           safe_repr(unexpected))
-        if errors:
-            standardMsg = '\n'.join(errors)
-            self.fail(self._formatMessage(msg, standardMsg))
+        if differences:
+            standardMsg = 'Element counts were not equal:\n'
+            lines = ['First has %d, Second has %d:  %r' % diff for diff in differences]
+            diffMsg = '\n'.join(lines)
+            standardMsg = self._truncateMessage(standardMsg, diffMsg)
+            msg = self._formatMessage(msg, standardMsg)
+            self.fail(msg)
 
     def assertMultiLineEqual(self, first, second, msg=None):
         """Assert that two multi-line strings are equal."""
@@ -895,6 +904,10 @@ class TestCase(object):
                 'Second argument is not a string')
 
         if first != second:
+            # don't use difflib if the strings are too long
+            if (len(first) > self._diffThreshold or
+                len(second) > self._diffThreshold):
+                self._baseAssertEqual(first, second, msg)
             firstlines = first.splitlines(True)
             secondlines = second.splitlines(True)
             if len(firstlines) == 1 and first.strip('\r\n') == first:

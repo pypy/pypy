@@ -33,7 +33,13 @@ class ObjectsTestCase(unittest.TestCase):
         refcnt = grc(s)
         cs = c_char_p(s)
         self.assertEqual(refcnt + 1, grc(s))
-        self.assertSame(cs._objects, s)
+        try:
+            # Moving gcs need to allocate a nonmoving buffer
+            cs._objects._obj
+        except AttributeError:
+            self.assertSame(cs._objects, s)
+        else:
+            self.assertSame(cs._objects._obj, s)
 
     def test_simple_struct(self):
         class X(Structure):

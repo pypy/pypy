@@ -13,7 +13,7 @@ def teardown_module(mod):
 
 class AppTestFcntl:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('fcntl', 'array'))
+        space = gettestobjspace(usemodules=('fcntl', 'array', 'struct'))
         cls.space = space
         tmpprefix = str(udir.ensure('test_fcntl', dir=1).join('tmp_'))
         cls.w_tmp = space.wrap(tmpprefix)
@@ -42,13 +42,9 @@ class AppTestFcntl:
         else:
             start_len = "qq"
 
-        if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3',
-                            'Darwin1.2', 'darwin',
-                            'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
-                            'freebsd6', 'freebsd7', 'freebsd8', 'freebsd9',
-                            'bsdos2', 'bsdos3', 'bsdos4',
-                            'openbsd', 'openbsd2', 'openbsd3', 'openbsd4',
-                            'openbsd5'):
+        if any(substring in sys.platform.lower()
+               for substring in ('netbsd', 'darwin', 'freebsd', 'bsdos',
+                                 'openbsd')):
             if struct.calcsize('l') == 8:
                 off_t = 'l'
                 pid_t = 'i'
@@ -182,7 +178,8 @@ class AppTestFcntl:
 
     def test_large_flag(self):
         import sys
-        if sys.platform == "darwin" or sys.platform.startswith("openbsd"):
+        if any(plat in sys.platform
+               for plat in ('darwin', 'openbsd', 'freebsd')):
             skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
         if sys.maxint == 2147483647:

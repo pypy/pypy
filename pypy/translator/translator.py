@@ -21,7 +21,6 @@ class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
         'simplifying': True,
-        'builtins_can_raise_exceptions': False,
         'list_comprehension_operations': False,   # True, - not super-tested
         }
 
@@ -31,7 +30,6 @@ class TranslationContext(object):
             config = get_pypy_config(translating=True)
         # ZZZ should go away in the end
         for attr in ['verbose', 'simplifying',
-                     'builtins_can_raise_exceptions',
                      'list_comprehension_operations']:
             if attr in flowing_flags:
                 setattr(config.translation, attr, flowing_flags[attr])
@@ -150,11 +148,11 @@ class TranslationContext(object):
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(self).display()
 
-    def viewcg(self, center_graph=None):
+    def viewcg(self, center_graph=None, huge=100):
         """Shows the whole call graph and the class hierarchy, based on
         the computed annotations."""
         from pypy.translator.tool.graphpage import TranslatorPage
-        TranslatorPage(self, center_graph=center_graph).display()
+        TranslatorPage(self, center_graph=center_graph, huge=huge).display()
 
 
 

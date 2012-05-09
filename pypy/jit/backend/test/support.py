@@ -3,6 +3,7 @@ import sys
 from pypy.rlib.debug import debug_print
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
+from pypy.rlib.rarithmetic import is_valid_int
 
 class BaseCompiledMixin(object):
 
@@ -24,7 +25,7 @@ class BaseCompiledMixin(object):
         from pypy.annotation import model as annmodel
 
         for arg in args:
-            assert isinstance(arg, int)
+            assert is_valid_int(arg)
 
         self.pre_translation_hook()
         t = self._get_TranslationContext()

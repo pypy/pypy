@@ -21,6 +21,10 @@ class BaseBuilderRepr(AbstractStringBuilderRepr):
         builder.ll_append_char(char)
 
     @staticmethod
+    def ll_getlength(builder):
+        return builder.ll_getlength()
+
+    @staticmethod
     def ll_append(builder, string):
         builder.ll_append(string)
 

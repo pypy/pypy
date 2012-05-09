@@ -15,3 +15,8 @@ class TestIterator(BaseApiTest):
         assert space.unwrap(api.PyIter_Next(w_iter)) == 3
         assert api.PyIter_Next(w_iter) is None
         assert not api.PyErr_Occurred()
+
+    def test_iternext_error(self,space, api):
+        assert api.PyIter_Next(space.w_None) is None
+        assert api.PyErr_Occurred() is space.w_TypeError
+        api.PyErr_Clear()

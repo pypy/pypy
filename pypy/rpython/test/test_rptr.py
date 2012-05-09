@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.annotation import model as annmodel
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 # ____________________________________________________________
@@ -188,7 +189,7 @@ def test_cast_adr_to_int():
             return llmemory.cast_adr_to_int(a, "forced")
 
     res = interpret(fn, [2])
-    assert type(res) is int
+    assert is_valid_int(res)
     assert res == cast_ptr_to_int(p)
     #
     res = interpret(fn, [4])
@@ -196,7 +197,7 @@ def test_cast_adr_to_int():
     assert llmemory.cast_int_to_adr(res) == llmemory.cast_ptr_to_adr(p)
     #
     res = interpret(fn, [6])
-    assert type(res) is int
+    assert is_valid_int(res)
     from pypy.rpython.lltypesystem import rffi
     assert res == rffi.cast(Signed, p)
 

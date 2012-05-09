@@ -543,6 +543,7 @@ def get_last_error(space):
     from pypy.rlib.rwin32 import GetLastError
     return space.wrap(GetLastError())
 
-def set_last_error(space, w_error):
+@unwrap_spec(error=int)
+def set_last_error(space, error):
     from pypy.rlib.rwin32 import SetLastError
-    SetLastError(space.uint_w(w_error))
+    SetLastError(error)

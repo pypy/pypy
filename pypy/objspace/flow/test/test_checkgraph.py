@@ -13,20 +13,6 @@ def template():
     py.test.raises(AssertionError, checkgraph, g)
 
 
-def test_nostartblock():
-    g = FunctionGraph("g", Block([]))
-    g.startblock.closeblock(Link([Constant(1)], g.returnblock))
-    g.startblock.isstartblock = False
-    py.test.raises(AssertionError, checkgraph, g)
-
-def test_twostartblocks():
-    g = FunctionGraph("g", Block([]))
-    b = Block([])
-    b.isstartblock = True
-    g.startblock.closeblock(Link([], b))
-    b.closeblock(Link([Constant(1)], g.returnblock))
-    py.test.raises(AssertionError, checkgraph, g)
-
 def test_exitlessblocknotexitblock():
     g = FunctionGraph("g", Block([]))
     py.test.raises(AssertionError, checkgraph, g)

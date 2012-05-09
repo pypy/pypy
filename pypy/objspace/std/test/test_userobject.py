@@ -10,10 +10,10 @@ class AppTestUserObject:
         from pypy import conftest
         cls.space = conftest.gettestobjspace(**cls.OPTIONS)
         cls.w_runappdirect = cls.space.wrap(bool(conftest.option.runappdirect))
-
-    def w_rand(self):
-        import random
-        return random.randrange(0, 5)
+        def rand(space):
+            import random
+            return space.wrap(random.randrange(0, 5))
+        cls.w_rand = cls.space.wrap(gateway.interp2app(rand))
 
     def test_emptyclass(self):
         class empty(object): pass
@@ -244,8 +244,12 @@ class AppTestUserObject:
             skip("disabled")
         if self.runappdirect:
             total = 500000
+            def rand():
+                import random
+                return random.randrange(0, 5)
         else:
             total = 50
+            rand = self.rand
         #
         class A(object):
             hash = None
@@ -256,7 +260,7 @@ class AppTestUserObject:
             a = A()
             a.next = tail.next
             tail.next = a
-            for j in range(self.rand()):
+            for j in range(rand()):
                 any = any.next
             if any.hash is None:
                 any.hash = hash(any)

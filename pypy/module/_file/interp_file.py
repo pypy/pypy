@@ -5,14 +5,13 @@ import errno
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.rlib.rstring import StringBuilder
-from pypy.module._file.interp_stream import (W_AbstractStream, StreamErrors,
-    wrap_streamerror, wrap_oserror_as_ioerror)
+from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
     interp_attrproperty, make_weakref_descr, interp_attrproperty_w)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-
+from pypy.interpreter.streamutil import wrap_streamerror, wrap_oserror_as_ioerror
 
 class W_File(W_AbstractStream):
     """An interp-level file object.  This implements the same interface than
@@ -206,24 +205,28 @@ class W_File(W_AbstractStream):
     @unwrap_spec(size=int)
     def direct_readlines(self, size=0):
         stream = self.getstream()
-        # NB. this implementation is very inefficient for unbuffered
-        # streams, but ok if stream.readline() is efficient.
+        # this is implemented as: .read().split('\n')
+        # except that it keeps the \n in the resulting strings
         if size <= 0:
-            result = []
-            while True:
-                line = stream.readline()
-                if not line:
-                    break
-                result.append(line)
-                size -= len(line)
+            data = stream.readall()
         else:
-            result = []
-            while size > 0:
-                line = stream.readline()
-                if not line:
-                    break
-                result.append(line)
-                size -= len(line)
+            data = stream.read(size)
+        result = []
+        splitfrom = 0
+        for i in range(len(data)):
+            if data[i] == '\n':
+                result.append(data[splitfrom : i + 1])
+                splitfrom = i + 1
+        #
+        if splitfrom < len(data):
+            # there is a partial line at the end.  If size > 0, it is likely
+            # to be because the 'read(size)' returned data up to the middle
+            # of a line.  In that case, use 'readline()' to read until the
+            # end of the current line.
+            data = data[splitfrom:]
+            if size > 0:
+                data += stream.readline()
+            result.append(data)
         return result
 
     @unwrap_spec(offset=r_longlong, whence=int)

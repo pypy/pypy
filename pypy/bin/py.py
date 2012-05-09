@@ -76,6 +76,8 @@ def main_(argv=None):
     config.objspace.suggest(allworkingmodules=False)
     if config.objspace.allworkingmodules:
         pypyoption.enable_allworkingmodules(config)
+    if config.objspace.usemodules._continuation:
+        config.translation.continuation = True
     if config.objspace.usemodules.thread:
         config.translation.thread = True
 

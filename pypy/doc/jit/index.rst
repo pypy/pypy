@@ -21,6 +21,9 @@ Content
 
 - Notes_ about the current work in PyPy
 
+- Hooks_ debugging facilities available to a python programmer
+
 
 .. _Overview: overview.html
 .. _Notes: pyjitpl5.html
+.. _Hooks: ../jit-hooks.html

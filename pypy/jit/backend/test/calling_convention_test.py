@@ -2,7 +2,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
-                                         LoopToken,
+                                         JitCellToken,
                                          ConstInt, ConstPtr,
                                          BoxObj, Const,
                                          ConstObj, BoxFloat, ConstFloat)
@@ -40,17 +40,18 @@ class TestCallingConv(Runner):
         local_floats = list(floats)
         local_ints = list(ints)
         expected_result = 0.0
+        arguments = []
         for i in range(len(args)):
             x = args[i]
             if x[0] == 'f':
                 x = local_floats.pop()
                 t = longlong.getfloatstorage(x)
-                self.cpu.set_future_value_float(i, t)
+                arguments.append(t)
             else:
                 x = local_ints.pop()
-                self.cpu.set_future_value_int(i, x)
+                arguments.append(x)
             expected_result += x
-        return expected_result
+        return arguments, expected_result
 
     @classmethod
     def get_funcbox(cls, cpu, func_ptr):
@@ -107,12 +108,12 @@ class TestCallingConv(Runner):
             ops += 'finish(f99, %s)\n' % arguments
 
             loop = parse(ops, namespace=locals())
-            looptoken = LoopToken()
+            looptoken = JitCellToken()
             done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-            expected_result = self._prepare_args(args, floats, ints)
+            argvals, expected_result = self._prepare_args(args, floats, ints)
 
-            res = self.cpu.execute_token(looptoken)
+            res = self.cpu.execute_token(looptoken, *argvals)
             x = longlong.getrealfloat(cpu.get_latest_value_float(0))
             assert abs(x - expected_result) < 0.0001
 
@@ -253,13 +254,13 @@ class TestCallingConv(Runner):
             called_ops += 'finish(f%d, descr=fdescr3)\n' % total_index
             # compile called loop
             called_loop = parse(called_ops, namespace=locals())
-            called_looptoken = LoopToken()
+            called_looptoken = JitCellToken()
             called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
             done_number = self.cpu.get_fail_descr_number(called_loop.operations[-1].getdescr())
             self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
 
-            expected_result = self._prepare_args(args, floats, ints)
-            res = cpu.execute_token(called_looptoken)
+            argvals, expected_result = self._prepare_args(args, floats, ints)
+            res = cpu.execute_token(called_looptoken, *argvals)
             assert res.identifier == 3
             t = longlong.getrealfloat(cpu.get_latest_value_float(0))
             assert abs(t - expected_result) < 0.0001
@@ -284,12 +285,12 @@ class TestCallingConv(Runner):
             # we want to take the fast path
             self.cpu.done_with_this_frame_float_v = done_number
             try:
-                othertoken = LoopToken()
+                othertoken = JitCellToken()
                 self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
 
                 # prepare call to called_loop
-                self._prepare_args(args, floats, ints)
-                res = cpu.execute_token(othertoken)
+                argvals, _ = self._prepare_args(args, floats, ints)
+                res = cpu.execute_token(othertoken, *argvals)
                 x = longlong.getrealfloat(cpu.get_latest_value_float(0))
                 assert res.identifier == 4
                 assert abs(x - expected_result) < 0.0001

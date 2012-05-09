@@ -58,6 +58,11 @@ class TestListObject(BaseApiTest):
         w_t = api.PyList_AsTuple(w_l)
         assert space.unwrap(w_t) == (3, 2, 1)
 
+    def test_list_getslice(self, space, api):
+        w_l = space.newlist([space.wrap(3), space.wrap(2), space.wrap(1)])
+        w_s = api.PyList_GetSlice(w_l, 1, 5)
+        assert space.unwrap(w_s) == [2, 1]
+
 class AppTestListObject(AppTestCpythonExtensionBase):
     def test_listobject(self):
         import sys
@@ -128,3 +133,6 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         module.setslice(l, None)
         assert l == [0, 4, 5]
 
+        l = [1, 2, 3]
+        module.setlistitem(l,0)
+        assert l == [None, 2, 3]

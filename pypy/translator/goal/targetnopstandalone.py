@@ -7,10 +7,8 @@ of input types is empty, it is meant to be a list of strings,
 actually implementing argv of the executable.
 """
 
-import os, sys
-
-def debug(msg): 
-    os.write(2, "debug: " + msg + '\n')
+def debug(msg):
+    print "debug:", msg
 
 # __________  Entry point  __________
 

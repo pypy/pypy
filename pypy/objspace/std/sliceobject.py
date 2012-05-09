@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.slicetype import eval_slice_index
+from pypy.objspace.std.slicetype import _eval_slice_index
 
 class W_SliceObject(W_Object):
     from pypy.objspace.std.slicetype import slice_typedef as typedef
@@ -25,7 +25,7 @@ class W_SliceObject(W_Object):
         if space.is_w(w_slice.w_step, space.w_None):
             step = 1
         else:
-            step = eval_slice_index(space, w_slice.w_step)
+            step = _eval_slice_index(space, w_slice.w_step)
             if step == 0:
                 raise OperationError(space.w_ValueError,
                                      space.wrap("slice step cannot be zero"))
@@ -35,7 +35,7 @@ class W_SliceObject(W_Object):
             else:
                 start = 0
         else:
-            start = eval_slice_index(space, w_slice.w_start)
+            start = _eval_slice_index(space, w_slice.w_start)
             if start < 0:
                 start += length
                 if start < 0:
@@ -54,7 +54,7 @@ class W_SliceObject(W_Object):
             else:
                 stop = length
         else:
-            stop = eval_slice_index(space, w_slice.w_stop)
+            stop = _eval_slice_index(space, w_slice.w_stop)
             if stop < 0:
                 stop += length
                 if stop < 0:

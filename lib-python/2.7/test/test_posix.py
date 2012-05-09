@@ -38,11 +38,13 @@ class PosixTester(unittest.TestCase):
                              "getpid", "getpgrp", "getppid", "getuid",
                            ]
 
-        for name in NO_ARG_FUNCTIONS:
-            posix_func = getattr(posix, name, None)
-            if posix_func is not None:
-                posix_func()
-                self.assertRaises(TypeError, posix_func, 1)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "", DeprecationWarning)
+            for name in NO_ARG_FUNCTIONS:
+                posix_func = getattr(posix, name, None)
+                if posix_func is not None:
+                    posix_func()
+                    self.assertRaises(TypeError, posix_func, 1)
 
     if hasattr(posix, 'getresuid'):
         def test_getresuid(self):
@@ -290,14 +292,18 @@ class PosixTester(unittest.TestCase):
 
     def test_tempnam(self):
         if hasattr(posix, 'tempnam'):
-            self.assertTrue(posix.tempnam())
-            self.assertTrue(posix.tempnam(os.curdir))
-            self.assertTrue(posix.tempnam(os.curdir, 'blah'))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "tempnam", DeprecationWarning)
+                self.assertTrue(posix.tempnam())
+                self.assertTrue(posix.tempnam(os.curdir))
+                self.assertTrue(posix.tempnam(os.curdir, 'blah'))
 
     def test_tmpfile(self):
         if hasattr(posix, 'tmpfile'):
-            fp = posix.tmpfile()
-            fp.close()
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", "tmpfile", DeprecationWarning)
+                fp = posix.tmpfile()
+                fp.close()
 
     def test_utime(self):
         if hasattr(posix, 'utime'):
@@ -364,6 +370,7 @@ class PosixTester(unittest.TestCase):
                 os.chdir(curdir)
                 shutil.rmtree(base_path)
 
+    @unittest.skipUnless(hasattr(os, 'getegid'), "test needs os.getegid()")
     def test_getgroups(self):
         with os.popen('id -G') as idg:
             groups = idg.read().strip()
@@ -373,9 +380,11 @@ class PosixTester(unittest.TestCase):
 
         # 'id -G' and 'os.getgroups()' should return the same
         # groups, ignoring order and duplicates.
+        # #10822 - it is implementation defined whether posix.getgroups()
+        # includes the effective gid so we include it anyway, since id -G does
         self.assertEqual(
                 set([int(x) for x in groups.split()]),
-                set(posix.getgroups()))
+                set(posix.getgroups() + [posix.getegid()]))
 
 class PosixGroupsTester(unittest.TestCase):
 

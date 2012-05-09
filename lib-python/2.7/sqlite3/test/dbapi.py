@@ -1,4 +1,4 @@
-#-*- coding: ISO-8859-1 -*-
+#-*- coding: iso-8859-1 -*-
 # pysqlite2/test/dbapi.py: tests for DB-API compliance
 #
 # Copyright (C) 2004-2010 Gerhard Häring <gh@ghaering.de>
@@ -331,6 +331,9 @@ class CursorTests(unittest.TestCase):
         class MyIter:
             def __init__(self):
                 self.value = 5
+
+            def __iter__(self):
+                return self
 
             def next(self):
                 if self.value == 10:
@@ -826,7 +829,7 @@ class ClosedConTests(unittest.TestCase):
         con = sqlite.connect(":memory:")
         con.close()
         try:
-            con()
+            con("select 1")
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass

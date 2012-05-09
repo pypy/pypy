@@ -42,6 +42,8 @@ class Platform(object):
 
     so_prefixes = ('',)
 
+    extra_libs = ()
+
     def __init__(self, cc):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")
@@ -57,7 +59,11 @@ class Platform(object):
         compile_args = self._compile_args_from_eci(eci, standalone)
         ofiles = []
         for cfile in cfiles:
-            ofiles.append(self._compile_c_file(self.cc, cfile, compile_args))
+            # Windows hack: use masm for files ending in .asm
+            if str(cfile).lower().endswith('.asm'):
+                ofiles.append(self._compile_c_file(self.masm, cfile, []))
+            else:
+                ofiles.append(self._compile_c_file(self.cc, cfile, compile_args))
         return ofiles
 
     def execute(self, executable, args=None, env=None, compilation_info=None):
@@ -102,6 +108,8 @@ class Platform(object):
         bits = [self.__class__.__name__, 'cc=%r' % self.cc]
         for varname in self.relevant_environ:
             bits.append('%s=%r' % (varname, os.environ.get(varname)))
+        # adding sys.maxint to disambiguate windows
+        bits.append('%s=%r' % ('sys.maxint', sys.maxint))
         return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
@@ -179,7 +187,8 @@ class Platform(object):
         link_files = self._linkfiles(eci.link_files)
         export_flags = self._exportsymbols_link_flags(eci)
         return (library_dirs + list(self.link_flags) + export_flags +
-                link_files + list(eci.link_extra) + libraries)
+                link_files + list(eci.link_extra) + libraries +
+                list(self.extra_libs))
 
     def _exportsymbols_link_flags(self, eci, relto=None):
         if eci.export_symbols:
@@ -238,10 +247,13 @@ if sys.platform.startswith('linux'):
     else:
         host_factory = Linux64
 elif sys.platform == 'darwin':
-    from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64
+    from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
     import platform
-    assert platform.machine() in ('i386', 'x86_64')
-    if sys.maxint <= 2147483647:
+    assert platform.machine() in ('Power Macintosh', 'i386', 'x86_64')
+
+    if  platform.machine() == 'Power Macintosh':
+        host_factory = Darwin_PowerPC
+    elif sys.maxint <= 2147483647:
         host_factory = Darwin_i386
     else:
         host_factory = Darwin_x86_64
@@ -260,8 +272,12 @@ elif "openbsd" in sys.platform:
     else:
         host_factory = OpenBSD_64
 elif os.name == 'nt':
-    from pypy.translator.platform.windows import Windows
-    host_factory = Windows
+    from pypy.translator.platform.windows import Windows, Windows_x64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = Windows
+    else:
+        host_factory = Windows_x64
 else:
     # pray
     from pypy.translator.platform.distutils_platform import DistutilsPlatform
@@ -285,6 +301,8 @@ def set_platform(new_platform, cc):
     global platform
     log.msg("Setting platform to %r cc=%s" % (new_platform,cc))
     platform = pick_platform(new_platform, cc)
+    if not platform:
+        raise ValueError("pick_platform failed")
 
     if new_platform == 'host':
         global host

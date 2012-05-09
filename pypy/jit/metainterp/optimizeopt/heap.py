@@ -234,7 +234,7 @@ class OptHeap(Optimization):
             or op.is_ovf()):
             self.posponedop = op
         else:
-            self.next_optimization.propagate_forward(op)
+            Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
         if op.has_no_side_effect():
@@ -246,18 +246,19 @@ class OptHeap(Optimization):
                 self.force_lazy_setfields_and_arrayitems_for_guard())
             return
         opnum = op.getopnum()
-        if (opnum == rop.SETFIELD_GC or        # handled specially
-            opnum == rop.SETFIELD_RAW or       # no effect on GC struct/array
-            opnum == rop.SETARRAYITEM_GC or    # handled specially
-            opnum == rop.SETARRAYITEM_RAW or   # no effect on GC struct
-            opnum == rop.STRSETITEM or         # no effect on GC struct/array
-            opnum == rop.UNICODESETITEM or     # no effect on GC struct/array
-            opnum == rop.DEBUG_MERGE_POINT or  # no effect whatsoever
-            opnum == rop.COPYSTRCONTENT or     # no effect on GC struct/array
-            opnum == rop.COPYUNICODECONTENT):  # no effect on GC struct/array
+        if (opnum == rop.SETFIELD_GC or          # handled specially
+            opnum == rop.SETFIELD_RAW or         # no effect on GC struct/array
+            opnum == rop.SETARRAYITEM_GC or      # handled specially
+            opnum == rop.SETARRAYITEM_RAW or     # no effect on GC struct
+            opnum == rop.SETINTERIORFIELD_RAW or # no effect on GC struct
+            opnum == rop.STRSETITEM or           # no effect on GC struct/array
+            opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
+            opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
+            opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
+            opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
-        assert opnum != rop.CALL_PURE
         if (opnum == rop.CALL or
+            opnum == rop.CALL_PURE or
             opnum == rop.CALL_MAY_FORCE or
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
@@ -480,7 +481,7 @@ class OptHeap(Optimization):
         # already between the tracing and now.  In this case, we are
         # simply ignoring the QUASIIMMUT_FIELD hint and compiling it
         # as a regular getfield.
-        if not qmutdescr.is_still_valid():
+        if not qmutdescr.is_still_valid_for(structvalue.get_key_box()):
             self._remove_guard_not_invalidated = True
             return
         # record as an out-of-line guard

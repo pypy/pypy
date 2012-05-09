@@ -85,6 +85,10 @@ class Arguments(object):
     Collects the arguments of a function call.
 
     Instances should be considered immutable.
+
+    Some parts of this class are written in a slightly convoluted style to help
+    the JIT. It is really crucial to get this right, because Python's argument
+    semantics are complex, but calls occur everywhere.
     """
 
     ###  Construction  ###
@@ -169,9 +173,17 @@ class Arguments(object):
     def _combine_starstarargs_wrapped(self, w_starstararg):
         # unpack the ** arguments
         space = self.space
+        keywords, values_w = space.view_as_kwargs(w_starstararg)
+        if keywords is not None: # this path also taken for empty dicts
+            if self.keywords is None:
+                self.keywords = keywords[:] # copy to make non-resizable
+                self.keywords_w = values_w[:]
+            else:
+                self._check_not_duplicate_kwargs(keywords, values_w)
+                self.keywords = self.keywords + keywords
+                self.keywords_w = self.keywords_w + values_w
+            return not jit.isconstant(len(self.keywords))
         if space.isinstance_w(w_starstararg, space.w_dict):
-            if not space.is_true(w_starstararg):
-                return False # don't call unpackiterable - it's jit-opaque
             keys_w = space.unpackiterable(w_starstararg)
         else:
             try:
@@ -186,11 +198,8 @@ class Arguments(object):
                                    "a mapping, not %s" % (typename,)))
                 raise
             keys_w = space.unpackiterable(w_keys)
-        if keys_w:
-            self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
-            return True
-        else:
-            return False    # empty dict; don't disable the JIT
+        self._do_combine_starstarargs_wrapped(keys_w, w_starstararg)
+        return True
 
     def _do_combine_starstarargs_wrapped(self, keys_w, w_starstararg):
         space = self.space
@@ -226,6 +235,20 @@ class Arguments(object):
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
         self.keyword_names_w = keys_w
+
+    @jit.look_inside_iff(lambda self, keywords, keywords_w:
+            jit.isconstant(len(keywords) and
+            jit.isconstant(self.keywords)))
+    def _check_not_duplicate_kwargs(self, keywords, keywords_w):
+        # looks quadratic, but the JIT should remove all of it nicely.
+        # Also, all the lists should be small
+        for key in keywords:
+            for otherkey in self.keywords:
+                if otherkey == key:
+                    raise operationerrfmt(self.space.w_TypeError,
+                                          "got multiple values "
+                                          "for keyword argument "
+                                          "'%s'", key)
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -385,7 +408,7 @@ class Arguments(object):
 
         # collect extra keyword arguments into the **kwarg
         if has_kwarg:
-            w_kwds = self.space.newdict()
+            w_kwds = self.space.newdict(kwargs=True)
             if num_remainingkwds:
                 #
                 limit = len(keywords)
@@ -428,8 +451,8 @@ class Arguments(object):
             return self._match_signature(w_firstarg,
                                          scope_w, signature, defaults_w, 0)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
 
     def _parse(self, w_firstarg, signature, defaults_w, blindargs=0):
         """Parse args and kwargs according to the signature of a code object,
@@ -450,8 +473,8 @@ class Arguments(object):
         try:
             return self._parse(w_firstarg, signature, defaults_w, blindargs)
         except ArgErr, e:
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap(e.getmsg(fnname)))
+            raise operationerrfmt(self.space.w_TypeError,
+                                  "%s() %s", fnname, e.getmsg())
 
     @staticmethod
     def frompacked(space, w_args=None, w_kwds=None):
@@ -626,7 +649,7 @@ def rawshape(args, nextra=0):
 
 class ArgErr(Exception):
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         raise NotImplementedError
 
 class ArgErrCount(ArgErr):
@@ -642,11 +665,10 @@ class ArgErrCount(ArgErr):
         self.num_args = got_nargs
         self.num_kwds = nkwds
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         n = self.expected_nargs
         if n == 0:
-            msg = "%s() takes no arguments (%d given)" % (
-                fnname,
+            msg = "takes no arguments (%d given)" % (
                 self.num_args + self.num_kwds)
         else:
             defcount = self.num_defaults
@@ -672,8 +694,7 @@ class ArgErrCount(ArgErr):
                 msg2 = " non-keyword"
             else:
                 msg2 = ""
-            msg = "%s() takes %s %d%s argument%s (%d given)" % (
-                fnname,
+            msg = "takes %s %d%s argument%s (%d given)" % (
                 msg1,
                 n,
                 msg2,
@@ -686,9 +707,8 @@ class ArgErrMultipleValues(ArgErr):
     def __init__(self, argname):
         self.argname = argname
 
-    def getmsg(self, fnname):
-        msg = "%s() got multiple values for keyword argument '%s'" % (
-            fnname,
+    def getmsg(self):
+        msg = "got multiple values for keyword argument '%s'" % (
             self.argname)
         return msg
 
@@ -722,13 +742,11 @@ class ArgErrUnknownKwds(ArgErr):
                     break
         self.kwd_name = name
 
-    def getmsg(self, fnname):
+    def getmsg(self):
         if self.num_kwds == 1:
-            msg = "%s() got an unexpected keyword argument '%s'" % (
-                fnname,
+            msg = "got an unexpected keyword argument '%s'" % (
                 self.kwd_name)
         else:
-            msg = "%s() got %d unexpected keyword arguments" % (
-                fnname,
+            msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)
         return msg

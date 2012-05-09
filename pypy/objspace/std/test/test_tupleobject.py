@@ -280,6 +280,8 @@ class AppTestW_TupleObject:
         assert () * 10 == ()
         assert (5,) * 3 == (5,5,5)
         assert (5,2) * 2 == (5,2,5,2)
+
+    def test_mul_identity(self):
         t = (1,2,3)
         assert (t * 1) is t
 

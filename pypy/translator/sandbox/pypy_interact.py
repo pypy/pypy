@@ -13,7 +13,8 @@ Options:
                   ATM this only works with PyPy translated with Boehm or
                   the semispace or generation GCs.
     --timeout=N   limit execution time to N (real-time) seconds.
-    --log=FILE    log all user input into the FILE
+    --log=FILE    log all user input into the FILE.
+    --verbose     log all proxied system calls.
 
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
@@ -26,18 +27,19 @@ import autopath
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from pypy.translator.sandbox.vfs import Dir, RealDir, RealFile
-from pypy.tool.lib_pypy import LIB_ROOT
+import pypy
+LIB_ROOT = os.path.dirname(os.path.dirname(pypy.__file__))
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
-    debug = True
     argv0 = '/bin/pypy-c'
     virtual_cwd = '/tmp'
     virtual_env = {}
     virtual_console_isatty = True
 
-    def __init__(self, executable, arguments, tmpdir=None):
+    def __init__(self, executable, arguments, tmpdir=None, debug=True):
         self.executable = executable = os.path.abspath(executable)
         self.tmpdir = tmpdir
+        self.debug = debug
         super(PyPySandboxedProc, self).__init__([self.argv0] + arguments,
                                                 executable=executable)
 
@@ -67,12 +69,13 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:h', 
+    options, arguments = getopt(sys.argv[1:], 't:hv', 
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
-                                 'help'])
+                                 'verbose', 'help'])
     tmpdir = None
     timeout = None
     logfile = None
+    debug = False
     extraoptions = []
 
     def help():
@@ -104,6 +107,8 @@ if __name__ == '__main__':
             timeout = int(value)
         elif option == '--log':
             logfile = value
+        elif option in ['-v', '--verbose']:
+            debug = True
         elif option in ['-h', '--help']:
             help()
         else:
@@ -113,7 +118,7 @@ if __name__ == '__main__':
         help()
 
     sandproc = PyPySandboxedProc(arguments[0], extraoptions + arguments[1:],
-                                 tmpdir=tmpdir)
+                                 tmpdir=tmpdir, debug=debug)
     if timeout is not None:
         sandproc.settimeout(timeout, interrupt_main=True)
     if logfile is not None:

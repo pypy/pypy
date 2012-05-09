@@ -37,7 +37,7 @@ class TestUsingFramework(object):
             else:
                 print res
             return 0
-        
+
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
@@ -128,10 +128,10 @@ class TestUsingFramework(object):
         if not args:
             args = (-1, )
         res = self.allfuncs(name, *args)
-        num = self.name_to_func[name]        
+        num = self.name_to_func[name]
         if self.funcsstr[num]:
             return res
-        return int(res)        
+        return int(res)
 
     def define_empty_collect(cls):
         def f():
@@ -228,7 +228,7 @@ class TestUsingFramework(object):
         T = lltype.GcStruct("T", ('y', lltype.Signed),
                                  ('s', lltype.Ptr(S)))
         ARRAY_Ts = lltype.GcArray(lltype.Ptr(T))
-        
+
         def f():
             r = 0
             for i in range(30):
@@ -250,7 +250,7 @@ class TestUsingFramework(object):
     def test_framework_varsized(self):
         res = self.run('framework_varsized')
         assert res == self.run_orig('framework_varsized')
-            
+
     def define_framework_using_lists(cls):
         class A(object):
             pass
@@ -271,7 +271,7 @@ class TestUsingFramework(object):
         N = 1000
         res = self.run('framework_using_lists')
         assert res == N*(N - 1)/2
-    
+
     def define_framework_static_roots(cls):
         class A(object):
             def __init__(self, y):
@@ -318,8 +318,8 @@ class TestUsingFramework(object):
     def test_framework_void_array(self):
         res = self.run('framework_void_array')
         assert res == 44
-        
-        
+
+
     def define_framework_malloc_failure(cls):
         def f():
             a = [1] * (sys.maxint//2)
@@ -342,7 +342,7 @@ class TestUsingFramework(object):
     def test_framework_array_of_void(self):
         res = self.run('framework_array_of_void')
         assert res == 43 + 1000000
-        
+
     def define_framework_opaque(cls):
         A = lltype.GcStruct('A', ('value', lltype.Signed))
         O = lltype.GcOpaqueType('test.framework')
@@ -437,7 +437,7 @@ class TestUsingFramework(object):
             b = B()
             return 0
         return func
-    
+
     def test_del_raises(self):
         self.run('del_raises') # does not raise
 
@@ -675,8 +675,8 @@ class TestUsingFramework(object):
             gc.collect()
             p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.LONGP, p_a1)[0]
-            a2 = rffi.cast(rffi.LONGP, p_a2)[0]
+            a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
+            a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = rffi.cast(rffi.INT, 1)
@@ -692,7 +692,7 @@ class TestUsingFramework(object):
             ptr = CallbackFuncPtr([ffi_type_pointer, ffi_type_pointer],
                                   ffi_type_sint, callback)
 
-            TP = rffi.CArray(rffi.LONG)
+            TP = rffi.CArray(lltype.Signed)
             to_sort = lltype.malloc(TP, 4, flavor='raw')
             to_sort[0] = 4
             to_sort[1] = 3
@@ -700,7 +700,7 @@ class TestUsingFramework(object):
             to_sort[3] = 2
             qsort.push_arg(rffi.cast(rffi.VOIDP, to_sort))
             qsort.push_arg(rffi.cast(rffi.SIZE_T, 4))
-            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(rffi.LONG)))
+            qsort.push_arg(rffi.cast(rffi.SIZE_T, rffi.sizeof(lltype.Signed)))
             qsort.push_arg(rffi.cast(rffi.VOIDP, ptr.ll_closure))
             qsort.call(lltype.Void)
             result = [to_sort[i] for i in range(4)] == [1,2,3,4]
@@ -712,7 +712,7 @@ class TestUsingFramework(object):
 
     def test_callback_with_collect(self):
         assert self.run('callback_with_collect')
-    
+
     def define_can_move(cls):
         class A:
             pass
@@ -1202,7 +1202,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         def f():
             from pypy.rpython.lltypesystem import lltype, rffi
             alist = [A() for i in range(50000)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
@@ -1255,7 +1255,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         l1 = []
         l2 = []
         l3 = []
-        
+
         def f():
             for i in range(10):
                 s = lltype.malloc(S)
@@ -1298,7 +1298,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     def test_string_builder(self):
         res = self.run('string_builder')
         assert res == "aabcbdddd"
-    
+
     def definestr_string_builder_over_allocation(cls):
         import gc
         def fn(_):
@@ -1317,6 +1317,23 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     def test_string_builder_over_allocation(self):
         res = self.run('string_builder_over_allocation')
         assert res[1000] == 'y'
+
+    def definestr_string_builder_multiple_builds(cls):
+        import gc
+        def fn(_):
+            s = StringBuilder(4)
+            got = []
+            for i in range(50):
+                s.append(chr(33+i))
+                got.append(s.build())
+                gc.collect()
+            return ' '.join(got)
+        return fn
+
+    def test_string_builder_multiple_builds(self):
+        res = self.run('string_builder_multiple_builds')
+        assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
+                                for length in range(1, 51)])
 
     def define_nursery_hash_base(cls):
         from pypy.rlib.objectmodel import compute_identity_hash
@@ -1457,6 +1474,37 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def test_nongc_attached_to_gc(self):
         res = self.run("nongc_attached_to_gc")
         assert res == -99997
+
+    def define_nongc_opaque_attached_to_gc(cls):
+        from pypy.module._hashlib.interp_hashlib import HASH_MALLOC_SIZE
+        from pypy.rlib import rgc, ropenssl
+        from pypy.rpython.lltypesystem import rffi
+
+        class A:
+            def __init__(self):
+                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
+                    flavor='raw')
+                digest = ropenssl.EVP_get_digestbyname('sha1')
+                ropenssl.EVP_DigestInit(self.ctx, digest)
+                rgc.add_memory_pressure(HASH_MALLOC_SIZE + 64)
+
+            def __del__(self):
+                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+                lltype.free(self.ctx, flavor='raw')
+        A()
+        def f():
+            am1 = am2 = am3 = None
+            for i in range(100000):
+                am3 = am2
+                am2 = am1
+                am1 = A()
+            # what can we use for the res?
+            return 0
+        return f
+
+    def test_nongc_opaque_attached_to_gc(self):
+        res = self.run("nongc_opaque_attached_to_gc")
+        assert res == 0
 
 # ____________________________________________________________________
 

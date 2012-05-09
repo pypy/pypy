@@ -12,6 +12,7 @@ from pypy.rlib.jit import BaseJitCell
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import support, heaptracker, longlong
+from pypy.tool.sourcetools import func_with_new_name
 
 # ____________________________________________________________
 
@@ -142,26 +143,6 @@ def hash_whatever(TYPE, x):
     else:
         return rffi.cast(lltype.Signed, x)
 
-@specialize.ll_and_arg(3)
-def set_future_value(cpu, j, value, typecode):
-    if typecode == 'ref':
-        refvalue = cpu.ts.cast_to_ref(value)
-        cpu.set_future_value_ref(j, refvalue)
-    elif typecode == 'int':
-        if isinstance(lltype.typeOf(value), lltype.Ptr):
-            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
-        else:
-            intvalue = lltype.cast_primitive(lltype.Signed, value)
-        cpu.set_future_value_int(j, intvalue)
-    elif typecode == 'float':
-        if lltype.typeOf(value) is lltype.Float:
-            value = longlong.getfloatstorage(value)
-        else:
-            assert longlong.is_longlong(lltype.typeOf(value))
-            value = rffi.cast(lltype.SignedLongLong, value)
-        cpu.set_future_value_float(j, value)
-    else:
-        assert False
 
 class JitCell(BaseJitCell):
     # the counter can mean the following things:
@@ -169,41 +150,29 @@ class JitCell(BaseJitCell):
     #     counter == -1: there is an entry bridge for this cell
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
-    compiled_merge_points_wref = None    # list of weakrefs to LoopToken
     dont_trace_here = False
-    wref_entry_loop_token = None         # (possibly) one weakref to LoopToken
+    extra_delay = chr(0)
+    wref_procedure_token = None
 
-    def get_compiled_merge_points(self):
-        result = []
-        if self.compiled_merge_points_wref is not None:
-            for wref in self.compiled_merge_points_wref:
-                looptoken = wref()
-                if looptoken is not None and not looptoken.invalidated:
-                    result.append(looptoken)
-        return result
-
-    def set_compiled_merge_points(self, looptokens):
-        self.compiled_merge_points_wref = [self._makeref(token)
-                                           for token in looptokens]
-
-    def get_entry_loop_token(self):
-        if self.wref_entry_loop_token is not None:
-            return self.wref_entry_loop_token()
+    def get_procedure_token(self):
+        if self.wref_procedure_token is not None:
+            token = self.wref_procedure_token()
+            if token and not token.invalidated:
+                return token
         return None
 
-    def set_entry_loop_token(self, looptoken):
-        self.wref_entry_loop_token = self._makeref(looptoken)
+    def set_procedure_token(self, token):
+        self.wref_procedure_token = self._makeref(token)
 
-    def _makeref(self, looptoken):
-        assert looptoken is not None
-        return weakref.ref(looptoken)
+    def _makeref(self, token):
+        assert token is not None
+        return weakref.ref(token)
 
 # ____________________________________________________________
 
 
 class WarmEnterState(object):
     THRESHOLD_LIMIT = sys.maxint // 2
-    default_jitcell_dict = None
 
     def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
@@ -275,6 +244,11 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
+    def set_param_max_unroll_loops(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_unroll_loops = value
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
         cell.dont_trace_here = True
@@ -283,18 +257,17 @@ class WarmEnterState(object):
         debug_print("disabled inlining", loc)
         debug_stop("jit-disableinlining")
 
-    def attach_unoptimized_bridge_from_interp(self, greenkey,
-                                              entry_loop_token):
+    def attach_procedure_to_interp(self, greenkey, procedure_token):
         cell = self.jit_cell_at_key(greenkey)
-        old_token = cell.get_entry_loop_token()
-        cell.set_entry_loop_token(entry_loop_token)
-        cell.counter = -1       # valid entry bridge attached
+        old_token = cell.get_procedure_token()
+        cell.set_procedure_token(procedure_token)
+        cell.counter = -1       # valid procedure bridge attached
         if old_token is not None:
-            self.cpu.redirect_call_assembler(old_token, entry_loop_token)
-            # entry_loop_token is also kept alive by any loop that used
+            self.cpu.redirect_call_assembler(old_token, procedure_token)
+            # procedure_token is also kept alive by any loop that used
             # to point to old_token.  Actually freeing old_token early
             # is a pointless optimization (it is tiny).
-            old_token.record_jump_to(entry_loop_token)
+            old_token.record_jump_to(procedure_token)
 
     # ----------
 
@@ -310,20 +283,78 @@ class WarmEnterState(object):
         index_of_virtualizable = jitdriver_sd.index_of_virtualizable
         num_green_args = jitdriver_sd.num_green_args
         get_jitcell = self.make_jitcell_getter()
-        set_future_values = self.make_set_future_values()
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
+        range_red_args = unrolling_iterable(
+            range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
+        # get a new specialized copy of the method
+        ARGS = []
+        for kind in jitdriver_sd.red_args_types:
+            if kind == 'int':
+                ARGS.append(lltype.Signed)
+            elif kind == 'ref':
+                ARGS.append(llmemory.GCREF)
+            elif kind == 'float':
+                ARGS.append(longlong.FLOATSTORAGE)
+            else:
+                assert 0, kind
+        func_execute_token = self.cpu.make_execute_token(*ARGS)
+
+        def execute_assembler(loop_token, *args):
+            # Call the backend to run the 'looptoken' with the given
+            # input args.
+            fail_descr = func_execute_token(loop_token, *args)
+            #
+            # If we have a virtualizable, we have to reset its
+            # 'vable_token' field afterwards
+            if vinfo is not None:
+                virtualizable = args[index_of_virtualizable]
+                virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
+                vinfo.reset_vable_token(virtualizable)
+            #
+            # Record in the memmgr that we just ran this loop,
+            # so that it will keep it alive for a longer time
+            warmrunnerdesc.memory_manager.keep_loop_alive(loop_token)
+            #
+            # Handle the failure
+            fail_descr.handle_fail(metainterp_sd, jitdriver_sd)
+            #
+            assert 0, "should have raised"
+
+        def bound_reached(cell, *args):
+            # bound reached, but we do a last check: if it is the first
+            # time we reach the bound, or if another loop or bridge was
+            # compiled since the last time we reached it, then decrease
+            # the counter by a few percents instead.  It should avoid
+            # sudden bursts of JIT-compilation, and also corner cases
+            # where we suddenly compile more than one loop because all
+            # counters reach the bound at the same time, but where
+            # compiling all but the first one is pointless.
+            curgen = warmrunnerdesc.memory_manager.current_generation
+            curgen = chr(intmask(curgen) & 0xFF)    # only use 8 bits
+            if we_are_translated() and curgen != cell.extra_delay:
+                cell.counter = int(self.THRESHOLD_LIMIT * 0.98)
+                cell.extra_delay = curgen
+                return
+            #
+            if not confirm_enter_jit(*args):
+                cell.counter = 0
+                return
+            # start tracing
+            from pypy.jit.metainterp.pyjitpl import MetaInterp
+            metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+            # set counter to -2, to mean "tracing in effect"
+            cell.counter = -2
+            try:
+                metainterp.compile_and_run_once(jitdriver_sd, *args)
+            finally:
+                if cell.counter == -2:
+                    cell.counter = 0
 
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            if vinfo is not None:
-                virtualizable = args[num_green_args + index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-            else:
-                virtualizable = None
-
             # look for the cell corresponding to the current greenargs
             greenargs = args[:num_green_args]
             cell = get_jitcell(True, *greenargs)
@@ -334,51 +365,35 @@ class WarmEnterState(object):
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
-                if not confirm_enter_jit(*args):
-                    cell.counter = 0
+                else:
+                    bound_reached(cell, *args)
                     return
-                # bound reached; start tracing
-                from pypy.jit.metainterp.pyjitpl import MetaInterp
-                metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-                # set counter to -2, to mean "tracing in effect"
-                cell.counter = -2
-                try:
-                    loop_token = metainterp.compile_and_run_once(jitdriver_sd,
-                                                                 *args)
-                finally:
-                    if cell.counter == -2:
-                        cell.counter = 0
             else:
-                if cell.counter == -2:
+                if cell.counter != -1:
+                    assert cell.counter == -2
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
                     return
-                assert cell.counter == -1
                 if not confirm_enter_jit(*args):
                     return
-                loop_token = cell.get_entry_loop_token()
-                if loop_token is None:   # it was a weakref that has been freed
+                # machine code was already compiled for these greenargs
+                procedure_token = cell.get_procedure_token()
+                if procedure_token is None:   # it was a weakref that has been freed
                     cell.counter = 0
                     return
-                # machine code was already compiled for these greenargs
-                # get the assembler and fill in the boxes
-                set_future_values(*args[num_green_args:])
-
-            # ---------- execute assembler ----------
-            while True:     # until interrupted by an exception
-                metainterp_sd.profiler.start_running()
-                #debug_start("jit-running")
-                fail_descr = warmrunnerdesc.execute_token(loop_token)
-                #debug_stop("jit-running")
-                metainterp_sd.profiler.end_running()
-                loop_token = None     # for test_memmgr
-                if vinfo is not None:
-                    vinfo.reset_vable_token(virtualizable)
-                loop_token = fail_descr.handle_fail(metainterp_sd,
-                                                    jitdriver_sd)
+                # extract and unspecialize the red arguments to pass to
+                # the assembler
+                execute_args = ()
+                for i in range_red_args:
+                    execute_args += (unspecialize_value(args[i]), )
+                # run it!  this executes until interrupted by an exception
+                execute_assembler(procedure_token, *execute_args)
+            #
+            assert 0, "should not reach this point"
 
         maybe_compile_and_run._dont_inline_ = True
         self.maybe_compile_and_run = maybe_compile_and_run
+        self.execute_assembler = execute_assembler
         return maybe_compile_and_run
 
     # ----------
@@ -452,6 +467,37 @@ class WarmEnterState(object):
             return x
         #
         jitcell_dict = r_dict(comparekey, hashkey)
+        try:
+            self.warmrunnerdesc.stats.jitcell_dicts.append(jitcell_dict)
+        except AttributeError:
+            pass
+        #
+        def _cleanup_dict():
+            minimum = self.THRESHOLD_LIMIT // 20     # minimum 5%
+            killme = []
+            for key, cell in jitcell_dict.iteritems():
+                if cell.counter >= 0:
+                    cell.counter = int(cell.counter * 0.92)
+                    if cell.counter < minimum:
+                        killme.append(key)
+                elif (cell.counter == -1
+                      and cell.get_procedure_token() is None):
+                    killme.append(key)
+            for key in killme:
+                del jitcell_dict[key]
+        #
+        def _maybe_cleanup_dict():
+            # Once in a while, rarely, when too many entries have
+            # been put in the jitdict_dict, we do a cleanup phase:
+            # we decay all counters and kill entries with a too
+            # low counter.
+            self._trigger_automatic_cleanup += 1
+            if self._trigger_automatic_cleanup > 20000:
+                self._trigger_automatic_cleanup = 0
+                _cleanup_dict()
+        #
+        self._trigger_automatic_cleanup = 0
+        self._jitcell_dict = jitcell_dict       # for tests
         #
         def get_jitcell(build, *greenargs):
             try:
@@ -459,6 +505,7 @@ class WarmEnterState(object):
             except KeyError:
                 if not build:
                     return None
+                _maybe_cleanup_dict()
                 cell = JitCell()
                 jitcell_dict[greenargs] = cell
             return cell
@@ -470,6 +517,10 @@ class WarmEnterState(object):
         get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
+        # note that there is no equivalent of _maybe_cleanup_dict()
+        # in the case of custom getters.  We assume that the interpreter
+        # stores the JitCells on some objects that can go away by GC,
+        # like the PyCode objects in PyPy.
         #
         def get_jitcell(build, *greenargs):
             fn = support.maybe_on_top_of_llinterp(rtyper, get_jitcell_at_ptr)
@@ -515,56 +566,6 @@ class WarmEnterState(object):
 
     # ----------
 
-    def make_set_future_values(self):
-        "NOT_RPYTHON"
-        if hasattr(self, 'set_future_values'):
-            return self.set_future_values
-
-        jitdriver_sd   = self.jitdriver_sd
-        cpu = self.cpu
-        vinfo = jitdriver_sd.virtualizable_info
-        red_args_types = unrolling_iterable(jitdriver_sd._red_args_types)
-        #
-        def set_future_values(*redargs):
-            i = 0
-            for typecode in red_args_types:
-                set_future_value(cpu, i, redargs[i], typecode)
-                i = i + 1
-            if vinfo is not None:
-                set_future_values_from_vinfo(*redargs)
-        #
-        if vinfo is not None:
-            i0 = len(jitdriver_sd._red_args_types)
-            index_of_virtualizable = jitdriver_sd.index_of_virtualizable
-            vable_static_fields = unrolling_iterable(
-                zip(vinfo.static_extra_types, vinfo.static_fields))
-            vable_array_fields = unrolling_iterable(
-                zip(vinfo.arrayitem_extra_types, vinfo.array_fields))
-            getlength = cpu.ts.getlength
-            getarrayitem = cpu.ts.getarrayitem
-            #
-            def set_future_values_from_vinfo(*redargs):
-                i = i0
-                virtualizable = redargs[index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-                for typecode, fieldname in vable_static_fields:
-                    x = getattr(virtualizable, fieldname)
-                    set_future_value(cpu, i, x, typecode)
-                    i = i + 1
-                for typecode, fieldname in vable_array_fields:
-                    lst = getattr(virtualizable, fieldname)
-                    for j in range(getlength(lst)):
-                        x = getarrayitem(lst, j)
-                        set_future_value(cpu, i, x, typecode)
-                        i = i + 1
-        else:
-            set_future_values_from_vinfo = None
-        #
-        self.set_future_values = set_future_values
-        return set_future_values
-
-    # ----------
-
     def make_jitdriver_callbacks(self):
         if hasattr(self, 'get_location_str'):
             return
@@ -600,33 +601,20 @@ class WarmEnterState(object):
                 return fn(*greenargs)
         self.should_unroll_one_iteration = should_unroll_one_iteration
         
-        if hasattr(jd.jitdriver, 'on_compile'):
-            def on_compile(logger, token, operations, type, greenkey):
-                greenargs = unwrap_greenkey(greenkey)
-                return jd.jitdriver.on_compile(logger, token, operations, type,
-                                               *greenargs)
-            def on_compile_bridge(logger, orig_token, operations, n):
-                return jd.jitdriver.on_compile_bridge(logger, orig_token,
-                                                      operations, n)
-            jd.on_compile = on_compile
-            jd.on_compile_bridge = on_compile_bridge
-        else:
-            jd.on_compile = lambda *args: None
-            jd.on_compile_bridge = lambda *args: None
+        redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
 
-        def get_assembler_token(greenkey, redboxes):
-            # 'redboxes' is only used to know the types of red arguments
+        def get_assembler_token(greenkey):
             cell = self.jit_cell_at_key(greenkey)
-            entry_loop_token = cell.get_entry_loop_token()
-            if entry_loop_token is None:
+            procedure_token = cell.get_procedure_token()
+            if procedure_token is None:
                 from pypy.jit.metainterp.compile import compile_tmp_callback
                 if cell.counter == -1:    # used to be a valid entry bridge,
                     cell.counter = 0      # but was freed in the meantime.
                 memmgr = warmrunnerdesc.memory_manager
-                entry_loop_token = compile_tmp_callback(cpu, jd, greenkey,
-                                                        redboxes, memmgr)
-                cell.set_entry_loop_token(entry_loop_token)
-            return entry_loop_token
+                procedure_token = compile_tmp_callback(cpu, jd, greenkey,
+                                                       redargtypes, memmgr)
+                cell.set_procedure_token(procedure_token)
+            return procedure_token
         self.get_assembler_token = get_assembler_token
 
         #

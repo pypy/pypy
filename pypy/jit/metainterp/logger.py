@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import Const, ConstInt, Box, \
-     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr
+     BoxInt, ConstFloat, BoxFloat, AbstractFailDescr, TargetToken
 
 class Logger(object):
 
@@ -13,14 +13,18 @@ class Logger(object):
         self.metainterp_sd = metainterp_sd
         self.guard_number = guard_number
 
-    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None):
+    def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         if type is None:
             debug_start("jit-log-noopt-loop")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
+        elif number == -2:
+            debug_start("jit-log-compiling-loop")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-loop")
         else:
             debug_start("jit-log-opt-loop")
-            debug_print("# Loop", number, ":", type,
+            debug_print("# Loop", number, '(%s)' % name , ":", type,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-loop")
@@ -31,6 +35,10 @@ class Logger(object):
             debug_start("jit-log-noopt-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
+        elif number == -2:
+            debug_start("jit-log-compiling-bridge")
+            logops = self._log_operations(inputargs, operations, ops_offset)
+            debug_stop("jit-log-compiling-bridge")
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard", number,
@@ -102,9 +110,9 @@ class LogOperations(object):
     def repr_of_resop(self, op, ops_offset=None):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
-            s = jd_sd.warmstate.get_location_str(op.getarglist()[2:])
+            s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
-            return "debug_merge_point(%d, '%s')" % (op.getarg(1).getint(), s)
+            return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
         if ops_offset is None:
             offset = -1
         else:
@@ -135,6 +143,13 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
+    def _log_inputarg_setup_ops(self, op):
+        target_token = op.getdescr()
+        if isinstance(target_token, TargetToken):
+            if target_token.exported_state:
+                for op in target_token.exported_state.inputarg_setup_ops:
+                    debug_print('    ' + self.repr_of_resop(op))
+
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
@@ -146,6 +161,8 @@ class LogOperations(object):
         for i in range(len(operations)):
             op = operations[i]
             debug_print(self.repr_of_resop(operations[i], ops_offset))
+            if op.getopnum() == rop.LABEL:
+                self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)

@@ -157,15 +157,18 @@ def test_assemble_list_semibug():
         ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
         ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
         ('baz', Constant(42, lltype.Signed)),
+        ('bok', Constant(41, lltype.Signed)),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x01\xFF"
                             "\x00\x01\xFF"
-                            "\x01\x2A")
+                            "\x01\x2A"
+                            "\x02\xFE")
     assert assembler.insns == {'foobar/I': 0,
-                               'baz/c': 1}
-    assert jitcode.constants_i == [42]
+                               'baz/c': 1,    # in USE_C_FORM
+                               'bok/i': 2}    # not in USE_C_FORM
+    assert jitcode.constants_i == [42, 41]
 
 def test_assemble_descr():
     class FooDescr(AbstractDescr):

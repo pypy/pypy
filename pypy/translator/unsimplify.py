@@ -42,9 +42,7 @@ def insert_empty_startblock(annotator, graph):
     vars = [copyvar(annotator, v) for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
-    graph.startblock.isstartblock = False
     graph.startblock = newblock
-    graph.startblock.isstartblock = True
 
 def starts_with_empty_block(graph):
     return (not graph.startblock.operations
@@ -151,9 +149,7 @@ def call_initial_function(translator, initial_func, annhelper=None):
     newop = SpaceOperation('direct_call', [c_initial_func], v_none)
     extrablock.operations = [newop]
     extrablock.closeblock(Link(args, entry_point.startblock))
-    entry_point.startblock.isstartblock = False
     entry_point.startblock = extrablock
-    entry_point.startblock.isstartblock = True
     checkgraph(entry_point)
 
 def call_final_function(translator, final_func, annhelper=None):

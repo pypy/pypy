@@ -342,10 +342,11 @@ class Bookkeeper(object):
             else:
                 raise Exception("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
+            no_nul = not '\x00' in x
             if len(x) == 1:
-                result = SomeChar()
+                result = SomeChar(no_nul=no_nul)
             else:
-                result = SomeString()
+                result = SomeString(no_nul=no_nul)
         elif tp is unicode:
             if len(x) == 1:
                 result = SomeUnicodeCodePoint()

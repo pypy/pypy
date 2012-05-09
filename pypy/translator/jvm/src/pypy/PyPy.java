@@ -283,6 +283,14 @@ public class PyPy implements Constants {
         }
     }
 
+    public double pypy__longlong2float(long l) {
+        return Double.longBitsToDouble(l);
+    }
+
+    public long pypy__float2longlong(double d) {
+        return Double.doubleToRawLongBits(d);
+    }
+
     public double ooparse_float(String s) {
         try {
             return Double.parseDouble(s);
@@ -351,6 +359,19 @@ public class PyPy implements Constants {
             return "True";
         else
             return "False";
+    }
+
+    public static String serialize_double(double d) {
+        if (Double.isNaN(d)) {
+            return "float(\"nan\")";
+        } else if (Double.isInfinite(d)) {
+            if (d > 0)
+                return "float(\"inf\")";
+            else
+                return "float(\"-inf\")";
+        } else {
+            return Double.toString(d);
+        }
     }
 
     private static String format_char(char c) {

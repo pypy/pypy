@@ -38,7 +38,9 @@ def _splitparam(param):
 def _formatparam(param, value=None, quote=True):
     """Convenience function to format and return a key=value pair.
 
-    This will quote the value if needed or if quote is true.
+    This will quote the value if needed or if quote is true.  If value is a
+    three tuple (charset, language, value), it will be encoded according
+    to RFC2231 rules.
     """
     if value is not None and len(value) > 0:
         # A tuple is used for RFC 2231 encoded parameter values where items
@@ -97,7 +99,7 @@ class Message:
     objects, otherwise it is a string.
 
     Message objects implement part of the `mapping' interface, which assumes
-    there is exactly one occurrance of the header per message.  Some headers
+    there is exactly one occurrence of the header per message.  Some headers
     do in fact appear multiple times (e.g. Received) and for those headers,
     you must use the explicit API to set or get all the headers.  Not all of
     the mapping methods are implemented.
@@ -286,7 +288,7 @@ class Message:
         Return None if the header is missing instead of raising an exception.
 
         Note that if the header appeared multiple times, exactly which
-        occurrance gets returned is undefined.  Use get_all() to get all
+        occurrence gets returned is undefined.  Use get_all() to get all
         the values matching a header field name.
         """
         return self.get(name)
@@ -389,7 +391,10 @@ class Message:
         name is the header field to add.  keyword arguments can be used to set
         additional parameters for the header field, with underscores converted
         to dashes.  Normally the parameter will be added as key="value" unless
-        value is None, in which case only the key will be added.
+        value is None, in which case only the key will be added.  If a
+        parameter value contains non-ASCII characters it must be specified as a
+        three-tuple of (charset, language, value), in which case it will be
+        encoded according to RFC2231 rules.
 
         Example:
 

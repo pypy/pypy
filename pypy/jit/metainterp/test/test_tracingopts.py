@@ -593,6 +593,32 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [sys.maxint])
         assert res == 12
 
+    def test_opaque_list(self):
+        from pypy.rlib.rerased import new_erasing_pair
+        erase, unerase = new_erasing_pair("test_opaque_list")
+        def fn(n, ca, cb):
+            l1 = [n]
+            l2 = [n]
+            a1 = erase(l1)
+            a2 = erase(l1)
+            a = a1
+            if ca:
+                a = a2
+                if n < -100:
+                    unerase(a).append(5)
+            b = a1
+            if cb:
+                b = a
+            return unerase(a)[0] + unerase(b)[0]
+        res = self.interp_operations(fn, [7, 0, 1])
+        assert res == 7 * 2
+        self.check_operations_history(getarrayitem_gc=0,
+                getfield_gc=0)
+        res = self.interp_operations(fn, [-7, 1, 1])
+        assert res == -7 * 2
+        self.check_operations_history(getarrayitem_gc=0,
+                getfield_gc=0)
+
     def test_copy_str_content(self):
         def fn(n):
             a = StringBuilder()
@@ -601,4 +627,4 @@ class TestLLtype(LLJitMixin):
             return x[0]
         res = self.interp_operations(fn, [0])
         assert res == 1
-        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0 )
+        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0)

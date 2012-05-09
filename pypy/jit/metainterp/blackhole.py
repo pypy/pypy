@@ -1,15 +1,16 @@
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rtimer import read_timestamp
-from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
+from pypy.jit.metainterp.compile import ResumeAtPositionDescr
+from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
+from pypy.rlib import longlong2float
+from pypy.rlib.debug import debug_start, debug_stop, ll_assert, make_sure_not_resized
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import debug_start, debug_stop, ll_assert
-from pypy.rlib.debug import make_sure_not_resized
+from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from pypy.rlib.rtimer import read_timestamp
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
-from pypy.jit.codewriter import heaptracker, longlong
-from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
-from pypy.jit.metainterp.compile import ResumeAtPositionDescr
+
 
 def arguments(*argtypes, **kwds):
     resulttype = kwds.pop('returns', None)
@@ -19,6 +20,9 @@ def arguments(*argtypes, **kwds):
         function.resulttype = resulttype
         return function
     return decorate
+
+LONGLONG_TYPECODE = 'i' if longlong.is_64_bit else 'f'
+
 
 class LeaveFrame(JitException):
     pass
@@ -518,6 +522,9 @@ class BlackholeInterpreter(object):
     @arguments("r")
     def bhimpl_mark_opaque_ptr(a):
         pass
+    @arguments("r", "i")
+    def bhimpl_record_known_class(a, b):
+        pass
 
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
@@ -658,6 +665,16 @@ class BlackholeInterpreter(object):
     def bhimpl_cast_singlefloat_to_float(a):
         a = longlong.int2singlefloat(a)
         a = float(a)
+        return longlong.getfloatstorage(a)
+
+    @arguments("f", returns=LONGLONG_TYPECODE)
+    def bhimpl_convert_float_bytes_to_longlong(a):
+        a = longlong.getrealfloat(a)
+        return longlong2float.float2longlong(a)
+
+    @arguments(LONGLONG_TYPECODE, returns="f")
+    def bhimpl_convert_longlong_bytes_to_float(a):
+        a = longlong2float.longlong2float(a)
         return longlong.getfloatstorage(a)
 
     # ----------
@@ -979,6 +996,15 @@ class BlackholeInterpreter(object):
         cpu.bh_setfield_gc_r(result, itemsdescr, items)
         return result
 
+    @arguments("cpu", "d", "d", "d", "d", "i", returns="r")
+    def bhimpl_newlist_hint(cpu, structdescr, lengthdescr, itemsdescr,
+                            arraydescr, lengthhint):
+        result = cpu.bh_new(structdescr)
+        cpu.bh_setfield_gc_i(result, lengthdescr, 0)
+        items = cpu.bh_new_array(arraydescr, lengthhint)
+        cpu.bh_setfield_gc_r(result, itemsdescr, items)
+        return result
+
     @arguments("cpu", "r", "d", "d", "i", returns="i")
     def bhimpl_getlistitem_gc_i(cpu, lst, itemsdescr, arraydescr, index):
         items = cpu.bh_getfield_gc_r(lst, itemsdescr)
@@ -1173,14 +1199,14 @@ class BlackholeInterpreter(object):
     def bhimpl_getinteriorfield_gc_f(cpu, array, index, descr):
         return cpu.bh_getinteriorfield_gc_f(array, index, descr)
 
-    @arguments("cpu", "r", "i", "d", "i")
-    def bhimpl_setinteriorfield_gc_i(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "i", "d")
+    def bhimpl_setinteriorfield_gc_i(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_i(array, index, descr, value)
-    @arguments("cpu", "r", "i", "d", "r")
-    def bhimpl_setinteriorfield_gc_r(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "r", "d")
+    def bhimpl_setinteriorfield_gc_r(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_r(array, index, descr, value)
-    @arguments("cpu", "r", "i", "d", "f")
-    def bhimpl_setinteriorfield_gc_f(cpu, array, index, descr, value):
+    @arguments("cpu", "r", "i", "f", "d")
+    def bhimpl_setinteriorfield_gc_f(cpu, array, index, value, descr):
         cpu.bh_setinteriorfield_gc_f(array, index, descr, value)
 
     @arguments("cpu", "r", "d", returns="i")
@@ -1297,7 +1323,7 @@ class BlackholeInterpreter(object):
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
-    @arguments(returns=(longlong.is_64_bit and "i" or "f"))
+    @arguments(returns=LONGLONG_TYPECODE)
     def bhimpl_ll_read_timestamp():
         return read_timestamp()
 
@@ -1376,7 +1402,8 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_NO_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
             # We get here because it did not used to overflow, but now it does.
-            return get_llexception(self.cpu, OverflowError())
+            if not dont_change_position:
+                return get_llexception(self.cpu, OverflowError())
         #
         elif opnum == rop.GUARD_OVERFLOW:
             # Produced by int_xxx_ovf().  The pc is just after the opcode.
@@ -1501,7 +1528,6 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
                         all_virtuals=None):
     from pypy.jit.metainterp.resume import blackhole_from_resumedata
     #debug_start('jit-blackhole')
-    metainterp_sd.profiler.start_blackhole()
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
         jitdriver_sd,
@@ -1515,10 +1541,9 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
     current_exc = blackholeinterp._prepare_resume_from_failure(
         resumedescr.guard_opnum, dont_change_position)
 
-    try:
-        _run_forever(blackholeinterp, current_exc)
-    finally:
-        metainterp_sd.profiler.end_blackhole()
+    #try:
+    _run_forever(blackholeinterp, current_exc)
+    #finally:
         #debug_stop('jit-blackhole')
 
 def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
@@ -1526,7 +1551,6 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     # 'metainterp.framestack'.
     #debug_start('jit-blackhole')
     metainterp_sd = metainterp.staticdata
-    metainterp_sd.profiler.start_blackhole()
     nextbh = None
     for frame in metainterp.framestack:
         curbh = metainterp_sd.blackholeinterpbuilder.acquire_interp()
@@ -1543,8 +1567,7 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         firstbh.exception_last_value = current_exc
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     #
-    try:
-        _run_forever(firstbh, current_exc)
-    finally:
-        metainterp_sd.profiler.end_blackhole()
+    #try:
+    _run_forever(firstbh, current_exc)
+    #finally:
         #debug_stop('jit-blackhole')

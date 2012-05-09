@@ -71,7 +71,7 @@ class TestW_ComplexObject:
         assert _powu((0.0,1.0),2) == (-1.0,0.0)
 
         def _powi((r1, i1), n):
-            w_res = W_ComplexObject(r1, i1).pow_int(n)
+            w_res = W_ComplexObject(r1, i1).pow_small_int(n)
             return w_res.realval, w_res.imagval
         assert _powi((0.0,2.0),0) == (1.0,0.0)
         assert _powi((0.0,0.0),2) == (0.0,0.0)
@@ -213,6 +213,7 @@ class AppTestAppComplexTest:
         assert a ** 105 == a ** 105
         assert a ** -105 == a ** -105
         assert a ** -30 == a ** -30
+        assert a ** 2 == a * a
 
         assert 0.0j ** 0 == 1
 

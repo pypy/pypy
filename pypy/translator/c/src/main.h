@@ -36,13 +36,19 @@ int pypy_main_function(int argc, char *argv[])
     RPyListOfString *list;
 
     pypy_asm_stack_bottom();
+#ifdef PYPY_X86_CHECK_SSE2_DEFINED
+    pypy_x86_check_sse2();
+#endif
     instrument_setup();
 
+#ifndef MS_WINDOWS
+    /* this message does no longer apply to win64 :-) */
     if (sizeof(void*) != SIZEOF_LONG) {
         errmsg = "only support platforms where sizeof(void*) == sizeof(long),"
                  " for now";
         goto error;
     }
+#endif
 
 #ifdef MS_WINDOWS
     pypy_Windows_startup();

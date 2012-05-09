@@ -196,10 +196,13 @@ class UrlParseTestCase(unittest.TestCase):
         #self.checkJoin(RFC1808_BASE, 'http:g', 'http:g')
         #self.checkJoin(RFC1808_BASE, 'http:', 'http:')
 
+    def test_RFC2368(self):
+        # Issue 11467: path that starts with a number is not parsed correctly
+        self.assertEqual(urlparse.urlparse('mailto:1337@example.org'),
+                ('mailto', '', '1337@example.org', '', '', ''))
+
     def test_RFC2396(self):
         # cases from RFC 2396
-
-
         self.checkJoin(RFC2396_BASE, 'g:h', 'g:h')
         self.checkJoin(RFC2396_BASE, 'g', 'http://a/b/c/g')
         self.checkJoin(RFC2396_BASE, './g', 'http://a/b/c/g')
@@ -294,6 +297,9 @@ class UrlParseTestCase(unittest.TestCase):
         self.checkJoin(RFC3986_BASE, 'g#s/../x','http://a/b/c/g#s/../x')
         #self.checkJoin(RFC3986_BASE, 'http:g','http:g') # strict parser
         self.checkJoin(RFC3986_BASE, 'http:g','http://a/b/c/g') # relaxed parser
+
+        # Test for issue9721
+        self.checkJoin('http://a/b/c/de', ';x','http://a/b/c/;x')
 
     def test_urljoins(self):
         self.checkJoin(SIMPLE_BASE, 'g:h','g:h')

@@ -414,7 +414,19 @@ class StrTest(
         self.assertEqual('Andr\202 x'.decode('ascii', 'replace'),
                          'Andr\202 x'.decode(encoding='ascii', errors='replace'))
 
-
+    def test_startswith_endswith_errors(self):
+        with self.assertRaises(UnicodeDecodeError):
+            '\xff'.startswith(u'x')
+        with self.assertRaises(UnicodeDecodeError):
+            '\xff'.endswith(u'x')
+        for meth in ('foo'.startswith, 'foo'.endswith):
+            with self.assertRaises(TypeError) as cm:
+                meth(['f'])
+            if test_support.check_impl_detail():
+                exc = str(cm.exception)
+                self.assertIn('unicode', exc)
+                self.assertIn('str', exc)
+                self.assertIn('tuple', exc)
 
 def test_main():
     test_support.run_unittest(StrTest)

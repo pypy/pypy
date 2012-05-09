@@ -391,7 +391,6 @@ class MallocVirtualizer(object):
         virtualframe = VirtualFrame(graph2.startblock, 0, nodelist)
         graphbuilder = GraphBuilder(self, graph2)
         specblock = graphbuilder.start_from_virtualframe(virtualframe)
-        specblock.isstartblock = True
         specgraph = graph2
         specgraph.name += '_mallocv'
         specgraph.startblock = specblock

@@ -6,6 +6,7 @@ import getpass
 
 from distutils.command.clean import clean
 from distutils.tests import support
+from test.test_support import run_unittest
 
 class cleanTestCase(support.TempdirManager,
                     support.LoggingSilencer,
@@ -38,7 +39,7 @@ class cleanTestCase(support.TempdirManager,
             self.assertTrue(not os.path.exists(path),
                          '%s was not removed' % path)
 
-        # let's run the command again (should spit warnings but suceed)
+        # let's run the command again (should spit warnings but succeed)
         cmd.all = 1
         cmd.ensure_finalized()
         cmd.run()
@@ -47,4 +48,4 @@ def test_suite():
     return unittest.makeSuite(cleanTestCase)
 
 if __name__ == "__main__":
-    unittest.main(defaultTest="test_suite")
+    run_unittest(test_suite())

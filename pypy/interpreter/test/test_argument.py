@@ -75,7 +75,10 @@ class DummySpace(object):
     def unpackiterable(self, it):
         return list(it)
 
-    def newdict(self):
+    def view_as_kwargs(self, x):
+        return None, None
+
+    def newdict(self, kwargs=False):
         return {}
 
     def newlist(self, l=[]):
@@ -393,8 +396,8 @@ class TestArgumentsNormal(object):
 
         class FakeArgErr(ArgErr):
 
-            def getmsg(self, fname):
-                return "msg "+fname
+            def getmsg(self):
+                return "msg"
 
         def _match_signature(*args):
             raise FakeArgErr()
@@ -404,7 +407,7 @@ class TestArgumentsNormal(object):
         excinfo = py.test.raises(OperationError, args.parse_obj, "obj", "foo",
                        Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value == "msg foo"
+        assert excinfo.value.get_w_value(space) == "foo() msg"
 
 
     def test_args_parsing_into_scope(self):
@@ -448,8 +451,8 @@ class TestArgumentsNormal(object):
 
         class FakeArgErr(ArgErr):
 
-            def getmsg(self, fname):
-                return "msg "+fname
+            def getmsg(self):
+                return "msg"
 
         def _match_signature(*args):
             raise FakeArgErr()
@@ -460,7 +463,7 @@ class TestArgumentsNormal(object):
                                  "obj", [None, None], "foo",
                                  Signature(["a", "b"], None, None))
         assert excinfo.value.w_type is TypeError
-        assert excinfo.value._w_value == "msg foo"
+        assert excinfo.value.get_w_value(space) == "foo() msg"
 
     def test_topacked_frompacked(self):
         space = DummySpace()
@@ -488,40 +491,91 @@ class TestArgumentsNormal(object):
         assert len(l) == 1
         assert l[0] == space.wrap(5)
 
+    def test_starstarargs_special(self):
+        class kwargs(object):
+            def __init__(self, k, v):
+                self.k = k
+                self.v = v
+        class MyDummySpace(DummySpace):
+            def view_as_kwargs(self, kw):
+                if isinstance(kw, kwargs):
+                    return kw.k, kw.v
+                return None, None
+        space = MyDummySpace()
+        for i in range(3):
+            kwds = [("c", 3)]
+            kwds_w = dict(kwds[:i])
+            keywords = kwds_w.keys()
+            keywords_w = kwds_w.values()
+            rest = dict(kwds[i:])
+            w_kwds = kwargs(rest.keys(), rest.values())
+            if i == 2:
+                w_kwds = None
+            assert len(keywords) == len(keywords_w)
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c"]), defaults_w=[4])
+            assert l == [1, 2, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "b1", "c"]), defaults_w=[4, 5])
+            assert l == [1, 2, 4, 3]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            args._match_signature(None, l, Signature(["a", "b", "c", "d"]), defaults_w=[4, 5])
+            assert l == [1, 2, 3, 5]
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["c", "b", "a", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None, None]
+            py.test.raises(ArgErr, args._match_signature, None, l,
+                           Signature(["a", "b", "c1", "d"]), defaults_w=[4, 5])
+            args = Arguments(space, [1, 2], keywords[:], keywords_w[:], w_starstararg=w_kwds)
+            l = [None, None, None]
+            args._match_signature(None, l, Signature(["a", "b"], None, "**"))
+            assert l == [1, 2, {'c': 3}]
+        excinfo = py.test.raises(OperationError, Arguments, space, [], ["a"],
+                                 [1], w_starstararg=kwargs(["a"], [2]))
+        assert excinfo.value.w_type is TypeError
+
+
+
 class TestErrorHandling(object):
     def test_missing_args(self):
         # got_nargs, nkwds, expected_nargs, has_vararg, has_kwarg,
         # defaults_w, missing_args
         err = ArgErrCount(1, 0, 0, False, False, None, 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes no arguments (1 given)"
+        s = err.getmsg()
+        assert s == "takes no arguments (1 given)"
         err = ArgErrCount(0, 0, 1, False, False, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 argument (0 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 1 argument (0 given)"
         err = ArgErrCount(3, 0, 2, False, False, [], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 2 arguments (3 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 2 arguments (3 given)"
         err = ArgErrCount(3, 0, 2, False, False, ['a'], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at most 2 arguments (3 given)"
+        s = err.getmsg()
+        assert s == "takes at most 2 arguments (3 given)"
         err = ArgErrCount(1, 0, 2, True, False, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 2 arguments (1 given)"
+        s = err.getmsg()
+        assert s == "takes at least 2 arguments (1 given)"
         err = ArgErrCount(0, 1, 2, True, False, ['a'], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
         err = ArgErrCount(2, 1, 1, False, True, [], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 non-keyword argument (2 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (2 given)"
         err = ArgErrCount(0, 1, 1, False, True, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes exactly 1 non-keyword argument (0 given)"
+        s = err.getmsg()
+        assert s == "takes exactly 1 non-keyword argument (0 given)"
         err = ArgErrCount(0, 1, 1, True, True, [], 1)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at least 1 non-keyword argument (0 given)"
+        s = err.getmsg()
+        assert s == "takes at least 1 non-keyword argument (0 given)"
         err = ArgErrCount(2, 1, 1, False, True, ['a'], 0)
-        s = err.getmsg('foo')
-        assert s == "foo() takes at most 1 non-keyword argument (2 given)"
+        s = err.getmsg()
+        assert s == "takes at most 1 non-keyword argument (2 given)"
 
     def test_bad_type_for_star(self):
         space = self.space
@@ -543,12 +597,12 @@ class TestErrorHandling(object):
     def test_unknown_keywords(self):
         space = DummySpace()
         err = ArgErrUnknownKwds(space, 1, ['a', 'b'], [True, False], None)
-        s = err.getmsg('foo')
-        assert s == "foo() got an unexpected keyword argument 'b'"
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument 'b'"
         err = ArgErrUnknownKwds(space, 2, ['a', 'b', 'c'],
                                 [True, False, False], None)
-        s = err.getmsg('foo')
-        assert s == "foo() got 2 unexpected keyword arguments"
+        s = err.getmsg()
+        assert s == "got 2 unexpected keyword arguments"
 
     def test_unknown_unicode_keyword(self):
         class DummySpaceUnicode(DummySpace):
@@ -558,13 +612,13 @@ class TestErrorHandling(object):
         err = ArgErrUnknownKwds(space, 1, ['a', None, 'b', 'c'],
                                 [True, False, True, True],
                                 [unichr(0x1234), u'b', u'c'])
-        s = err.getmsg('foo')
-        assert s == "foo() got an unexpected keyword argument '\xe1\x88\xb4'"
+        s = err.getmsg()
+        assert s == "got an unexpected keyword argument '\xe1\x88\xb4'"
 
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
-        s = err.getmsg('foo')
-        assert s == "foo() got multiple values for keyword argument 'bla'"
+        s = err.getmsg()
+        assert s == "got multiple values for keyword argument 'bla'"
 
 class AppTestArgument:
     def test_error_message(self):

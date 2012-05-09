@@ -6,7 +6,6 @@ for all loops and bridges, so http requests can refer to them by name
 import py
 import os
 from lib_pypy.disassembler import dis
-from pypy.tool.jitlogparser.parser import Function
 from pypy.tool.jitlogparser.module_finder import gather_all_code_objs
 
 class LoopStorage(object):

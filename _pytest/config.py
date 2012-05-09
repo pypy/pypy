@@ -8,13 +8,15 @@ import pytest
 def pytest_cmdline_parse(pluginmanager, args):
     config = Config(pluginmanager)
     config.parse(args)
-    if config.option.debug:
-        config.trace.root.setwriter(sys.stderr.write)
     return config
 
 def pytest_unconfigure(config):
-    for func in config._cleanup:
-        func()
+    while 1:
+        try:
+            fin = config._cleanup.pop()
+        except IndexError:
+            break
+        fin()
 
 class Parser:
     """ Parser for command line arguments. """
@@ -80,6 +82,7 @@ class Parser:
         assert type in (None, "pathlist", "args", "linelist")
         self._inidict[name] = (help, type, default)
         self._ininames.append(name)
+
 
 class OptionGroup:
     def __init__(self, name, description="", parser=None):
@@ -256,11 +259,14 @@ class Config(object):
         self.hook = self.pluginmanager.hook
         self._inicache = {}
         self._cleanup = []
-    
+
     @classmethod
     def fromdictargs(cls, option_dict, args):
         """ constructor useable for subprocesses. """
         config = cls()
+        # XXX slightly crude way to initialize capturing
+        import _pytest.capture
+        _pytest.capture.pytest_cmdline_parse(config.pluginmanager, args)
         config._preparse(args, addopts=False)
         config.option.__dict__.update(option_dict)
         for x in config.option.plugins:
@@ -285,11 +291,10 @@ class Config(object):
 
     def _setinitialconftest(self, args):
         # capture output during conftest init (#issue93)
-        from _pytest.capture import CaptureManager
-        capman = CaptureManager()
-        self.pluginmanager.register(capman, 'capturemanager')
-        # will be unregistered in capture.py's unconfigure()
-        capman.resumecapture(capman._getmethod_preoptionparse(args))
+        # XXX introduce load_conftest hook to avoid needing to know
+        # about capturing plugin here
+        capman = self.pluginmanager.getplugin("capturemanager")
+        capman.resumecapture()
         try:
             try:
                 self._conftest.setinitial(args)
@@ -334,12 +339,21 @@ class Config(object):
         # Note that this can only be called once per testing process.
         assert not hasattr(self, 'args'), (
                 "can only parse cmdline args at most once per Config object")
+        self._origargs = args
         self._preparse(args)
         self._parser.hints.extend(self.pluginmanager._hints)
         args = self._parser.parse_setoption(args, self.option)
         if not args:
             args.append(py.std.os.getcwd())
         self.args = args
+
+    def addinivalue_line(self, name, line):
+        """ add a line to an ini-file option. The option must have been
+        declared but might not yet be set in which case the line becomes the
+        the first line in its value. """
+        x = self.getini(name)
+        assert isinstance(x, list)
+        x.append(line) # modifies the cached list inline
 
     def getini(self, name):
         """ return configuration value from an ini file. If the
@@ -422,7 +436,7 @@ class Config(object):
 
 
 def getcfg(args, inibasenames):
-    args = [x for x in args if str(x)[0] != "-"]
+    args = [x for x in args if not str(x).startswith("-")]
     if not args:
         args = [py.path.local()]
     for arg in args:

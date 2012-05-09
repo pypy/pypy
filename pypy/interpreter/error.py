@@ -47,6 +47,11 @@ class OperationError(Exception):
 
     def async(self, space):
         "Check if this is an exception that should better not be caught."
+        if not space.full_exceptions:
+            # flow objspace does not support such exceptions and more
+            # importantly, raises KeyboardInterrupt if you try to access
+            # space.w_KeyboardInterrupt
+            return False
         return (self.match(space, space.w_SystemExit) or
                 self.match(space, space.w_KeyboardInterrupt))
 

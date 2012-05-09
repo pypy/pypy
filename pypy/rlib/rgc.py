@@ -163,8 +163,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                                                 source_start, dest_start,
                                                 length):
             # if the write barrier is not supported, copy by hand
-            for i in range(length):
+            i = 0
+            while i < length:
                 dest[i + dest_start] = source[i + source_start]
+                i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
@@ -214,8 +216,8 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
-def is_light_finalizer(func):
-    func._is_light_finalizer_ = True
+def must_be_light_finalizer(func):
+    func._must_be_light_finalizer_ = True
     return func
 
 # ____________________________________________________________
@@ -258,6 +260,24 @@ def _keep_object(x):
         return type(x).__module__ != '__builtin__'   # keep non-builtins
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
+
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
 
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"
@@ -362,6 +382,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_roots', [], resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):
@@ -372,6 +393,7 @@ class Entry(ExtRegistryEntry):
         return s_list_of_gcrefs()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_referents', vlist,
                          resulttype = hop.r_result)
 
@@ -382,6 +404,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_memory_usage', vlist,
                          resulttype = hop.r_result)
 
@@ -392,6 +415,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeInteger()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
                          resulttype = hop.r_result)
 
@@ -410,6 +434,7 @@ class Entry(ExtRegistryEntry):
         return annmodel.SomeBool()
     def specialize_call(self, hop):
         vlist = hop.inputargs(hop.args_r[0])
+        hop.exception_cannot_occur()
         return hop.genop('gc_is_rpy_instance', vlist,
                          resulttype = hop.r_result)
 
@@ -429,6 +454,7 @@ class Entry(ExtRegistryEntry):
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
         assert lltype.typeOf(vtable) == rclass.CLASSTYPE
+        hop.exception_cannot_occur()
         return Constant(vtable, concretetype=rclass.CLASSTYPE)
 
 class Entry(ExtRegistryEntry):

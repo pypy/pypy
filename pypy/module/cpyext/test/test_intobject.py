@@ -65,4 +65,97 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
         values = module.values()
         types = [type(x) for x in values]
         assert types == [int, long, int, int]
-        
+
+    def test_int_subtype(self):
+        module = self.import_extension(
+            'foo', [
+            ("newEnum", "METH_VARARGS",
+             """
+                EnumObject *enumObj;
+                long intval;
+                PyObject *name;
+
+                if (!PyArg_ParseTuple(args, "Oi", &name, &intval))
+                    return NULL;
+
+                PyType_Ready(&Enum_Type);
+                enumObj = PyObject_New(EnumObject, &Enum_Type);
+                if (!enumObj) {
+                    return NULL;
+                }
+
+                enumObj->ob_ival = intval;
+                Py_INCREF(name);
+                enumObj->ob_name = name;
+
+                return (PyObject *)enumObj;
+             """),
+            ], 
+            prologue="""
+            typedef struct
+            {
+                PyObject_HEAD
+                long ob_ival;
+                PyObject* ob_name;
+            } EnumObject;
+
+            static void
+            enum_dealloc(EnumObject *op)
+            {
+                    Py_DECREF(op->ob_name);
+                    Py_TYPE(op)->tp_free((PyObject *)op);
+            }
+
+            static PyMemberDef enum_members[] = {
+                {"name", T_OBJECT, offsetof(EnumObject, ob_name), 0, NULL},
+                {NULL}  /* Sentinel */
+            };
+
+            PyTypeObject Enum_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "Enum",
+                /*tp_basicsize*/        sizeof(EnumObject),
+                /*tp_itemsize*/         0,
+                /*tp_dealloc*/          enum_dealloc,
+                /*tp_print*/            0,
+                /*tp_getattr*/          0,
+                /*tp_setattr*/          0,
+                /*tp_compare*/          0,
+                /*tp_repr*/             0,
+                /*tp_as_number*/        0,
+                /*tp_as_sequence*/      0,
+                /*tp_as_mapping*/       0,
+                /*tp_hash*/             0,
+                /*tp_call*/             0,
+                /*tp_str*/              0,
+                /*tp_getattro*/         0,
+                /*tp_setattro*/         0,
+                /*tp_as_buffer*/        0,
+                /*tp_flags*/            Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE,
+                /*tp_doc*/              0,
+                /*tp_traverse*/         0,
+                /*tp_clear*/            0,
+                /*tp_richcompare*/      0,
+                /*tp_weaklistoffset*/   0,
+                /*tp_iter*/             0,
+                /*tp_iternext*/         0,
+                /*tp_methods*/          0,
+                /*tp_members*/          enum_members,
+                /*tp_getset*/           0,
+                /*tp_base*/             &PyInt_Type,
+                /*tp_dict*/             0,
+                /*tp_descr_get*/        0,
+                /*tp_descr_set*/        0,
+                /*tp_dictoffset*/       0,
+                /*tp_init*/             0,
+                /*tp_alloc*/            0,
+                /*tp_new*/              0
+            };
+            """)
+
+        a = module.newEnum("ULTIMATE_ANSWER", 42)
+        assert type(a).__name__ == "Enum"
+        assert isinstance(a, int)
+        assert a == int(a) == 42
+        assert a.name == "ULTIMATE_ANSWER"

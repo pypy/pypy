@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: exceptions                     ***/
 
-#if !defined(PYPY_STANDALONE) && !defined(PYPY_NOT_MAIN_FILE)
+#if defined(PYPY_CPYTHON_EXTENSION) && !defined(PYPY_NOT_MAIN_FILE)
    PyObject *RPythonError;
 #endif 
 
@@ -43,6 +43,16 @@ void RPyDebugReturnShowException(const char *msg, const char *filename,
           filename, lineno, functionname);
 }
 #endif
+#else   /* !DO_LOG_EXC: define the function anyway, so that we can shut
+           off the prints of a debug_exc by remaking only testing_1.o */
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname);
+#ifndef PYPY_NOT_MAIN_FILE
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname)
+{
+}
+#endif
 #endif  /* DO_LOG_EXC */
 
 /* Hint: functions and macros not defined here, like RPyRaiseException,
@@ -74,7 +84,7 @@ void _RPyRaiseSimpleException(RPYTHON_EXCEPTION rexc)
 	RPyRaiseException(RPYTHON_TYPE_OF_EXC_INST(rexc), rexc);
 }
 
-#ifndef PYPY_STANDALONE
+#ifdef PYPY_CPYTHON_EXTENSION
 void RPyConvertExceptionFromCPython(void)
 {
 	/* convert the CPython exception to an RPython one */

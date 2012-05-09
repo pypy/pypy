@@ -42,7 +42,7 @@ class TestException(BaseTestPyPyC):
         i12 = int_sub_ovf(i3, 1)
         guard_no_overflow(descr=...)
         --TICK--
-        jump(..., descr=<Loop0>)
+        jump(..., descr=...)
         """)
 
     def test_exception_inside_loop_2(self):
@@ -89,5 +89,31 @@ class TestException(BaseTestPyPyC):
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
+        """)
+
+    def test_continue_in_finally(self):
+        # check that 'continue' inside a try:finally: block is correctly
+        # detected as closing a loop
+        py.test.skip("is this case important?")
+        def f(n):
+            i = 0
+            while 1:
+                try:
+                    if i < n:
+                        continue
+                finally:
+                    i += 1
+                return i
+
+        log = self.run(f, [2000])
+        assert log.result == 2001
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i40 = int_add_ovf(i31, 1)
+            guard_no_overflow(descr=...)
+            i41 = int_lt(i40, i33)
+            guard_true(i41, descr=...)
+            --TICK--
+            jump(..., descr=...)
         """)

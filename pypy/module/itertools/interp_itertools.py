@@ -439,9 +439,6 @@ class W_Chain(Wrappable):
         self.w_it = self.space.iter(self.space.next(self.w_iterables))
 
     def next_w(self):
-        if not self.w_iterables:
-            # already stopped
-            raise OperationError(self.space.w_StopIteration, self.space.w_None)
         if not self.w_it:
             self._advance()
         try:

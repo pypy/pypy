@@ -50,6 +50,10 @@ void *
 PyCObject_AsVoidPtr(PyObject *self)
 {
     if (self) {
+        if (PyCapsule_CheckExact(self)) {
+            const char *name = PyCapsule_GetName(self);
+            return (void *)PyCapsule_GetPointer(self, name);
+        }
         if (self->ob_type == &PyCObject_Type)
             return ((PyCObject *)self)->cobject;
         PyErr_SetString(PyExc_TypeError,
@@ -77,7 +81,7 @@ PyCObject_GetDesc(PyObject *self)
 }
 
 void *
-PyCObject_Import(char *module_name, char *name)
+PyCObject_Import(const char *module_name, const char *name)
 {
     PyObject *m, *c;
     void *r = NULL;

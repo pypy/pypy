@@ -18,7 +18,7 @@ import logging
 from test import test_support
 from StringIO import StringIO
 _multiprocessing = test_support.import_module('_multiprocessing')
-# import threading after _multiprocessing to raise a more revelant error
+# import threading after _multiprocessing to raise a more relevant error
 # message: "No module named _multiprocessing". _multiprocessing is not compiled
 # without thread support.
 import threading
@@ -780,7 +780,7 @@ class _TestEvent(BaseTestCase):
         event = self.Event()
         wait = TimingWrapper(event.wait)
 
-        # Removed temporaily, due to API shear, this does not
+        # Removed temporarily, due to API shear, this does not
         # work with threading._Event objects. is_set == isSet
         self.assertEqual(event.is_set(), False)
 
@@ -914,8 +914,30 @@ class _TestArray(BaseTestCase):
         self.assertEqual(list(arr[:]), seq)
 
     @unittest.skipIf(c_int is None, "requires _ctypes")
+    def test_array_from_size(self):
+        size = 10
+        # Test for zeroing (see issue #11675).
+        # The repetition below strengthens the test by increasing the chances
+        # of previously allocated non-zero memory being used for the new array
+        # on the 2nd and 3rd loops.
+        for _ in range(3):
+            arr = self.Array('i', size)
+            self.assertEqual(len(arr), size)
+            self.assertEqual(list(arr), [0] * size)
+            arr[:] = range(10)
+            self.assertEqual(list(arr), range(10))
+            del arr
+
+    @unittest.skipIf(c_int is None, "requires _ctypes")
     def test_rawarray(self):
         self.test_array(raw=True)
+
+    @unittest.skipIf(c_int is None, "requires _ctypes")
+    def test_array_accepts_long(self):
+        arr = self.Array('i', 10L)
+        self.assertEqual(len(arr), 10)
+        raw_arr = self.RawArray('i', 10L)
+        self.assertEqual(len(raw_arr), 10)
 
     @unittest.skipIf(c_int is None, "requires _ctypes")
     def test_getobj_getlock_obj(self):
@@ -1104,7 +1126,8 @@ class _TestPoolWorkerLifetime(BaseTestCase):
         # Refill the pool
         p._repopulate_pool()
         # Wait until all workers are alive
-        countdown = 5
+        # (countdown * DELTA = 5 seconds max startup process time)
+        countdown = 50
         while countdown and not all(w.is_alive() for w in p._pool):
             countdown -= 1
             time.sleep(DELTA)
@@ -1293,6 +1316,7 @@ class _TestManagerRestart(BaseTestCase):
         queue = manager.get_queue()
         self.assertEqual(queue.get(), 'hello world')
         del queue
+        test_support.gc_collect()
         manager.shutdown()
         manager = QueueManager(
             address=addr, authkey=authkey, serializer=SERIALIZER)
@@ -1582,6 +1606,10 @@ class _TestHeap(BaseTestCase):
             if len(blocks) > maxblocks:
                 i = random.randrange(maxblocks)
                 del blocks[i]
+            # XXX There should be a better way to release resources for a
+            # single block
+            if i % maxblocks == 0:
+                import gc; gc.collect()
 
         # get the heap object
         heap = multiprocessing.heap.BufferWrapper._heap
@@ -1681,6 +1709,7 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
+        test_support.gc_collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
@@ -1705,7 +1734,7 @@ class _TestFinalize(BaseTestCase):
 
         util.Finalize(None, conn.send, args=('STOP',), exitpriority=-100)
 
-        # call mutliprocessing's cleanup function then exit process without
+        # call multiprocessing's cleanup function then exit process without
         # garbage collecting locals
         util._exit_function()
         conn.close()

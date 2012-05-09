@@ -111,6 +111,7 @@ class CBuilder(object):
     _compiled = False
     modulename = None
     split = False
+    cpython_extension = False
     
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
             secondary_entrypoints=()):
@@ -138,6 +139,7 @@ class CBuilder(object):
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
         db = LowLevelDatabase(translator, standalone=self.standalone,
+                              cpython_extension=self.cpython_extension,
                               gcpolicyclass=gcpolicyclass,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
@@ -236,6 +238,8 @@ class CBuilder(object):
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
+            if self.cpython_extension:
+                defines['PYPY_CPYTHON_EXTENSION'] = 1
         else:
             defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
@@ -307,13 +311,18 @@ class ModuleWithCleanup(object):
 
 class CExtModuleBuilder(CBuilder):
     standalone = False
+    cpython_extension = True
     _module = None
     _wrapper = None
 
     def get_eci(self):
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
-        eci = ExternalCompilationInfo(include_dirs=[python_inc])
+        eci = ExternalCompilationInfo(
+            include_dirs=[python_inc],
+            includes=["Python.h",
+                      ],
+            )
         return eci.merge(CBuilder.get_eci(self))
 
     def getentrypointptr(self): # xxx
@@ -521,13 +530,13 @@ class CStandaloneBuilder(CBuilder):
         rules = [
             ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
             ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
-            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" $(TARGET)'),
-            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
-            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
+            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" debug_target'),
             ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
+            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
@@ -542,7 +551,7 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.config.translation.gcrootfinder == 'asmgcc':
-            trackgcfiles = [cfile[:-2] for cfile in mk.cfiles]
+            trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
                 trackgcfiles = [f for f in trackgcfiles
                                 if f.startswith(('implement', 'testing',
@@ -554,7 +563,7 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
             if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/Zi')
+                mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
                 mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
@@ -579,7 +588,7 @@ class CStandaloneBuilder(CBuilder):
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
                 for cfile in mk.cfiles:
-                    f = cfile[:-2]
+                    f = cfile[:cfile.rfind('.')]
                     if f in trackgcfiles:
                         ofile = '%s.lbl.obj' % (f,)
                     else:
@@ -618,9 +627,13 @@ class CStandaloneBuilder(CBuilder):
 
         else:
             if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/Zi')
+                mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
                 mk.definition('DEBUGFLAGS', '-O1 -g')
+        if sys.platform == 'win32':
+            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
+        else:
+            mk.rule('debug_target', '$(TARGET)', '#')
         mk.write()
         #self.translator.platform,
         #                           ,

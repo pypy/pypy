@@ -3,8 +3,10 @@ from pypy.rpython.tool import rffi_platform
 from pypy.translator.platform import platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-import sys
+import sys, os
 
+link_files = []
+testonly_libraries = []
 if sys.platform == 'win32' and platform.name != 'mingw32':
     libraries = ['libeay32', 'ssleay32',
                  'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
@@ -17,18 +19,31 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
         # so that openssl/ssl.h can repair this nonsense.
         'wincrypt.h']
 else:
-    libraries = ['ssl', 'crypto']
+    libraries = ['z']
     includes = []
+    if (sys.platform.startswith('linux') and
+        os.path.exists('/usr/lib/libssl.a') and
+        os.path.exists('/usr/lib/libcrypto.a')):
+        # use static linking to avoid the infinite
+        # amount of troubles due to symbol versions
+        # and 0.9.8/1.0.0
+        link_files += ['/usr/lib/libssl.a', '/usr/lib/libcrypto.a']
+        testonly_libraries += ['ssl', 'crypto']
+    else:
+        libraries += ['ssl', 'crypto']
 
 includes += [
     'openssl/ssl.h', 
     'openssl/err.h',
     'openssl/rand.h',
     'openssl/evp.h',
+    'openssl/ossl_typ.h',
     'openssl/x509v3.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
+    link_files = link_files,
+    testonly_libraries = testonly_libraries,
     includes = includes,
     export_symbols = [],
     post_include_bits = [
@@ -53,6 +68,7 @@ else:
 
 ASN1_STRING = lltype.Ptr(lltype.ForwardReference())
 ASN1_ITEM = rffi.COpaquePtr('ASN1_ITEM')
+ASN1_ITEM_EXP = lltype.Ptr(lltype.FuncType([], ASN1_ITEM))
 X509_NAME = rffi.COpaquePtr('X509_NAME')
 
 class CConfig:
@@ -65,6 +81,8 @@ class CConfig:
     OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
+    SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS = rffi_platform.ConstantInteger(
+        "SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
     SSL_VERIFY_PEER = rffi_platform.ConstantInteger("SSL_VERIFY_PEER")
     SSL_VERIFY_FAIL_IF_NO_PEER_CERT = rffi_platform.ConstantInteger("SSL_VERIFY_FAIL_IF_NO_PEER_CERT")
@@ -98,17 +116,24 @@ class CConfig:
     X509_extension_st = rffi_platform.Struct(
         'struct X509_extension_st',
         [('value', ASN1_STRING)])
-    ASN1_ITEM_EXP = lltype.FuncType([], ASN1_ITEM)
     X509V3_EXT_D2I = lltype.FuncType([rffi.VOIDP, rffi.CCHARPP, rffi.LONG], 
                                      rffi.VOIDP)
     v3_ext_method = rffi_platform.Struct(
         'struct v3_ext_method',
-        [('it', lltype.Ptr(ASN1_ITEM_EXP)),
+        [('it', ASN1_ITEM_EXP),
          ('d2i', lltype.Ptr(X509V3_EXT_D2I))])
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
         [('type', rffi.INT),
-         ]) 
+         ])
+    EVP_MD_st = rffi_platform.Struct(
+        'EVP_MD',
+        [('md_size', rffi.INT),
+         ('block_size', rffi.INT)])
+    EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
+    EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
+    OPENSSL_EXPORT_VAR_AS_FUNCTION = rffi_platform.Defined(
+                                             "OPENSSL_EXPORT_VAR_AS_FUNCTION")
 
 
 for k, v in rffi_platform.configure(CConfig).items():
@@ -154,7 +179,7 @@ ssl_external('CRYPTO_set_locking_callback',
 ssl_external('CRYPTO_set_id_callback',
              [lltype.Ptr(lltype.FuncType([], rffi.LONG))],
              lltype.Void)
-             
+
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
@@ -215,7 +240,10 @@ ssl_external('ASN1_TIME_print', [BIO, ASN1_TIME], rffi.INT)
 ssl_external('i2a_ASN1_INTEGER', [BIO, ASN1_INTEGER], rffi.INT)
 ssl_external('ASN1_item_d2i', 
              [rffi.VOIDP, rffi.CCHARPP, rffi.LONG, ASN1_ITEM], rffi.VOIDP)
-ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
+if OPENSSL_EXPORT_VAR_AS_FUNCTION:             
+    ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
+else:    
+    ssl_external('ASN1_ITEM_ptr', [rffi.VOIDP], ASN1_ITEM, macro=True)
 
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
@@ -255,7 +283,7 @@ ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
-EVP_MD     = rffi.COpaquePtr('EVP_MD')
+EVP_MD     = lltype.Ptr(EVP_MD_st)
 
 OpenSSL_add_all_digests = external(
     'OpenSSL_add_all_digests', [], lltype.Void)

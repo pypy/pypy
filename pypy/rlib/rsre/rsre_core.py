@@ -154,7 +154,6 @@ class AbstractMatchContext(object):
         return (fmarks[groupnum], fmarks[groupnum+1])
 
     def group(self, groupnum=0):
-        "NOT_RPYTHON"   # compatibility
         frm, to = self.span(groupnum)
         if 0 <= frm <= to:
             return self._string[frm:to]

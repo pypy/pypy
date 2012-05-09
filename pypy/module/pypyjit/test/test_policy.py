@@ -14,12 +14,6 @@ def test_rlocale():
     from pypy.rlib.rlocale import setlocale
     assert not pypypolicy.look_inside_function(setlocale)
 
-def test_geninterp():
-    d = {'_geninterp_': True}
-    exec """def f():
-        pass""" in d
-    assert not pypypolicy.look_inside_function(d['f'])
-
 def test_astcompiler():
     from pypy.interpreter.astcompiler import ast
     assert not pypypolicy.look_inside_function(ast.AST.walkabout)
@@ -38,6 +32,10 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
     assert pypypolicy.look_inside_function(get_ident)
 
+def test_time():
+    from pypy.module.rctime.interp_time import time
+    assert pypypolicy.look_inside_function(time)
+
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random
@@ -52,6 +50,7 @@ def test_pypy_module():
     for modname in 'pypyjit', 'signal', 'micronumpy', 'math', 'imp':
         assert pypypolicy.look_inside_pypy_module(modname)
         assert pypypolicy.look_inside_pypy_module(modname + '.foo')
+    assert not pypypolicy.look_inside_pypy_module('pypyjit.interp_resop')
 
 def test_see_jit_module():
     assert pypypolicy.look_inside_pypy_module('pypyjit.interp_jit')

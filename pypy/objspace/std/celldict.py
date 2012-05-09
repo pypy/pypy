@@ -65,11 +65,11 @@ class ModuleDictStrategy(DictStrategy):
         if isinstance(cell, ModuleCell):
             cell.w_value = w_value
             return
-        # If the new value and the current value are the same, don't create a
-        # level of indirection, or mutate are version.
-        if self.space.is_w(w_value, cell):
-            return
         if cell is not None:
+            # If the new value and the current value are the same, don't create a
+            # level of indirection, or mutate the version.
+            if self.space.is_w(w_value, cell):
+                return
             w_value = ModuleCell(w_value)
         self.mutated()
         self.unerase(w_dict.dstorage)[key] = w_value
@@ -127,10 +127,10 @@ class ModuleDictStrategy(DictStrategy):
     def iter(self, w_dict):
         return ModuleDictIteratorImplementation(self.space, self, w_dict)
 
-    def keys(self, w_dict):
+    def w_keys(self, w_dict):
         space = self.space
-        iterator = self.unerase(w_dict.dstorage).iteritems
-        return [space.wrap(key) for key, cell in iterator()]
+        l = self.unerase(w_dict.dstorage).keys()
+        return space.newlist_str(l)
 
     def values(self, w_dict):
         iterator = self.unerase(w_dict.dstorage).itervalues
@@ -163,7 +163,8 @@ class ModuleDictStrategy(DictStrategy):
 
 class ModuleDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
+        IteratorImplementation.__init__(
+            self, space, strategy, dictimplementation)
         dict_w = strategy.unerase(dictimplementation.dstorage)
         self.iterator = dict_w.iteritems()
 

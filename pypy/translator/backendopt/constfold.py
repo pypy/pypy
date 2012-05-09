@@ -37,8 +37,9 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                 except (KeyboardInterrupt, SystemExit):
                     raise
                 except Exception, e:
-                    log.WARNING('constant-folding %r:' % (spaceop,))
-                    log.WARNING('  %s: %s' % (e.__class__.__name__, e))
+                    pass   # turn off reporting these as warnings: useless
+                    #log.WARNING('constant-folding %r:' % (spaceop,))
+                    #log.WARNING('  %s: %s' % (e.__class__.__name__, e))
                 else:
                     # success in folding this space operation
                     if spaceop.opname in fixup_op_result:

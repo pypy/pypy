@@ -6,7 +6,7 @@ from pypy.rlib import rsocket
 from pypy.rpython.lltypesystem import lltype, rffi
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['_socket', 'array'])
+    mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
@@ -372,10 +372,9 @@ class AppTestSocket:
     def test_socket_connect(self):
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        # XXX temporarily we use python.org to test, will have more robust tests
-        # in the absence of a network connection later when more parts of the
-        # socket API are implemented.  Currently skip the test if there is no
-        # connection.
+        # it would be nice to have a test which works even if there is no
+        # network connection. However, this one is "good enough" for now. Skip
+        # it if there is no connection.
         try:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
@@ -529,26 +528,31 @@ class AppTestSocket:
         import _socket, os
         if not hasattr(_socket, 'AF_UNIX'):
             skip('AF_UNIX not supported.')
-        sockpath = os.path.join(self.udir, 'app_test_unix_socket_connect')
+        oldcwd = os.getcwd()
+        os.chdir(self.udir)
+        try:
+            sockpath = 'app_test_unix_socket_connect'
 
-        serversock = _socket.socket(_socket.AF_UNIX)
-        serversock.bind(sockpath)
-        serversock.listen(1)
+            serversock = _socket.socket(_socket.AF_UNIX)
+            serversock.bind(sockpath)
+            serversock.listen(1)
 
-        clientsock = _socket.socket(_socket.AF_UNIX)
-        clientsock.connect(sockpath)
-        s, addr = serversock.accept()
-        assert not addr
+            clientsock = _socket.socket(_socket.AF_UNIX)
+            clientsock.connect(sockpath)
+            s, addr = serversock.accept()
+            assert not addr
 
-        s.send('X')
-        data = clientsock.recv(100)
-        assert data == 'X'
-        clientsock.send('Y')
-        data = s.recv(100)
-        assert data == 'Y'
+            s.send('X')
+            data = clientsock.recv(100)
+            assert data == 'X'
+            clientsock.send('Y')
+            data = s.recv(100)
+            assert data == 'Y'
 
-        clientsock.close()
-        s.close()
+            clientsock.close()
+            s.close()
+        finally:
+            os.chdir(oldcwd)
 
 
 class AppTestSocketTCP:

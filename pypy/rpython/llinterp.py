@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
-from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_ulonglong, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -172,7 +172,7 @@ def checkptr(ptr):
 
 def checkadr(addr):
     assert lltype.typeOf(addr) is llmemory.Address
-    
+
 def is_inst(inst):
     return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType, ootype.StaticMethod))
 
@@ -548,6 +548,9 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
+    def op_jit_record_known_class(self, *args):
+        pass
+
     def op_get_exception_addr(self, *args):
         raise NotImplementedError
 
@@ -657,7 +660,7 @@ class LLFrame(object):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
         frame = self.newsubframe(graph, args)
-        return frame.eval()        
+        return frame.eval()
 
     def op_direct_call(self, f, *args):
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
@@ -698,13 +701,13 @@ class LLFrame(object):
             return ptr
         except MemoryError:
             self.make_llexception()
-            
+
     def op_malloc_nonmovable(self, TYPE, flags):
         flavor = flags['flavor']
         assert flavor == 'gc'
         zero = flags.get('zero', False)
         return self.heap.malloc_nonmovable(TYPE, zero=zero)
-        
+
     def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
         flavor = flags['flavor']
         assert flavor == 'gc'
@@ -715,6 +718,9 @@ class LLFrame(object):
         assert flags['flavor'] == 'raw'
         track_allocation = flags.get('track_allocation', True)
         self.heap.free(obj, flavor='raw', track_allocation=track_allocation)
+
+    def op_gc_add_memory_pressure(self, size):
+        self.heap.add_memory_pressure(size)
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
@@ -763,6 +769,10 @@ class LLFrame(object):
     def op_cast_adr_to_int(self, adr, mode):
         checkadr(adr)
         return llmemory.cast_adr_to_int(adr, mode)
+
+    def op_convert_float_bytes_to_longlong(self, f):
+        from pypy.rlib import longlong2float
+        return longlong2float.float2longlong(f)
 
     def op_weakref_create(self, v_obj):
         def objgetter():    # special support for gcwrapper.py
@@ -1015,24 +1025,24 @@ class LLFrame(object):
     # Overflow-detecting variants
 
     def op_int_neg_ovf(self, x):
-        assert type(x) is int
+        assert is_valid_int(x)
         try:
             return ovfcheck(-x)
         except OverflowError:
             self.make_llexception()
 
     def op_int_abs_ovf(self, x):
-        assert type(x) is int
+        assert is_valid_int(x)
         try:
             return ovfcheck(abs(x))
         except OverflowError:
             self.make_llexception()
 
     def op_int_lshift_ovf(self, x, y):
-        assert isinstance(x, int)
-        assert isinstance(y, int)
+        assert is_valid_int(x)
+        assert is_valid_int(y)
         try:
-            return ovfcheck_lshift(x, y)
+            return ovfcheck(x << y)
         except OverflowError:
             self.make_llexception()
 
@@ -1054,7 +1064,9 @@ class LLFrame(object):
                 return r
                 '''%locals()
         elif operator == '%':
-            code = '''r = %(checkfn)s(x %% y)
+            ## overflow check on % does not work with emulated int
+            code = '''%(checkfn)s(x // y)
+                r = x %% y
                 if x^y < 0 and x%%y != 0:
                     r -= y
                 return r
@@ -1071,15 +1083,15 @@ class LLFrame(object):
                 self.make_llexception()
         """ % locals()).compile() in globals(), d
 
-    _makefunc2('op_int_add_ovf', '+', '(int, llmemory.AddressOffset)')
-    _makefunc2('op_int_mul_ovf', '*', '(int, llmemory.AddressOffset)', 'int')
-    _makefunc2('op_int_sub_ovf',          '-',  'int')
-    _makefunc2('op_int_floordiv_ovf',     '//', 'int')  # XXX negative args
-    _makefunc2('op_int_floordiv_zer',     '//', 'int')  # can get off-by-one
-    _makefunc2('op_int_floordiv_ovf_zer', '//', 'int')  # (see op_int_floordiv)
-    _makefunc2('op_int_mod_ovf',          '%',  'int')
-    _makefunc2('op_int_mod_zer',          '%',  'int')
-    _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
+    _makefunc2('op_int_add_ovf', '+', '(int, long, llmemory.AddressOffset)')
+    _makefunc2('op_int_mul_ovf', '*', '(int, long, llmemory.AddressOffset)', '(int, long)')
+    _makefunc2('op_int_sub_ovf',          '-',  '(int, long)')
+    _makefunc2('op_int_floordiv_ovf',     '//', '(int, long)')  # XXX negative args
+    _makefunc2('op_int_floordiv_zer',     '//', '(int, long)')  # can get off-by-one
+    _makefunc2('op_int_floordiv_ovf_zer', '//', '(int, long)')  # (see op_int_floordiv)
+    _makefunc2('op_int_mod_ovf',          '%',  '(int, long)')
+    _makefunc2('op_int_mod_zer',          '%',  '(int, long)')
+    _makefunc2('op_int_mod_ovf_zer',      '%',  '(int, long)')
 
     _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
     _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
@@ -1101,7 +1113,7 @@ class LLFrame(object):
             x = x.default
         # if type(x) is a subclass of Symbolic, bool(x) will usually raise
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
-        assert isinstance(x, (int, Symbolic))
+        assert is_valid_int(x) or isinstance(x, Symbolic)
         return bool(x)
 
     # hack for jit.codegen.llgraph
@@ -1123,7 +1135,7 @@ class LLFrame(object):
         
     def op_oonewarray(self, ARRAY, length):
         assert isinstance(ARRAY, ootype.Array)
-        assert isinstance(length, int)
+        assert is_valid_int(length)
         return ootype.oonewarray(ARRAY, length)
 
     def op_runtimenew(self, class_):
@@ -1318,7 +1330,7 @@ def wrap_callable(llinterpreter, fn, obj, method_name):
         func_graph = fn.graph
     else:
         # obj is an instance, we want to call 'method_name' on it
-        assert fn is None        
+        assert fn is None
         self_arg = [obj]
         func_graph = obj._TYPE._methods[method_name._str].graph
 

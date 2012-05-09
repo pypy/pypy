@@ -89,6 +89,28 @@ class AbstractTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i])
             assert res is True
 
+    def test_iter_over_char(self):
+        const = self.const
+        def fn(i):
+            for c in const('a'):
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [0])
+        assert res == ord('a') + 10000
+
+    def test_iter_over_nonconst_char(self):
+        const = self.const
+        def fn(i):
+            if i > 0:
+                c = const('a')
+            else:
+                c = const('A')
+            for c in c:
+                i += ord(c) + 10000
+            return i
+        res = self.interpret(fn, [1])
+        assert res == 1 + ord('a') + 10000
+
     def test_char_constant(self):
         const = self.const
         def fn(s):
@@ -455,7 +477,11 @@ class AbstractTestRstr(BaseRtypingTest):
             s1 = s[:3]
             s2 = s[3:]
             s3 = s[3:10]
-            return s1+s2 == s and s2+s1 == const('lohel') and s1+s3 == s
+            s4 = s[42:44]
+            return (s1+s2 == s and
+                    s2+s1 == const('lohel') and
+                    s1+s3 == s and
+                    s4 == const(''))
         res = self.interpret(fn, [0])
         assert res
 
@@ -615,13 +641,16 @@ class AbstractTestRstr(BaseRtypingTest):
     def _make_split_test(self, split_fn):
         const = self.const
         def fn(i):
-            s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
-            l = getattr(s, split_fn)(const('.'))
-            sum = 0
-            for num in l:
-                if len(num):
-                    sum += ord(num[0]) - ord(const('0')[0])
-            return sum + len(l) * 100
+            try:
+                s = [const(''), const('0.1.2.4.8'), const('.1.2'), const('1.2.'), const('.1.2.4.')][i]
+                l = getattr(s, split_fn)(const('.'))
+                sum = 0
+                for num in l:
+                    if len(num):
+                        sum += ord(num[0]) - ord(const('0')[0])
+                return sum + len(l) * 100
+            except MemoryError:
+                return 42
         return fn
 
     def test_split(self):

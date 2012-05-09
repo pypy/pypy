@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1
+# -*- coding: iso-8859-1 -*-
 
 # Note that PyPy contains also a built-in module 'sha' which will hide
 # this one if compiled in.

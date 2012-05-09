@@ -8,7 +8,6 @@ from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib import rgc
-from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
@@ -377,16 +376,23 @@ class FrameworkGCTransformer(GCTransformer):
             self.malloc_varsize_nonmovable_ptr = None
 
         if getattr(GCClass, 'raw_malloc_memory_pressure', False):
-            def raw_malloc_memory_pressure(length, itemsize):
+            def raw_malloc_memory_pressure_varsize(length, itemsize):
                 totalmem = length * itemsize
                 if totalmem > 0:
                     gcdata.gc.raw_malloc_memory_pressure(totalmem)
                 #else: probably an overflow -- the following rawmalloc
                 #      will fail then
-            self.raw_malloc_memory_pressure_ptr = getfn(
-                raw_malloc_memory_pressure,
+            def raw_malloc_memory_pressure(sizehint):
+                gcdata.gc.raw_malloc_memory_pressure(sizehint)
+            self.raw_malloc_memory_pressure_varsize_ptr = getfn(
+                raw_malloc_memory_pressure_varsize,
                 [annmodel.SomeInteger(), annmodel.SomeInteger()],
                 annmodel.s_None, minimal_transform = False)
+            self.raw_malloc_memory_pressure_ptr = getfn(
+                raw_malloc_memory_pressure,
+                [annmodel.SomeInteger()],
+                annmodel.s_None, minimal_transform = False)
+
 
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],

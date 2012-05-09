@@ -1,11 +1,13 @@
 """Float constants"""
 
 import math
-from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
+from pypy.annotation.model import SomeString
 from pypy.rlib import objectmodel
 from pypy.rpython.extfunc import register_external
-from pypy.annotation.model import SomeString
+from pypy.rpython.tool import rffi_platform
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 USE_SHORT_FLOAT_REPR = True # XXX make it a translation option?
 
@@ -74,7 +76,7 @@ def break_up_float(s):
         while i < len(s) and s[i] in '0123456789':
             after_point += s[i]
             i += 1
-            
+
         if i == len(s):
             return sign, before_point, after_point, exponent
 
@@ -91,7 +93,7 @@ def break_up_float(s):
 
     if i == len(s):
         raise ValueError
-    
+
     while i < len(s) and s[i] in '0123456789':
         exponent += s[i]
         i += 1
@@ -295,7 +297,7 @@ def round_double_fallback_repr(value, ndigits):
     return z
 
 INFINITY = 1e200 * 1e200
-NAN = INFINITY / INFINITY
+NAN = abs(INFINITY / INFINITY)    # bah, INF/INF gives us -NAN?
 
 try:
     # Try to get math functions added in 2.6.
@@ -375,8 +377,7 @@ except ImportError:
 
     def log1p(x):
         "NOT_RPYTHON"
-        from pypy.rlib import rfloat
-        if abs(x) < rfloat.DBL_EPSILON // 2.:
+        if abs(x) < DBL_EPSILON // 2.:
             return x
         elif -.5 <= x <= 1.:
             y = 1. + x

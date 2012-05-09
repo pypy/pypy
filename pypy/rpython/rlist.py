@@ -115,6 +115,7 @@ class AbstractBaseListRepr(Repr):
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
+        hop.exception_is_here()
         return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
 
     def rtype_len(self, hop):
@@ -668,6 +669,7 @@ def ll_pop(func, l, index):
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
+@jit.look_inside_iff(lambda l: jit.isvirtual(l))
 def ll_reverse(l):
     length = l.ll_length()
     i = 0
@@ -678,7 +680,6 @@ def ll_reverse(l):
         l.ll_setitem_fast(length_1_i, tmp)
         i += 1
         length_1_i -= 1
-ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")

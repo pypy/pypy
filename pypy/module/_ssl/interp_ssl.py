@@ -432,7 +432,8 @@ class SSLObject(Wrappable):
                     raise _ssl_seterror(self.space, self, length)
                 try:
                     # this is actually an immutable bytes sequence
-                    return self.space.wrap(rffi.charp2str(buf_ptr[0]))
+                    return self.space.wrap(rffi.charpsize2str(buf_ptr[0],
+                                                              length))
                 finally:
                     libssl_OPENSSL_free(buf_ptr[0])
         else:
@@ -709,7 +710,8 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
             raise ssl_error(space, "SSL_CTX_use_certificate_chain_file error")
 
     # ssl compatibility
-    libssl_SSL_CTX_set_options(ss.ctx, SSL_OP_ALL)
+    libssl_SSL_CTX_set_options(ss.ctx, 
+                               SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS)
 
     verification_mode = SSL_VERIFY_NONE
     if cert_mode == PY_SSL_CERT_OPTIONAL:

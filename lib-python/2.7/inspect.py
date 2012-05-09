@@ -746,8 +746,15 @@ def getargs(co):
     'varargs' and 'varkw' are the names of the * and ** arguments or None."""
 
     if not iscode(co):
-        raise TypeError('{!r} is not a code object'.format(co))
+        if hasattr(len, 'func_code') and type(co) is type(len.func_code):
+            # PyPy extension: built-in function objects have a func_code too.
+            # There is no co_code on it, but co_argcount and co_varnames and
+            # co_flags are present.
+            pass
+        else:
+            raise TypeError('{!r} is not a code object'.format(co))
 
+    code = getattr(co, 'co_code', '')
     nargs = co.co_argcount
     names = co.co_varnames
     args = list(names[:nargs])
@@ -757,12 +764,12 @@ def getargs(co):
     for i in range(nargs):
         if args[i][:1] in ('', '.'):
             stack, remain, count = [], [], []
-            while step < len(co.co_code):
-                op = ord(co.co_code[step])
+            while step < len(code):
+                op = ord(code[step])
                 step = step + 1
                 if op >= dis.HAVE_ARGUMENT:
                     opname = dis.opname[op]
-                    value = ord(co.co_code[step]) + ord(co.co_code[step+1])*256
+                    value = ord(code[step]) + ord(code[step+1])*256
                     step = step + 2
                     if opname in ('UNPACK_TUPLE', 'UNPACK_SEQUENCE'):
                         remain.append(value)
@@ -809,7 +816,9 @@ def getargspec(func):
 
     if ismethod(func):
         func = func.im_func
-    if not isfunction(func):
+    if not (isfunction(func) or
+            isbuiltin(func) and hasattr(func, 'func_code')):
+            # PyPy extension: this works for built-in functions too
         raise TypeError('{!r} is not a Python function'.format(func))
     args, varargs, varkw = getargs(func.func_code)
     return ArgSpec(args, varargs, varkw, func.func_defaults)
@@ -943,8 +952,14 @@ def getcallargs(func, *positional, **named):
             f_name, 'at most' if defaults else 'exactly', num_args,
             'arguments' if num_args > 1 else 'argument', num_total))
     elif num_args == 0 and num_total:
-        raise TypeError('%s() takes no arguments (%d given)' %
-                        (f_name, num_total))
+        if varkw:
+            if num_pos:
+                # XXX: We should use num_pos, but Python also uses num_total:
+                raise TypeError('%s() takes exactly 0 arguments '
+                                '(%d given)' % (f_name, num_total))
+        else:
+            raise TypeError('%s() takes no argument (%d given)' %
+                            (f_name, num_total))
     for arg in args:
         if isinstance(arg, str) and arg in named:
             if is_assigned(arg):

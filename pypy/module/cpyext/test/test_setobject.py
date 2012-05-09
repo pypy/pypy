@@ -32,3 +32,13 @@ class TestTupleObject(BaseApiTest):
         w_set = api.PySet_New(space.wrap([1,2,3,4]))
         assert api.PySet_Contains(w_set, space.wrap(1))
         assert not api.PySet_Contains(w_set, space.wrap(0))
+
+    def test_set_pop_clear(self, space, api):
+        w_set = api.PySet_New(space.wrap([1,2,3,4]))
+        w_obj = api.PySet_Pop(w_set)
+        assert space.int_w(w_obj) in (1,2,3,4)
+        assert space.len_w(w_set) == 3
+        api.PySet_Clear(w_set)
+        assert space.len_w(w_set) == 0
+
+    

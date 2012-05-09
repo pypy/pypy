@@ -42,24 +42,6 @@ def test_remove_ovfcheck_bug():
     assert graph.startblock.operations[0].opname == 'int_mul_ovf'
     assert graph.startblock.operations[1].opname == 'int_sub'
 
-def test_remove_ovfcheck_lshift():
-    # check that ovfcheck_lshift() is handled
-    from pypy.rlib.rarithmetic import ovfcheck_lshift
-    def f(x):
-        try:
-            return ovfcheck_lshift(x, 2)
-        except OverflowError:
-            return -42
-    graph, _ = translate(f, [int])
-    assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_lshift_ovf'
-    assert len(graph.startblock.operations[0].args) == 2
-    assert len(graph.startblock.exits) == 2
-    assert [link.exitcase for link in graph.startblock.exits] == \
-           [None, OverflowError]
-    assert [link.target.operations for link in graph.startblock.exits] == \
-           [(), ()]
-
 def test_remove_ovfcheck_floordiv():
     # check that ovfcheck() is handled even if the operation raises
     # and catches another exception too, here ZeroDivisionError
@@ -322,6 +304,27 @@ class TestDetectListComprehension:
             'simple_call': 2,
             'hint': 2,
             })
+
+    def test_iterate_over_list(self):
+        def wrap(elem):
+            return elem
+        
+        def f(i):
+            new_l = []
+            l = range(4)
+            for elem in l:
+                new_l.append(wrap(elem))
+            return new_l
+
+        self.check(f, {
+            'hint': 2,
+            'newlist': 1,
+            'iter': 1,
+            'next': 1,
+            'getattr': 1,
+            'simple_call': 3,
+            })
+            
 
 class TestLLSpecializeListComprehension:
     typesystem = 'lltype'

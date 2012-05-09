@@ -8,11 +8,15 @@ py.log.setconsumer('jitcodewriter', ansi_log)
 
 
 class JitPolicy(object):
-    def __init__(self):
+    def __init__(self, jithookiface=None):
         self.unsafe_loopy_graphs = set()
         self.supports_floats = False
         self.supports_longlong = False
         self.supports_singlefloats = False
+        if jithookiface is None:
+            from pypy.rlib.jit import JitHookInterface
+            jithookiface = JitHookInterface()
+        self.jithookiface = jithookiface
 
     def set_supports_floats(self, flag):
         self.supports_floats = flag
@@ -44,7 +48,7 @@ class JitPolicy(object):
         mod = func.__module__ or '?'
         if mod.startswith('pypy.rpython.module.'):
             return True
-        if mod.startswith('pypy.translator.'): # XXX wtf?
+        if mod == 'pypy.translator.goal.nanos':    # more helpers
             return True
         return False
 

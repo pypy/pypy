@@ -115,7 +115,7 @@ def transform_dead_op_vars(self, block_subset):
     # to kill dead (never-followed) links,
     # which can possibly remove more variables.
     from pypy.translator.simplify import transform_dead_op_vars_in_blocks
-    transform_dead_op_vars_in_blocks(block_subset)
+    transform_dead_op_vars_in_blocks(block_subset, self.translator.graphs)
 
 def transform_dead_code(self, block_subset):
     """Remove dead code: these are the blocks that are not annotated at all

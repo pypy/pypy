@@ -97,7 +97,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i17 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i14, i12, i17, p8, i9, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i14, i12, i17, p8, i9, descr=...)
         """)
 
     def test_intbound_sub_lt(self):
@@ -121,7 +121,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i13 = int_add(i5, 1)
             --TICK--
-            jump(p0, p1, p2, p3, i11, i13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, i11, i13, descr=...)
         """)
 
     def test_intbound_addsub_ge(self):
@@ -150,7 +150,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i19 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i16, i14, i19, p8, i9, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i16, i14, i19, p8, i9, descr=...)
         """)
 
     def test_intbound_addmul_ge(self):
@@ -178,7 +178,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i21 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i18, i14, i21, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i18, i14, i21, p8, descr=...)
         """)
 
     def test_intbound_eq(self):
@@ -210,7 +210,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i16 = int_add(i8, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p6, i14, i16, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p6, i14, i16, p8, descr=...)
         """)
 
     def test_intbound_mul(self):
@@ -236,7 +236,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i14 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i12, i14, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i12, i14, descr=...)
         """)
 
     def test_assert(self):
@@ -257,7 +257,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i12 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i12, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i12, descr=...)
         """)
 
     def test_xor(self):

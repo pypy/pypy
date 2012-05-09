@@ -1,4 +1,5 @@
 from pypy.rlib import _rffi_stacklet as _c
+from pypy.rlib import objectmodel, debug
 from pypy.rpython.annlowlevel import llhelper
 from pypy.tool.staticmethods import StaticMethods
 
@@ -21,6 +22,9 @@ class StackletGcRootFinder:
 
     def destroy(thrd, h):
         _c.destroy(thrd._thrd, h)
+        if objectmodel.we_are_translated():
+            debug.debug_print("not using a framework GC: "
+                              "stacklet_destroy() may leak")
 
     is_empty_handle = _c.is_empty_handle
 

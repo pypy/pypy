@@ -2,7 +2,6 @@
 from pypy.translator.c.dlltool import DLLDef
 from ctypes import CDLL
 import py
-py.test.skip("fix this if needed")
 
 class TestDLLTool(object):
     def test_basic(self):
@@ -16,8 +15,8 @@ class TestDLLTool(object):
         d = DLLDef('lib', [(f, [int]), (b, [int])])
         so = d.compile()
         dll = CDLL(str(so))
-        assert dll.f(3) == 3
-        assert dll.b(10) == 12
+        assert dll.pypy_g_f(3) == 3
+        assert dll.pypy_g_b(10) == 12
 
     def test_split_criteria(self):
         def f(x):
@@ -28,4 +27,5 @@ class TestDLLTool(object):
 
         d = DLLDef('lib', [(f, [int]), (b, [int])])
         so = d.compile()
-        assert py.path.local(so).dirpath().join('implement.c').check()
+        dirpath = py.path.local(so).dirpath()
+        assert dirpath.join('translator_c_test_test_dlltool.c').check()

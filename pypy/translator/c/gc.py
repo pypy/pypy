@@ -11,7 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):
         self.db = db
@@ -47,8 +46,7 @@ class BasicGcPolicy(object):
         return ExternalCompilationInfo(
             pre_include_bits=['/* using %s */' % (gct.__class__.__name__,),
                               '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,),
-                              ],
-            post_include_bits=['typedef void *GC_hidden_pointer;']
+                              ]
             )
 
     def get_prebuilt_hash(self, obj):
@@ -308,7 +306,6 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class FrameworkGcPolicy(BasicGcPolicy):
     transformerclass = framework.FrameworkGCTransformer
-    stores_hash_at_the_end = True
 
     def struct_setup(self, structdefnode, rtti):
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):

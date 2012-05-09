@@ -31,7 +31,7 @@ class Random(object):
         mt[0]= s & MASK_32
         for mti in range(1, N):
             mt[mti] = (MAGIC_CONSTANT_A *
-                           (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti)
+                           (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + r_uint(mti))
             # See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier.
             # In the previous versions, MSBs of the seed affect
             # only MSBs of the array mt[].
@@ -52,7 +52,7 @@ class Random(object):
         for k in range(max_k, 0, -1):
             mt[i] = ((mt[i] ^
                          ((mt[i - 1] ^ (mt[i - 1] >> 30)) * MAGIC_CONSTANT_C))
-                     + init_key[j] + j) # non linear
+                     + init_key[j] + r_uint(j)) # non linear
             mt[i] &= MASK_32 # for WORDSIZE > 32 machines
             i += 1
             j += 1
@@ -104,5 +104,5 @@ class Random(object):
             j = n % i
             mt[i], mt[j] = mt[j], mt[i]
         for i in range(N):
-            mt[i] += i + 1
+            mt[i] += r_uint(i + 1)
         self.index = N

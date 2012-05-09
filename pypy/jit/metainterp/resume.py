@@ -93,12 +93,14 @@ PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
+class TagOverflow(Exception):
+    pass
+
 def tag(value, tagbits):
-    if tagbits >> 2:
-        raise ValueError
+    assert 0 <= tagbits <= 3
     sx = value >> 13
     if sx != 0 and sx != -1:
-        raise ValueError
+        raise TagOverflow
     return rffi.r_short(value<<2|tagbits)
 
 def untag(value):
@@ -126,6 +128,7 @@ TAGVIRTUAL  = 3
 UNASSIGNED = tag(-1<<13, TAGBOX)
 UNASSIGNEDVIRTUAL = tag(-1<<13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
+UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 
 
 class ResumeDataLoopMemo(object):
@@ -152,7 +155,7 @@ class ResumeDataLoopMemo(object):
                 return self._newconst(const)
             try:
                 return tag(val, TAGINT)
-            except ValueError:
+            except TagOverflow:
                 pass
             tagged = self.large_ints.get(val, UNASSIGNED)
             if not tagged_eq(tagged, UNASSIGNED):
@@ -179,23 +182,22 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def number(self, values, snapshot):
+    def number(self, optimizer, snapshot):
         if snapshot is None:
             return lltype.nullptr(NUMBERING), {}, 0
         if snapshot in self.numberings:
              numb, liveboxes, v = self.numberings[snapshot]
              return numb, liveboxes.copy(), v
 
-        numb1, liveboxes, v = self.number(values, snapshot.prev)
+        numb1, liveboxes, v = self.number(optimizer, snapshot.prev)
         n = len(liveboxes)-v
         boxes = snapshot.boxes
         length = len(boxes)
         numb = lltype.malloc(NUMBERING, length)
         for i in range(length):
             box = boxes[i]
-            value = values.get(box, None)
-            if value is not None:
-                box = value.get_key_box()
+            value = optimizer.getvalue(box)
+            box = value.get_key_box()
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
@@ -315,14 +317,14 @@ class ResumeDataVirtualAdder(object):
         _, tagbits = untag(tagged)
         return tagbits == TAGVIRTUAL
 
-    def finish(self, values, pending_setfields=[]):
+    def finish(self, optimizer, pending_setfields=[]):
         # compute the numbering
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
         snapshot = storage.rd_snapshot
         assert snapshot is not None # is that true?
-        numb, liveboxes_from_env, v = self.memo.number(values, snapshot)
+        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
@@ -338,23 +340,23 @@ class ResumeDataVirtualAdder(object):
                 liveboxes[i] = box
             else:
                 assert tagbits == TAGVIRTUAL
-                value = values[box]
+                value = optimizer.getvalue(box)
                 value.get_args_for_fail(self)
 
         for _, box, fieldbox, _ in pending_setfields:
             self.register_box(box)
             self.register_box(fieldbox)
-            value = values[fieldbox]
+            value = optimizer.getvalue(fieldbox)
             value.get_args_for_fail(self)
 
-        self._number_virtuals(liveboxes, values, v)
+        self._number_virtuals(liveboxes, optimizer, v)
         self._add_pending_fields(pending_setfields)
 
         storage.rd_consts = self.memo.consts
         dump_storage(storage, liveboxes)
         return liveboxes[:]
 
-    def _number_virtuals(self, liveboxes, values, num_env_virtuals):
+    def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
         # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
@@ -394,7 +396,7 @@ class ResumeDataVirtualAdder(object):
             memo.nvholes += length - len(vfieldboxes)
             for virtualbox, fieldboxes in vfieldboxes.iteritems():
                 num, _ = untag(self.liveboxes[virtualbox])
-                value = values[virtualbox]
+                value = optimizer.getvalue(virtualbox)
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
                 vinfo = value.make_virtual_info(self, fieldnums)
@@ -428,8 +430,7 @@ class ResumeDataVirtualAdder(object):
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
                 if itemindex > 2147483647:
-                    from pypy.jit.metainterp import compile
-                    compile.giveup()
+                    raise TagOverflow
                 itemindex = rffi.cast(rffi.INT, itemindex)
                 #
                 rd_pendingfields[i].lldescr  = lldescr
@@ -439,6 +440,8 @@ class ResumeDataVirtualAdder(object):
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
+        if box is None:
+            return UNINITIALIZED
         if isinstance(box, Const):
             return self.memo.getconst(box)
         else:
@@ -572,7 +575,9 @@ class VStrPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_string(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.string_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.string_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):
@@ -625,7 +630,9 @@ class VUniPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_unicode(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.unicode_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.unicode_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):
@@ -1094,14 +1101,14 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         virtualizable = self.decode_ref(numb.nums[index])
         if self.resume_after_guard_not_forced == 1:
             # in the middle of handle_async_forcing()
-            assert vinfo.gettoken(virtualizable)
-            vinfo.settoken(virtualizable, vinfo.TOKEN_NONE)
+            assert vinfo.is_token_nonnull_gcref(virtualizable)
+            vinfo.reset_token_gcref(virtualizable)
         else:
             # just jumped away from assembler (case 4 in the comment in
             # virtualizable.py) into tracing (case 2); check that vable_token
             # is and stays 0.  Note the call to reset_vable_token() in
             # warmstate.py.
-            assert not vinfo.gettoken(virtualizable)
+            assert not vinfo.is_token_nonnull_gcref(virtualizable)
         return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
 
     def load_value_of_type(self, TYPE, tagged):

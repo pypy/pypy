@@ -58,9 +58,14 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
+        #Don't include a mscvrXX.dll, users should get their own.
+        #Instructions are provided on the website.
+
         # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        
         for extra in ['libpypy-c.dll',
-                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
+                      'libexpat.dll', 'sqlite3.dll', 
+                      'libeay32.dll', 'ssleay32.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -81,6 +86,9 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     for file in ['LICENSE', 'README']:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     pypydir.ensure('include', dir=True)
+    if sys.platform == 'win32':
+        shutil.copyfile(str(pypy_c.dirpath().join("libpypy-c.lib")),
+                        str(pypydir.join('include/python27.lib')))
     # we want to put there all *.h and *.inl from trunk/include
     # and from pypy/_interfaces
     includedir = basedir.join('include')
@@ -125,7 +133,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
                 e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
             else:
                 e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)

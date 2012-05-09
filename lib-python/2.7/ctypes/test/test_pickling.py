@@ -3,6 +3,7 @@ import pickle
 from ctypes import *
 import _ctypes_test
 dll = CDLL(_ctypes_test.__file__)
+from ctypes.test import xfail
 
 class X(Structure):
     _fields_ = [("a", c_int), ("b", c_double)]
@@ -21,6 +22,7 @@ class PickleTest(unittest.TestCase):
     def loads(self, item):
         return pickle.loads(item)
 
+    @xfail
     def test_simple(self):
         for src in [
             c_int(42),
@@ -31,6 +33,7 @@ class PickleTest(unittest.TestCase):
             self.assertEqual(memoryview(src).tobytes(),
                                  memoryview(dst).tobytes())
 
+    @xfail
     def test_struct(self):
         X.init_called = 0
 
@@ -49,6 +52,7 @@ class PickleTest(unittest.TestCase):
         self.assertEqual(memoryview(y).tobytes(),
                              memoryview(x).tobytes())
 
+    @xfail
     def test_unpickable(self):
         # ctypes objects that are pointers or contain pointers are
         # unpickable.
@@ -66,6 +70,7 @@ class PickleTest(unittest.TestCase):
             ]:
             self.assertRaises(ValueError, lambda: self.dumps(item))
 
+    @xfail
     def test_wchar(self):
         pickle.dumps(c_char("x"))
         # Issue 5049

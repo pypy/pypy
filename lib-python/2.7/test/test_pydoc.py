@@ -6,12 +6,14 @@ import subprocess
 import re
 import pydoc
 import inspect
+import keyword
 import unittest
 import xml.etree
 import test.test_support
 from contextlib import contextmanager
+from collections import namedtuple
 from test.test_support import (
-    TESTFN, forget, rmtree, EnvironmentVarGuard, reap_children)
+    TESTFN, forget, rmtree, EnvironmentVarGuard, reap_children, captured_stdout)
 
 from test import pydoc_mod
 
@@ -265,8 +267,8 @@ class PyDocDocTest(unittest.TestCase):
         testpairs = (
             ('i_am_not_here', 'i_am_not_here'),
             ('test.i_am_not_here_either', 'i_am_not_here_either'),
-            ('test.i_am_not_here.neither_am_i', 'i_am_not_here.neither_am_i'),
-            ('i_am_not_here.{}'.format(modname), 'i_am_not_here.{}'.format(modname)),
+            ('test.i_am_not_here.neither_am_i', 'i_am_not_here'),
+            ('i_am_not_here.{}'.format(modname), 'i_am_not_here'),
             ('test.{}'.format(modname), modname),
             )
 
@@ -290,8 +292,8 @@ class PyDocDocTest(unittest.TestCase):
                     result = run_pydoc(modname)
                 finally:
                     forget(modname)
-                expected = badimport_pattern % (modname, expectedinmsg)
-                self.assertEqual(expected, result)
+                expected = badimport_pattern % (modname, '(.+\\.)?' + expectedinmsg + '(\\..+)?$')
+                self.assertTrue(re.match(expected, result))
 
     def test_input_strip(self):
         missing_module = " test.i_am_not_here "
@@ -340,10 +342,26 @@ class TestDescriptions(unittest.TestCase):
         expected = 'C in module %s object' % __name__
         self.assertIn(expected, pydoc.render_doc(c))
 
+    def test_namedtuple_public_underscore(self):
+        NT = namedtuple('NT', ['abc', 'def'], rename=True)
+        with captured_stdout() as help_io:
+            help(NT)
+        helptext = help_io.getvalue()
+        self.assertIn('_1', helptext)
+        self.assertIn('_replace', helptext)
+        self.assertIn('_asdict', helptext)
+
+
+class TestHelper(unittest.TestCase):
+    def test_keywords(self):
+        self.assertEqual(sorted(pydoc.Helper.keywords),
+                         sorted(keyword.kwlist))
+
 
 def test_main():
     test.test_support.run_unittest(PyDocDocTest,
-                                   TestDescriptions)
+                                   TestDescriptions,
+                                   TestHelper)
 
 if __name__ == "__main__":
     test_main()

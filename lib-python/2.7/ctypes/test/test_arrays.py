@@ -1,12 +1,23 @@
 import unittest
 from ctypes import *
+from test.test_support import impl_detail
 
 formats = "bBhHiIlLqQfd"
 
+# c_longdouble commented out for PyPy, look at the commend in test_longdouble
 formats = c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint, \
-          c_long, c_ulonglong, c_float, c_double, c_longdouble
+          c_long, c_ulonglong, c_float, c_double #, c_longdouble
 
 class ArrayTestCase(unittest.TestCase):
+
+    @impl_detail('long double not supported by PyPy', pypy=False)
+    def test_longdouble(self):
+        """
+        This test is empty. It's just here to remind that we commented out
+        c_longdouble in "formats". If pypy will ever supports c_longdouble, we
+        should kill this test and uncomment c_longdouble inside formats.
+        """
+
     def test_simple(self):
         # create classes holding simple numeric types, and check
         # various properties.
@@ -37,7 +48,7 @@ class ArrayTestCase(unittest.TestCase):
             values = [ia[i] for i in range(len(init))]
             self.assertEqual(values, [0] * len(init))
 
-            # Too many in itializers should be caught
+            # Too many initializers should be caught
             self.assertRaises(IndexError, int_array, *range(alen*2))
 
         CharArray = ARRAY(c_char, 3)

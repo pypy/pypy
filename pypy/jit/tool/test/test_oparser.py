@@ -4,7 +4,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.tool.oparser import parse, OpParser
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken,\
+     TargetToken
 
 class BaseTestOparser(object):
 
@@ -119,10 +120,10 @@ class BaseTestOparser(object):
         jump()
         '''
         loop = self.parse(x)
-        assert loop.operations[0].getdescr() is loop.token
+        assert loop.operations[0].getdescr() is loop.original_jitcell_token
 
     def test_jump_target_other(self):
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         looptoken.I_am_a_descr = True # for the mock case
         x = '''
         []
@@ -145,16 +146,18 @@ class BaseTestOparser(object):
     def test_debug_merge_point(self):
         x = '''
         []
-        debug_merge_point(0, "info")
-        debug_merge_point(0, 'info')
-        debug_merge_point(1, '<some ('other.')> info')
-        debug_merge_point(0, '(stuff) #1')
+        debug_merge_point(0, 0, "info")
+        debug_merge_point(0, 0, 'info')
+        debug_merge_point(1, 1, '<some ('other.')> info')
+        debug_merge_point(0, 0, '(stuff) #1')
         '''
         loop = self.parse(x)
-        assert loop.operations[0].getarg(1)._get_str() == 'info'
-        assert loop.operations[1].getarg(1)._get_str() == 'info'
-        assert loop.operations[2].getarg(1)._get_str() == "<some ('other.')> info"
-        assert loop.operations[3].getarg(1)._get_str() == "(stuff) #1"
+        assert loop.operations[0].getarg(2)._get_str() == 'info'
+        assert loop.operations[0].getarg(1).value == 0
+        assert loop.operations[1].getarg(2)._get_str() == 'info'
+        assert loop.operations[2].getarg(2)._get_str() == "<some ('other.')> info"
+        assert loop.operations[2].getarg(1).value == 1
+        assert loop.operations[3].getarg(2)._get_str() == "(stuff) #1"
 
 
     def test_descr_with_obj_print(self):
@@ -242,6 +245,16 @@ class TestOpParser(BaseTestOparser):
         loop = self.parse(x, None, {}, boxkinds={'sum': BoxInt})
         b = loop.getboxes()
         assert isinstance(b.sum0, BoxInt)
+
+    def test_label(self):
+        x = """
+        [i0]
+        label(i0, descr=1)
+        jump(i0, descr=1)
+        """
+        loop = self.parse(x)
+        assert loop.operations[0].getdescr() is loop.operations[1].getdescr()
+        assert isinstance(loop.operations[0].getdescr(), TargetToken)
 
 
 class ForbiddenModule(object):

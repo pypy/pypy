@@ -15,9 +15,8 @@ from pypy.rlib import jit, rstackovf
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
-from pypy.tool.stdlib_opcode import (bytecode_spec, host_bytecode_spec,
-                                     unrolling_all_opcode_descs, opmap,
-                                     host_opmap)
+from pypy.tool.stdlib_opcode import (bytecode_spec,
+                                     unrolling_all_opcode_descs)
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -713,6 +712,19 @@ class __extend__(pyframe.PyFrame):
         w_list = self.space.newlist(items)
         self.pushvalue(w_list)
 
+    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        # this is a little dance, because list has to be before the
+        # value
+        last_val = self.popvalue()
+        try:
+            lgt = self.space.len_w(last_val)
+        except OperationError, e:
+            if e.async(self.space):
+                raise
+            lgt = 0 # oh well
+        self.pushvalue(self.space.newlist([], sizehint=lgt))
+        self.pushvalue(last_val)
+
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
@@ -837,6 +849,7 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def jump_absolute(self, jumpto, next_instr, ec):
+        check_nonneg(jumpto)
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1277,10 +1290,6 @@ class FrameBlock(object):
                                w(self.valuestackdepth)])
 
     def handle(self, frame, unroller):
-        next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return next_instr
-
-    def really_handle(self, frame, unroller):
         """ Purely abstract method
         """
         raise NotImplementedError
@@ -1292,17 +1301,17 @@ class LoopBlock(FrameBlock):
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.append_block(self)
-            return unroller.jump_to
+            return r_uint(unroller.jump_to)
         else:
             # jump to the end of the loop
             self.cleanupstack(frame)
-            return self.handlerposition
+            return r_uint(self.handlerposition)
 
 
 class ExceptBlock(FrameBlock):
@@ -1312,7 +1321,7 @@ class ExceptBlock(FrameBlock):
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
@@ -1327,7 +1336,7 @@ class ExceptBlock(FrameBlock):
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
         frame.last_exception = operationerr
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class FinallyBlock(FrameBlock):
@@ -1348,7 +1357,7 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
@@ -1356,18 +1365,18 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
-        return self.handlerposition   # jump to the handler
+        return r_uint(self.handlerposition)   # jump to the handler
 
 
 class WithBlock(FinallyBlock):
 
     _immutable_ = True
 
-    def really_handle(self, frame, unroller):
+    def handle(self, frame, unroller):
         if (frame.space.full_exceptions and
             isinstance(unroller, SApplicationException)):
             unroller.operr.normalize_exception(frame.space)
-        return FinallyBlock.really_handle(self, frame, unroller)
+        return FinallyBlock.handle(self, frame, unroller)
 
 block_classes = {'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
@@ -1418,11 +1427,9 @@ app = gateway.applevel(r'''
             if lastchar.isspace() and lastchar != ' ':
                 return
         file_softspace(stream, True)
-    print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
     def print_item(x):
         print_item_to(x, sys_stdout())
-    print_item._annspecialcase_ = "flowspace:print_item"
 
     def print_newline_to(stream):
         stream.write("\n")
@@ -1430,7 +1437,6 @@ app = gateway.applevel(r'''
 
     def print_newline():
         print_newline_to(sys_stdout())
-    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:

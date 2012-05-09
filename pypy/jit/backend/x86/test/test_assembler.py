@@ -46,12 +46,13 @@ def test_write_failure_recovery_description():
             xmm2]
     assert len(failargs) == len(locs)
     assembler.write_failure_recovery_description(mc, failargs, locs)
-    nums = [Assembler386.DESCR_INT   + 4*(16+0),
-            Assembler386.DESCR_REF   + 4*(16+1),
-            Assembler386.DESCR_FLOAT + 4*(16+10),
-            Assembler386.DESCR_INT   + 4*(16+100),
-            Assembler386.DESCR_REF   + 4*(16+101),
-            Assembler386.DESCR_FLOAT + 4*(16+110),
+    base = 8 + 8*IS_X86_64
+    nums = [Assembler386.DESCR_INT   + 4*(base+0),
+            Assembler386.DESCR_REF   + 4*(base+1),
+            Assembler386.DESCR_FLOAT + 4*(base+10),
+            Assembler386.DESCR_INT   + 4*(base+100),
+            Assembler386.DESCR_REF   + 4*(base+101),
+            Assembler386.DESCR_FLOAT + 4*(base+110),
             Assembler386.CODE_HOLE,
             Assembler386.CODE_HOLE,
             Assembler386.DESCR_INT   + 4*ebx.value,

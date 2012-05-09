@@ -1,6 +1,7 @@
 from test import test_support
 import time
 import unittest
+import sys
 
 
 class TimeTestCase(unittest.TestCase):
@@ -36,6 +37,13 @@ class TimeTestCase(unittest.TestCase):
                 time.strftime(format, tt)
             except ValueError:
                 self.fail('conversion specifier: %r failed.' % format)
+
+        # Issue #10762: Guard against invalid/non-supported format string
+        # so that Python don't crash (Windows crashes when the format string
+        # input to [w]strftime is not kosher.
+        if sys.platform.startswith('win'):
+            with self.assertRaises(ValueError):
+                time.strftime('%f')
 
     def test_strftime_bounds_checking(self):
         # Make sure that strftime() checks the bounds of the various parts
@@ -114,10 +122,20 @@ class TimeTestCase(unittest.TestCase):
     def test_asctime(self):
         time.asctime(time.gmtime(self.t))
         self.assertRaises(TypeError, time.asctime, 0)
+        self.assertRaises(TypeError, time.asctime, ())
+        # XXX: Posix compiant asctime should refuse to convert
+        # year > 9999, but Linux implementation does not.
+        # self.assertRaises(ValueError, time.asctime,
+        #                  (12345, 1, 0, 0, 0, 0, 0, 0, 0))
+        # XXX: For now, just make sure we don't have a crash:
+        try:
+            time.asctime((12345, 1, 1, 0, 0, 0, 0, 1, 0))
+        except ValueError:
+            pass
 
+    @unittest.skipIf(not hasattr(time, "tzset"),
+        "time module has no attribute tzset")
     def test_tzset(self):
-        if not hasattr(time, "tzset"):
-            return # Can't test this; don't want the test suite to fail
 
         from os import environ
 
@@ -212,6 +230,17 @@ class TimeTestCase(unittest.TestCase):
         t0 = time.mktime(lt0)
         t1 = time.mktime(lt1)
         self.assertTrue(0 <= (t1-t0) < 0.2)
+
+    def test_mktime(self):
+        # Issue #1726687
+        for t in (-2, -1, 0, 1):
+            try:
+                tt = time.localtime(t)
+            except (OverflowError, ValueError):
+                pass
+            else:
+                self.assertEqual(time.mktime(tt), t)
+
 
 def test_main():
     test_support.run_unittest(TimeTestCase)

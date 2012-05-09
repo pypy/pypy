@@ -2,7 +2,7 @@
 """
 
 from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rlib.rarithmetic import ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong, is_valid_int
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat, check_descr
@@ -46,7 +46,7 @@ def do_call(cpu, metainterp, argboxes, descr):
     # get the function address as an integer
     func = argboxes[0].getint()
     # do the call using the correct function from the cpu
-    rettype = descr.get_return_type()
+    rettype = descr.get_result_type()
     if rettype == INT or rettype == 'S':       # *S*ingle float
         try:
             result = cpu.bh_call_i(func, descr, args_i, args_r, args_f)
@@ -248,11 +248,14 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 def do_read_timestamp(cpu, _):
     x = read_timestamp()
     if longlong.is_64_bit:
-        assert isinstance(x, int)         # 64-bit
+        assert is_valid_int(x)            # 64-bit
         return BoxInt(x)
     else:
         assert isinstance(x, r_longlong)  # 32-bit
         return BoxFloat(x)
+
+def do_keepalive(cpu, _, x):
+    pass
 
 # ____________________________________________________________
 
@@ -340,8 +343,13 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.GETINTERIORFIELD_RAW,
+                         rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
+                         rop.CALL_MALLOC_GC,
+                         rop.CALL_MALLOC_NURSERY,
+                         rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

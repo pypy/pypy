@@ -108,6 +108,12 @@ def test_defined():
                                      '#define ALFKJLKJFLKJFKLEJDLKEWMECEE')
     assert res
 
+def test_defined_constant():
+    res = rffi_platform.getdefineddouble('ABCDFGH', '#define ABCDFGH 2.0')
+    assert res == 2.0
+    res = rffi_platform.getdefinedinteger('ABCDFGH', '#define ABCDFGH 2')
+    assert res == 2
+
 def test_defined_constant_float():
     value = rffi_platform.getdefineddouble('BLAH', '#define BLAH 1.0')
     assert value == 1.0

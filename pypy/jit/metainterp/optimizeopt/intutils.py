@@ -1,10 +1,9 @@
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import BoxInt, ConstInt
-import sys
-MAXINT = sys.maxint
-MININT = -sys.maxint - 1
+MAXINT = maxint
+MININT = -maxint - 1
 
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -16,8 +15,8 @@ class IntBound(object):
         self.lower = lower
         # check for unexpected overflows:
         if not we_are_translated():
-            assert type(upper) is not long
-            assert type(lower) is not long
+            assert type(upper) is not long or is_valid_int(upper)
+            assert type(lower) is not long or is_valid_int(lower)
 
     # Returns True if the bound was updated
     def make_le(self, other):
@@ -174,10 +173,10 @@ class IntBound(object):
            other.known_ge(IntBound(0, 0)) and \
            other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
             try:
-                vals = (ovfcheck_lshift(self.upper, other.upper),
-                        ovfcheck_lshift(self.upper, other.lower),
-                        ovfcheck_lshift(self.lower, other.upper),
-                        ovfcheck_lshift(self.lower, other.lower))
+                vals = (ovfcheck(self.upper << other.upper),
+                        ovfcheck(self.upper << other.lower),
+                        ovfcheck(self.lower << other.upper),
+                        ovfcheck(self.lower << other.lower))
                 return IntBound(min4(vals), max4(vals))
             except (OverflowError, ValueError):
                 return IntUnbounded()

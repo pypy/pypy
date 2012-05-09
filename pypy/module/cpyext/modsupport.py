@@ -54,9 +54,15 @@ def _Py_InitPyPyModule(space, name, methods, doc, w_self, apiver):
     modname = rffi.charp2str(name)
     state = space.fromcache(State)
     f_name, f_path = state.package_context
-    w_mod = PyImport_AddModule(space, f_name)
+    if f_name is not None:
+        modname = f_name
+    w_mod = PyImport_AddModule(space, modname)
+    state.package_context = None, None
 
-    dict_w = {'__file__': space.wrap(f_path)}
+    if f_path is not None:
+        dict_w = {'__file__': space.wrap(f_path)}
+    else:
+        dict_w = {}
     convert_method_defs(space, dict_w, methods, None, w_self, modname)
     for key, w_value in dict_w.items():
         space.setattr(w_mod, space.wrap(key), w_value)

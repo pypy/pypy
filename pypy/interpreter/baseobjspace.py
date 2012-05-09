@@ -1,4 +1,3 @@
-import itertools
 import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
@@ -8,7 +7,8 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
+from pypy.rlib.objectmodel import we_are_translated, newlist_hint,\
+     compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -188,6 +188,12 @@ class W_Root(object):
 
     # -------------------------------------------------------------------
 
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def immutable_unique_id(self, space):
+        return None
+
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
         raise OperationError(space.w_TypeError, w_msg)
@@ -290,6 +296,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self.frame_trace_action = FrameTraceAction(self)
+        self._code_of_sys_exc_info = None
 
         from pypy.interpreter.pycode import cpython_magic, default_magic
         self.our_magic = default_magic
@@ -323,7 +330,7 @@ class ObjSpace(object):
                 raise
             modname = self.str_w(w_modname)
             mod = self.interpclass_w(w_mod)
-            if isinstance(mod, Module):
+            if isinstance(mod, Module) and not mod.startup_called:
                 self.timer.start("startup " + modname)
                 mod.init(self)
                 self.timer.stop("startup " + modname)
@@ -461,9 +468,9 @@ class ObjSpace(object):
                 if name not in modules:
                     modules.append(name)
 
-        # a bit of custom logic: time2 or rctime take precedence over time
+        # a bit of custom logic: rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
-        if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
+        if 'rctime' in modules and 'time' in modules:
             modules.remove('time')
 
         if not self.config.objspace.nofaking:
@@ -481,6 +488,16 @@ class ObjSpace(object):
         'unicodedata',
         'parser', 'fcntl', '_codecs', 'binascii'
     ]
+
+    # These modules are treated like CPython treats built-in modules,
+    # i.e. they always shadow any xx.py.  The other modules are treated
+    # like CPython treats extension modules, and are loaded in sys.path
+    # order by the fake entry '.../lib_pypy/__extensions__'.
+    MODULES_THAT_ALWAYS_SHADOW = dict.fromkeys([
+        '__builtin__', '__pypy__', '_ast', '_codecs', '_sre', '_warnings',
+        '_weakref', 'errno', 'exceptions', 'gc', 'imp', 'marshal',
+        'posix', 'nt', 'pwd', 'signal', 'sys', 'thread', 'zipimport',
+    ], None)
 
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
@@ -513,8 +530,8 @@ class ObjSpace(object):
         exception_types_w = self.export_builtin_exceptions()
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
-        types_w = itertools.chain(self.get_builtin_types().iteritems(),
-                                  exception_types_w.iteritems())
+        types_w = (self.get_builtin_types().items() +
+                   exception_types_w.items())
         for name, w_type in types_w:
             self.setitem(self.builtin.w_dict, self.wrap(name), w_type)
 
@@ -681,9 +698,20 @@ class ObjSpace(object):
         """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
-    def is_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
-        return self.is_true(self.is_(w_obj1, w_obj2))
+    def is_(self, w_one, w_two):
+        return self.newbool(self.is_w(w_one, w_two))
+
+    def is_w(self, w_one, w_two):
+        # done by a method call on w_two (and not on w_one, because of the
+        # expected programming style where we say "if x is None" or
+        # "if x is object").
+        return w_two.is_w(self, w_one)
+
+    def id(self, w_obj):
+        w_result = w_obj.immutable_unique_id(self)
+        if w_result is None:
+            w_result = self.wrap(compute_unique_id(w_obj))
+        return w_result
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
@@ -807,7 +835,7 @@ class ObjSpace(object):
             items = []
         else:
             try:
-                items = newlist(lgt_estimate)
+                items = newlist_hint(lgt_estimate)
             except MemoryError:
                 items = [] # it might have lied
         #
@@ -878,6 +906,22 @@ class ObjSpace(object):
         """ A non-fixed view of w_iterable. Don't modify the result
         """
         return self.unpackiterable(w_iterable, expected_length)
+
+    def listview_str(self, w_list):
+        """ Return a list of unwrapped strings out of a list of strings. If the
+        argument is not a list or does not contain only strings, return None.
+        May return None anyway.
+        """
+        return None
+
+    def view_as_kwargs(self, w_dict):
+        """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
+        strings and one of wrapped values. otherwise return (None, None)
+        """
+        return (None, None)
+
+    def newlist_str(self, list_s):
+        return self.newlist([self.wrap(s) for s in list_s])
 
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
@@ -1012,9 +1056,6 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
-
-    def id(self, w_obj):
-        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
@@ -1279,6 +1320,15 @@ class ObjSpace(object):
     def str_w(self, w_obj):
         return w_obj.str_w(self)
 
+    def str0_w(self, w_obj):
+        "Like str_w, but rejects strings with NUL bytes."
+        from pypy.rlib import rstring
+        result = w_obj.str_w(self)
+        if '\x00' in result:
+            raise OperationError(self.w_TypeError, self.wrap(
+                    'argument must be a string without NUL characters'))
+        return rstring.assert_str0(result)
+
     def int_w(self, w_obj):
         return w_obj.int_w(self)
 
@@ -1293,10 +1343,19 @@ class ObjSpace(object):
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
-        return self.str_w(w_obj)
+        return self.str_w(w_obj)            
 
     def unicode_w(self, w_obj):
         return w_obj.unicode_w(self)
+
+    def unicode0_w(self, w_obj):
+        "Like unicode_w, but rejects strings with NUL bytes."
+        from pypy.rlib import rstring
+        result = w_obj.unicode_w(self)
+        if u'\x00' in result:
+            raise OperationError(self.w_TypeError, self.wrap(
+                    'argument must be a unicode string without NUL characters'))
+        return rstring.assert_str0(result)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
@@ -1420,8 +1479,8 @@ class ObjSpace(object):
 
     def warn(self, msg, w_warningcls):
         self.appexec([self.wrap(msg), w_warningcls], """(msg, warningcls):
-            import warnings
-            warnings.warn(msg, warningcls, stacklevel=2)
+            import _warnings
+            _warnings.warn(msg, warningcls, stacklevel=2)
         """)
 
     def resolve_target(self, w_obj):
@@ -1558,12 +1617,15 @@ ObjSpace.ExceptionTable = [
     'ArithmeticError',
     'AssertionError',
     'AttributeError',
+    'BaseException',
+    'DeprecationWarning',
     'EOFError',
     'EnvironmentError',
     'Exception',
     'FloatingPointError',
     'IOError',
     'ImportError',
+    'ImportWarning',
     'IndentationError',
     'IndexError',
     'KeyError',
@@ -1584,10 +1646,16 @@ ObjSpace.ExceptionTable = [
     'TabError',
     'TypeError',
     'UnboundLocalError',
+    'UnicodeDecodeError',
     'UnicodeError',
+    'UnicodeEncodeError',
+    'UnicodeTranslateError',
     'ValueError',
     'ZeroDivisionError',
     ]
+    
+if sys.platform.startswith("win"):
+    ObjSpace.ExceptionTable += ['WindowsError']
 
 ## Irregular part of the interface:
 #

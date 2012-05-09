@@ -97,6 +97,16 @@ class TestFastpath(BaseCTypesTestChecker):
         tf_b.errcheck = errcheck
         assert tf_b(-126) == 'hello'
 
+    def test_array_to_ptr(self):
+        ARRAY = c_int * 8
+        func = dll._testfunc_ai8
+        func.restype = POINTER(c_int)
+        func.argtypes = [ARRAY]
+        array = ARRAY(1, 2, 3, 4, 5, 6, 7, 8)
+        ptr = func(array)
+        assert ptr[0] == 1
+        assert ptr[7] == 8
+
 
 class TestFallbackToSlowpath(BaseCTypesTestChecker):
 

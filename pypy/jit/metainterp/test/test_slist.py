@@ -76,7 +76,7 @@ class ListTests(object):
             return lst[i]
         res = self.meta_interp(f, [21], listops=True)
         assert res == f(21)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_getitem_neg(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'n'])
@@ -92,7 +92,7 @@ class ListTests(object):
             return x
         res = self.meta_interp(f, [-2], listops=True)
         assert res == 41
-        self.check_loops(call=0, guard_value=0)
+        self.check_resops(call=0, guard_value=0)
 
 # we don't support resizable lists on ootype
 #class TestOOtype(ListTests, OOJitMixin):

@@ -144,7 +144,7 @@ class PrettyPrinter:
             return
 
         r = getattr(typ, "__repr__", None)
-        if issubclass(typ, dict) and r is dict.__repr__:
+        if issubclass(typ, dict) and r == dict.__repr__:
             write('{')
             if self._indent_per_level > 1:
                 write((self._indent_per_level - 1) * ' ')
@@ -173,10 +173,10 @@ class PrettyPrinter:
             write('}')
             return
 
-        if ((issubclass(typ, list) and r is list.__repr__) or
-            (issubclass(typ, tuple) and r is tuple.__repr__) or
-            (issubclass(typ, set) and r is set.__repr__) or
-            (issubclass(typ, frozenset) and r is frozenset.__repr__)
+        if ((issubclass(typ, list) and r == list.__repr__) or
+            (issubclass(typ, tuple) and r == tuple.__repr__) or
+            (issubclass(typ, set) and r == set.__repr__) or
+            (issubclass(typ, frozenset) and r == frozenset.__repr__)
            ):
             length = _len(object)
             if issubclass(typ, list):
@@ -266,7 +266,7 @@ def _safe_repr(object, context, maxlevels, level):
         return ("%s%s%s" % (closure, sio.getvalue(), closure)), True, False
 
     r = getattr(typ, "__repr__", None)
-    if issubclass(typ, dict) and r is dict.__repr__:
+    if issubclass(typ, dict) and r == dict.__repr__:
         if not object:
             return "{}", True, False
         objid = _id(object)
@@ -291,8 +291,8 @@ def _safe_repr(object, context, maxlevels, level):
         del context[objid]
         return "{%s}" % _commajoin(components), readable, recursive
 
-    if (issubclass(typ, list) and r is list.__repr__) or \
-       (issubclass(typ, tuple) and r is tuple.__repr__):
+    if (issubclass(typ, list) and r == list.__repr__) or \
+       (issubclass(typ, tuple) and r == tuple.__repr__):
         if issubclass(typ, list):
             if not object:
                 return "[]", True, False

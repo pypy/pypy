@@ -10,7 +10,7 @@ from pypy.interpreter import pytraceback
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized, check_nonneg
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib import jit
 from pypy.tool import stdlib_opcode
 from pypy.tool.stdlib_opcode import host_bytecode_spec
@@ -60,11 +60,10 @@ class PyFrame(eval.Frame):
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals)
         self.locals_stack_w = [None] * (code.co_nlocals + code.co_stacksize)
-        self.nlocals = code.co_nlocals
         self.valuestackdepth = code.co_nlocals
         self.lastblock = None
         make_sure_not_resized(self.locals_stack_w)
-        check_nonneg(self.nlocals)
+        check_nonneg(self.valuestackdepth)
         #
         if space.config.objspace.honor__builtins__:
             self.builtin = space.builtin.pick_builtin(w_globals)
@@ -144,8 +143,8 @@ class PyFrame(eval.Frame):
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
         The optional arguments are there to handle a generator's frame:
-        w_inputvalue is for generator.send()) and operr is for
-        generator.throw()).
+        w_inputvalue is for generator.send() and operr is for
+        generator.throw().
         """
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
@@ -167,7 +166,7 @@ class PyFrame(eval.Frame):
                 # Execution starts just after the last_instr.  Initially,
                 # last_instr is -1.  After a generator suspends it points to
                 # the YIELD_VALUE instruction.
-                next_instr = self.last_instr + 1
+                next_instr = r_uint(self.last_instr + 1)
                 if next_instr != 0:
                     self.pushvalue(w_inputvalue)
             #
@@ -195,7 +194,7 @@ class PyFrame(eval.Frame):
 
     def popvalue(self):
         depth = self.valuestackdepth - 1
-        assert depth >= self.nlocals, "pop from empty value stack"
+        assert depth >= self.pycode.co_nlocals, "pop from empty value stack"
         w_object = self.locals_stack_w[depth]
         self.locals_stack_w[depth] = None
         self.valuestackdepth = depth
@@ -223,7 +222,7 @@ class PyFrame(eval.Frame):
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
-        assert base >= self.nlocals
+        assert base >= self.pycode.co_nlocals
         while True:
             n -= 1
             if n < 0:
@@ -235,7 +234,8 @@ class PyFrame(eval.Frame):
     def dropvalues(self, n):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
-        assert finaldepth >= self.nlocals, "stack underflow in dropvalues()"
+        assert finaldepth >= self.pycode.co_nlocals, (
+            "stack underflow in dropvalues()")
         while True:
             n -= 1
             if n < 0:
@@ -267,13 +267,15 @@ class PyFrame(eval.Frame):
         # Contrast this with CPython where it's PEEK(-1).
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert index >= self.nlocals, "peek past the bottom of the stack"
+        assert index >= self.pycode.co_nlocals, (
+            "peek past the bottom of the stack")
         return self.locals_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert index >= self.nlocals, "settop past the bottom of the stack"
+        assert index >= self.pycode.co_nlocals, (
+            "settop past the bottom of the stack")
         self.locals_stack_w[index] = w_object
 
     @jit.unroll_safe
@@ -320,12 +322,13 @@ class PyFrame(eval.Frame):
         else:
             f_lineno = self.f_lineno
 
-        values_w = self.locals_stack_w[self.nlocals:self.valuestackdepth]
+        nlocals = self.pycode.co_nlocals
+        values_w = self.locals_stack_w[nlocals:self.valuestackdepth]
         w_valuestack = maker.slp_into_tuple_with_nulls(space, values_w)
         
         w_blockstack = nt([block._get_state_(space) for block in self.get_blocklist()])
         w_fastlocals = maker.slp_into_tuple_with_nulls(
-            space, self.locals_stack_w[:self.nlocals])
+            space, self.locals_stack_w[:nlocals])
         if self.last_exception is None:
             w_exc_value = space.w_None
             w_tb = space.w_None
@@ -442,7 +445,7 @@ class PyFrame(eval.Frame):
         """Initialize the fast locals from a list of values,
         where the order is according to self.pycode.signature()."""
         scope_len = len(scope_w)
-        if scope_len > self.nlocals:
+        if scope_len > self.pycode.co_nlocals:
             raise ValueError, "new fastscope is longer than the allocated area"
         # don't assign directly to 'locals_stack_w[:scope_len]' to be
         # virtualizable-friendly
@@ -456,7 +459,7 @@ class PyFrame(eval.Frame):
         pass
 
     def getfastscopelength(self):
-        return self.nlocals
+        return self.pycode.co_nlocals
 
     def getclosure(self):
         return None
@@ -691,6 +694,7 @@ def unpickle_block(space, w_tup):
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
     assert valuestackdepth >= 0
+    assert handlerposition >= 0
     blk = instantiate(get_block_class(opname))
     blk.handlerposition = handlerposition
     blk.valuestackdepth = valuestackdepth

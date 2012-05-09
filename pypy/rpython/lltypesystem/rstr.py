@@ -62,6 +62,14 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
     @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
+        """Copies 'length' characters from the 'src' string to the 'dst'
+        string, starting at position 'srcstart' and 'dststart'."""
+        # xxx Warning: don't try to do this at home.  It relies on a lot
+        # of details to be sure that it works correctly in all cases.
+        # Notably: no GC operation at all from the first cast_ptr_to_adr()
+        # because it might move the strings.  The keepalive_until_here()
+        # are obscurely essential to make sure that the strings stay alive
+        # longer than the raw_memcopy().
         assert srcstart >= 0
         assert dststart >= 0
         assert length >= 0
@@ -99,7 +107,7 @@ class BaseLLStringRepr(Repr):
             return p
 
     def make_iterator_repr(self):
-        return self.iterator_repr
+        return self.repr.iterator_repr
 
     def can_ll_be_null(self, s_value):
         # XXX unicode
@@ -316,6 +324,8 @@ class LLHelpers(AbstractLLHelpers):
         s.chars[0] = ch
         return s
 
+    # @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
+    @jit.oopspec("str.str2unicode(str)")
     def ll_str2unicode(str):
         lgt = len(str.chars)
         s = mallocunicode(lgt)
@@ -324,13 +334,14 @@ class LLHelpers(AbstractLLHelpers):
                 raise UnicodeDecodeError
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
-    ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
     @jit.elidable
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
+        if not s:
+            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
@@ -698,7 +709,8 @@ class LLHelpers(AbstractLLHelpers):
         return count
 
     @enforceargs(int, None)
-    @jit.look_inside_iff(lambda length, items: jit.isconstant(length) and length <= 2)
+    @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
+        items, length))
     def ll_join_strs(length, items):
         # Special case for length 1 items, helps both the JIT and other code
         if length == 1:
@@ -754,7 +766,11 @@ class LLHelpers(AbstractLLHelpers):
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
         assert start >= 0
-        assert lgt >= 0
+        # If start > stop, return a empty string. This can happen if the start
+        # is greater than the length of the string. Use < instead of <= to avoid
+        # creating another path for the JIT when start == stop.
+        if lgt < 0:
+            return s1.empty()
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
         return newstr

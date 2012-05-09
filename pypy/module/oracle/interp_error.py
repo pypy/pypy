@@ -72,7 +72,7 @@ class W_Error(Wrappable):
                         get(space).w_InternalError,
                         space.wrap("No Oracle error?"))
 
-                self.code = codeptr[0]
+                self.code = rffi.cast(lltype.Signed, codeptr[0])
                 self.w_message = config.w_string(space, textbuf)
             finally:
                 lltype.free(codeptr, flavor='raw')

@@ -8,7 +8,7 @@ from pypy.jit.metainterp.quasiimmut import QuasiImmut
 from pypy.jit.metainterp.quasiimmut import get_current_qmut_instance
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.rlib.jit import JitDriver, dont_look_inside
+from pypy.rlib.jit import JitDriver, dont_look_inside, unroll_safe, promote
 
 
 def test_get_current_qmut_instance():
@@ -73,8 +73,7 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
-                         everywhere=True)
+        self.check_resops(guard_not_invalidated=2, getfield_gc=0)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -103,7 +102,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
+        self.check_resops(guard_not_invalidated=0, getfield_gc=3)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -134,8 +133,7 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
-                         everywhere=True)
+        self.check_resops(guard_not_invalidated=2, getfield_gc=0)
 
     def test_change_during_tracing_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -160,7 +158,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 721
         res = self.meta_interp(f, [100, 7])
         assert res == 721
-        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
+        self.check_resops(guard_not_invalidated=0, getfield_gc=2)
 
     def test_change_during_tracing_2(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -186,7 +184,7 @@ class QuasiImmutTests(object):
         assert f(100, 7) == 700
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(guard_not_invalidated=0, getfield_gc=1)
+        self.check_resops(guard_not_invalidated=0, getfield_gc=2)
 
     def test_change_invalidate_reentering(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -212,7 +210,7 @@ class QuasiImmutTests(object):
         assert g(100, 7) == 700707
         res = self.meta_interp(g, [100, 7])
         assert res == 700707
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0)
+        self.check_resops(guard_not_invalidated=4, getfield_gc=0)
 
     def test_invalidate_while_running(self):
         jitdriver = JitDriver(greens=['foo'], reds=['i', 'total'])
@@ -296,7 +294,8 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_tree_loop_count(6)
+        self.check_trace_count(6)
+        self.check_jitcell_token_count(3)
         assert res == main()
 
     def test_change_during_running(self):
@@ -307,7 +306,7 @@ class QuasiImmutTests(object):
                 self.a = a
         @dont_look_inside
         def residual_call(foo, x):
-            if x == 5:
+            if x == 10:
                 foo.a += 1
         def f(a, x):
             foo = Foo(a)
@@ -321,11 +320,11 @@ class QuasiImmutTests(object):
                 x -= 1
             return total
         #
-        assert f(100, 15) == 3009
-        res = self.meta_interp(f, [100, 15])
-        assert res == 3009
-        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
-                         call_may_force=0, guard_not_forced=0)
+        assert f(100, 30) == 6019
+        res = self.meta_interp(f, [100, 30])
+        assert res == 6019
+        self.check_resops(guard_not_invalidated=8, guard_not_forced=0,
+                          call_may_force=0, getfield_gc=0)
 
     def test_list_simple_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
@@ -347,9 +346,8 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
-                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
-                         everywhere=True)
+        self.check_resops(getarrayitem_gc_pure=0, guard_not_invalidated=2,
+                          getarrayitem_gc=0, getfield_gc=0)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -385,9 +383,8 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 714
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
-                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
-                         arraylen_gc=0, everywhere=True)
+        self.check_resops(getarrayitem_gc_pure=0, guard_not_invalidated=2,
+                          arraylen_gc=0, getarrayitem_gc=0, getfield_gc=0)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -421,9 +418,8 @@ class QuasiImmutTests(object):
         #
         res = self.meta_interp(f, [100, 7])
         assert res == 700
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
-                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
-                         everywhere=True)
+        self.check_resops(guard_not_invalidated=2, getfield_gc=0,
+                          getarrayitem_gc=0, getarrayitem_gc_pure=0)
         #
         from pypy.jit.metainterp.warmspot import get_stats
         loops = get_stats().loops
@@ -439,7 +435,7 @@ class QuasiImmutTests(object):
                 self.lst = lst
         @dont_look_inside
         def residual_call(foo, x):
-            if x == 5:
+            if x == 10:
                 lst2 = [0, 0]
                 lst2[1] = foo.lst[1] + 1
                 foo.lst = lst2
@@ -457,12 +453,12 @@ class QuasiImmutTests(object):
                 x -= 1
             return total
         #
-        assert f(100, 15) == 3009
-        res = self.meta_interp(f, [100, 15])
-        assert res == 3009
-        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
-                         getarrayitem_gc=0, getarrayitem_gc_pure=0,
-                         call_may_force=0, guard_not_forced=0)
+        assert f(100, 30) == 6019
+        res = self.meta_interp(f, [100, 30])
+        assert res == 6019
+        self.check_resops(call_may_force=0, getfield_gc=0,
+                          getarrayitem_gc_pure=0, guard_not_forced=0,
+                          getarrayitem_gc=0, guard_not_invalidated=8)
 
     def test_invalidated_loop_is_not_used_any_more_as_target(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x'])
@@ -482,8 +478,55 @@ class QuasiImmutTests(object):
             return foo.step
         res = self.meta_interp(f, [60])
         assert res == 1
-        self.check_tree_loop_count(4)   # at least not 2 like before
+        self.check_jitcell_token_count(2)
 
+    def test_for_loop_array(self):
+        myjitdriver = JitDriver(greens=[], reds=["n", "i"])
+        class Foo(object):
+            _immutable_fields_ = ["x?[*]"]
+            def __init__(self, x):
+                self.x = x
+        f = Foo([1, 3, 5, 6])
+        @unroll_safe
+        def g(v):
+            for x in f.x:
+                if x & 1 == 0:
+                    v += 1
+            return v
+        def main(n):
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i)
+                i = g(i)
+            return i
+        res = self.meta_interp(main, [10])
+        assert res == 10
+        self.check_resops({
+            "int_add": 2, "int_lt": 2, "jump": 1, "guard_true": 2,
+            "guard_not_invalidated": 2
+        })
+
+    def test_issue1080(self):
+        myjitdriver = JitDriver(greens=[], reds=["n", "sa", "a"])
+        class Foo(object):
+            _immutable_fields_ = ["x?"]
+            def __init__(self, x):
+                self.x = x
+        one, two = Foo(1), Foo(2)
+        def main(n):
+            sa = 0
+            a = one
+            while n:
+                myjitdriver.jit_merge_point(n=n, sa=sa, a=a)
+                sa += a.x
+                if a.x == 1:
+                    a = two
+                elif a.x == 2:
+                    a = one                    
+                n -= 1
+            return sa
+        res = self.meta_interp(main, [10])
+        assert res == main(10)
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass

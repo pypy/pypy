@@ -335,7 +335,7 @@ class CoverageResults:
                                                       lnotab, count)
 
             if summary and n_lines:
-                percent = int(100 * n_hits / n_lines)
+                percent = 100 * n_hits // n_lines
                 sums[modulename] = n_lines, percent, modulename, filename
 
         if summary and sums:
@@ -559,6 +559,10 @@ class Trace:
             if len(funcs) == 1:
                 dicts = [d for d in gc.get_referrers(funcs[0])
                              if isinstance(d, dict)]
+                if len(dicts) == 0:
+                    # PyPy may store functions directly on the class
+                    # (more exactly: the container is not a Python object)
+                    dicts = funcs
                 if len(dicts) == 1:
                     classes = [c for c in gc.get_referrers(dicts[0])
                                    if hasattr(c, "__bases__")]

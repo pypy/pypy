@@ -1,5 +1,6 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.jit.metainterp import history
+from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractCPU(object):
@@ -84,24 +85,21 @@ class AbstractCPU(object):
         """Print a disassembled version of looptoken to stdout"""
         raise NotImplementedError
 
-    def execute_token(self, looptoken):
-        """Execute the generated code referenced by the looptoken.
+    def execute_token(self, looptoken, *args):
+        """NOT_RPYTHON (for tests only)
+        Execute the generated code referenced by the looptoken.
         Returns the descr of the last executed operation: either the one
         attached to the failing guard, or the one attached to the FINISH.
-        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
+        Use get_latest_value_xxx() afterwards to read the result(s).
         """
-        raise NotImplementedError
+        argtypes = [lltype.typeOf(x) for x in args]
+        execute = self.make_execute_token(*argtypes)
+        return execute(looptoken, *args)
 
-    def set_future_value_int(self, index, intvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_float(self, index, floatvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_ref(self, index, objvalue):
-        """Set the value for the index'th argument for the loop to run."""
+    def make_execute_token(self, *argtypes):
+        """Must make and return an execute_token() function that will be
+        called with the given argtypes.
+        """
         raise NotImplementedError
 
     def get_latest_value_int(self, index):
@@ -183,38 +181,35 @@ class AbstractCPU(object):
             lst[n] = None
         self.fail_descr_free_list.extend(faildescr_indices)
 
-    @staticmethod
-    def sizeof(S):
+    def sizeof(self, S):
         raise NotImplementedError
 
-    @staticmethod
-    def fielddescrof(S, fieldname):
+    def fielddescrof(self, S, fieldname):
         """Return the Descr corresponding to field 'fieldname' on the
         structure 'S'.  It is important that this function (at least)
         caches the results."""
         raise NotImplementedError
 
-    @staticmethod
-    def arraydescrof(A):
+    def interiorfielddescrof(self, A, fieldname):
         raise NotImplementedError
 
-    @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
+    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
+        is_float, is_signed):
+        raise NotImplementedError
+
+    def arraydescrof(self, A):
+        raise NotImplementedError
+
+    def calldescrof(self, FUNC, ARGS, RESULT):
         # FUNC is the original function type, but ARGS is a list of types
         # with Voids removed
         raise NotImplementedError
 
-    @staticmethod
-    def methdescrof(SELFTYPE, methname):
+    def methdescrof(self, SELFTYPE, methname):
         # must return a subclass of history.AbstractMethDescr
         raise NotImplementedError
 
-    @staticmethod
-    def typedescrof(TYPE):
-        raise NotImplementedError
-
-    @staticmethod
-    def interiorfielddescrof(A, fieldname):
+    def typedescrof(self, TYPE):
         raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------

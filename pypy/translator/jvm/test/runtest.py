@@ -56,6 +56,7 @@ class InstanceWrapper:
 
 # CLI could-be duplicate
 class JvmGeneratedSourceWrapper(object):
+
     def __init__(self, gensrc):
         """ gensrc is an instance of JvmGeneratedSource """
         self.gensrc = gensrc

@@ -20,6 +20,8 @@
 # 2. Altered source versions must be plainly marked as such, and must not be
 #    misrepresented as being the original software.
 # 3. This notice may not be removed or altered from any source distribution.
+#
+# Note: This software has been modified for use in PyPy.
 
 from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
@@ -27,7 +29,6 @@ from ctypes import sizeof, c_ssize_t
 from collections import OrderedDict
 import datetime
 import sys
-import time
 import weakref
 from threading import _get_ident as thread_get_ident
 
@@ -230,6 +231,11 @@ sqlite.sqlite3_result_error.argtypes = [c_void_p, c_char_p, c_int]
 sqlite.sqlite3_result_error.restype = None
 sqlite.sqlite3_result_text.argtypes = [c_void_p, c_char_p, c_int, c_void_p]
 sqlite.sqlite3_result_text.restype = None
+
+HAS_LOAD_EXTENSION = hasattr(sqlite, "sqlite3_enable_load_extension")
+if HAS_LOAD_EXTENSION:
+    sqlite.sqlite3_enable_load_extension.argtypes = [c_void_p, c_int]
+    sqlite.sqlite3_enable_load_extension.restype = c_int
 
 ##########################################
 # END Wrapped SQLite C API and constants
@@ -601,7 +607,7 @@ class Connection(object):
             def authorizer(userdata, action, arg1, arg2, dbname, source):
                 try:
                     return int(callback(action, arg1, arg2, dbname, source))
-                except Exception, e:
+                except Exception:
                     return SQLITE_DENY
             c_authorizer = AUTHORIZER(authorizer)
 
@@ -648,7 +654,7 @@ class Connection(object):
                 if not aggregate_ptr[0]:
                     try:
                         aggregate = cls()
-                    except Exception, e:
+                    except Exception:
                         msg = ("user-defined aggregate's '__init__' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -662,7 +668,7 @@ class Connection(object):
                 params = _convert_params(context, argc, c_params)
                 try:
                     aggregate.step(*params)
-                except Exception, e:
+                except Exception:
                     msg = ("user-defined aggregate's 'step' "
                            "method raised error")
                     sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -678,7 +684,7 @@ class Connection(object):
                     aggregate = self.aggregate_instances[aggregate_ptr[0]]
                     try:
                         val = aggregate.finalize()
-                    except Exception, e:
+                    except Exception:
                         msg = ("user-defined aggregate's 'finalize' "
                                "method raised error")
                         sqlite.sqlite3_result_error(context, msg, len(msg))
@@ -704,6 +710,15 @@ class Connection(object):
     def iterdump(self):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
+
+    if HAS_LOAD_EXTENSION:
+        def enable_load_extension(self, enabled):
+            self._check_thread()
+            self._check_closed()
+
+            rc = sqlite.sqlite3_enable_load_extension(self.db, int(enabled))
+            if rc != SQLITE_OK:
+                raise OperationalError("Error enabling load extension")
 
 DML, DQL, DDL = range(3)
 
@@ -757,7 +772,7 @@ class Cursor(object):
             self.statement.item = None
             self.statement.exhausted = True
 
-        if self.statement.kind == DML or self.statement.kind == DDL:
+        if self.statement.kind == DML:
             self.statement.reset()
 
         self.rowcount = -1
@@ -777,7 +792,7 @@ class Cursor(object):
         if self.statement.kind == DML:
             self.connection._begin()
         else:
-            raise ProgrammingError, "executemany is only for DML statements"
+            raise ProgrammingError("executemany is only for DML statements")
 
         self.rowcount = 0
         for params in many_params:
@@ -847,8 +862,6 @@ class Cursor(object):
         except StopIteration:
             return None
 
-        return nextrow
-
     def fetchmany(self, size=None):
         self._check_closed()
         self._check_reset()
@@ -901,7 +914,7 @@ class Statement(object):
     def __init__(self, connection, sql):
         self.statement = None
         if not isinstance(sql, str):
-            raise ValueError, "sql must be a string"
+            raise ValueError("sql must be a string")
         self.con = connection
         self.sql = sql # DEBUG ONLY
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
@@ -930,8 +943,8 @@ class Statement(object):
             raise self.con._get_exception(ret)
         self.con._remember_statement(self)
         if _check_remaining_sql(next_char.value):
-            raise Warning, "One and only one statement required: %r" % (
-                next_char.value,)
+            raise Warning("One and only one statement required: %r" % (
+                next_char.value,))
         # sql_char should remain alive until here
 
         self._build_row_cast_map()
@@ -1002,7 +1015,7 @@ class Statement(object):
         elif type(param) is buffer:
             sqlite.sqlite3_bind_blob(self.statement, idx, str(param), len(param), SQLITE_TRANSIENT)
         else:
-            raise InterfaceError, "parameter type %s is not supported" % str(type(param))
+            raise InterfaceError("parameter type %s is not supported" % str(type(param)))
 
     def set_params(self, params):
         ret = sqlite.sqlite3_reset(self.statement)
@@ -1031,11 +1044,11 @@ class Statement(object):
             for idx in range(1, sqlite.sqlite3_bind_parameter_count(self.statement) + 1):
                 param_name = sqlite.sqlite3_bind_parameter_name(self.statement, idx)
                 if param_name is None:
-                    raise ProgrammingError, "need named parameters"
+                    raise ProgrammingError("need named parameters")
                 param_name = param_name[1:]
                 try:
                     param = params[param_name]
-                except KeyError, e:
+                except KeyError:
                     raise ProgrammingError("missing parameter '%s'" %param)
                 self.set_param(idx, param)
 
@@ -1246,7 +1259,7 @@ def function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
     try:
         val = real_cb(*params)
-    except Exception, e:
+    except Exception:
         msg = "user-defined function raised exception"
         sqlite.sqlite3_result_error(context, msg, len(msg))
     else:

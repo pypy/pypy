@@ -208,7 +208,8 @@ class OptRewrite(Optimization):
             box = value.box
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
-                raise InvalidLoop
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} was proven to' +
+                                  'always fail')
             return
         if emit_operation:
             self.emit_operation(op)
@@ -220,7 +221,7 @@ class OptRewrite(Optimization):
         if value.is_null():
             return
         elif value.is_nonnull():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_ISNULL was proven to always fail')
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
@@ -229,7 +230,7 @@ class OptRewrite(Optimization):
         if value.is_nonnull():
             return
         elif value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL was proven to always fail')
         self.emit_operation(op)
         value.make_nonnull(op)
 
@@ -260,6 +261,16 @@ class OptRewrite(Optimization):
     def optimize_GUARD_FALSE(self, op):
         self.optimize_guard(op, CONST_0)
 
+    def optimize_RECORD_KNOWN_CLASS(self, op):
+        value = self.getvalue(op.getarg(0))
+        expectedclassbox = op.getarg(1)
+        assert isinstance(expectedclassbox, Const)
+        realclassbox = value.get_constant_class(self.optimizer.cpu)
+        if realclassbox is not None:
+            assert realclassbox.same_constant(expectedclassbox)
+            return
+        value.make_constant_class(expectedclassbox, None)
+
     def optimize_GUARD_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
@@ -268,7 +279,7 @@ class OptRewrite(Optimization):
         if realclassbox is not None:
             if realclassbox.same_constant(expectedclassbox):
                 return
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_CLASS was proven to always fail')
         if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
@@ -291,14 +302,9 @@ class OptRewrite(Optimization):
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
-            raise InvalidLoop
+            raise InvalidLoop('A GUARD_NONNULL_CLASS was proven to always ' +
+                              'fail')
         self.optimize_GUARD_CLASS(op)
-
-    def optimize_GUARD_NO_EXCEPTION(self, op):
-        if not self.optimizer.exception_might_have_happened:
-            return
-        self.emit_operation(op)
-        self.optimizer.exception_might_have_happened = False
 
     def optimize_CALL_LOOPINVARIANT(self, op):
         arg = op.getarg(0)
@@ -310,6 +316,7 @@ class OptRewrite(Optimization):
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
+            self.last_emitted_operation = REMOVED
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
@@ -444,8 +451,17 @@ class OptRewrite(Optimization):
             except KeyError:
                 pass
             else:
+                # this removes a CALL_PURE with all constant arguments.
                 self.make_constant(op.result, result)
+                self.last_emitted_operation = REMOVED
                 return
+        self.emit_operation(op)
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            # it was a CALL_PURE or a CALL_LOOPINVARIANT that was killed;
+            # so we also kill the following GUARD_NO_EXCEPTION
+            return
         self.emit_operation(op)
 
     def optimize_INT_FLOORDIV(self, op):
@@ -465,10 +481,6 @@ class OptRewrite(Optimization):
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.optimizer.opaque_pointers[value] = True
-
     def optimize_CAST_PTR_TO_INT(self, op):
         self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
         self.emit_operation(op)
@@ -476,6 +488,9 @@ class OptRewrite(Optimization):
     def optimize_CAST_INT_TO_PTR(self, op):
         self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
         self.emit_operation(op)
+
+    def optimize_SAME_AS(self, op):
+        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

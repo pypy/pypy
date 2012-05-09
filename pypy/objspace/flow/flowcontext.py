@@ -185,7 +185,7 @@ class ConcreteNoOp(Recorder):
 class FlowExecutionContext(ExecutionContext):
 
     def __init__(self, space, code, globals, constargs={}, outer_func=None,
-                 name=None):
+                 name=None, is_generator=False):
         ExecutionContext.__init__(self, space)
         self.code = code
 
@@ -208,6 +208,7 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = collections.deque([initialblock])
         self.graph = FunctionGraph(name or code.co_name, initialblock)
+        self.is_generator = is_generator
 
     make_link = Link # overridable for transition tracking
 
@@ -247,6 +248,8 @@ class FlowExecutionContext(ExecutionContext):
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
+        if self.is_generator:
+            self.produce_generator_mark()
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             frame = self.create_frame()
@@ -259,9 +262,15 @@ class FlowExecutionContext(ExecutionContext):
                 self.topframeref = jit.non_virtual_ref(frame)
                 self.crnt_frame = frame
                 try:
-                    w_result = frame.dispatch(frame.pycode,
-                                              frame.last_instr,
-                                              self)
+                    frame.frame_finished_execution = False
+                    while True:
+                        w_result = frame.dispatch(frame.pycode,
+                                                  frame.last_instr,
+                                                  self)
+                        if frame.frame_finished_execution:
+                            break
+                        else:
+                            self.generate_yield(frame, w_result)
                 finally:
                     self.crnt_frame = None
                     self.topframeref = old_frameref
@@ -306,6 +315,21 @@ class FlowExecutionContext(ExecutionContext):
 
             del self.recorder
         self.fixeggblocks()
+
+    def produce_generator_mark(self):
+        [initialblock] = self.pendingblocks
+        initialblock.operations.append(
+            SpaceOperation('generator_mark', [], Variable()))
+
+    def generate_yield(self, frame, w_result):
+        assert self.is_generator
+        self.recorder.crnt_block.operations.append(
+            SpaceOperation('yield', [w_result], Variable()))
+        # we must push a dummy value that will be POPped: it's the .send()
+        # passed into the generator (2.5 feature)
+        assert sys.version_info >= (2, 5)
+        frame.pushvalue(None)
+        frame.last_instr += 1
 
     def fixeggblocks(self):
         # EggBlocks reuse the variables of their previous block,
@@ -386,7 +410,7 @@ class FlowExecutionContext(ExecutionContext):
         w_new = Constant(newvalue)
         f = self.crnt_frame
         stack_items_w = f.locals_stack_w
-        for i in range(f.valuestackdepth-1, f.nlocals-1, -1):
+        for i in range(f.valuestackdepth-1, f.pycode.co_nlocals-1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -409,6 +433,13 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         block = WithBlock(self, next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
+
+    def BUILD_LIST_FROM_ARG(self, _, next_instr):
+        # This opcode was added with pypy-1.8.  Here is a simpler
+        # version, enough for annotation.
+        last_val = self.popvalue()
+        self.pushvalue(self.space.newlist([]))
+        self.pushvalue(last_val)
 
     # XXX Unimplemented 2.7 opcodes ----------------
 

@@ -23,8 +23,8 @@ has_spawnl = hasattr(os, 'spawnl')
 
 # TEST_FILES may need to be tweaked for systems depending on the maximum
 # number of files that can be opened at one time (see ulimit -n)
-if sys.platform in ('openbsd3', 'openbsd4'):
-    TEST_FILES = 48
+if sys.platform.startswith("openbsd"):
+    TEST_FILES = 64 # ulimit -n defaults to 128 for normal users
 else:
     TEST_FILES = 100
 
@@ -244,6 +244,7 @@ class test__mkstemp_inner(TC):
         dir = tempfile.mkdtemp()
         try:
             self.do_create(dir=dir).write("blat")
+            test_support.gc_collect()
         finally:
             os.rmdir(dir)
 
@@ -528,12 +529,15 @@ class test_mktemp(TC):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
+        test_support.gc_collect()
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
         extant = range(TEST_FILES)
         for i in extant:
             extant[i] = self.do_create(pre="aa")
+        del extant
+        test_support.gc_collect()
 
 ##     def test_warning(self):
 ##         # mktemp issues a warning when used
@@ -687,6 +691,23 @@ class test_SpooledTemporaryFile(TC):
         f.write('x' * 10)
         self.assertFalse(f._rolled)
         f.write('x')
+        self.assertTrue(f._rolled)
+
+    def test_writelines(self):
+        # Verify writelines with a SpooledTemporaryFile
+        f = self.do_create()
+        f.writelines((b'x', b'y', b'z'))
+        f.seek(0)
+        buf = f.read()
+        self.assertEqual(buf, b'xyz')
+
+    def test_writelines_sequential(self):
+        # A SpooledTemporaryFile should hold exactly max_size bytes, and roll
+        # over afterward
+        f = self.do_create(max_size=35)
+        f.writelines((b'x' * 20, b'x' * 10, b'x' * 5))
+        self.assertFalse(f._rolled)
+        f.write(b'x')
         self.assertTrue(f._rolled)
 
     def test_sparse(self):

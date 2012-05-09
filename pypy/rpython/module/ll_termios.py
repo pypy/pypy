@@ -72,9 +72,14 @@ register_external(rtermios.tcgetattr, [int], (int, int, int, int, int, int, [str
 
 def tcsetattr_llimpl(fd, when, attributes):
     c_struct = lltype.malloc(TERMIOSP.TO, flavor='raw')
-    c_struct.c_c_iflag, c_struct.c_c_oflag, c_struct.c_c_cflag, \
-    c_struct.c_c_lflag, ispeed, ospeed, cc = attributes
     try:
+        c_struct.c_c_iflag = r_uint(attributes[0])
+        c_struct.c_c_oflag = r_uint(attributes[1])
+        c_struct.c_c_cflag = r_uint(attributes[2])
+        c_struct.c_c_lflag = r_uint(attributes[3])
+        ispeed = r_uint(attributes[4])
+        ospeed = r_uint(attributes[5])
+        cc = attributes[6]
         for i in range(NCCS):
             c_struct.c_c_cc[i] = rffi.r_uchar(ord(cc[i][0]))
         if c_cfsetispeed(c_struct, ispeed) < 0:
@@ -87,8 +92,8 @@ def tcsetattr_llimpl(fd, when, attributes):
         lltype.free(c_struct, flavor='raw')
 
 r_uint = rffi.r_uint
-register_external(rtermios.tcsetattr, [int, int, (r_uint, r_uint, r_uint,
-                  r_uint, r_uint, r_uint, [str])], llimpl=tcsetattr_llimpl,
+register_external(rtermios.tcsetattr, [int, int, (int, int, int,
+                  int, int, int, [str])], llimpl=tcsetattr_llimpl,
                   export_name='termios.tcsetattr')
 
 # a bit C-c C-v code follows...

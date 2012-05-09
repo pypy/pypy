@@ -7,8 +7,10 @@ import stat
 import sys
 import unittest
 from test.test_support import (unlink, TESTFN, unload, run_unittest, rmtree,
-                               is_jython, check_warnings, EnvironmentVarGuard)
-
+                               is_jython, check_warnings, EnvironmentVarGuard,
+                               impl_detail, check_impl_detail)
+import textwrap
+from test import script_helper
 
 def remove_files(name):
     for f in (name + os.extsep + "py",
@@ -68,7 +70,8 @@ class ImportTests(unittest.TestCase):
                 self.assertEqual(mod.b, b,
                     "module loaded (%s) but contents invalid" % mod)
             finally:
-                unlink(source)
+                if check_impl_detail(pypy=False):
+                    unlink(source)
 
             try:
                 imp.reload(mod)
@@ -148,13 +151,16 @@ class ImportTests(unittest.TestCase):
         # Compile & remove .py file, we only need .pyc (or .pyo).
         with open(filename, 'r') as f:
             py_compile.compile(filename)
-        unlink(filename)
+        if check_impl_detail(pypy=False):
+            # pypy refuses to import a .pyc if the .py does not exist
+            unlink(filename)
 
         # Need to be able to load from current dir.
         sys.path.append('')
 
         # This used to crash.
         exec 'import ' + module
+        reload(longlist)
 
         # Cleanup.
         del sys.path[-1]
@@ -253,6 +259,17 @@ class ImportTests(unittest.TestCase):
         self.assertEqual("Import by filename is not supported.",
                          c.exception.args[0])
 
+    def test_import_in_del_does_not_crash(self):
+        # Issue 4236
+        testfn = script_helper.make_script('', TESTFN, textwrap.dedent("""\
+            import sys
+            class C:
+               def __del__(self):
+                  import imp
+            sys.argv.insert(0, C())
+            """))
+        script_helper.assert_python_ok(testfn)
+
 
 class PycRewritingTests(unittest.TestCase):
     # Test that the `co_filename` attribute on code objects always points
@@ -314,6 +331,7 @@ func_filename = func.func_code.co_filename
         self.assertEqual(mod.code_filename, self.file_name)
         self.assertEqual(mod.func_filename, self.file_name)
 
+    @impl_detail("pypy refuses to import without a .py source", pypy=False)
     def test_module_without_source(self):
         target = "another_module.py"
         py_compile.compile(self.file_name, dfile=target)

@@ -13,6 +13,9 @@ def to_float(x):
 def to_longlong(x):
     return r_longlong(x)
 
+def to_ulonglong(x):
+    return r_ulonglong(x)
+
 def uint_to_int(x):
     return intmask(x)
 
@@ -55,6 +58,9 @@ class BaseTestCast:
         
     def test_unsignedlonglong_to_unsigned4(self):
         self.check(to_uint, [r_ulonglong(18446744073709551615l)]) # max 64 bit num
+
+    def test_unsigned_to_usignedlonglong(self):
+        self.check(to_ulonglong, [r_uint(42)])
 
     def test_uint_to_int(self):
         self.check(uint_to_int, [r_uint(sys.maxint+1)])

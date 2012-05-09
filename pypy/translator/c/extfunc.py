@@ -5,7 +5,6 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_os
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
@@ -106,7 +105,7 @@ def predeclare_exception_data(db, rtyper):
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.fn_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.fn_type_of_exc_inst)
     yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
-    if not db.standalone:
+    if db.cpython_extension:
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
     yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)

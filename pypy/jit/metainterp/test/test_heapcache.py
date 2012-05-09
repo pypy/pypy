@@ -2,12 +2,14 @@ from pypy.jit.metainterp.heapcache import HeapCache
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import ConstInt
 
-box1 = object()
-box2 = object()
-box3 = object()
-box4 = object()
+box1 = "box1"
+box2 = "box2"
+box3 = "box3"
+box4 = "box4"
+box5 = "box5"
 lengthbox1 = object()
 lengthbox2 = object()
+lengthbox3 = object()
 descr1 = object()
 descr2 = object()
 descr3 = object()
@@ -255,6 +257,11 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
 
+        h.invalidate_caches(rop.GUARD_TRUE, None, [])
+        assert h.getfield(box1, descr1) is box2
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        assert h.getarrayitem(box1, descr1, index2) is box4
+
         h.invalidate_caches(
             rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT), [])
 
@@ -271,11 +278,43 @@ class TestHeapCache(object):
         h.setfield(box1, descr2, box3)
         h.setfield(box2, descr3, box3)
         h.replace_box(box1, box4)
-        assert h.getfield(box1, descr1) is None
-        assert h.getfield(box1, descr2) is None
         assert h.getfield(box4, descr1) is box2
         assert h.getfield(box4, descr2) is box3
         assert h.getfield(box2, descr3) is box3
+        h.setfield(box4, descr1, box3)
+        assert h.getfield(box4, descr1) is box3
+
+        h = HeapCache()
+        h.setfield(box1, descr1, box2)
+        h.setfield(box1, descr2, box3)
+        h.setfield(box2, descr3, box3)
+        h.replace_box(box3, box4)
+        assert h.getfield(box1, descr1) is box2
+        assert h.getfield(box1, descr2) is box4
+        assert h.getfield(box2, descr3) is box4
+
+    def test_replace_box_twice(self):
+        h = HeapCache()
+        h.setfield(box1, descr1, box2)
+        h.setfield(box1, descr2, box3)
+        h.setfield(box2, descr3, box3)
+        h.replace_box(box1, box4)
+        h.replace_box(box4, box5)
+        assert h.getfield(box5, descr1) is box2
+        assert h.getfield(box5, descr2) is box3
+        assert h.getfield(box2, descr3) is box3
+        h.setfield(box5, descr1, box3)
+        assert h.getfield(box4, descr1) is box3
+
+        h = HeapCache()
+        h.setfield(box1, descr1, box2)
+        h.setfield(box1, descr2, box3)
+        h.setfield(box2, descr3, box3)
+        h.replace_box(box3, box4)
+        h.replace_box(box4, box5)
+        assert h.getfield(box1, descr1) is box2
+        assert h.getfield(box1, descr2) is box5
+        assert h.getfield(box2, descr3) is box5
 
     def test_replace_box_array(self):
         h = HeapCache()
@@ -286,9 +325,6 @@ class TestHeapCache(object):
         h.setarrayitem(box3, descr2, index2, box1)
         h.setarrayitem(box2, descr3, index2, box3)
         h.replace_box(box1, box4)
-        assert h.getarrayitem(box1, descr1, index1) is None
-        assert h.getarrayitem(box1, descr2, index1) is None
-        assert h.arraylen(box1) is None
         assert h.arraylen(box4) is lengthbox1
         assert h.getarrayitem(box4, descr1, index1) is box2
         assert h.getarrayitem(box4, descr2, index1) is box3
@@ -298,6 +334,27 @@ class TestHeapCache(object):
 
         h.replace_box(lengthbox1, lengthbox2)
         assert h.arraylen(box4) is lengthbox2
+
+    def test_replace_box_array_twice(self):
+        h = HeapCache()
+        h.setarrayitem(box1, descr1, index1, box2)
+        h.setarrayitem(box1, descr2, index1, box3)
+        h.arraylen_now_known(box1, lengthbox1)
+        h.setarrayitem(box2, descr1, index2, box1)
+        h.setarrayitem(box3, descr2, index2, box1)
+        h.setarrayitem(box2, descr3, index2, box3)
+        h.replace_box(box1, box4)
+        h.replace_box(box4, box5)
+        assert h.arraylen(box4) is lengthbox1
+        assert h.getarrayitem(box5, descr1, index1) is box2
+        assert h.getarrayitem(box5, descr2, index1) is box3
+        assert h.getarrayitem(box2, descr1, index2) is box5
+        assert h.getarrayitem(box3, descr2, index2) is box5
+        assert h.getarrayitem(box2, descr3, index2) is box3
+
+        h.replace_box(lengthbox1, lengthbox2)
+        h.replace_box(lengthbox2, lengthbox3)
+        assert h.arraylen(box4) is lengthbox3
 
     def test_ll_arraycopy(self):
         h = HeapCache()

@@ -212,6 +212,8 @@ class W_Structure(W_DataShape):
                 while count + basic_size <= total_size:
                     fieldtypes.append(basic_ffi_type)
                     count += basic_size
+                    if basic_size == 0: # corner case. get out of this infinite
+                        break           # loop after 1 iteration ("why not")
             self.ffi_struct = clibffi.make_struct_ffitype_e(self.size,
                                                            self.alignment,
                                                            fieldtypes)

@@ -122,10 +122,11 @@ def _hex_digit_to_int(d):
     return -1
 
 def descr_fromhex(space, w_type, w_hexstring):
-    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
-    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
-    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
-    "bytearray(b'\\xb9\\x01\\xef')."
+    "bytearray.fromhex(string) -> bytearray\n"
+    "\n"
+    "Create a bytearray object from a string of hexadecimal numbers.\n"
+    "Spaces between two numbers are accepted.\n"
+    "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
     hexstring = space.str_w(w_hexstring)
     hexstring = hexstring.lower()
     data = []

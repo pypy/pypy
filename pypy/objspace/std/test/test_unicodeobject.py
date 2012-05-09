@@ -64,6 +64,12 @@ class AppTestUnicodeString:
         check(', '.join([u'a']), u'a')
         check(', '.join(['a', u'b']), u'a, b')
         check(u', '.join(['a', 'b']), u'a, b')
+        try:
+            u''.join([u'a', 2, 3])
+        except TypeError, e:
+            assert 'sequence item 1' in str(e)
+        else:
+            raise Exception("DID NOT RAISE")
 
     if sys.version_info >= (2,3):
         def test_contains_ex(self):

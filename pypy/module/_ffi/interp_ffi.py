@@ -457,14 +457,14 @@ W_FuncPtr.typedef = TypeDef(
 # ========================================================================
 
 class W_CDLL(Wrappable):
-    def __init__(self, space, name):
+    def __init__(self, space, name, mode):
         self.space = space
         if name is None:
             self.name = "<None>"
         else:
             self.name = name
         try:
-            self.cdll = libffi.CDLL(name)
+            self.cdll = libffi.CDLL(name, mode)
         except DLOpenError, e:
             raise operationerrfmt(space.w_OSError, '%s: %s', self.name,
                                   e.msg or 'unspecified error')
@@ -492,9 +492,9 @@ class W_CDLL(Wrappable):
                                   "No symbol %s found in library %s", name, self.name)
         return space.wrap(address_as_uint)
 
-@unwrap_spec(name='str_or_None')
-def descr_new_cdll(space, w_type, name):
-    return space.wrap(W_CDLL(space, name))
+@unwrap_spec(name='str_or_None', mode=int)
+def descr_new_cdll(space, w_type, name, mode=-1):
+    return space.wrap(W_CDLL(space, name, mode))
 
 
 W_CDLL.typedef = TypeDef(
@@ -509,6 +509,6 @@ W_CDLL.typedef = TypeDef(
 def get_libc(space):
     from pypy.rlib.clibffi import get_libc_name
     try:
-        return space.wrap(W_CDLL(space, get_libc_name()))
+        return space.wrap(W_CDLL(space, get_libc_name(), -1))
     except OSError, e:
         raise wrap_oserror(space, e)

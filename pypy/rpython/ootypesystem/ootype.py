@@ -512,6 +512,7 @@ class StringBuilder(BuiltinADTType):
             "ll_append_char": Meth([CHARTP], Void),
             "ll_append": Meth([STRINGTP], Void),
             "ll_build": Meth([], STRINGTP),
+            "ll_getlength": Meth([], Signed),
             })
         self._setup_methods({})
 
@@ -1294,6 +1295,8 @@ class OverloadingResolver(object):
         for meth in self.overloadings:
             ARGS = meth._TYPE.ARGS
             if ARGS in signatures:
+                # XXX Conflict on 'Signed' vs 'SignedLongLong' on win64.
+                # XXX note that this partially works if this error is ignored.
                 raise TypeError, 'Bad overloading'
             signatures.add(ARGS)
 
@@ -1375,6 +1378,9 @@ class _builtin_type(object):
 
     def _cast_to_object(self):
         return make_object(self)
+
+    def _identityhash(self):
+        return object.__hash__(self)
 
 class _string(_builtin_type):
 
@@ -1542,6 +1548,9 @@ class _string_builder(_builtin_type):
             return make_string(''.join(self._buf))
         else:
             return make_unicode(u''.join(self._buf))
+
+    def ll_getlength(self):
+        return self.ll_build().ll_strlen()
 
 class _null_string_builder(_null_mixin(_string_builder), _string_builder):
     def __init__(self, STRING_BUILDER):

@@ -131,3 +131,15 @@ class TestPosixUnicode:
                 os.rmdir(self.ufilename)
             except Exception:
                 pass
+
+    def test_validate_fd(self):
+        if os.name != 'nt':
+            skip('relevant for windows only')
+        assert rposix._validate_fd(0) == 1
+        fid = open(str(udir.join('validate_test.txt')), 'w')
+        fd = fid.fileno()
+        assert rposix._validate_fd(fd) == 1
+        fid.close()
+        assert rposix._validate_fd(fd) == 0
+
+

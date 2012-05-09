@@ -130,6 +130,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, None)
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
@@ -349,6 +350,8 @@ LL_OPERATIONS = {
     'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
     'force_cast':           LLOp(sideeffects=False),    # only for rffi.cast()
+    'convert_float_bytes_to_longlong': LLOp(canfold=True),
+    'convert_longlong_bytes_to_float': LLOp(canfold=True),
 
     # __________ pointer operations __________
 
@@ -430,6 +433,7 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
+    'jit_record_known_class'  : LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
@@ -473,6 +477,7 @@ LL_OPERATIONS = {
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
+    'gc_add_memory_pressure': LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

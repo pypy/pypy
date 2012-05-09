@@ -201,6 +201,16 @@ class TestLLType(LLRtypeMixin, BaseTestCanRaise):
         result = ra.can_raise(ggraph.startblock.operations[0])
         assert result
 
+    def test_ll_arraycopy(self):
+        from pypy.rpython.lltypesystem import rffi
+        from pypy.rlib.rgc import ll_arraycopy
+        def f(a, b, c, d, e):
+            ll_arraycopy(a, b, c, d, e)
+        t, ra = self.translate(f, [rffi.CCHARP, rffi.CCHARP, int, int, int])
+        fgraph = graphof(t, f)
+        result = ra.can_raise(fgraph.startblock.operations[0])
+        assert not result
+
 
 class TestOOType(OORtypeMixin, BaseTestCanRaise):
     def test_can_raise_recursive(self):

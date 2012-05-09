@@ -7,7 +7,7 @@ from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
-from sys import maxint
+from pypy.rlib.rarithmetic import maxint, is_valid_int, is_emulated_long
 import weakref
 
 class State(object):
@@ -48,7 +48,7 @@ class _uninitialized(object):
         self.TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
-        
+
 
 def saferecursive(func, defl, TLS=TLS):
     def safe(*args):
@@ -537,9 +537,9 @@ class FuncType(ContainerType):
         return "Func ( %s ) -> %s" % (args, self.RESULT)
     __str__ = saferecursive(__str__, '...')
 
-    def _short_name(self):        
+    def _short_name(self):
         args = ', '.join([ARG._short_name() for ARG in self.ARGS])
-        return "Func(%s)->%s" % (args, self.RESULT._short_name())        
+        return "Func(%s)->%s" % (args, self.RESULT._short_name())
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
@@ -553,7 +553,7 @@ class FuncType(ContainerType):
 
 class OpaqueType(ContainerType):
     _gckind = 'raw'
-    
+
     def __init__(self, tag, hints={}):
         """ if hints['render_structure'] is set, the type is internal and not considered
             to come from somewhere else (it should be rendered as a structure) """
@@ -681,6 +681,11 @@ def build_number(name, type):
     number = _numbertypes[type] = Number(name, type)
     return number
 
+if is_emulated_long:
+    SignedFmt = 'q'
+else:
+    SignedFmt = 'l'
+
 Signed   = build_number("Signed", int)
 Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
@@ -723,10 +728,10 @@ class Ptr(LowLevelType):
 
     def __str__(self):
         return '* %s' % (self.TO, )
-    
+
     def _short_name(self):
         return 'Ptr %s' % (self.TO._short_name(), )
-    
+
     def _is_atomic(self):
         return self.TO._gckind == 'raw'
 
@@ -1162,7 +1167,7 @@ class _abstract_ptr(object):
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
-            raise AttributeError("%r instance has no field %r" % (self._T._name,
+            raise AttributeError("%r instance has no field %r" % (self._T,
                                                                   field_name))
 
     def __setattr__(self, field_name, val):
@@ -1654,7 +1659,7 @@ class _array(_parentable):
     __slots__ = ('items',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
-        if not isinstance(n, int):
+        if not is_valid_int(n):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
@@ -1723,7 +1728,7 @@ assert not '__dict__' in dir(_struct)
 class _subarray(_parentable):     # only for direct_fieldptr()
                                   # and direct_arrayitems()
     _kind = "subarray"
-    _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
+    _cache = {}  # TYPE -> weak{ parentarray -> {subarrays} }
 
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
@@ -1781,10 +1786,15 @@ class _subarray(_parentable):     # only for direct_fieldptr()
 
     def _makeptr(parent, baseoffset_or_fieldname, solid=False):
         try:
-            cache = _subarray._cache.setdefault(parent, {})
+            d = _subarray._cache[parent._TYPE]
+        except KeyError:
+            d = _subarray._cache[parent._TYPE] = weakref.WeakKeyDictionary()
+        try:
+            cache = d.setdefault(parent, {})
         except RuntimeError:    # pointer comparison with a freed structure
             _subarray._cleanup_cache()
-            cache = _subarray._cache.setdefault(parent, {})    # try again
+            # try again
+            return _subarray._makeptr(parent, baseoffset_or_fieldname, solid)
         try:
             subarray = cache[baseoffset_or_fieldname]
         except KeyError:
@@ -1805,14 +1815,18 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         raise NotImplementedError('_subarray._getid()')
 
     def _cleanup_cache():
-        newcache = weakref.WeakKeyDictionary()
-        for key, value in _subarray._cache.items():
-            try:
-                if not key._was_freed():
-                    newcache[key] = value
-            except RuntimeError:
-                pass    # ignore "accessing subxxx, but already gc-ed parent"
-        _subarray._cache = newcache
+        for T, d in _subarray._cache.items():
+            newcache = weakref.WeakKeyDictionary()
+            for key, value in d.items():
+                try:
+                    if not key._was_freed():
+                        newcache[key] = value
+                except RuntimeError:
+                    pass    # ignore "accessing subxxx, but already gc-ed parent"
+            if newcache:
+                _subarray._cache[T] = newcache
+            else:
+                del _subarray._cache[T]
     _cleanup_cache = staticmethod(_cleanup_cache)
 
 

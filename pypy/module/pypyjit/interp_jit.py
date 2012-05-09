@@ -6,17 +6,14 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from pypy.rlib import jit
 from pypy.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
-from pypy.interpreter.gateway import unwrap_spec
 from opcode import opmap
-from pypy.rlib.nonconst import NonConstant
-from pypy.jit.metainterp.resoperation import rop
-from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'locals_stack_w[*]',
@@ -50,64 +47,10 @@ def can_never_inline(next_instr, is_being_profiled, bytecode):
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
-def wrap_oplist(space, logops, operations):
-    list_w = []
-    for op in operations:
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
-            list_w.append(space.wrap(debug_merge_point_from_boxes(
-                op.getarglist())))
-        else:
-            list_w.append(space.wrap(logops.repr_of_resop(op)))
-    return list_w
-
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
     greens = ['next_instr', 'is_being_profiled', 'pycode']
     virtualizables = ['frame']
-
-    def on_compile(self, logger, looptoken, operations, type, next_instr,
-                   is_being_profiled, ll_pycode):
-        from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-
-        space = self.space
-        cache = space.fromcache(Cache)
-        if cache.in_recursion:
-            return
-        if space.is_true(cache.w_compile_hook):
-            logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations)
-            pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
-            cache.in_recursion = True
-            try:
-                space.call_function(cache.w_compile_hook,
-                                    space.wrap('main'),
-                                    space.wrap(type),
-                                    space.newtuple([pycode,
-                                    space.wrap(next_instr),
-                                    space.wrap(is_being_profiled)]),
-                                    space.newlist(list_w))
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            cache.in_recursion = False
-
-    def on_compile_bridge(self, logger, orig_looptoken, operations, n):
-        space = self.space
-        cache = space.fromcache(Cache)
-        if cache.in_recursion:
-            return
-        if space.is_true(cache.w_compile_hook):
-            logops = logger._make_log_operations()
-            list_w = wrap_oplist(space, logops, operations)
-            cache.in_recursion = True
-            try:
-                space.call_function(cache.w_compile_hook,
-                                    space.wrap('main'),
-                                    space.wrap('bridge'),
-                                    space.wrap(n),
-                                    space.newlist(list_w))
-            except OperationError, e:
-                e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            cache.in_recursion = False
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
@@ -115,7 +58,8 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               confirm_enter_jit = confirm_enter_jit,
                               can_never_inline = can_never_inline,
                               should_unroll_one_iteration =
-                              should_unroll_one_iteration)
+                              should_unroll_one_iteration,
+                              name='pypyjit')
 
 class __extend__(PyFrame):
 
@@ -200,18 +144,18 @@ def set_param(space, __args__):
     if len(args_w) == 1:
         text = space.str_w(args_w[0])
         try:
-            pypyjitdriver.set_user_param(text)
+            jit.set_user_param(None, text)
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("error in JIT parameters string"))
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
-            pypyjitdriver.set_param('enable_opts', space.str_w(w_value))
+            jit.set_param(None, 'enable_opts', space.str_w(w_value))
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
                 if name == key and name != 'enable_opts':
-                    pypyjitdriver.set_param(name, intval)
+                    jit.set_param(None, name, intval)
                     break
             else:
                 raise operationerrfmt(space.w_TypeError,
@@ -222,34 +166,3 @@ def residual_call(space, w_callable, __args__):
     '''For testing.  Invokes callable(...), but without letting
     the JIT follow the call.'''
     return space.call_args(w_callable, __args__)
-
-class Cache(object):
-    in_recursion = False
-
-    def __init__(self, space):
-        self.w_compile_hook = space.w_None
-
-def set_compile_hook(space, w_hook):
-    """ set_compile_hook(hook)
-
-    Set a compiling hook that will be called each time a loop is compiled.
-    The hook will be called with the following signature:
-    hook(merge_point_type, loop_type, greenkey or guard_number, operations)
-
-    for now merge point type is always `main`
-
-    loop_type can be either `loop` `entry_bridge` or `bridge`
-    in case loop is not `bridge`, greenkey will be a set of constants
-    for jit merge point. in case it's `main` it'll be a tuple
-    (code, offset, is_being_profiled)
-
-    Note that jit hook is not reentrant. It means that if the code
-    inside the jit hook is itself jitted, it will get compiled, but the
-    jit hook won't be called for that.
-
-    XXX write down what else
-    """
-    cache = space.fromcache(Cache)
-    cache.w_compile_hook = w_hook
-    cache.in_recursion = NonConstant(False)
-    return space.w_None

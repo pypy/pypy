@@ -87,7 +87,7 @@ del ctypes
 
 # Now the _subprocess module implementation 
 
-from ctypes import c_int as _c_int, byref as _byref
+from ctypes import c_int as _c_int, byref as _byref, WinError as _WinError
 
 class _handle:
     def __init__(self, handle):
@@ -116,7 +116,7 @@ def CreatePipe(attributes, size):
     res = _CreatePipe(_byref(read), _byref(write), None, size)
 
     if not res:
-        raise WindowsError("Error")
+        raise _WinError()
 
     return _handle(read.value), _handle(write.value)
 
@@ -132,7 +132,7 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
                            access, inherit, options)
 
     if not res:
-        raise WindowsError("Error")
+        raise _WinError()
 
     return _handle(target.value)
 DUPLICATE_SAME_ACCESS = 2
@@ -165,7 +165,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
                         start_dir, _byref(si), _byref(pi))
 
     if not res:
-        raise WindowsError("Error")
+        raise _WinError()
 
     return _handle(pi.hProcess), _handle(pi.hThread), pi.dwProcessID, pi.dwThreadID
 STARTF_USESHOWWINDOW = 0x001
@@ -178,7 +178,7 @@ def WaitForSingleObject(handle, milliseconds):
     res = _WaitForSingleObject(int(handle), milliseconds)
 
     if res < 0:
-        raise WindowsError("Error")
+        raise _WinError()
 
     return res
 INFINITE = 0xffffffff
@@ -190,7 +190,7 @@ def GetExitCodeProcess(handle):
     res = _GetExitCodeProcess(int(handle), _byref(code))
 
     if not res:
-        raise WindowsError("Error")
+        raise _WinError()
 
     return code.value
 
@@ -198,7 +198,7 @@ def TerminateProcess(handle, exitcode):
     res = _TerminateProcess(int(handle), exitcode)
 
     if not res:
-        raise WindowsError("Error")
+        raise _WinError()
 
 def GetStdHandle(stdhandle):
     res = _GetStdHandle(stdhandle)

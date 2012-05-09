@@ -102,12 +102,12 @@ class _TestGCTransformer(BaseGCTransformer):
         llops.genop("gc_pop_alive", [var])
 
 
-def checkblock(block, is_borrowed):
+def checkblock(block, is_borrowed, is_start_block):
     if block.operations == ():
         # a return/exception block -- don't want to think about them
         # (even though the test passes for somewhat accidental reasons)
         return
-    if block.isstartblock:
+    if is_start_block:
         refs_in = 0
     else:
         refs_in = len([v for v in block.inputargs if isinstance(v, Variable)
@@ -167,7 +167,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
     if check:
         for graph, is_borrowed in graphs_borrowed.iteritems():
             for block in graph.iterblocks():
-                checkblock(block, is_borrowed)
+                checkblock(block, is_borrowed, block is graph.startblock)
     return t, transformer
 
 def getops(graph):

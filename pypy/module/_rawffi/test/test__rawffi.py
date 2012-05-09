@@ -1022,6 +1022,12 @@ class AppTestFfi:
         assert ret.y == 1234500, "ret.y == %d" % (ret.y,)
         s.free()
 
+    def test_ffi_type(self):
+        import _rawffi
+        EMPTY = _rawffi.Structure([])
+        S2E = _rawffi.Structure([('bah', (EMPTY, 1))])
+        S2E.get_ffi_type()     # does not hang
+
 class AppTestAutoFree:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_rawffi', 'struct'))

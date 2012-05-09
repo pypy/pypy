@@ -15,6 +15,7 @@ def registerimplementation(implcls):
     _registered_implementations.add(implcls)
 
 option_to_typename = {
+    "withspecialisedtuple" : ["specialisedtupleobject.W_SpecialisedTupleObject"],
     "withsmalltuple" : ["smalltupleobject.W_SmallTupleObject"],
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withsmalllong"  : ["smalllongobject.W_SmallLongObject"],
@@ -25,11 +26,14 @@ option_to_typename = {
                         "ropeobject.W_RopeIterObject"],
     "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
                         "ropeunicodeobject.W_RopeUnicodeIterObject"],
-    "withrangelist"  : ["rangeobject.W_RangeListObject",
-                        "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
 }
+
+IDTAG_INT     = 1
+IDTAG_LONG    = 3
+IDTAG_FLOAT   = 5
+IDTAG_COMPLEX = 7
 
 class StdTypeModel:
 
@@ -253,16 +257,15 @@ class StdTypeModel:
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
                 ]
-        if config.objspace.std.withrangelist:
-            from pypy.objspace.std import rangeobject
-            self.typeorder[rangeobject.W_RangeListObject] += [
-                (listobject.W_ListObject,
-                                       rangeobject.delegate_range2list),
-                ]
         if config.objspace.std.withsmalltuple:
             from pypy.objspace.std import smalltupleobject
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [
                 (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
+
+        if config.objspace.std.withspecialisedtuple:
+            from pypy.objspace.std import specialisedtupleobject
+            self.typeorder[specialisedtupleobject.W_SpecialisedTupleObject] += [
+                (tupleobject.W_TupleObject, specialisedtupleobject.delegate_SpecialisedTuple2Tuple)]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []
@@ -375,7 +378,10 @@ class W_Object(W_Root):
     __slots__ = ()
 
     def __repr__(self):
-        s = '%s(%s)' % (self.__class__.__name__, getattr(self, 'name', ''))
+        name = getattr(self, 'name', '')
+        if not isinstance(name, str):
+            name = ''
+        s = '%s(%s)' % (self.__class__.__name__, name)
         w_cls = getattr(self, 'w__class__', None)
         if w_cls is not None and w_cls is not self:
             s += ' instance of %s' % self.w__class__

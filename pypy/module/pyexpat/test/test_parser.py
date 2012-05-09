@@ -52,6 +52,19 @@ class AppTestPyexpat:
                 assert res == 1
                 assert data == [u"\u00f6"]
 
+    def test_get_handler(self):
+        import pyexpat
+        p = pyexpat.ParserCreate()
+        assert p.StartElementHandler is None
+        assert p.EndElementHandler is None
+        def f(*args): pass
+        p.StartElementHandler = f
+        assert p.StartElementHandler is f
+        def g(*args): pass
+        p.EndElementHandler = g
+        assert p.StartElementHandler is f
+        assert p.EndElementHandler is g
+
     def test_intern(self):
         import pyexpat
         p = pyexpat.ParserCreate()
