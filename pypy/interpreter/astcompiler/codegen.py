@@ -576,12 +576,50 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
             self.emit_op(ops.POP_TOP)
             if handler.name:
-                self.name_op(handler.name, ast.Store);
+                ## generate the equivalent of:
+                ## 
+                ## try:
+                ##     # body
+                ## except type as name:
+                ##     try:
+                ##         # body
+                ##     finally:
+                ##         name = None
+                ##         del name
+                #
+                cleanup_end = self.new_block()
+                self.name_op(handler.name, ast.Store)
+                self.emit_op(ops.POP_TOP)
+                # second try
+                self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
+                cleanup_body = self.use_next_block()
+                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                # second # body
+                self.visit_sequence(handler.body)
+                self.emit_op(ops.POP_BLOCK)
+                self.emit_op(ops.POP_EXCEPT)
+                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                # finally
+                self.load_const(self.space.w_None)
+                self.use_next_block(cleanup_end)
+                self.push_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                # name = None
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store)
+                # del name
+                self.name_op(handler.name, ast.Del)
+                #
+                self.emit_op(ops.END_FINALLY)
+                self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
             else:
                 self.emit_op(ops.POP_TOP)
-            self.emit_op(ops.POP_TOP)
-            self.visit_sequence(handler.body)
-            self.emit_op(ops.POP_EXCEPT)
+                self.emit_op(ops.POP_TOP)
+                cleanup_body = self.use_next_block()
+                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.visit_sequence(handler.body)
+                self.emit_op(ops.POP_EXCEPT)
+                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+            #
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)
