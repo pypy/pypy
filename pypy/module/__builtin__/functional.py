@@ -317,16 +317,10 @@ class W_XRange(Wrappable):
         self.start = start
         self.len   = len
         self.step  = step
-        self.promote_step = promote_step
 
-    def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
+    def descr_new(space, w_subtype, w_start, w_stop=None, w_step=1):
         start = _toint(space, w_start)
-        if space.is_w(w_step, space.w_None):  # no step argument provided
-            step = 1
-            promote_step = True
-        else:
-            step  = _toint(space, w_step)
-            promote_step = False
+        step  = _toint(space, w_step)
         if space.is_w(w_stop, space.w_None):  # only 1 argument provided
             start, stop = 0, start
         else:
@@ -362,12 +356,14 @@ class W_XRange(Wrappable):
                              space.wrap("xrange object index out of range"))
 
     def descr_iter(self):
-        if self.promote_step and self.step == 1:
-            return self.space.wrap(W_XRangeStepOneIterator(self.space, self.start,
-                                                    self.stop))
+        if self.step == 1:
+            stop = self.start + self.len
+            return self.space.wrap(W_XRangeStepOneIterator(self.space,
+                                                           self.start,
+                                                           stop))
         else:
             return self.space.wrap(W_XRangeIterator(self.space, self.start,
-                                                self.len, self.step))
+                                                    self.len, self.step))
 
     def descr_reversed(self):
         lastitem = self.start + (self.len-1) * self.step
