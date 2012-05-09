@@ -1,4 +1,5 @@
 import weakref
+from pypy.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
@@ -11,6 +12,7 @@ ExecutionContext._thread_local_objs = None
 class Local(Wrappable):
     """Thread-local data"""
 
+    @jit.dont_look_inside
     def __init__(self, space, initargs):
         self.initargs = initargs
         self.dicts = {}   # mapping ExecutionContexts to the wraped dict
@@ -31,26 +33,32 @@ class Local(Wrappable):
             ec._thread_local_objs = []
         ec._thread_local_objs.append(weakref.ref(self))
 
+    @jit.dont_look_inside
+    def create_new_dict(self, ec):
+        # create a new dict for this thread
+        space = ec.space
+        w_dict = space.newdict(instance=True)
+        self.dicts[ec] = w_dict
+        # call __init__
+        try:
+            w_self = space.wrap(self)
+            w_type = space.type(w_self)
+            w_init = space.getattr(w_type, space.wrap("__init__"))
+            space.call_obj_args(w_init, w_self, self.initargs)
+        except:
+            # failed, forget w_dict and propagate the exception
+            del self.dicts[ec]
+            raise
+        # ready
+        self._register_in_ec(ec)
+        return w_dict
+
     def getdict(self, space):
         ec = space.getexecutioncontext()
         try:
             w_dict = self.dicts[ec]
         except KeyError:
-            # create a new dict for this thread
-            w_dict = space.newdict(instance=True)
-            self.dicts[ec] = w_dict
-            # call __init__
-            try:
-                w_self = space.wrap(self)
-                w_type = space.type(w_self)
-                w_init = space.getattr(w_type, space.wrap("__init__"))
-                space.call_obj_args(w_init, w_self, self.initargs)
-            except:
-                # failed, forget w_dict and propagate the exception
-                del self.dicts[ec]
-                raise
-            # ready
-            self._register_in_ec(ec)
+            w_dict = self.create_new_dict(ec)
         return w_dict
 
     def descr_local__new__(space, w_subtype, __args__):
