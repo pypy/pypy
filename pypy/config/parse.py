@@ -4,8 +4,8 @@ def parse_info(text):
     """See test_parse.py."""
     text = text.lstrip()
     result = {}
-    if text.startswith('['):
-        # new format
+    if (text+':').index(':') > (text+'=').index('='):
+        # found a '=' before a ':' means that we have the new format
         current = {0: ''}
         indentation_prefix = None
         for line in text.splitlines():

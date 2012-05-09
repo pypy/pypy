@@ -20,6 +20,9 @@ def test_parse_new_format():
         'objspace.x': 'hello',
         })
 
+    assert parse_info("simple = 43\n") == {'simple': 43}
+
+
 def test_parse_old_format():
     assert (parse_info("                          objspace.allworkingmodules: True\n"
                        "                    objspace.disable_call_speedhacks: False\n"
