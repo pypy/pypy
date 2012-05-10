@@ -15,6 +15,13 @@ class AppTestRaise:
         else:
             raise AssertionError("exception executing else clause!")
 
+    def test_store_exception(self):
+        try:
+            raise ValueError
+        except Exception as e:
+            assert e
+
+
     def test_args(self):
         try:
             raise SystemError(1, 2)

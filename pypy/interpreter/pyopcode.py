@@ -529,14 +529,9 @@ class __extend__(pyframe.PyFrame):
 
     def POP_EXCEPT(self, oparg, next_instr):
         assert self.space.py3k
-        # on CPython, POP_EXCEPT also pops the block. Here, the block is
-        # automatically popped by unrollstack()
-        w_last_exception = self.popvalue()
-        if not isinstance(w_last_exception, W_OperationError):
-            msg = "expected an OperationError, got %s" % (
-                self.space.str_w(w_last_exception))
-            raise BytecodeCorruption(msg)
-        self.last_exception = w_last_exception.operr
+        block = self.pop_block()
+        block.cleanup(self)
+        return
 
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
@@ -1303,6 +1298,30 @@ class LoopBlock(FrameBlock):
             return r_uint(self.handlerposition)
 
 
+class ExceptHandlerBlock(FrameBlock):
+    """
+    This is a special, implicit block type which is created when entering an
+    except handler. It does not belong to any opcode
+    """
+
+    _immutable_ = True
+    _opname = 'EXCEPT_HANDLER_BLOCK' # it's not associated to any opcode
+    handling_mask = 0 # this block is never handled, only popped by POP_EXCEPT
+
+    def handle(self, frame, unroller):
+        assert False # never called
+
+    def cleanup(self, frame):
+        frame.dropvaluesuntil(self.valuestackdepth+1)
+        w_last_exception = frame.popvalue()
+        if not isinstance(w_last_exception, W_OperationError):
+            msg = "expected an OperationError, got %s" % (
+                frame.space.str_w(w_last_exception))
+            raise BytecodeCorruption(msg)
+        frame.last_exception = w_last_exception.operr
+        FrameBlock.cleanup(self, frame)
+
+
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
@@ -1326,6 +1345,8 @@ class ExceptBlock(FrameBlock):
             w_last_exception = W_OperationError(frame.last_exception)
             w_last_exception = frame.space.wrap(w_last_exception)
             frame.pushvalue(w_last_exception)
+            block = ExceptHandlerBlock(self, 0, frame.lastblock)
+            frame.lastblock = block
         frame.pushvalue(frame.space.wrap(unroller))
         frame.pushvalue(operationerr.get_w_value(frame.space))
         frame.pushvalue(operationerr.w_type)
