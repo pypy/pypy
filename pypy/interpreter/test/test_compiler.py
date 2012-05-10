@@ -994,14 +994,14 @@ class AppTestExceptions:
         source2 = "x = (\n\n"
         try:
             exec(source1)
-        except SyntaxError as err1:
-            pass
+        except SyntaxError as e:
+            err1 = e
         else:
             raise Exception("DID NOT RAISE")
         try:
             exec(source2)
-        except SyntaxError as err2:
-            pass
+        except SyntaxError as e:
+            err2 = e
         else:
             raise Exception("DID NOT RAISE")
         assert str(err1) != str(err2)
