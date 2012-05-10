@@ -1341,17 +1341,6 @@ class FinallyBlock(FrameBlock):
     handling_mask = -1     # handles every kind of SuspendedUnroller
     restore_last_exception = True # set to False by WithBlock
 
-    def cleanup(self, frame):
-        # upon normal entry into the finally: part, the standard Python
-        # bytecode pushes a single None for END_FINALLY.  In our case we
-        # always push three values into the stack: the wrapped ctlflowexc,
-        # the exception value and the exception type (which are all None
-        # here).
-        self.cleanupstack(frame)
-        # one None already pushed by the bytecode
-        #frame.pushvalue(frame.space.w_None)
-        #frame.pushvalue(frame.space.w_None)
-
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
