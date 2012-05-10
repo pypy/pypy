@@ -8,7 +8,7 @@ give a simple-to-use API.
 """
 
 from __future__ import with_statement
-import thread, collections
+import sys, thread, collections
 
 try:
     from thread import atomic

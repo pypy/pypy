@@ -38,3 +38,34 @@ def test_simple_random_and_fixed_order():
         transaction.run()
         print lsts
         assert lsts == (range(10),) * 5
+
+def test_raise():
+    class FooError(Exception):
+        pass
+    for x in range(N):
+        lsts = ([], [], [], [], [], [], [], [], [], [])
+        def do_stuff(i, j):
+            lsts[i].append(j)
+            j += 1
+            if j < 5:
+                transaction.add(do_stuff, i, j)
+            else:
+                lsts[i].append('foo')
+                raise FooError
+        for i in range(10):
+            transaction.add(do_stuff, i, 0)
+        try:
+            transaction.run()
+        except FooError:
+            pass
+        else:
+            raise AssertionError("should have raised FooError")
+        print lsts
+        num_foos = 0
+        for lst in lsts:
+            if len(lst) < 5:
+                assert lst == range(len(lst))
+            else:
+                assert lst == range(5) + ['foo']
+                num_foos += 1
+        assert num_foos == 1
