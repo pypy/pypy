@@ -801,7 +801,13 @@ class ObjSpace(object):
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
-    def _check_interp_w_or_none(self, RequiredClass, w_obj):
+    def _check_constant_interp_w_or_w_None(self, RequiredClass, w_obj):
+        """
+        This method should NOT be called unless you are really sure about
+        it. It is used inside the implementation of end_finally() in
+        pyopcode.py, and it's there so that it can be overridden by the
+        FlowObjSpace.
+        """
         if self.is_w(w_obj, self.w_None):
             return True
         obj = self.interpclass_w(w_obj)

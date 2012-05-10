@@ -612,7 +612,7 @@ class __extend__(pyframe.PyFrame):
         w_top = self.popvalue()
         # the following logic is a mess for the flow objspace,
         # so we hide it specially in the space :-/
-        if self.space._check_interp_w_or_none(SuspendedUnroller, w_top):
+        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
             # case of a finally: block
             unroller = self.space.interpclass_w(w_top)
             return unroller
