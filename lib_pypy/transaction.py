@@ -111,6 +111,7 @@ class _ThreadPool(object):
         # now wait.  When we manage to acquire the following lock, then
         # we are finished.
         self.lock_if_released_then_finished.acquire()
+        self.lock_mutex.acquire()   # wait until the threads are really done
 
     def teardown(self):
         self.in_transaction = False
