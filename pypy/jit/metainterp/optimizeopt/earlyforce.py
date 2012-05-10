@@ -8,7 +8,8 @@ class OptEarlyForce(Optimization):
         if (opnum != rop.SETFIELD_GC and 
             opnum != rop.SETARRAYITEM_GC and
             opnum != rop.QUASIIMMUT_FIELD and
-            opnum != rop.SAME_AS):
+            opnum != rop.SAME_AS and
+            opnum != rop.MARK_OPAQUE_PTR):
                
             for arg in op.getarglist():
                 if arg in self.optimizer.values:

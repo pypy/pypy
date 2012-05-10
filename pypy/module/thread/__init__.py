@@ -21,7 +21,7 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
         'RLock':                  'os_lock.W_RLock',
-        #'_local':                 'os_local.Local',
+        '_local':                 'os_local.Local',
         'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX) / 1000000.0)',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
@@ -38,8 +38,3 @@ class Module(MixedModule):
         from pypy.module.posix.interp_posix import add_fork_hook
         from pypy.module.thread.os_thread import reinit_threads
         add_fork_hook('child', reinit_threads)
-
-    def setup_after_space_initialization(self):
-        """NOT_RPYTHON"""
-        if self.space.config.translation.rweakref:
-            self.extra_interpdef('_local', 'os_local.Local')

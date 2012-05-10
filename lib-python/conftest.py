@@ -18,6 +18,7 @@ from pypy.conftest import gettestobjspace, option as pypy_option
 
 from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, testdir, testresultdir
+from pypy.config.parse import parse_info
 
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
@@ -538,8 +539,9 @@ class ReallyRunFileExternal(py.test.collect.Item):
 
             # check modules
             info = py.process.cmdexec("%s --info" % execpath)
+            info = parse_info(info)
             for mod in regrtest.usemodules:
-                if "objspace.usemodules.%s: False" % mod in info:
+                if info.get('objspace.usemodules.%s' % mod) is not True:
                     py.test.skip("%s module not included in %s" % (mod,
                                                                    execpath))
                     

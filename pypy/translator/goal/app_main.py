@@ -122,8 +122,18 @@ def print_info(*args):
     else:
         optitems = list(options.items())
         optitems.sort()
-        for name, value in optitems:
-            print(' %51s: %s' % (name, value))
+        current = []
+        for key, value in optitems:
+            group = key.split('.')
+            name = group.pop()
+            n = 0
+            while n < min(len(current), len(group)) and current[n] == group[n]:
+                n += 1
+            while n < len(group):
+                print('%s[%s]' % ('    ' * n, group[n]))
+                n += 1
+            print('%s%s = %r' % ('    ' * n, name, value))
+            current = group
     raise SystemExit
 
 def print_help(*args):

@@ -538,6 +538,8 @@ class AppTestMMap:
         assert len(b) == 6
         assert b[3] == b"b"
         assert b[:] == b"foobar"
+        m.close()
+        f.close()
 
     def test_offset(self):
         from mmap import mmap, ALLOCATIONGRANULARITY

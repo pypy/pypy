@@ -543,16 +543,28 @@ class __extend__(pyframe.PyFrame):
         block.cleanup(self)  # the block knows how to clean up the value stack
 
     def end_finally(self):
-        # unlike CPython, when we reach this opcode the value stack has
-        # always been set up as follows (topmost first):
-        #   [exception type  or None]
-        #   [exception value or None]
-        #   [wrapped stack unroller ]
-        self.popvalue()   # ignore the exception type
-        self.popvalue()   # ignore the exception value
-        w_unroller = self.popvalue()
-        unroller = self.space.interpclass_w(w_unroller)
-        return unroller
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block.  In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [wrapped SApplicationException]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [wrapped subclass of SuspendedUnroller]
+        w_top = self.popvalue()
+        # the following logic is a mess for the flow objspace,
+        # so we hide it specially in the space :-/
+        if self.space._check_constant_interp_w_or_w_None(SuspendedUnroller, w_top):
+            # case of a finally: block
+            unroller = self.space.interpclass_w(w_top)
+            return unroller
+        else:
+            # case of an except: block.  We popped the exception type
+            self.popvalue()        #     Now we pop the exception value
+            unroller = self.space.interpclass_w(self.popvalue())
+            assert unroller is not None
+            return unroller
 
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
@@ -903,14 +915,9 @@ class __extend__(pyframe.PyFrame):
     def WITH_CLEANUP(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         # This opcode changed a lot between CPython versions
-        self.popvalue()
-        self.popvalue()
         w_unroller = self.popvalue()
         w_exitfunc = self.popvalue()
         self.pushvalue(w_unroller)
-        self.pushvalue(self.space.w_None)
-        self.pushvalue(self.space.w_None)
-
         unroller = self.space.interpclass_w(w_unroller)
         is_app_exc = (unroller is not None and
                       isinstance(unroller, SApplicationException))
@@ -924,7 +931,7 @@ class __extend__(pyframe.PyFrame):
                 w_traceback)
             if self.space.is_true(w_suppress):
                 # __exit__() returned True -> Swallow the exception.
-                self.settopvalue(self.space.w_None, 2)
+                self.settopvalue(self.space.w_None)
         else:
             self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -1342,8 +1349,8 @@ class FinallyBlock(FrameBlock):
         # here).
         self.cleanupstack(frame)
         # one None already pushed by the bytecode
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
+        #frame.pushvalue(frame.space.w_None)
+        #frame.pushvalue(frame.space.w_None)
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
@@ -1356,8 +1363,6 @@ class FinallyBlock(FrameBlock):
             if frame.space.full_exceptions:
                 operationerr.normalize_exception(frame.space)
         frame.pushvalue(frame.space.wrap(unroller))
-        frame.pushvalue(frame.space.w_None)
-        frame.pushvalue(frame.space.w_None)
         if operationerr and self.restore_last_exception:
             frame.last_exception = operationerr
         return r_uint(self.handlerposition)   # jump to the handler

@@ -547,7 +547,7 @@ _static_opcode_stack_effects = {
     ops.STORE_LOCALS : -1,
     ops.POP_BLOCK : 0,
     ops.POP_EXCEPT : 0,
-    ops.END_FINALLY : -3,
+    ops.END_FINALLY : -1,
     ops.SETUP_WITH : 1,
     ops.SETUP_FINALLY : 0,
     ops.SETUP_EXCEPT : 4,
