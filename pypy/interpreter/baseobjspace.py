@@ -801,6 +801,12 @@ class ObjSpace(object):
         return obj
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    def _check_interp_w_or_none(self, RequiredClass, w_obj):
+        if self.is_w(w_obj, self.w_None):
+            return True
+        obj = self.interpclass_w(w_obj)
+        return isinstance(obj, RequiredClass)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
