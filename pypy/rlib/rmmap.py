@@ -739,13 +739,34 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rwin32._get_osfhandle(fileno)
-            if fh == INVALID_HANDLE:
-                errno = rposix.get_errno()
-                raise OSError(errno, os.strerror(errno))
+            fh = rwin32.get_osfhandle(fileno)
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
+
+            # check file size
+            try:
+                low, high = _get_file_size(fh)
+            except OSError:
+                pass     # ignore non-seeking files and errors and trust map_size
+            else:
+                if not high and low <= sys.maxint:
+                   size = low
+                else:   
+                    # not so sure if the signed/unsigned strictness is a good idea:
+                    high = rffi.cast(lltype.Unsigned, high)
+                    low = rffi.cast(lltype.Unsigned, low)
+                    size = (high << 32) + low
+                    size = rffi.cast(lltype.Signed, size)
+                if map_size == 0:
+                    if offset > size:
+                        raise RValueError(
+                            "mmap offset is greater than file size")
+                    map_size = int(size - offset)
+                    if map_size != size - offset:
+                        raise RValueError("mmap length is too large")
+                elif offset + map_size > size:
+                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE

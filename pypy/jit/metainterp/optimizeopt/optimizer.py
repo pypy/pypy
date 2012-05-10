@@ -658,6 +658,9 @@ class Optimizer(Optimization):
     def optimize_SAME_AS(self, op):
         self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
 
+    def optimize_MARK_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.optimizer.opaque_pointers[value] = True
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
