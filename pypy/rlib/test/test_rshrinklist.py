@@ -19,7 +19,7 @@ def test_simple():
     l3 = [Item() for i in range(150 + 16)]
     for x in l3:
         l.append(x)
-    assert l.items() == l2[1::2] + l3
+    assert l.items() == l2[1::2] + l3   # keeps the order
 
 def test_append_dead_items():
     l = ItemList()

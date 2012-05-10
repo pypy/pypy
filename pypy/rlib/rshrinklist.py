@@ -1,5 +1,12 @@
 
 class AbstractShrinkList(object):
+    """A mixin base class.  You should subclass it and add a method
+    must_keep().  Behaves like a list with the method append(), and
+    you can read *for reading* the list of items by calling items().
+    The twist is that occasionally append() will throw away the
+    items for which must_keep() returns False.  (It does so without
+    changing the order.)
+    """
     _mixin_ = True
 
     def __init__(self):
