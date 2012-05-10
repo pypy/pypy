@@ -14,15 +14,15 @@ try:
     from thread import atomic
 except ImportError:
     # Not a STM-enabled PyPy.  We can still provide a version of 'atomic'
-    # that is good enough for our purposes.  An atomic block in one thread
-    # will not prevent running in all other threads not within an atomic
-    # block.
-    _atomic_lock = thread.allocate_lock()
+    # that is good enough for our purposes.  With this limited version,
+    # an atomic block in thread X will not prevent running thread Y, if
+    # thread Y is not within an atomic block at all.
+    _atomic_global_lock = thread.allocate_lock()
     class _Atomic(object):
         def __enter__(self):
-            _atomic_lock.acquire()
+            _atomic_global_lock.acquire()
         def __exit__(self, *args):
-            _atomic_lock.release()
+            _atomic_global_lock.release()
     atomic = _Atomic()
 
 
