@@ -3,6 +3,11 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.typedef import (TypeDef, interp2app, GetSetProperty,
     descr_get_dict)
+from pypy.rlib.rshrinklist import AbstractShrinkList
+
+class WRefShrinkList(AbstractShrinkList):
+    def must_keep(self, wref):
+        return wref() is not None
 
 
 ExecutionContext._thread_local_objs = None
@@ -28,7 +33,7 @@ class Local(Wrappable):
         if not ec.space.config.translation.rweakref:
             return    # without weakrefs, works but 'dicts' is never cleared
         if ec._thread_local_objs is None:
-            ec._thread_local_objs = []
+            ec._thread_local_objs = WRefShrinkList()
         ec._thread_local_objs.append(weakref.ref(self))
 
     def getdict(self, space):
@@ -74,7 +79,7 @@ def thread_is_stopping(ec):
     if tlobjs is None:
         return
     ec._thread_local_objs = None
-    for wref in tlobjs:
+    for wref in tlobjs.items():
         local = wref()
         if local is not None:
             del local.dicts[ec]
