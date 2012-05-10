@@ -951,13 +951,9 @@ class __extend__(pyframe.PyFrame):
             # Implementation since 2.7a0: 62191 (introduce SETUP_WITH)
             or self.pycode.magic >= 0xa0df2d1):
             # implementation since 2.6a1: 62161 (WITH_CLEANUP optimization)
-            #self.popvalue()
-            #self.popvalue()
             w_unroller = self.popvalue()
             w_exitfunc = self.popvalue()
             self.pushvalue(w_unroller)
-            #self.pushvalue(self.space.w_None)
-            #self.pushvalue(self.space.w_None)
         elif self.pycode.magic >= 0xa0df28c:
             # Implementation since 2.5a0: 62092 (changed WITH_CLEANUP opcode)
             w_exitfunc = self.popvalue()
@@ -1358,25 +1354,12 @@ class FinallyBlock(FrameBlock):
     _opname = 'SETUP_FINALLY'
     handling_mask = -1     # handles every kind of SuspendedUnroller
 
-    def cleanup(self, frame):
-        # upon normal entry into the finally: part, the standard Python
-        # bytecode pushes a single None for END_FINALLY.  In our case we
-        # always push three values into the stack: the wrapped ctlflowexc,
-        # the exception value and the exception type (which are all None
-        # here).
-        self.cleanupstack(frame)
-        # one None already pushed by the bytecode
-        #frame.pushvalue(frame.space.w_None)
-        #frame.pushvalue(frame.space.w_None)
-
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
         frame.pushvalue(frame.space.wrap(unroller))
-        #frame.pushvalue(frame.space.w_None)
-        #frame.pushvalue(frame.space.w_None)
         return r_uint(self.handlerposition)   # jump to the handler
 
 
