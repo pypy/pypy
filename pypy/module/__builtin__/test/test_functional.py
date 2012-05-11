@@ -178,6 +178,11 @@ class AppTestXRange:
       y = callable(*args)
       assert list(y) == list(x)
 
+   def test_lib_python_xrange_optimization(self):
+      x = xrange(1)
+      assert type(reversed(x)) == type(iter(x))
+
+
 class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")

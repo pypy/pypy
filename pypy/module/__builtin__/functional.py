@@ -411,6 +411,9 @@ class W_XRangeIterator(Wrappable):
         return self.space.wrap(self)
 
     def descr_next(self):
+        return self.next()
+    
+    def next(self):
         if self.remaining > 0:
             item = self.current
             self.current = item + self.step
@@ -422,9 +425,6 @@ class W_XRangeIterator(Wrappable):
         return self.space.wrap(self.remaining)
 
     def descr_reduce(self):
-        return self.reduce(self.remaining)
-
-    def reduce(self, remaining):
         from pypy.interpreter.mixedmodule import MixedModule
         space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
@@ -433,8 +433,11 @@ class W_XRangeIterator(Wrappable):
         w        = space.wrap
         nt = space.newtuple
 
-        tup = [w(self.current), w(remaining), w(self.step)]
+        tup = [w(self.current), w(self.get_remaining()), w(self.step)]
         return nt([new_inst, nt(tup)])
+
+    def get_remaining(self):
+        return self.remaining
 
 W_XRangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_XRangeIterator.descr_iter),
@@ -451,20 +454,12 @@ class W_XRangeStepOneIterator(W_XRangeIterator):
         self.stop = stop
         self.step = 1
 
-    def descr_next(self):
+    def next(self):
         if self.current < self.stop:
             item = self.current
             self.current = item + 1
             return self.space.wrap(item)
         raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-    def descr_reduce(self):
-        return self.reduce(self.stop - self.current)
-
-        
-
-W_XRangeStepOneIterator.typedef = TypeDef("xrangesteponeiterator",
-    __iter__        = interp2app(W_XRangeStepOneIterator.descr_iter),
-    next            = interp2app(W_XRangeStepOneIterator.descr_next),
-    __reduce__      = interp2app(W_XRangeStepOneIterator.descr_reduce),
-)
+    def get_remaining(self):
+        return self.stop - self.current
