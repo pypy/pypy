@@ -159,7 +159,7 @@ class TestMisc(BaseTestPyPyC):
         i23 = int_add_ovf(i6, i10)
         guard_no_overflow(descr=...)
         --TICK--
-        jump(..., descr=<Loop0>)
+        jump(..., descr=...)
         """)
 
     def test_range_iter(self):
