@@ -397,6 +397,7 @@ class RegisterOs(BaseLazyRegistering):
         os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
 
         def dup_llimpl(fd):
+            rposix.validate_fd(fd)
             newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
             if newfd == -1:
                 raise OSError(rposix.get_errno(), "dup failed")
@@ -411,6 +412,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [rffi.INT, rffi.INT], rffi.INT)
 
         def dup2_llimpl(fd, newfd):
+            rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
             if error == -1:
@@ -891,6 +893,7 @@ class RegisterOs(BaseLazyRegistering):
         def os_read_llimpl(fd, count):
             if count < 0:
                 raise OSError(errno.EINVAL, None)
+            rposix.validate_fd(fd)
             raw_buf, gc_buf = rffi.alloc_buffer(count)
             try:
                 void_buf = rffi.cast(rffi.VOIDP, raw_buf)
@@ -916,6 +919,7 @@ class RegisterOs(BaseLazyRegistering):
 
         def os_write_llimpl(fd, data):
             count = len(data)
+            rposix.validate_fd(fd)
             buf = rffi.get_nonmovingbuffer(data)
             try:
                 written = rffi.cast(lltype.Signed, os_write(
@@ -940,6 +944,7 @@ class RegisterOs(BaseLazyRegistering):
                                    rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
+            rposix.validate_fd(fd)
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
             if error == -1:
                 raise OSError(rposix.get_errno(), "close failed")
@@ -972,9 +977,10 @@ class RegisterOs(BaseLazyRegistering):
 
         os_lseek = self.llexternal(funcname,
                                    [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG)
+                                   rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
+            rposix.validate_fd(fd)
             how = fix_seek_arg(how)
             res = os_lseek(rffi.cast(rffi.INT,      fd),
                            rffi.cast(rffi.LONGLONG, pos),
@@ -1000,6 +1006,7 @@ class RegisterOs(BaseLazyRegistering):
                                        [rffi.INT, rffi.LONGLONG], rffi.INT)
 
         def ftruncate_llimpl(fd, length):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.LONG,
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
@@ -1018,6 +1025,7 @@ class RegisterOs(BaseLazyRegistering):
             os_fsync = self.llexternal('_commit', [rffi.INT], rffi.INT)
 
         def fsync_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.SIGNED, os_fsync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fsync failed")
@@ -1030,6 +1038,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fdatasync = self.llexternal('fdatasync', [rffi.INT], rffi.INT)
 
         def fdatasync_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.SIGNED, os_fdatasync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fdatasync failed")
@@ -1042,6 +1051,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
 
         def fchdir_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(rffi.SIGNED, os_fchdir(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fchdir failed")
@@ -1357,6 +1367,7 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
+            rposix.validate_fd(fd)
             res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
@@ -1534,6 +1545,7 @@ class RegisterOs(BaseLazyRegistering):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
 
         def umask_llimpl(fd):
+            rposix.validate_fd(fd)
             res = os_umask(rffi.cast(rffi.MODE_T, fd))
             return rffi.cast(lltype.Signed, res)
 

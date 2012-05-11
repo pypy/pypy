@@ -5068,6 +5068,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_strunicode_loop(ops, expected)
 
     def test_call_pure_vstring_const(self):
+        py.test.skip("implement me")
         ops = """
         []
         p0 = newstr(3)

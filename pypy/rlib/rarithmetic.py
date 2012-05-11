@@ -71,7 +71,7 @@ def get_long_pattern(x):
 
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
-is_emulated_long = _long_typecode <> 'l'
+is_emulated_long = _long_typecode != 'l'
     
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1

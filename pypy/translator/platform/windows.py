@@ -83,12 +83,8 @@ def find_msvc_env(x64flag=False):
 
         if env is not None:
             return env
-
     log.error("Could not find a Microsoft Compiler")
     # Assume that the compiler is already part of the environment
-
-msvc_compiler_environ32 = find_msvc_env(False)
-msvc_compiler_environ64 = find_msvc_env(True)
 
 class MsvcPlatform(Platform):
     name = "msvc"
@@ -108,10 +104,7 @@ class MsvcPlatform(Platform):
     
     def __init__(self, cc=None, x64=False):
         self.x64 = x64
-        if x64:
-            msvc_compiler_environ = msvc_compiler_environ64
-        else:
-            msvc_compiler_environ = msvc_compiler_environ32
+        msvc_compiler_environ = find_msvc_env(x64)
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
