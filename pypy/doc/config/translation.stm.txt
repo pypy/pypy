@@ -1,3 +1,5 @@
 Enable global STM transformation of the translated interpreter.
-Trades performance for running on multiple cores in individual
-"transactions".
+
+This is a trade-off: for some performance cost, the resulting
+interpreter is able to execute multiple threads on multiple cores
+in parallel.
