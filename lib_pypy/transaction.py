@@ -170,6 +170,7 @@ class _ThreadPool(object):
                 return next
             #
             # first check if all N threads are waiting here.
+            assert not self.finished
             self.num_waiting_threads += 1
             if self.num_waiting_threads == self.num_threads:
                 # yes, so finished!  unlock this to wake up the other
