@@ -69,3 +69,16 @@ def test_raise():
                 assert lst == range(5) + ['foo']
                 num_foos += 1
         assert num_foos == 1
+
+
+def run_tests():
+    for name in sorted(globals().keys()):
+        if name.startswith('test_'):
+            value = globals().get(name)
+            if type(value) is type(run_tests):
+                print name
+                value()
+    print 'all tests passed.'
+
+if __name__ == '__main__':
+    run_tests()
