@@ -214,11 +214,6 @@ def test_os_close():
     raises(OSError, f, fd)
 
 def test_os_lseek():
-    if sys.maxint == 2**31-1 and not sys.platform.startswith('win'):
-        # cannot reliably test lseek() in this mode, because the lseek()
-        # that we get is the one that returns only a 32-bit integer
-        py.test.skip("cannot test lseek on 32-bit here")
-    #
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_RDWR|os.O_CREAT, 0777)
     assert fd >= 0
