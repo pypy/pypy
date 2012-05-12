@@ -2,6 +2,8 @@ import time
 from pypy.module.thread import ll_thread
 from pypy.rlib import rstm
 from pypy.rlib.objectmodel import invoke_around_extcall, we_are_translated
+from pypy.rlib.debug import ll_assert
+from pypy.rpython.lltypesystem import rffi
 
 
 class Node:
@@ -64,6 +66,9 @@ class ThreadRunner(object):
     def run(self):
         try:
             self.value = 0
+            self.arg = Arg()
+            rstm.perform_transaction(ThreadRunner.check_ptr_equality,
+                                     ThreadRunner, self)
             rstm.perform_transaction(ThreadRunner.run_really,
                                      ThreadRunner, self)
         finally:
@@ -84,6 +89,21 @@ class ThreadRunner(object):
         add_at_end_of_chained_list(glob.anchor, self.value, self.index)
         self.value += 1
         return int(self.value < glob.LENGTH)
+
+    def check_ptr_equality(self, retry_counter):
+        res = _check_pointer(self.arg)    # 'self.arg' reads a GLOBAL object
+        ll_assert(res is self.arg, "ERROR: bogus pointer equality")
+        raw1 = rffi.cast(rffi.CCHARP, retry_counter)
+        raw2 = rffi.cast(rffi.CCHARP, -1)
+        ll_assert(raw1 != raw2, "ERROR: retry_counter == -1")
+        return 0
+
+class Arg:
+    foobar = 42
+
+def _check_pointer(arg1):
+    arg1.foobar = 40    # now 'arg1' is local
+    return arg1
 
 # ____________________________________________________________
 # bah, we are really missing an RPython interface to threads

@@ -1,28 +1,30 @@
 import py
 from pypy.rlib import rstm, rgc
 from pypy.translator.stm.test.support import CompiledSTMTests
-from pypy.translator.stm.test import targetdemo
+from pypy.translator.stm.test import targetdemo2
 
 
 class TestSTMTranslated(CompiledSTMTests):
 
     def test_targetdemo(self):
-        t, cbuilder = self.compile(targetdemo.entry_point)
+        t, cbuilder = self.compile(targetdemo2.entry_point)
         data, dataerr = cbuilder.cmdexec('4 5000', err=True)
         assert 'check ok!' in data
 
     def test_bug1(self):
         #
-        class InitialTransaction(rstm.Transaction):
-            def run(self):
-                rgc.collect(0)
+        class Foobar:
+            pass
+        def check(foobar, retry_counter):
+            rgc.collect(0)
+            return 0
         #
         class X:
             def __init__(self, count):
                 self.count = count
         def g():
             x = X(1000)
-            rstm.run_all_transactions(InitialTransaction())
+            rstm.perform_transaction(check, Foobar, Foobar())
             return x
         def entry_point(argv):
             x = X(len(argv))
@@ -36,9 +38,10 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_bug2(self):
         #
-        class DoNothing(rstm.Transaction):
-            def run(self):
-                pass
+        class Foobar:
+            pass
+        def check(foobar, retry_counter):
+            return 0    # do nothing
         #
         class X2:
             pass
@@ -48,7 +51,7 @@ class TestSTMTranslated(CompiledSTMTests):
             x = prebuilt2[count]
             x.foobar = 2                    # 'x' becomes a local
             #
-            rstm.run_all_transactions(DoNothing())
+            rstm.perform_transaction(check, Foobar, Foobar())
                                             # 'x' becomes the global again
             #
             y = prebuilt2[count]            # same prebuilt obj
@@ -65,9 +68,10 @@ class TestSTMTranslated(CompiledSTMTests):
         assert '12\n12\n' in data, "got: %r" % (data,)
 
     def test_prebuilt_nongc(self):
-        class DoNothing(rstm.Transaction):
-            def run(self):
-                pass
+        class Foobar:
+            pass
+        def check(foobar, retry_counter):
+            return 0    # do nothing
         from pypy.rpython.lltypesystem import lltype
         R = lltype.GcStruct('R', ('x', lltype.Signed))
         S1 = lltype.Struct('S1', ('r', lltype.Ptr(R)))
@@ -76,7 +80,7 @@ class TestSTMTranslated(CompiledSTMTests):
         #                   hints={'stm_thread_local': True})
         #s2 = lltype.malloc(S2, immortal=True, flavor='raw')
         def do_stuff():
-            rstm.run_all_transactions(DoNothing())
+            rstm.perform_transaction(check, Foobar, Foobar())
             print s1.r.x
             #print s2.r.x
         do_stuff._dont_inline_ = True
