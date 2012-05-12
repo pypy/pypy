@@ -11,12 +11,13 @@ from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
 from pypy.module.thread.threadlocals import OSThreadLocals
-from pypy.rlib.objectmodel import invoke_around_extcall
+from pypy.rlib.objectmodel import invoke_around_extcall, has_around_extcall
 from pypy.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
     gil_ready = False
+    is_atomic = 0
     _immutable_fields_ = ['gil_ready?']
 
     def initialize(self, space):
@@ -42,8 +43,19 @@ class GILThreadLocals(OSThreadLocals):
         # test_lock_again after the global state was cleared by
         # test_compile_lock.  As a workaround, we repatch these global
         # fields systematically.
-        invoke_around_extcall(before_external_call, after_external_call)
+        self.set_gil_releasing_calls()
         return result
+
+    def set_gil_releasing_calls(self):
+        if self.is_atomic == 0:
+            # not running atomically so far, so we register the
+            # functions that will be called around external calls
+            invoke_around_extcall(before_external_call, after_external_call)
+        else:
+            # running atomically: we have the GIL here, so if we
+            # just un-register the functions, we won't release the GIL
+            # any more.
+            invoke_around_extcall(None, None)
 
     def reinit_threads(self, space):
         if self.gil_ready:
@@ -109,9 +121,10 @@ def do_yield_thread():
     # explicitly release the gil, in a way that tries to give more
     # priority to other threads (as opposed to continuing to run in
     # the same thread).
-    if thread.gil_yield_thread():
-        thread.gc_thread_run()
-        spacestate.after_thread_switch()
+    if has_around_extcall():
+        if thread.gil_yield_thread():
+            thread.gc_thread_run()
+            spacestate.after_thread_switch()
 do_yield_thread._gctransformer_hint_close_stack_ = True
 do_yield_thread._dont_reach_me_in_del_ = True
 do_yield_thread._dont_inline_ = True

@@ -489,8 +489,8 @@ def invoke_around_extcall(before, after,
     # the 'aroundstate' contains regular function and not ll pointers to them,
     # but let's call llhelper() anyway to force their annotation
     from pypy.rpython.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
+    if before is not None: llhelper(rffi.AroundFnPtr, before)
+    if after  is not None: llhelper(rffi.AroundFnPtr, after)
     # do the same thing about enter/leave_callback
     if enter_callback is not None:
         rffi.aroundstate.enter_callback = enter_callback
@@ -502,6 +502,10 @@ def invoke_around_extcall(before, after,
 def is_in_callback():
     from pypy.rpython.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1
+
+def has_around_extcall():
+    from pypy.rpython.lltypesystem import rffi
+    return rffi.aroundstate.before is not None
 
 
 class UnboxedValue(object):
