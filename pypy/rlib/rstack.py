@@ -16,10 +16,8 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 
-compilation_info = ExternalCompilationInfo(includes=['src/stack.h'])
-
 def llexternal(name, args, res, _callable=None):
-    return rffi.llexternal(name, args, res, compilation_info=compilation_info,
+    return rffi.llexternal(name, args, res,
                            sandboxsafe=True, _nowrapper=True,
                            _callable=_callable)
 

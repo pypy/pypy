@@ -55,6 +55,8 @@
 #  include "src/main.h"
 #endif
 
+#include "src/stack.h"
+
 /* suppress a few warnings in the generated code */
 #ifdef MS_WINDOWS
 #  ifdef _MSC_VER
