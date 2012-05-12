@@ -169,10 +169,21 @@ class IntegralType(Type):
             return 'inttoptr'
         return 'bitcast'
 
+    def __hash__(self):
+        return 257 * self.unsigned + self.bitwidth
+
+    def __eq__(self, other):
+        return (self.bitwidth == other.bitwidth and
+                self.unsigned == other.unsigned)
+
+    def __ne__(self, other):
+        return (self.bitwidth != other.bitwidth or
+                self.unsigned != other.unsigned)
+
 
 class CharType(IntegralType):
-    def __init__(self, bitwidth):
-        IntegralType.__init__(self, bitwidth, True)
+    def __init__(self, bytewidth, unsigned):
+        IntegralType.__init__(self, bytewidth, unsigned)
 
     def is_zero(self, value):
         return value is None or value == '\00'
@@ -249,8 +260,9 @@ LLVMVoid = VoidType()
 LLVMSigned = IntegralType(8, False)
 LLVMUnsigned = IntegralType(8, True)
 LLVMShort = IntegralType(4, False)
-LLVMChar = CharType(1)
-LLVMUniChar = CharType(4)
+LLVMChar = CharType(1, True)
+LLVMSignedChar = CharType(1, False)
+LLVMUniChar = CharType(4, True)
 LLVMBool = BoolType()
 LLVMFloat = FloatType('double', 64)
 LLVMSingleFloat = FloatType('float', 32)
@@ -330,6 +342,7 @@ class StructType(Type):
             fields = database.genllvm.gcpolicy.get_gc_fields() + fields
         self.fields = fields
         self.fldnames_wo_voids = [f for t, f in fields if t is not LLVMVoid]
+        self.fldnames_voids = set(f for t, f in fields if t is LLVMVoid)
         self.varsize = fields[-1][0].varsize
         self.size_variants = {}
 
@@ -386,6 +399,8 @@ class StructType(Type):
         return '{{\n{}\n}}'.format('\n'.join(tmp))
 
     def add_indices(self, gep, attr):
+        if attr.value in self.fldnames_voids:
+            raise VoidAttributeAccess
         index = self.fldnames_wo_voids.index(attr.value)
         gep.add_field_index(index)
         return self.fields[index][0]
@@ -762,6 +777,9 @@ def get_repr(cov, var_aliases={}):
     return ConstantRepr(database.get_type(lltype.typeOf(cov)), cov)
 
 
+class VoidAttributeAccess(Exception):
+    pass
+
 class GEP(object):
     def __init__(self, func_writer, ptr):
         self.func_writer = func_writer
@@ -853,7 +871,10 @@ class FunctionWriter(object):
             else:
                 func = getattr(self, 'op_' + opname, None)
                 if func is not None:
-                    func(opres, *opargs)
+                    try:
+                        func(opres, *opargs)
+                    except VoidAttributeAccess:
+                        pass
                 else:
                     raise NotImplementedError(op)
 
@@ -1147,6 +1168,9 @@ class FunctionWriter(object):
     def op_gc_reload_possibly_moved(self, result, v_newaddr, v_targetvar):
         pass
 
+    def op_gc_stack_bottom(self, result):
+        pass
+
     def op_keepalive(self, result, var):
         pass
 
@@ -1304,6 +1328,7 @@ class CTypesFuncWrapper(object):
             LLVMSigned: ctypes.c_long,
             LLVMUnsigned: ctypes.c_ulong,
             LLVMChar: ctypes.c_char,
+            LLVMSignedChar: ctypes.c_byte,
             LLVMUniChar: ctypes.c_wchar,
             LLVMBool: ctypes.c_bool,
             LLVMFloat: ctypes.c_double

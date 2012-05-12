@@ -1,10 +1,14 @@
 from cStringIO import StringIO
 import py
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.rffi import (llexternal, CCHARP, str2charp,
+     charp2str, free_charp)
+from pypy.rpython.lltypesystem.test.test_rffi import BaseTestRffi
 from pypy.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)
 from pypy.translator.c.test import test_typed, test_lltyped
 from pypy.translator.llvm import genllvm
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.translator import TranslationContext
 
 
@@ -245,3 +249,41 @@ class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
 class TestTypedLLVM(_LLVMMixin, test_typed.TestTypedTestCase):
     def test_hash_preservation(self):
         py.test.skip('not working yet')
+
+
+class TestLLVMRffi(BaseTestRffi, _LLVMMixin):
+    def compile(self, func, argtypes=None, backendopt=True, gcpolicy='framework'):
+        # XXX do not ignore backendopt
+        if gcpolicy != 'framework':
+            py.test.skip('gcpolicy not supported')
+        fn = self.getcompiled(func, argtypes)
+        def fn2(*args, **kwds):
+            kwds.pop('expected_extra_mallocs', None)
+            return fn(*args, **kwds)
+        return fn2
+
+    def test_string_reverse(self):
+        c_source = py.code.Source("""
+        #include <string.h>
+
+        char *f(char* arg)
+        {
+            char *ret = malloc(strlen(arg) + 1);
+            strcpy(ret, arg);
+            return ret;
+        }
+        """)
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                      post_include_bits=['char *f(char*);'])
+        z = llexternal('f', [CCHARP], CCHARP, compilation_info=eci)
+
+        def f():
+            s = str2charp("xxx")
+            l_res = z(s)
+            res = charp2str(l_res)
+            lltype.free(l_res, flavor='raw')
+            free_charp(s)
+            return len(res)
+
+        xf = self.compile(f, [], backendopt=False)
+        assert xf(expected_extra_mallocs=-1) == 3
