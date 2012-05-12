@@ -32,27 +32,9 @@ typedef char bool_t;
 #include "src_stm/et.c"
 
 
-void *(*cb_run_transaction)(void *, long);
 long (*cb_getsize)(void *);
 void (*cb_enum_callback)(void *, void *, void *);
 
-int _thread_started = 0;
-
-
-void pypy_g__stm_thread_starting(void) {
-    assert(_thread_started == 0);
-    _thread_started = 1;
-    stm_set_tls((void *)742, 0);
-}
-void pypy_g__stm_thread_stopping(void) {
-    assert(_thread_started == 1);
-    _thread_started = 0;
-    stm_del_tls();
-}
-void *pypy_g__stm_run_transaction(void *a, long b) {
-    assert(cb_run_transaction != NULL);
-    return cb_run_transaction(a, b);
-}
 long pypy_g__stm_getsize(void *a) {
     assert(cb_getsize != NULL);
     return cb_getsize(a);
@@ -63,52 +45,51 @@ void pypy_g__stm_enum_callback(void *a, void *b, void *c) {
 }
 
 
-void *rt2(void *t1, long retry_counter)
+static long rt2(void *t1, long retry_counter)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
     if (retry_counter > 0) {
         t->foobar = retry_counter;
-        return NULL;
+        return 0;
     }
     t->callback();
     t->foobar = '.';
-    return NULL;
+    return 0;
 }
 void run_in_transaction(void(*cb)(void), int expected)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 t;
+    void *dummy;
     t.callback = cb;
-    cb_run_transaction = rt2;
-    stm_run_all_transactions(&t, 1);
+    stm_perform_transaction(rt2, &t, &dummy);
     assert(t.foobar == expected);
-
 }
 
 /************************************************************/
 
 void test_set_get_del(void)
 {
-    stm_set_tls((void *)42, 1);
+    stm_set_tls((void *)42);
     assert(stm_get_tls() == (void *)42);
     stm_del_tls();
 }
 
 /************************************************************/
 
-void *rt1(void *t1, long retry_counter)
+static long rt1(void *t1, long retry_counter)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 *t = t1;
     assert(retry_counter == 0);
     assert(t->foobar == 42);
     t->foobar = 143;
-    return NULL;
+    return 0;
 }
 void test_run_all_transactions(void)
 {
     struct pypy_pypy_rlib_rstm_Transaction0 t;
+    void *dummy;
     t.foobar = 42;
-    cb_run_transaction = rt1;
-    stm_run_all_transactions(&t, 1);
+    stm_perform_transaction(rt1, &t, &dummy);
     assert(t.foobar == 143);
 }
 
@@ -191,6 +172,7 @@ void enum_tldict_nonempty(void)
     void *a3 = (void *)0x4028;
     void *a4 = (void *)10004;
 
+    stm_set_tls((void *)742);
     stm_tldict_add(a1, a2);
     stm_tldict_add(a3, a4);
     cb_enum_callback = check_enum_1;
@@ -208,6 +190,7 @@ void test_read_main_thread(void)
 {
     S1 s1;
     int i;
+    stm_begin_inevitable_transaction();
     for (i=0; i<2; i++) {
         s1.header.h_tid = GCFLAG_GLOBAL | (i ? GCFLAG_WAS_COPIED : 0);
         s1.header.h_version = NULL;
@@ -331,14 +314,14 @@ void test_copy_transactional_to_raw(void) {
 void try_inevitable(void)
 {
     assert(stm_in_transaction() == 1);
-    assert(stm_thread_id() != 0);
+    assert(!stm_is_inevitable());
     /* not really testing anything more than the presence of the function */
     stm_try_inevitable(STM_EXPLAIN1("some explanation"));
+    assert(stm_is_inevitable());
 }
 void test_try_inevitable(void)
 {
     assert(stm_in_transaction() == 0);
-    assert(stm_thread_id() == 0);
     run_in_transaction(try_inevitable, '.');
 }
 
@@ -349,6 +332,8 @@ void test_try_inevitable(void)
 
 int main(int argc, char **argv)
 {
+    long res = stm_descriptor_init();
+    assert(res == 1);
     XTEST(set_get_del);
     XTEST(run_all_transactions);
     XTEST(tldict);

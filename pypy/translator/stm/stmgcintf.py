@@ -68,10 +68,6 @@ class StmOperations(object):
     get_tls = smexternal('stm_get_tls', [], llmemory.Address)
     del_tls = smexternal('stm_del_tls', [], lltype.Void)
 
-    # return the current thread id (a random non-null number, or 0 for
-    # the main thread)
-    thread_id = smexternal('stm_thread_id', [], lltype.Signed)
-
     # lookup, add, and enumerate the content of the internal dictionary
     # that maps GLOBAL objects to LOCAL objects
     tldict_lookup = smexternal('stm_tldict_lookup', [llmemory.Address],

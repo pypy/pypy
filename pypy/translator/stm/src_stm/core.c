@@ -275,12 +275,17 @@ static void validate(struct tx_descriptor *d)
 
 #ifdef USE_PTHREAD_MUTEX
 /* mutex: only to avoid busy-looping too much in tx_spinloop() below */
-# ifndef RPY_STM_ASSERT
+
+# if defined(RPY_STM_ASSERT) && defined(PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP)
+static pthread_mutex_t mutex_inevitable = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+# else
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
+# endif
+
+# ifndef RPY_STM_ASSERT
 #  define mutex_lock()    pthread_mutex_lock(&mutex_inevitable)
 #  define mutex_unlock()  pthread_mutex_unlock(&mutex_inevitable)
 # else
-static pthread_mutex_t mutex_inevitable = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 static unsigned long locked_by = 0;
 static void mutex_lock(void)
 {
@@ -670,12 +675,6 @@ void stm_abort_and_retry(void)
 }
 
 /************************************************************/
-
-long stm_thread_id(void)
-{
-  struct tx_descriptor *d = thread_descriptor;
-  return d->my_lock_word;
-}
 
 static __thread void *rpython_tls_object;
 

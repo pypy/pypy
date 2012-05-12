@@ -15,7 +15,6 @@
 void stm_set_tls(void *);
 void *stm_get_tls(void);
 void stm_del_tls(void);
-long stm_thread_id(void);
 
 void *stm_tldict_lookup(void *);
 void stm_tldict_add(void *, void *);
@@ -35,11 +34,8 @@ long stm_should_break_transaction(void);
 
 void stm_perform_transaction(long(*)(void*, long), void*, void*);
 
-/* these functions are declared by generated C code from pypy.rlib.rstm
-   and from the GC (see llop.nop(...)) */
-extern void pypy_g__stm_thread_starting(void);
-extern void pypy_g__stm_thread_stopping(void);
-extern void *pypy_g__stm_run_transaction(void *, long);
+/* these functions are declared by generated C code from the GC
+   (see llop.nop(...)) */
 extern long pypy_g__stm_getsize(void *);
 extern void pypy_g__stm_enum_callback(void *, void *, void *);
 
