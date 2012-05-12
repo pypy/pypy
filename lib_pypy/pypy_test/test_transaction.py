@@ -1,6 +1,7 @@
 from lib_pypy import transaction
 
 N = 1000
+VERBOSE = False
 
 
 def test_simple_random_order():
@@ -9,8 +10,9 @@ def test_simple_random_order():
         for i in range(10):
             transaction.add(lst.append, i)
         transaction.run()
-        print lst
-        assert sorted(lst) == range(10)
+        if VERBOSE:
+            print lst
+        assert sorted(lst) == range(10), lst
 
 def test_simple_fixed_order():
     for x in range(N):
@@ -22,8 +24,9 @@ def test_simple_fixed_order():
                 transaction.add(do_stuff, i)
         transaction.add(do_stuff, 0)
         transaction.run()
-        print lst
-        assert lst == range(10)
+        if VERBOSE:
+            print lst
+        assert lst == range(10), lst
 
 def test_simple_random_and_fixed_order():
     for x in range(N):
@@ -36,8 +39,9 @@ def test_simple_random_and_fixed_order():
         for i in range(5):
             transaction.add(do_stuff, i, 0)
         transaction.run()
-        print lsts
-        assert lsts == (range(10),) * 5
+        if VERBOSE:
+            print lsts
+        assert lsts == (range(10),) * 5, lsts
 
 def test_raise():
     class FooError(Exception):
@@ -60,15 +64,16 @@ def test_raise():
             pass
         else:
             raise AssertionError("should have raised FooError")
-        print lsts
+        if VERBOSE:
+            print lsts
         num_foos = 0
         for lst in lsts:
             if len(lst) < 5:
-                assert lst == range(len(lst))
+                assert lst == range(len(lst)), lst
             else:
-                assert lst == range(5) + ['foo']
+                assert lst == range(5) + ['foo'], lst
                 num_foos += 1
-        assert num_foos == 1
+        assert num_foos == 1, lsts
 
 
 def run_tests():
