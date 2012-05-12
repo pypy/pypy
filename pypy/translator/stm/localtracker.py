@@ -15,7 +15,7 @@ class StmLocalTracker(object):
     of the stmgc: a pointer is 'local' if it goes to the thread-local memory,
     and 'global' if it points to the shared read-only memory area."""
 
-    def __init__(self, translator, transactionbreak_analyzer):
+    def __init__(self, translator, transactionbreak_analyzer=None):
         self.translator = translator
         self.gsrc = GcSource(translator, transactionbreak_analyzer)
 
