@@ -12,7 +12,6 @@ from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit, rstackovf
-from pypy.rlib import rstm
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import check_nonneg
@@ -90,6 +89,7 @@ class __extend__(pyframe.PyFrame):
             return self.popvalue()
 
     def dispatch_with_stm(self, next_instr):
+        from pypy.rlib import rstm
         self.last_instr = intmask(next_instr)
         rstm.perform_transaction(pyframe.PyFrame._dispatch_stm_transaction,
                                  self.space.FrameClass, self)
@@ -318,8 +318,10 @@ class __extend__(pyframe.PyFrame):
             if jit.we_are_jitted():
                 return next_instr
 
-            if rstm.should_break_transaction():
-                return next_instr
+            if self.space.config.translation.stm:
+                from pypy.rlib import rstm
+                if rstm.should_break_transaction():
+                    return next_instr
 
     @jit.unroll_safe
     def unrollstack(self, unroller_kind):
