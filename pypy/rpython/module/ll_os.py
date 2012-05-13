@@ -1544,9 +1544,8 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_umask(self):
         os_umask = self.llexternal(underscore_on_windows+'umask', [rffi.MODE_T], rffi.MODE_T)
 
-        def umask_llimpl(fd):
-            rposix.validate_fd(fd)
-            res = os_umask(rffi.cast(rffi.MODE_T, fd))
+        def umask_llimpl(newmask):
+            res = os_umask(rffi.cast(rffi.MODE_T, newmask))
             return rffi.cast(lltype.Signed, res)
 
         return extdef([int], int, llimpl=umask_llimpl,
