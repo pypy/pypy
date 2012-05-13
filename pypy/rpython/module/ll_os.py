@@ -977,7 +977,7 @@ class RegisterOs(BaseLazyRegistering):
 
         os_lseek = self.llexternal(funcname,
                                    [rffi.INT, rffi.LONGLONG, rffi.INT],
-                                   rffi.LONGLONG)
+                                   rffi.LONGLONG, macro=True)
 
         def lseek_llimpl(fd, pos, how):
             rposix.validate_fd(fd)
