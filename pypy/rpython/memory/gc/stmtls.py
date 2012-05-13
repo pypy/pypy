@@ -535,8 +535,8 @@ class StmGCTLS(object):
         hdr = self.gc.header(obj)
         ll_assert(hdr.tid & GCFLAG_GLOBAL != 0,
                   "debug_check: missing GLOBAL")
-        ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
-                  "debug_check: unexpected WAS_COPIED")
+        #ll_assert(hdr.tid & GCFLAG_WAS_COPIED == 0,
+        #          "debug_check: unexpected WAS_COPIED")
         ll_assert(hdr.tid & GCFLAG_VISITED == 0,
                   "debug_check: unexpected VISITED")
         ll_assert(hdr.tid & GCFLAG_HAS_SHADOW == 0,

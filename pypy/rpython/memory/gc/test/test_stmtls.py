@@ -16,7 +16,7 @@ SR.become(lltype.GcStruct('SR', ('s1', lltype.Ptr(S)),
 
 
 class FakeStmOperations:
-    def set_tls(self, tlsaddr, num):
+    def set_tls(self, tlsaddr):
         pass
     def del_tls(self, tlsaddr):
         pass
@@ -58,6 +58,7 @@ class FakeRootWalker:
 
 class FakeGC:
     from pypy.rpython.memory.support import AddressDict, null_address_dict
+    DEBUG = True
     AddressStack = get_address_stack()
     AddressDeque = get_address_deque()
     nursery_size = 128
@@ -97,8 +98,8 @@ class TestStmGCTLS(object):
         self.current_stack = []
         self.gc = FakeGC()
         self.gc.sharedarea.gc = self.gc
-        self.gctls_main = StmGCTLS(self.gc, in_main_thread=True)
-        self.gctls_thrd = StmGCTLS(self.gc, in_main_thread=False)
+        self.gctls_main = StmGCTLS(self.gc)
+        self.gctls_thrd = StmGCTLS(self.gc)
         self.gc.main_thread_tls = self.gctls_main
         self.gctls_main.start_transaction()
         self.gc.root_walker.current_stack = self.current_stack

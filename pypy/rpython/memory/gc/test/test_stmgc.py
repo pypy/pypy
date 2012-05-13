@@ -2,6 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from pypy.rpython.memory.gc.stmgc import StmGC, WORD
 from pypy.rpython.memory.gc.stmgc import GCFLAG_GLOBAL, GCFLAG_WAS_COPIED
+from pypy.rpython.memory.gc.stmgc import GCFLAG_VISITED
 from pypy.rpython.memory.support import mangle_hash
 
 
@@ -33,17 +34,29 @@ class FakeStmOperations:
 
     threadnum = 0          # 0 = main thread; 1,2,3... = transactional threads
 
-    def set_tls(self, tls, in_main_thread):
+    def descriptor_init(self):
+        self._in_transaction = False
+
+    def begin_inevitable_transaction(self):
+        assert self._in_transaction is False
+        self._in_transaction = True
+
+    def commit_transaction(self):
+        assert self._in_transaction is True
+        self._in_transaction = False
+
+    def in_transaction(self):
+        return self._in_transaction
+
+    def set_tls(self, tls):
         assert lltype.typeOf(tls) == llmemory.Address
         assert tls
         if self.threadnum == 0:
-            assert in_main_thread == 1
             assert not hasattr(self, '_tls_dict')
             self._tls_dict = {0: tls}
             self._tldicts = {0: {}}
             self._transactional_copies = []
         else:
-            assert in_main_thread == 0
             self._tls_dict[self.threadnum] = tls
             self._tldicts[self.threadnum] = {}
 
@@ -74,24 +87,16 @@ class FakeStmOperations:
         for key, value in self._tldicts[self.threadnum].iteritems():
             callback(tls, key, value)
 
-    def _get_stm_reader(size, TYPE):
-        realsize = rffi.sizeof(TYPE)
-        assert size in (realsize, '%df' % realsize)
-        PTYPE = rffi.CArrayPtr(TYPE)
-        def stm_reader(self, obj, offset):
-            hdr = self._gc.header(obj)
-            if hdr.tid & GCFLAG_WAS_COPIED != 0:
-                localobj = self.tldict_lookup(obj)
-                if localobj:
-                    assert self._gc.header(localobj).tid & GCFLAG_GLOBAL == 0
-                    adr = rffi.cast(PTYPE, localobj + offset)
-                    return adr[0]
-            return 'stm_ll_read_int%s(%r, %r)' % (size, obj, offset)
-        return stm_reader
-
-    for _size, _TYPE in PRIMITIVE_SIZES.items():
-        _func = _get_stm_reader(_size, _TYPE)
-        locals()['stm_read_int%s' % _size] = _func
+    def read_attribute(self, obj, name):
+        obj = llmemory.cast_ptr_to_adr(obj)
+        hdr = self._gc.header(obj)
+        localobj = self.tldict_lookup(obj)
+        if localobj == llmemory.NULL:
+            localobj = obj
+        else:
+            assert hdr.tid & GCFLAG_GLOBAL != 0
+        localobj = llmemory.cast_adr_to_ptr(localobj, lltype.Ptr(SR))
+        return getattr(localobj, name)
 
     def stm_copy_transactional_to_raw(self, srcobj, dstobj, size):
         llmemory.raw_memcopy(srcobj, dstobj, size)
@@ -197,7 +202,8 @@ class StmGCTests:
             obj = llmemory.cast_ptr_to_adr(obj)
         hdr = self.gc.header(obj)
         assert (hdr.tid & GCFLAG_GLOBAL != 0) == must_have_global
-        assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
+        if must_have_was_copied != '?':
+            assert (hdr.tid & GCFLAG_WAS_COPIED != 0) == must_have_was_copied
         if must_have_version != '?':
             assert hdr.version == must_have_version
     def read_signed(self, obj, offset):
@@ -211,7 +217,7 @@ class TestBasic(StmGCTests):
         pass
 
     def test_allocate_bump_pointer(self):
-        tls = self.gc.main_thread_tls
+        tls = self.gc.get_tls()
         a3 = tls.allocate_bump_pointer(3)
         a4 = tls.allocate_bump_pointer(4)
         a5 = tls.allocate_bump_pointer(5)
@@ -238,59 +244,6 @@ class TestBasic(StmGCTests):
         obj = llmemory.cast_ptr_to_adr(gcref)
         assert self.gc.header(obj).tid & GCFLAG_GLOBAL == 0
 
-    def test_reader_direct(self):
-        py.test.skip("xxx")
-        s, s_adr = self.malloc(S)
-        assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL != 0
-        s.a = 42
-        value = self.read_signed(s_adr, ofs_a)
-        assert value == 'stm_ll_read_int%d(%r, %r)' % (WORD, s_adr, ofs_a)
-        #
-        self.select_thread(1)
-        s, s_adr = self.malloc(S)
-        assert self.gc.header(s_adr).tid & GCFLAG_GLOBAL == 0
-        self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED   # should be ignored
-        s.a = 42
-        value = self.read_signed(s_adr, ofs_a)
-        assert value == 42
-
-    def test_reader_through_dict(self):
-        py.test.skip("xxx")
-        s, s_adr = self.malloc(S)
-        s.a = 42
-        #
-        self.select_thread(1)
-        t, t_adr = self.malloc(S)
-        t.a = 84
-        #
-        self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED
-        self.gc.stm_operations._tldicts[1][s_adr] = t_adr
-        #
-        value = self.read_signed(s_adr, ofs_a)
-        assert value == 84
-
-    def test_reader_sizes(self):
-        py.test.skip("xxx")
-        for size, TYPE in PRIMITIVE_SIZES.items():
-            T = lltype.GcStruct('T', ('a', TYPE))
-            ofs_a = llmemory.offsetof(T, 'a')
-            #
-            self.select_thread(0)
-            t, t_adr = self.malloc(T)
-            assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL != 0
-            t.a = lltype.cast_primitive(TYPE, 42)
-            #
-            value = getattr(self.gc, 'read_int%d' % size)(t_adr, ofs_a)
-            assert value == 'stm_ll_read_int%d(%r, %r)' % (size, t_adr, ofs_a)
-            #
-            self.select_thread(1)
-            t, t_adr = self.malloc(T)
-            assert self.gc.header(t_adr).tid & GCFLAG_GLOBAL == 0
-            t.a = lltype.cast_primitive(TYPE, 42)
-            value = getattr(self.gc, 'read_int%d' % size)(t_adr, ofs_a)
-            assert lltype.typeOf(value) == TYPE
-            assert lltype.cast_primitive(lltype.Signed, value) == 42
-
     def test_write_barrier_exists(self):
         self.select_thread(1)
         t, t_adr = self.malloc(S)
@@ -302,7 +255,8 @@ class TestBasic(StmGCTests):
         #
         self.select_thread(1)
         self.gc.header(s_adr).tid |= GCFLAG_WAS_COPIED
-        self.gc.header(t_adr).tid |= GCFLAG_WAS_COPIED
+        self.gc.header(t_adr).tid |= GCFLAG_WAS_COPIED | GCFLAG_VISITED
+        self.gc.header(t_adr).version = s_adr
         self.gc.stm_operations._tldicts[1][s_adr] = t_adr
         obj = self.gc.stm_writebarrier(s_adr)     # global copied object
         assert obj == t_adr
@@ -335,40 +289,34 @@ class TestBasic(StmGCTests):
         assert obj == t_adr
         self.checkflags(obj, False, False)
 
-    def test_write_barrier_global(self):
-        # check that the main thread never makes a local copy of a global obj
-        t, t_adr = self.malloc(S, globl=True)
-        # the following flag can be set a bit randomly on global objects
-        self.gc.header(t_adr).tid |= GCFLAG_WAS_COPIED
-        self.checkflags(t_adr, True, True)
-        obj = self.gc.stm_writebarrier(t_adr)     # main thread, global:
-        assert obj == t_adr                       # doesn't make a copy
-        self.checkflags(obj, False, False)        # but it becomes local
-        # ^^^ but the GCFLAG_WAS_COPIED is removed in this case
-
-    def test_nontransactional_mode(self):
+    def test_random_gc_usage(self):
         import random
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
+        #
+        sr2 = {}    # {obj._obj: obj._obj} following the 'sr2' attribute
+        sr3 = {}    # {obj._obj: obj._obj} following the 'sr3' attribute
         #
         def reachable(source_objects):
             pending = list(source_objects)
             found = set(obj._obj for obj in pending)
             for x in pending:
                 for name in ('sr2', 'sr3'):
-                    obj = getattr(x, name)
+                    obj = self.gc.stm_operations.read_attribute(x, name)
                     if obj and obj._obj not in found:
                         found.add(obj._obj)
                         pending.append(obj)
             return found
         #
-        def shape_of_reachable(source_object):
+        def shape_of_reachable(source_object, can_be_indirect=True):
             shape = []
             pending = [source_object]
             found = {source_object._obj: 0}
             for x in pending:
                 for name in ('sr2', 'sr3'):
-                    obj = getattr(x, name)
+                    obj = self.gc.stm_operations.read_attribute(x, name)
+                    if not can_be_indirect:
+                        assert obj == getattr(x, name)
                     if not obj:
                         shape.append(None)
                     else:
@@ -384,9 +332,10 @@ class TestBasic(StmGCTests):
         all_objects = root_objects[:]
         NO_OBJECT = lltype.nullptr(SR)
         #
-        for iteration in range(10):
+        for iteration in range(3):
             # add 6 freshly malloced objects from the nursery
             new_objects = [self.malloc(SR, globl=False)[0] for i in range(6)]
+            set_new_objects = set(obj._obj for obj in new_objects)
             all_objects = all_objects + new_objects
             set_all_objects = set(obj._obj for obj in all_objects)
             #
@@ -396,7 +345,7 @@ class TestBasic(StmGCTests):
             #
             # randomly add or remove connections between objects, until they
             # are all reachable from root_objects
-            while True:
+            for trying in xrange(200):
                 missing_objects = set_all_objects - reachable(root_objects)
                 if not missing_objects:
                     break
@@ -411,15 +360,13 @@ class TestBasic(StmGCTests):
                 name = random.choice(('sr2', 'sr3'))
                 src_adr = llmemory.cast_ptr_to_adr(srcobj)
                 adr2 = self.gc.stm_writebarrier(src_adr)
-                assert adr2 == src_adr
-                setattr(srcobj, name, dstobj)
-                if srcobj._obj in globals:
-                    globals.remove(srcobj._obj)
+                obj2 = llmemory.cast_adr_to_ptr(adr2, lltype.Ptr(SR))
+                setattr(obj2, name, dstobj)
             #
             # Record the shape of the graph of reachable objects
             shapes = [shape_of_reachable(obj) for obj in root_objects]
             #
-            # Do a collection
+            # Do a minor collection
             self.gc.root_walker.current_stack = fromstack[:]
             self.gc.collect(0)
             #
@@ -427,7 +374,8 @@ class TestBasic(StmGCTests):
             # of the graph of reachable objects now
             fromstack[:] = self.gc.root_walker.current_stack
             root_objects = prebuilt + fromstack
-            shapes2 = [shape_of_reachable(obj) for obj in root_objects]
+            shapes2 = [shape_of_reachable(obj, can_be_indirect=False)
+                       for obj in root_objects]
             assert shapes == shapes2
             #
             # Reset the list of all objects for the next iteration
@@ -435,9 +383,14 @@ class TestBasic(StmGCTests):
             #
             # Check the GLOBAL flag, and check that the objects really survived
             for obj in all_objects:
-                self.checkflags(obj, obj._obj in globals, False)
+                self.checkflags(obj, obj._obj in globals, '?')
+                localobj = self.gc.stm_operations.tldict_lookup(
+                    llmemory.cast_ptr_to_adr(obj))
+                if localobj:
+                    self.checkflags(localobj, False, False)
+            print 'Iteration %d finished' % iteration
 
-    def test_relocalize_objects_after_transactional_mode(self):
+    def test_relocalize_objects_after_transaction_break(self):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
@@ -446,24 +399,23 @@ class TestBasic(StmGCTests):
         tr3, tr3_adr = self.malloc(SR, globl=True)
         tr1.sr2 = tr2
         self.gc.root_walker.current_stack = [tr1]
-        obj = self.gc.stm_writebarrier(tr1_adr)
-        assert obj == tr1_adr
-        obj = self.gc.stm_writebarrier(tr2_adr)
-        assert obj == tr2_adr
-        obj = self.gc.stm_writebarrier(tr3_adr)
-        assert obj == tr3_adr
-        self.checkflags(tr1_adr, False, False)    # tr1 has become local
-        self.checkflags(tr2_adr, False, False)    # tr2 has become local
-        self.checkflags(tr3_adr, False, False)    # tr3 has become local
+        sr1_adr = self.gc.stm_writebarrier(tr1_adr)
+        assert sr1_adr != tr1_adr
+        sr2_adr = self.gc.stm_writebarrier(tr2_adr)
+        assert sr2_adr != tr2_adr
+        sr3_adr = self.gc.stm_writebarrier(tr3_adr)
+        assert sr3_adr != tr3_adr
+        self.checkflags(sr1_adr, False, True)    # sr1 is local
+        self.checkflags(sr2_adr, False, True)    # sr2 is local
+        self.checkflags(sr3_adr, False, True)    # sr3 is local
         #
-        self.gc.enter_transactional_mode()
-        self.gc.leave_transactional_mode()
-        self.checkflags(tr2_adr, True, False)     # tr2 has become global again
-        self.checkflags(tr3_adr, True, False)     # tr3 has become global again
-        # but tr1 is still local, because it is directly referenced from stack
-        self.checkflags(tr1_adr, False, False)
+        self.gc.stop_transaction()
+        self.gc.start_transaction()
+        self.checkflags(tr1_adr, True, True)     # tr1 has become global again
+        self.checkflags(tr2_adr, True, True)     # tr2 has become global again
+        self.checkflags(tr3_adr, True, True)     # tr3 has become global again
 
-    def test_non_prebuilt_relocalize_after_transactional_mode(self):
+    def test_non_prebuilt_relocalize_after_transaction_break(self):
         from pypy.rpython.memory.gc.test import test_stmtls
         self.gc.root_walker = test_stmtls.FakeRootWalker()
         #
@@ -473,7 +425,7 @@ class TestBasic(StmGCTests):
         self.checkflags(tr2_adr, False, False)    # check that it is local
         tr1.sr2 = tr2
         self.gc.root_walker.current_stack = [tr1]
-        self.gc.enter_transactional_mode()
+        self.gc.stop_transaction()
         # tr1 and tr2 moved out of the nursery: check that
         [sr1] = self.gc.root_walker.current_stack
         assert sr1._obj0 != tr1._obj0
@@ -484,29 +436,34 @@ class TestBasic(StmGCTests):
         sr2_adr = llmemory.cast_ptr_to_adr(sr2)
         self.checkflags(sr1_adr, True, False)     # sr1 is a global
         self.checkflags(sr2_adr, True, False)     # sr2 is a global
-        self.gc.leave_transactional_mode()
+        self.gc.start_transaction()
+        self.checkflags(sr1_adr, True, False)     # sr1 is still global
         self.checkflags(sr2_adr, True, False)     # sr2 is still global
-        self.checkflags(sr1_adr, False, False)    # sr1 is back to a local
 
     def test_collect_from_main_thread_was_global_objects(self):
         tr1, tr1_adr = self.malloc(SR, globl=True)  # a global prebuilt object
-        tr2, tr2_adr = self.malloc(SR, globl=False) # tr2 is a local
-        self.checkflags(tr2_adr, False, False)      # check that tr2 is a local
-        obj = self.gc.stm_writebarrier(tr1_adr)
-        assert obj == tr1_adr                       # tr1 is now local
-        tr1.sr2 = tr2
-        self.gc.collect(0)
-        tr2 = tr1.sr2       # reload, because it moved
+        sr2, sr2_adr = self.malloc(SR, globl=False) # sr2 is a local
+        self.checkflags(sr2_adr, False, False)      # check that sr2 is a local
+        sr1_adr = self.gc.stm_writebarrier(tr1_adr)
+        assert sr1_adr != tr1_adr                   # sr1 is the local copy
+        sr1 = llmemory.cast_adr_to_ptr(sr1_adr, lltype.Ptr(SR))
+        sr1.sr2 = sr2
+        self.gc.stop_transaction()
+        self.checkflags(tr1_adr, True, True)       # tr1 is still global
+        assert tr1.sr2 == lltype.nullptr(SR)   # the copying is left to C code
+        tr2 = sr1.sr2                          # from sr1
+        assert tr2
+        assert tr2._obj0 != sr2._obj0
         tr2_adr = llmemory.cast_ptr_to_adr(tr2)
-        self.checkflags(tr2_adr, False, False)  # tr2 is still alive and local
-        self.checkflags(tr1_adr, False, False)  # tr1 is still local
+        self.checkflags(tr2_adr, True, False)      # tr2 is now global
 
     def test_commit_transaction_empty(self):
         self.select_thread(1)
         s, s_adr = self.malloc(S)
         t, t_adr = self.malloc(S)
         self.gc.stop_transaction()    # no roots
-        main_tls = self.gc.main_thread_tls
+        self.gc.start_transaction()
+        main_tls = self.gc.get_tls()
         assert main_tls.nursery_free == main_tls.nursery_start   # empty
 
     def test_commit_tldict_entry_with_global_references(self):
@@ -518,7 +475,6 @@ class TestBasic(StmGCTests):
         assert sr_adr != tr_adr
         s_adr = self.gc.stm_writebarrier(t_adr)
         assert s_adr != t_adr
-        self.gc.stop_transaction()
 
     def test_commit_local_obj_with_global_references(self):
         t, t_adr = self.malloc(S)
@@ -530,114 +486,15 @@ class TestBasic(StmGCTests):
         sr = llmemory.cast_adr_to_ptr(sr_adr, lltype.Ptr(SR))
         sr2, sr2_adr = self.malloc(SR)
         sr.sr2 = sr2
-        sr2.s1 = t
-        self.gc.stop_transaction()
 
     def test_commit_with_ref_to_local_copy(self):
         tr, tr_adr = self.malloc(SR)
-        self.select_thread(1)
         sr_adr = self.gc.stm_writebarrier(tr_adr)
         assert sr_adr != tr_adr
         sr = llmemory.cast_adr_to_ptr(sr_adr, lltype.Ptr(SR))
         sr.sr2 = sr
         self.gc.stop_transaction()
         assert sr.sr2 == tr
-
-    def test_commit_transaction_no_references(self):
-        py.test.skip("rewrite me")
-        s, s_adr = self.malloc(S)
-        s.b = 12345
-        self.select_thread(1)
-        t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
-        t = llmemory.cast_adr_to_ptr(t_adr, lltype.Ptr(S))
-        assert s != t
-        assert self.gc.header(t_adr).version == s_adr
-        t.b = 67890
-        #
-        main_tls = self.gc.main_thread_tls
-        assert main_tls.nursery_free != main_tls.nursery_start  # contains s
-        old_value = main_tls.nursery_free
-        #
-        self.gc.stop_transaction()
-        #
-        assert main_tls.nursery_free == old_value    # no new object
-        assert s.b == 12345     # not updated by the GC code
-        assert t.b == 67890     # still valid
-
-    def test_commit_transaction_with_one_reference(self):
-        py.test.skip("rewrite me")
-        sr, sr_adr = self.malloc(SR)
-        assert sr.s1 == lltype.nullptr(S)
-        assert sr.sr2 == lltype.nullptr(SR)
-        self.select_thread(1)
-        tr_adr = self.gc.stm_writebarrier(sr_adr)   # make a local copy
-        tr = llmemory.cast_adr_to_ptr(tr_adr, lltype.Ptr(SR))
-        assert sr != tr
-        t, t_adr = self.malloc(S)
-        t.b = 67890
-        assert tr.s1 == lltype.nullptr(S)
-        assert tr.sr2 == lltype.nullptr(SR)
-        tr.s1 = t
-        #
-        tls = self.gc.get_tls()
-        old_value = tls.nursery_free
-        #
-        tls.stop_transaction()
-        #
-        consumed = tls.nursery_free - old_value
-        expected = self.gcsize(S)        # round this value up to tls_page_size
-        if expected < tls_page_size: expected = tls_page_size
-        assert consumed == expected
-
-    def test_commit_transaction_with_graph(self):
-        py.test.skip("rewrite me")
-        self.gc.tls_page_size = 1
-        sr1, sr1_adr = self.malloc(SR)
-        sr2, sr2_adr = self.malloc(SR)
-        self.select_thread(1)
-        tr1_adr = self.gc.stm_writebarrier(sr1_adr)   # make a local copy
-        tr2_adr = self.gc.stm_writebarrier(sr2_adr)   # make a local copy
-        tr1 = llmemory.cast_adr_to_ptr(tr1_adr, lltype.Ptr(SR))
-        tr2 = llmemory.cast_adr_to_ptr(tr2_adr, lltype.Ptr(SR))
-        tr3, tr3_adr = self.malloc(SR)
-        tr4, tr4_adr = self.malloc(SR)
-        t, t_adr = self.malloc(S)
-        #
-        tr1.sr2 = tr3; tr1.sr3 = tr1
-        tr2.sr2 = tr3; tr2.sr3 = tr3
-        tr3.sr2 = tr4; tr3.sr3 = tr2
-        tr4.sr2 = tr3; tr4.sr3 = tr3; tr4.s1 = t
-        #
-        for i in range(4):
-            self.malloc(S)     # forgotten
-        #
-        main_tls = self.gc.main_thread_tls
-        old_value = main_tls.nursery_free
-        #
-        self.gc.collector.stop_transaction()
-        #
-        assert main_tls.nursery_free - old_value == (
-            self.gcsize(SR) + self.gcsize(SR) + self.gcsize(S))
-        #
-        sr3_adr = self.gc.header(tr3_adr).version
-        sr4_adr = self.gc.header(tr4_adr).version
-        s_adr   = self.gc.header(t_adr  ).version
-        assert len(set([sr3_adr, sr4_adr, s_adr])) == 3
-        #
-        sr3 = llmemory.cast_adr_to_ptr(sr3_adr, lltype.Ptr(SR))
-        sr4 = llmemory.cast_adr_to_ptr(sr4_adr, lltype.Ptr(SR))
-        s   = llmemory.cast_adr_to_ptr(s_adr,   lltype.Ptr(S))
-        assert tr1.sr2 == sr3; assert tr1.sr3 == sr1     # roots: local obj
-        assert tr2.sr2 == sr3; assert tr2.sr3 == sr3     #        is modified
-        assert sr3.sr2 == sr4; assert sr3.sr3 == sr2     # non-roots: global
-        assert sr4.sr2 == sr3; assert sr4.sr3 == sr3     #      obj is modified
-        assert sr4.s1 == s
-        #
-        self.checkflags(sr1, 1, 1)
-        self.checkflags(sr2, 1, 1)
-        self.checkflags(sr3, 1, 0, llmemory.NULL)
-        self.checkflags(sr4, 1, 0, llmemory.NULL)
-        self.checkflags(s  , 1, 0, llmemory.NULL)
 
     def test_do_get_size(self):
         s1, s1_adr = self.malloc(S)
@@ -651,7 +508,6 @@ class TestBasic(StmGCTests):
 
     def test_id_of_globallocal(self):
         s, s_adr = self.malloc(S)
-        self.select_thread(1)
         t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
         assert t_adr != s_adr
         t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
@@ -662,19 +518,17 @@ class TestBasic(StmGCTests):
         assert i == self.gc.id(s)
 
     def test_id_of_local_nonsurviving(self):
-        self.select_thread(1)
-        s, s_adr = self.malloc(S)
+        s, s_adr = self.malloc(S, globl=False)
         i = self.gc.id(s)
         assert i != llmemory.cast_adr_to_int(s_adr)
         assert i == self.gc.id(s)
         self.gc.stop_transaction()
 
     def test_id_of_local_surviving(self):
-        sr1, sr1_adr = self.malloc(SR)
+        sr1, sr1_adr = self.malloc(SR, globl=True)
         assert sr1.s1 == lltype.nullptr(S)
         assert sr1.sr2 == lltype.nullptr(SR)
-        self.select_thread(1)
-        t2, t2_adr = self.malloc(S)
+        t2, t2_adr = self.malloc(S, globl=False)
         t2.a = 423
         tr1_adr = self.gc.stm_writebarrier(sr1_adr)
         assert tr1_adr != sr1_adr
@@ -696,8 +550,7 @@ class TestBasic(StmGCTests):
         assert i == mangle_hash(llmemory.cast_adr_to_int(s_adr))
 
     def test_hash_of_globallocal(self):
-        s, s_adr = self.malloc(S)
-        self.select_thread(1)
+        s, s_adr = self.malloc(S, globl=True)
         t_adr = self.gc.stm_writebarrier(s_adr)   # make a local copy
         t = llmemory.cast_adr_to_ptr(t_adr, llmemory.GCREF)
         i = self.gc.identityhash(t)
@@ -707,17 +560,15 @@ class TestBasic(StmGCTests):
         assert i == self.gc.identityhash(s)
 
     def test_hash_of_local_nonsurviving(self):
-        self.select_thread(1)
-        s, s_adr = self.malloc(S)
+        s, s_adr = self.malloc(S, globl=False)
         i = self.gc.identityhash(s)
         assert i != mangle_hash(llmemory.cast_adr_to_int(s_adr))
         assert i == self.gc.identityhash(s)
         self.gc.stop_transaction()
 
     def test_hash_of_local_surviving(self):
-        sr1, sr1_adr = self.malloc(SR)
-        self.select_thread(1)
-        t2, t2_adr = self.malloc(S)
+        sr1, sr1_adr = self.malloc(SR, globl=True)
+        t2, t2_adr = self.malloc(S, globl=False)
         t2.a = 424
         tr1_adr = self.gc.stm_writebarrier(sr1_adr)
         assert tr1_adr != sr1_adr
@@ -735,10 +586,9 @@ class TestBasic(StmGCTests):
         assert self.gc.identityhash(s2) == i
 
     def test_weakref_to_global(self):
-        swr1, swr1_adr = self.malloc(SWR)
-        s2, s2_adr = self.malloc(S)
-        self.select_thread(1)
-        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        swr1, swr1_adr = self.malloc(SWR, globl=True)
+        s2, s2_adr = self.malloc(S, globl=True)
+        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = s2_adr
         twr1_adr = self.gc.stm_writebarrier(swr1_adr)
         twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
@@ -749,10 +599,9 @@ class TestBasic(StmGCTests):
         assert wr2.wadr == s2_adr   # survives
 
     def test_weakref_to_local_dying(self):
-        swr1, swr1_adr = self.malloc(SWR)
-        self.select_thread(1)
-        t2, t2_adr = self.malloc(S)
-        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        swr1, swr1_adr = self.malloc(SWR, globl=True)
+        t2, t2_adr = self.malloc(S, globl=False)
+        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = t2_adr
         twr1_adr = self.gc.stm_writebarrier(swr1_adr)
         twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
@@ -763,11 +612,10 @@ class TestBasic(StmGCTests):
         assert wr2.wadr == llmemory.NULL   # dies
 
     def test_weakref_to_local_surviving(self):
-        sr1, sr1_adr = self.malloc(SR)
-        swr1, swr1_adr = self.malloc(SWR)
-        self.select_thread(1)
-        t2, t2_adr = self.malloc(S)
-        wr1, wr1_adr = self.malloc(WR, weakref=True)
+        sr1, sr1_adr = self.malloc(SR, globl=True)
+        swr1, swr1_adr = self.malloc(SWR, globl=True)
+        t2, t2_adr = self.malloc(S, globl=False)
+        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
         wr1.wadr = t2_adr
         twr1_adr = self.gc.stm_writebarrier(swr1_adr)
         twr1 = llmemory.cast_adr_to_ptr(twr1_adr, lltype.Ptr(SWR))
@@ -800,32 +648,6 @@ class TestBasic(StmGCTests):
         self.gc.collect(0)
         assert self.gc.root_walker.current_stack == [wr1]
         assert not wr1.wadr
-
-    def test_weakref_to_global_turned_local(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
-        self.gc.root_walker = test_stmtls.FakeRootWalker()
-        #
-        sr1, sr1_adr = self.malloc(SR, globl=True)
-        sr2, sr2_adr = self.malloc(SR, globl=True)
-        self.gc.stm_writebarrier(sr1_adr)
-        self.gc.stm_writebarrier(sr2_adr)
-        self.checkflags(sr1_adr, False, False)    # turned local
-        self.checkflags(sr2_adr, False, False)    # turned local
-        wr1, wr1_adr = self.malloc(WR, globl=False, weakref=True)
-        wr2, wr2_adr = self.malloc(WR, globl=False, weakref=True)
-        wr1.wadr = sr1_adr
-        wr2.wadr = sr2_adr
-        #
-        self.gc.root_walker.current_stack = [wr1, wr2]
-        self.gc.collect(0)
-        [wr1, wr2] = self.gc.root_walker.current_stack
-        assert wr1.wadr == sr1_adr
-        assert wr2.wadr == sr2_adr
-        #
-        self.gc.collect(0)
-        assert self.gc.root_walker.current_stack == [wr1, wr2]
-        assert wr1.wadr == sr1_adr
-        assert wr2.wadr == sr2_adr
 
     def test_normalize_global_null(self):
         a = self.gc.stm_normalize_global(llmemory.NULL)
@@ -864,18 +686,3 @@ class TestBasic(StmGCTests):
         s = nongc.s                             # reload, it moved
         s_adr = llmemory.cast_ptr_to_adr(s)
         self.checkflags(s_adr, False, False)    # check it survived; local
-
-    def test_prebuilt_nongc_enterleave(self):
-        from pypy.rpython.memory.gc.test import test_stmtls
-        self.gc.root_walker = test_stmtls.FakeRootWalker()
-        NONGC = lltype.Struct('NONGC', ('s', lltype.Ptr(S)))
-        nongc = lltype.malloc(NONGC, immortal=True, flavor='raw')
-        self.gc.root_walker.prebuilt_nongc = [(nongc, 's')]
-        #
-        s, _ = self.malloc(S, globl=False)      # a local object
-        nongc.s = s
-        self.gc.enter_transactional_mode()      # forces it to become GLOBAL
-        self.gc.leave_transactional_mode()
-        s = nongc.s                             # reload, it moved
-        s_adr = llmemory.cast_ptr_to_adr(s)
-        self.checkflags(s_adr, True, False)     # check it survived; global
